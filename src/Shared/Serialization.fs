@@ -10,7 +10,7 @@ type EventBatch =
 
 [<RequireQualifiedAccess>]
 module Serialization =
-    let private encodeDocumentState (state: DocumentState) : IEncodable =
+    let private encodeDocumentState (state: DocumentStateEnum) : IEncodable =
         match state with
         | Current -> Encode.string "current"
         | Unparsed -> Encode.string "unparsed"
@@ -40,7 +40,7 @@ module Serialization =
             | "unpersisted" -> Decode.succeed PersistState.Unpersisted
             | other -> Decode.fail $"Unknown persist state: {other}")
 
-    let private decodeDocumentState: Decoder<DocumentState> =
+    let private decodeDocumentState: Decoder<DocumentStateEnum> =
         Decode.string
         |> Decode.andThen (function
             | "current" -> Decode.succeed Current

@@ -1,6 +1,6 @@
 # 16 — One document state
 
-**Status:** `defined`
+**Status:** `cancelled`
 Actual: 45m
 **Type:** bug-fixing
 **Blocked by:** None — can start immediately
@@ -72,6 +72,7 @@ Load, the parse stack, and history keep their operations aside from these types 
 
 - 2026-10-14 — Filed. Two fields hold one parse fact. The correction is one `documentState` record and the `SetDocumentState` posts above.
 - 2026-10-14 — Implement stopped before code. Binding architecture contradicts this ticket. Report: [Implement 16 — One document state](../reports/implement-16-one-document-state.md). Status stays `defined`.
+- 2026-10-15 — Status `cancelled`. This ticket is retired. The one-record DocumentState shape is not the plan. The parse fact stays the parse axis. The missing server file is the File Node bool `noServerFile` on [core-refinement architecture](../../core-refinement/arch.md).
 
 ## Time
 

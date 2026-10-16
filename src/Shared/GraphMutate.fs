@@ -180,8 +180,8 @@ module GraphMutate =
     /// even when the node already holds a different document state.
     let setDocumentState
         (nodeId: NodeId)
-        (_oldState: DocumentState)
-        (newState: DocumentState)
+        (_oldState: DocumentStateEnum)
+        (newState: DocumentStateEnum)
         (graph: Graph)
         : Result<Graph, string>
         =

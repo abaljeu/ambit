@@ -67,7 +67,7 @@ module NodeKind =
         | _ -> false
 
 
-type DocumentState =
+type DocumentStateEnum =
     | Current
     | Unparsed
     | NoServerFile
@@ -84,17 +84,23 @@ type PersistState =
     | Persisted
     | Unpersisted
 
+type DocumentState = 
+    { parseState: ParseState
+      persistState: PersistState
+      noServerFile: bool
+      documentState: DocumentStateEnum }
+
 [<RequireQualifiedAccess>]
 module ParseState =
     /// Mikado mirror of DocumentState. NoServerFile has no Parsed pole.
-    let ofDocumentState (state: DocumentState) : ParseState =
+    let ofDocumentState (state: DocumentStateEnum) : ParseState =
         match state with
         | Current -> ParseState.Parsed
         | Unparsed
         | NoServerFile -> ParseState.Unparsed
 
     /// Inverse of the Current | Unparsed poles. NoServerFile stays on DocumentState.
-    let toDocumentState (state: ParseState) : DocumentState =
+    let toDocumentState (state: ParseState) : DocumentStateEnum =
         match state with
         | ParseState.Parsed -> Current
         | ParseState.Unparsed -> Unparsed
@@ -111,7 +117,7 @@ type Node =
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
-      documentState : DocumentState
+      documentState : DocumentStateEnum
       parseState : ParseState
       persistState : PersistState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
@@ -162,7 +168,7 @@ type Node with
             ?cssClasses: CssClasses,
             ?owner: NodeId,
             ?kind: NodeKind,
-            ?documentState: DocumentState,
+            ?documentState: DocumentStateEnum,
             ?parseState: ParseState,
             ?persistState: PersistState,
             ?updateTime: DateTime,
@@ -235,7 +241,7 @@ module Node =
         && not (Filename.isDirectoryFileFilename node.name)
 
     /// Set DocumentState. The parsed axis is written by setParseState.
-    let withDocumentState (state: DocumentState) (node: Node) : Node =
+    let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
         { node with documentState = state }
 
     /// Set the parse axis and the Current | Unparsed DocumentState pole together.

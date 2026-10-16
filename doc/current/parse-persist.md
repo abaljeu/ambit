@@ -45,7 +45,7 @@ Parse and persist move text between disk and the graph.
 [o] [Route registration](../../src/Server/RouteRegistration.fs) calls [Parse thread](../../src/Server/ParseThread.fs) `bootCore`. That function builds the stack and starts the consumer. Route registration does not hold the push function.
 [ ] Parse setup (stack, push, and consumer) lives only in [Core](../../src/Server/Core). Route registration does not construct Parse, does not start Parse, and does not hold Parse handles.
 [ ] Every handoff uses the Parse stack.
-[ ] After the workspace lock drains in-flight member file use, pull or Upload land proceeds. Arrived files are marked Unparsed. The lock releases. Unparsed starts the parse thread.
+[ ] Unparsed starts the parse thread after the workspace lock releases.
 [x] Existing member: Directory reconcile does not mark an existing File Node or an existing child Directory Node Unparsed. A disk-newer member is an existing member.
 [x] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
 [ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
@@ -56,10 +56,16 @@ Parse and persist move text between disk and the graph.
 [ ] No caller outside Core builds or holds a `DataDir` absolute path.
 ## Lock
 
+[Core locking model](../../plan/core-refinement/arch.md) Working detail of this protocol.
 [o] `WorkspaceGit.withWorkTreeGate`: the exclusive gate on Persist and git paths. [Workspace git](../../src/Server/WorkspaceGit.fs).
-[ ] Persist and git paths use the workspace lock as their only protocol.
-[ ] A workspace lock and per-member persist locks are the protocol for member files. While the workspace lock is pending, new persist locks for those member files cannot be taken. In-flight member file writes and parse reads drain. Then pull proceeds, arrived files are marked Unparsed, and the lock releases.
-[ ] Persist, parse-thread file use, and git Load/Save follow that lock protocol.
+[ ] Persist, parse-thread file use, and git Load/Save use the workspace lock and per-member persist locks as their only protocol.
+[ ] Locks: held only long enough to transfer data. No holder takes more than one lock. Aggregate locks exist.
+[ ] Workspace lock: an aggregate lock. It announces that member files may change. Taking it waits while those member files are already changing.
+[ ] Pending: new per-member persist locks cannot be taken. In-flight member file writes and parse reads drain. Then pull or Upload land proceeds, arrived files are marked Unparsed, and the lock releases.
+[ ] Parse: reads the member file and does not take a persist lock. The pending workspace lock holds new reads off until release.
+[ ] After release: persist of a member waits until that node is Parsed.
+[ ] Unpersisted through pull: a member can be Unpersisted when the workspace lock is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
+[ ] File backstop: a write that finds the file still being written waits until the file is released, then proceeds.
 ## Explanation
 
 An Actor is a different worker.

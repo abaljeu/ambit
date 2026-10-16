@@ -2,9 +2,9 @@
 
 **Scope** is local to one effort — a Project spec, Wayfinder map, ticket, or slice. It names what *this work* will not do *now*.
 
-**Commitment** is product-wide — a choice that binds Gambol beyond the current effort. Record it only through an authorized channel (below).
+**Commitment** is a binding decision. Its scale is the place it was made: an issue, a Project, or the product ([[GLOSSARY.md]]). A product-wide Commitment is recorded only through an authorized channel (below).
 
-A direction declined for a task is **scope**, not a product exclusion. "Do not build a bus for this slice" is scope. "Gambol excludes plugin buses" is commitment and needs a human-recorded source.
+A direction declined for a task is **Scope**. "Do not build a bus for this slice" is Scope. "Gambol excludes plugin buses" is a product-wide Commitment and needs a human-recorded source.
 
 ## Authorized commitment channels
 

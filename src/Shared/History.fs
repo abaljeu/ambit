@@ -13,8 +13,8 @@ type Op =
     | SetName of nodeId: NodeId * oldName: string * newName: string
     | SetDocumentState of
         nodeId: NodeId *
-        oldState: DocumentState *
-        newState: DocumentState
+        oldState: DocumentStateEnum *
+        newState: DocumentStateEnum
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 

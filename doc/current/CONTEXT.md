@@ -10,6 +10,8 @@ It describes both what IS currently, and what SHALL BE soon.
 
 It must never describe the work of changing the program. Describing work stays in plan/.
 
+Intermediate architecture stays under plan/.
+
 ## 2. Goals
 
 Reference is primary. Explanation is secondary.

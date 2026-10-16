@@ -12,6 +12,10 @@ _Avoid_: calling the beat itself a Stage, leg, beat (as the glossary name), issu
 A record under [[doc/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
 _Avoid_: ADR (outside vendored skills), architecture decision record, decision record
 
+**Commitment**:
+A binding decision whose scale is the place it was made: an issue, a Project, or the product. A product-wide Commitment uses an authorized channel ([[doc/agents/scope-vs-commitment.md]]); when that choice is costly to reverse, the record is a Committed Decision.
+_Avoid_: lock (the workspace lock and a persist lock keep that word)
+
 **dev**:
 Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch, project branch, `w/` (for this place)
@@ -53,6 +57,10 @@ _Avoid_: original branch (for this place)
 **Roadmap**:
 The Project at [[plan/roadmap/]] that sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics.
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
+
+**Scope**:
+The limit of one effort (a Project, a map, a ticket, or a slice): what that work will not do now.
+_Avoid_: commitment (for a limit that binds only this effort), product exclusion
 
 **Stage**:
 The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The value list is [[doc/agents/project-status.md]]. The Roadmap does not carry Stage. A ticket does not carry Stage.

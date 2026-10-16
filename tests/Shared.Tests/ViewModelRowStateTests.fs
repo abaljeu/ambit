@@ -201,7 +201,7 @@ let private desktopCaps : DesktopCapabilities =
       git = { canGit = true } }
 
 let private modelWithWorkspaceFile
-    (documentState: DocumentState)
+    (documentState: DocumentStateEnum)
     =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()

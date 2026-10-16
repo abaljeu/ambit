@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
-Updated: 2026-10-14
+Updated: 2026-10-15
 Started: 2026-09-28
 Actual: 10h 25m
 
@@ -39,3 +39,4 @@ Actual: 10h 25m
 - 2026-10-12 — [12 — Git pull marks each received file Unparsed](issues/12-git-pull-marks-each-received-file-unparsed.md) and [13 — Git pull marks containing Directories Unparsed](issues/13-git-pull-marks-containing-directories-unparsed.md) stay `coded`. git Load's pull (`runLoad`) records HEAD around `pullTracked` and passes that changed list to `reconcileReceivedFiles` before `changes.load`. Stage stays build.
 - 2026-10-12 — [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md) is `coded`. A reconcile adds a missing member node, deletes a member node that has no file, and does not mark an existing member Unparsed. A new File Node and a new child Directory Node start Unparsed. An Unparsed Directory Node or Workspace Node posts SetDocumentState to Current. Stage stays build.
 - 2026-10-14 — Implement of [16 — One document state](issues/16-one-document-state.md) stopped before code. Binding architecture still says `SetDocumentState` is not the writer of the parsed axis, and Contract removes `DocumentState`. Status stays `defined`. Report: [Implement 16 — One document state](reports/implement-16-one-document-state.md). Stage stays build.
+- 2026-10-15 — [16 — One document state](issues/16-one-document-state.md) is `cancelled`. The one-record DocumentState shape is not the plan. The parse fact stays the parse axis. The missing server file is the File Node bool `noServerFile` on [core-refinement architecture](../core-refinement/arch.md). Stage stays build.

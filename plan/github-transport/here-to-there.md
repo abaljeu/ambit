@@ -1,10 +1,10 @@
-# Here→There — step 1 locked
+# Here→There — step 1 Commitment
 
 Updated: 2026-09-28
 
-This note records the Here→There migration lock Alan made on 2026-09-28. Step 1 is locked. Later steps stay deferred. This is Graph markers only.
+This note records the Here→There migration Commitment Alan made on 2026-09-28. Step 1 is a Commitment. Later steps stay deferred. This is Graph markers only.
 
-Home: [[project.md]]. Decision lock: [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md). Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md). Git use is Core: [[plan/architecture/server-core.md]]. This note does not reopen that lock.
+Home: [[project.md]]. Commitment: [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md). Implement: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md). Git use is Core: [[plan/architecture/server-core.md]]. This note does not reopen that Commitment.
 
 ## 1. There
 
@@ -19,7 +19,7 @@ The two axes are independent markers. They are not a lock table. Do not invent a
 
 Today `DocumentState` is `Current` | `Unparsed` | `NoServerFile`. Parsed is the other pole of Unparsed (`Current` is today's name). Unpersisted is not present. Load still uses today's hops. The parse thread and the Core Persist stack are not stood up.
 
-## 3. Step 1 locked
+## 3. Step 1 Commitment
 
 Step 1 is **State axes on special nodes only**. Markers / Graph state only.
 
@@ -27,13 +27,13 @@ Acceptance: the two axes exist on special nodes and can be set and read.
 
 This step does not start workers.
 
-**Approach (Mikado)** — Locked 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
+**Approach (Mikado)** — Commitment 2026-09-28 (Alan). Create the new state axes. Set both the new axes and the old `DocumentState` wherever state changes. Migrate old uses over step by step. Finally remove the old.
 
 Implement ticket: [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md).
 
 ## 4. Axis-write mechanics
 
-Locked 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop.
+Commitment 2026-09-28 (Alan). These rules say who writes each axis and which node they mark. [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) still only adds the markers. It does not start workers. Items marked deferred wait for the Parse loop.
 
 1. **Writer target** — Core / mailbox only. Until that lands, set the axes at today’s file-edit sites and graph-edit sites.
 2. **Graph edit** — Mark the nearest owning special node (File Node, Directory Node, or Workspace Node) **Unpersisted** only. Do not mark ancestors.
@@ -55,7 +55,7 @@ These steps stay deferred. Do not ticket them on this chart. Do not start them f
 2. **Core Persist stack** — The async Persist stack on Core is not this step. Persist is not an Actor. See [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md).
 3. **Retarget git Load** — Git Load Unparsed → pull → push onto Parse stays deferred. See [17 — Git Load: Unparsed then Parse stack](issues/17-post-pull-cascade-and-gate-handoff.md). Git use is already Core.
 4. **Upload and selection Parse** — Upload is the same path as git Load after files land. Selection-scoped Parse is [06 — Selection-scoped Parse after whole-tree git Load](issues/06-selection-scoped-parse-after-whole-tree-git-load.md). Both stay deferred.
-5. **Path-control migration** — Core alone knows where files reside. Everyone else has a relative path. That lock stands. Migrating callers is later.
+5. **Path-control migration** — Core alone knows where files reside. Everyone else has a relative path. That Commitment stands. Migrating callers is later.
 6. **Retire old hops** — Today's Load → Parse / graph-push hops stay until a later step retires them.
 
 ## 6. Vocabulary
@@ -69,5 +69,5 @@ These steps stay deferred. Do not ticket them on this chart. Do not start them f
 ## 7. Related
 
 1. **Map** — [[map.md]] (decision 23)
-2. **Axes lock** — [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md)
+2. **Axes Commitment** — [19 — Parsed/Unparsed and Persisted/Unpersisted](issues/19-file-newer-graph-newer.md)
 3. **Server Core** — [[plan/architecture/server-core.md]]
