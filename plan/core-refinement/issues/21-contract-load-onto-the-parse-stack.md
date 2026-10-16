@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [26 — Revisit WebDAV parse](../../github-transport/issues/26-revisit-webdav-parse.md)
+**Blocked by:** None
 **Trackers:** architecture, user manual
 
 ## Context
