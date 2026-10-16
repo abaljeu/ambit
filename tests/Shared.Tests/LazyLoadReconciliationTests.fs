@@ -64,7 +64,7 @@ let private markDocumentsCurrent graph =
     graph.nodes
     |> Map.toList
     |> List.choose (fun (nodeId, node) ->
-        match node.kind, node.documentState with
+        match node.kind, Node.documentStateEnum node with
         | Special (Workspace | Directory | File), Unparsed ->
             Some(Op.SetDocumentState(nodeId, Unparsed, Current))
         | _ -> None)
@@ -78,7 +78,7 @@ let ``one added file creates a file stub`` () =
     Assert.Equal(1, children.Length)
     Assert.Equal("README.md", fst children.Head)
     Assert.Equal(Special File, (snd children.Head).kind)
-    Assert.Equal(Unparsed, (snd children.Head).documentState)
+    Assert.Equal(Unparsed, (snd children.Head).documentState.documentState)
     Assert.Empty(Graph.children graph2 (snd children.Head).id)
 
 [<Fact>]
@@ -87,8 +87,8 @@ let ``nested file parse after upload tree build is accepted`` () =
     let graph2 = requirePlan graph "home" [ "src/note.txt" ] |> applyOps graph
     let src = childNamed graph2 workspaceId "src"
     let file = childNamed graph2 src.id "note.txt"
-    Assert.Equal(Current, src.documentState)
-    Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(Current, src.documentState.documentState)
+    Assert.Equal(Unparsed, file.documentState.documentState)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let state =
@@ -104,8 +104,8 @@ let ``nested file parse after upload tree build is accepted`` () =
               Op.Replace(file.id, [], [ attach ]) ] }
     match SpecialNodeTestHelpers.applyChange parseChange state with
     | ApplyResult.Changed next ->
-        Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
-        Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
+        Assert.Equal(Current, next.graph.nodes.[file.id].documentState.documentState)
+        Assert.Equal(Current, next.graph.nodes.[src.id].documentState.documentState)
         Assert.Equal(parsedId, (Graph.children next.graph file.id).Head.id)
     | other -> Assert.Fail($"expected Changed, got {other}")
 
@@ -149,10 +149,10 @@ let ``upload-built directories become current when members are added`` () =
     let src = childNamed graph2 workspaceId "src"
     let lib = childNamed graph2 src.id "lib"
     let file = childNamed graph2 lib.id "core.fs"
-    Assert.Equal(Current, src.documentState)
-    Assert.Equal(Current, lib.documentState)
-    Assert.Equal(Unparsed, file.documentState)
-    Assert.Equal(Current, graph2.nodes.[workspaceId].documentState)
+    Assert.Equal(Current, src.documentState.documentState)
+    Assert.Equal(Current, lib.documentState.documentState)
+    Assert.Equal(Unparsed, file.documentState.documentState)
+    Assert.Equal(Current, graph2.nodes.[workspaceId].documentState.documentState)
 
 [<Fact>]
 let ``exact amb add marks directory stub unparsed`` () =
@@ -160,7 +160,7 @@ let ``exact amb add marks directory stub unparsed`` () =
     let graph2 = requirePlan graph "home" [ "docs/.amb" ] |> applyOps graph
     let docs = childNamed graph2 workspaceId "docs"
     Assert.Equal(Special Directory, docs.kind)
-    Assert.Equal(Unparsed, docs.documentState)
+    Assert.Equal(Unparsed, docs.documentState.documentState)
 
 [<Fact>]
 let ``exact amb add with text parses outline immediately`` () =
@@ -178,7 +178,7 @@ let ``exact amb add with text parses outline immediately`` () =
         | Error err -> failwith err
     let graph2 = applyOps graph ops
     let docs = childNamed graph2 workspaceId "docs"
-    Assert.Equal(Current, docs.documentState)
+    Assert.Equal(Current, docs.documentState.documentState)
     Assert.Equal(1, (Graph.children graph2 docs.id).Length)
     Assert.Equal("outline body", graph2.nodes.[(Graph.children graph2 docs.id).Head.id].text)
 
@@ -230,7 +230,7 @@ let ``disk parse of a directory keeps PersistState and the parse axis`` () =
             | Error err -> failwith err
         let graph3 = applyDiskParse seeded ops2
         Assert.Equal(ParseState.Unparsed, graph3.nodes.[docs.id].parseState)
-        Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+        Assert.Equal(Current, graph3.nodes.[docs.id].documentState.documentState)
         Assert.Equal(persist, graph3.nodes.[docs.id].persistState)
         Assert.Equal(persist, graph3.nodes.[workspaceId].persistState)
         Assert.Equal("beta", graph3.nodes.[(Graph.children graph3 docs.id).Head.id].text)
@@ -252,7 +252,7 @@ let ``exact amb modify with text reparses instead of leaving unparsed`` () =
         | Ok o -> o
         | Error err -> failwith err
     let graph3 = applyOps graph2 ops
-    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState.documentState)
     Assert.Equal(
         "fresh",
         graph3.nodes.[(Graph.children graph3 docs.id).Head.id].text)
@@ -519,7 +519,7 @@ let ``exact Directory File modification invalidates containing documents`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "docs/.amb" ] |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
-    Assert.Equal(Current, docs.documentState)
+    Assert.Equal(Current, docs.documentState.documentState)
     let graph3 =
         requireChangedPlan
             graph2
@@ -527,8 +527,8 @@ let ``exact Directory File modification invalidates containing documents`` () =
             [ LazyLoadReconciliation.Modified ".amb"
               LazyLoadReconciliation.Modified "docs/.amb" ]
         |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[workspaceId].documentState)
-    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[workspaceId].documentState.documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.documentState)
 
 [<Fact>]
 let ``modified file becomes unparsed without losing identity or placement`` () =
@@ -544,14 +544,14 @@ let ``modified file becomes unparsed without losing identity or placement`` () =
         |> applyOps current
     let after = childNamed graph3 workspaceId "note.txt"
     Assert.Equal(file.id, after.id)
-    Assert.Equal(Unparsed, after.documentState)
+    Assert.Equal(Unparsed, after.documentState.documentState)
 
 [<Fact>]
 let ``rediscovered Added Current file stays Current with children`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "note.txt" ]
     let file = childNamed graph2 workspaceId "note.txt"
-    Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(Unparsed, file.documentState.documentState)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let current =
@@ -559,13 +559,13 @@ let ``rediscovered Added Current file stays Current with children`` () =
           Op.NewNode(parsedId, "parsed")
           Op.Replace(file.id, [], [ attach ]) ]
         |> applyOps graph2
-    Assert.Equal(Current, current.nodes.[file.id].documentState)
+    Assert.Equal(Current, current.nodes.[file.id].documentState.documentState)
     Assert.Equal(parsedId, (Graph.children current file.id).Head.id)
     let graph3 =
         requirePlan current "home" [ "note.txt" ] |> applyOps current
     let after = childNamed graph3 workspaceId "note.txt"
     Assert.Equal(file.id, after.id)
-    Assert.Equal(Current, after.documentState)
+    Assert.Equal(Current, after.documentState.documentState)
     Assert.Equal(parsedId, (Graph.children graph3 after.id).Head.id)
 
 [<Fact>]
@@ -777,7 +777,7 @@ let ``rediscovered Unparsed Directory File still parses on Added`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
     let graph1 = createPaths graph0 [ "docs/.amb" ]
     let docs = childNamed graph1 workspaceId "docs"
-    Assert.Equal(Unparsed, docs.documentState)
+    Assert.Equal(Unparsed, docs.documentState.documentState)
     let artifacts =
         Map.ofList [ "docs/.amb", "body" + System.Environment.NewLine ]
     match
@@ -793,7 +793,7 @@ let ``rediscovered Unparsed Directory File still parses on Added`` () =
         Assert.NotEmpty(report.ops)
         let graph2 = applyOps graph1 report.ops
         let docs2 = graph2.nodes.[docs.id]
-        Assert.Equal(Current, docs2.documentState)
+        Assert.Equal(Current, docs2.documentState.documentState)
         Assert.Equal(1, (Graph.children graph2 docs2.id).Length)
         Assert.Equal("body", graph2.nodes.[(Graph.children graph2 docs2.id).Head.id].text)
 
@@ -815,7 +815,7 @@ let ``new Directory File Added still parses outline`` () =
         Assert.NotEmpty(report.ops)
         let graph1 = applyOps graph0 report.ops
         let fresh = childNamed graph1 workspaceId "fresh"
-        Assert.Equal(Current, fresh.documentState)
+        Assert.Equal(Current, fresh.documentState.documentState)
         Assert.Equal("hello", graph1.nodes.[(Graph.children graph1 fresh.id).Head.id].text)
 
 [<Fact>]
@@ -847,9 +847,9 @@ let ``received file plan marks top and nested files and leaves the directory`` (
               LazyLoadReconciliation.Modified "docs/nested.txt"
               LazyLoadReconciliation.Modified "docs/.amb" ]
     let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[top.id].documentState)
-    Assert.Equal(Unparsed, graph3.nodes.[nested.id].documentState)
-    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[top.id].documentState.documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[nested.id].documentState.documentState)
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState.documentState)
 
 [<Fact>]
 let ``received file add marks the containing directory Unparsed`` () =
@@ -863,8 +863,8 @@ let ``received file add marks the containing directory Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Added "docs/new.txt" ]
         |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
-    Assert.Equal(Unparsed, (childNamed graph3 docs.id "new.txt").documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.documentState)
+    Assert.Equal(Unparsed, (childNamed graph3 docs.id "new.txt").documentState.documentState)
 
 [<Fact>]
 let ``received file add leaves an Unparsed directory Unparsed`` () =
@@ -880,7 +880,7 @@ let ``received file add leaves an Unparsed directory Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Added "docs/new.txt" ]
         |> applyOps graphUnparsed
-    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.documentState)
 
 [<Fact>]
 let ``received file removal marks the containing directory Unparsed`` () =
@@ -894,8 +894,8 @@ let ``received file removal marks the containing directory Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Deleted "docs/gone.txt" ]
         |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
-    Assert.Equal(Current, (childNamed graph3 docs.id "keep.txt").documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.documentState)
+    Assert.Equal(Current, (childNamed graph3 docs.id "keep.txt").documentState.documentState)
 
 [<Fact>]
 let ``received file rename marks both directories Unparsed`` () =
@@ -911,8 +911,8 @@ let ``received file rename marks both directories Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Renamed("docs/move.txt", "other/move.txt") ]
         |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
-    Assert.Equal(Unparsed, graph3.nodes.[other.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[other.id].documentState.documentState)
 
 [<Fact>]
 let ``received file at the workspace top marks the workspace Unparsed`` () =
@@ -924,7 +924,7 @@ let ``received file at the workspace top marks the workspace Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Added "top.txt" ]
         |> applyOps graph1
-    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState)
+    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState.documentState)
 
 [<Fact>]
 let ``received file at the workspace top leaves an Unparsed workspace Unparsed`` () =
@@ -938,7 +938,7 @@ let ``received file at the workspace top leaves an Unparsed workspace Unparsed``
             "home"
             [ LazyLoadReconciliation.Added "top.txt" ]
         |> applyOps graphUnparsed
-    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState)
+    Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState.documentState)
 
 [<Fact>]
 let ``received file modification leaves the containing directory Current`` () =
@@ -952,8 +952,8 @@ let ``received file modification leaves the containing directory Current`` () =
             "home"
             [ LazyLoadReconciliation.Modified "docs/note.txt" ]
         |> applyOps graph2
-    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
-    Assert.Equal(Unparsed, (childNamed graph3 docs.id "note.txt").documentState)
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState.documentState)
+    Assert.Equal(Unparsed, (childNamed graph3 docs.id "note.txt").documentState.documentState)
 
 [<Fact>]
 let ``received file add marks the nearest existing ancestor directory`` () =
@@ -968,9 +968,9 @@ let ``received file add marks the nearest existing ancestor directory`` () =
             "home"
             [ LazyLoadReconciliation.Added "w/x/y/z" ]
         |> applyOps graph2
-    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState)
-    Assert.Equal(Current, graph3.nodes.[w.id].documentState)
-    Assert.Equal(Current, graph3.nodes.[workspaceId].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState.documentState)
+    Assert.Equal(Current, graph3.nodes.[w.id].documentState.documentState)
+    Assert.Equal(Current, graph3.nodes.[workspaceId].documentState.documentState)
 
 [<Fact>]
 let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
@@ -987,8 +987,8 @@ let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
             "home"
             [ LazyLoadReconciliation.Added "w/x/y/z" ]
         |> applyOps graphUnparsed
-    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState)
-    Assert.Equal(Current, graph3.nodes.[w.id].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState.documentState)
+    Assert.Equal(Current, graph3.nodes.[w.id].documentState.documentState)
 
 [<Collection("ExclusiveTiming")>]
 type SecondRediscoveryTiming() =

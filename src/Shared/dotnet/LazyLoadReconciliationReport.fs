@@ -93,7 +93,7 @@ module LazyLoadReconciliationReport =
     let private isExistingCurrent graph workspaceId (info: Path.PathInfo) =
         match Path.resolveInfo graph workspaceId info with
         | Ok(Some(nodeId, _)) ->
-            graph.nodes.[nodeId].documentState = Current
+            Node.documentStateEnum graph.nodes.[nodeId] = Current
         | _ -> false
 
     let private foldAdded workspaceId state items =

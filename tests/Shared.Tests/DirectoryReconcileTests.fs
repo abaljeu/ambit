@@ -208,8 +208,8 @@ let ``disk-newer reconcile ops leave the file Current`` () =
                 | _ -> false)
         Assert.False(setsFile)
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph6.nodes.[fileId].documentState)
-        Assert.Equal(Current, graph6.nodes.[dirId].documentState)
+        Assert.Equal(Current, graph6.nodes.[fileId].documentState.documentState)
+        Assert.Equal(Current, graph6.nodes.[dirId].documentState.documentState)
     finally
         Directory.Delete(dataDir, true)
 
@@ -240,7 +240,7 @@ let ``disk-newer directory stays Current and is not pushed`` () =
         Assert.Empty(planned.push)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(currentId, planned.push)
-        Assert.Equal(Current, graph9.nodes.[newerId].documentState)
+        Assert.Equal(Current, graph9.nodes.[newerId].documentState.documentState)
         Assert.Equal(ParseState.Parsed, graph9.nodes.[newerId].parseState)
     finally
         Directory.Delete(dataDir, true)
@@ -274,7 +274,7 @@ let ``missing disk directory is created Unparsed and is not pushed`` () =
             | None -> failwith "missing directory a"
         Assert.False(setsDocumentState planned.ops)
         Assert.Equal(Special Directory, graph6.nodes.[aId].kind)
-        Assert.Equal(Unparsed, graph6.nodes.[aId].documentState)
+        Assert.Equal(Unparsed, graph6.nodes.[aId].documentState.documentState)
         Assert.Equal(ParseState.Unparsed, graph6.nodes.[aId].parseState)
         Assert.Equal(PersistState.Persisted, graph6.nodes.[aId].persistState)
         Assert.Empty(planned.push)
@@ -337,7 +337,7 @@ let ``disk-newer file beside a directory is not pushed`` () =
         Directory.SetLastWriteTimeUtc(dirPath, diskTime)
         let planned = plan dataDir graph7 dirId
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph7.nodes.[fileId].documentState)
+        Assert.Equal(Current, graph7.nodes.[fileId].documentState.documentState)
         Assert.Equal(ParseState.Parsed, graph7.nodes.[notesId].parseState)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
@@ -370,9 +370,9 @@ let ``workspace leaves a disk-newer directory Current`` () =
         Assert.Empty(planned.push)
         Assert.DoesNotContain(keptId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
-        Assert.Equal(Unparsed, graph6.nodes.[addedId].documentState)
+        Assert.Equal(Unparsed, graph6.nodes.[addedId].documentState.documentState)
         Assert.Equal(ParseState.Unparsed, graph6.nodes.[addedId].parseState)
-        Assert.Equal(Current, graph6.nodes.[newerId].documentState)
+        Assert.Equal(Current, graph6.nodes.[newerId].documentState.documentState)
     finally
         Directory.Delete(dataDir, true)
 
@@ -408,11 +408,11 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
             match createdDirectoryId planned.ops "extra" with
             | Some id -> id
             | None -> failwith "missing directory extra"
-        Assert.Equal(Current, graph8.nodes.[dirId].documentState)
+        Assert.Equal(Current, graph8.nodes.[dirId].documentState.documentState)
         Assert.Empty(planned.push)
-        Assert.Equal(Unparsed, graph8.nodes.[extraId].documentState)
+        Assert.Equal(Unparsed, graph8.nodes.[extraId].documentState.documentState)
         Assert.Equal(ParseState.Unparsed, graph8.nodes.[extraId].parseState)
-        Assert.Equal(Unparsed, graph8.nodes.[fileId].documentState)
+        Assert.Equal(Unparsed, graph8.nodes.[fileId].documentState.documentState)
     finally
         Directory.Delete(dataDir, true)
 
@@ -434,7 +434,7 @@ let ``member with no file is deleted and a disk-newer file stays`` () =
         let planned = plan dataDir graph8 dirId
         let graph9 = applyOps graph8 planned.ops
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph9.nodes.[keptId].documentState)
+        Assert.Equal(Current, graph9.nodes.[keptId].documentState.documentState)
         Assert.Equal(ParseState.Parsed, graph9.nodes.[keptId].parseState)
         Assert.Equal<string>(
             [ "note.txt" ],

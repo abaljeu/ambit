@@ -151,8 +151,8 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
             text = "renamed.amb"
             name = Filename.create "renamed.amb"
             cssClasses = CssClass.ofList [ "new-class" ]
-            documentState = Unparsed
             updateTime = stamp 4 }
+        |> Node.withDocumentState Unparsed
     let finalKids = [ secondRef; firstRef ]
     let finalGraph =
         graphWithCustomNodes [ final; first; second ]

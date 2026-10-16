@@ -61,7 +61,7 @@ module LazyLoadReconciliation =
         match resolveOwnedPath graph workspaceLabel path with
         | Ok(Some(nodeId, _)) ->
             match Map.tryFind nodeId graph.nodes with
-            | Some node when node.documentState = Current -> Some path
+            | Some node when Node.documentStateEnum node = Current -> Some path
             | _ -> None
         | _ -> None
 
@@ -367,7 +367,10 @@ module LazyLoadReconciliation =
 
     /// Always Unparsed. Appended after the file plan, so it follows markParentCurrent.
     let private unparsedStateOp (graph: Graph) nodeId =
-        Op.SetDocumentState(nodeId, graph.nodes.[nodeId].documentState, Unparsed)
+        Op.SetDocumentState(
+            nodeId,
+            Node.documentStateEnum graph.nodes.[nodeId],
+            Unparsed)
 
     /// Marks for an added, removed, or renamed file. Targets come from `graph`.
     let containingDirectoryMarkOps

@@ -61,7 +61,7 @@ module PersistCollectors =
         match Map.tryFind nodeId graph.nodes with
         | Some node when
             node.parseState = ParseState.Unparsed
-            && node.documentState <> Current ->
+            && Node.documentStateEnum node <> Current ->
             true
         | _ -> false
 

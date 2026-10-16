@@ -18,7 +18,7 @@ module internal LazyLoadReconciliationApply =
         |> Result.map (fun state -> state.graph)
 
     let markUnparsed (graph: Graph) nodeId =
-        match graph.nodes.[nodeId].documentState with
+        match Node.documentStateEnum graph.nodes.[nodeId] with
         | Unparsed -> []
         | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
         | NoServerFile ->
@@ -27,7 +27,7 @@ module internal LazyLoadReconciliationApply =
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special (Directory | Workspace)
-                 documentState = Unparsed } ->
+                 documentState = { documentState = Unparsed } } ->
             [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
         | _ -> []
 
@@ -53,7 +53,8 @@ module internal LazyLoadReconciliationApply =
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
                 | Ok(Some(nodeId, k)) when k = kind ->
                     match Map.tryFind nodeId graph.nodes with
-                    | Some node when node.documentState = NoServerFile -> Some nodeId
+                    | Some node when Node.documentStateEnum node = NoServerFile ->
+                        Some nodeId
                     | _ -> None
                 | _ -> None)
         [ File; Directory ]
@@ -110,7 +111,7 @@ module internal LazyLoadReconciliationApply =
                 LazyLoadReconciliationPath.resolveInfo graph workspaceId info
             with
             | Ok(Some(nodeId, _)) ->
-                graph.nodes.[nodeId].documentState = Current
+                Node.documentStateEnum graph.nodes.[nodeId] = Current
             | _ -> false
 
     let parseDirInfoIfPresent
@@ -130,7 +131,7 @@ module internal LazyLoadReconciliationApply =
                     | None -> Ok(graph, [])
                     | Some(nodeId, _) ->
                         let relativePath = directoryFileRelativePath info
-                        let docState = graph.nodes.[nodeId].documentState
+                        let docState = Node.documentStateEnum graph.nodes.[nodeId]
                         let previousText =
                             match docState with
                             | Unparsed

@@ -139,7 +139,8 @@ module Serialization =
               "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
-              "documentState", encodeDocumentState node.documentState
+              "documentState",
+                encodeDocumentState node.documentState.documentState
               "parseState", encodeParseState node.parseState
               "persistState", encodePersistState node.persistState
               "updateTime", Encode.int64 node.updateTime.Ticks ]

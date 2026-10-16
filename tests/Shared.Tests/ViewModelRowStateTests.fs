@@ -109,7 +109,7 @@ let ``document state change patches all visible owned File member rows`` () =
         fromExisting
             newModel.graph
             (newModel.graph.nodes
-             |> Map.add fileId { file with documentState = Current })
+             |> Map.add fileId (Node.withDocumentState Current file))
     let oldModel = { newModel with graph = oldGraph }
     let cached = getVisibleInstanceIds oldModel.siteMap |> Set.ofList
     let mutations = planPatchDOM oldModel newModel cached
@@ -287,7 +287,7 @@ let ``mapped desktop uses ledger comparison and Unparsed overlay`` () =
     Assert.Equal(
         Some WorkspacePathSyncStatus.Unparsed,
         rowWorkspacePathSyncStatus model entry node)
-    let parsedNode = { node with documentState = Current }
+    let parsedNode = (Node.withDocumentState Current node)
     let parsedModel =
         { model with
             graph =

@@ -78,9 +78,13 @@ let parseFileOp
     (model: VM)
     : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
-    | Some { kind = Special File; documentState = NoServerFile } ->
+    | Some { kind = Special File
+             documentState = { documentState = NoServerFile } } ->
         fail model "no file on server"
-    | Some { kind = Special File; documentState = state; name = name; text = text } ->
+    | Some { kind = Special File
+             documentState = { documentState = state }
+             name = name
+             text = text } ->
         let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
         let nameHint =
             Filename.tryValue name |> Option.defaultValue text

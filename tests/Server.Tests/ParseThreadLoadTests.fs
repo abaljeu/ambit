@@ -768,7 +768,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
             let! heldResult =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let held = requireOk "held" heldResult
-            Assert.Equal(Current, held.graph.nodes.[fileId].documentState)
+            Assert.Equal(Current, held.graph.nodes.[fileId].documentState.documentState)
             File.WriteAllText(diskPath, "AGAIN\n")
             let! second =
                 CoreMailboxApi.startLoadSaveCommand
@@ -787,7 +787,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
                 |> Async.StartAsTask
             let landed = applyEvents held events
             Assert.True(childText landed.graph fileId "AGAIN")
-            Assert.Equal(Current, landed.graph.nodes.[fileId].documentState)
+            Assert.Equal(Current, landed.graph.nodes.[fileId].documentState.documentState)
         finally
             CoreMailboxApi.dispose host
     }
@@ -949,12 +949,12 @@ let private assertOneLevelWorkspace host workspaceId keptId =
     | None -> Assert.Fail("child directory docs missing")
     | Some docsNode ->
         Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
-        Assert.Equal(Unparsed, docsNode.documentState)
+        Assert.Equal(Unparsed, docsNode.documentState.documentState)
         Assert.Empty(Graph.children (stateOf host).graph docsNode.id)
     Assert.Equal(
         Some Current,
         childNamed host workspaceId "kept"
-        |> Option.map (fun node -> node.documentState))
+        |> Option.map (fun node -> node.documentState.documentState))
     Assert.Equal(Some ParseState.Parsed, parseStateOf host keptId)
     Assert.True(childNamed host keptId "secret.txt" |> Option.isNone)
 
@@ -1010,7 +1010,7 @@ let ``directory Load reconcile walks one level`` () =
             | None -> Assert.Fail("child directory side missing")
             | Some side ->
                 Assert.Equal(Special SpecialKind.Directory, side.kind)
-                Assert.Equal(Unparsed, side.documentState)
+                Assert.Equal(Unparsed, side.documentState.documentState)
                 Assert.Empty(Graph.children (stateOf host).graph side.id)
         finally
             CoreMailboxApi.dispose host
@@ -1038,7 +1038,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
                     (fun () ->
                         match childNamed host dirId "side" with
                         | Some node ->
-                            node.documentState = Unparsed
+                            Node.documentStateEnum node = Unparsed
                             && node.kind = Special SpecialKind.Directory
                         | None -> false)
                     2000
@@ -1063,7 +1063,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
                 CoreMailboxApi.getEventsSince host held.eventId
                 |> Async.StartAsTask
             let landed = applyEvents held events
-            Assert.Equal(Current, landed.graph.nodes.[side.id].documentState)
+            Assert.Equal(Current, landed.graph.nodes.[side.id].documentState.documentState)
             let replayedMember =
                 Graph.children landed.graph side.id
                 |> List.exists (fun child ->
