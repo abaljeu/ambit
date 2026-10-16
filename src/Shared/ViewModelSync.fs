@@ -19,7 +19,7 @@ type SyncState =
 type QueuedRequest =
     | QueuedLoad
     /// Preserve a desktop target while another workspace push is in flight.
-    | QueuedWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
+    | QueuedWorkspacePush of WorkspaceSyncScope * subjectId: NodeId option
 
 /// Optimistic graph at the last server event id before catch-up replay.
 type CatchUpBaseline =
@@ -114,12 +114,12 @@ type Effect =
     /// Refresh Workspace bullet-tip git remotes from server work trees.
     | RequestWorkspaceRemotes
     /// After create or Upload: async inventory, then local stubs + structure POST.
-    | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
+    | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * subjectId: NodeId option
     /// After local stubs painted: async structure Change POST, then workspace-push.
     | ContinuePostUploadStructure of
-        Ev * WorkspaceSyncScope * parseFileId: NodeId option
-    /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
-    | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
+        Ev * WorkspaceSyncScope * subjectId: NodeId option
+    /// Deferred async workspace-push. Some id is the Load subject after the push.
+    | ContinueWorkspacePush of WorkspaceSyncScope * subjectId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.
     | ContinueWorkspaceDownload of jobId: string
     /// Deferred async web reconcile (`postJson /reconciliation/directory`).

@@ -18,27 +18,39 @@ let private queueLoadRequest (model: VM) : VM * Effect list =
 
 let private queueWorkspacePush
     (scope: WorkspaceSyncScope)
-    (parseFileId: NodeId option)
+    (subjectId: NodeId option)
     (model: VM)
     : VM * Effect list =
-    let request = QueuedWorkspacePush(scope, parseFileId)
+    let request = QueuedWorkspacePush(scope, subjectId)
     okDetail
         { model with
             syncInfo = SyncInfo.queueRequest request model.syncInfo }
         "load queued until current sync completes"
+
+let private desktopSubject
+    (fileOpt: NodeId option)
+    (model: VM)
+    : NodeId option =
+    match fileOpt with
+    | Some id -> Some id
+    | None ->
+        contextualTargetForModel model
+        |> Option.map contextualTargetId
 
 let private runDeskLoadAction
     (action: WorkspaceUploadAction)
     (model: VM)
     : VM * Effect list =
     match action with
-    | WorkspaceUploadAction.DesktopPush parseFileId ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
-            startWorkspacePush scope parseFileId model
-        | Ok scope ->
-            queueWorkspacePush scope parseFileId model
+    | WorkspaceUploadAction.DesktopPush fileOpt ->
+        match syncScopeFromFocus model, desktopSubject fileOpt model with
+        | Error msg, _ -> fail model msg
+        | Ok _, None ->
+            fail model "Load subject is not a Workspace, Directory, or File"
+        | Ok scope, Some subjectId when WorkspaceUpload.canStart model.syncInfo ->
+            startWorkspacePush scope (Some subjectId) model
+        | Ok scope, Some subjectId ->
+            queueWorkspacePush scope (Some subjectId) model
     | WorkspaceUploadAction.CreateWorkspaceFromFolder when
         WorkspaceUpload.canStart model.syncInfo ->
         uploadCreateWorkspaceOp model
@@ -106,6 +118,7 @@ let private loadRequestFor
     =
     { operation = LoadSaveOperation.Load
       prePick = prePick
+      holdStack = false
       start =
         { zoomId = model.zoomRoot
           focusId = nodeId
@@ -133,11 +146,16 @@ let private plannedUpload (prePick: LoadSavePrePick) (model: VM) =
     else
         Some (uploadPlan model)
 
+let private holdFor (plan: WorkspaceUploadAction option) =
+    match plan with
+    | Some (WorkspaceUploadAction.DesktopPush _) -> true
+    | _ -> false
+
 let private submitLoad
     (plan: WorkspaceUploadAction option)
     (request: LoadSaveCommandRequest)
     =
-    SubmitLoadSaveCommand (request, plan)
+    SubmitLoadSaveCommand ({ request with holdStack = holdFor plan }, plan)
 
 let loadOpFor
     (prePick: LoadSavePrePick)

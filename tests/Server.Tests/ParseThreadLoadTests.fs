@@ -195,12 +195,51 @@ let ``mailbox Load of a Directory pushes onto the Parse stack`` () =
 let private deskLoadRequest (nodeId: NodeId) =
     { operation = LoadSaveOperation.Load
       prePick = LoadSavePrePick.Desk
+      holdStack = false
       start =
         { zoomId = nodeId
           focusId = nodeId
           commandId = nodeId
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
+
+[<Fact>]
+let ``held Desk Load does not push and the follow-up Load does`` () =
+    task {
+        let dataDir = newTempDir ()
+        let pushed = ResizeArray<NodeId>()
+        let host =
+            CoreMailbox.hostWithParsePush
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+                pushed.Add
+        try
+            let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
+            let held = { deskLoadRequest fileId with holdStack = true }
+            let! waiting =
+                CoreMailboxApi.startLoadSaveCommand
+                    host
+                    testCaller
+                    LoadSavePath.Desk
+                    (PeerActorName "unregistered")
+                    held
+                |> Async.StartAsTask
+            requireOk "held" waiting
+            Assert.Empty(pushed)
+            let! loaded =
+                CoreMailboxApi.startLoadSaveCommand
+                    host
+                    testCaller
+                    LoadSavePath.Desk
+                    (PeerActorName "unregistered")
+                    (deskLoadRequest fileId)
+                |> Async.StartAsTask
+            requireOk "load" loaded
+            Assert.Equal<NodeId list>([ fileId ], pushed |> Seq.toList)
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``Desk Load pushes a Workspace`` () =

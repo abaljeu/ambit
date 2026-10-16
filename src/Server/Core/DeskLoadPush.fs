@@ -10,12 +10,15 @@ module internal DeskLoadPush =
         (path: LoadSavePath)
         (graph: Graph)
         : NodeId option =
-        match path, request.operation with
-        | LoadSavePath.Desk, LoadSaveOperation.Load ->
-            match LoadSubject.ofId graph request.start.focusId with
-            | Ok _ -> Some request.start.focusId
-            | Error _ -> None
-        | _ -> None
+        if request.holdStack then
+            None
+        else
+            match path, request.operation with
+            | LoadSavePath.Desk, LoadSaveOperation.Load ->
+                match LoadSubject.ofId graph request.start.focusId with
+                | Ok _ -> Some request.start.focusId
+                | Error _ -> None
+            | _ -> None
 
     /// Coerce plain Load of a Directory or a File onto Desk, then mailbox-Load when Desk.
     let runLoadSave

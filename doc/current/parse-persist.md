@@ -20,7 +20,10 @@ Parse and persist move text between disk and the graph.
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.
 [x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
 [x] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
-[x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) `dispatchLoad`.
+[x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
+[x] Desktop-mapped Load stores the mapped bytes, then posts mailbox Load for that Workspace Node, Directory Node, or File Node. That Load pushes the subject onto the Parse stack.
+[x] The client hop for desktop-mapped Load is retired. That Load does not read a desktop file for parse, and it does not post directory reconcile from the Browser.
+[x] The git Load after-step is retired. After git Load returns, the Browser does not run a second reconcile or parse. Git Load posts the Workspace onto the Parse stack.
 [x] Load on Directory goes through that Directory's members on disk. 
 [x] A new directory on disk gets marked: it is added and starts Unparsed. 
 [x] A deleted directory gets marked: it is removed. 
