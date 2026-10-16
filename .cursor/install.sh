@@ -2,9 +2,8 @@
 set -euo pipefail
 
 # Idempotent Cloud Agent install. Safe to re-run on an existing Build.
-# Disk only: .NET 10 SDK, Fable local tool, npm lockfile deps, agent-tool deps,
-# Postgres 17 packages and cluster. Does not leave Postgres running (start.sh
-# does that per boot).
+# Disk only: .NET 10 SDK, Fable local tool, npm lockfile deps, Postgres 17 packages
+# and cluster. Does not leave Postgres running (start.sh does that per boot).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=pg.sh
@@ -40,10 +39,6 @@ fi
 
 if [ -f package-lock.json ] && command -v npm >/dev/null; then
     npm ci
-fi
-
-if [ -f .agents/tools/jev-mcp/package-lock.json ] && command -v npm >/dev/null; then
-    npm ci --prefix .agents/tools/jev-mcp
 fi
 
 install_postgres_packages
