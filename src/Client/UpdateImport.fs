@@ -5,11 +5,6 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 
-let private canImportDesktop (model: VM) =
-    match model.desktopCapabilities with
-    | Some { file = { canImport = true } } -> true
-    | _ -> false
-
 let private fail (model: VM) (message: string) : VM * Effect list =
     consoleLog ("[Gambol desktop] parse failed: " + message)
     { model with
@@ -70,48 +65,3 @@ let completeParseFilePost
                 syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
         let si, pollEffs = tryStartLoadFetch model'
         { model' with syncInfo = si }, pollEffs
-
-/// Parse: validate synchronously, then ContinueParseFile for optional desktop read + POST.
-let parseFileOp
-    (uploadAction: WorkspaceUploadAction)
-    (fileId: NodeId)
-    (model: VM)
-    : VM * Effect list =
-    match Map.tryFind fileId model.graph.nodes with
-    | Some { kind = Special File; documentState = NoServerFile } ->
-        fail model "no file on server"
-    | Some { kind = Special File; documentState = state; name = name; text = text } ->
-        let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
-        let nameHint =
-            Filename.tryValue name |> Option.defaultValue text
-
-        let binaryPath =
-            pathOpt
-            |> Option.orElse (Some nameHint)
-            |> Option.exists DocumentBinary.isBinaryExtension
-
-        if binaryPath then
-            fail model DocumentBinary.parseError
-        else
-            let detailPrefix =
-                match state with
-                | Unparsed -> "parsed: "
-                | Current -> "reconciled: "
-                | NoServerFile -> "parsed: "
-
-            let detailPath = pathOpt |> Option.defaultValue ""
-            let desktopReadPath =
-                WorkspaceUpload.desktopReadPath
-                    uploadAction
-                    (canImportDesktop model)
-                    pathOpt
-
-            let model' =
-                { model with
-                    lastCmdResult =
-                        Some(CmdLastResult.Detail(None, "parsing: " + detailPath))
-                    syncInfo = SyncInfo.withSyncState Parsing model.syncInfo }
-
-            model',
-            [ Effect.ContinueParseFile(fileId, desktopReadPath, detailPrefix, detailPath) ]
-    | _ -> model, []

@@ -51,7 +51,8 @@ module ParseThread =
 
     let private alreadyParsed (graph: Graph) (nodeId: NodeId) =
         match Map.tryFind nodeId graph.nodes with
-        | Some node when node.parseState = ParseState.Parsed -> true
+        | Some node when
+            node.documentState.parseState = ParseState.Parsed -> true
         | _ -> false
 
     let private afterPost

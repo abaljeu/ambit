@@ -58,6 +58,7 @@ let private request prePick operation =
     let nodeId = NodeId.New()
     { operation = operation
       prePick = prePick
+      holdStack = false
       start =
         { zoomId = nodeId
           focusId = nodeId
@@ -288,18 +289,18 @@ let ``Desk Load response continues to mapped workspace push`` () =
     let updater = runDesk LoadSaveOperation.Load
     let model, effects = updater (mappedWorkspaceModel ())
     match effects with
-    | [ ContinueWorkspaceStubsThenPush(scope, None) ] ->
+    | [ ContinueWorkspaceStubsThenPush(scope, Some subjectId) ] ->
         let dependencies, handler, client = effectDependencies ()
         use _client = client
         let messages = ResizeArray<Msg>()
         DeskLoadSaveEffectClient.runWorkspaceStubsThenPushWith
-            dependencies messages.Add scope None
+            dependencies messages.Add scope (Some subjectId)
         let completeInventory = onlyUpdater messages
         let _, nextEffects = completeInventory model
         match nextEffects with
-        | [ ContinueWorkspacePush(nextScope, None) ] ->
+        | [ ContinueWorkspacePush(nextScope, Some nextId) ] ->
             DeskLoadSaveEffectClient.runWorkspacePushWith
-                dependencies ignore nextScope None
+                dependencies ignore nextScope (Some nextId)
         | other -> failwith $"expected push continuation, got {other}"
         assertPosted "/_desktop/workspace-push" handler
     | other -> failwith $"expected workspace push, got {other}"

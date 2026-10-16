@@ -102,6 +102,7 @@ module EventJson =
         Encode.object
             [ "operation", encodeLoadSaveOperation request.operation
               "prePick", encodeLoadSavePrePick request.prePick
+              "holdStack", Encode.bool request.holdStack
               "start", encodeStartRequest request.start ]
 
     let decodeLoadSaveCommandRequest: Decoder<LoadSaveCommandRequest> =
@@ -110,6 +111,9 @@ module EventJson =
                 get.Required.Field "operation" decodeLoadSaveOperation
               prePick =
                 get.Required.Field "prePick" decodeLoadSavePrePick
+              holdStack =
+                get.Optional.Field "holdStack" Decode.bool
+                |> Option.defaultValue false
               start = get.Required.Field "start" decodeStartRequest })
 
     let encodeCancelRequest (request: CancelRequest) =

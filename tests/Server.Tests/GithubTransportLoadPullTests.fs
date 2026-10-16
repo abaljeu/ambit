@@ -94,9 +94,9 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
         |> requireOk "load pull"
         |> ignore
         let graph = readGraph host
-        Assert.Equal(Unparsed, graph.nodes.[docsId].documentState)
+        Assert.Equal(Unparsed, graph.nodes.[docsId].documentState.AsEnum)
         Assert.Equal(
             Unparsed,
-            (fileNamed graph docsId "extra.txt").documentState)
+            (fileNamed graph docsId "extra.txt").documentState.AsEnum)
     finally
         CoreMailboxApi.dispose host

@@ -84,11 +84,29 @@ type PersistState =
     | Persisted
     | Unpersisted
 
-type DocumentState = 
+type DocumentState =
     { parseState: ParseState
       persistState: PersistState
-      noServerFile: bool
-      documentState: DocumentStateEnum }
+      noServerFile: bool }
+
+[<RequireQualifiedAccess>]
+module DocumentState =
+    let fromParts
+        (parseState: ParseState)
+        (persistState: PersistState)
+        (legacy: DocumentStateEnum)
+        : DocumentState =
+        { parseState = parseState
+          persistState = persistState
+          noServerFile = legacy = NoServerFile }
+
+    let toLegacy (state: DocumentState) : DocumentStateEnum =
+        if state.noServerFile then NoServerFile
+        elif state.parseState = ParseState.Unparsed then Unparsed
+        else Current
+
+type DocumentState with
+    member this.AsEnum = DocumentState.toLegacy this
 
 [<RequireQualifiedAccess>]
 module ParseState =
@@ -117,9 +135,7 @@ type Node =
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
-      documentState : DocumentStateEnum
-      parseState : ParseState
-      persistState : PersistState
+      documentState : DocumentState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
       updateTime : DateTime
       /// Live lock-present. History and SQL omit this field.
@@ -157,6 +173,9 @@ module NodeUpdateTime =
 
 
 type Node with
+    member this.parseState = this.documentState.parseState
+    member this.persistState = this.documentState.persistState
+
     /// Build a node; omit fields to use defaults (empty text/name/classes,
     /// owner = root Guid.Empty, kind = Normal, updateTime = missing,
     /// lockPresent = false). Child lists live on `Graph.childMap`.
@@ -174,17 +193,18 @@ type Node with
             ?updateTime: DateTime,
             ?lockPresent: bool
         ) : Node =
-        let documentState = defaultArg documentState Current
+        let legacy = defaultArg documentState Current
+        let parseState =
+            defaultArg parseState (ParseState.ofDocumentState legacy)
+        let persistState = defaultArg persistState PersistState.Persisted
         { id = id
           text = defaultArg text ""
           name = defaultArg name Filename.Empty
           cssClasses = defaultArg cssClasses CssClass.empty
           owner = defaultArg owner (NodeId Guid.Empty)
           kind = defaultArg kind Normal
-          documentState = documentState
-          parseState =
-            defaultArg parseState (ParseState.ofDocumentState documentState)
-          persistState = defaultArg persistState PersistState.Persisted
+          documentState =
+            DocumentState.fromParts parseState persistState legacy
           updateTime = defaultArg updateTime NodeUpdateTime.missing
           lockPresent = defaultArg lockPresent false }
 
@@ -240,15 +260,31 @@ module Node =
         NodeKind.artifact node.kind
         && not (Filename.isDirectoryFileFilename node.name)
 
-    /// Set DocumentState. The parsed axis is written by setParseState.
-    let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
-        { node with documentState = state }
+    /// Derived Current | Unparsed | NoServerFile from the record.
+    let documentStateEnum (node: Node) : DocumentStateEnum =
+        DocumentState.toLegacy node.documentState
 
-    /// Set the parse axis and the Current | Unparsed DocumentState pole together.
+    /// Set parseState and noServerFile from the wire enum.
+    let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
+        { node with
+            documentState =
+                { node.documentState with
+                    parseState = ParseState.ofDocumentState state
+                    noServerFile = state = NoServerFile } }
+
+    /// Set the parse axis. Clears noServerFile.
     let withParseState (state: ParseState) (node: Node) : Node =
         { node with
-            parseState = state
-            documentState = ParseState.toDocumentState state }
+            documentState =
+                { node.documentState with
+                    parseState = state
+                    noServerFile = false } }
+
+    /// Set the persist axis inside the record.
+    let withPersistState (state: PersistState) (node: Node) : Node =
+        { node with
+            documentState =
+                { node.documentState with persistState = state } }
 
     /// Owner vs Ref for the parent→child edge.
     /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)

@@ -566,8 +566,8 @@ module DbAgent =
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
         match Map.tryFind nodeId loaded.state.Value.graph.nodes with
         | Some node when
-            node.parseState = ParseState.Parsed
-            && node.persistState = PersistState.Unpersisted ->
+            node.documentState.parseState = ParseState.Parsed
+            && node.documentState.persistState = PersistState.Unpersisted ->
             catchUpParsed loaded nodeId
             if
                 loaded.snapshotNeeded.Value

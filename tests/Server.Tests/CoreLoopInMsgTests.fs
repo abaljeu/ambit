@@ -74,9 +74,9 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.ParseFinished id)
     let node = state.Value.graph.nodes.[id]
-    Assert.Equal(ParseState.Parsed, node.parseState)
-    Assert.Equal(Current, node.documentState)
-    Assert.Equal(PersistState.Unpersisted, node.persistState)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Equal(Current, node.documentState.AsEnum)
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
     Assert.Empty(snaps)
 
 [<Fact>]
@@ -87,9 +87,9 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.MarkUnparsed id)
     let node = state.Value.graph.nodes.[id]
-    Assert.Equal(ParseState.Unparsed, node.parseState)
-    Assert.Equal(Unparsed, node.documentState)
-    Assert.Equal(PersistState.Unpersisted, node.persistState)
+    Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+    Assert.Equal(Unparsed, node.documentState.AsEnum)
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
     Assert.Empty(snaps)
 
 [<Fact>]
@@ -101,9 +101,9 @@ let ``SnapshotDone sets Persisted and calls the snapshot handler`` () =
     let shot = Some initial.graph
     apply (handlers state snaps) (InMsg.SnapshotDone(id, shot))
     let node = state.Value.graph.nodes.[id]
-    Assert.Equal(PersistState.Persisted, node.persistState)
-    Assert.Equal(ParseState.Parsed, node.parseState)
-    Assert.Equal(Current, node.documentState)
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Equal(Current, node.documentState.AsEnum)
     let snapId, snapGraph = Assert.Single(snaps)
     Assert.Equal(id, snapId)
     Assert.Equal(shot, snapGraph)
@@ -116,8 +116,8 @@ let ``SnapshotDone without a graph sets Persisted`` () =
     let snaps = ResizeArray<NodeId * Graph option>()
     apply (handlers state snaps) (InMsg.SnapshotDone(id, None))
     let node = state.Value.graph.nodes.[id]
-    Assert.Equal(PersistState.Persisted, node.persistState)
-    Assert.Equal(ParseState.Parsed, node.parseState)
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     let snapId, snapGraph = Assert.Single(snaps)
     Assert.Equal(id, snapId)
     Assert.Equal(None, snapGraph)
@@ -134,7 +134,7 @@ let ``axis write failure is returned`` () =
             (handlers state snaps)
             (InMsg.ParseFinished missing)
     Assert.Equal(Error "node not found", missingResult)
-    Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].parseState)
+    Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
         CoreMailboxLoad.applyInMsg
             (handlers state snaps)
@@ -144,7 +144,7 @@ let ``axis write failure is returned`` () =
         rejected)
     Assert.Equal(
         PersistState.Unpersisted,
-        state.Value.graph.nodes.[id].persistState)
+        state.Value.graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``mailbox queue applies ParseFinished`` () =
@@ -160,8 +160,8 @@ let ``mailbox queue applies ParseFinished`` () =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
-            Assert.Equal(ParseState.Parsed, node.parseState)
-            Assert.Equal(PersistState.Unpersisted, node.persistState)
+            Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+            Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
             Assert.Empty(snaps)
         finally
             CoreMailboxApi.dispose host
@@ -182,8 +182,8 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
-            Assert.Equal(PersistState.Persisted, node.persistState)
-            Assert.Equal(ParseState.Parsed, node.parseState)
+            Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+            Assert.Equal(ParseState.Parsed, node.documentState.parseState)
             Assert.Equal(1, snaps.Count)
         finally
             CoreMailboxApi.dispose host

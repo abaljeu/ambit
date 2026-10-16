@@ -403,7 +403,9 @@ module ViewModelRowState =
         rowFileUnparsedClassEligible model entry
         || (rowOwnership model entry = Ownership.Owner
             && match Map.tryFind entry.nodeId model.graph.nodes with
-               | Some { kind = Special Directory; documentState = Unparsed } ->
+               | Some { kind = Special Directory
+                        documentState = ds } when
+                   DocumentState.toLegacy ds = Unparsed ->
                    true
                | _ -> false)
 
@@ -535,7 +537,7 @@ module ViewModelRowState =
             | Loaded -> "Loaded"
             | Unloaded -> "Unloaded"
         let document =
-            match node.documentState with
+            match Node.documentStateEnum node with
             | Current -> "Current"
             | Unparsed -> "Unparsed"
             | NoServerFile -> "NoServerFile"

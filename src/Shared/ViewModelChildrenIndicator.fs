@@ -14,7 +14,7 @@ module ViewModelChildrenIndicator =
     /// solid for Loaded+Parsed leaves;
     /// chevron for Loaded+Parsed nodes with children.
     let rowChildrenIndicator (graph: Graph) (node: Node) : RowChildrenIndicator =
-        if node.documentState = Unparsed then
+        if Node.documentStateEnum node = Unparsed then
             RowChildrenIndicator.SlashedHollowCircle
         else
             match GraphChildren.tryGet graph node.id with

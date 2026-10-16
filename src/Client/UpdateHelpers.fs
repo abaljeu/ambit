@@ -70,6 +70,7 @@ let loadSaveCommandRequest
         | None -> model.zoomRoot
     { operation = operation
       prePick = prePick
+      holdStack = false
       start =
         CommandRequest.actorStart
             model.graph

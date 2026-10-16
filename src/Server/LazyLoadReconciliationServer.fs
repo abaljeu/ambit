@@ -52,7 +52,7 @@ module LazyLoadReconciliationServer =
                     path
             with
             | Ok(Some(nodeId, _)) ->
-                graph.nodes.[nodeId].documentState <> Current
+                Node.documentStateEnum graph.nodes.[nodeId] <> Current
             | Ok None -> true
             | Error _ -> true
         | _ -> false
@@ -224,7 +224,7 @@ module LazyLoadReconciliationServer =
             match Map.tryFind nodeId graph.nodes with
             | Some node when
                 node.kind = Special SpecialKind.Directory
-                && node.documentState = Current ->
+                && Node.documentStateEnum node = Current ->
                 true
             | _ -> false
         | _ -> false

@@ -21,6 +21,7 @@ let private encodeRequest request =
 let private request operation prePick nodeId eventId =
     { operation = operation
       prePick = prePick
+      holdStack = false
       start =
         { zoomId = nodeId
           focusId = nodeId
@@ -220,6 +221,7 @@ let private productionRouter harness =
 let private requestFor operation prePick seed =
     { operation = operation
       prePick = prePick
+      holdStack = false
       start =
         { zoomId = seed.workspaceId
           focusId = seed.focusId
@@ -597,7 +599,7 @@ let ``git Load pulls a staging checkout and does not reconcile`` () = task {
         Assert.DoesNotContain("arrived.txt", names)
         Assert.Equal(
             Unparsed,
-            (childNamed after seed.workspaceId "note.txt").documentState)
+            (childNamed after seed.workspaceId "note.txt").documentState.AsEnum)
     finally
         CoreMailboxApi.dispose host
 }
@@ -653,7 +655,7 @@ let rec private waitForParsedFile host fileId text deadline = task {
     let after = readGraph host
     let parsed =
         match Map.tryFind fileId after.nodes with
-        | Some node when node.documentState = Current ->
+        | Some node when Node.documentStateEnum node = Current ->
             Graph.children after fileId
             |> List.exists (fun kid ->
                 after.nodes.[kid.id].text = text)
@@ -733,7 +735,7 @@ let ``Load on a file parses that file`` () = task {
             waitForParsedFile host fileId "seed" (DateTime.UtcNow.AddSeconds 2.0)
         match parsed with
         | Some after ->
-            Assert.Equal(Current, after.nodes.[fileId].documentState)
+            Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
             Assert.Equal(
                 "seed",
                 after.nodes.[(Graph.children after fileId).Head.id].text)

@@ -139,9 +139,13 @@ module Serialization =
               "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
-              "documentState", encodeDocumentState node.documentState
-              "parseState", encodeParseState node.parseState
-              "persistState", encodePersistState node.persistState
+              "documentState",
+                encodeDocumentState
+                    (DocumentState.toLegacy node.documentState)
+              "parseState",
+                encodeParseState node.documentState.parseState
+              "persistState",
+                encodePersistState node.documentState.persistState
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let private nodeFromFields

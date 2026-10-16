@@ -34,7 +34,7 @@ let private markCurrent (graph: Graph) (nodeId: NodeId) =
     | Some node ->
         { graph with
             nodes =
-                Map.add nodeId { node with documentState = Current } graph.nodes }
+                Map.add nodeId (Node.withDocumentState Current node) graph.nodes }
 
 let private selectRange (model: VM) (startIndex: int) (endIndex: int) =
     let parent = model.siteMap.entries.[model.siteMap.rootId]
@@ -61,6 +61,83 @@ let private postsReconcileOrParse (effects: Effect list) =
         | Effect.ContinueDirectoryReconcile _
         | Effect.ContinueParseFile _ -> true
         | _ -> false)
+
+let private withDesktopMap (model: VM) =
+    { model with
+        desktopCapabilities =
+            Some (DesktopCapabilities.desktopEnabled true)
+        workspaceMappedLabels = Set.singleton "home" }
+
+let private stackLoads (effects: Effect list) =
+    effects
+    |> List.choose (function
+        | Effect.SubmitLoadSaveCommand (request, plan)
+            when request.operation = LoadSaveOperation.Load ->
+            Some (request, plan)
+        | _ -> None)
+
+[<Fact>]
+let ``desktop-mapped Load and git Load after-step use the Parse stack`` () =
+    let wsId, graph1 = Graph.create () |> addWorkspace "home"
+    let fileId, graph = addFile graph1 wsId "note.txt"
+    let fileModel =
+        VmTestHelpers.emptyModelAt graph wsId
+        |> withDesktopMap
+        |> fun ready -> selectRange ready 0 1
+    let _, fileEffects = UpdateWorkspaceLoad.loadOp fileModel
+    match stackLoads fileEffects with
+    | [ request, Some (WorkspaceUploadAction.DesktopPush (Some id)) ] ->
+        Assert.Equal(fileId, id)
+        Assert.Equal(fileId, request.start.focusId)
+        Assert.True(request.holdStack)
+    | other ->
+        Assert.Fail($"expected a held file push, got {other}")
+    Assert.False(postsReconcileOrParse fileEffects)
+    let _, afterFile =
+        UpdateWorkspaceSync.loadAfterDesktopPush (Some fileId) fileModel
+    Assert.False(postsReconcileOrParse afterFile)
+    match stackLoads afterFile with
+    | [ request, Some (WorkspaceUploadAction.ParseServerDisk id) ] ->
+        Assert.Equal(fileId, id)
+        Assert.Equal(fileId, request.start.focusId)
+        Assert.False(request.holdStack)
+        Assert.Equal(LoadSavePrePick.Desk, request.prePick)
+    | other ->
+        Assert.Fail($"expected file Load on the stack, got {other}")
+
+    let dirId, dirGraph = addDirectory graph1 wsId "docs"
+    let dirModel =
+        VmTestHelpers.emptyModelAt dirGraph wsId
+        |> withDesktopMap
+        |> fun ready -> selectRange ready 0 1
+    let _, dirEffects = UpdateWorkspaceLoad.loadOp dirModel
+    match stackLoads dirEffects with
+    | [ request, Some (WorkspaceUploadAction.DesktopPush None) ] ->
+        Assert.Equal(dirId, request.start.focusId)
+        Assert.True(request.holdStack)
+    | other ->
+        Assert.Fail($"expected a held directory push, got {other}")
+    Assert.False(postsReconcileOrParse dirEffects)
+    let _, afterDir =
+        UpdateWorkspaceSync.loadAfterDesktopPush (Some dirId) dirModel
+    Assert.False(postsReconcileOrParse afterDir)
+    match stackLoads afterDir with
+    | [ request, Some WorkspaceUploadAction.ReconcileServerDisk ] ->
+        Assert.Equal(dirId, request.start.focusId)
+        Assert.False(request.holdStack)
+    | other ->
+        Assert.Fail($"expected directory Load on the stack, got {other}")
+
+    let _, gitEffects =
+        UpdateWorkspaceLoad.loadOpFor LoadSavePrePick.Git fileModel
+    Assert.False(postsReconcileOrParse gitEffects)
+    match stackLoads gitEffects with
+    | [ request, None ] ->
+        Assert.Equal(LoadSavePrePick.Git, request.prePick)
+        Assert.False(request.holdStack)
+        Assert.Equal(fileId, request.start.focusId)
+    | other ->
+        Assert.Fail($"expected git Load without a client hop, got {other}")
 
 [<Fact>]
 let ``Directory Load posts that directory on the Load command`` () =

@@ -124,7 +124,7 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
     Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Cold load: on-disk plain body → Unparsed File stub (no children), not Normal outline.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
-    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(Graph.children actual fileId)
 
@@ -288,7 +288,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
             "docs/uploaded.txt"
         |> Option.get
     let uploadedPath = artifactFullPath dataDir afterUpload uploadedId
-    Assert.Equal(NoServerFile, stamped.graph.nodes.[uploadedId].documentState)
+    Assert.Equal(NoServerFile, stamped.graph.nodes.[uploadedId].documentState.AsEnum)
     Assert.False(File.Exists uploadedPath)
 
 [<Fact>]
@@ -336,9 +336,9 @@ let ``persistGraphChange leaves an untouched sibling root Unpersisted`` () =
     let result =
         DocumentPersistChange.persistGraphChange dataDir prior post
         |> requireOk "persistGraphChange"
-    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].persistState)
-    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileBId].persistState)
-    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].persistState)
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].documentState.persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileBId].documentState.persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].documentState.persistState)
 
 [<Fact>]
 let ``persistGraphChange leaves a failed write Unpersisted when the old file remains`` () =
@@ -370,7 +370,7 @@ let ``persistGraphChange leaves a failed write Unpersisted when the old file rem
     let post =
         Graph.setText bodyId "old" "NEW" graph
         |> requireOk "edit"
-    Assert.Equal(PersistState.Unpersisted, post.nodes.[fileId].persistState)
+    Assert.Equal(PersistState.Unpersisted, post.nodes.[fileId].documentState.persistState)
     let result =
         DocumentPersistChange.persistGraphChange dataDir graph post
         |> requireOk "persistGraphChange"
@@ -378,7 +378,7 @@ let ``persistGraphChange leaves a failed write Unpersisted when the old file rem
         Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
     Assert.Equal("OLD", File.ReadAllText full)
-    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].documentState.persistState)
     Assert.Equal("NEW", result.graph.nodes.[bodyId].text)
 
 [<Fact>]
@@ -577,7 +577,7 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
 
     Assert.Equal(normalId, (Graph.children after.graph fileId).Head.id)
     Assert.Equal("BODY", after.graph.nodes.[normalId].text)
-    Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+    Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``planParseFile with body text writes artifact to DataDir`` () =
@@ -937,7 +937,7 @@ let ``readAllDocuments cold load keeps file outline without plain body`` () =
     Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Body is on disk but unloaded: Special File + Unparsed, empty children.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
-    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(Graph.children actual fileId)
 

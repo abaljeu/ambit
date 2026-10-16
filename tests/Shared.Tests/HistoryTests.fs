@@ -202,10 +202,12 @@ let ``PersistStamp opsBetween ignores a persist-axis change`` () =
                 Map.add
                     nodeId
                     { before.nodes.[nodeId] with
-                        persistState = PersistState.Unpersisted }
+                        documentState =
+                            { before.nodes.[nodeId].documentState with
+                                persistState = PersistState.Unpersisted } }
                     before.nodes }
-    Assert.Equal(PersistState.Persisted, before.nodes.[nodeId].persistState)
-    Assert.Equal(PersistState.Unpersisted, after.nodes.[nodeId].persistState)
+    Assert.Equal(PersistState.Persisted, before.nodes.[nodeId].documentState.persistState)
+    Assert.Equal(PersistState.Unpersisted, after.nodes.[nodeId].documentState.persistState)
     Assert.Empty(PersistStamp.opsBetween before after)
 
 [<Fact>]
@@ -332,7 +334,7 @@ let ``SetUpdateTime on unparsed file root succeeds`` () =
         Op.apply (Op.SetUpdateTime(fileId, oldStamp, newStamp)) state
         |> expectChanged
     Assert.Equal(NodeUpdateTime.toDbPrecision newStamp, changed.graph.nodes.[fileId].updateTime)
-    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``edit or rename of unparsed file root is rejected`` () =
@@ -374,7 +376,7 @@ let ``structural relocate of unparsed file to start among siblings succeeds`` ()
         Op.apply (Op.Replace(Graph.rootId, oldChildren, newChildren)) state
         |> expectChanged
     Assert.Equal(fileId, (Graph.children changed.graph Graph.rootId).Head.id)
-    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``operation in unrelated current document remains valid`` () =
@@ -410,7 +412,7 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
           Op.NewNode(parsedId, "parsed")
           ChildListWire.append fileId fileChildren [ attach ] ]
     let parsed = ChangeValidation.applyOps parseOps state |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).[1].id)
 
     let reverse =
@@ -427,7 +429,7 @@ let ``marking document unparsed remains legal`` () =
     let changed =
         Op.apply (Op.SetDocumentState(otherId, Current, Unparsed)) state
         |> expectChanged
-    Assert.Equal(Unparsed, changed.graph.nodes.[otherId].documentState)
+    Assert.Equal(Unparsed, changed.graph.nodes.[otherId].documentState.AsEnum)
 
 [<Fact>]
 let ``valid parse batch can replay undo and redo`` () =
@@ -437,10 +439,10 @@ let ``valid parse batch can replay undo and redo`` () =
           Op.SetText(childId, "body", "parsed") ]
     let applied = ChangeValidation.applyOps ops state |> expectChanged
     let undone = ChangeValidation.applyOps (Op.invertAll ops) applied |> expectChanged
-    Assert.Equal(Unparsed, undone.graph.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, undone.graph.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("body", undone.graph.nodes.[childId].text)
     let redone = ChangeValidation.applyOps ops undone |> expectChanged
-    Assert.Equal(Current, redone.graph.nodes.[fileId].documentState)
+    Assert.Equal(Current, redone.graph.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("parsed", redone.graph.nodes.[childId].text)
 
 [<Fact>]
@@ -465,8 +467,8 @@ let ``nested file parse under current directory replaces file tree`` () =
     let fileUnparsed =
         Op.apply (Op.SetDocumentState(directoryId, Unparsed, Current)) state2
         |> expectChanged
-    Assert.Equal(Unparsed, fileUnparsed.graph.nodes.[fileId].documentState)
-    Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState)
+    Assert.Equal(Unparsed, fileUnparsed.graph.nodes.[fileId].documentState.AsEnum)
+    Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState.AsEnum)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let parseOps =
@@ -474,8 +476,8 @@ let ``nested file parse under current directory replaces file tree`` () =
           Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
     let parsed = ChangeValidation.applyOps parseOps fileUnparsed |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
-    Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState)
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
+    Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
@@ -506,8 +508,8 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
           Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
     let parsed = ChangeValidation.applyOps parseOps bothUnparsed |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
-    Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState)
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
+    Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
@@ -898,7 +900,7 @@ let private reachableStructure (graph: Graph) =
             let kids = Graph.children graph nodeId
             let shape =
                 node.text, node.name, node.cssClasses, node.owner,
-                node.kind, node.documentState,
+                node.kind, DocumentState.toLegacy node.documentState,
                 Graph.childrenStatus graph nodeId, kids
             kids
             |> List.fold

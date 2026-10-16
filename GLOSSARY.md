@@ -162,8 +162,8 @@ The `.amb` document that belongs to a Directory Node or Workspace Node (root `.a
 _Avoid_: Marker (for this concept), marker file, directory marker, amb marker, marker-only load (prefer Directory-File-only / Directory File cold load)
 
 **Directory Node**:
-A Node whose Kind is Directory; corresponds to a server directory plus that directory's `.amb` file (`DirName/.amb`). Always say Directory Node, not bare “directory,” when referring to the Node.
-_Avoid_: directory (bare, for a Node), folder
+A Node whose Kind is Directory. It corresponds to a Directory on disk plus that Directory's `.amb` file (`DirName/.amb`). Workspace, Directory, and File name the disk storage and the graph node. Always say Directory Node for the node. A Directory on disk may be called Directory.
+_Avoid_: directory (bare, for the Node), folder
 
 **Directory reconcile**:
 The scan of a directory that updates that Directory Node's Body.
@@ -202,8 +202,8 @@ A Load-stage operation that brings a subgraph from the Server into the Browser G
 _Avoid_: Download (for this stage), pull, materialize
 
 **File Node**:
-A Node whose Kind is File; a Graph node that stands for a real on-disk file, identified by a relative path (e.g. `SYSTEM/user.css`). Always say File Node, not bare “file,” when referring to the Node. Cold load / stub: know the path exists and create the File Node without reading the file's text yet (Unparsed). After reading/parsing that file's text, it is the same File Node. Prefer “the file” at that relative path — not “file body.”
-_Avoid_: file (bare, for a Node), document, page, note, file body
+A Node whose Kind is File. It stands for a File on disk, identified by a relative path (e.g. `SYSTEM/user.css`). Workspace, Directory, and File name the disk storage and the graph node. Always say File Node for the node. A File on disk may be called File. Cold load / stub: know the path exists and create the File Node without reading the File's text yet (Unparsed). After reading that File, it is the same File Node. Prefer “the File” at that relative path — not “file body.”
+_Avoid_: file (bare, for the Node), document, page, note, file body
 
 **Graph**:
 The in-memory data store: a root and the nodes reachable from it, with ownership and ref links among those nodes.
@@ -357,8 +357,8 @@ A Load-stage operation that pushes App files to the Server. Not the user-facing 
 _Avoid_: Load (for this stage), push (as the stage name)
 
 **Workspace Node**:
-A Node whose Kind is Workspace; maps to a workspace directory on client computers. Always say Workspace Node, not bare “workspace,” when referring to the Node.
-_Avoid_: workspace (bare, for a Node), project, vault, folder
+A Node whose Kind is Workspace. It maps to a Workspace on disk. Workspace, Directory, and File name the disk storage and the graph node. Always say Workspace Node for the node. A Workspace on disk may be called Workspace.
+_Avoid_: workspace (bare, for the Node), project, vault, folder
 
 **Workspaces Node**:
 The unique Node that contains Workspace Nodes.

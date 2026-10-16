@@ -137,7 +137,7 @@ module WorkspaceUploadStructure =
             nodeId, graph, List.rev reversed)
 
     let private markUnparsed (graph: Graph) nodeId =
-        match graph.nodes.[nodeId].documentState with
+        match Node.documentStateEnum graph.nodes.[nodeId] with
         | Unparsed -> []
         | Current ->
             [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
@@ -145,7 +145,7 @@ module WorkspaceUploadStructure =
             [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
 
     let private markNoServerFile (graph: Graph) nodeId =
-        match graph.nodes.[nodeId].documentState with
+        match Node.documentStateEnum graph.nodes.[nodeId] with
         | NoServerFile -> []
         | Current ->
             [ Op.SetDocumentState(nodeId, Current, NoServerFile) ]
@@ -155,7 +155,8 @@ module WorkspaceUploadStructure =
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special (Directory | Workspace)
-                 documentState = Unparsed } ->
+                 documentState = ds } when
+            DocumentState.toLegacy ds = Unparsed ->
             [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
         | _ -> []
 
@@ -183,7 +184,7 @@ module WorkspaceUploadStructure =
         graph.nodes
         |> Map.toList
         |> List.choose (fun (id, node) ->
-            match node.kind, node.documentState with
+            match node.kind, Node.documentStateEnum node with
             | Special (Directory | Workspace), Unparsed when hasOwnedMember graph id ->
                 Some id
             | _ -> None)
@@ -313,7 +314,7 @@ module WorkspaceUploadStructure =
         |> List.choose (fun relative ->
             tryResolveFileNode graph workspaceLabel relative
             |> Option.bind (fun fileId ->
-                match graph.nodes.[fileId].documentState with
+                match Node.documentStateEnum graph.nodes.[fileId] with
                 | NoServerFile ->
                     Some(Op.SetDocumentState(fileId, NoServerFile, Unparsed))
                 | Current
