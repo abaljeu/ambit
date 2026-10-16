@@ -6,7 +6,7 @@ This repository-owned MCP server exposes Jev decisions and supports the response
 
 Run `npm install` in this directory.
 
-## Cursor configuration
+## Cursor Desktop configuration
 
 Add this server to the Cursor MCP configuration. Replace the API key placeholder.
 
@@ -27,6 +27,28 @@ Add this server to the Cursor MCP configuration. Replace the API key placeholder
 ```
 
 Restart Cursor after you change the MCP configuration.
+
+## Cursor Cloud configuration
+
+The Cloud environment install script installs this package during an environment build. Use the Cloud workspace path in the MCP configuration:
+
+```json
+{
+  "jev": {
+    "command": "node",
+    "args": [
+      "/workspace/.agents/tools/jev-mcp/src/index.js"
+    ],
+    "env": {
+      "JEV_BASE_URL": "https://thejevai.com/v1/systemone",
+      "JEV_MODEL": "typesafe/jev-1.14",
+      "TYPESAFE_API_KEY": "your-api-key"
+    }
+  }
+}
+```
+
+Keep the API key in Cursor's MCP settings. Do not add it to the repository environment configuration. The local server becomes available to new Cloud Agents after the repository change is merged and a successful environment build is active.
 
 ## Verify
 
