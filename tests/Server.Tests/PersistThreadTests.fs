@@ -67,7 +67,7 @@ let ``open node calls persist ops and adds SnapshotDone`` () =
     let finishedId, finishedGraph = Assert.Single(finishes)
     Assert.Equal(id, finishedId)
     Assert.Equal(Some graph, finishedGraph)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].persistState)
+    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``Unparsed node is blocked and does not call persist`` () =
@@ -90,39 +90,7 @@ let ``Unparsed node is blocked and does not call persist`` () =
     | other -> Assert.Fail($"expected Blocked, got {other}")
     Assert.Empty(calls)
     Assert.Empty(finishes)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].persistState)
-
-[<Fact>]
-let ``Current document with stale Unparsed axis still persists`` () =
-    let id = NodeId.New()
-    let node =
-        Node.Create(
-            id,
-            text = "note.txt",
-            name = Filename.create "note.txt",
-            kind = Special File,
-            documentState = Current,
-            parseState = ParseState.Unparsed,
-            persistState = PersistState.Unpersisted)
-    let graph = Graph.addDetachedNode node (Graph.create ())
-    let collect, calls, finishes, _failures =
-        startWith okGraph (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = edit id
-            kind = PersistKind.Ops
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Wrote _ -> ()
-    | other -> Assert.Fail($"expected Wrote, got {other}")
-    Assert.Equal<string>([ "ops" ], List.ofSeq calls)
-    Assert.NotEmpty(finishes)
+    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``snapshot change calls persist change and adds SnapshotDone`` () =
@@ -203,7 +171,7 @@ let ``failed Change does not add SnapshotDone`` () =
     Assert.Equal<string>([ "change" ], calls)
     Assert.Empty(finishes)
     Assert.Equal<string>([ "disk full" ], failures)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].persistState)
+    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``thrown persist ops return Failed`` () =
@@ -230,4 +198,4 @@ let ``thrown persist ops return Failed`` () =
     | other -> Assert.Fail($"expected Failed, got {other}")
     Assert.Empty(finishes)
     Assert.Empty(failures)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].persistState)
+    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)

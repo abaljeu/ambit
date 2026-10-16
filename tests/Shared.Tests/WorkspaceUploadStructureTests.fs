@@ -127,8 +127,8 @@ let ``new file stubs start NoServerFile; directory parent stays Current`` () =
 
     let docs = childNamed graph2 workspaceId "docs"
     let file = childNamed graph2 docs.id "note.txt"
-    Assert.Equal(Current, docs.documentState.documentState)
-    Assert.Equal(NoServerFile, file.documentState.documentState)
+    Assert.Equal(Current, docs.documentState.AsEnum)
+    Assert.Equal(NoServerFile, file.documentState.AsEnum)
 
 [<Fact>]
 let ``reuses existing owned path without duplicating`` () =
@@ -156,7 +156,7 @@ let ``reuses existing owned path without duplicating`` () =
     Assert.Equal(docsBefore.id, docsAfter.id)
     let file = childNamed graph2 docsAfter.id "note.txt"
     Assert.Equal(Special File, file.kind)
-    Assert.Equal(NoServerFile, file.documentState.documentState)
+    Assert.Equal(NoServerFile, file.documentState.AsEnum)
 
 [<Fact>]
 let ``TopLevel cap keeps only immediate children under scope`` () =
@@ -236,7 +236,7 @@ let ``reused Unparsed directory with owned child becomes Current`` () =
     let _, dirOps = FileNodeOps.planCreateOwnedDirectory graph0 workspaceId "docs"
     let graph1 = applyOps graph0 dirOps
     let docsId = (childNamed graph1 workspaceId "docs").id
-    Assert.Equal(Unparsed, graph1.nodes.[docsId].documentState.documentState)
+    Assert.Equal(Unparsed, graph1.nodes.[docsId].documentState.AsEnum)
 
     let _, fileOps = FileNodeOps.planCreateOwnedFile graph1 docsId "note.txt"
     let graph2 = applyOps graph1 fileOps
@@ -245,7 +245,7 @@ let ``reused Unparsed directory with owned child becomes Current`` () =
         requirePlan graph2 "home" [ item "docs" true ] |> applyOps graph2
 
     let docs = childNamed graph3 workspaceId "docs"
-    Assert.Equal(Current, docs.documentState.documentState)
+    Assert.Equal(Current, docs.documentState.AsEnum)
 
 [<Fact>]
 let ``plan promotes ancestor directories when nested file stub added`` () =
@@ -262,8 +262,8 @@ let ``plan promotes ancestor directories when nested file stub added`` () =
 
     let audio = childNamed graph2 workspaceId "audio"
     let cs = childNamed graph2 workspaceId "cs"
-    Assert.Equal(Current, audio.documentState.documentState)
-    Assert.Equal(Current, cs.documentState.documentState)
+    Assert.Equal(Current, audio.documentState.AsEnum)
+    Assert.Equal(Current, cs.documentState.AsEnum)
 
 [<Fact>]
 let ``tryResolveFileNode finds owned file by relative path`` () =
@@ -315,8 +315,8 @@ let ``planServerFilePresentOps transitions only matching absent files`` () =
     let oversizedId =
         WorkspaceUploadStructure.tryResolveFileNode graph2 "home" "oversized.txt"
         |> Option.get
-    Assert.Equal(Unparsed, graph2.nodes.[presentId].documentState.documentState)
-    Assert.Equal(NoServerFile, graph2.nodes.[oversizedId].documentState.documentState)
+    Assert.Equal(Unparsed, graph2.nodes.[presentId].documentState.AsEnum)
+    Assert.Equal(NoServerFile, graph2.nodes.[oversizedId].documentState.AsEnum)
 
 [<Fact>]
 let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =

@@ -119,7 +119,7 @@ let ``Node decode without documentState defaults to current`` () =
         + "\"cssClasses\":[],\"kind\":\"normal\"}"
     match Dec.fromString Serialization.decodeNode json with
     | Error err -> failwith $"Decode failed: {err}"
-    | Ok decoded -> Assert.Equal(Current, decoded.documentState.documentState)
+    | Ok decoded -> Assert.Equal(Current, decoded.documentState.AsEnum)
 
 let private alanSpecialDirectoryJson =
     "{"
@@ -225,7 +225,7 @@ let ``Unparsed node round-trip`` () =
             kind = Special File,
             documentState = Unparsed)
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(Unparsed, decoded.documentState.documentState)
+    Assert.Equal(Unparsed, decoded.documentState.AsEnum)
 
 [<Fact>]
 let ``NoServerFile node and state op round-trip`` () =
@@ -236,7 +236,7 @@ let ``NoServerFile node and state op round-trip`` () =
             kind = Special File,
             documentState = NoServerFile)
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(NoServerFile, decoded.documentState.documentState)
+    Assert.Equal(NoServerFile, decoded.documentState.AsEnum)
 
     let op =
         Op.SetDocumentState(node.id, NoServerFile, Unparsed)

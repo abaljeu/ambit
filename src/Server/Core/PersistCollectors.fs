@@ -54,14 +54,11 @@ module PersistCollectors =
         |> Option.bind (
             GraphQuery.enclosing graph Node.carriesStateAxes)
 
-    /// True when that node is Unparsed on both axes.
-    /// Old parse sets DocumentState Current and leaves parseState Unparsed.
-    /// That pair stays open until the axis migrate lands.
+    /// True when that node is Unparsed.
     let unparsedNode (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
         | Some node when
-            node.parseState = ParseState.Unparsed
-            && Node.documentStateEnum node <> Current ->
+            node.documentState.parseState = ParseState.Unparsed ->
             true
         | _ -> false
 
@@ -69,7 +66,7 @@ module PersistCollectors =
     let openNode (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
         | Some node when
-            node.persistState = PersistState.Unpersisted
+            node.documentState.persistState = PersistState.Unpersisted
             && not (unparsedNode graph nodeId) ->
             true
         | _ -> false

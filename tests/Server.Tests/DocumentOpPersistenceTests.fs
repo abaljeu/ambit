@@ -114,7 +114,7 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
         Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
     Assert.Equal("BODY", result.graph.nodes.[bodyId].text)
-    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[fileId].documentState.persistState)
     let stampOps = PersistStamp.opsBetween post result.graph
     Assert.True(
         stampOps
@@ -131,8 +131,8 @@ let private markPersisted id graph =
     Graph.setPersistState id PersistState.Persisted graph |> requireOk "clean"
 
 let private assertWrittenFileStamp fileAId wsId (dirty: Graph) (written: PersistGraphOk) =
-    Assert.Equal(PersistState.Persisted, written.graph.nodes.[fileAId].persistState)
-    Assert.Equal(PersistState.Unpersisted, written.graph.nodes.[wsId].persistState)
+    Assert.Equal(PersistState.Persisted, written.graph.nodes.[fileAId].documentState.persistState)
+    Assert.Equal(PersistState.Unpersisted, written.graph.nodes.[wsId].documentState.persistState)
     let stampOps = PersistStamp.opsBetween dirty written.graph
     Assert.True(
         stampOps
@@ -142,8 +142,12 @@ let private assertWrittenFileStamp fileAId wsId (dirty: Graph) (written: Persist
     match Op.applyAll stampOps { graph = dirty; eventId = EventId.zero } with
     | ApplyResult.Changed state
     | ApplyResult.Unchanged state ->
-        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[fileAId].persistState)
-        Assert.Equal(PersistState.Unpersisted, state.graph.nodes.[wsId].persistState)
+        Assert.Equal(
+            PersistState.Unpersisted,
+            state.graph.nodes.[fileAId].documentState.persistState)
+        Assert.Equal(
+            PersistState.Unpersisted,
+            state.graph.nodes.[wsId].documentState.persistState)
     | other -> failwith $"expected stamp ops to apply, got {other}"
 
 [<Fact>]
@@ -162,7 +166,7 @@ let ``successful persistGraphOps marks the written special Persisted`` () =
     let edited =
         Graph.setText bodyAId "alpha" "ALPHA" graph
         |> requireOk "edit"
-    Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileAId].persistState)
+    Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileAId].documentState.persistState)
     let dirty =
         Graph.setPersistState wsId PersistState.Unpersisted edited
         |> requireOk "dirty workspace"
@@ -173,8 +177,8 @@ let ``successful persistGraphOps marks the written special Persisted`` () =
             dirty
             [ Op.SetText(bodyAId, "alpha", "ALPHA") ]
         |> requireOk "persistGraphOps"
-    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].persistState)
-    Assert.Equal(ParseState.Parsed, result.graph.nodes.[fileAId].parseState)
-    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileBId].persistState)
-    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].persistState)
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileAId].documentState.persistState)
+    Assert.Equal(ParseState.Parsed, result.graph.nodes.[fileAId].documentState.parseState)
+    Assert.Equal(PersistState.Persisted, result.graph.nodes.[fileBId].documentState.persistState)
+    Assert.Equal(PersistState.Unpersisted, result.graph.nodes.[wsId].documentState.persistState)
     assertWrittenFileStamp fileAId wsId dirty result

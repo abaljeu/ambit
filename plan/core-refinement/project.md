@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-16
 Started: 2026-09-29
-Actual: 12h15m
+Actual: 15h15m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -38,6 +38,7 @@ Actual: 12h15m
 - 2026-10-15 — Contract on [[arch.md]] §3 step 1 **State axes on special nodes**: `DocumentState` stays and becomes the record. Until migrate, the Node field `documentState` stays `DocumentStateEnum`. Open expand-contract beats are published. Stage is `slice`.
 - 2026-10-16 — Correction to the state contraction: the existing four-field `DocumentState` record is the valid temporary migrate shape. Contract removes its obsolete nested `documentState` field and the standalone axes, not `noServerFile`. The final record is exactly `{ parseState: ParseState; persistState: PersistState; noServerFile: bool }`. Stage stays `slice`.
 - 2026-10-16 — [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) stores the four-field record on the Node and dual-writes the standalone axes. Status `coded`. Stage is `build`.
+- 2026-10-16 — [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) removes standalone axes and the nested `documentState` field. The Node field stores `{ parseState; persistState; noServerFile }`. Status `coded`. Stage stays `build`.
 
 ## Issues
 
@@ -60,7 +61,7 @@ Actual: 12h15m
 - [17 — Pointer: Prove TestActor hello](issues/17-pointer-prove-testactor-hello.md) — Status `done`. Acceptance is closed by [34b — Outside Core lifecycle proof](../core-creation/issues/34b-outside-core-lifecycle-proof.md) and [35b — Browser Run hello](../core-creation/issues/35b-browser-run-hello.md).
 - [18 — Core Persist stack](issues/18-core-persist-stack.md) — collectors and the persist thread inside Core; callers use the collectors; the thread adds `InMsg` `SnapshotDone`. Status `coded`.
 - [19 — Migrate special-node state onto the DocumentState record](issues/19-migrate-special-node-state-onto-the-document-state-record.md) — the Node field `documentState` becomes the temporary four-field `DocumentState` record. Standalone axes stay for this beat. Status `coded`.
-- [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) — standalone axes and the record's obsolete nested `documentState` field leave. The final record keeps `parseState`, `persistState`, and `noServerFile`. Status `defined`.
+- [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) — standalone axes and the record's obsolete nested `documentState` field leave. The final record keeps `parseState`, `persistState`, and `noServerFile`. Status `coded`.
 - [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) — the remaining client hop retires. Status `defined`.
 - [22 — Expand Core path control](issues/22-expand-core-path-control.md) — Core stands read file, write file, read directory, and write directory. Status `defined`.
 - [23 — Migrate callers onto Core path control](issues/23-migrate-callers-onto-core-path-control.md) — classify each inventoried DataDir use. Status `defined`.

@@ -208,8 +208,8 @@ let ``disk-newer reconcile ops leave the file Current`` () =
                 | _ -> false)
         Assert.False(setsFile)
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph6.nodes.[fileId].documentState.documentState)
-        Assert.Equal(Current, graph6.nodes.[dirId].documentState.documentState)
+        Assert.Equal(Current, graph6.nodes.[fileId].documentState.AsEnum)
+        Assert.Equal(Current, graph6.nodes.[dirId].documentState.AsEnum)
     finally
         Directory.Delete(dataDir, true)
 
@@ -240,8 +240,8 @@ let ``disk-newer directory stays Current and is not pushed`` () =
         Assert.Empty(planned.push)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(currentId, planned.push)
-        Assert.Equal(Current, graph9.nodes.[newerId].documentState.documentState)
-        Assert.Equal(ParseState.Parsed, graph9.nodes.[newerId].parseState)
+        Assert.Equal(Current, graph9.nodes.[newerId].documentState.AsEnum)
+        Assert.Equal(ParseState.Parsed, graph9.nodes.[newerId].documentState.parseState)
     finally
         Directory.Delete(dataDir, true)
 
@@ -274,9 +274,9 @@ let ``missing disk directory is created Unparsed and is not pushed`` () =
             | None -> failwith "missing directory a"
         Assert.False(setsDocumentState planned.ops)
         Assert.Equal(Special Directory, graph6.nodes.[aId].kind)
-        Assert.Equal(Unparsed, graph6.nodes.[aId].documentState.documentState)
-        Assert.Equal(ParseState.Unparsed, graph6.nodes.[aId].parseState)
-        Assert.Equal(PersistState.Persisted, graph6.nodes.[aId].persistState)
+        Assert.Equal(Unparsed, graph6.nodes.[aId].documentState.AsEnum)
+        Assert.Equal(ParseState.Unparsed, graph6.nodes.[aId].documentState.parseState)
+        Assert.Equal(PersistState.Persisted, graph6.nodes.[aId].documentState.persistState)
         Assert.Empty(planned.push)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
@@ -308,7 +308,7 @@ let ``disk-newer directory below immediate children stays Parsed`` () =
         let planned = plan dataDir graph7 dirId
         let graph8 = applyOps graph7 planned.ops
         Assert.Empty(planned.push)
-        Assert.Equal(ParseState.Parsed, graph8.nodes.[notesId].parseState)
+        Assert.Equal(ParseState.Parsed, graph8.nodes.[notesId].documentState.parseState)
         Assert.True(createdDirectoryId planned.ops "notes" |> Option.isNone)
         Assert.Contains(
             notesId,
@@ -337,8 +337,8 @@ let ``disk-newer file beside a directory is not pushed`` () =
         Directory.SetLastWriteTimeUtc(dirPath, diskTime)
         let planned = plan dataDir graph7 dirId
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph7.nodes.[fileId].documentState.documentState)
-        Assert.Equal(ParseState.Parsed, graph7.nodes.[notesId].parseState)
+        Assert.Equal(Current, graph7.nodes.[fileId].documentState.AsEnum)
+        Assert.Equal(ParseState.Parsed, graph7.nodes.[notesId].documentState.parseState)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
         Assert.False(setsDocumentState planned.ops)
@@ -370,9 +370,9 @@ let ``workspace leaves a disk-newer directory Current`` () =
         Assert.Empty(planned.push)
         Assert.DoesNotContain(keptId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
-        Assert.Equal(Unparsed, graph6.nodes.[addedId].documentState.documentState)
-        Assert.Equal(ParseState.Unparsed, graph6.nodes.[addedId].parseState)
-        Assert.Equal(Current, graph6.nodes.[newerId].documentState.documentState)
+        Assert.Equal(Unparsed, graph6.nodes.[addedId].documentState.AsEnum)
+        Assert.Equal(ParseState.Unparsed, graph6.nodes.[addedId].documentState.parseState)
+        Assert.Equal(Current, graph6.nodes.[newerId].documentState.AsEnum)
     finally
         Directory.Delete(dataDir, true)
 
@@ -408,11 +408,11 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
             match createdDirectoryId planned.ops "extra" with
             | Some id -> id
             | None -> failwith "missing directory extra"
-        Assert.Equal(Current, graph8.nodes.[dirId].documentState.documentState)
+        Assert.Equal(Current, graph8.nodes.[dirId].documentState.AsEnum)
         Assert.Empty(planned.push)
-        Assert.Equal(Unparsed, graph8.nodes.[extraId].documentState.documentState)
-        Assert.Equal(ParseState.Unparsed, graph8.nodes.[extraId].parseState)
-        Assert.Equal(Unparsed, graph8.nodes.[fileId].documentState.documentState)
+        Assert.Equal(Unparsed, graph8.nodes.[extraId].documentState.AsEnum)
+        Assert.Equal(ParseState.Unparsed, graph8.nodes.[extraId].documentState.parseState)
+        Assert.Equal(Unparsed, graph8.nodes.[fileId].documentState.AsEnum)
     finally
         Directory.Delete(dataDir, true)
 
@@ -434,8 +434,8 @@ let ``member with no file is deleted and a disk-newer file stays`` () =
         let planned = plan dataDir graph8 dirId
         let graph9 = applyOps graph8 planned.ops
         Assert.Empty(planned.push)
-        Assert.Equal(Current, graph9.nodes.[keptId].documentState.documentState)
-        Assert.Equal(ParseState.Parsed, graph9.nodes.[keptId].parseState)
+        Assert.Equal(Current, graph9.nodes.[keptId].documentState.AsEnum)
+        Assert.Equal(ParseState.Parsed, graph9.nodes.[keptId].documentState.parseState)
         Assert.Equal<string>(
             [ "note.txt" ],
             ownedFileNames graph9 dirId)

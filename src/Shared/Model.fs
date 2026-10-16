@@ -87,8 +87,7 @@ type PersistState =
 type DocumentState =
     { parseState: ParseState
       persistState: PersistState
-      noServerFile: bool
-      documentState: DocumentStateEnum }
+      noServerFile: bool }
 
 [<RequireQualifiedAccess>]
 module DocumentState =
@@ -99,8 +98,15 @@ module DocumentState =
         : DocumentState =
         { parseState = parseState
           persistState = persistState
-          noServerFile = legacy = NoServerFile
-          documentState = legacy }
+          noServerFile = legacy = NoServerFile }
+
+    let toLegacy (state: DocumentState) : DocumentStateEnum =
+        if state.noServerFile then NoServerFile
+        elif state.parseState = ParseState.Unparsed then Unparsed
+        else Current
+
+type DocumentState with
+    member this.AsEnum = DocumentState.toLegacy this
 
 [<RequireQualifiedAccess>]
 module ParseState =
@@ -130,8 +136,6 @@ type Node =
       owner      : NodeId
       kind       : NodeKind
       documentState : DocumentState
-      parseState : ParseState
-      persistState : PersistState
       /// Mutation time via `touch`; after server persist, artifact disk mtime.
       updateTime : DateTime
       /// Live lock-present. History and SQL omit this field.
@@ -169,6 +173,9 @@ module NodeUpdateTime =
 
 
 type Node with
+    member this.parseState = this.documentState.parseState
+    member this.persistState = this.documentState.persistState
+
     /// Build a node; omit fields to use defaults (empty text/name/classes,
     /// owner = root Guid.Empty, kind = Normal, updateTime = missing,
     /// lockPresent = false). Child lists live on `Graph.childMap`.
@@ -198,8 +205,6 @@ type Node with
           kind = defaultArg kind Normal
           documentState =
             DocumentState.fromParts parseState persistState legacy
-          parseState = parseState
-          persistState = persistState
           updateTime = defaultArg updateTime NodeUpdateTime.missing
           lockPresent = defaultArg lockPresent false }
 
@@ -255,32 +260,29 @@ module Node =
         NodeKind.artifact node.kind
         && not (Filename.isDirectoryFileFilename node.name)
 
-    /// Nested legacy enum on the temporary DocumentState record.
+    /// Derived Current | Unparsed | NoServerFile from the record.
     let documentStateEnum (node: Node) : DocumentStateEnum =
-        node.documentState.documentState
+        DocumentState.toLegacy node.documentState
 
-    /// Set DocumentState. The parsed axis is written by setParseState.
+    /// Set parseState and noServerFile from the wire enum.
     let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
         { node with
             documentState =
                 { node.documentState with
-                    documentState = state
+                    parseState = ParseState.ofDocumentState state
                     noServerFile = state = NoServerFile } }
 
-    /// Set the parse axis and the Current | Unparsed DocumentState pole together.
+    /// Set the parse axis. Clears noServerFile.
     let withParseState (state: ParseState) (node: Node) : Node =
         { node with
-            parseState = state
             documentState =
                 { node.documentState with
                     parseState = state
-                    documentState = ParseState.toDocumentState state
                     noServerFile = false } }
 
-    /// Set the persist axis on the Node and inside the record.
+    /// Set the persist axis inside the record.
     let withPersistState (state: PersistState) (node: Node) : Node =
         { node with
-            persistState = state
             documentState =
                 { node.documentState with persistState = state } }
 

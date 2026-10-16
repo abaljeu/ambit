@@ -404,7 +404,8 @@ module ViewModelRowState =
         || (rowOwnership model entry = Ownership.Owner
             && match Map.tryFind entry.nodeId model.graph.nodes with
                | Some { kind = Special Directory
-                        documentState = { documentState = Unparsed } } ->
+                        documentState = ds } when
+                   DocumentState.toLegacy ds = Unparsed ->
                    true
                | _ -> false)
 

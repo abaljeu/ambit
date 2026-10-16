@@ -79,12 +79,14 @@ let parseFileOp
     : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
     | Some { kind = Special File
-             documentState = { documentState = NoServerFile } } ->
+             documentState = ds } when
+        DocumentState.toLegacy ds = NoServerFile ->
         fail model "no file on server"
     | Some { kind = Special File
-             documentState = { documentState = state }
+             documentState = ds
              name = name
              text = text } ->
+        let state = DocumentState.toLegacy ds
         let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
         let nameHint =
             Filename.tryValue name |> Option.defaultValue text

@@ -255,7 +255,7 @@ let ``graphRoundTrip preserves unparsed document state`` () =
                       (Node.withDocumentState Unparsed original.nodes.[fileId]) }
     match GraphProjection.graphRoundTrip unparsed with
     | Error err -> Assert.Fail(err)
-    | Ok graph -> Assert.Equal(Unparsed, graph.nodes.[fileId].documentState.documentState)
+    | Ok graph -> Assert.Equal(Unparsed, graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``graphRoundTrip preserves no-server-file document state`` () =
@@ -269,7 +269,7 @@ let ``graphRoundTrip preserves no-server-file document state`` () =
                       (Node.withDocumentState NoServerFile original.nodes.[fileId]) }
     match GraphProjection.graphRoundTrip absent with
     | Error err -> Assert.Fail(err)
-    | Ok graph -> Assert.Equal(NoServerFile, graph.nodes.[fileId].documentState.documentState)
+    | Ok graph -> Assert.Equal(NoServerFile, graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``graphEquals is false when kind differs`` () =

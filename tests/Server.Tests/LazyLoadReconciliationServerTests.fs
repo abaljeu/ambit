@@ -501,7 +501,7 @@ let ``workspace reconcile discovers under workspace root`` () =
             | Some "docs" -> Some graph.nodes.[child.id]
             | _ -> None)
     Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
-    Assert.Equal(Unparsed, docsNode.documentState.documentState)
+    Assert.Equal(Unparsed, docsNode.documentState.AsEnum)
     let docsChildren =
         Graph.children graph docsNode.id
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
@@ -544,7 +544,7 @@ let ``directory reconcile walks one level`` () =
             | Some "side" -> Some graph.nodes.[child.id]
             | _ -> None)
     Assert.Equal(Special SpecialKind.Directory, sideNode.kind)
-    Assert.Equal(Unparsed, sideNode.documentState.documentState)
+    Assert.Equal(Unparsed, sideNode.documentState.AsEnum)
     Assert.Empty(Graph.children graph sideNode.id)
     CoreMailboxApi.dispose fileAgent
 
@@ -574,7 +574,7 @@ let ``workspace reconcile leaves a current child directory current`` () =
     |> requireOk "workspace reconcile"
     |> ignore
     let graph = readGraph fileAgent
-    Assert.Equal(Current, graph.nodes.[keptId].documentState.documentState)
+    Assert.Equal(Current, graph.nodes.[keptId].documentState.AsEnum)
     let keptNames =
         Graph.children graph keptId
         |> List.choose (fun child ->
@@ -586,7 +586,7 @@ let ``workspace reconcile leaves a current child directory current`` () =
             match Filename.tryValue graph.nodes.[child.id].name with
             | Some "fresh" -> Some graph.nodes.[child.id]
             | _ -> None)
-    Assert.Equal(Unparsed, fresh.documentState.documentState)
+    Assert.Equal(Unparsed, fresh.documentState.AsEnum)
     Assert.Empty(Graph.children graph fresh.id)
     CoreMailboxApi.dispose fileAgent
 
@@ -619,7 +619,7 @@ let ``directory reconcile leaves a current child directory current`` () =
     |> requireOk "directory reconcile"
     |> ignore
     let graph = readGraph fileAgent
-    Assert.Equal(Current, graph.nodes.[keptId].documentState.documentState)
+    Assert.Equal(Current, graph.nodes.[keptId].documentState.AsEnum)
     Assert.Empty(Graph.children graph keptId)
     let names =
         Graph.children graph docsId
@@ -1048,9 +1048,9 @@ let ``git pull marks received files at any depth and does not discover`` () =
     |> requireOk "pull"
     |> ignore
     let graph = readGraph fileAgent
-    Assert.Equal(Unparsed, graph.nodes.[topId].documentState.documentState)
-    Assert.Equal(Unparsed, graph.nodes.[nestedId].documentState.documentState)
-    Assert.Equal(Current, graph.nodes.[docsId].documentState.documentState)
+    Assert.Equal(Unparsed, graph.nodes.[topId].documentState.AsEnum)
+    Assert.Equal(Unparsed, graph.nodes.[nestedId].documentState.AsEnum)
+    Assert.Equal(Current, graph.nodes.[docsId].documentState.AsEnum)
     let names =
         Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
@@ -1097,12 +1097,12 @@ let ``git pull add marks the containing directory Unparsed`` () =
     |> requireOk "pull"
     |> ignore
     let graph = readGraph fileAgent
-    Assert.Equal(Unparsed, graph.nodes.[docsId].documentState.documentState)
+    Assert.Equal(Unparsed, graph.nodes.[docsId].documentState.AsEnum)
     let extra =
         Graph.children graph docsId
         |> List.map (fun child -> graph.nodes.[child.id])
         |> List.find (fun node -> Filename.tryValue node.name = Some "extra.txt")
-    Assert.Equal(Unparsed, extra.documentState.documentState)
+    Assert.Equal(Unparsed, extra.documentState.AsEnum)
     let names =
         Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
