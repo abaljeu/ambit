@@ -1,6 +1,6 @@
 # core-refinement
 
-Stage: build
+Stage: slice
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-16
 Started: 2026-09-29
@@ -41,6 +41,7 @@ Actual: 17h15m
 - 2026-10-16 — [20 — Contract special-node state inside DocumentState](issues/20-contract-special-node-state-inside-document-state.md) removes standalone axes and the nested `documentState` field. The Node field stores `{ parseState; persistState; noServerFile }`. Status `coded`. Stage stays `build`.
 - 2026-10-16 — [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md) retires the client hop. Desktop-mapped Load stores bytes, then posts mailbox Load. Git Load stays on the Parse stack. Status `coded`. Stage stays `build`.
 - 2026-10-16 — Alan accepted [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md). Status `done`. Stage stays `build`.
+- 2026-10-16 — Published the open beats that had no coding ticket. [28 — Parsed when clear](issues/28-parsed-when-clear.md) and [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) are single beats. The workspace lock chain is [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md), [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md), and [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md). [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) stays its own beat, blocked by 30 — Expand the workspace lock. Status of each new ticket is `defined`. Stage is `slice`.
 
 ## Issues
 
@@ -71,3 +72,9 @@ Actual: 17h15m
 - [25 — Enable mailbox git requests](issues/25-enable-mailbox-git-requests.md) — the mailbox accepts git requests. Status `defined`.
 - [26 — Call mailbox git requests](issues/26-call-mailbox-git-requests.md) — callers use those requests. Status `defined`.
 - [27 — Stop the old git path](issues/27-stop-the-old-git-path.md) — the old git path stops. Status `defined`.
+- [28 — Parsed when clear](issues/28-parsed-when-clear.md) — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear. Status `defined`.
+- [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) — a path that changes the graph crosses Core loop. Status `defined`.
+- [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md) — the workspace lock and per-member persist locks stand beside `withWorkTreeGate`. Status `defined`.
+- [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md) — Persist, parse-thread file use, and git Load and git Save follow the workspace lock. Status `defined`.
+- [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) — after the lock drains, pull or Upload lands, arrived files are marked Unparsed, the lock releases, and Unparsed starts the parse thread. Status `defined`.
+- [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) — `withWorkTreeGate` leaves Persist and git paths. Status `defined`.
