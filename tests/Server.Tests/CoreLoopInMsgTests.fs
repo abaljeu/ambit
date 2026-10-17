@@ -1,5 +1,6 @@
 module Gambol.Server.Tests.CoreLoopInMsgTests
 
+open System
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -211,6 +212,196 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
             Assert.Equal(PersistState.Persisted, node.documentState.persistState)
             Assert.Equal(ParseState.Parsed, node.documentState.parseState)
             Assert.Equal(1, snaps.Count)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+let private loggingHandlers
+    (state: State ref)
+    (snaps: ResizeArray<NodeId * Graph option>)
+    (log: EventLog ref)
+    : PersistHandlers =
+    let baseHandlers = handlers state snaps
+    { baseHandlers with
+        getEventLog = fun () -> Ok log.Value
+        getEventsSince =
+            fun after -> Ok((EventLog.since after log.Value).events)
+        appendEvent =
+            fun event ->
+                log.Value <- EventLog.restore [ event ] log.Value
+                state.Value <- { state.Value with eventId = event.id }
+                Ok () }
+
+let private loggingHost state snaps log =
+    CoreMailbox.host
+        (CoreActorPool.create ())
+        { filling state snaps with
+            handlers = loggingHandlers state snaps log }
+        admittedCredentials
+
+let private oneTransition (log: EventLog) =
+    match log.events with
+    | [ event ] ->
+        match event.body with
+        | EventBody.Change [ Op.SetDocumentState(id, old, next) ] ->
+            id, old, next
+        | _ ->
+            Assert.Fail("expected one SetDocumentState")
+            Unchecked.defaultof<_>
+    | _ ->
+        Assert.Fail($"expected one Event, got {log.events.Length}")
+        Unchecked.defaultof<_>
+
+[<Fact>]
+let ``ParseFinished and MarkUnparsed log SetDocumentState`` () =
+    task {
+        let id, initial =
+            fileState PersistState.Unpersisted ParseState.Unparsed
+        let state = ref initial
+        let snaps = ResizeArray<NodeId * Graph option>()
+        let log = ref EventLog.empty
+        let host = loggingHost state snaps log
+        try
+            CoreMailboxApi.addInMsg host (InMsg.ParseFinished id)
+            let! got =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let got = requireState "parsed" got
+            let! events =
+                CoreMailboxApi.getEventsSince host EventId.zero
+                |> Async.StartAsTask
+            let loggedId, old, next = oneTransition log.Value
+            Assert.Equal(id, loggedId)
+            Assert.Equal(Unparsed, old)
+            Assert.Equal(Current, next)
+            Assert.Equal(1, events.Length)
+            let parsed = got.graph.nodes.[id]
+            Assert.Equal(ParseState.Parsed, parsed.documentState.parseState)
+            Assert.Equal(Current, parsed.documentState.AsEnum)
+            Assert.Equal(
+                PersistState.Unpersisted,
+                parsed.documentState.persistState)
+            CoreMailboxApi.addInMsg host (InMsg.ParseFinished id)
+            let! _ =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            Assert.Equal(1, log.Value.events.Length)
+            CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed id)
+            let! marked =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let marked = requireState "unparsed" marked
+            Assert.Equal(2, log.Value.events.Length)
+            match log.Value.events with
+            | mark :: _ ->
+                match mark.body with
+                | EventBody.Change [
+                    Op.SetDocumentState(markId, markOld, markNext)
+                  ] ->
+                    Assert.Equal(id, markId)
+                    Assert.Equal(Current, markOld)
+                    Assert.Equal(Unparsed, markNext)
+                | _ -> Assert.Fail("expected SetDocumentState")
+            | [] -> Assert.Fail("missing Event")
+            let node = marked.graph.nodes.[id]
+            Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+            Assert.Equal(Unparsed, node.documentState.AsEnum)
+            Assert.Equal(
+                PersistState.Unpersisted,
+                node.documentState.persistState)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``SetDocumentState InMsg sets NoServerFile and logs the Event`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId * Graph option>()
+    let log = ref EventLog.empty
+    apply
+        (loggingHandlers state snaps log)
+        (InMsg.SetDocumentState(id, NoServerFile))
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(NoServerFile, node.documentState.AsEnum)
+    Assert.True(node.documentState.noServerFile)
+    Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+    let loggedId, old, next = oneTransition log.Value
+    Assert.Equal(id, loggedId)
+    Assert.Equal(Current, old)
+    Assert.Equal(NoServerFile, next)
+
+[<Fact>]
+let ``writer skips a second Event when the post stored the transition`` () =
+    let id, initial =
+        fileState PersistState.Unpersisted ParseState.Unparsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId * Graph option>()
+    let stored =
+        { id = EventId.fromJson 1
+          submissionId = Guid.NewGuid()
+          authority = Authority "Core"
+          commandName = ""
+          body =
+            EventBody.Change [
+                Op.SetDocumentState(id, Unparsed, Current)
+            ] }
+    let log = ref (EventLog.restore [ stored ] EventLog.empty)
+    apply
+        (loggingHandlers state snaps log)
+        (InMsg.ParseFinished id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Equal(Current, node.documentState.AsEnum)
+    Assert.Equal(1, log.Value.events.Length)
+    Assert.Equal(stored.submissionId, log.Value.events.Head.submissionId)
+
+[<Fact>]
+let ``public post of SetDocumentState is accepted`` () =
+    task {
+        let host =
+            CoreMailbox.createFile (newTempDir ()) admittedCredentials
+        try
+            let id = NodeId.New()
+            let! created =
+                CoreMailboxApi.postGraphOnly
+                    host
+                    testCaller
+                    (wireEvent
+                        (Guid.NewGuid())
+                        [ Op.NewSpecialNode(id, File, "note.txt") ])
+                |> Async.StartAsTask
+            let created = requireState "create" created
+            Assert.True(EventId.isAccepted created.eventId)
+            let! posted =
+                CoreMailboxApi.postEvents
+                    host
+                    testCaller
+                    [ wireEvent
+                        (Guid.NewGuid())
+                        [ Op.SetDocumentState(id, Unparsed, NoServerFile) ] ]
+                |> Async.StartAsTask
+            let posted = requireState "postEvents" posted
+            Assert.True(EventId.isAccepted posted.eventId)
+            let! graphOnly =
+                CoreMailboxApi.postGraphOnly
+                    host
+                    testCaller
+                    (wireEvent
+                        (Guid.NewGuid())
+                        [ Op.SetDocumentState(id, NoServerFile, Current) ])
+                |> Async.StartAsTask
+            let graphOnly = requireState "postGraphOnly" graphOnly
+            Assert.True(EventId.isAccepted graphOnly.eventId)
+            let! got =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let got = requireState "state" got
+            let node = got.graph.nodes.[id]
+            Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+            Assert.Equal(Current, node.documentState.AsEnum)
+            Assert.False(node.documentState.noServerFile)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.Equal(3, history.events.Length)
         finally
             CoreMailboxApi.dispose host
     }

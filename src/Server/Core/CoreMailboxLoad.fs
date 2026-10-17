@@ -155,6 +155,96 @@ module internal CoreMailboxLoad =
         writeAxis persist (fun graph ->
             GraphMutate.setParseState nodeId parseState graph)
 
+    type private ParseTransition = {
+        nodeId: NodeId
+        prior: DocumentStateEnum
+        next: DocumentStateEnum
+    }
+
+    let private storedEnum (graph: Graph) (nodeId: NodeId) =
+        Map.tryFind nodeId graph.nodes
+        |> Option.map Node.documentStateEnum
+
+    let private isSameTransition (change: ParseTransition) (op: Op) =
+        match op with
+        | Op.SetDocumentState(id, old, next) ->
+            id = change.nodeId
+            && old = change.prior
+            && next = change.next
+        | _ -> false
+
+    let private headStoresTransition
+        (log: EventLog)
+        (change: ParseTransition)
+        =
+        match log.events with
+        | head :: _ ->
+            match Ev.ops head with
+            | Some ops -> List.exists (isSameTransition change) ops
+            | None -> false
+        | [] -> false
+
+    let private parseStateEvent
+        (log: EventLog)
+        (change: ParseTransition)
+        : Ev =
+        { id = EventLog.nextId log
+          submissionId = Guid.NewGuid()
+          authority = Authority "Core"
+          commandName = ""
+          body =
+            EventBody.Change [
+                Op.SetDocumentState(
+                    change.nodeId,
+                    change.prior,
+                    change.next)
+            ] }
+
+    let private appendParseEvent
+        (persist: PersistHandlers)
+        (change: ParseTransition)
+        =
+        match persist.getEventLog () with
+        | Error err -> Error err
+        | Ok log when headStoresTransition log change -> Ok ()
+        | Ok log ->
+            persist.appendEvent (parseStateEvent log change)
+
+    let private logIfChanged
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        (before: Graph)
+        =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok after ->
+            match
+                storedEnum before nodeId,
+                storedEnum after.graph nodeId
+            with
+            | Some old, Some next when old <> next ->
+                appendParseEvent persist {
+                    nodeId = nodeId
+                    prior = old
+                    next = next
+                }
+            | _ -> Ok ()
+
+    /// One parse-state writer. It runs on Core loop. It appends one
+    /// Event when the stored value changes, and skips that Event when
+    /// the newest post already stored the same transition.
+    let private writeThenLog
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        (mutate: Graph -> Result<Graph, string>)
+        =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok before ->
+            match writeAxis persist mutate with
+            | Error err -> Error err
+            | Ok () -> logIfChanged persist nodeId before.graph
+
     /// Marks the node Unparsed, then pushes. The mark writes the axis
     /// directly and does not enqueue.
     let markUnparsedThenPush
@@ -165,25 +255,50 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
+    let private finishParsed
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        =
+        match
+            writeThenLog persist nodeId (fun graph ->
+                GraphMutate.setParseState
+                    nodeId
+                    ParseState.Parsed
+                    graph)
+        with
+        | Error err -> Error err
+        | Ok () ->
+            persist.noteParsed nodeId
+            Ok ()
+
+    let private setDocument
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        (state: DocumentStateEnum)
+        =
+        writeThenLog persist nodeId (fun graph ->
+            GraphMutate.setDocumentState nodeId state state graph)
+
     /// Core loop apply. ParseFinished writes Parsed only when noServerFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// noServerFile is set, that File Node stays Unparsed. It does not
-    /// set Persisted.
-    /// MarkUnparsed writes Unparsed only.
-    /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
+    /// set Persisted. MarkUnparsed writes Unparsed only. SetDocumentState
+    /// writes Parsed, Unparsed, or NoServerFile. A change appends one
+    /// Op.SetDocumentState Event. SnapshotDone sets Persisted.
     let internal applyInMsg
         (persist: PersistHandlers)
         (msg: InMsg)
         : Result<unit, string> =
         match msg with
-        | InMsg.ParseFinished nodeId ->
-            match writeParseState persist nodeId ParseState.Parsed with
-            | Error err -> Error err
-            | Ok () ->
-                persist.noteParsed nodeId
-                Ok ()
+        | InMsg.ParseFinished nodeId -> finishParsed persist nodeId
         | InMsg.MarkUnparsed nodeId ->
-            writeParseState persist nodeId ParseState.Unparsed
+            writeThenLog persist nodeId (fun graph ->
+                GraphMutate.setParseState
+                    nodeId
+                    ParseState.Unparsed
+                    graph)
+        | InMsg.SetDocumentState(nodeId, state) ->
+            setDocument persist nodeId state
         | InMsg.SnapshotDone(nodeId, graph) ->
             persist.snapshotDone nodeId graph
             writeAxis persist (fun live ->

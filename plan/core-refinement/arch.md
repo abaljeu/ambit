@@ -214,7 +214,7 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    2. [x] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
 
 2. **Graph change**
-   1. [ ] <a id="graph-change-expand"></a>**Expand** — The mailbox has one parse-state writer. It runs only on Core loop. It applies `InMsg` `ParseFinished`, `InMsg` `MarkUnparsed`, and `InMsg` `SetDocumentState`. `SetDocumentState` carries Parsed, Unparsed, and NoServerFile. The writer logs `Op.SetDocumentState` as an Event so the client displays document state. Callers stay on their current path. The public post still accepts the Op. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
+   1. [x] <a id="graph-change-expand"></a>**Expand** — The mailbox has one parse-state writer. It runs only on Core loop. It applies `InMsg` `ParseFinished`, `InMsg` `MarkUnparsed`, and `InMsg` `SetDocumentState`. `SetDocumentState` carries Parsed, Unparsed, and NoServerFile. The writer logs `Op.SetDocumentState` as an Event so the client displays document state. Callers stay on their current path. The public post still accepts the Op. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
    2. **Migrate**
       1. [ ] <a id="graph-change-migrate-upload"></a>**Upload, import, undo, and stored replay** — Those four apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md).
       2. [ ] <a id="graph-change-migrate-parse"></a>**File parse, directory reconcile, and lazy load** — Those callers apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [40 — Parse and reconcile use the mailbox writer](issues/40-parse-and-reconcile-use-the-mailbox-writer.md).
@@ -238,7 +238,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
          3. [x] **MarkUnparsed** — That `NodeId`. Directory reconcile does not name an existing member for this case.
-         4. [ ] **SetDocumentState** — That `NodeId` and the three-way parse state: Parsed, Unparsed, or NoServerFile. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
+         4. [x] **SetDocumentState** — That `NodeId` and the three-way parse state: Parsed, Unparsed, or NoServerFile. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
