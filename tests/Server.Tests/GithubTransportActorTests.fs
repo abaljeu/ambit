@@ -29,12 +29,13 @@ let private dependencies
     =
     let git =
         { withWorkTreeGate =
-            fun root action ->
-                steps.Add($"gate acquire {root}")
-                try
-                    action ()
-                finally
-                    steps.Add($"gate release {root}")
+            { new GithubTransportWorkTreeGate with
+                member _.applyAction root action =
+                    steps.Add($"gate acquire {root}")
+                    try
+                        action ()
+                    finally
+                        steps.Add($"gate release {root}") }
           trackedBranch =
             fun root ->
                 steps.Add($"tracked {root}")
@@ -165,7 +166,7 @@ let ``git Load tells the client the actor completed`` () =
         dependencies
             (ResizeArray())
             pull
-            (fun _ _ _ -> Error "commit unused")
+            (fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage))
             (fun _ _ _ -> Error "push unused")
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host _ _ seed -> task {
@@ -223,7 +224,11 @@ let ``git Load gates pull from subnode Focus`` () =
     let pull root _ =
         steps.Add($"pull {root}")
         Ok "pulled"
-    let commit _ _ _ = Error "commit unused"
+    let commit root message clientHint =
+        steps.Add($"commit {root}")
+        Assert.Equal("gambol: git Load", message)
+        Assert.Equal(None, clientHint)
+        Ok(tracked, GitSave.nothingToCommitMessage)
     let push _ _ _ = Error "push unused"
     let deps =
         dependencies steps pull commit push
@@ -239,7 +244,7 @@ let ``git Load gates pull from subnode Focus`` () =
             let root = Path.Combine(dataDir, "home")
             Assert.Equal<string list>(
                 [ $"gate acquire {root}"
-                  $"tracked {root}"
+                  $"commit {root}"
                   $"pull {root}"
                   $"gate release {root}" ],
                 steps |> Seq.toList)
@@ -254,7 +259,7 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
     let pull root _ =
         steps.Add($"pull {root}")
         Ok "pulled"
-    let commit _ _ _ = Error "commit unused"
+    let commit _ _ _ = Ok(tracked, GitSave.nothingToCommitMessage)
     let push _ _ _ = Error "push unused"
     let deps =
         dependencies steps pull commit push
@@ -297,7 +302,7 @@ let ``git Load ends when the pull fails and posts nothing`` () =
         dependencies
             steps
             pull
-            (fun _ _ _ -> Error "commit unused")
+            (fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage))
             (fun _ _ _ -> Error "push unused")
     runActor
         GithubTransportOperation.Load
@@ -364,7 +369,7 @@ let ``Peer Actor row is live only while git work runs`` () =
         dependencies
             steps
             pull
-            (fun _ _ _ -> Error "commit unused")
+            (fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage))
             (fun _ _ _ -> Error "push unused")
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host pool operation seed -> task {

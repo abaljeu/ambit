@@ -33,6 +33,8 @@ module GitSave =
                 |> String.concat " "
             sprintf "add -A -- . %s" excludes
 
+    let internal nothingToCommitMessage = "nothing to commit"
+
     let commitAll (dataDir: string) (message: string) : Result<string, string> =
         if not (isRepo dataDir) then
             Error "No git repository in data directory."
@@ -44,6 +46,9 @@ module GitSave =
                     sprintf "-c user.email=gambol@save -c user.name=gambol commit -m \"%s\"" message
                 match runGit dataDir args with
                 | Ok out -> Ok out
-                | Error err when err.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase) ->
-                    Ok "nothing to commit"
+                | Error err when
+                    err.Contains(
+                        nothingToCommitMessage,
+                        StringComparison.OrdinalIgnoreCase) ->
+                    Ok nothingToCommitMessage
                 | Error err -> Error err

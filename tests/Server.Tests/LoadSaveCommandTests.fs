@@ -336,7 +336,9 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { withWorkTreeGate = fun _ action -> action ()
+        { withWorkTreeGate =
+            { new GithubTransportWorkTreeGate with
+                member _.applyAction _ action = action () }
           trackedBranch = fun _ -> Result.Ok tracked
           pullTracked =
             fun _ _ ->
