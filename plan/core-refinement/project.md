@@ -1,10 +1,10 @@
 # core-refinement
 
-Stage: slice
+Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-17
 Started: 2026-09-29
-Actual: 17h30m
+Actual: 18h30m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -45,6 +45,7 @@ Actual: 17h30m
 - 2026-10-16 — [28 — Parsed when clear](issues/28-parsed-when-clear.md) sets a File Node Parsed from `ParseFinished` only when `noServerFile` is clear. Status `coded`. Stage stays `build`.
 - 2026-10-17 — Alan: Parsed, Unparsed, and NoServerFile are one three-way parse state. The column `document_state` already stores that state and stays. Persisted is separate and needs a persist field. A Normal Node carries neither parse state nor persist state. Terms: [[GLOSSARY.md]]. Tickets: [34 — Upload and import use the parse-state writer](issues/34-upload-and-import-use-the-parse-state-writer.md), [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md), [36 — Add the persist column](issues/36-add-the-persist-column.md), [37 — Kind-specific node state](issues/37-kind-specific-node-state.md). Status of each new ticket is `defined`. Stage stays `slice`.
 - 2026-10-17 — [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) is superseded. `Op.SetDocumentState` stays. [Graph change](arch.md#shared-segments) is Expand, then Migrate, then Contract. Expand is [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md): the mailbox writer applies `InMsg.SetDocumentState` for Parsed, Unparsed, and NoServerFile and logs the Event before any caller moves. Migrate is [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md), [40 — Parse and reconcile use the mailbox writer](issues/40-parse-and-reconcile-use-the-mailbox-writer.md), and [41 — markUnparsedThenPush stays on the mailbox loop](issues/41-mark-unparsed-then-push-on-the-mailbox-loop.md). Contract is [42 — Public post refuses SetDocumentState](issues/42-public-post-refuses-set-document-state.md). The client receives the parse-state Event at every step. Status of 29 is `cancelled`. Status of each new ticket is `defined`. Stage stays `slice`.
+- 2026-10-17 — [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md) stands the mailbox writer. It applies `InMsg.ParseFinished`, `InMsg.MarkUnparsed`, and `InMsg.SetDocumentState` and appends `Op.SetDocumentState` when that state changes. Callers stay. Status `coded`. Stage is `build`.
 
 ## Issues
 
@@ -85,7 +86,7 @@ Actual: 17h30m
 - [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md) — node JSON sends the three-way parse state once, plus `persistState`. The derived `documentState` key leaves. Status `defined`.
 - [36 — Add the persist column](issues/36-add-the-persist-column.md) — a persist column stores persist state across reload. The column `document_state` stays. Status `defined`.
 - [37 — Kind-specific node state](issues/37-kind-specific-node-state.md) — a Normal Node holds and sends neither parse state nor persist state. Only a File Node carries NoServerFile. Status `defined`.
-- [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md) — Expand. The mailbox writer applies `InMsg.SetDocumentState` for Parsed, Unparsed, and NoServerFile and logs the Event. Callers stay. Status `defined`.
+- [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md) — Expand. The mailbox writer applies `InMsg.SetDocumentState` for Parsed, Unparsed, and NoServerFile and logs the Event. Callers stay. Status `coded`.
 - [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md) — Migrate. Those four use the writer. The client still receives the Event. Status `defined`.
 - [40 — Parse and reconcile use the mailbox writer](issues/40-parse-and-reconcile-use-the-mailbox-writer.md) — Migrate. File parse, directory reconcile, and lazy load use the writer. Status `defined`.
 - [41 — markUnparsedThenPush stays on the mailbox loop](issues/41-mark-unparsed-then-push-on-the-mailbox-loop.md) — Migrate. That function stays on the loop. Callers enqueue `InMsg.MarkUnparsed`. Status `defined`.

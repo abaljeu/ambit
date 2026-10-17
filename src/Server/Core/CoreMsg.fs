@@ -78,6 +78,8 @@ type internal InMsg =
     | ParseFinished of nodeId: NodeId
     | SnapshotDone of nodeId: NodeId * graph: Graph option
     | MarkUnparsed of nodeId: NodeId
+    /// Parsed, Unparsed, or NoServerFile. Parsed is DocumentStateEnum Current.
+    | SetDocumentState of nodeId: NodeId * state: DocumentStateEnum
 
 [<RequireQualifiedAccess>]
 type internal QueueSum =
