@@ -1,6 +1,6 @@
 # core-refinement architecture
 
-Updated: 2026-10-16
+Updated: 2026-10-17
 Sequence: expand-contract
 
 Home: [[project.md]]. This note is the sole authority for the Core seam (what will be coded): Target — Server Core, the expand-contract sequence (§3 and §9 Story paths), axes, stacks, path control, mailbox git handoff, the locking model (§6), and InMsg on the mailbox queue (§10 **Core loop**). Spec.md and User Stories are absent. Map decision 9 keeps Sequence `expand-contract`. Story paths, Shared segments, the Module map, and Seams are on this note. Expand-contract does not drop them. 
@@ -214,12 +214,12 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    2. [x] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
 
 2. **Graph change**
-   1. [ ] <a id="graph-change-expand"></a>**Expand** — The mailbox has one parse-state writer. It runs only on Core loop. It applies `InMsg` `ParseFinished`, `InMsg` `MarkUnparsed`, and `InMsg` `SetDocumentState`. `SetDocumentState` carries Parsed, Unparsed, and NoServerFile. The writer logs `Op.SetDocumentState` as an Event so the client displays document state. Callers stay on their current path. The public post still accepts the Op. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
-   2. **Migrate**
-      1. [ ] <a id="graph-change-migrate-upload"></a>**Upload, import, undo, and stored replay** — Those four apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md).
-      2. [ ] <a id="graph-change-migrate-parse"></a>**File parse, directory reconcile, and lazy load** — Those callers apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [40 — Parse and reconcile use the mailbox writer](issues/40-parse-and-reconcile-use-the-mailbox-writer.md).
-      3. [ ] <a id="graph-change-migrate-push"></a>**markUnparsedThenPush** — That function runs only on the mailbox loop. Callers enqueue `InMsg.MarkUnparsed`. The client still receives the logged Event. Ticket: [41 — markUnparsedThenPush stays on the mailbox loop](issues/41-mark-unparsed-then-push-on-the-mailbox-loop.md).
-   3. [ ] <a id="graph-change-contract"></a>**Contract** — The public post refuses `Op.SetDocumentState`. The Op stays. The mailbox Event is what the client displays. Upload, import, undo, and stored replay stay working. Ticket: [42 — Public post refuses SetDocumentState](issues/42-public-post-refuses-set-document-state.md).
+   1. [ ] <a id="graph-change-expand"></a>**Expand** — Every parse-state change keeps today's write and also produces the mailbox writer output. The writer runs on Core loop. It applies `InMsg` `ParseFinished`, `InMsg` `MarkUnparsed`, and `InMsg` `SetDocumentState`, including NoServerFile, and logs `Op.SetDocumentState` as an Event. Existing tests assert both outputs. Ticket: [38 — Expand both parse-state outputs](issues/38-expand-both-parse-state-outputs.md).
+   2. **Migrate** — Callers rely on the new output. Today's write stays.
+      1. [ ] <a id="graph-change-migrate-upload"></a>**Upload, import, undo, and stored replay** — These callers rely on the new output. Ticket: [39 — Migrate upload, import, undo, and stored replay](issues/39-migrate-upload-import-undo-and-stored-replay.md).
+      2. [ ] <a id="graph-change-migrate-parse"></a>**File parse, directory reconcile, and lazy load** — These callers rely on the new output. Ticket: [40 — Migrate parse, reconcile, and lazy load](issues/40-migrate-parse-reconcile-and-lazy-load.md).
+      3. [ ] <a id="graph-change-migrate-push"></a>**markUnparsedThenPush** — That function runs on the mailbox loop and relies on the new output. Ticket: [41 — Migrate markUnparsedThenPush onto the loop](issues/41-migrate-markunparsedthenpush-onto-the-loop.md).
+   3. [ ] <a id="graph-change-contract"></a>**Contract** — The old direct write and the public post of `Op.SetDocumentState` are removed. The old assertions are removed. `Op.SetDocumentState` stays as the Event the client displays. Ticket: [42 — Contract the old parse-state write](issues/42-contract-the-old-parse-state-write.md).
 
 ### Test seam
 
@@ -238,7 +238,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
          3. [x] **MarkUnparsed** — That `NodeId`. Directory reconcile does not name an existing member for this case.
-         4. [ ] **SetDocumentState** — That `NodeId` and the three-way parse state: Parsed, Unparsed, or NoServerFile. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
+         4. [ ] **SetDocumentState** — That `NodeId` and the three-way parse state: Parsed, Unparsed, or NoServerFile. Ticket: [38 — Expand both parse-state outputs](issues/38-expand-both-parse-state-outputs.md).
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
