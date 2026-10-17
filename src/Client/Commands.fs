@@ -231,12 +231,14 @@ let private firstChildPlainOpt (graph: Graph) (focusId: NodeId) : string option 
         |> Option.bind (fun ch -> Map.tryFind ch.id graph.nodes)
         |> Option.map (fun n -> plainTextForOpenTarget n.text))
 
-let jumpTargetOp (model: VM) : VM * Effect list =
-    let focusId =
-        match model.selectedNodes with
-        | None -> viewRootNodeId model
-        | Some sel -> focusedNodeId model.graph sel
+let private openFileNode (model: VM) (focusId: NodeId) : VM * Effect list =
+    match NodeDesktopPath.fileOpenUrl model.graph focusId with
+    | Some url ->
+        openUrlInNewTab url
+        model, []
+    | None -> model, []
 
+let private openLinkTarget (model: VM) (focusId: NodeId) : VM * Effect list =
     let primaryRaw =
         match model.mode with
         | Editing _ -> readEditInputValue ()
@@ -250,6 +252,23 @@ let jumpTargetOp (model: VM) : VM * Effect list =
     | Some url ->
         openUrlInNewTab url
         model, []
+
+let jumpTargetOp (model: VM) : VM * Effect list =
+    let focusId =
+        match model.selectedNodes with
+        | None -> viewRootNodeId model
+        | Some sel -> focusedNodeId model.graph sel
+
+    match Map.tryFind focusId model.graph.nodes with
+    | None -> model, []
+    | Some node ->
+        match NodeDesktopPath.nodeOpenAction node.kind with
+        | NodeDesktopPath.NodeOpenAction.OpenFile ->
+            openFileNode model focusId
+        | NodeDesktopPath.NodeOpenAction.OpenLink ->
+            openLinkTarget model focusId
+        | NodeDesktopPath.NodeOpenAction.NoOp ->
+            model, []
 
 [<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
