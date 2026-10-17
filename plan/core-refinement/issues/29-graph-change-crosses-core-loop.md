@@ -1,10 +1,16 @@
 # 29 — Graph change crosses Core loop
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture
 Actual: 15m
+
+## Superseded
+
+This file is history. Do not implement it. One implementation refused `Op.SetDocumentState` on the public post and broke upload, import, undo, and stored replay. The Op stays. The client needs it in an Event to display document state. The gate funnels that modification through the restricted channel and refuses the public post only at the end.
+
+Superseded by [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md), [39 — Upload, import, undo, and stored replay use the mailbox writer](39-upload-import-undo-replay-use-the-mailbox-writer.md), [40 — Parse and reconcile use the mailbox writer](40-parse-and-reconcile-use-the-mailbox-writer.md), [41 — markUnparsedThenPush stays on the mailbox loop](41-mark-unparsed-then-push-on-the-mailbox-loop.md), and [42 — Public post refuses SetDocumentState](42-public-post-refuses-set-document-state.md).
 
 ## Context
 
@@ -52,3 +58,7 @@ Every graph change and parse-state write crosses the `MailboxProcessor` in Core 
 ## Time
 
 - 2026-10-16 15m — investigate and define concrete scope for mailbox-only `markUnparsedThenPush` and private `InMsg` parse-state queue `(from chat)`
+
+## Comments
+
+- 2026-10-17 — Status `cancelled`. Superseded by [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md) through [42 — Public post refuses SetDocumentState](42-public-post-refuses-set-document-state.md). The body above is the old single-step scope. It is not the live plan.

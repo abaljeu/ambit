@@ -111,7 +111,7 @@ Commitment 2026-09-28 (Alan). These rules say who writes each axis and which nod
     > Temporarily disabled (2026-10-08): MarkUnparsed does not enqueue; see requeueOnUnparsed in src/Server/ParseThread.fs. Disabling step: [28 — Stop enqueueing nodes just marked Unparsed](../github-transport/issues/28-stop-enqueueing-nodes-just-marked-unparsed.md). Re-enabled by [08 — Re-enable recursive update: enqueue on MarkUnparsed](../parse-thread/issues/08-re-enable-recursive-update-enqueue-on-markunparsed.md).
 
 11. **Parse stack pop** — If the node is already **Parsed**, the parse thread skips it. Real work arrives **Unparsed**. That skip is coded.
-12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
+12. **InMsg** — The internal message type is `InMsg` on **Core loop** (§10). It is not an Op. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`, and `SetDocumentState`. `SetDocumentState` carries Parsed, Unparsed, or NoServerFile.
 13. **One mailbox queue** — The mailbox has one queue. A private function adds `InMsg`. A public function adds `CoreMsg`. The queue puller hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue. The puller file is `src/Server/Core/CoreMailboxLoad.fs`. The private function is on the mailbox, `src/Server/Core/CoreMailbox.fs`.
 14. **Private axes** — PersistState and the parsed axis stay internal. The writer interface is **Core loop** (§10).
 
@@ -145,7 +145,7 @@ Commitment 2026-09-30 (Alan). Axes remain informational drift markers (§1), not
 4. Name tickets in full (for example [05 — Selection-scoped Parse after whole-tree git Load](issues/05-selection-scoped-parse-after-whole-tree-git-load.md)).
 5. Git use is Core. Do not imply git is outside Core.
 7. Say **persist thread**, not persist actor. Persist is a thread; do not invent an Actor mailbox for it.
-8. Say **InMsg** for the internal message. The cases are `ParseFinished`, `SnapshotDone`, and `MarkUnparsed`.
+8. Say **InMsg** for the internal message. The cases are `ParseFinished`, `SnapshotDone`, `MarkUnparsed`, and `SetDocumentState`.
 
 ## 8. Related
 
@@ -214,7 +214,12 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    2. [x] **Core loop** — The queue puller hands `InMsg` to the `InMsg` handler. **Core loop** applies `InMsg`.
 
 2. **Graph change**
-   1. [ ] **Core loop** — Every path that changes the graph crosses **Core loop** on the `MailboxProcessor`. `markUnparsedThenPush` is invokable only by the mailbox on the loop; secondary parse-state calls and authorized parse/reconcile workers use the private `InMsg` queue from the mailbox rather than direct `replaceGraph` calls or public `Op.SetDocumentState` posts. Ticket: [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md).
+   1. [ ] <a id="graph-change-expand"></a>**Expand** — The mailbox has one parse-state writer. It runs only on Core loop. It applies `InMsg` `ParseFinished`, `InMsg` `MarkUnparsed`, and `InMsg` `SetDocumentState`. `SetDocumentState` carries Parsed, Unparsed, and NoServerFile. The writer logs `Op.SetDocumentState` as an Event so the client displays document state. Callers stay on their current path. The public post still accepts the Op. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
+   2. **Migrate**
+      1. [ ] <a id="graph-change-migrate-upload"></a>**Upload, import, undo, and stored replay** — Those four apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md).
+      2. [ ] <a id="graph-change-migrate-parse"></a>**File parse, directory reconcile, and lazy load** — Those callers apply the three-way parse state through the mailbox writer. The client still receives the logged Event. Ticket: [40 — Parse and reconcile use the mailbox writer](issues/40-parse-and-reconcile-use-the-mailbox-writer.md).
+      3. [ ] <a id="graph-change-migrate-push"></a>**markUnparsedThenPush** — That function runs only on the mailbox loop. Callers enqueue `InMsg.MarkUnparsed`. The client still receives the logged Event. Ticket: [41 — markUnparsedThenPush stays on the mailbox loop](issues/41-mark-unparsed-then-push-on-the-mailbox-loop.md).
+   3. [ ] <a id="graph-change-contract"></a>**Contract** — The public post refuses `Op.SetDocumentState`. The Op stays. The mailbox Event is what the client displays. Upload, import, undo, and stored replay stay working. Ticket: [42 — Public post refuses SetDocumentState](issues/42-public-post-refuses-set-document-state.md).
 
 ### Test seam
 
@@ -233,6 +238,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
          1. [x] **ParseFinished** — That `NodeId`. Parse finished.
          2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished and that node is Persisted. This case replaces `PersistFinished`.
          3. [x] **MarkUnparsed** — That `NodeId`. Directory reconcile does not name an existing member for this case.
+         4. [ ] **SetDocumentState** — That `NodeId` and the three-way parse state: Parsed, Unparsed, or NoServerFile. Ticket: [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md).
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
    2. **Interface**
       1. [x] **Private add** — A private function on the mailbox takes `InMsg` and adds it to the queue.
@@ -244,7 +250,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       6. [x] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.
       8. [x] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. The live-document completion is `InMsg` `SnapshotDone`, added by the private function.
-      9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them through the private `InMsg` queue. `markUnparsedThenPush` is invokable only on the mailbox loop. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. Ticket: [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md).
+      9. [ ] **Private axes** — PersistState and the parsed axis are internal. Outsiders may see them. The core loop writes them through the private `InMsg` queue. `markUnparsedThenPush` is invokable only on the mailbox loop. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. Steps: [Graph change expand](#graph-change-expand) through [Graph change contract](#graph-change-contract).
       10. [x] **Mark unparsed** — `MarkUnparsed` sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
    3. **Uses**
       1. [x] **Parse thread** — Adds `InMsg` `ParseFinished` through the private function.
