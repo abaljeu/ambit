@@ -7,22 +7,22 @@
 
 ## Context
 
-[§1 Special-node Parse and Persist axes](plan/core-refinement/arch.md#1-special-node-parse-and-persist-axes) keeps persist state separate from parse state. Persisted means the node's data is written to its file on disk ([GLOSSARY.md](GLOSSARY.md)). The column `document_state` already stores the three-way parse state. [Database](src/Server/Database.fs) line 67 adds that column with default `current`. Stored words are `current`, `unparsed`, and `noServerFile`. Reload in [Graph projection](src/Shared/GraphProjection.fs) `graphFromPersistence` reads only that column, and `Node.Create` then defaults persist state to Persisted. Unpersisted does not survive reload.
+[§1 Special-node Parse and Persist axes](plan/core-refinement/arch.md#1-special-node-parse-and-persist-axes) keeps persist state separate from parse state. Persisted means the node's data is written to its file on disk ([GLOSSARY.md](GLOSSARY.md)). The column `document_state` stores Parsed or Unparsed only. PullingFile is memory-only. On server reboot PullingFile is not true. [Database](src/Server/Database.fs) line 67 adds that column with default `current`. Today's stored words are `current`, `unparsed`, and `noServerFile` [o] obsolescent. Reload in [Graph projection](src/Shared/GraphProjection.fs) `graphFromPersistence` reads only that column, and `Node.Create` then defaults persist state to Persisted. Unpersisted does not survive reload.
 
 ## What to build
 
-A persist column stores persist state so reload restores it. The column `document_state` stays the three-way parse state.
+A persist column stores persist state so reload restores it. The column `document_state` stores Parsed or Unparsed only. PullingFile is not stored.
 
 ### Persist column
 
 1. [ ] **Migration** — [Database](src/Server/Database.fs) adds `persist_state` on `nodes` with the same `ADD COLUMN IF NOT EXISTS` statement used for `document_state`. Existing rows are Persisted.
-2. [ ] **Read and write** — [Database](src/Server/Database.fs) and [Database projection](src/Server/DatabaseProjection.fs) read and write `persist_state` beside `document_state`. The words in `document_state` stay `current`, `unparsed`, and `noServerFile`. `current` remains the stored word for Parsed.
+2. [ ] **Read and write** — [Database](src/Server/Database.fs) and [Database projection](src/Server/DatabaseProjection.fs) read and write `persist_state` beside `document_state`. The words in `document_state` are `current` and `unparsed`. `current` remains the stored word for Parsed. `unparsed` remains the stored word for Unparsed. PullingFile is not written. A stored word `noServerFile` [o] obsolescent reloads as Unparsed, so reboot does not restore PullingFile.
 3. [ ] **Reload** — [Graph projection](src/Shared/GraphProjection.fs) `nodeRowFromNode` and `graphFromPersistence` carry persist state both ways. A node that was Unpersisted is Unpersisted after reload. A node that was Persisted is Persisted after reload.
 
 ### Obligations
 
-1. [ ] **Workspace graph** — [Workspace graph](doc/current/graph.md) says persist state survives reload in `persist_state`, and `document_state` stays the three-way parse state.
-2. [ ] **Reload test** — A test stores one Persisted node and one Unpersisted node, reloads, and reads those same persist states back. `document_state` on the reloaded rows is still `current`, `unparsed`, or `noServerFile`.
+1. [ ] **Workspace graph** — [Workspace graph](doc/current/graph.md) says persist state survives reload in `persist_state`, and `document_state` stores Parsed or Unparsed only.
+2. [ ] **Reload test** — A test stores one Persisted node and one Unpersisted node, reloads, and reads those same persist states back. `document_state` on the reloaded rows is `current` or `unparsed`. A row stored as `noServerFile` [o] obsolescent reloads as Unparsed, not PullingFile.
 
 ## Finish-up
 

@@ -7,7 +7,7 @@
 
 ## Context
 
-Node JSON sends a derived `documentState` key beside `parseState` and `persistState`. [§4 Step 1 Commitment](plan/core-refinement/arch.md#4-step-1-commitment) keeps `DocumentStateEnum` for JSON until those callers migrate. Parsed, Unparsed, and NoServerFile are one three-way parse state. Persist state is separate ([GLOSSARY.md](GLOSSARY.md)). [§2 Starting point](plan/core-refinement/arch.md#2-starting-point) records today's JSON and SQL encoding.
+Node JSON sends a derived `documentState` key beside `parseState` and `persistState`. [§4 Step 1 Commitment](plan/core-refinement/arch.md#4-step-1-commitment) keeps `DocumentStateEnum` for JSON until those callers migrate. Parsed, Unparsed, and PullingFile are one three-way parse state. PullingFile is memory-only. The column `document_state` stores Parsed or Unparsed only. Persist state is separate ([GLOSSARY.md](GLOSSARY.md)). [§2 Starting point](plan/core-refinement/arch.md#2-starting-point) records today's JSON and SQL encoding.
 
 ## What to build
 
@@ -15,15 +15,15 @@ The node wire sends the three-way parse state once, plus persist state. The deri
 
 ### Wire
 
-1. [ ] **One parse value** — [Serialization](src/Shared/Serialization.fs) `encodeNode` (lines 142-148) and `nodeFromFields` (lines 169-177) send `parseState` as `parsed`, `unparsed`, or `noServerFile`. They send `persistState` as `persisted` or `unpersisted`.
+1. [ ] **One parse value** — [Serialization](src/Shared/Serialization.fs) `encodeNode` (lines 142-148) and `nodeFromFields` (lines 169-177) send `parseState` as `parsed`, `unparsed`, or PullingFile. The JSON word is `noServerFile` [o] obsolescent until [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md). They send `persistState` as `persisted` or `unpersisted`. The column `document_state` does not store PullingFile.
 2. [ ] **Derived key leaves** — The key `documentState` leaves the node object. `encodeDocumentState` (lines 13-17) and `decodeDocumentState` (lines 43-49) leave with that key.
-3. [ ] **Three-way restore** — Node JSON with `parseState` and `persistState` restores Parsed, Unparsed, or NoServerFile, and restores persist state.
+3. [ ] **Three-way restore** — Node JSON with `parseState` and `persistState` restores Parsed, Unparsed, or PullingFile, and restores persist state. Reload from `document_state` does not restore PullingFile.
 
 ### Obligations
 
 1. [ ] **HTTP contract** — [HTTP contract](doc/current/http-contract.md) shows `parseState` and `persistState` on a node and shows no `documentState` key.
 2. [ ] **Workspace graph** — [Workspace graph](doc/current/graph.md) shows the node wire as one three-way parse state plus persist state.
-3. [ ] **Round-trip test** — A test encodes and decodes a node for each of Parsed, Unparsed, and NoServerFile, with Persisted and with Unpersisted. The decoded node matches. The JSON object has no `documentState` key.
+3. [ ] **Round-trip test** — A test encodes and decodes a node for each of Parsed, Unparsed, and PullingFile, with Persisted and with Unpersisted. The decoded node matches. The JSON object has no `documentState` key.
 
 ## Finish-up
 

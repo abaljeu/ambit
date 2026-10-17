@@ -1,6 +1,6 @@
 # 39 — Upload, import, undo, and stored replay use the mailbox writer
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md)
 **Trackers:** architecture
@@ -43,3 +43,8 @@ Upload, import, undo, and stored replay apply the three-way parse state through 
 - [core-refinement](plan/core-refinement/project.md)
 - [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md)
 - [40 — Parse and reconcile use the mailbox writer](40-parse-and-reconcile-use-the-mailbox-writer.md)
+
+## Comments
+
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [44 — Apply document state from File events](44-apply-document-state-from-file-events.md).
+- 2026-10-17 — Superseded by [43 — Expand Node events beside the Set output](43-expand-file-events-beside-the-set-output.md), [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md), [45 — Remove document-state Set ops](45-remove-document-state-set-ops.md), [47 — Undo and redo set Unpersisted](47-undo-and-redo-set-unpersisted.md), [48 — Browser applies Node events](48-browser-applies-node-events.md), [50 — Upload emits NodeUploading](50-upload-emits-nodeuploading.md), [54 — Parse and import stop the Parsed Set](54-parse-and-import-stop-the-parsed-set.md), and [55 — Stored replay sets Unpersisted](55-stored-replay-sets-unpersisted.md). Status `cancelled`.

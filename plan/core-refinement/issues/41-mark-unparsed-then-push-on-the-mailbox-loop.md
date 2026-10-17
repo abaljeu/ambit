@@ -1,6 +1,6 @@
 # 41 — markUnparsedThenPush stays on the mailbox loop
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** [40 — Parse and reconcile use the mailbox writer](40-parse-and-reconcile-use-the-mailbox-writer.md)
 **Trackers:** architecture
@@ -38,3 +38,7 @@
 - [core-refinement](plan/core-refinement/project.md)
 - [40 — Parse and reconcile use the mailbox writer](40-parse-and-reconcile-use-the-mailbox-writer.md)
 - [42 — Public post refuses SetDocumentState](42-public-post-refuses-set-document-state.md)
+
+## Comments
+
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [44 — Apply document state from File events](44-apply-document-state-from-file-events.md).
