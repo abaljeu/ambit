@@ -257,8 +257,12 @@ The default Kind: ordinary outline content with no special structural role.
 _Avoid_: regular, plain, standard
 
 **Normal Node**:
-A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node.
-_Avoid_: normal (bare, for a Node), regular node, plain node
+A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node. A Normal Node carries neither parse state nor persist state.
+_Avoid_: normal (bare, for a Node), regular node, plain node, leaf node
+
+**NoServerFile**:
+A file is pending from the client. Parsed, Unparsed, and NoServerFile are one three-way parse state. The database column `document_state` stores that three-way state.
+_Avoid_: flag (for this value)
 
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
@@ -275,6 +279,14 @@ _Avoid_: Owner (spoken synonym for this role), hard link, parent link
 **Parse**:
 A Load-stage operation that turns server files into Graph content.  This step is more than simple parsing but also reconciles pre-existing graph content with file content.
 _Avoid_: import, reconcile (as the stage name)
+
+**Parsed**:
+The Graph has the file's data. Parsed, Unparsed, and NoServerFile are one three-way parse state.
+_Avoid_: Current (say Parsed)
+
+**Persisted**:
+The Node's data is written to its file on disk. The database records persist state in a persist field, separate from the `document_state` column.
+_Avoid_: saved, flushed
 
 **Poll**:
 A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
@@ -351,6 +363,10 @@ _Avoid_: revert, rollback
 **Unloaded**:
 A Node whose Children are not present.
 _Avoid_: stub, hollow, partial, collapsed (for this meaning)
+
+**Unparsed**:
+The Graph does not have the file's data. Parsed, Unparsed, and NoServerFile are one three-way parse state.
+_Avoid_: stale, dirty
 
 **Upload**:
 A Load-stage operation that pushes App files to the Server. Not the user-facing command name.
