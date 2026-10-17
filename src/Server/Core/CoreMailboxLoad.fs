@@ -165,28 +165,125 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
+    type internal ParseWriter = {
+        persist: PersistHandlers
+        eventLog: Gambol.Shared.EventLog ref
+    }
+
+    type private ParseChange = {
+        nodeId: NodeId
+        prior: DocumentStateEnum
+        next: DocumentStateEnum
+    }
+
+    let private documentEnum (graph: Graph) (nodeId: NodeId) =
+        Map.tryFind nodeId graph.nodes
+        |> Option.map Node.documentStateEnum
+
+    let private parseChange before after nodeId =
+        match documentEnum before nodeId, documentEnum after nodeId with
+        | Some prior, Some next when prior <> next ->
+            Some {
+                nodeId = nodeId
+                prior = prior
+                next = next
+            }
+        | _ -> None
+
+    let private parseEvent (log: Gambol.Shared.EventLog) change : Ev =
+        { id = EventLog.nextId log
+          submissionId = Guid.NewGuid()
+          authority = Authority "Core"
+          commandName = ""
+          body =
+            EventBody.Change [
+                Op.SetDocumentState(
+                    change.nodeId,
+                    change.prior,
+                    change.next)
+            ] }
+
+    let private catchUpNextId (writer: ParseWriter) persistLog =
+        let nextId =
+            EventId.max writer.eventLog.Value.nextId persistLog.nextId
+        writer.eventLog.Value <-
+            { writer.eventLog.Value with nextId = nextId }
+
+    /// Append to the persist log, then the mailbox history. A failure
+    /// returns before today's graph write.
+    let private storeParseEvent (writer: ParseWriter) change =
+        match writer.persist.getEventLog () with
+        | Error err -> Error err
+        | Ok persistLog ->
+            catchUpNextId writer persistLog
+            let event = parseEvent writer.eventLog.Value change
+            match writer.persist.appendEvent event with
+            | Error err -> Error err
+            | Ok () ->
+                writer.eventLog.Value <-
+                    EventLog.append event writer.eventLog.Value
+                Ok ()
+
+    /// Today's graph write. A changed parse state is logged first.
+    let private writeAndLog
+        (writer: ParseWriter)
+        (nodeId: NodeId)
+        (mutate: Graph -> Result<Graph, string>)
+        =
+        match writer.persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            match mutate state.graph with
+            | Error err -> Error err
+            | Ok graph ->
+                let commit () = writeAxis writer.persist mutate
+                match parseChange state.graph graph nodeId with
+                | None -> commit ()
+                | Some change ->
+                    match storeParseEvent writer change with
+                    | Error err -> Error err
+                    | Ok () -> commit ()
+
+    let private writeDocumentState writer nodeId next =
+        writeAndLog writer nodeId (fun graph ->
+            let prior =
+                documentEnum graph nodeId |> Option.defaultValue next
+            GraphMutate.setDocumentState nodeId prior next graph)
+
     /// Core loop apply. ParseFinished writes Parsed only when noServerFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// noServerFile is set, that File Node stays Unparsed. It does not
-    /// set Persisted.
-    /// MarkUnparsed writes Unparsed only.
-    /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
+    /// set Persisted. MarkUnparsed writes Unparsed only. SetDocumentState
+    /// writes Parsed, Unparsed, or NoServerFile. A changed value logs
+    /// Op.SetDocumentState before today's write. SnapshotDone sets Persisted.
     let internal applyInMsg
-        (persist: PersistHandlers)
+        (writer: ParseWriter)
         (msg: InMsg)
         : Result<unit, string> =
         match msg with
         | InMsg.ParseFinished nodeId ->
-            match writeParseState persist nodeId ParseState.Parsed with
+            match
+                writeAndLog writer nodeId (fun graph ->
+                    GraphMutate.setParseState
+                        nodeId
+                        ParseState.Parsed
+                        graph)
+            with
             | Error err -> Error err
             | Ok () ->
-                persist.noteParsed nodeId
+                writer.persist.noteParsed nodeId
                 Ok ()
         | InMsg.MarkUnparsed nodeId ->
-            writeParseState persist nodeId ParseState.Unparsed
+            writeAndLog writer nodeId (fun graph ->
+                GraphMutate.setParseState
+                    nodeId
+                    ParseState.Unparsed
+                    graph)
+        | InMsg.SetDocumentState(nodeId, next) ->
+            writeDocumentState writer nodeId next
         | InMsg.SnapshotDone(nodeId, graph) ->
-            persist.snapshotDone nodeId graph
-            writeAxis persist (fun live ->
+            writer.persist.snapshotDone nodeId graph
+            writeAxis writer.persist (fun live ->
                 GraphMutate.setPersistState
                     nodeId
                     PersistState.Persisted
@@ -202,7 +299,12 @@ module internal CoreMailboxLoad =
         match item with
         | QueueSum.Core msg -> dispatch context msg
         | QueueSum.In msg ->
-            match applyInMsg context.persist msg with
+            match
+                applyInMsg
+                    { persist = context.persist
+                      eventLog = context.eventLog }
+                    msg
+            with
             | Ok () -> ()
             | Error err -> reportInMsg context err
 
