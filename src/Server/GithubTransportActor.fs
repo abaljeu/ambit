@@ -15,7 +15,6 @@ type GithubTransportWorkTreeGate =
 
 type GithubTransportGit =
     { withWorkTreeGate: GithubTransportWorkTreeGate
-      trackedBranch: string -> Result<WorkspaceTrackedBranch, string>
       pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       commitAll:
@@ -83,7 +82,7 @@ module GithubTransportActor =
             LoadCommit.NothingToCommit tracked
         | Ok(tracked, _) -> LoadCommit.Committed tracked
 
-    let private headsAfterPull git workspaceRoot tracked =
+    let private pullAndReadHeads git workspaceRoot tracked =
         let beforeHead = WorkspaceGit.tryHead workspaceRoot
         git.pullTracked workspaceRoot tracked
         |> Result.map (fun _ ->
@@ -102,7 +101,7 @@ module GithubTransportActor =
             | LoadCommit.Failed err -> Error err
             | LoadCommit.Committed tracked
             | LoadCommit.NothingToCommit tracked ->
-                headsAfterPull git workspaceRoot tracked)
+                pullAndReadHeads git workspaceRoot tracked)
 
     let private saveTracked git workspaceRoot =
         git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
@@ -242,7 +241,6 @@ module GithubTransportActor =
 
     let workspaceGit : GithubTransportGit =
         { withWorkTreeGate = workTreeGate
-          trackedBranch = WorkspaceGit.trackedBranch
           pullTracked = WorkspaceGit.pullTrackedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }

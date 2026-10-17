@@ -68,7 +68,6 @@ let private markingDependencies pull =
         { withWorkTreeGate =
             { new GithubTransportWorkTreeGate with
                 member _.applyAction _ action = action () }
-          trackedBranch = fun _ -> Ok tracked
           pullTracked = pull
           commitAll = fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
           pushTracked = fun _ _ _ -> Error "unused" } }
@@ -126,7 +125,6 @@ let ``git Load commits before pull`` () =
             { withWorkTreeGate =
                 { new GithubTransportWorkTreeGate with
                     member _.applyAction _ action = action () }
-              trackedBranch = fun _ -> Ok tracked
               pullTracked = pull
               commitAll = commit
               pushTracked = push } }

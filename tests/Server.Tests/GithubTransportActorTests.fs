@@ -36,10 +36,6 @@ let private dependencies
                         action ()
                     finally
                         steps.Add($"gate release {root}") }
-          trackedBranch =
-            fun root ->
-                steps.Add($"tracked {root}")
-                Ok tracked
           pullTracked = pull
           commitAll = commit
           pushTracked = push }
