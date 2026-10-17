@@ -7,12 +7,14 @@ type GithubTransportOperation =
     | Load
     | Save
 
-type GithubTransportGit =
-    { withWorkTreeGate:
+type GithubTransportWorkTreeGate =
+    abstract applyAction<'value> :
         string ->
-        (unit -> Result<WorkspaceTrackedBranch * string, string>) ->
-        Result<WorkspaceTrackedBranch * string, string>
-      trackedBranch: string -> Result<WorkspaceTrackedBranch, string>
+        (unit -> Result<'value, string>) ->
+        Result<'value, string>
+
+type GithubTransportGit =
+    { withWorkTreeGate: GithubTransportWorkTreeGate
       pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       commitAll:
@@ -62,15 +64,47 @@ module GithubTransportActor =
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
 
+    [<RequireQualifiedAccess>]
+    type private LoadCommit =
+        | Committed of WorkspaceTrackedBranch
+        | NothingToCommit of WorkspaceTrackedBranch
+        | Failed of string
+
+    type private LoadPullHeads =
+        { beforeHead: Result<string option, string>
+          afterHead: Result<string option, string> }
+
+    let private readLoadCommit result =
+        match result with
+        | Error err -> LoadCommit.Failed err
+        | Ok(tracked, output)
+            when output = GitSave.nothingToCommitMessage ->
+            LoadCommit.NothingToCommit tracked
+        | Ok(tracked, _) -> LoadCommit.Committed tracked
+
+    let private pullAndReadHeads git workspaceRoot tracked =
+        let beforeHead = WorkspaceGit.tryHead workspaceRoot
+        git.pullTracked workspaceRoot tracked
+        |> Result.map (fun _ ->
+            { beforeHead = beforeHead
+              afterHead = WorkspaceGit.tryHead workspaceRoot })
+
     let private pullTracked git workspaceRoot =
-        git.withWorkTreeGate workspaceRoot (fun () ->
-            git.trackedBranch workspaceRoot
-            |> Result.bind (fun tracked ->
-                git.pullTracked workspaceRoot tracked
-                |> Result.map (fun output -> tracked, output)))
+        git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
+            match
+                readLoadCommit (
+                    git.commitAll
+                        workspaceRoot
+                        "gambol: git Load"
+                        None)
+            with
+            | LoadCommit.Failed err -> Error err
+            | LoadCommit.Committed tracked
+            | LoadCommit.NothingToCommit tracked ->
+                pullAndReadHeads git workspaceRoot tracked)
 
     let private saveTracked git workspaceRoot =
-        git.withWorkTreeGate workspaceRoot (fun () ->
+        git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
             git.commitAll
                 workspaceRoot
                 "gambol: git Save"
@@ -78,9 +112,9 @@ module GithubTransportActor =
         |> Result.bind (fun (tracked, commitOutput) ->
             git.pushTracked workspaceRoot tracked commitOutput)
 
-    /// Changed list after a pull. None when HEAD cannot be read.
-    let private changedAfterPull workspaceRoot before =
-        match before, WorkspaceGit.tryHead workspaceRoot with
+    /// Paths the pull changed. None when either head cannot be read.
+    let private changedAfterPull workspaceRoot heads =
+        match heads.beforeHead, heads.afterHead with
         | Ok oldHead, Ok(Some newHead) ->
             match
                 WorkspaceGit.changedPathsBetween
@@ -119,12 +153,11 @@ module GithubTransportActor =
         workspaceRoot
         =
         async {
-            let before = WorkspaceGit.tryHead workspaceRoot
             match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
-            | Ok _ ->
+            | Ok heads ->
                 let changed =
-                    changedAfterPull workspaceRoot before
+                    changedAfterPull workspaceRoot heads
                     |> Option.defaultValue []
                 return!
                     finishLoadPull
@@ -201,9 +234,13 @@ module GithubTransportActor =
                 return ()
             }
 
+    let private workTreeGate =
+        { new GithubTransportWorkTreeGate with
+            member _.applyAction root action =
+                WorkspaceGit.withWorkTreeGate root action }
+
     let workspaceGit : GithubTransportGit =
-        { withWorkTreeGate = WorkspaceGit.withWorkTreeGate
-          trackedBranch = WorkspaceGit.trackedBranch
+        { withWorkTreeGate = workTreeGate
           pullTracked = WorkspaceGit.pullTrackedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }
