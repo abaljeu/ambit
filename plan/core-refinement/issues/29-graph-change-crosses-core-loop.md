@@ -10,7 +10,7 @@ Actual: 15m
 
 This file is history. Do not implement it. One implementation refused `Op.SetDocumentState` on the public post and broke upload, import, undo, and stored replay. The Op stays. The client needs it in an Event to display document state. The gate funnels that modification through the restricted channel and refuses the public post only at the end.
 
-Superseded by [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md), [39 — Upload, import, undo, and stored replay use the mailbox writer](39-upload-import-undo-replay-use-the-mailbox-writer.md), [40 — Parse and reconcile use the mailbox writer](40-parse-and-reconcile-use-the-mailbox-writer.md), [41 — markUnparsedThenPush stays on the mailbox loop](41-mark-unparsed-then-push-on-the-mailbox-loop.md), and [42 — Public post refuses SetDocumentState](42-public-post-refuses-set-document-state.md).
+Superseded by [38 — Expand both parse-state outputs](38-expand-both-parse-state-outputs.md), [39 — Migrate upload, import, undo, and stored replay](39-migrate-upload-import-undo-and-stored-replay.md), [40 — Migrate parse, reconcile, and lazy load](40-migrate-parse-reconcile-and-lazy-load.md), [41 — Migrate markUnparsedThenPush onto the loop](41-migrate-markunparsedthenpush-onto-the-loop.md), and [42 — Contract the old parse-state write](42-contract-the-old-parse-state-write.md).
 
 ## Context
 
@@ -61,4 +61,4 @@ Every graph change and parse-state write crosses the `MailboxProcessor` in Core 
 
 ## Comments
 
-- 2026-10-17 — Status `cancelled`. Superseded by [38 — Mailbox parse-state writer logs the Event](38-mailbox-parse-state-writer-logs-the-event.md) through [42 — Public post refuses SetDocumentState](42-public-post-refuses-set-document-state.md). The body above is the old single-step scope. It is not the live plan.
+- 2026-10-17 — Status `cancelled`. Superseded by [38 — Expand both parse-state outputs](38-expand-both-parse-state-outputs.md) through [42 — Contract the old parse-state write](42-contract-the-old-parse-state-write.md). The body above is the old single-step scope. It is not the live plan.
