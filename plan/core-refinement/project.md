@@ -2,7 +2,7 @@
 
 Stage: slice
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-16
+Updated: 2026-10-17
 Started: 2026-09-29
 Actual: 17h30m
 
@@ -43,6 +43,7 @@ Actual: 17h30m
 - 2026-10-16 — Alan accepted [21 — Contract Load onto the Parse stack](issues/21-contract-load-onto-the-parse-stack.md). Status `done`. Stage stays `build`.
 - 2026-10-16 — Published the open beats that had no coding ticket. [28 — Parsed when clear](issues/28-parsed-when-clear.md) and [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) are single beats. The workspace lock chain is [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md), [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md), and [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md). [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) stays its own beat, blocked by 30 — Expand the workspace lock. Status of each new ticket is `defined`. Stage is `slice`.
 - 2026-10-16 — [28 — Parsed when clear](issues/28-parsed-when-clear.md) sets a File Node Parsed from `ParseFinished` only when `noServerFile` is clear. Status `coded`. Stage stays `build`.
+- 2026-10-17 — Alan: Parsed, Unparsed, and NoServerFile are one three-way parse state. The column `document_state` already stores that state and stays. Persisted is separate and needs a persist field. A Normal Node carries neither parse state nor persist state. Terms: [[GLOSSARY.md]]. Tickets: [34 — Retire SetDocumentState](issues/34-retire-set-document-state.md), [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md), [36 — Add the persist column](issues/36-add-the-persist-column.md), [37 — Kind-specific node state](issues/37-kind-specific-node-state.md). Status of each new ticket is `defined`. Stage stays `slice`.
 
 ## Issues
 
@@ -79,3 +80,7 @@ Actual: 17h30m
 - [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md) — Persist, parse-thread file use, and git Load and git Save follow the workspace lock. Status `defined`.
 - [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) — after the lock drains, pull or Upload lands, arrived files are marked Unparsed, the lock releases, and Unparsed starts the parse thread. Status `defined`.
 - [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) — `withWorkTreeGate` leaves Persist and git paths. Status `defined`.
+- [34 — Retire SetDocumentState](issues/34-retire-set-document-state.md) — `Op.SetDocumentState`, `DocumentStateEnum`, and its converters leave. Upload and import use `GraphMutate.setParseState`, the one parse-state writer. Status `defined`.
+- [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md) — node JSON sends the three-way parse state once, plus `persistState`. The derived `documentState` key leaves. Status `defined`.
+- [36 — Add the persist column](issues/36-add-the-persist-column.md) — a persist column stores persist state across reload. The column `document_state` stays. Status `defined`.
+- [37 — Kind-specific node state](issues/37-kind-specific-node-state.md) — a Normal Node holds and sends neither parse state nor persist state. Only a File Node carries NoServerFile. Status `defined`.
