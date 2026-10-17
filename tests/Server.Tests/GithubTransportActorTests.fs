@@ -66,17 +66,21 @@ let private seedOperation host operationName =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let commandId = NodeId.New()
     let focusId = NodeId.New()
-    let ops =
-        workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
-            Op.NewNode(focusId, "subnode")
-            Op.Replace(
-                workspaceId,
-                [],
-                [ ChildNode.owner commandId
-                  ChildNode.owner focusId ]) ]
-    postGraph host ops
+    postGraph host workspaceOps
+    CoreMailboxApi.addInMsg host (InMsg.ParseFinished workspaceId)
+    CoreMailboxApi.getState host
+    |> Async.RunSynchronously
+    |> requireOk "parse workspace"
+    |> ignore
+    postGraph
+        host
+        [ Op.NewNode(commandId, operationName)
+          Op.NewNode(focusId, "subnode")
+          Op.Replace(
+              workspaceId,
+              [],
+              [ ChildNode.owner commandId
+                ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
       commandId = commandId
       focusId = focusId }
@@ -117,16 +121,21 @@ let private runActor operation dependencies operationName onPush body =
     task {
         let dataDir = newTempDir ()
         let pool = CoreActorPool.create ()
+        let enqueue: (InMsg -> unit) ref = ref (fun (_: InMsg) -> ())
         pool.registerPeer
             (GithubTransportActor.peerName operation)
             (GithubTransportActor.actorFn
-                dataDir operation dependencies)
+                dataDir
+                operation
+                dependencies
+                (fun msg -> enqueue.Value msg))
         let host =
             CoreMailbox.hostWithParsePush
                 pool
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
                 onPush
+        enqueue.Value <- CoreMailboxApi.addInMsg host
         try
             let seed = seedOperation host operationName
             do! body dataDir host pool operation seed
@@ -281,7 +290,15 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
             let reconciled =
                 history.events
                 |> List.exists (fun event ->
-                    event.commandName = "Parse")
+                    event.commandName = "Parse"
+                    && match Ev.ops event with
+                       | None -> false
+                       | Some ops ->
+                           List.exists
+                               (function
+                               | Op.SetDocumentState _ -> false
+                               | _ -> true)
+                               ops)
             Assert.False(reconciled)
             let root = Path.Combine(dataDir, "home")
             Assert.Contains($"pull {root}", steps)

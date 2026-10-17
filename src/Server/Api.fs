@@ -439,13 +439,23 @@ module Api =
             with
             | Error err ->
                 return Results.BadRequest({| error = err |})
-            | Ok [] ->
-                return jsonResult """{"ok":true}"""
             | Ok ops ->
-                let event = GraphOnlyChangePost.mint "Parse" ops
-                match! CoreDoor.postGraphOnly handle event with
-                | Ok _ -> return jsonResult """{"ok":true}"""
-                | Error err -> return agentErrorResult err
+                CoreMailboxApi.addInMsg
+                    handle.host
+                    (InMsg.ParseFinished fileId)
+                match ops with
+                | [] ->
+                    let! _ = CoreDoor.getState handle
+                    return jsonResult """{"ok":true}"""
+                | ops ->
+                    let event = GraphOnlyChangePost.mint "Parse" ops
+                    match! CoreDoor.postGraphOnly handle event with
+                    | Ok _ -> return jsonResult """{"ok":true}"""
+                    | Error err ->
+                        CoreMailboxApi.addInMsg
+                            handle.host
+                            (InMsg.MarkUnparsed fileId)
+                        return agentErrorResult err
         }
 
     /// ParseFile command: optional body text or DataDir read → apply on agent graph.

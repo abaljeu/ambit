@@ -746,7 +746,9 @@ let ``second Load of a Parsed File is parsed again`` () =
     }
 
 let private applyEvents (state: State) (events: Ev list) : State =
-    List.fold
+    events
+    |> List.sortBy (fun event -> EventId.value event.id)
+    |> List.fold
         (fun current event ->
             match Ev.apply event current with
             | ApplyResult.Changed next -> next
@@ -754,7 +756,6 @@ let private applyEvents (state: State) (events: Ev list) : State =
             | ApplyResult.Invalid (_, message) ->
                 failwith message)
         state
-        events
 
 let private childText (graph: Graph) (fileId: NodeId) (text: string) =
     Graph.children graph fileId
@@ -963,8 +964,7 @@ let private holdCurrentChild host dataDir =
         let keptNode = (stateOf host).graph.nodes.[keptId]
         postOps
             host
-            [ Op.SetDocumentState(keptId, Unparsed, Current)
-              Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
+            [ Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
         CoreMailboxApi.addInMsg host (InMsg.ParseFinished keptId)
         let! parsed =
             waitUntil

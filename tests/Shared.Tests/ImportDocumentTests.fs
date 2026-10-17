@@ -343,7 +343,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
     Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
-let ``planParseFile blank input marks Unparsed file Current`` () =
+let ``planParseFile blank input omits SetDocumentState`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let file =
@@ -361,22 +361,11 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
         ImportDocument.planParseFile graph fileId "  \n"
         |> requireOk "planParseFile blank"
 
-    Assert.True(
+    Assert.False(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
-                true
+            | Op.SetDocumentState _ -> true
             | _ -> false))
-
-    let after = applyChange graph {
-        id = EventId.zero
-        submissionId = Guid.NewGuid()
-        authority = Authority "Browser"
-        commandName = ""
-        body = EventBody.Change ops
-    }
-
-    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``planParseFile rejects binary image extension`` () =
@@ -419,7 +408,7 @@ let ``planParseFile rejects NUL content on unknown extension`` () =
     | Error err -> Assert.Equal(DocumentBinary.parseError, err)
 
 [<Fact>]
-let ``planParseFile unparsed marks Current`` () =
+let ``planParseFile unparsed omits SetDocumentState`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let file =
@@ -440,13 +429,23 @@ let ``planParseFile unparsed marks Current`` () =
             ("alpha" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.True(
+    Assert.False(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId -> true
+            | Op.SetDocumentState _ -> true
             | _ -> false))
 
-    let after = applyChange graph {
+    let opened =
+        applyChange graph {
+            id = EventId.zero
+            submissionId = Guid.NewGuid()
+            authority = Authority "Parse"
+            commandName = "Parse"
+            body =
+                EventBody.Change
+                    [ Op.SetDocumentState(fileId, Unparsed, Current) ]
+        }
+    let after = applyChange opened {
         id = EventId.zero
         submissionId = Guid.NewGuid()
         authority = Authority "Browser"
@@ -515,22 +514,29 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
             ("ALPHA" + Environment.NewLine + "beta" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.True(
+    Assert.False(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
-                true
-            | _ -> false),
-        "Unparsed → Current must lead the batch")
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
+    let opened =
+        SpecialNodeTestHelpers.applyChange
+            (SpecialNodeTestHelpers.changeEventZero
+                "Parse"
+                [ Op.SetDocumentState(fileId, Unparsed, Current) ])
+            { graph = graph; eventId = EventId.zero }
+        |> function
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid(_, msg) -> failwith msg
     let change =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    let state =
-        { graph = graph; eventId = EventId.zero }
+    let state = opened
 
     match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -884,8 +890,9 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
         match
             SpecialNodeTestHelpers.applyChange
                 (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
+                (applyOps
+                    { graph = seededGraph; eventId = EventId.zero }
+                    [ Op.SetDocumentState(fileId, Unparsed, Current) ])
         with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged s -> s.graph
@@ -978,8 +985,9 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
         match
             SpecialNodeTestHelpers.applyChange
                 (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
+                (applyOps
+                    { graph = seededGraph; eventId = EventId.zero }
+                    [ Op.SetDocumentState(fileId, Unparsed, Current) ])
         with
         | ApplyResult.Changed s -> s.graph
         | ApplyResult.Unchanged s -> s.graph
@@ -1035,7 +1043,8 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
                 || underFile.Head.id = midId,
                 "File child should be a rematched prior line id")
 
-/// Baseline: empty Unparsed (first parse) still cold-applies via History.
+/// Baseline: empty Unparsed (first parse) plans content without a state op.
+/// History apply of that content needs the file Current; the mailbox sets that.
 [<Fact>]
 let ``planParseFile Unparsed plain upload body applies via History`` () =
     let graph0 = Graph.create ()
@@ -1070,6 +1079,11 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
     let ops =
         ImportDocument.planParseFile graph noteId ("NEW-EDIT" + Environment.NewLine)
         |> requireOk "planParseFile"
+    Assert.False(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
     let change =
         { id = EventId.zero
@@ -1078,7 +1092,14 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
           commandName = ""
           body = EventBody.Change ops }
     let state =
-        { graph = graph; eventId = EventId.zero }
+        match
+            Op.apply
+                (Op.SetDocumentState(noteId, Unparsed, Current))
+                { graph = graph; eventId = EventId.zero }
+        with
+        | ApplyResult.Changed next
+        | ApplyResult.Unchanged next -> next
+        | ApplyResult.Invalid(_, err) -> failwith err
 
     match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -1142,10 +1163,17 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     let ops =
         ImportDocument.planParseFile graph parseFileId body
         |> requireOk "planParseFile"
+    Assert.False(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
     let change = SpecialNodeTestHelpers.changeEventZero "" ops
     let state =
-        { graph = graph; eventId = EventId.zero }
+        applyOpsState
+            { graph = graph; eventId = EventId.zero }
+            [ Op.SetDocumentState(parseFileId, Unparsed, Current) ]
 
     match SpecialNodeTestHelpers.applyChange change state with
     | ApplyResult.Invalid(_, msg) ->
@@ -1191,11 +1219,18 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
             fileId
             ("line" + Environment.NewLine)
         |> requireOk "planParseFile"
+    Assert.False(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
     match
         SpecialNodeTestHelpers.applyChange
             (SpecialNodeTestHelpers.changeEventZero "" ops)
-            { graph = graph; eventId = EventId.zero }
+            (applyOpsState
+                { graph = graph; eventId = EventId.zero }
+                [ Op.SetDocumentState(fileId, Unparsed, Current) ])
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
@@ -1247,11 +1282,16 @@ let ``planParseFile after Insert Ref reaches Current`` () =
             fileId
             ("parsed" + Environment.NewLine)
         |> requireOk "planParseFile"
+    Assert.False(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
     match
         SpecialNodeTestHelpers.applyChange
             (SpecialNodeTestHelpers.changeEventZero "" ops)
-            { graph = graph; eventId = EventId.zero }
+            (markDocumentCurrent fileId { graph = graph; eventId = EventId.zero })
     with
     | ApplyResult.Invalid(_, msg) ->
         Assert.True(false, "parse after Insert Ref must apply; got: " + msg)

@@ -11,8 +11,8 @@ module CoreMailbox =
         (persist: PersistFilling)
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
-        : MailboxHost * (NodeId -> unit) =
-        let context, push =
+        : MailboxHost =
+        let context =
             CoreMailboxLoad.makeMailBox
                 credentials
                 persist
@@ -25,7 +25,7 @@ module CoreMailbox =
             { host = created
               caller = caller
               writable = true })
-        created, push
+        created
 
     let internal hostWithParsePush
         (pool: CoreActorPool)
@@ -33,8 +33,7 @@ module CoreMailbox =
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
         : MailboxHost =
-        let host, _ = hostPublishing pool persist credentials parsePush
-        host
+        hostPublishing pool persist credentials parsePush
 
     let internal host
         (pool: CoreActorPool)

@@ -28,10 +28,11 @@ module LazyLoadReconciliationServer =
         DocumentArtifactPath.isDirectoryFile path
 
     /// Core handle, data directory, and workspace label for one reconcile.
-    type WorkspaceReconcile =
+    type internal WorkspaceReconcile =
         { handle: CoreChangesDoor
           dataDir: string
-          workspaceLabel: string }
+          workspaceLabel: string
+          enqueueInMsg: InMsg -> unit }
 
     /// Added Current Directory Files are skipped at finalize; do not read them.
     /// Modified / renamed / Unparsed / missing stubs still need artifact text.
@@ -258,25 +259,85 @@ module LazyLoadReconciliationServer =
         { handle: CoreChangesDoor
           dataDir: string
           workspaceLabel: string
+          enqueueInMsg: InMsg -> unit
           graph: Graph
           changes: LazyLoadReconciliation.ChangedPath list
           artifactReads: LazyLoadReconciliation.ChangedPath list }
 
-    let private postReconcileReport
+    let private consignParseState (enqueueInMsg: InMsg -> unit) (op: Op) =
+        match op with
+        | Op.SetDocumentState(nodeId, oldState, newState) ->
+            match newState with
+            | Unparsed ->
+                enqueueInMsg (InMsg.MarkUnparsed nodeId)
+                Ok ()
+            | Current when oldState = NoServerFile ->
+                enqueueInMsg (InMsg.MarkUnparsed nodeId)
+                enqueueInMsg (InMsg.ParseFinished nodeId)
+                Ok ()
+            | Current ->
+                enqueueInMsg (InMsg.ParseFinished nodeId)
+                Ok ()
+            | NoServerFile ->
+                Error "SetDocumentState to NoServerFile is not an InMsg"
+        | _ -> Ok ()
+
+    type private RelayStep =
+        | Axis of Op
+        | Body of Op list
+
+    let private closePending pending acc =
+        match List.rev pending with
+        | [] -> acc
+        | body -> Body body :: acc
+
+    let private relaysOf (ops: Op list) =
+        let rec loop acc pending ops =
+            match ops with
+            | [] -> List.rev (closePending pending acc)
+            | Op.SetDocumentState _ as op :: rest ->
+                loop (Axis op :: closePending pending acc) [] rest
+            | op :: rest -> loop acc (op :: pending) rest
+        loop [] [] ops
+
+    let private postRelays
+        (enqueueInMsg: InMsg -> unit)
         (handle: CoreChangesDoor)
-        (workspaceLabel: string)
+        (ops: Op list)
+        =
+        let post = CoreDoor.postGraphOnly handle
+        let rec run steps = async {
+            match steps with
+            | [] ->
+                let! _ = CoreDoor.getState handle
+                return Ok ()
+            | Axis op :: rest ->
+                match consignParseState enqueueInMsg op with
+                | Error err -> return Error err
+                | Ok () -> return! run rest
+            | Body chunk :: rest ->
+                let! result =
+                    GraphOnlyChangePost.postChunks
+                        post
+                        "Parse"
+                        (GraphOnlyChangeChunks.split chunk)
+                match result with
+                | Error err -> return Error err
+                | Ok () -> return! run rest
+        }
+        run (relaysOf ops)
+
+    let private postReconcileReport
+        (workspace: WorkspaceReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         async {
-            logFailures workspaceLabel report.failures
+            logFailures workspace.workspaceLabel report.failures
             match report.ops with
             | [] -> return Ok report.failures
             | ops ->
                 let! result =
-                    GraphOnlyChangePost.postChunks
-                        (CoreDoor.postGraphOnly handle)
-                        "Parse"
-                        (GraphOnlyChangeChunks.split ops)
+                    postRelays workspace.enqueueInMsg workspace.handle ops
                 return result |> Result.map (fun () -> report.failures)
         }
 
@@ -288,7 +349,8 @@ module LazyLoadReconciliationServer =
                     listed.graph
                     { handle = listed.handle
                       dataDir = listed.dataDir
-                      workspaceLabel = listed.workspaceLabel }
+                      workspaceLabel = listed.workspaceLabel
+                      enqueueInMsg = listed.enqueueInMsg }
                     listed.artifactReads
             match
                 plan
@@ -301,14 +363,16 @@ module LazyLoadReconciliationServer =
             | Ok report ->
                 return!
                     postReconcileReport
-                        listed.handle
-                        listed.workspaceLabel
+                        { handle = listed.handle
+                          dataDir = listed.dataDir
+                          workspaceLabel = listed.workspaceLabel
+                          enqueueInMsg = listed.enqueueInMsg }
                         report
         }
 
     /// Shared pipeline: discover on chosen root → union with changedPaths → plan → log → post.
     /// `discoveryDirRel` None = workspace root; Some dir = DataDir/{label}/{dir}.
-    let reconcileChangedPathsWithDiscovery
+    let internal reconcileChangedPathsWithDiscovery
         (workspace: WorkspaceReconcile)
         (discoveryDirRel: string option)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
@@ -329,12 +393,13 @@ module LazyLoadReconciliationServer =
                             { handle = workspace.handle
                               dataDir = workspace.dataDir
                               workspaceLabel = workspace.workspaceLabel
+                              enqueueInMsg = workspace.enqueueInMsg
                               graph = graph
                               changes = allChanges
                               artifactReads = allChanges }
         }
 
-    let reconcileChangedPaths
+    let internal reconcileChangedPaths
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
@@ -342,7 +407,7 @@ module LazyLoadReconciliationServer =
 
     /// Git pull. Each received file is marked. An added, removed, or renamed
     /// file marks its containing Directory. The list does not discover members.
-    let reconcileReceivedFiles
+    let internal reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
@@ -359,6 +424,7 @@ module LazyLoadReconciliationServer =
                         { handle = workspace.handle
                           dataDir = workspace.dataDir
                           workspaceLabel = workspace.workspaceLabel
+                          enqueueInMsg = workspace.enqueueInMsg
                           graph = stateResponse.graph
                           changes = files
                           artifactReads = files }
@@ -393,24 +459,25 @@ module LazyLoadReconciliationServer =
                             { handle = workspace.handle
                               dataDir = workspace.dataDir
                               workspaceLabel = label
+                              enqueueInMsg = workspace.enqueueInMsg
                               graph = graph
                               changes = fileChanges @ dirAdds
                               artifactReads = fileChanges }
         }
 
-    let reconcileDirectory
+    let internal reconcileDirectory
         (workspace: WorkspaceReconcile)
         (dirRel: string)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         matchDiscoveredDirectory workspace (Some dirRel)
 
     /// One-level discover under DataDir/{label} (workspace root).
-    let reconcileWorkspace
+    let internal reconcileWorkspace
         (workspace: WorkspaceReconcile)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         matchDiscoveredDirectory workspace None
 
-    let reconcileAddedPaths
+    let internal reconcileAddedPaths
         (workspace: WorkspaceReconcile)
         (addedPaths: string list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
@@ -457,9 +524,10 @@ module LazyLoadReconciliationServer =
                 LazyLoadReconciliationDiagnostics.encodeFailures failures,
                 "application/json")
 
-    let registerDirectoryRoute
+    let internal registerDirectoryRoute
         (this: AmbitApp)
         (getHandle: unit -> CoreChangesDoor)
+        (enqueueInMsg: InMsg -> unit)
         =
         let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir
@@ -481,7 +549,8 @@ module LazyLoadReconciliationServer =
                             let workspace =
                                 { handle = getHandle ()
                                   dataDir = dataDir
-                                  workspaceLabel = payload.workspace }
+                                  workspaceLabel = payload.workspace
+                                  enqueueInMsg = enqueueInMsg }
                             let! result =
                                 if String.IsNullOrWhiteSpace payload.path then
                                     reconcileWorkspace workspace
@@ -492,9 +561,10 @@ module LazyLoadReconciliationServer =
         )
         |> ignore
 
-    let registerAddedRoute
+    let internal registerAddedRoute
         (this: AmbitApp)
         (getHandle: unit -> CoreChangesDoor)
+        (enqueueInMsg: InMsg -> unit)
         =
         let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir
@@ -517,7 +587,8 @@ module LazyLoadReconciliationServer =
                                 reconcileAddedPaths
                                     { handle = getHandle ()
                                       dataDir = dataDir
-                                      workspaceLabel = payload.workspace }
+                                      workspaceLabel = payload.workspace
+                                      enqueueInMsg = enqueueInMsg }
                                     payload.paths
                             return failuresResult result
                 })

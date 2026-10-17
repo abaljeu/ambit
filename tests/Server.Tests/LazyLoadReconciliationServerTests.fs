@@ -129,15 +129,16 @@ let ``server reconciler applies planner ops through active agent`` () =
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
-          body =
-            EventBody.Change(
-                ops @ [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]) }
+          body = EventBody.Change ops }
     CoreDoor.postEvents handle [ event ]
     |> Async.RunSynchronously
     |> requireOk "workspace"
     |> ignore
-    Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
-    Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished workspaceId)
+    CoreMailboxApi.getState fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "workspace parsed"
+    |> ignore
     CoreMailboxApi.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "workspace persist"
@@ -147,7 +148,8 @@ let ``server reconciler applies planner ops through active agent`` () =
     LazyLoadReconciliationServer.reconcileAddedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ "src/main.fs" ]
     |> Async.RunSynchronously
     |> requireOk "reconcile"
@@ -191,7 +193,8 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     LazyLoadReconciliationServer.reconcileChangedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ LazyLoadReconciliation.Added "updated.txt" ]
     |> Async.RunSynchronously
     |> requireOk "reconcile"
@@ -229,7 +232,8 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     LazyLoadReconciliationServer.reconcileChangedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         []
     |> Async.RunSynchronously
     |> requireOk "reconcile"
@@ -276,7 +280,8 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     LazyLoadReconciliationServer.reconcileChangedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ LazyLoadReconciliation.Added "old.txt" ]
     |> Async.RunSynchronously
     |> requireOk "add stub"
@@ -286,7 +291,8 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         LazyLoadReconciliationServer.reconcileChangedPaths
             { handle = handle
               dataDir = tempDir
-              workspaceLabel = "home" }
+              workspaceLabel = "home"
+              enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
             [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
         |> Async.RunSynchronously
     match renameResult with
@@ -340,7 +346,8 @@ let ``server reconciler posts good sibling when one path fails`` () =
     LazyLoadReconciliationServer.reconcileAddedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ "bad.txt" ]
     |> Async.RunSynchronously
     |> requireOk "seed bad"
@@ -349,7 +356,8 @@ let ``server reconciler posts good sibling when one path fails`` () =
         LazyLoadReconciliationServer.reconcileChangedPaths
             { handle = handle
               dataDir = tempDir
-              workspaceLabel = "home" }
+              workspaceLabel = "home"
+              enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
             [ LazyLoadReconciliation.Deleted "bad.txt"
               LazyLoadReconciliation.Added "good.txt" ]
         |> Async.RunSynchronously
@@ -450,7 +458,8 @@ let ``directory reconcile discovers only under directory prefix`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
@@ -484,7 +493,8 @@ let ``workspace reconcile discovers under workspace root`` () =
     LazyLoadReconciliationServer.reconcileWorkspace
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
     |> Async.RunSynchronously
     |> requireOk "workspace reconcile"
     |> ignore
@@ -525,7 +535,8 @@ let ``directory reconcile walks one level`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
@@ -559,7 +570,9 @@ let ``workspace reconcile leaves a current child directory current`` () =
     postOps
         fileAgent
         1
-        (keptOps @ [ Op.SetDocumentState(keptId, Unparsed, Current) ])
+        keptOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished keptId)
+    readGraph fileAgent |> ignore
     let keptDir = Path.Combine(tempDir, "home", "kept")
     Directory.CreateDirectory(keptDir) |> ignore
     File.WriteAllText(Path.Combine(keptDir, "secret.txt"), "secret")
@@ -569,7 +582,8 @@ let ``workspace reconcile leaves a current child directory current`` () =
     LazyLoadReconciliationServer.reconcileWorkspace
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
     |> Async.RunSynchronously
     |> requireOk "workspace reconcile"
     |> ignore
@@ -605,7 +619,9 @@ let ``directory reconcile leaves a current child directory current`` () =
     postOps
         fileAgent
         2
-        (keptOps @ [ Op.SetDocumentState(keptId, Unparsed, Current) ])
+        keptOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished keptId)
+    readGraph fileAgent |> ignore
     let docs = Path.Combine(tempDir, "home", "docs")
     Directory.CreateDirectory(Path.Combine(docs, "kept")) |> ignore
     File.WriteAllText(Path.Combine(docs, "kept", "secret.txt"), "secret")
@@ -613,7 +629,8 @@ let ``directory reconcile leaves a current child directory current`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
@@ -639,7 +656,8 @@ let ``workspace reconcile creates Directory for empty leading-dot dir`` () =
     LazyLoadReconciliationServer.reconcileWorkspace
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
     |> Async.RunSynchronously
     |> requireOk "empty .scratch reconcile"
     |> ignore
@@ -670,7 +688,8 @@ let ``directory reconcile keeps .agents Loaded with discovered children`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         ".agents"
     |> Async.RunSynchronously
     |> requireOk ".agents reconcile"
@@ -698,7 +717,8 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
     LazyLoadReconciliationServer.reconcileWorkspace
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "SYSTEM" }
+          workspaceLabel = "SYSTEM"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
     |> Async.RunSynchronously
     |> requireOk "SYSTEM reconcile"
     |> ignore
@@ -735,7 +755,9 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
     postOps
         fileAgent
         1
-        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+        docsOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished docsId)
+    readGraph fileAgent |> ignore
     let organizerId = NodeId.New()
     postOps
         fileAgent
@@ -752,7 +774,8 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
@@ -783,7 +806,8 @@ let ``directory reconcile creates missing sibling under directory`` () =
     LazyLoadReconciliationServer.reconcileDirectory
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         "docs"
     |> Async.RunSynchronously
     |> requireOk "directory reconcile"
@@ -820,7 +844,8 @@ let ``directory reconcile with amb outline and missing file posts without owners
         LazyLoadReconciliationServer.reconcileDirectory
             { handle = handle
               dataDir = tempDir
-              workspaceLabel = "home" }
+              workspaceLabel = "home"
+              enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
             "tasks"
         |> Async.RunSynchronously
     match result with
@@ -861,7 +886,8 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
     LazyLoadReconciliationServer.reconcileAddedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ "docs/bad.txt" ]
     |> Async.RunSynchronously
     |> requireOk "seed bad"
@@ -870,7 +896,8 @@ let ``directory reconcile returns resilient failures and posts good sibling`` ()
         LazyLoadReconciliationServer.reconcileChangedPathsWithDiscovery
             { handle = handle
               dataDir = tempDir
-              workspaceLabel = "home" }
+              workspaceLabel = "home"
+              enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
             (Some "docs")
             [ LazyLoadReconciliation.Deleted "docs/bad.txt" ]
         |> Async.RunSynchronously
@@ -1015,21 +1042,27 @@ let ``git pull marks received files at any depth and does not discover`` () =
     postOps
         fileAgent
         1
-        (topOps @ [ Op.SetDocumentState(topId, Unparsed, Current) ])
+        topOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished topId)
+    readGraph fileAgent |> ignore
     let graph2 = readGraph fileAgent
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceId "docs"
     postOps
         fileAgent
         2
-        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+        docsOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished docsId)
+    readGraph fileAgent |> ignore
     let graph3 = readGraph fileAgent
     let nestedId, nestedOps =
         FileNodeOps.planCreateOwnedFile graph3 docsId "nested.txt"
     postOps
         fileAgent
         3
-        (nestedOps @ [ Op.SetDocumentState(nestedId, Unparsed, Current) ])
+        nestedOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished nestedId)
+    readGraph fileAgent |> ignore
     let home = Path.Combine(tempDir, "home")
     let docs = Path.Combine(home, "docs")
     Directory.CreateDirectory(docs) |> ignore
@@ -1040,7 +1073,8 @@ let ``git pull marks received files at any depth and does not discover`` () =
     LazyLoadReconciliationServer.reconcileReceivedFiles
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ LazyLoadReconciliation.Modified "top.txt"
           LazyLoadReconciliation.Modified "docs/nested.txt"
           LazyLoadReconciliation.Modified "docs/.amb" ]
@@ -1074,14 +1108,18 @@ let ``git pull add marks the containing directory Unparsed`` () =
     postOps
         fileAgent
         1
-        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+        docsOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished docsId)
+    readGraph fileAgent |> ignore
     let graph2 = readGraph fileAgent
     let keepId, keepOps =
         FileNodeOps.planCreateOwnedFile graph2 docsId "keep.txt"
     postOps
         fileAgent
         2
-        (keepOps @ [ Op.SetDocumentState(keepId, Unparsed, Current) ])
+        keepOps
+    CoreMailboxApi.addInMsg fileAgent (InMsg.ParseFinished keepId)
+    readGraph fileAgent |> ignore
     let home = Path.Combine(tempDir, "home")
     let docs = Path.Combine(home, "docs")
     Directory.CreateDirectory(docs) |> ignore
@@ -1091,7 +1129,8 @@ let ``git pull add marks the containing directory Unparsed`` () =
     LazyLoadReconciliationServer.reconcileReceivedFiles
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         [ LazyLoadReconciliation.Added "docs/extra.txt" ]
     |> Async.RunSynchronously
     |> requireOk "pull"

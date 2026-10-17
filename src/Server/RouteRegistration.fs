@@ -62,18 +62,21 @@ module RouteRegistration =
         let core = ParseThread.bootCore boot
         let github =
             GithubTransportActor.productionDependencies
+        let enqueueInMsg = CoreMailboxApi.addInMsg core.host
         core.pool.registerPeer
             (GithubTransportActor.peerName GithubTransportOperation.Load)
             (GithubTransportActor.actorFn
                 boot.DataDir
                 GithubTransportOperation.Load
-                github)
+                github
+                enqueueInMsg)
         core.pool.registerPeer
             (GithubTransportActor.peerName GithubTransportOperation.Save)
             (GithubTransportActor.actorFn
                 boot.DataDir
                 GithubTransportOperation.Save
-                github)
+                github
+                enqueueInMsg)
         {
             DataDir = boot.DataDir
             DbStatus = boot.DbStatus
@@ -470,11 +473,14 @@ module RouteRegistration =
                 | Ok _ -> return Ok ()
                 | Error err -> return Error err
             }
+            let enqueueInMsg =
+                CoreMailboxApi.addInMsg persistence.Core.host
             let reconcileGitPush label changedPaths =
                 LazyLoadReconciliationServer.reconcileReceivedFiles
                     { handle = parseBound persistence
                       dataDir = persistence.DataDir
-                      workspaceLabel = label }
+                      workspaceLabel = label
+                      enqueueInMsg = enqueueInMsg }
                     changedPaths
             GitGateway.registerRoutes
                 { shell = routes
@@ -485,9 +491,11 @@ module RouteRegistration =
             LazyLoadReconciliationServer.registerDirectoryRoute
                 this
                 (fun () -> parseBound persistence)
+                enqueueInMsg
             LazyLoadReconciliationServer.registerAddedRoute
                 this
                 (fun () -> parseBound persistence)
+                enqueueInMsg
             WorkspaceWebDav.registerRoutes this
             RouteAppShell.registerCssAndShellRoutes routes
             DailyGitSave.register this
