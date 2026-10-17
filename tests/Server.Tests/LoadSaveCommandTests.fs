@@ -692,7 +692,7 @@ let private fileLoadHost (dataDir: string) =
             fun nodeId ->
                 CoreMailboxApi.addInMsg
                     host
-                    (InMsg.ParseFinished nodeId) }
+                    (InMsg.NodeParsed nodeId) }
     let router =
         { resolvePath = LoadSaveRouting.resolvePath dataDir
           startCommand =

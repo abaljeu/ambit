@@ -260,24 +260,28 @@ module LazyLoadReconciliationServer =
           workspaceLabel: string
           graph: Graph
           changes: LazyLoadReconciliation.ChangedPath list
-          artifactReads: LazyLoadReconciliation.ChangedPath list }
+          artifactReads: LazyLoadReconciliation.ChangedPath list
+          beside: Op list -> unit }
 
     let private postReconcileReport
-        (handle: CoreChangesDoor)
-        (workspaceLabel: string)
+        (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         async {
-            logFailures workspaceLabel report.failures
+            logFailures listed.workspaceLabel report.failures
             match report.ops with
             | [] -> return Ok report.failures
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
-                        (CoreDoor.postGraphOnly handle)
+                        (CoreDoor.postGraphOnly listed.handle)
                         "Parse"
                         (GraphOnlyChangeChunks.split ops)
-                return result |> Result.map (fun () -> report.failures)
+                match result with
+                | Ok () ->
+                    listed.beside ops
+                    return Ok report.failures
+                | Error err -> return Error err
         }
 
     /// Plan and post. `artifactReads` is the set whose text is read.
@@ -299,11 +303,7 @@ module LazyLoadReconciliationServer =
             with
             | Error err -> return Error err
             | Ok report ->
-                return!
-                    postReconcileReport
-                        listed.handle
-                        listed.workspaceLabel
-                        report
+                return! postReconcileReport listed report
         }
 
     /// Shared pipeline: discover on chosen root → union with changedPaths → plan → log → post.
@@ -331,7 +331,8 @@ module LazyLoadReconciliationServer =
                               workspaceLabel = workspace.workspaceLabel
                               graph = graph
                               changes = allChanges
-                              artifactReads = allChanges }
+                              artifactReads = allChanges
+                              beside = ignore }
         }
 
     let reconcileChangedPaths
@@ -361,7 +362,14 @@ module LazyLoadReconciliationServer =
                           workspaceLabel = workspace.workspaceLabel
                           graph = stateResponse.graph
                           changes = files
-                          artifactReads = files }
+                          artifactReads = files
+                          beside =
+                            fun ops ->
+                                NodeEventBeside.post
+                                    workspace.handle.host
+                                    (NodeEventBeside.receivedExistingFiles
+                                        stateResponse.graph
+                                        ops) }
         }
 
     /// Load's directory match. One level: direct files and child directories.
@@ -395,7 +403,8 @@ module LazyLoadReconciliationServer =
                               workspaceLabel = label
                               graph = graph
                               changes = fileChanges @ dirAdds
-                              artifactReads = fileChanges }
+                              artifactReads = fileChanges
+                              beside = ignore }
         }
 
     let reconcileDirectory

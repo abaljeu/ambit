@@ -183,5 +183,5 @@ module ParseThread =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         core.host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         core
