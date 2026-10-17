@@ -36,7 +36,7 @@ The node wire sends the three-way parse state once, plus persist state. The deri
 - [§4 Step 1 Commitment](plan/core-refinement/arch.md#4-step-1-commitment)
 - [§2 Starting point](plan/core-refinement/arch.md#2-starting-point)
 - [core-refinement](plan/core-refinement/project.md)
-- [34 — Retire SetDocumentState](34-retire-set-document-state.md)
+- [34 — Upload and import use the parse-state writer](34-upload-and-import-use-the-parse-state-writer.md)
 - [37 — Kind-specific node state](37-kind-specific-node-state.md)
 - [HTTP contract](doc/current/http-contract.md)
 - [Workspace graph](doc/current/graph.md)
