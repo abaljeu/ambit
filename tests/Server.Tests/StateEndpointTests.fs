@@ -1265,8 +1265,7 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
           commandName = ""
           body = EventBody.Change
             [ Op.NewSpecialNode(wsId, Workspace, "home")
-              Op.Replace(Graph.workspacesId, [], ownedChild wsId)
-              Op.SetDocumentState(wsId, Unparsed, Current) ] }
+              Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
         { id = EventId.zero
@@ -1274,7 +1273,7 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change
-            [ Op.NewNode(innerId, "inside-ws")
+            [ Op.NewSpecialNode(innerId, File, "inside.txt")
               Op.Replace(wsId, [], ownedChild innerId) ] }
     do! postChangeOk client c1
     return wsId, innerId

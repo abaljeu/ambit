@@ -220,12 +220,6 @@ module DirectoryReconcile =
             Node.childOwnership graph directoryId child <> Ownership.Owner
             || not (Set.contains child.id dropIds))
 
-    let private markCurrent (graph: Graph) (directoryId: NodeId) =
-        match Map.tryFind directoryId graph.nodes with
-        | Some node when Node.documentStateEnum node = Unparsed ->
-            [ Op.SetDocumentState(directoryId, Unparsed, Current) ]
-        | _ -> []
-
     let private planFromEntries
         (graph: Graph)
         (directoryId: NodeId)
@@ -253,8 +247,7 @@ module DirectoryReconcile =
             reconcileKind dirPlan dirs fileCreated.children
             |> Result.map (fun dirCreated ->
                 { ops =
-                    markCurrent graph directoryId
-                    @ deleteOps
+                    deleteOps
                     @ fileCreated.ops
                     @ dirCreated.ops
                   push = [] }))

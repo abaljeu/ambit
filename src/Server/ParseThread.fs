@@ -55,26 +55,33 @@ module ParseThread =
             node.documentState.parseState = ParseState.Parsed -> true
         | _ -> false
 
-    let private afterPost
+    /// Parsed is queued before content so the Unparsed guard sees Current.
+    /// A failed content post marks the node Unparsed again.
+    let private publishParse
         (deps: ParseThreadDeps)
         (nodeId: NodeId)
+        (ops: Op list)
         (push: NodeId list)
-        (posted: Result<unit, string>)
         =
-        match posted with
-        | Error err -> reportPost err
-        | Ok () ->
-            push |> List.iter deps.markUnparsed
-            // requeueOnUnparsed is false: Unparsed stays set, and these
-            // ids are not added to the Parse queue. Queue processing is
-            // currently wrong. It caused a whole-workspace reconcile that
-            // exceeded the Azure Free plan CPU quota: 60% short-window,
-            // 5% daily average. This is not a decision to drop the requeue
-            // step. Re-enable once queue processing is fixed (pending
-            // github-transport Load ticket: move Load onto a paced Parse
-            // thread).
-            enqueueIfRequeue deps.push push
+        async {
             deps.finishParse nodeId
+            let! posted = postContent deps ops
+            match posted with
+            | Error err ->
+                reportPost err
+                deps.markUnparsed nodeId
+            | Ok () ->
+                push |> List.iter deps.markUnparsed
+                // requeueOnUnparsed is false: Unparsed stays set, and these
+                // ids are not added to the Parse queue. Queue processing is
+                // currently wrong. It caused a whole-workspace reconcile that
+                // exceeded the Azure Free plan CPU quota: 60% short-window,
+                // 5% daily average. This is not a decision to drop the
+                // requeue step. Re-enable once queue processing is fixed
+                // (pending github-transport Load ticket: move Load onto a
+                // paced Parse thread).
+                enqueueIfRequeue deps.push push
+        }
 
     let private parseFile
         (deps: ParseThreadDeps)
@@ -91,8 +98,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps ops
-                return afterPost deps fileId [] posted
+                return! publishParse deps fileId ops []
         }
 
     let private parseDirectory
@@ -111,8 +117,12 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
-                let! posted = postContent deps planned.ops
-                return afterPost deps directoryId planned.push posted
+                return!
+                    publishParse
+                        deps
+                        directoryId
+                        planned.ops
+                        planned.push
         }
 
     let private parseOne (deps: ParseThreadDeps) (nodeId: NodeId) =
@@ -165,23 +175,20 @@ module ParseThread =
     /// Builds the parse stack and starts the consumer. Callers do not receive push.
     let bootCore (coreBoot: CoreBoot) : CoreRuntime =
         let rawPush, consumer = ParseStack.create ()
-        let core, push = CoreRuntime.createPublishing coreBoot rawPush
+        let core = CoreRuntime.createPublishing coreBoot rawPush
         let parseHandle =
             CoreDoor.create true core.host core.parseCaller
+        let enqueueInMsg = CoreMailboxApi.addInMsg core.host
         start
             { dataDir = coreBoot.DataDir
               consumer = consumer
-              push = push
+              push = rawPush
               getGraph = graphFromHost core.host
               postOps = postParseOps parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        core.host
-                        (InMsg.MarkUnparsed nodeId)
+                    enqueueInMsg (InMsg.MarkUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        core.host
-                        (InMsg.ParseFinished nodeId) }
+                    enqueueInMsg (InMsg.ParseFinished nodeId) }
         core

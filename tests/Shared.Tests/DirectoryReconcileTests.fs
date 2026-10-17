@@ -208,8 +208,9 @@ let ``disk-newer reconcile ops leave the file Current`` () =
                 | _ -> false)
         Assert.False(setsFile)
         Assert.Empty(planned.push)
+        Assert.False(setsDocumentState planned.ops)
         Assert.Equal(Current, graph6.nodes.[fileId].documentState.AsEnum)
-        Assert.Equal(Current, graph6.nodes.[dirId].documentState.AsEnum)
+        Assert.Equal(Unparsed, graph6.nodes.[dirId].documentState.AsEnum)
     finally
         Directory.Delete(dataDir, true)
 
@@ -400,10 +401,15 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
             DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc))
         makeDiskDir dataDir "home/docs/extra" |> ignore
         let planned = plan dataDir graph7 dirId
-        match normalApplyMessage graph7 planned.ops with
+        Assert.False(setsDocumentState planned.ops)
+        let opened =
+            applyOps
+                graph7
+                [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        match normalApplyMessage opened planned.ops with
         | Some msg -> failwith msg
         | None -> ()
-        let graph8 = applyOps graph7 planned.ops
+        let graph8 = applyOps opened planned.ops
         let extraId =
             match createdDirectoryId planned.ops "extra" with
             | Some id -> id

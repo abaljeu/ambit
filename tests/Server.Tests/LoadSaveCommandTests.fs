@@ -142,43 +142,71 @@ let private createTrackedWorkspace dataDir =
     configureIdentity workspace
     parent, remote, source, workspace
 
-let private registerPeer dataDir pool operation dependencies =
+let private registerPeer
+    dataDir
+    pool
+    operation
+    dependencies
+    (enqueue: (InMsg -> unit) ref)
+    =
     pool.registerPeer
         (GithubTransportActor.peerName operation)
         (GithubTransportActor.actorFn
-            dataDir operation dependencies)
+            dataDir
+            operation
+            dependencies
+            (fun msg -> enqueue.Value msg))
 
 let private createProductionHost dataDir =
     let pool = CoreActorPool.create ()
     let dependencies =
         GithubTransportActor.productionDependencies
-    registerPeer dataDir pool GithubTransportOperation.Load dependencies
-    registerPeer dataDir pool GithubTransportOperation.Save dependencies
-    CoreMailbox.host
-        pool
-        (FileAgent.persist (FileAgent.create dataDir))
-        admittedCredentials
+    let enqueue: (InMsg -> unit) ref = ref (fun (_: InMsg) -> ())
+    registerPeer
+        dataDir pool GithubTransportOperation.Load dependencies enqueue
+    registerPeer
+        dataDir pool GithubTransportOperation.Save dependencies enqueue
+    let host =
+        CoreMailbox.host
+            pool
+            (FileAgent.persist (FileAgent.create dataDir))
+            admittedCredentials
+    enqueue.Value <- CoreMailboxApi.addInMsg host
+    host
 
 let private seedWorkspace host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let commandId, focusId = NodeId.New(), NodeId.New()
-    let ops =
-        workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
-            Op.NewNode(focusId, "focus")
-            Op.Replace(
-                workspaceId,
-                [],
-                [ ChildNode.owner commandId
-                  ChildNode.owner focusId ]) ]
     let event =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
-          body = EventBody.Change ops }
+          body = EventBody.Change workspaceOps }
+    CoreMailboxApi.postGraphOnly host testCaller event
+    |> Async.RunSynchronously
+    |> requireOk "seed workspace"
+    |> ignore
+    CoreMailboxApi.addInMsg host (InMsg.ParseFinished workspaceId)
+    CoreMailboxApi.getState host
+    |> Async.RunSynchronously
+    |> requireOk "parse workspace"
+    |> ignore
+    let children =
+        [ Op.NewNode(commandId, operationName)
+          Op.NewNode(focusId, "focus")
+          Op.Replace(
+              workspaceId,
+              [],
+              [ ChildNode.owner commandId
+                ChildNode.owner focusId ]) ]
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change children }
     let accepted =
         CoreMailboxApi.postGraphOnly host testCaller event
         |> Async.RunSynchronously
@@ -354,14 +382,19 @@ let private routeMatrixHarness operation operationName =
         TaskCompletionSource<unit>(
             TaskCreationOptions.RunContinuationsAsynchronously)
     let pool = CoreActorPool.create ()
+    let enqueue: (InMsg -> unit) ref = ref (fun (_: InMsg) -> ())
     registerPeer
-        dataDir pool (operationFor operation)
+        dataDir
+        pool
+        (operationFor operation)
         (routeMatrixDependencies started)
+        enqueue
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
+    enqueue.Value <- CoreMailboxApi.addInMsg host
     host, seedWorkspace host operationName, started
 
 let private routeMatrixRouter host operation =

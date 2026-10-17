@@ -170,6 +170,19 @@ module internal CoreEventDispatch =
             | Some result -> withConfirmedOps completed result
         commit context confirmed
 
+    let private documentStateRefusal =
+        "SetDocumentState is not accepted on the public post"
+
+    let private hasSetDocumentState (event: Ev) =
+        match Ev.ops event with
+        | None -> false
+        | Some ops ->
+            List.exists
+                (function
+                | Op.SetDocumentState _ -> true
+                | _ -> false)
+                ops
+
     let private persistNew
         (context: Context)
         (caller: Caller)
@@ -178,10 +191,14 @@ module internal CoreEventDispatch =
         =
         if event.id <> EventId.zero then
             Error "posted EventId must be zero"
+        elif hasSetDocumentState event then
+            Error documentStateRefusal
         else
             catchUpNextId context
             match prepare context caller event with
             | Error error -> Error error
+            | Ok completed when hasSetDocumentState completed ->
+                Error documentStateRefusal
             | Ok completed ->
                 match persist context completed graphOnly with
                 | Error error -> Error error
@@ -198,7 +215,11 @@ module internal CoreEventDispatch =
         : Result<Ev * CoreChangesAccepted option, string> =
         match context.admit caller with
         | Error error -> Error error
+        | Ok () when hasSetDocumentState event ->
+            Error documentStateRefusal
         | Ok () ->
             match tryStored context event.submissionId with
+            | Some existing when hasSetDocumentState existing ->
+                Error documentStateRefusal
             | Some existing -> Ok(existing, None)
             | None -> persistNew context caller event graphOnly

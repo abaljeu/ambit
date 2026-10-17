@@ -49,4 +49,4 @@ A single Graph modification, to a Node Header or to its Children.
 
 ## Explanation
 
-A content Op changes the Graph away from disk, so the enclosing carrier becomes Unpersisted and Persist can write the file. A Parse Action copies disk into the Graph, so that apply leaves PersistState unchanged. The parsed axis is `DocumentState.parseState` on the Node field `documentState`.
+A content Op changes the Graph away from disk, so the enclosing carrier becomes Unpersisted and Persist can write the file. A Parse Action copies disk into the Graph, so that apply leaves PersistState unchanged. The parsed axis is `DocumentState.parseState` on the Node field `documentState`. Core loop writes that axis with `GraphMutate.setParseState` when it applies `InMsg`. It then appends a logged Ev whose body is `Op.SetDocumentState` so a client can apply the same transition. History still applies that op. The public post refuses an Ev that contains it.

@@ -71,7 +71,8 @@ let ``reconcile posts graph-only chunks at or under maxOps`` () =
     LazyLoadReconciliationServer.reconcileChangedPaths
         { handle = handle
           dataDir = tempDir
-          workspaceLabel = "home" }
+          workspaceLabel = "home"
+          enqueueInMsg = CoreMailboxApi.addInMsg fileAgent }
         []
     |> Async.RunSynchronously
     |> requireOk "reconcile"

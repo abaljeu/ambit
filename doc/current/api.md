@@ -16,7 +16,7 @@ Migrate means the caller moves to the new form while the old form still exists. 
 
 Contract means the old route is removed only after no caller uses it.
 
-One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole.
+One Event source means one ordered stream. Connected Events are queued in order, posted in that order, and processed in that order. A later Event does not pass an earlier connected Event. A posted list is applied in order, as one unit; lists from different clients do not interleave. The credential check refuses that event before it applies. An event whose ops contain `SetDocumentState` is refused and does not apply. Events earlier in the same posted list are already on the queue and can already have applied. Otherwise every posted event applies whole.
 
 1. [x] Events door — `POST /ambit/changes` and `POST /ambit/events` call `Api.postEvents`. Detail: [HTTP contract](http-contract.md).
 2. [x] Command and Cancel routes are removed. Run and Cancel are events on the events door.

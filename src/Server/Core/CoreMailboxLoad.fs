@@ -147,22 +147,84 @@ module internal CoreMailboxLoad =
                 persist.replaceGraph graph
                 Ok ()
 
+    let private legacyState (graph: Graph) (nodeId: NodeId) =
+        Map.tryFind nodeId graph.nodes
+        |> Option.map Node.documentStateEnum
+
+    type private ParseAxisChange =
+        { before: DocumentStateEnum option
+          after: DocumentStateEnum option }
+
     let private writeParseState
         (persist: PersistHandlers)
         (nodeId: NodeId)
         (parseState: ParseState)
-        : Result<unit, string> =
-        writeAxis persist (fun graph ->
-            GraphMutate.setParseState nodeId parseState graph)
+        : Result<ParseAxisChange, string> =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            let before = legacyState state.graph nodeId
+            match GraphMutate.setParseState nodeId parseState state.graph with
+            | Error err -> Error err
+            | Ok graph ->
+                persist.replaceGraph graph
+                Ok { before = before; after = legacyState graph nodeId }
 
-    /// Marks the node Unparsed, then pushes. The mark writes the axis
-    /// directly and does not enqueue.
-    let markUnparsedThenPush
+    let private syncNextId
         (persist: PersistHandlers)
+        (eventLog: EventLog ref)
+        =
+        match persist.getEventLog () with
+        | Error _ -> ()
+        | Ok persistLog ->
+            let mailbox = eventLog.Value
+            eventLog.Value <-
+                { mailbox with
+                    nextId = EventId.max mailbox.nextId persistLog.nextId }
+
+    let private appendParseEvent
+        (persist: PersistHandlers)
+        (eventLog: EventLog ref)
+        (nodeId: NodeId)
+        (oldState: DocumentStateEnum)
+        (newState: DocumentStateEnum)
+        =
+        syncNextId persist eventLog
+        let event =
+            { id = EventLog.nextId eventLog.Value
+              submissionId = Guid.NewGuid()
+              authority = Authority "Parse"
+              commandName = "Parse"
+              body =
+                EventBody.Change
+                    [ Op.SetDocumentState(nodeId, oldState, newState) ] }
+        match persist.appendEvent event with
+        | Error err -> Error err
+        | Ok () ->
+            eventLog.Value <- EventLog.append event eventLog.Value
+            Ok ()
+
+    let private logParseTransition
+        (persist: PersistHandlers)
+        (eventLog: EventLog ref)
+        (nodeId: NodeId)
+        (change: ParseAxisChange)
+        =
+        match change.before, change.after with
+        | Some oldState, Some newState when oldState <> newState ->
+            appendParseEvent persist eventLog nodeId oldState newState
+        | _ -> Ok ()
+
+    /// Mailbox loop only. Marks the node Unparsed, logs that transition,
+    /// then pushes the parse stack.
+    let private markUnparsedThenPush
+        (persist: PersistHandlers)
+        (eventLog: EventLog ref)
         (rawPush: NodeId -> unit)
         (nodeId: NodeId)
         : Result<unit, string> =
         writeParseState persist nodeId ParseState.Unparsed
+        |> Result.bind (logParseTransition persist eventLog nodeId)
         |> Result.map (fun () -> rawPush nodeId)
 
     /// Core loop apply. ParseFinished writes Parsed only when noServerFile
@@ -170,20 +232,23 @@ module internal CoreMailboxLoad =
     /// noServerFile is set, that File Node stays Unparsed. It does not
     /// set Persisted.
     /// MarkUnparsed writes Unparsed only.
+    /// A changed parse axis is appended as Ev SetDocumentState.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
     let internal applyInMsg
         (persist: PersistHandlers)
+        (eventLog: EventLog ref)
         (msg: InMsg)
         : Result<unit, string> =
         match msg with
         | InMsg.ParseFinished nodeId ->
             match writeParseState persist nodeId ParseState.Parsed with
             | Error err -> Error err
-            | Ok () ->
+            | Ok change ->
                 persist.noteParsed nodeId
-                Ok ()
+                logParseTransition persist eventLog nodeId change
         | InMsg.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
+            |> Result.bind (logParseTransition persist eventLog nodeId)
         | InMsg.SnapshotDone(nodeId, graph) ->
             persist.snapshotDone nodeId graph
             writeAxis persist (fun live ->
@@ -202,7 +267,7 @@ module internal CoreMailboxLoad =
         match item with
         | QueueSum.Core msg -> dispatch context msg
         | QueueSum.In msg ->
-            match applyInMsg context.persist msg with
+            match applyInMsg context.persist context.eventLog msg with
             | Ok () -> ()
             | Error err -> reportInMsg context err
 
@@ -232,41 +297,28 @@ module internal CoreMailboxLoad =
         with ex ->
             Error ex.Message
 
-    let private reportPushError (persist: PersistFilling) (err: string) =
-        persist.onError "parse push" err (exn err)
-
-    let private pushReporting
-        (persist: PersistFilling)
-        (handlers: PersistHandlers)
-        (rawPush: NodeId -> unit)
-        (nodeId: NodeId)
-        =
-        match markUnparsedThenPush handlers rawPush nodeId with
-        | Ok () -> ()
-        | Error err -> reportPushError persist err
-
     let makeMailBox
         credentials
         (persist: PersistFilling)
         pool
         (rawPush: NodeId -> unit)
-        : MailboxContext * (NodeId -> unit) =
+        : MailboxContext =
         let seeded = persist.handlers
         let eventLog, handlers =
             match seedEventLog seeded with
             | Ok log -> log, seeded
             | Error error -> EventLog.empty, failedSeed seeded error
-        let front = markUnparsedThenPush handlers rawPush
-        let reported = pushReporting persist handlers rawPush
+        let eventLogRef = ref eventLog
+        let front nodeId =
+            markUnparsedThenPush handlers eventLogRef rawPush nodeId
         { credentials = ref credentials
           persist = handlers
           pool = pool
           parsePush = front
           onError = persist.onError
           formatError = persist.formatError
-          eventLog = ref eventLog
-          coreChanges = ref None },
-        reported
+          eventLog = eventLogRef
+          coreChanges = ref None }
 
     let private started mailbox (context: MailboxContext) : Started =
         { processor = mailbox

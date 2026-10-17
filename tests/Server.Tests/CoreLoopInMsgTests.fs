@@ -62,7 +62,7 @@ let private hostFor state snaps =
         admittedCredentials
 
 let private apply persist msg =
-    match CoreMailboxLoad.applyInMsg persist msg with
+    match CoreMailboxLoad.applyInMsg persist (ref EventLog.empty) msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 
@@ -158,12 +158,14 @@ let ``axis write failure is returned`` () =
     let missingResult =
         CoreMailboxLoad.applyInMsg
             (handlers state snaps)
+            (ref EventLog.empty)
             (InMsg.ParseFinished missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
         CoreMailboxLoad.applyInMsg
             (handlers state snaps)
+            (ref EventLog.empty)
             (InMsg.SnapshotDone(Graph.workspacesId, None))
     Assert.Equal(
         Error "workspaces is not a graph document",
@@ -211,6 +213,71 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
             Assert.Equal(PersistState.Persisted, node.documentState.persistState)
             Assert.Equal(ParseState.Parsed, node.documentState.parseState)
             Assert.Equal(1, snaps.Count)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``CoreMsg post with SetDocumentState is rejected`` () =
+    task {
+        let id, initial =
+            fileState PersistState.Persisted ParseState.Unparsed
+        let state = ref initial
+        let snaps = ResizeArray<NodeId * Graph option>()
+        let host = hostFor state snaps
+        try
+            let event =
+                { id = EventId.zero
+                  submissionId = System.Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = ""
+                  body =
+                    EventBody.Change
+                        [ Op.SetDocumentState(id, Unparsed, Current) ] }
+            let! posted =
+                CoreMailboxApi.postEvent host testCaller event
+                |> Async.StartAsTask
+            match posted with
+            | Error err -> Assert.Contains("SetDocumentState", err)
+            | Ok _ -> Assert.Fail("public post accepted SetDocumentState")
+            let! graphOnly =
+                CoreMailboxApi.postGraphOnly host testCaller event
+                |> Async.StartAsTask
+            match graphOnly with
+            | Error err -> Assert.Contains("SetDocumentState", err)
+            | Ok _ ->
+                Assert.Fail("graph-only post accepted SetDocumentState")
+            let node = state.Value.graph.nodes.[id]
+            Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``ParseFinished and MarkUnparsed log SetDocumentState`` () =
+    task {
+        let id, initial =
+            fileState PersistState.Unpersisted ParseState.Unparsed
+        let state = ref initial
+        let snaps = ResizeArray<NodeId * Graph option>()
+        let host = hostFor state snaps
+        try
+            CoreMailboxApi.addInMsg host (InMsg.ParseFinished id)
+            let! _ =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed id)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let ops =
+                history.events
+                |> List.collect (fun event ->
+                    Ev.ops event |> Option.defaultValue [])
+            Assert.Contains(
+                Op.SetDocumentState(id, Unparsed, Current),
+                ops)
+            Assert.Contains(
+                Op.SetDocumentState(id, Current, Unparsed),
+                ops)
         finally
             CoreMailboxApi.dispose host
     }

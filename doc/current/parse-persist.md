@@ -19,7 +19,7 @@ Parse and persist move text between disk and the graph.
 ## Parse
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.
-[x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
+[x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` returns content ops and does not emit `SetDocumentState`. The parse thread enqueues `InMsg` `ParseFinished` before those ops. The core loop sets the File Node Current.
 [x] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
 [x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
 [x] Desktop-mapped Load stores the mapped bytes, then posts mailbox Load for that Workspace Node, Directory Node, or File Node. That Load pushes the subject onto the Parse stack.
@@ -51,7 +51,7 @@ Parse and persist move text between disk and the graph.
 [ ] Every handoff uses the Parse stack.
 [ ] Unparsed starts the parse thread after the workspace lock releases.
 [x] Existing member: Directory reconcile does not mark an existing File Node or an existing child Directory Node Unparsed. A disk-newer member is an existing member.
-[x] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
+[x] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. Directory reconcile ops do not include `SetDocumentState`. The parse thread enqueues `InMsg` `ParseFinished` for that Directory Node or Workspace Node before posting the ops.
 [ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
 ## Persist
 

@@ -357,7 +357,14 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
             with
             | Ok planned -> planned
             | Error err -> failwith err
-        let after = applyDiskParse ops graph
+        Assert.False(
+            ops
+            |> List.exists (function
+                | Op.SetDocumentState _ -> true
+                | _ -> false))
+        let opened =
+            Graph.setParseState fileId ParseState.Parsed graph |> requireOk
+        let after = applyDiskParse ops opened
         Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(ParseState.Parsed, after.nodes.[fileId].documentState.parseState)
         Assert.Equal(persist, after.nodes.[fileId].documentState.persistState)

@@ -115,6 +115,7 @@ module GithubTransportActor =
         dependencies
         dataDir
         changes
+        (enqueueInMsg: InMsg -> unit)
         workspaceId
         workspaceRoot
         =
@@ -131,8 +132,8 @@ module GithubTransportActor =
                         { handle = changes
                           dataDir = dataDir
                           workspaceLabel =
-                            System.IO.Path.GetFileName
-                                workspaceRoot }
+                            System.IO.Path.GetFileName workspaceRoot
+                          enqueueInMsg = enqueueInMsg }
                         workspaceId
                         changed
         }
@@ -142,6 +143,7 @@ module GithubTransportActor =
         dependencies
         dataDir
         changes
+        enqueueInMsg
         workspaceId
         root
         =
@@ -151,6 +153,7 @@ module GithubTransportActor =
                 dependencies
                 dataDir
                 changes
+                enqueueInMsg
                 workspaceId
                 root
         | GithubTransportOperation.Save ->
@@ -158,7 +161,14 @@ module GithubTransportActor =
                 saveTracked dependencies.git root
                 |> Result.map ignore)
 
-    let private runBody dataDir operation dependencies input coreChanges =
+    let private runBody
+        dataDir
+        operation
+        dependencies
+        enqueueInMsg
+        input
+        coreChanges
+        =
         async {
             let actorChanges =
                 CoreDoor.forCaller (actorCaller input) coreChanges
@@ -178,6 +188,7 @@ module GithubTransportActor =
                             dependencies
                             dataDir
                             actorChanges
+                            enqueueInMsg
                             workspaceId
                             root
                     with
@@ -185,16 +196,22 @@ module GithubTransportActor =
                     | Error err -> return ActorFailed err
         }
 
-    let actorFn
+    let internal actorFn
         dataDir
         operation
         dependencies
+        (enqueueInMsg: InMsg -> unit)
         : ActorFn =
         fun input coreChanges ->
             async {
                 let! result =
                     runBody
-                        dataDir operation dependencies input coreChanges
+                        dataDir
+                        operation
+                        dependencies
+                        enqueueInMsg
+                        input
+                        coreChanges
                 let actorChanges =
                     CoreDoor.forCaller (actorCaller input) coreChanges
                 let! _ = CoreDoor.actorStop actorChanges result

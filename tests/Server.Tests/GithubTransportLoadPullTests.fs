@@ -39,10 +39,9 @@ let private seedDocs (host: MailboxHost) =
     let graph = readGraph host
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
-    postChange
-        host
-        (docsOps
-         @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    postChange host docsOps
+    CoreMailboxApi.addInMsg host (InMsg.ParseFinished docsId)
+    readGraph host |> ignore
     workspaceId, docsId
 
 let private fileNamed (graph: Graph) parentId name =
@@ -88,6 +87,7 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
             (markingDependencies (pullAddsExtra root))
             dataDir
             changes
+            (CoreMailboxApi.addInMsg host)
             workspaceId
             root
         |> Async.RunSynchronously

@@ -28,7 +28,7 @@ module CoreRuntime =
         (pool: CoreActorPool)
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
-        : MailboxHost * (NodeId -> unit) =
+        : MailboxHost =
         match boot.DbStatus with
         | DatabaseSetup.DbStatus.Ok ->
             CoreMailbox.hostPublishing
@@ -64,12 +64,12 @@ module CoreRuntime =
     let internal createPublishing
         (boot: CoreBoot)
         (parsePush: NodeId -> unit)
-        : CoreRuntime * (NodeId -> unit) =
+        : CoreRuntime =
         let browserCaller, parseCaller = bootCallers boot
         let pool = CoreActorPool.create ()
         boot.Actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
-        let host, push =
+        let host =
             startHost
                 boot
                 pool
@@ -78,9 +78,7 @@ module CoreRuntime =
                 parsePush
         { host = host
           parseCaller = parseCaller
-          pool = pool },
-        push
+          pool = pool }
 
     let create (boot: CoreBoot) (parsePush: NodeId -> unit) : CoreRuntime =
-        let runtime, _ = createPublishing boot parsePush
-        runtime
+        createPublishing boot parsePush

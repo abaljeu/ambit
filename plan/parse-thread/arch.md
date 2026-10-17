@@ -1,7 +1,7 @@
 # Parse thread architecture
 
 Spec: [spec](spec.md)
-Updated: 2026-10-11
+Updated: 2026-10-17
 Sequence: module-build
 
 Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
@@ -13,7 +13,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 1. **Unparsed becomes Graph**
    1. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) takes a File Node from the stack.
    2. [x] **File parse** — [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into Graph ops.
-   3. [x] **Current** — [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
+   3. [x] **Current** — [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` does not emit `SetDocumentState`. The parse thread enqueues `InMsg` `ParseFinished` before the content post. The core loop sets the File Node Current.
 
 2. **Continuous Parse**
    1. [x] **One consumer** — The parse thread consumes the stack. It is not a new command.
@@ -131,7 +131,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 ## 2. Module map
 
 1. **Directory reconcile**
-   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It adds a missing member node. A new File Node starts Unparsed. A new child Directory Node starts Unparsed. It deletes a member node that has no file. It does not mark an existing member Unparsed. When that Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
+   Directory reconcile scans the directory and updates the Directory body. The Directory body is the nodes tied to that `.amb`. Scanning the `.amb` file would be Directory parse. That scan is not this operation. Directory reconcile walks all nodes tied to that `.amb`, not only immediate children. It adds a missing member node. A new File Node starts Unparsed. A new child Directory Node starts Unparsed. It deletes a member node that has no file. It does not mark an existing member Unparsed. When that Directory Node or Workspace Node is Unparsed, the ops do not include SetDocumentState. The parse thread enqueues InMsg ParseFinished before posting them, and the core loop sets Current. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
    File: `src/Shared/dotnet/DirectoryReconcile.fs`
    Claim home: [Parse and persist](../../doc/current/parse-persist.md)
 
@@ -143,7 +143,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
    2. **Interface**
       1. [x] **Inputs** — Directory reconcile takes the disk directory, the graph, and the directory id. The directory id plus the graph is the Directory Node. Directory reconcile reads the Directory body from that graph. The disk directory is required. Disk members for git Load, Directory Load, and Workspace Load come from `discoverImmediateMembers`. There is no depth argument.
       2. [x] **Create** — Directory reconcile returns ops that create each missing File Node. A new node appends alphabetically under the Directory Node.
-      3. [x] **Current** — When the reconciled Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current. That op is present when there are no member ops. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
+      3. [x] **Current** — Directory reconcile ops do not include SetDocumentState. When the reconciled Directory Node or Workspace Node is Unparsed, the parse thread enqueues InMsg ParseFinished before posting the ops, including when there are no member ops. The core loop sets Current. Ticket: [29 — Graph change crosses Core loop](../core-refinement/issues/29-graph-change-crosses-core-loop.md).
       4. [x] **No mark** — Directory reconcile does not name an existing member for push.
       5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
       6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
