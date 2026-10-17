@@ -1,6 +1,6 @@
 # 42 — Public post refuses SetDocumentState
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** [41 — markUnparsedThenPush stays on the mailbox loop](41-mark-unparsed-then-push-on-the-mailbox-loop.md)
 **Trackers:** architecture
@@ -43,3 +43,7 @@ A new public Change, and `postGraphOnly`, that contain `Op.SetDocumentState` are
 - [41 — markUnparsedThenPush stays on the mailbox loop](41-mark-unparsed-then-push-on-the-mailbox-loop.md)
 - [Op](doc/current/op.md)
 - [Mailbox](doc/current/mailbox.md)
+
+## Comments
+
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [45 — Remove document-state Set ops](45-remove-document-state-set-ops.md).

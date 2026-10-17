@@ -1,6 +1,6 @@
 # 40 — Parse and reconcile use the mailbox writer
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** [39 — Upload, import, undo, and stored replay use the mailbox writer](39-upload-import-undo-replay-use-the-mailbox-writer.md)
 **Trackers:** architecture
@@ -39,3 +39,8 @@ File parse, directory reconcile, and lazy load apply the three-way parse state t
 - [core-refinement](plan/core-refinement/project.md)
 - [39 — Upload, import, undo, and stored replay use the mailbox writer](39-upload-import-undo-replay-use-the-mailbox-writer.md)
 - [41 — markUnparsedThenPush stays on the mailbox loop](41-mark-unparsed-then-push-on-the-mailbox-loop.md)
+
+## Comments
+
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [44 — Apply document state from File events](44-apply-document-state-from-file-events.md).
+- 2026-10-17 — Superseded by [43 — Expand Node events beside the Set output](43-expand-file-events-beside-the-set-output.md), [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md), [45 — Remove document-state Set ops](45-remove-document-state-set-ops.md), [48 — Browser applies Node events](48-browser-applies-node-events.md), [53 — Arrival and reconcile emit NodeReceived](53-arrival-and-reconcile-emit-nodereceived.md), [54 — Parse and import stop the Parsed Set](54-parse-and-import-stop-the-parsed-set.md), and [56 — Remove ParseThread markUnparsed](56-remove-parsethread-markunparsed.md). Status `cancelled`.

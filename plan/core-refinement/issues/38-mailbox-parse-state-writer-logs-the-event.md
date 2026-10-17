@@ -1,6 +1,6 @@
 # 38 — Mailbox parse-state writer logs the Event
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture
@@ -44,3 +44,7 @@ The mailbox has one parse-state writer. It runs only on Core loop. It applies `I
 - [39 — Upload, import, undo, and stored replay use the mailbox writer](39-upload-import-undo-replay-use-the-mailbox-writer.md)
 - [Mailbox](doc/current/mailbox.md)
 - [GLOSSARY](GLOSSARY.md)
+
+## Comments
+
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [43 — Expand File events beside the Set output](43-expand-file-events-beside-the-set-output.md).

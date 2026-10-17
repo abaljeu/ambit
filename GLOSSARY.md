@@ -260,10 +260,6 @@ _Avoid_: regular, plain, standard
 A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node. A Normal Node carries neither parse state nor persist state.
 _Avoid_: normal (bare, for a Node), regular node, plain node, leaf node
 
-**NoServerFile**:
-A file is pending from the client. Parsed, Unparsed, and NoServerFile are one three-way parse state. The database column `document_state` stores that three-way state.
-_Avoid_: flag (for this value)
-
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
@@ -281,7 +277,7 @@ A Load-stage operation that turns server files into Graph content.  This step is
 _Avoid_: import, reconcile (as the stage name)
 
 **Parsed**:
-The Graph has the file's data. Parsed, Unparsed, and NoServerFile are one three-way parse state.
+The Graph has the file's data. Parsed, Unparsed, and PullingFile are one three-way parse state, and stored parse state is Parsed or Unparsed.
 _Avoid_: Current (say Parsed)
 
 **Persisted**:
@@ -291,6 +287,10 @@ _Avoid_: saved, flushed
 **Poll**:
 A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
+
+**PullingFile**:
+A file pending from the client. Parsed, Unparsed, and PullingFile are one three-way parse state; PullingFile is not stored, so after a server reboot it is not true, and a second Load can repair a failure to load.
+_Avoid_: NoServerFile, flag (for this value)
 
 **Redo**:
 An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
@@ -365,7 +365,7 @@ A Node whose Children are not present.
 _Avoid_: stub, hollow, partial, collapsed (for this meaning)
 
 **Unparsed**:
-The Graph does not have the file's data. Parsed, Unparsed, and NoServerFile are one three-way parse state.
+The Graph does not have the file's data. Parsed, Unparsed, and PullingFile are one three-way parse state, and stored parse state is Parsed or Unparsed.
 _Avoid_: stale, dirty
 
 **Upload**:
