@@ -134,6 +134,7 @@ module internal CoreMailboxEvents =
         formatError: string -> string
         eventLog: EventLog ref
         coreChanges: (Caller -> CoreChangesDoor) option ref
+        inMsgLog: InMsg list ref
     }
 
     let addCaller (context: MailboxContext) caller =

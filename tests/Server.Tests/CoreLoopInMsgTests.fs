@@ -72,7 +72,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
     let snaps = ResizeArray<NodeId * Graph option>()
-    apply (handlers state snaps) (InMsg.ParseFinished id)
+    apply (handlers state snaps) (InMsg.NodeParsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
@@ -97,7 +97,7 @@ let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
     let snaps = ResizeArray<NodeId * Graph option>()
-    apply (handlers state snaps) (InMsg.ParseFinished id)
+    apply (handlers state snaps) (InMsg.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
     Assert.True(after.documentState.noServerFile)
@@ -158,7 +158,7 @@ let ``axis write failure is returned`` () =
     let missingResult =
         CoreMailboxLoad.applyInMsg
             (handlers state snaps)
-            (InMsg.ParseFinished missing)
+            (InMsg.NodeParsed missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
@@ -181,7 +181,7 @@ let ``mailbox queue applies ParseFinished`` () =
         let snaps = ResizeArray<NodeId * Graph option>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.addInMsg host (InMsg.ParseFinished id)
+            CoreMailboxApi.addInMsg host (InMsg.NodeParsed id)
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

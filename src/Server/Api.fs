@@ -214,6 +214,28 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
+    let private acceptedChangeResult
+        buildEpochSec
+        pageBuildEpochSec
+        (accepted: CoreChangesAccepted)
+        (answer: SnapshotAnswer)
+        (laterEvents: Ev list)
+        =
+        changeSuccessResult
+            { eventId = answer.state.eventId
+              buildEpochSec = buildEpochSec
+              pageBuildEpochSec = pageBuildEpochSec
+              apiVersion = ApiVersion.current
+              isReady = accepted.isReady
+              externalChanges =
+                accepted.externalChanges
+                || not laterEvents.IsEmpty
+              events = accepted.events @ laterEvents
+              message = accepted.message
+              bootstrapHash = None
+              nodes = answer.nodes
+              childMap = answer.childMap }
+
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -230,6 +252,9 @@ module Api =
         | Ok request ->
             match! CoreDoor.postEvents handle request.events with
             | Ok accepted ->
+                NodeEventBeside.post
+                    handle.host
+                    (NodeEventBeside.forPostedEvents request.events)
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
                 | Ok answer ->
@@ -239,20 +264,12 @@ module Api =
                             accepted.eventId
                             answer.state.eventId
                     return
-                        changeSuccessResult
-                            { eventId = answer.state.eventId
-                              buildEpochSec = buildEpochSec
-                              pageBuildEpochSec = pageBuildEpochSec
-                              apiVersion = ApiVersion.current
-                              isReady = accepted.isReady
-                              externalChanges =
-                                accepted.externalChanges
-                                || not laterEvents.IsEmpty
-                              events = accepted.events @ laterEvents
-                              message = accepted.message
-                              bootstrapHash = None
-                              nodes = answer.nodes
-                              childMap = answer.childMap }
+                        acceptedChangeResult
+                            buildEpochSec
+                            pageBuildEpochSec
+                            accepted
+                            answer
+                            laterEvents
             | Error err -> return agentErrorResult err
     }
 
@@ -444,7 +461,11 @@ module Api =
             | Ok ops ->
                 let event = GraphOnlyChangePost.mint "Parse" ops
                 match! CoreDoor.postGraphOnly handle event with
-                | Ok _ -> return jsonResult """{"ok":true}"""
+                | Ok _ ->
+                    NodeEventBeside.post
+                        handle.host
+                        (NodeEventBeside.parsedMarks ops)
+                    return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }
 

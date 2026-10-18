@@ -437,7 +437,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
@@ -494,10 +494,10 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! fileId, dirId = seedDocsFile host
-            CoreMailboxApi.addInMsg host (InMsg.ParseFinished fileId)
+            CoreMailboxApi.addInMsg host (InMsg.NodeParsed fileId)
             let! parsed =
                 waitUntil
                     (fun () ->
@@ -587,7 +587,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let extra =
@@ -639,7 +639,7 @@ let ``File Load push parses when the parse thread pops it`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -703,7 +703,7 @@ let ``second Load of a Parsed File is parsed again`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -783,7 +783,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -858,7 +858,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let! first =
@@ -926,7 +926,7 @@ let private openParse (dataDir: string) =
             fun nodeId ->
                 CoreMailboxApi.addInMsg
                     host
-                    (InMsg.ParseFinished nodeId) }
+                    (InMsg.NodeParsed nodeId) }
     host
 
 let private stateOf host =
@@ -965,7 +965,7 @@ let private holdCurrentChild host dataDir =
             host
             [ Op.SetDocumentState(keptId, Unparsed, Current)
               Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
-        CoreMailboxApi.addInMsg host (InMsg.ParseFinished keptId)
+        CoreMailboxApi.addInMsg host (InMsg.NodeParsed keptId)
         let! parsed =
             waitUntil
                 (fun () -> parseStateOf host keptId = Some ParseState.Parsed)
@@ -1150,7 +1150,7 @@ let private loadRig (dataDir: string) =
                 fun nodeId ->
                     CoreMailboxApi.addInMsg
                         host
-                        (InMsg.ParseFinished nodeId) }
+                        (InMsg.NodeParsed nodeId) }
     { host = host
       pushed = pushed
       startThread = startThread }
@@ -1174,7 +1174,7 @@ let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
             let docs = ensureDocsDisk dataDir
             File.WriteAllText(Path.Combine(docs, "note.txt"), "keep")
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished dirId)
+            CoreMailboxApi.addInMsg rig.host (InMsg.NodeParsed dirId)
             let! parsed =
                 waitUntil
                     (fun () ->
@@ -1219,8 +1219,8 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                 Path.Combine(docs, "kept", "inner.txt"),
                 "INNER\n")
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished keptId)
+            CoreMailboxApi.addInMsg rig.host (InMsg.NodeParsed fileId)
+            CoreMailboxApi.addInMsg rig.host (InMsg.NodeParsed keptId)
             let! held =
                 waitUntil
                     (fun () ->
@@ -1268,7 +1268,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             let old = DateTime(1999, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             File.WriteAllText(diskPath, "OLD\n")
             File.SetLastWriteTimeUtc(diskPath, old)
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
+            CoreMailboxApi.addInMsg rig.host (InMsg.NodeParsed fileId)
             let! wasParsed =
                 waitUntil
                     (fun () ->

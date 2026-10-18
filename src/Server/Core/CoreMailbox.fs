@@ -19,7 +19,11 @@ module CoreMailbox =
                 pool
                 parsePush
         let started = CoreMailboxLoad.start context persist
-        let created = MailboxHost.create started.processor persist
+        let created =
+            MailboxHost.create
+                started.processor
+                persist
+                context.inMsgLog
         persist.bindSnapshot (CoreMailboxApi.addInMsg created)
         started.bindCoreChanges (fun caller ->
             { host = created

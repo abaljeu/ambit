@@ -75,9 +75,11 @@ type internal CoreMsg =
 
 /// Internal message. Not an Op. No public enqueue door.
 type internal InMsg =
-    | ParseFinished of nodeId: NodeId
+    | NodeParsed of nodeId: NodeId
     | SnapshotDone of nodeId: NodeId * graph: Graph option
     | MarkUnparsed of nodeId: NodeId
+    | NodeUploading of nodeId: NodeId
+    | NodeReceived of nodeId: NodeId
 
 [<RequireQualifiedAccess>]
 type internal QueueSum =

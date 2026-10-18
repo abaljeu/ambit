@@ -165,10 +165,12 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
-    /// Core loop apply. ParseFinished writes Parsed only when noServerFile
+    /// Core loop apply. NodeParsed writes Parsed only when noServerFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// noServerFile is set, that File Node stays Unparsed. It does not
-    /// set Persisted.
+    /// set Persisted. NodeParsed is the renamed ParseFinished.
+    /// NodeUploading and NodeReceived are logged by the queue puller and
+    /// do not set state.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs snapshot bookkeeping, then sets Persisted.
     let internal applyInMsg
@@ -176,12 +178,14 @@ module internal CoreMailboxLoad =
         (msg: InMsg)
         : Result<unit, string> =
         match msg with
-        | InMsg.ParseFinished nodeId ->
+        | InMsg.NodeParsed nodeId ->
             match writeParseState persist nodeId ParseState.Parsed with
             | Error err -> Error err
             | Ok () ->
                 persist.noteParsed nodeId
                 Ok ()
+        | InMsg.NodeUploading _
+        | InMsg.NodeReceived _ -> Ok ()
         | InMsg.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
         | InMsg.SnapshotDone(nodeId, graph) ->
@@ -202,6 +206,7 @@ module internal CoreMailboxLoad =
         match item with
         | QueueSum.Core msg -> dispatch context msg
         | QueueSum.In msg ->
+            context.inMsgLog := msg :: context.inMsgLog.Value
             match applyInMsg context.persist msg with
             | Ok () -> ()
             | Error err -> reportInMsg context err
@@ -265,7 +270,8 @@ module internal CoreMailboxLoad =
           onError = persist.onError
           formatError = persist.formatError
           eventLog = ref eventLog
-          coreChanges = ref None },
+          coreChanges = ref None
+          inMsgLog = ref [] },
         reported
 
     let private started mailbox (context: MailboxContext) : Started =
