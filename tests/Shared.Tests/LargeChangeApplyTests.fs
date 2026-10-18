@@ -152,9 +152,11 @@ let private reachableStructure (graph: Graph) =
         else
             let node = graph.nodes.[nodeId]
             let kids = Graph.children graph nodeId
+            // Parse axis only. Undo of Replace is a graph edit: it sets the
+            // owning special Unpersisted and does not restore Persisted.
             let shape =
                 node.text, node.name, node.cssClasses, node.owner,
-                node.kind, node.documentState,
+                node.kind, DocumentState.toLegacy node.documentState,
                 Graph.childrenStatus graph nodeId, kids
             kids
             |> List.fold
@@ -207,6 +209,12 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     let inverse, planMs = time (fun () -> undoInverse history0)
     assertNoCreateOps inverse
     let projected, projectedMs = time (fun () -> projectInverse inverse changed)
+    Assert.Equal(
+        PersistState.Unpersisted,
+        changed.graph.nodes.[state.graph.root].documentState.persistState)
+    Assert.Equal(
+        PersistState.Unpersisted,
+        projected.graph.nodes.[state.graph.root].documentState.persistState)
     Assert.True((before = reachableStructure projected.graph))
     let redo = invertEvent inverse.id (Guid.NewGuid()) inverse
     Assert.True((after = reachableStructure (applied projected redo).graph))
