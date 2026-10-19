@@ -53,7 +53,7 @@ let private postChange (handle: CoreChangesDoor) (ops: Op list) = task {
 
 let private hasCase (host: MailboxHost) pred =
     let _ = stateOf host
-    MailboxHost.loggedInMsgs host |> List.exists pred
+    MailboxHost.loggedNotices host |> List.exists pred
 
 let private documentState host id =
     Node.documentStateEnum (stateOf host).graph.nodes.[id]
@@ -99,7 +99,7 @@ let private startParse dataDir host =
           markUnparsed = ignore
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.addInMsg host (InMsg.NodeParsed nodeId) }
+                CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId) }
     push
 
 let private admitHome dataDir =
@@ -125,12 +125,12 @@ let private setState host id oldState newState =
 
 let private uploading host id =
     hasCase host (function
-        | InMsg.NodeUploading found -> found = id
+        | Notice.NodeUploading found -> found = id
         | _ -> false)
 
 let private received host id =
     hasCase host (function
-        | InMsg.NodeReceived found -> found = id
+        | Notice.NodeReceived found -> found = id
         | _ -> false)
 
 let private placeFile (dataDir: string) (rel: string) (text: string) =
@@ -155,14 +155,14 @@ let private pullReceived host handle dataDir changes = task {
 
 let private parsedMsg host id =
     hasCase host (function
-        | InMsg.NodeParsed found -> found = id
+        | Notice.NodeParsed found -> found = id
         | _ -> false)
 
 let private anyNodeMsg host =
     hasCase host (function
-        | InMsg.NodeUploading _
-        | InMsg.NodeReceived _
-        | InMsg.NodeParsed _ -> true
+        | Notice.NodeUploading _
+        | Notice.NodeReceived _
+        | Notice.NodeParsed _ -> true
         | _ -> false)
 
 let private wroteSet host id newState =
@@ -428,14 +428,14 @@ let ``ParseFinished is NodeParsed`` () = task {
     let host, _, wsId = admitHome dataDir
     try
         let fileId = addFile host wsId "note.txt"
-        CoreMailboxApi.addInMsg host (InMsg.NodeParsed fileId)
+        CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
         assertLogged host fileId Current (parsedMsg host fileId)
     finally
         CoreMailboxApi.dispose host
 }
 
 [<Fact>]
-let ``non document state change posts no Node InMsg`` () = task {
+let ``non document state change posts no Node Notice`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
     try

@@ -1,4 +1,4 @@
-module Gambol.Server.Tests.CoreLoopInMsgTests
+module Gambol.Server.Tests.CoreLoopNoticeTests
 
 open System.Threading.Tasks
 open Xunit
@@ -61,7 +61,7 @@ let private hostFor state snaps =
         admittedCredentials
 
 let private apply persist msg =
-    match CoreMailboxLoad.applyInMsg persist msg with
+    match CoreMailboxLoad.applyNotice persist msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 
@@ -71,7 +71,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (InMsg.NodeParsed id)
+    apply (handlers state snaps) (Notice.NodeParsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
@@ -96,7 +96,7 @@ let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (InMsg.NodeParsed id)
+    apply (handlers state snaps) (Notice.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
     Assert.True(after.documentState.noServerFile)
@@ -110,7 +110,7 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (InMsg.MarkUnparsed id)
+    apply (handlers state snaps) (Notice.MarkUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
     Assert.Equal(Unparsed, node.documentState.AsEnum)
@@ -123,7 +123,7 @@ let ``SnapshotDone sets Persisted and calls the diff hook`` () =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (InMsg.SnapshotDone id)
+    apply (handlers state snaps) (Notice.SnapshotDone id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
@@ -138,15 +138,15 @@ let ``axis write failure is returned`` () =
     let snaps = ResizeArray<NodeId>()
     let missing = NodeId.New()
     let missingResult =
-        CoreMailboxLoad.applyInMsg
+        CoreMailboxLoad.applyNotice
             (handlers state snaps)
-            (InMsg.NodeParsed missing)
+            (Notice.NodeParsed missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
-        CoreMailboxLoad.applyInMsg
+        CoreMailboxLoad.applyNotice
             (handlers state snaps)
-            (InMsg.SnapshotDone Graph.workspacesId)
+            (Notice.SnapshotDone Graph.workspacesId)
     Assert.Equal(
         Error "workspaces is not a graph document",
         rejected)
@@ -163,7 +163,7 @@ let ``mailbox queue applies ParseFinished`` () =
         let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.addInMsg host (InMsg.NodeParsed id)
+            CoreMailboxApi.postNotice host (Notice.NodeParsed id)
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
@@ -184,7 +184,7 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
         let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.addInMsg host (InMsg.SnapshotDone id)
+            CoreMailboxApi.postNotice host (Notice.SnapshotDone id)
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

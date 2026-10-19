@@ -173,22 +173,22 @@ module internal CoreMailboxLoad =
     /// do not set state.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
-    let internal applyInMsg
+    let internal applyNotice
         (persist: PersistHandlers)
-        (msg: InMsg)
+        (msg: Notice)
         : Result<unit, string> =
         match msg with
-        | InMsg.NodeParsed nodeId ->
+        | Notice.NodeParsed nodeId ->
             match writeParseState persist nodeId ParseState.Parsed with
             | Error err -> Error err
             | Ok () ->
                 persist.noteParsed nodeId
                 Ok ()
-        | InMsg.NodeUploading _
-        | InMsg.NodeReceived _ -> Ok ()
-        | InMsg.MarkUnparsed nodeId ->
+        | Notice.NodeUploading _
+        | Notice.NodeReceived _ -> Ok ()
+        | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
-        | InMsg.SnapshotDone nodeId ->
+        | Notice.SnapshotDone nodeId ->
             persist.noteDiffDone nodeId
             writeAxis persist (fun live ->
                 GraphMutate.setPersistState
@@ -196,20 +196,20 @@ module internal CoreMailboxLoad =
                     PersistState.Persisted
                     live)
 
-    let private reportInMsg (context: MailboxContext) (err: string) =
-        context.onError "InMsg" err (exn err)
+    let private reportNotice (context: MailboxContext) (err: string) =
+        context.onError "Notice" err (exn err)
 
     let private dispatchItem
         (context: MailboxContext)
-        (item: QueueSum)
+        (item: CoreQueue)
         =
         match item with
-        | QueueSum.Core msg -> dispatch context msg
-        | QueueSum.In msg ->
-            context.inMsgLog := msg :: context.inMsgLog.Value
-            match applyInMsg context.persist msg with
+        | CoreQueue.Public msg -> dispatch context msg
+        | CoreQueue.Notice msg ->
+            context.noticeLog := msg :: context.noticeLog.Value
+            match applyNotice context.persist msg with
             | Ok () -> ()
-            | Error err -> reportInMsg context err
+            | Error err -> reportNotice context err
 
     let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
         getState = persist.getState
@@ -271,7 +271,7 @@ module internal CoreMailboxLoad =
           formatError = persist.formatError
           eventLog = ref eventLog
           coreChanges = ref None
-          inMsgLog = ref [] },
+          noticeLog = ref [] },
         reported
 
     let private started mailbox (context: MailboxContext) : Started =
@@ -290,7 +290,7 @@ module internal CoreMailboxLoad =
 
     let rec private pump
         (context: MailboxContext)
-        (inbox: MailboxProcessor<QueueSum>)
+        (inbox: MailboxProcessor<CoreQueue>)
         =
         async {
             let! item = inbox.Receive()
@@ -306,14 +306,14 @@ module internal CoreMailboxLoad =
                 Error $"Startup prelude failed: {ex.Message}")
 
     let private startNow (context: MailboxContext) : Started =
-        started (MailboxProcessor<QueueSum>.Start(pump context)) context
+        started (MailboxProcessor<CoreQueue>.Start(pump context)) context
 
     let private startWithPrelude
         (context: MailboxContext)
         (until: Async<Result<unit, string>>)
         : Started =
         let untilTask = runUntil until
-        let mailbox = MailboxProcessor<QueueSum>.Start(fun inbox ->
+        let mailbox = MailboxProcessor<CoreQueue>.Start(fun inbox ->
             let rec startupLoop () = async {
                 if untilTask.IsCompleted then
                     match untilTask.GetAwaiter().GetResult() with
@@ -324,7 +324,7 @@ module internal CoreMailboxLoad =
                         inbox.TryScan(
                             (fun item ->
                                 match item with
-                                | QueueSum.Core msg when isStartupRead msg ->
+                                | CoreQueue.Public msg when isStartupRead msg ->
                                     Some(async { dispatch context msg })
                                 | _ -> None),
                             timeout = 20)

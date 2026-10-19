@@ -121,7 +121,7 @@ module internal CoreMailboxEvents =
         | EventsSince (_, reply) -> reply.Reply(EventLog.empty)
 
     type Started = {
-        processor: MailboxProcessor<QueueSum>
+        processor: MailboxProcessor<CoreQueue>
         bindCoreChanges: (Caller -> CoreChangesDoor) -> unit
     }
 
@@ -134,7 +134,7 @@ module internal CoreMailboxEvents =
         formatError: string -> string
         eventLog: EventLog ref
         coreChanges: (Caller -> CoreChangesDoor) option ref
-        inMsgLog: InMsg list ref
+        noticeLog: Notice list ref
     }
 
     let addCaller (context: MailboxContext) caller =

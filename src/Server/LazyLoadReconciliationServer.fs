@@ -406,9 +406,9 @@ module LazyLoadReconciliationServer =
                                     files
                                     ops
                                 |> List.iter (fun id ->
-                                    CoreMailboxApi.addInMsg
+                                    CoreMailboxApi.postNotice
                                         workspace.handle.host
-                                        (InMsg.NodeReceived id)) }
+                                        (Notice.NodeReceived id)) }
         }
 
     /// Load's directory match. One level: direct files and child directories.

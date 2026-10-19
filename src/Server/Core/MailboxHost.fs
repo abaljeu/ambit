@@ -4,11 +4,11 @@ open Gambol.Shared
 
 type MailboxHost =
     private {
-        mailbox: MailboxProcessor<QueueSum>
+        mailbox: MailboxProcessor<CoreQueue>
         gate: obj
         isReady: unit -> bool
         dispose: unit -> unit
-        inMsgLog: InMsg list ref
+        noticeLog: Notice list ref
     }
 
 [<RequireQualifiedAccess>]
@@ -17,20 +17,20 @@ module MailboxHost =
     let internal create
         mailbox
         (persist: PersistFilling)
-        (inMsgLog: InMsg list ref)
+        (noticeLog: Notice list ref)
         : MailboxHost = {
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
         dispose = persist.dispose
-        inMsgLog = inMsgLog
+        noticeLog = noticeLog
     }
 
-    /// InMsg posts the mailbox has logged. Newest last.
-    let internal loggedInMsgs (host: MailboxHost) =
-        List.rev host.inMsgLog.Value
+    /// Notice posts the mailbox has logged. Newest last.
+    let internal loggedNotices (host: MailboxHost) =
+        List.rev host.noticeLog.Value
 
-    let internal postItem (host: MailboxHost) (item: QueueSum) =
+    let internal postItem (host: MailboxHost) (item: CoreQueue) =
         lock host.gate (fun () -> host.mailbox.Post item)
 
     /// Post each message back to back. The gate keeps another caller out.
@@ -46,7 +46,7 @@ module MailboxHost =
                         System.Threading.Tasks.TaskCompletionSource<_>()
                     let post =
                         host.mailbox.PostAndAsyncReply(fun channel ->
-                            QueueSum.Core(build channel))
+                            CoreQueue.Public(build channel))
                     Async.StartWithContinuations(
                         post,
                         (fun reply -> source.TrySetResult reply |> ignore),
@@ -69,7 +69,7 @@ module MailboxHost =
             lock host.gate (fun () ->
                 Async.StartWithContinuations(
                     host.mailbox.PostAndAsyncReply(fun channel ->
-                        QueueSum.Core(build channel)),
+                        CoreQueue.Public(build channel)),
                     cont,
                     econt,
                     ccont)))

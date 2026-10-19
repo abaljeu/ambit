@@ -7,7 +7,7 @@
 
 ## Context
 
-`ParseThread.markUnparsed` posts `InMsg.MarkUnparsed` through `CoreMailboxApi.addInMsg` after a directory reconcile. Unparsed is set by the mailbox before a node is on the parse thread. Directory reconcile does not mark existing members Unparsed.
+`ParseThread.markUnparsed` posts `Notice.MarkUnparsed` through `CoreMailboxApi.postNotice` after a directory reconcile. Unparsed is set by the mailbox before a node is on the parse thread. Directory reconcile does not mark existing members Unparsed.
 
 ## What to build
 
@@ -15,7 +15,7 @@ Remove `ParseThread.markUnparsed` as a producer of Unparsed marks.
 
 ### 1. Remove markUnparsed
 
-1. [ ] **Remove markUnparsed** — Remove `ParseThread.markUnparsed`. It does not post `InMsg.MarkUnparsed` and it does not emit NodeParsing. Unparsed is set by the mailbox before a node is on the parse thread. Directory reconcile does not mark existing members Unparsed.
+1. [ ] **Remove markUnparsed** — Remove `ParseThread.markUnparsed`. It does not post `Notice.MarkUnparsed` and it does not emit NodeParsing. Unparsed is set by the mailbox before a node is on the parse thread. Directory reconcile does not mark existing members Unparsed.
 
 ### Acceptance Criteria
 

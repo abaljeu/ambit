@@ -13,11 +13,11 @@ module CoreMailboxApi =
 
     /// Public add: CoreMsg joins the one mailbox queue.
     let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
-        MailboxHost.postItem host (QueueSum.Core msg)
+        MailboxHost.postItem host (CoreQueue.Public msg)
 
-    /// Private add: InMsg joins that same queue. No public door.
-    let internal addInMsg (host: MailboxHost) (msg: InMsg) =
-        MailboxHost.postItem host (QueueSum.In msg)
+    /// Private add: Notice joins that same queue. No public door.
+    let internal postNotice (host: MailboxHost) (msg: Notice) =
+        MailboxHost.postItem host (CoreQueue.Notice msg)
 
     let private reply host build =
         MailboxHost.postAndAsyncReply host build

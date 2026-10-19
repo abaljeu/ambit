@@ -7,19 +7,19 @@
 
 ## Context
 
-Graph change apply has an `InMsg.NodeUploading` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeUploading` and logs it. Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeUploading` once it exists.
+Graph change apply has an `Notice.NodeUploading` handler in `CoreMailboxLoad.applyNotice`. The handler applies `Notice.NodeUploading` and logs it. Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeUploading` for the upload Change. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `Notice.NodeUploading` once it exists.
 
 ## What to build
 
-Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. The upload Actor posts `InMsg.NodeUploading` once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
+Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeUploading` for the upload Change. The upload Actor posts `Notice.NodeUploading` once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
 
 ### 1. Upload
 
-1. [ ] **Upload post** — `Api.postEvents` posts `InMsg.NodeUploading` through `CoreMailboxApi.addInMsg` when it runs the upload Change.
+1. [ ] **Upload post** — `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice` when it runs the upload Change.
 
 ### Acceptance Criteria
 
-1. [ ] **Upload test** — `upload emits NodeUploading`. The test calls `Api.postEvents` for the upload Change. `Api.postEvents` posts `InMsg.NodeUploading` through `CoreMailboxApi.addInMsg`. The `InMsg.NodeUploading` handler sets PullingFile and Unpersisted.
+1. [ ] **Upload test** — `upload emits NodeUploading`. The test calls `Api.postEvents` for the upload Change. `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice`. The `Notice.NodeUploading` handler sets PullingFile and Unpersisted.
 
 ## Finish-up
 

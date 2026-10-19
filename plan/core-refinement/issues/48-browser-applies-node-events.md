@@ -7,19 +7,19 @@
 
 ## Context
 
-Graph change expand posts `InMsg.NodeUploading` and `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg`, and emits NodeParsing, NodeParsed, NodePersisting, and NodePersisted. `CoreMailboxLoad.applyInMsg` applies `InMsg.NodeUploading` and `InMsg.NodeReceived` and logs them. The Browser applies the messages the handler logged. The server writer is today's `Op.apply` of `Op.SetDocumentState` and `GraphMutate.setPersistState`, or the Core-loop handlers from Graph change apply.
+Graph change expand posts `Notice.NodeUploading` and `Notice.NodeReceived` through `CoreMailboxApi.postNotice`, and emits NodeParsing, NodeParsed, NodePersisting, and NodePersisted. `CoreMailboxLoad.applyNotice` applies `Notice.NodeUploading` and `Notice.NodeReceived` and logs them. The Browser applies the messages the handler logged. The server writer is today's `Op.apply` of `Op.SetDocumentState` and `GraphMutate.setPersistState`, or the Core-loop handlers from Graph change apply.
 
 ## What to build
 
-The Browser event applier updates the resident Browser Graph from the messages `CoreMailboxLoad.applyInMsg` logged. The browser updates only that graph. Display reads from it.
+The Browser event applier updates the resident Browser Graph from the messages `CoreMailboxLoad.applyNotice` logged. The browser updates only that graph. Display reads from it.
 
 ### 1. Browser apply
 
-1. [ ] **Browser event applier** — Extend `SyncLogic.foldProjectedEvents` to receive every log message, including `InMsg.NodeUploading` and `InMsg.NodeReceived` that `CoreMailboxLoad.applyInMsg` logged, and apply the effect in [Document-state events](../spec.md) for each Node message to the resident Browser Graph. There is no filter. Display reads that graph. NodeParsing means parse started and does not set Unparsed. NodePersisting sets Unpersisted. NodeUploading sets PullingFile in memory.
+1. [ ] **Browser event applier** — Extend `SyncLogic.foldProjectedEvents` to receive every log message, including `Notice.NodeUploading` and `Notice.NodeReceived` that `CoreMailboxLoad.applyNotice` logged, and apply the effect in [Document-state events](../spec.md) for each Node message to the resident Browser Graph. There is no filter. Display reads that graph. NodeParsing means parse started and does not set Unparsed. NodePersisting sets Unpersisted. NodeUploading sets PullingFile in memory.
 
 ### Acceptance Criteria
 
-1. [ ] **Client test** — `client applies Node events for parse state and persist state`. The resident Browser Graph has the parse state and persist state from those messages, including `InMsg.NodeUploading` and `InMsg.NodeReceived`. Display reads that graph. The client receives every log message.
+1. [ ] **Client test** — `client applies Node events for parse state and persist state`. The resident Browser Graph has the parse state and persist state from those messages, including `Notice.NodeUploading` and `Notice.NodeReceived`. Display reads that graph. The client receives every log message.
 
 ## Finish-up
 

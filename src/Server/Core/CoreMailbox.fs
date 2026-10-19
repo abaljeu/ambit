@@ -23,8 +23,8 @@ module CoreMailbox =
             MailboxHost.create
                 started.processor
                 persist
-                context.inMsgLog
-        persist.bindPersistFinished (CoreMailboxApi.addInMsg created)
+                context.noticeLog
+        persist.bindPersistFinished (CoreMailboxApi.postNotice created)
         started.bindCoreChanges (fun caller ->
             { host = created
               caller = caller

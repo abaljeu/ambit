@@ -13,11 +13,11 @@ Alan, 2026-10-19. This note is the target shape of the mailbox and the event log
 1. **Orders** — `PostEvent`, `PostGraphOnly`, `StartActor`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, `LoadNode`, `ActorStop`, `CancelActor`.
 2. **Queries** — `GetState`, `GetEventId`, `GetEventsSince`, `GetEventHistory`, `EventsSince`.
 
-`InMsg` is `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`. `QueueSum` is `Core of CoreMsg | In of InMsg`. `CoreMailboxApi.addInMsg` is a second door onto that same queue.
+`Notice` is `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`. `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` is a second door onto that same queue.
 
 `EventBody` in [History.fs](../../src/Shared/History.fs) is `Change of Op list`, `Undo of EventId * Op list`, `Redo of EventId * Op list`, `ActorStart of ActorStart`, `ActorStop of NodeId * ActorResult`, and `Cancel of NodeId`. `Ev` holds `id`, `submissionId`, `authority`, `commandName`, and `body`.
 
-`EventBody = InMsg | CoreMsg` is not a valid log type. `CoreMsg.PostEvent` holds an `Ev`. That `Ev` holds an `EventBody`. A body that includes `CoreMsg` includes that `Ev` again. The `Caller` and the reply are the envelope. The envelope is never logged. The payload is logged.
+`EventBody = Notice | CoreMsg` is not a valid log type. `CoreMsg.PostEvent` holds an `Ev`. That `Ev` holds an `EventBody`. A body that includes `CoreMsg` includes that `Ev` again. The `Caller` and the reply are the envelope. The envelope is never logged. The payload is logged.
 
 ## 2. Target shape
 
@@ -94,12 +94,12 @@ type Session =
 5. **LoadSave** — `Order.LoadSave` replaces `CoreMsg.StartLoadSaveCommand`. It carries `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`.
 6. **Load** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`.
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and `EventBody.Cancel`.
-8. **Notice** — `Notice` replaces `InMsg`. The seven Node cases are `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted`, and `NodeUnpersisted`. `NodePersisted` carries the launch version as an `EventId`. `NodeUnpersisted` carries `NodeId`. `Notice.ActorStop` of `NodeId * ActorResult` replaces `CoreMsg.ActorStop`, `EventBody.ActorStop`, and `CoreMsg.RecordSearchStop`. `RecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded` today.
+8. **Notice** — The seven Node cases are `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted`, and `NodeUnpersisted`. `NodePersisted` carries the launch version as an `EventId`. `NodeUnpersisted` carries `NodeId`. `Notice.ActorStop` of `NodeId * ActorResult` replaces `CoreMsg.ActorStop`, `EventBody.ActorStop`, and `CoreMsg.RecordSearchStop`. `RecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded` today.
 9. **EventBody** — `EventBody` is `Order of PlacedOrder | Notice of Notice`. `EventBody.ActorStart` and `EventBody.ActorStop` leave. `Ev` keeps `id` and `body`. `authority`, `orderId`, and `commandName` belong to the `PlacedOrder`. A `Notice` has none of them. Accept assigns `id`. The `PlacedOrder` copies `orderId` and `commandName` from the `PlaceOrder`, and `authority` from the `Caller`'s `Authority`.
 10. **Mailbox** — `Mailbox` is the public mailbox. `PlaceOrder` carries `orderId`, `commandName: string option`, an `order`, the `Caller`, and the reply. The reply is `Result<EventId, string>`. `Ask` is a query: `State`, `LastEventId`, and `EventsSince`. A `Notice` is not a `Mailbox` case. The notice function posts a `Notice` onto `CoreQueue`.
 11. **Who sends** — A client or an Actor places an `Order`. Only a holder of the notice function posts a `Notice` onto `CoreQueue`.
 12. **One Ev** — Each accepted `PlaceOrder` becomes one `Ev`. Each `Notice` on `CoreQueue` becomes one `Ev`. That `Ev` is what clients receive.
-13. **Leaves** — `QueueSum` becomes `CoreQueue`. `CoreMailboxApi.addInMsg` becomes the notice function. The core hands that function out. `InMsg.MarkUnparsed` does not become a `Notice`. `InMsg.SnapshotDone` becomes `Notice.NodePersisted`. The `Graph` payload leaves. §6 **SnapshotDone**.
+13. **Leaves** — `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` is the notice function. The core hands that function out. `MarkUnparsed` leaves `Notice`. `Notice.SnapshotDone` becomes `Notice.NodePersisted`. The `Graph` payload leaves. §6 **SnapshotDone**.
 
 ## 3. Decisions
 
@@ -117,15 +117,15 @@ type Session =
 12. **NodeUnpersisted** — Alan, 2026-10-19. `Notice.SetDocumentState` does not remain. `Notice.NodeUnpersisted` of `nodeId: NodeId` replaces it. After an ordinary edit, the server's `Change` handler posts `Notice.NodeUnpersisted`. There are seven Node notices.
 13. **PeerActorName** — Alan, 2026-10-19. `PeerActorName` moves to Shared. `Order.StartPeerActor` and `Order.LoadSave` carry it.
 14. **Stored replay** — Alan, 2026-10-19. Stored replay skips `Notice.NodeUnpersisted` like the other Node notices and marks Unpersisted. [55 — Stored replay sets Unpersisted](issues/55-stored-replay-sets-unpersisted.md).
-15. **Notice has its own door** — Alan, 2026-10-19. `Mailbox` is the public mailbox. It does not accept a `Notice`. `Notice` replaces `InMsg`. Only a holder of the notice function can post one. Today's `CoreMailboxApi.addInMsg` is that function. The core hands it out, for example to the parse thread, the persist thread, reconcile, and an Actor given an `InMsg` handle. The function posts a `Notice` onto the internal queue beside `Mailbox`. `QueueSum` becomes `CoreQueue` (`Public of Mailbox | Notice of Notice`). `PlaceOrder` carries an `order`. The log stays `EventBody = Order of PlacedOrder | Notice of Notice`. Both an `Order` and a `Notice` become an `Ev`.
+15. **Notice has its own door** — Alan, 2026-10-19. `Mailbox` is the public mailbox. It does not accept a `Notice`. Only a holder of the notice function can post one. Today's `CoreMailboxApi.postNotice` is that function. The core hands it out, for example to the parse thread, the persist thread, reconcile, and an Actor given a `Notice` handle. The function posts a `Notice` onto the internal queue beside `Mailbox`. `CoreQueue.Public` will carry `Mailbox` ([60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md)). `PlaceOrder` carries an `order`. The log stays `EventBody = Order of PlacedOrder | Notice of Notice`. Both an `Order` and a `Notice` become an `Ev`.
 16. **Order carries its envelope fields** — Alan, 2026-10-19. `authority`, the order id, and `commandName` belong to an `Order`, not to every `Ev`. A `Notice` has none of them. The mailbox case is `PlaceOrder`. Its id field is `orderId`. Its payload field is `order`. The reply stays `Result<EventId, string>`. The logged case is `EventBody.Order` of `PlacedOrder`. Accept assigns `id`. The `PlacedOrder` copies `orderId` and `commandName` from the `PlaceOrder`, and `authority` from the `Caller`'s `Authority`.
-17. **Expand inside Mailbox** — Alan, 2026-10-19. Expand renames `InMsg` to `Notice` in place. It adds `Mailbox` with today's `CoreMsg` as a case, beside `PlaceOrder` and `Ask`. `Mailbox` is the public mailbox. A `Notice` is not a `Mailbox` case. `QueueSum` becomes `CoreQueue`: `Public of Mailbox | Notice of Notice`. The notice function posts a `Notice` onto `CoreQueue`. Change moves messages one at a time from `CoreMsg` cases to `PlaceOrder`, and queries to `Ask`. Collapse removes the `CoreMsg` case and the `CoreMsg` type.
+17. **Expand inside Mailbox** — Alan, 2026-10-19. Expand adds `Mailbox` with today's `CoreMsg` as a case, beside `PlaceOrder` and `Ask`. `Mailbox` is the public mailbox. A `Notice` is not a `Mailbox` case. `CoreQueue.Public` will carry `Mailbox` ([60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md)). The notice function posts a `Notice` onto `CoreQueue`. Change moves messages one at a time from `CoreMsg` cases to `PlaceOrder`, and queries to `Ask`. Collapse removes the `CoreMsg` case and the `CoreMsg` type.
 
 ## 4. Migration
 
 Expand, then change, then collapse. No step breaks upload, import, parse, Load, undo, or persist.
 
-1. [ ] **Expand** — Rename `InMsg` to `Notice` in place. Add `Mailbox` with today's `CoreMsg` as a case. `Mailbox` is the public mailbox. `QueueSum` becomes `CoreQueue`. The notice function posts a `Notice` onto `CoreQueue` beside `Mailbox`.
+1. [ ] **Expand** — Add `Mailbox` with today's `CoreMsg` as a case. `Mailbox` is the public mailbox. `CoreQueue.Public` will carry `Mailbox` ([60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md)). The notice function posts a `Notice` onto `CoreQueue` beside `Mailbox`.
 
 ```fsharp
 type Mailbox =
@@ -150,13 +150,13 @@ Tickets for these three steps are §7 **Tickets 59–68**.
 
 ## 5. Tickets 44–57
 
-These tickets stay worded with `InMsg` and `CoreMsg`. This note does not retitle them. At the Expand rename, an `InMsg` case becomes the `Notice` case of the same name.
+These tickets name `Notice` and `CoreMsg`.
 
-1. **[44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md)** — Handlers for `InMsg.NodeUploading`, `InMsg.NodeReceived`, `InMsg.NodeParsing`, `InMsg.NodePersisting`, and `InMsg.NodePersisted` become handlers for those `Notice` cases. The effects in [Document-state events](spec.md) stay.
-2. **[45 — SetDocumentState leaves; NodeUnpersisted replaces it](issues/45-remove-document-state-set-ops.md)** — `Op.SetDocumentState` leaves. The Unpersisted mark is `Notice.NodeUnpersisted`. No `SetDocumentState` case is added. `InMsg.MarkUnparsed` still leaves and is not a `Notice`.
-3. **[46 — Record the persist version](issues/46-record-the-persist-version.md)** — `InMsg.NodePersisted(nodeId, version)` becomes `Notice.NodePersisted` of `NodeId * EventId`. The version check stays.
+1. **[44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md)** — Handlers for `Notice.NodeUploading`, `Notice.NodeReceived`, `Notice.NodeParsing`, `Notice.NodePersisting`, and `Notice.NodePersisted` apply those cases. The effects in [Document-state events](spec.md) stay.
+2. **[45 — SetDocumentState leaves; NodeUnpersisted replaces it](issues/45-remove-document-state-set-ops.md)** — `Op.SetDocumentState` leaves. The Unpersisted mark is `Notice.NodeUnpersisted`. No `SetDocumentState` case is added. `Notice.MarkUnparsed` still leaves.
+3. **[46 — Record the persist version](issues/46-record-the-persist-version.md)** — `Notice.NodePersisted(nodeId, version)` becomes `Notice.NodePersisted` of `NodeId * EventId`. The version check stays.
 4. **[47 — Undo and redo set Unpersisted](issues/47-undo-and-redo-set-unpersisted.md)** — Undo and Redo still set Unpersisted. The logged `order` is `Order.Undo` or `Order.Redo` of the target `EventId`, with no ops. The inverse-ops fill on today's `EventBody` is the shape decision 1 replaces.
-5. **[48 — Browser applies Node events](issues/48-browser-applies-node-events.md)** — The Browser applies the `Ev` log. Logged Node notices replace logged `InMsg` values. The client receives every `Ev`.
+5. **[48 — Browser applies Node events](issues/48-browser-applies-node-events.md)** — The Browser applies the `Ev` log. Logged Node notices are `Notice` values. The client receives every `Ev`.
 6. **[49 — Rename NoServerFile to PullingFile](issues/49-rename-noserverfile-to-pullingfile.md)** — This rename does not change the message sum.
 7. **[50 — Upload emits NodeUploading](issues/50-upload-emits-nodeuploading.md)** — The upload post becomes `Notice.NodeUploading`.
 8. **[51 — Stand the persist stack](issues/51-stand-the-persist-stack.md)** — The finish post becomes `Notice.NodePersisted`. `SnapshotDone` is the misnamed persist-finished signal, not a second snapshot. §6 **SnapshotDone**.
@@ -172,8 +172,8 @@ These tickets stay worded with `InMsg` and `CoreMsg`. This note does not retitle
 
 The server writes individual document files. It does not write a whole-graph snapshot. `Database.initSchema` drops the `snapshots` table. `DocumentPersistChange.persistGraphChange` diffs two graphs and writes the document files that differ. `persistGraphOps` writes the document files for an op list. Both jobs share `PersistThread.finishWhenBound`.
 
-1. **finishWhenBound** — Live. Misnamed. After a successful Ops or Change write it posts `InMsg.SnapshotDone(nodeId, Some graph)`. A failed write does not post. The graph is the stamped in-memory graph from the file writer.
-2. **applyInMsg** — Live. The `SnapshotDone` case calls `persist.noteDiffDone`, then `GraphMutate.setPersistState` with `PersistState.Persisted`. This is the only core-loop writer of Persisted. `DocumentPersistPath.stampNode` also sets Persisted on the graph the writer returns, and both agents store that stamped graph as state. A missing persist field decodes as Persisted. That decode is not a post-write set.
+1. **finishWhenBound** — Live. Misnamed. After a successful Ops or Change write it posts `Notice.SnapshotDone(nodeId, Some graph)`. A failed write does not post. The graph is the stamped in-memory graph from the file writer.
+2. **applyNotice** — Live. The `SnapshotDone` case calls `persist.noteDiffDone`, then `GraphMutate.setPersistState` with `PersistState.Persisted`. This is the only core-loop writer of Persisted. `DocumentPersistPath.stampNode` also sets Persisted on the graph the writer returns, and both agents store that stamped graph as state. A missing persist field decodes as Persisted. That decode is not a post-write set.
 3. **handleSnapshotDone** — The batch count is live. The graph match is dead. It copies the payload into `baselineGraph` only when `GraphProjection.graphEquals` matches the live graph, then calls `countDiffMark`. On the ops path `commitPostChange` already stored that graph. On the Change path the stamped graph has new `updateTime` values, so `graphEquals` fails and the copy does not run.
 4. **countDiffMark** — Live. Misnamed. It counts down `diffIds` and `diffMarksLeft`. At zero it clears `diffInProgress` and may start another batch.
 5. **requestFileDiff** — Live. Misnamed. It does nothing until `bindPersistFinished` fills `persistFinished`. Otherwise it calls `startFileDiff`.
@@ -183,9 +183,9 @@ The server writes individual document files. It does not write a whole-graph sna
 9. **enqueueFileDiff** — Live. Misnamed. `startFileDiff` uses it for the workspace diff. `catchUpParsed` uses it for one node that is Parsed and Unpersisted.
 10. **FileAgent noteDiffDone** — Dead. The filling sets `noteDiffDone` to `fun _ _ -> ()`.
 11. **flushSnapshot** — Dead. `DbAgent` and `FileAgent` return `Ok ()`. `SavePrep.syncDataDir` calls it only when `DbStatus` is not `Ok`. When the database is `Ok`, save reads the state event id and does not call it. `RouteRegistration.prepareGitSave` and `RouteRegistration.flushForGit` only pass the function in.
-12. **bindPersistFinished** — Live. Misnamed. `CoreMailbox.hostPublishing` passes `CoreMailboxApi.addInMsg`. Each agent stores that poster in `persistFinished`. `finishWhenBound` posts only when the slot is filled.
+12. **bindPersistFinished** — Live. Misnamed. `CoreMailbox.hostPublishing` passes `CoreMailboxApi.postNotice`. Each agent stores that poster in `persistFinished`. `finishWhenBound` posts only when the slot is filled.
 13. **PersistHandlers.noteDiffDone** — Live slot. Misnamed. `DbAgent` sets `handleSnapshotDone`. `FileAgent` sets the no-op. `CoreMailboxLoad.failedPersist` replaces it with a no-op while writes are refused.
-14. **Graph payload** — Dead. `applyInMsg` sets Persisted from the node id. `FileAgent` ignores the graph. The only reader is the equality copy in `handleSnapshotDone`, and that copy does not keep a graph the ops path has not already stored.
+14. **Graph payload** — Dead. `applyNotice` sets Persisted from the node id. `FileAgent` ignores the graph. The only reader is the equality copy in `handleSnapshotDone`, and that copy does not keep a graph the ops path has not already stored.
 
 `SnapshotDone` becomes `Notice.NodePersisted` of `nodeId * version: EventId`. That matches [46 — Record the persist version](issues/46-record-the-persist-version.md). The `Graph` leaves the message. The dead flush, the `FileAgent` no-op, and the equality copy leave. The follow-up file diff stays, under names that say file diff. [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) does the deletion and the renames. [46 — Record the persist version](issues/46-record-the-persist-version.md) adds the version check. Upload, import, parse, Load, undo, and persist stay working.
 
@@ -193,7 +193,7 @@ The server writes individual document files. It does not write a whole-graph sna
 
 These tickets are the §4 migration. Each one keeps upload, import, parse, Load, undo, and persist working. [45 — SetDocumentState leaves; NodeUnpersisted replaces it](issues/45-remove-document-state-set-ops.md) and [57 — Upload Actor posts Node notices](issues/57-upload-actor-posts-document-state.md) stay as written.
 
-1. **[59 — Rename InMsg to Notice](issues/59-rename-inmsg-to-notice.md)** — Expand. `InMsg` becomes `Notice`. The cases keep their names. `QueueSum` becomes `CoreQueue` of `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.addInMsg` becomes `postNotice`.
+1. **[59 — Rename InMsg to Notice](issues/59-rename-inmsg-to-notice.md)** — Expand. `Notice` keeps the case names. `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` posts a `Notice`.
 2. **[60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md)** — Expand. `Mailbox` is `CoreMsg of CoreMsg | PlaceOrder | Ask`. `Notice` is not a `Mailbox` case. `Order`, `Query`, `PlacedOrder`, the new `EventBody`, and `Ev = { id; body }` sit beside today's types, with mapping functions. Callers stay on today's types. `PeerActorName` moves to Shared. Blocked by [59 — Rename InMsg to Notice](issues/59-rename-inmsg-to-notice.md).
 3. **[61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md)** — Change. `Login`, `Logout`, and `Admit` move to `Session`. Logout stops admitting the caller, awaits `Ask` of `Query.LastEventId`, then removes the authority. Blocked by [63 — Move queries to Ask](issues/63-move-queries-to-ask.md).
 4. **[62 — Admit at the entry](issues/62-admit-at-the-entry.md)** — Change. The route checks a logged-in user before an order. An Actor is admitted when it starts. `CoreEventDispatch.postEvent` does not call `admitCaller`. The core reads authority.

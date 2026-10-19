@@ -24,7 +24,7 @@ module DbAgent =
         opsNotifiedIds: NodeId list ref
         diffMarksLeft: int ref
         ready: TaskCompletionSource<unit>
-        persistFinished: (InMsg -> unit) option ref
+        persistFinished: (Notice -> unit) option ref
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option

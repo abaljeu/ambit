@@ -28,7 +28,7 @@ module FileAgent =
         persistClean: bool ref
         lastPersisted: Graph ref
         collect: (PersistSubmit -> PersistOutcome) option ref
-        persistFinished: (InMsg -> unit) option ref
+        persistFinished: (Notice -> unit) option ref
     }
 
     let defaultDependencies (dataDir: string) =
