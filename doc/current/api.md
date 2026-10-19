@@ -21,8 +21,10 @@ One Event source means one ordered stream. Connected Events are queued in order,
 1. [x] Events door — `POST /ambit/changes` and `POST /ambit/events` call `Api.postEvents`. Detail: [HTTP contract](http-contract.md).
 2. [x] Command and Cancel routes are removed. Run and Cancel are events on the events door.
 3. [x] Mailbox order — The one mailbox queue handles one message, then the next. A later message on that queue does not pass an earlier message. Detail: [Mailbox](mailbox.md).
-4. [x] Posted list — `postEvents` pushes each event onto the mailbox queue back to back. Another client's list cannot enter inside that push.
-5. [x] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. On ActorStart, a refusal and a fail are the same stored pair (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
+4. [o] Posted list — `postEvents` pushes each event onto the mailbox queue back to back. Another client's list cannot enter inside that push.
+5. [ ] Posted list — `PlaceOrder` pushes each `Order` onto the mailbox queue back to back. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+6. [o] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. On ActorStart, a refusal and a fail are the same stored pair (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
+7. [ ] Credential only — The route checks the logged-in user before `PlaceOrder`. A client places `Order.StartActor` and `Order.Cancel`. A holder of the notice function posts `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry and §2 Cancel.
 
 ## Parties
 

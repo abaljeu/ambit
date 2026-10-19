@@ -26,7 +26,8 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 ## Protocol
 
 [x] The client posts events and a want list to `POST /ambit/changes`. Wire: [HTTP contract](http-contract.md).
-[x] The server applies each new event in order. The same `submissionId` returns the stored event.
+[o] The server applies each new event in order. The same `submissionId` returns the stored event.
+[ ] The server applies each new event in order. The same `orderId` returns the stored event. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
 [x] When the graph changes, the server appends the event and auto-persists affected document artifacts under `DataDir`. Detail: [Persistence model](persistence-model.md).
 [x] The Browser uses the changes response and the poll response on separate paths.
 [x] The Browser polls `POST /ambit/poll` on a 5 second interval, on window focus, and when activity wakes an inactive poll. Wire: [HTTP contract](http-contract.md).
@@ -38,7 +39,8 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 
 [x] State, poll, changes, load, and the change-success JSON: [HTTP contract](http-contract.md).
 [ ] Sync uses sequence-based concurrency and returns 409 for a stale response.
-[x] Undo and redo stay on the client. The client posts undo and redo events.
+[o] Undo and redo stay on the client. The client posts undo and redo events.
+[ ] Undo and redo stay on the client. The client places `Order.Undo` or `Order.Redo` of the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 [ ] The server exposes undo and redo endpoints with explicit conflict rules.
 
 ## State
@@ -57,4 +59,9 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 
 ## Explanation
 
-A changes response carries the want answer, so the body stays smaller than a full graph. Undo and redo server endpoints are deferred, so history stays on the client and inverse ops travel in a normal event. Fewer than five clients edit, and edits are infrequent, so the MVP accepts that overwrite.
+A changes response carries the want answer, so the body stays smaller than a full graph.
+
+[o] Undo and redo server endpoints are deferred, so history stays on the client and inverse ops travel in a normal event.
+[ ] History stays on the client. The client places `Order.Undo` or `Order.Redo` of the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
+
+Fewer than five clients edit, and edits are infrequent, so the MVP accepts that overwrite.
