@@ -24,7 +24,7 @@ What it does: Splits the node at the caret. Text after the caret becomes the nex
 
 Keys: Delete and Backspace. While you are selecting.
 
-What it does: Removes the selected nodes. The selection moves to the next sibling, the previous sibling, or the parent.
+What it does: Delete removes that link to the node. When the link is the owner and another link exists, that other link becomes the owner. When it is the last link, Trash becomes the owner, and deleting it from Trash removes the node for good.
 
 ## Join with previous
 

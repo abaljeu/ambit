@@ -18,7 +18,7 @@ What it does: A File node in a named Workspace opens in a new browser tab. A Fil
 
 Keys: Ctrl+Shift+`>`. While you are selecting.
 
-What it does: Loads the focused Workspace, Directory, or File. A selection that spans more than one Workspace does not load. The command palette also lists git Load and desk Load, which run Load.
+What it does: git Load pulls files when a git upstream is defined. desk Load uploads the selected Workspace, Directory, or File when the Desktop app has a workspace mapping. After that, the rest of Load is the same, and a selection that spans more than one Workspace does not load.
 
 ## Save
 
