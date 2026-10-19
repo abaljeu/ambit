@@ -228,7 +228,7 @@ module DocumentPersistChange =
                     message = message
                 })
 
-    /// Snapshot fallback when no accepted operation batch is available.
+    /// File diff when no accepted operation batch is available.
     let persistGraphChange
         (dataDir: string)
         (preGraph: Graph)

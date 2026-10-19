@@ -3,7 +3,7 @@ namespace Gambol.Server
 open System.Threading
 open Gambol.Shared
 
-/// Ops live-save, or a full-graph snapshot write.
+/// Ops live-save, or a follow-up file diff.
 [<RequireQualifiedAccess>]
 type PersistKind =
     | Ops

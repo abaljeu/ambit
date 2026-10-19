@@ -24,7 +24,7 @@ let private fileState persist parse =
 
 let private handlers
     (state: State ref)
-    (snaps: ResizeArray<NodeId * Graph option>)
+    (snaps: ResizeArray<NodeId>)
     : PersistHandlers =
     { getState = fun () -> Ok state.Value
       getEventId = fun () -> Ok state.Value.eventId
@@ -35,7 +35,7 @@ let private handlers
       replaceGraph =
         fun graph ->
             state.Value <- { state.Value with graph = graph }
-      snapshotDone = fun nodeId graph -> snaps.Add(nodeId, graph)
+      noteDiffDone = snaps.Add
       noteParsed = ignore }
 
 let private filling state snaps : PersistFilling =
@@ -43,10 +43,9 @@ let private filling state snaps : PersistFilling =
       onError = fun _ _ _ -> ()
       formatError = id
       isReady = fun () -> true
-      flushSnapshot = fun () -> async { return Ok () }
       dispose = fun () -> ()
       until = None
-      bindSnapshot = ignore }
+      bindPersistFinished = ignore }
 
 let private requireState label result =
     match result with
@@ -71,7 +70,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
-    let snaps = ResizeArray<NodeId * Graph option>()
+    let snaps = ResizeArray<NodeId>()
     apply (handlers state snaps) (InMsg.NodeParsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
@@ -96,7 +95,7 @@ let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
         ref {
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
-    let snaps = ResizeArray<NodeId * Graph option>()
+    let snaps = ResizeArray<NodeId>()
     apply (handlers state snaps) (InMsg.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
@@ -110,7 +109,7 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
-    let snaps = ResizeArray<NodeId * Graph option>()
+    let snaps = ResizeArray<NodeId>()
     apply (handlers state snaps) (InMsg.MarkUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
@@ -119,41 +118,24 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``SnapshotDone sets Persisted and calls the snapshot handler`` () =
+let ``SnapshotDone sets Persisted and calls the diff hook`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
-    let snaps = ResizeArray<NodeId * Graph option>()
-    let shot = Some initial.graph
-    apply (handlers state snaps) (InMsg.SnapshotDone(id, shot))
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (InMsg.SnapshotDone id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
-    let snapId, snapGraph = Assert.Single(snaps)
-    Assert.Equal(id, snapId)
-    Assert.Equal(shot, snapGraph)
-
-[<Fact>]
-let ``SnapshotDone without a graph sets Persisted`` () =
-    let id, initial =
-        fileState PersistState.Unpersisted ParseState.Parsed
-    let state = ref initial
-    let snaps = ResizeArray<NodeId * Graph option>()
-    apply (handlers state snaps) (InMsg.SnapshotDone(id, None))
-    let node = state.Value.graph.nodes.[id]
-    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
-    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
-    let snapId, snapGraph = Assert.Single(snaps)
-    Assert.Equal(id, snapId)
-    Assert.Equal(None, snapGraph)
+    Assert.Equal(id, Assert.Single(snaps))
 
 [<Fact>]
 let ``axis write failure is returned`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
-    let snaps = ResizeArray<NodeId * Graph option>()
+    let snaps = ResizeArray<NodeId>()
     let missing = NodeId.New()
     let missingResult =
         CoreMailboxLoad.applyInMsg
@@ -164,7 +146,7 @@ let ``axis write failure is returned`` () =
     let rejected =
         CoreMailboxLoad.applyInMsg
             (handlers state snaps)
-            (InMsg.SnapshotDone(Graph.workspacesId, None))
+            (InMsg.SnapshotDone Graph.workspacesId)
     Assert.Equal(
         Error "workspaces is not a graph document",
         rejected)
@@ -178,7 +160,7 @@ let ``mailbox queue applies ParseFinished`` () =
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Unparsed
         let state = ref initial
-        let snaps = ResizeArray<NodeId * Graph option>()
+        let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
             CoreMailboxApi.addInMsg host (InMsg.NodeParsed id)
@@ -199,11 +181,10 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Parsed
         let state = ref initial
-        let snaps = ResizeArray<NodeId * Graph option>()
+        let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            let shot = Some initial.graph
-            CoreMailboxApi.addInMsg host (InMsg.SnapshotDone(id, shot))
+            CoreMailboxApi.addInMsg host (InMsg.SnapshotDone id)
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

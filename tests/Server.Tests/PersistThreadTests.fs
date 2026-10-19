@@ -22,7 +22,7 @@ let private edit (id: NodeId) =
 
 let private startWith persistOps persistChange =
     let calls = ResizeArray<string>()
-    let finishes = ResizeArray<NodeId * Graph option>()
+    let finishes = ResizeArray<NodeId>()
     let failures = ResizeArray<string>()
     let collect, consumer = PersistCollectors.create ()
     PersistThread.start {
@@ -35,7 +35,7 @@ let private startWith persistOps persistChange =
             fun _ _ post ->
                 calls.Add("change")
                 persistChange post
-        finish = fun id graph -> finishes.Add(id, graph)
+        finish = finishes.Add
         changeFailed = fun _ err -> failures.Add(err)
     }
     collect, calls, finishes, failures
@@ -64,9 +64,7 @@ let ``open node calls persist ops and adds SnapshotDone`` () =
         Assert.Equal(graph, stamped.graph)
     | other -> Assert.Fail($"expected Wrote, got {other}")
     Assert.Equal<string>([ "ops" ], calls)
-    let finishedId, finishedGraph = Assert.Single(finishes)
-    Assert.Equal(id, finishedId)
-    Assert.Equal(Some graph, finishedGraph)
+    Assert.Equal(id, Assert.Single(finishes))
     Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
@@ -112,8 +110,7 @@ let ``snapshot change calls persist change and adds SnapshotDone`` () =
     | PersistOutcome.Wrote _ -> ()
     | other -> Assert.Fail($"expected Wrote, got {other}")
     Assert.Equal<string>([ "change" ], calls)
-    let finishedId, _ = Assert.Single(finishes)
-    Assert.Equal(id, finishedId)
+    Assert.Equal(id, Assert.Single(finishes))
 
 [<Fact>]
 let ``Change is blocked when any submitted node is Unparsed`` () =

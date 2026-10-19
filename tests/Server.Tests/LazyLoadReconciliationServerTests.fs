@@ -138,9 +138,6 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> ignore
     Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
     Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
-    CoreMailboxApi.flushSnapshot fileAgent
-    |> Async.RunSynchronously
-    |> requireOk "workspace persist"
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")
@@ -152,9 +149,6 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    CoreMailboxApi.flushSnapshot fileAgent
-    |> Async.RunSynchronously
-    |> requireOk "reconcile persist"
     let state =
         CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously
@@ -296,9 +290,6 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
         Assert.Contains(
             failures,
             fun f -> f.message.Contains("unparsed document"))
-    CoreMailboxApi.flushSnapshot fileAgent
-    |> Async.RunSynchronously
-    |> requireOk "flush"
     let state =
         CoreMailboxApi.getState fileAgent
         |> Async.RunSynchronously

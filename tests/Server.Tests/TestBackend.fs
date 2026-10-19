@@ -179,7 +179,7 @@ let private cannedHandlers
       appendEvent = fun _ -> Ok ()
       applyEvent = apply
       replaceGraph = ignore
-      snapshotDone = fun _ _ -> ()
+      noteDiffDone = ignore
       noteParsed = ignore }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =
@@ -187,10 +187,9 @@ let private cannedFilling readState eventsSince apply : PersistFilling =
       onError = fun _ _ _ -> ()
       formatError = id
       isReady = fun () -> true
-      flushSnapshot = fun () -> async.Return(Ok ())
       dispose = ignore
       until = None
-      bindSnapshot = ignore }
+      bindPersistFinished = ignore }
 
 /// Mailbox whose reads and apply are supplied by the test.
 let hostCanned

@@ -76,7 +76,7 @@ type internal CoreMsg =
 /// Internal message. Not an Op. No public enqueue door.
 type internal InMsg =
     | NodeParsed of nodeId: NodeId
-    | SnapshotDone of nodeId: NodeId * graph: Graph option
+    | SnapshotDone of nodeId: NodeId
     | MarkUnparsed of nodeId: NodeId
     | NodeUploading of nodeId: NodeId
     | NodeReceived of nodeId: NodeId
@@ -98,7 +98,7 @@ type PersistHandlers = {
     applyEvent:
         Ev -> bool -> Result<CoreChangesAccepted, string>
     replaceGraph: Graph -> unit
-    snapshotDone: NodeId -> Graph option -> unit
+    noteDiffDone: NodeId -> unit
     noteParsed: NodeId -> unit
 }
 
@@ -109,8 +109,7 @@ type internal PersistFilling = {
     onError: string -> string -> exn -> unit
     formatError: string -> string
     isReady: unit -> bool
-    flushSnapshot: unit -> Async<Result<unit, string>>
     dispose: unit -> unit
     until: Async<Result<unit, string>> option
-    bindSnapshot: (InMsg -> unit) -> unit
+    bindPersistFinished: (InMsg -> unit) -> unit
 }
