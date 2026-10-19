@@ -27,4 +27,4 @@ Each press changes one level.
 
 You open a deep outline one level at a time.
 Cursor fold left closes the levels that Cursor unfold right opened.
-Keys: [Commands](doc/user/reference/commands.md).
+Keys: [Folding](doc/user/reference/commands/folding.md).

@@ -51,7 +51,7 @@ A person sees a File node in the Browser and presses Open. Open already opens a 
 7. [File node Open](plan/file-node-open/spec.md)
 8. [workspace file sync](doc/current/workspace-file-sync.md)
 9. [Browser](doc/current/browser.md)
-10. [Commands](doc/user/reference/commands.md)
+10. [Jump to Target](doc/user/reference/commands/files.md#jump-to-target)
 
 ## Time
 
