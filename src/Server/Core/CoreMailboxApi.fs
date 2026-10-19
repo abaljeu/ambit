@@ -260,7 +260,4 @@ module CoreMailboxApi =
 
     let isReady (host: MailboxHost) = MailboxHost.isReady host ()
 
-    let flushSnapshot (host: MailboxHost) =
-        MailboxHost.flushSnapshot host
-
     let dispose (host: MailboxHost) = MailboxHost.dispose host

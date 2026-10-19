@@ -7,7 +7,6 @@ type MailboxHost =
         mailbox: MailboxProcessor<QueueSum>
         gate: obj
         isReady: unit -> bool
-        flushSnapshot: unit -> Async<Result<unit, string>>
         dispose: unit -> unit
         inMsgLog: InMsg list ref
     }
@@ -23,7 +22,6 @@ module MailboxHost =
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
-        flushSnapshot = persist.flushSnapshot
         dispose = persist.dispose
         inMsgLog = inMsgLog
     }
@@ -77,7 +75,5 @@ module MailboxHost =
                     ccont)))
 
     let isReady (host: MailboxHost) = host.isReady
-
-    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
 
     let dispose (host: MailboxHost) = host.dispose ()

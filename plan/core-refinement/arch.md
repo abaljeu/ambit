@@ -222,10 +222,10 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
    3. [x] **Contract** — `CoreMsg` has no `SnapshotDone`. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis.
 
 8. <a id="remove-dead-snapshot-code"></a>**Remove dead snapshot code**
-   1. [ ] **Dead flush** — `flushSnapshot` leaves `DbAgent`, `FileAgent`, `PersistFilling`, `MailboxHost`, and `CoreMailboxApi`. `SavePrep.syncDataDir` does not call it. When `DbStatus` is not `Ok`, save still reads the event id. `prepareGitSave` and `flushForGit` stop passing a flush.
-   2. [ ] **No Graph** — The persist-finished signal carries a node id and no `Graph`. `applyInMsg` still sets `PersistState.Persisted` from that id. `DocumentPersistPath.stampNode` still stamps the graph the writer returns. The `graphEquals` copy in `handleSnapshotDone` leaves.
-   3. [ ] **File no-op** — `FileAgent` does not supply snapshot bookkeeping. The database filling keeps the diff-count hook, with no `Graph`.
-   4. [ ] **Rename the batch** — The follow-up file diff keeps its behavior and loses the snapshot names. `requestSnapshot` becomes `requestFileDiff`. `startSnapshot` becomes `startFileDiff`. `enqueueSnapshot` becomes `enqueueFileDiff`. `snapshotWorkspaces` becomes `diffWorkspaces`. `snapshotIds` becomes `diffIds`. `snapshotMarks` becomes `diffMarksLeft`. `snapshotNeeded` becomes `diffNeeded`. `snapshotInProgress` becomes `diffInProgress`. `persistedGraph` becomes `baselineGraph`. `snapshotPost` becomes `persistFinished`. `bindSnapshot` becomes `bindPersistFinished`. `PersistHandlers.snapshotDone` becomes `noteDiffDone` of `NodeId`. `opsNotifiedIds` keeps its name. The version check stays [46 — Record the persist version](issues/46-record-the-persist-version.md). Upload, import, parse, Load, undo, and persist stay working. Ticket: [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md).
+   1. [x] **Dead flush** — `flushSnapshot` leaves `DbAgent`, `FileAgent`, `PersistFilling`, `MailboxHost`, and `CoreMailboxApi`. `SavePrep.syncDataDir` does not call it. When `DbStatus` is not `Ok`, save still reads the event id. `prepareGitSave` and `flushForGit` stop passing a flush.
+   2. [x] **No Graph** — The persist-finished signal carries a node id and no `Graph`. `applyInMsg` still sets `PersistState.Persisted` from that id. `DocumentPersistPath.stampNode` still stamps the graph the writer returns. The `graphEquals` copy leaves. `noteDiffDone` calls `countDiffMark`.
+   3. [x] **File no-op** — `FileAgent` does not supply snapshot bookkeeping. The database filling keeps the diff-count hook, with no `Graph`.
+   4. [x] **Rename the batch** — The follow-up file diff keeps its behavior and loses the snapshot names. `requestSnapshot` becomes `requestFileDiff`. `startSnapshot` becomes `startFileDiff`. `enqueueSnapshot` becomes `enqueueFileDiff`. `snapshotWorkspaces` becomes `diffWorkspaces`. `snapshotIds` becomes `diffIds`. `snapshotMarks` becomes `diffMarksLeft`. `snapshotNeeded` becomes `diffNeeded`. `snapshotInProgress` becomes `diffInProgress`. `persistedGraph` becomes `baselineGraph`. `snapshotPost` becomes `persistFinished`. `bindSnapshot` becomes `bindPersistFinished`. `PersistHandlers.snapshotDone` becomes `noteDiffDone` of `NodeId`. `opsNotifiedIds` keeps its name. The version check stays [46 — Record the persist version](issues/46-record-the-persist-version.md). Upload, import, parse, Load, undo, and persist stay working. Ticket: [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md).
 
 ### Shared segments
 
@@ -268,7 +268,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
    1. **State**
       1. [x] **InMsg** — Internal message type. Not an Op. It carries the node.
          1. [x] **NodeParsed** — That `NodeId`. Parse finished. Graph change expand renamed this case from `InMsg.ParseFinished`.
-         2. [x] **SnapshotDone** — That `NodeId` and the snapshot `Graph option`. Snapshot finished. Today this case sets Persisted. [Graph change persist version](#graph-change-persist-version) moves that set to `NodePersisted`. There is no whole-graph snapshot. [Remove dead snapshot code](#remove-dead-snapshot-code). This case replaces `PersistFinished`.
+         2. [x] **SnapshotDone** — That `NodeId`. No `Graph`. Persist finished. Today this case sets Persisted. [Graph change persist version](#graph-change-persist-version) moves that set to `NodePersisted`. There is no whole-graph snapshot. [Remove dead snapshot code](#remove-dead-snapshot-code). This case replaces `PersistFinished`.
          3. [x] **MarkUnparsed** — That `NodeId`. Directory reconcile does not name an existing member for this case.
          4. [ ] **Node messages** — `InMsg.NodeUploading`, `InMsg.NodeReceived`, `InMsg.NodeParsing`, `InMsg.NodePersisting`, `InMsg.NodeParsed`, and `InMsg.NodePersisted` are `InMsg` cases. Producers post them through the private function. `CoreMailboxLoad.applyInMsg` applies each message and logs it. None of these messages are Ops on a Change. They name a Workspace Node, a Directory Node, or a File Node. The client receives every log message. There is no filter. Effects are §1. Steps: [Graph change expand](#graph-change-expand), [Graph change change](#graph-change-change), and [Graph change contract](#graph-change-contract).
       2. [x] **One queue** — The mailbox queue. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name. There is no second queue.
@@ -278,7 +278,7 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       3. [x] **Pull** — The queue puller receives the next item and hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler.
       4. [x] **Parse finished** — `NodeParsed` sets that node Parsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. Graph change expand renamed this case from `InMsg.ParseFinished`. The same handler sets Parsed.
          1. [x] **Parsed when clear** — `NodeParsed` sets a File Node Parsed only when `noServerFile` [o] obsolescent is clear.
-      5. [x] **Snapshot done** — `SnapshotDone` sets that node Persisted through `GraphMutate.setPersistState`, and the same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed.
+      5. [x] **Snapshot done** — `SnapshotDone` sets that node Persisted through `GraphMutate.setPersistState`. The message carries the node id and no `Graph`. `noteDiffDone` counts the file diff, clears the in-progress flag, and starts another file diff when one is needed.
       6. [x] **Public post** — `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry `InMsg`.
       7. [ ] **Not an Actor mailbox** — The mailbox queue is not an Actor mailbox. The persist thread does not get a `MailboxProcessor`.
       8. [x] **CoreMsg** — `CoreMsg` has no `SnapshotDone`. The other `CoreMsg` cases are the public mailbox doors. The live-document completion is `InMsg` `SnapshotDone`, added by the private function.
@@ -292,8 +292,8 @@ Deltas for this Project. Claim homes: [Mailbox](doc/current/mailbox.md) and [Par
       16. [x] **Node parsed rename** — Graph change expand renames `InMsg.ParseFinished` to `InMsg.NodeParsed`. It is the same case. The same handler sets Parsed. Step: [Graph change expand](#graph-change-expand).
    3. **Uses**
       1. [x] **Parse thread** — Adds `InMsg` `NodeParsed` through the private function.
-      2. [x] **Persist thread** — Adds `InMsg` `SnapshotDone` through the private function.
-      3. [x] **Db agent** — Adds `InMsg` `SnapshotDone` through the private function when the live-document snapshot finishes. It does not post `CoreMsg`.
+      2. [x] **Persist thread** — Adds `InMsg` `SnapshotDone` through `PersistThread.finishWhenBound` when a file write finishes.
+      3. [x] **Db agent** — Binds that poster. It does not post `InMsg` `SnapshotDone` or `CoreMsg`.
       4. [x] **Field write** — `GraphMutate.setParseState` and `GraphMutate.setPersistState` are the existing field writes.
       5. [x] **Disk-newer** — Directory reconcile does not add `InMsg` `MarkUnparsed` for an existing member. It does not edit the graph.
       6. [x] **Node parsed** — `ParseThread` `finishParse` posts `InMsg.NodeParsed`. That case is the renamed `InMsg.ParseFinished`. The same handler sets Parsed. Step: [Graph change expand](#graph-change-expand).

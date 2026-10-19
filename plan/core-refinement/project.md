@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-19
 Started: 2026-09-29
-Actual: 20h30m
+Actual: 21h30m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -66,6 +66,7 @@ Actual: 20h30m
 - 2026-10-17 — [43 — Expand Node events beside the Set output](issues/43-expand-file-events-beside-the-set-output.md) is `coded`. The three Shared planners stay unchanged and do not post. `ParseThread` `finishParse` posts `InMsg.NodeParsed` for `planParseFile` and `planDirectoryReconcile`. `Api.postEvents` posts `InMsg.NodeParsed` for the import Change. `Api.postParseFile` posts `InMsg.NodeParsed` beside `Op.SetDocumentState`. `InMsg.NodeUploading` and `InMsg.NodeReceived` are logged and do not set state. [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md) owns those handlers. Stage is `build`.
 - 2026-10-19 — Alan: the mailbox envelope (caller and reply) stays off the log. The logged payload is `Command` or `Notice`. Note: [[cqrs-messages.md]]. Pointer: [[arch.md]] §8. Tickets stay. Stage stays `build`.
 - 2026-10-19 — `SnapshotDone` is not a whole-graph snapshot. The trace is [[cqrs-messages.md]] §6. [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) deletes the dead flush, the `FileAgent` no-op, and the `Graph` payload, and renames the live file diff. Stage stays `build`.
+- 2026-10-19 — [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) is `coded`. `flushSnapshot` is gone. `SnapshotDone` carries the node id. The follow-up file diff uses the file-diff names. Stage stays `build`.
 
 ## Issues
 
@@ -125,4 +126,4 @@ Actual: 20h30m
 - [54 — Parse and import stop the Parsed Set](issues/54-parse-and-import-stop-the-parsed-set.md) — Change parsed producers. Import, file parse, and directory reconcile stop `Op.SetDocumentState` for the Parsed mark. `ParseThread.finishParse` posts `InMsg.NodeParsed`. Blocked by [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md). Status `defined`.
 - [55 — Stored replay sets Unpersisted](issues/55-stored-replay-sets-unpersisted.md) — Change stored replay. Stored replay marks Unpersisted and skips Node messages. Blocked by [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md). Status `defined`.
 - [56 — Remove ParseThread markUnparsed](issues/56-remove-parsethread-markunparsed.md) — Remove `ParseThread` `markUnparsed`. Unparsed is set by the mailbox before a node is on the parse thread. Blocked by [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md). Status `defined`.
-- [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) — delete the dead flush, the `FileAgent` snapshot no-op, and the `Graph` on `SnapshotDone`. Rename the live follow-up file diff. Upload, import, parse, Load, undo, and persist stay working. Status `defined`.
+- [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) — delete the dead flush, the `FileAgent` snapshot no-op, and the `Graph` on `SnapshotDone`. Rename the live follow-up file diff. Upload, import, parse, Load, undo, and persist stay working. Status `coded`.

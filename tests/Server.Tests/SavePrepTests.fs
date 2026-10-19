@@ -47,10 +47,9 @@ let ``Git DB flush returns eventId without rewriting disk`` () =
             FileShare.None)
 
     let eventId =
-        SavePrep.syncGitArtifacts
+        SavePrep.syncDataDir
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
-            (fun () -> async { return failwith "file flush should not run" })
             (fun () -> async { return failwith "file eventId should not be read" })
             dataDir
         |> Async.RunSynchronously
@@ -80,7 +79,6 @@ let ``Full DB sync returns eventId without rewriting disk`` () =
         SavePrep.syncDataDir
             DatabaseSetup.DbStatus.Ok
             (fun () -> async { return Ok state })
-            (fun () -> async { return failwith "file flush should not run" })
             (fun () -> async { return failwith "file eventId should not be read" })
             dataDir
         |> Async.RunSynchronously
@@ -90,3 +88,16 @@ let ``Full DB sync returns eventId without rewriting disk`` () =
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
+
+[<Fact>]
+let ``DB not Ok still returns the file event id`` () =
+    let dataDir = newTempDir ()
+    let eventId =
+        SavePrep.syncDataDir
+            DatabaseSetup.DbStatus.Absent
+            (fun () -> async { return failwith "state should not be read" })
+            (fun () -> async { return EventIdFixtures.storedId 4 })
+            dataDir
+        |> Async.RunSynchronously
+        |> requireOk "file event id"
+    Assert.Equal(4, eventId)

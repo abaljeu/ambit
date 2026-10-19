@@ -15,16 +15,16 @@ module DbAgent =
 
     type private LoadedPersist = {
         state: State ref
-        persistedGraph: Graph ref
+        baselineGraph: Graph ref
         eventLog: EventLog ref
-        snapshotInProgress: bool ref
-        snapshotNeeded: bool ref
-        snapshotWorkspaces: NodeId list ref
-        snapshotIds: NodeId list ref
+        diffInProgress: bool ref
+        diffNeeded: bool ref
+        diffWorkspaces: NodeId list ref
+        diffIds: NodeId list ref
         opsNotifiedIds: NodeId list ref
-        snapshotMarks: int ref
+        diffMarksLeft: int ref
         ready: TaskCompletionSource<unit>
-        snapshotPost: (InMsg -> unit) option ref
+        persistFinished: (InMsg -> unit) option ref
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option
@@ -35,7 +35,7 @@ module DbAgent =
 
     type private LivePersist = {
         stamped: PersistGraphOk option
-        allowSnapshot: bool
+        allowFileDiff: bool
         notifiedIds: NodeId list
     }
 
@@ -92,18 +92,18 @@ module DbAgent =
         persistGraphOps
         : LoadedPersist =
         { state = ref initialState
-          persistedGraph = ref initialState.graph
+          baselineGraph = ref initialState.graph
           eventLog = ref EventLog.empty
-          snapshotInProgress = ref false
-          snapshotNeeded = ref false
-          snapshotWorkspaces = ref []
-          snapshotIds = ref []
+          diffInProgress = ref false
+          diffNeeded = ref false
+          diffWorkspaces = ref []
+          diffIds = ref []
           opsNotifiedIds = ref []
-          snapshotMarks = ref 0
+          diffMarksLeft = ref 0
           ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
-          snapshotPost = ref None
+          persistFinished = ref None
           startupError = ref None
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
@@ -115,7 +115,7 @@ module DbAgent =
         let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
         loaded.state.Value <-
             { loaded.state.Value with graph = trim loaded.state.Value.graph }
-        loaded.persistedGraph.Value <- trim loaded.persistedGraph.Value
+        loaded.baselineGraph.Value <- trim loaded.baselineGraph.Value
 
     let private applyMaintenance loaded
         (result: DatabaseProjection.ProjectionMaintenanceResult)
@@ -128,7 +128,7 @@ module DbAgent =
             with
             | Ok (graph, _) ->
                 loaded.state.Value <- { loaded.state.Value with graph = graph }
-                loaded.persistedGraph.Value <- graph
+                loaded.baselineGraph.Value <- graph
                 Ok ()
             | Error e -> Error $"Startup projection sweep failed: {e}"
         else
@@ -218,7 +218,7 @@ module DbAgent =
                 eprintfn "DbAgent: failed to persist projection: %s" ex.Message
                 Error $"Database error: {ex.Message}"
 
-    /// Workspaces that own the ops which requested this live snapshot.
+    /// Workspaces that own the ops which requested this file diff.
     let private workspacesTouched (graph: Graph) (events: Ev list) =
         events
         |> List.collect (fun event ->
@@ -229,10 +229,10 @@ module DbAgent =
 
     let private rememberWorkspaces loaded (graph: Graph) (events: Ev list) =
         let more = workspacesTouched graph events
-        loaded.snapshotWorkspaces.Value <-
-            loaded.snapshotWorkspaces.Value @ more |> List.distinct
+        loaded.diffWorkspaces.Value <-
+            loaded.diffWorkspaces.Value @ more |> List.distinct
 
-    let private enqueueSnapshot
+    let private enqueueFileDiff
         loaded
         (ids: NodeId list)
         (preGraph: Graph)
@@ -252,12 +252,12 @@ module DbAgent =
                 wait = false
             } |> ignore
 
-    let private startSnapshot loaded =
+    let private startFileDiff loaded =
         let graph = loaded.state.Value.graph
         let skip = loaded.opsNotifiedIds.Value
         loaded.opsNotifiedIds.Value <- []
-        let pending = loaded.snapshotWorkspaces.Value
-        loaded.snapshotWorkspaces.Value <- []
+        let pending = loaded.diffWorkspaces.Value
+        loaded.diffWorkspaces.Value <- []
         let unparsed id =
             PersistCollectors.unparsedNode graph id
         let ids =
@@ -268,31 +268,31 @@ module DbAgent =
         match ids with
         | [] ->
             if not (List.isEmpty held) then
-                loaded.snapshotWorkspaces.Value <- held
-                loaded.snapshotNeeded.Value <- true
+                loaded.diffWorkspaces.Value <- held
+                loaded.diffNeeded.Value <- true
             else
-                loaded.snapshotNeeded.Value <- false
+                loaded.diffNeeded.Value <- false
                 if List.isEmpty pending then
                     eprintfn
-                        "DbAgent: live snapshot has no owning workspace"
+                        "DbAgent: file diff has no owning workspace"
         | _ ->
             if List.isEmpty held then
-                loaded.snapshotNeeded.Value <- false
+                loaded.diffNeeded.Value <- false
             else
-                loaded.snapshotWorkspaces.Value <- held
-                loaded.snapshotNeeded.Value <- true
-            loaded.snapshotInProgress.Value <- true
-            loaded.snapshotIds.Value <- ids
-            loaded.snapshotMarks.Value <- List.length ids
-            enqueueSnapshot
+                loaded.diffWorkspaces.Value <- held
+                loaded.diffNeeded.Value <- true
+            loaded.diffInProgress.Value <- true
+            loaded.diffIds.Value <- ids
+            loaded.diffMarksLeft.Value <- List.length ids
+            enqueueFileDiff
                 loaded
                 ids
-                loaded.persistedGraph.Value
+                loaded.baselineGraph.Value
                 loaded.state.Value.graph
 
-    let private requestSnapshot loaded =
-        match loaded.snapshotPost.Value with
-        | Some _ -> startSnapshot loaded
+    let private requestFileDiff loaded =
+        match loaded.persistFinished.Value with
+        | Some _ -> startFileDiff loaded
         | None -> ()
 
     let private validatePostChange loaded graphOnly preGraph postGraph =
@@ -307,9 +307,9 @@ module DbAgent =
                     preGraph
                     postGraph)
 
-    let private liveOf stamped allowSnapshot : LivePersist = {
+    let private liveOf stamped allowFileDiff : LivePersist = {
         stamped = stamped
-        allowSnapshot = allowSnapshot
+        allowFileDiff = allowFileDiff
         notifiedIds = []
     }
 
@@ -400,20 +400,20 @@ module DbAgent =
         | Ok () ->
             loaded.state.Value <- stateToStore
             if graphOnly then
-                loaded.persistedGraph.Value <- stateToStore.graph
-            elif not (List.isEmpty fresh) && live.allowSnapshot then
-                loaded.persistedGraph.Value <- stateToStore.graph
+                loaded.baselineGraph.Value <- stateToStore.graph
+            elif not (List.isEmpty fresh) && live.allowFileDiff then
+                loaded.baselineGraph.Value <- stateToStore.graph
                 rememberWorkspaces loaded stateToStore.graph fresh
                 loaded.opsNotifiedIds.Value <-
                     live.notifiedIds @ loaded.opsNotifiedIds.Value
                     |> List.distinct
-                if loaded.snapshotInProgress.Value then
-                    loaded.snapshotNeeded.Value <- true
+                if loaded.diffInProgress.Value then
+                    loaded.diffNeeded.Value <- true
                 else
-                    requestSnapshot loaded
+                    requestFileDiff loaded
             elif not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-                loaded.snapshotNeeded.Value <- true
+                loaded.diffNeeded.Value <- true
             Ok(accepted loaded ackEvents externalChanges persistMessage)
 
     let private finishAppliedPostChange
@@ -474,48 +474,40 @@ module DbAgent =
                         fresh
                         externalChanges
 
-    let private countSnapshotMark loaded nodeId =
+    let private countDiffMark loaded nodeId =
         let counts =
-            loaded.snapshotInProgress.Value
-            && List.contains nodeId loaded.snapshotIds.Value
+            loaded.diffInProgress.Value
+            && List.contains nodeId loaded.diffIds.Value
         if counts then
-            loaded.snapshotIds.Value <-
-                loaded.snapshotIds.Value
+            loaded.diffIds.Value <-
+                loaded.diffIds.Value
                 |> List.filter (fun id -> id <> nodeId)
-            let left = loaded.snapshotMarks.Value - 1
+            let left = loaded.diffMarksLeft.Value - 1
             if left > 0 then
-                loaded.snapshotMarks.Value <- left
+                loaded.diffMarksLeft.Value <- left
             else
-                loaded.snapshotMarks.Value <- 0
-                loaded.snapshotInProgress.Value <- false
-                if loaded.snapshotNeeded.Value then
-                    requestSnapshot loaded
+                loaded.diffMarksLeft.Value <- 0
+                loaded.diffInProgress.Value <- false
+                if loaded.diffNeeded.Value then
+                    requestFileDiff loaded
 
     /// A failed Change leaves those nodes Unpersisted. Drop the batch
     /// so a later post can try again. Do not post SnapshotDone.
     let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
         eprintfn "DbAgent: failed to write live documents: %s" err
         let hitsBatch =
-            loaded.snapshotInProgress.Value
+            loaded.diffInProgress.Value
             && List.exists
-                (fun id -> List.contains id loaded.snapshotIds.Value)
+                (fun id -> List.contains id loaded.diffIds.Value)
                 ids
         if hitsBatch then
-            let pending = loaded.snapshotIds.Value
-            loaded.snapshotIds.Value <- []
-            loaded.snapshotMarks.Value <- 0
-            loaded.snapshotInProgress.Value <- false
-            loaded.snapshotWorkspaces.Value <-
-                List.distinct (pending @ loaded.snapshotWorkspaces.Value)
-            loaded.snapshotNeeded.Value <- true
-
-    let private handleSnapshotDone loaded nodeId persisted =
-        match persisted with
-        | Some graph
-            when GraphProjection.graphEquals loaded.state.Value.graph graph ->
-            loaded.persistedGraph.Value <- graph
-        | _ -> ()
-        countSnapshotMark loaded nodeId
+            let pending = loaded.diffIds.Value
+            loaded.diffIds.Value <- []
+            loaded.diffMarksLeft.Value <- 0
+            loaded.diffInProgress.Value <- false
+            loaded.diffWorkspaces.Value <-
+                List.distinct (pending @ loaded.diffWorkspaces.Value)
+            loaded.diffNeeded.Value <- true
 
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
@@ -557,10 +549,10 @@ module DbAgent =
         match loaded.liveSaveDataDir with
         | None -> ()
         | Some _ ->
-            enqueueSnapshot
+            enqueueFileDiff
                 loaded
                 [ nodeId ]
-                loaded.persistedGraph.Value
+                loaded.baselineGraph.Value
                 loaded.state.Value.graph
 
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
@@ -570,10 +562,10 @@ module DbAgent =
             && node.documentState.persistState = PersistState.Unpersisted ->
             catchUpParsed loaded nodeId
             if
-                loaded.snapshotNeeded.Value
-                && not loaded.snapshotInProgress.Value
+                loaded.diffNeeded.Value
+                && not loaded.diffInProgress.Value
             then
-                requestSnapshot loaded
+                requestFileDiff loaded
         | _ -> ()
 
     let private persistHandlers loaded = {
@@ -587,7 +579,7 @@ module DbAgent =
         replaceGraph = fun graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
-        snapshotDone = handleSnapshotDone loaded
+        noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
     }
 
@@ -657,7 +649,7 @@ module DbAgent =
             consumer = consumer
             persistOps = loaded.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.snapshotPost
+            finish = PersistThread.finishWhenBound loaded.persistFinished
             changeFailed = changeFailed loaded
         }
         { filling =
@@ -665,11 +657,10 @@ module DbAgent =
               onError = logUnhandledException loaded.liveSaveDataDir
               formatError = formatError loaded.liveSaveDataDir
               isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
-              flushSnapshot = fun () -> async { return Ok () }
               dispose = fun () -> ()
               until = Some(startupPrelude loaded runStartupSweep)
-              bindSnapshot =
-                fun post -> loaded.snapshotPost.Value <- Some post } }
+              bindPersistFinished =
+                fun post -> loaded.persistFinished.Value <- Some post } }
 
     let private liveStartupSweep (connectionString: string) (_: Graph) =
         try

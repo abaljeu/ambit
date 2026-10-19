@@ -4,14 +4,14 @@ open System.Threading
 open Gambol.Shared
 
 /// Dependencies for the long-lived persist thread. The thread does not
-/// edit graph axes. finish is the private SnapshotDone add.
+/// edit graph axes. finish reports one node whose file write succeeded.
 type internal PersistThreadDeps = {
     consumer: unit -> PersistWork
     persistOps:
         string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     persistChange:
         string -> Graph -> Graph -> Result<PersistGraphOk, string>
-    finish: NodeId -> Graph option -> unit
+    finish: NodeId -> unit
     changeFailed: NodeId list -> string -> unit
 }
 
@@ -28,11 +28,10 @@ module PersistThread =
     let private notify
         (deps: PersistThreadDeps)
         (submit: PersistSubmit)
-        (graph: Graph option)
         (ids: NodeId list)
         =
         if submit.notify then
-            ids |> List.iter (fun id -> deps.finish id graph)
+            ids |> List.iter deps.finish
 
     let private notifyIds (submit: PersistSubmit) : NodeId list =
         match submit.kind with
@@ -44,8 +43,8 @@ module PersistThread =
             |> List.filter (fun id ->
                 not (PersistCollectors.unparsedNode submit.postGraph id))
 
-    /// A Change job writes the whole graph. One Unparsed submitted id
-    /// blocks that write. The caller does not get SnapshotDone.
+    /// A Change job writes differing document files. One Unparsed
+    /// submitted id blocks that write. The caller does not get SnapshotDone.
     let private changeBlocked (submit: PersistSubmit) =
         submit.kind = PersistKind.Change
         && submit.nodeIds
@@ -91,7 +90,7 @@ module PersistThread =
                 submit.notify
                 && (submit.kind = PersistKind.Change || clean)
             if tell then
-                notify deps submit (Some stamped.graph) ids
+                notify deps submit ids
             reply work (PersistOutcome.Wrote stamped)
 
     let private runWrite
@@ -129,8 +128,7 @@ module PersistThread =
     let internal finishWhenBound
         (slot: (InMsg -> unit) option ref)
         (nodeId: NodeId)
-        (graph: Graph option)
         =
         match slot.Value with
         | None -> ()
-        | Some post -> post (InMsg.SnapshotDone(nodeId, graph))
+        | Some post -> post (InMsg.SnapshotDone nodeId)

@@ -28,7 +28,7 @@ module FileAgent =
         persistClean: bool ref
         lastPersisted: Graph ref
         collect: (PersistSubmit -> PersistOutcome) option ref
-        snapshotPost: (InMsg -> unit) option ref
+        persistFinished: (InMsg -> unit) option ref
     }
 
     let defaultDependencies (dataDir: string) =
@@ -307,7 +307,7 @@ module FileAgent =
         replaceGraph = fun graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
-        snapshotDone = fun _ _ -> ()
+        noteDiffDone = ignore
         noteParsed = scheduleCatchUp loaded
     }
 
@@ -350,7 +350,7 @@ module FileAgent =
           persistClean = ref true
           lastPersisted = ref loadedState.graph
           collect = ref None
-          snapshotPost = ref None }
+          persistFinished = ref None }
 
     let private startPersist
         (loaded: LoadedFile)
@@ -363,7 +363,7 @@ module FileAgent =
             consumer = consumer
             persistOps = dependencies.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.snapshotPost
+            finish = PersistThread.finishWhenBound loaded.persistFinished
             changeFailed = fun _ _ -> ()
         }
 
@@ -390,14 +390,13 @@ module FileAgent =
               onError = onError
               formatError = formatError
               isReady = fun () -> true
-              flushSnapshot = fun () -> async { return Ok () }
               dispose =
                 fun () ->
                     eventStream.Flush()
                     eventStream.Dispose()
               until = None
-              bindSnapshot =
-                fun post -> loaded.snapshotPost.Value <- Some post }
+              bindPersistFinished =
+                fun post -> loaded.persistFinished.Value <- Some post }
           initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =

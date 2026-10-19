@@ -366,7 +366,6 @@ module RouteRegistration =
             SavePrep.syncDataDir
                 persistence.DbStatus
                 (fun () -> CoreDoor.getState handle)
-                (fun () -> CoreMailboxApi.flushSnapshot persistence.Core.host)
                 (fun () -> CoreMailboxApi.getEventId persistence.Core.host)
                 persistence.DataDir
     }
@@ -458,11 +457,9 @@ module RouteRegistration =
             let flushForGit () = async {
                 let handle = parseBound persistence
                 let! flushResult =
-                    SavePrep.syncGitArtifacts
+                    SavePrep.syncDataDir
                         persistence.DbStatus
                         (fun () -> CoreDoor.getState handle)
-                        (fun () ->
-                            CoreMailboxApi.flushSnapshot persistence.Core.host)
                         (fun () ->
                             CoreMailboxApi.getEventId persistence.Core.host)
                         persistence.DataDir
