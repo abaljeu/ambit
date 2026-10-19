@@ -1,4 +1,4 @@
-# 45 — Remove document-state Set ops
+# 45 — SetDocumentState leaves CoreMsg
 
 **Status:** `defined`
 **Type:** coding
@@ -7,21 +7,23 @@
 
 ## Context
 
-Graph change upload, Graph change arrival, and Graph change parsed producers have stopped their direct state writes. Graph change remove markUnparsed has removed `ParseThread` `markUnparsed`. Graph change persist version records the version. Graph change undo and Graph change stored replay mark Unpersisted. Graph change browser apply updates the resident Graph. `Op.SetDocumentState` is still in the `Op` union. Graph change contract removes `Op.SetDocumentState` and `InMsg.MarkUnparsed`. `InMsg.NodeParsed` is the renamed `InMsg.ParseFinished` from [43 — Expand Node events beside the Set output](43-expand-file-events-beside-the-set-output.md). `Op.SetText` and the other content ops stay.
+Planners and handlers write `SetDocumentState` as a document-state Op on `CoreMsg`. Alan, 2026-10-19: `SetDocumentState` leaves `CoreMsg`. It is added as `InMsg.SetDocumentState` and as an `EventBody` item on the event log. `InMsg.MarkUnparsed` leaves `InMsg` and `CoreMailboxLoad.applyInMsg`.
 
 ## What to build
 
-`Op.SetDocumentState` leaves. `InMsg.MarkUnparsed` leaves. `InMsg.NodeParsed` stays. NodeUploading, NodeReceived, NodeParsing, NodeParsed, NodePersisting, and NodePersisted remain the document-state messages. `Op.NewSpecialNode` stays.
+`SetDocumentState` leaves the Op path on `CoreMsg`. Add `InMsg.SetDocumentState`. Add `EventBody.SetDocumentState`. Remove `InMsg.MarkUnparsed`. `Op.SetPersistState` and `Op.SetParseState` are not ops.
 
 ### 1. Contract
 
-1. [ ] **Remove SetDocumentState** — `Op.SetDocumentState` leaves the `Op` union in `src/Shared/History.fs`, `Op.apply`, `Op` undo invert, and the JSON codec in `src/Shared/Serialization.fs`.
-2. [ ] **No replacement Set** — `Op.SetPersistState` and `Op.SetParseState` are not ops. No Set op writes parse state, persist state, or PullingFile.
-3. [ ] **Remove MarkUnparsed** — Remove `InMsg.MarkUnparsed` from `InMsg` and from `CoreMailboxLoad.applyInMsg`. [56 — Remove ParseThread markUnparsed](56-remove-parsethread-markunparsed.md) already removed `ParseThread` `markUnparsed`. `CoreMailboxLoad.markUnparsedThenPush` sets Unparsed and pushes.
+1. [ ] **InMsg case** — Add `InMsg.SetDocumentState` to `InMsg`. `CoreMailboxLoad.applyInMsg` accepts that case.
+2. [ ] **EventBody item** — Add `EventBody.SetDocumentState` in `src/Shared/History.fs`. The event log accepts that item. The JSON codec in `src/Shared/Serialization.fs` encodes and decodes it.
+3. [ ] **Leave CoreMsg** — `Op.SetDocumentState` leaves the `Op` union in `src/Shared/History.fs`, `Op.apply`, `Op` undo invert, and the JSON codec in `src/Shared/Serialization.fs`. Planners and handlers do not write `SetDocumentState` as a document-state Op on `CoreMsg`.
+4. [ ] **Remove MarkUnparsed** — Remove `InMsg.MarkUnparsed` from `InMsg` and from `CoreMailboxLoad.applyInMsg`.
+5. [ ] **No persist or parse Set op** — `Op.SetPersistState` and `Op.SetParseState` are not ops.
 
 ### Acceptance Criteria
 
-1. [ ] **Codec test** — `SetDocumentState does not decode`. `InMsg` has no `MarkUnparsed`.
+1. [ ] **Codec test** — `InMsg.SetDocumentState` decodes. An `EventBody.SetDocumentState` item decodes. `Op` has no `SetDocumentState`. `InMsg` has no `MarkUnparsed`.
 
 ## Finish-up
 
@@ -34,6 +36,7 @@ Graph change upload, Graph change arrival, and Graph change parsed producers hav
 - [Graph change contract](../arch.md#graph-change-contract)
 - [Document-state events](../spec.md)
 - [core-refinement](../project.md)
+- [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md)
 - [50 — Upload emits NodeUploading](50-upload-emits-nodeuploading.md)
 - [53 — Arrival and reconcile emit NodeReceived](53-arrival-and-reconcile-emit-nodereceived.md)
 - [54 — Parse and import stop the Parsed Set](54-parse-and-import-stop-the-parsed-set.md)
