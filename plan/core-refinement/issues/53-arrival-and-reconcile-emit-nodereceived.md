@@ -7,21 +7,20 @@
 
 ## Context
 
-Graph change apply has an `InMsg.NodeReceived` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeReceived` and logs it. Tests call that handler. `WorkspaceUploadStructure.planServerFilePresentOps` stays a shared Op-list planner and does not post. Arrival still emits `Op.SetDocumentState(fileId, NoServerFile, Unparsed)`. `Api.postEvents` runs that Change. Git Load still emits `LazyLoadReconciliationApply.markUnparsed`'s `Op.SetDocumentState` from Current or NoServerFile to Unparsed. `LazyLoadReconciliationServer.reconcileReceivedFiles` runs that write. A second Load repairs a file that never arrived.
+Graph change apply has an `InMsg.NodeReceived` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeReceived` and logs it. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `InMsg.NodeReceived` directly for a changed File Node already on the server (pull request 263). Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeReceived` once it exists. A second Load repairs a file that never arrived.
 
 ## What to build
 
-`Api.postEvents` and `LazyLoadReconciliationServer.reconcileReceivedFiles` post `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` and stop those writes. `WorkspaceUploadStructure.planServerFilePresentOps` does not post.
+Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. The upload Actor posts `InMsg.NodeReceived` once it exists. That Actor is [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md).
 
 ### 1. Arrival
 
-1. [ ] **Arrival caller** — Change `Api.postEvents` to post `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` when it runs the Change from `WorkspaceUploadStructure.planServerFilePresentOps` for each absent file that function already selects, and stop `Op.SetDocumentState(fileId, NoServerFile, Unparsed)`. That function stays a shared Op-list planner and does not post. `CoreMailboxLoad.applyInMsg` applies `InMsg.NodeReceived` and logs it.
-2. [ ] **Reconcile caller** — Change `LazyLoadReconciliationServer.reconcileReceivedFiles` to post `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` for a changed File Node already on the server. It stops `LazyLoadReconciliationApply.markUnparsed`'s `Op.SetDocumentState` from Current or NoServerFile to Unparsed. That write sets Unparsed and clears PullingFile. `CoreMailboxLoad.applyInMsg` applies `InMsg.NodeReceived` and logs it.
+1. [ ] **Arrival post** — `Api.postEvents` posts `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` for an incoming file.
 
 ### Acceptance Criteria
 
-1. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` with the Change from `WorkspaceUploadStructure.planServerFilePresentOps`. `Api.postEvents` posts `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` and stops `Op.SetDocumentState(fileId, NoServerFile, Unparsed)`. The planner does not post. The `InMsg.NodeReceived` handler sets Unparsed and clears PullingFile.
-2. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` and stops `LazyLoadReconciliationApply.markUnparsed`'s `Op.SetDocumentState` for a changed File Node. The `InMsg.NodeReceived` handler sets Unparsed and clears PullingFile.
+1. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg` for a changed File Node. The `InMsg.NodeReceived` handler sets Unparsed and clears PullingFile.
+2. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `InMsg.NodeReceived` through `CoreMailboxApi.addInMsg`. The `InMsg.NodeReceived` handler sets Unparsed and clears PullingFile.
 
 ## Finish-up
 
@@ -35,4 +34,5 @@ Graph change apply has an `InMsg.NodeReceived` handler in `CoreMailboxLoad.apply
 - [Document-state events](../spec.md)
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
+- [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md)
 - [GLOSSARY](../../GLOSSARY.md)
