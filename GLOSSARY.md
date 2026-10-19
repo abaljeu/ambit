@@ -142,7 +142,7 @@ The Emacs Action view of Change, Undo, and Redo Events. Not the server Event seq
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **Command**:
-A user operation a person invokes. A Command is not a message and is not sent.
+A user operation a person invokes. A Command is not a message and is not sent. A Command is the source of an Order.
 _Avoid_: event, core message, request payload
 
 **Core**:
@@ -260,9 +260,17 @@ _Avoid_: regular, plain, standard
 A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node. A Normal Node carries neither parse state nor persist state.
 _Avoid_: normal (bare, for a Node), regular node, plain node, leaf node
 
+**Notice**:
+The payload only a holder of the notice function posts. It replaces `InMsg`.
+_Avoid_: InMsg (say Notice), Command (a Command is not a Notice)
+
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
+
+**Order**:
+The payload a client or an Actor places through `PlaceOrder`. The log stores it as `PlacedOrder`.
+_Avoid_: Command (a Command is the source of an Order), core message (say Order)
 
 **OUTER**:
 An Expression combinator: the outermost acceptable Owned descendants below the input. Walk strictly below the input, Owned only; a Node that satisfies the operand yields, and the walk does not visit its descendants. Spelling is `OUTER` (capitals, same class as `NOT`).
@@ -291,6 +299,10 @@ _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
 **PullingFile**:
 A file pending from the client. Parsed, Unparsed, and PullingFile are one three-way parse state; PullingFile is not stored, so after a server reboot it is not true, and a second Load can repair a failure to load.
 _Avoid_: NoServerFile, flag (for this value)
+
+**Query**:
+A read placed through `Ask`. Each case has its own reply.
+_Avoid_: Command, Order (an Order is not a Query)
 
 **Redo**:
 An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
