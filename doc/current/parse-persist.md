@@ -13,15 +13,19 @@ Parse and persist move text between disk and the graph.
 [x] Server: one long-lived Parse stack and one parse thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
 [x] Nobody starts an Actor after pull.
 [x] Persist thread: runs when a node is Unpersisted and Parsed. A node is blocked when its parseState is Unparsed. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
-[x] Parse thread: adds `InMsg` `NodeParsed` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `InMsg` to the InMsg handler. [Mailbox](mailbox.md)
+[o] Parse thread: adds `InMsg` `NodeParsed` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `InMsg` to the InMsg handler. [Mailbox](mailbox.md)
+[ ] Parse thread: adds `Notice.NodeParsed` through the notice function when that File parse finishes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
 [x] `NodeParsed` sets a File Node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
-[x] Persist thread: adds `InMsg` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
+[o] Persist thread: adds `InMsg` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
+[ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 ## Parse
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.
 [x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
-[x] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
-[x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
+[o] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
+[ ] File parse posts ops as `Order.Change` through `Mailbox.PlaceOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
+[o] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
+[ ] `Order.Load` of a Workspace Node, a Directory Node, or a File Node is logged, then that node is pushed onto the Parse stack. A node inside a File Node uses that File Node. Effects follow as `Notice.NodeParsing`, Changes to that node and descendants, then `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 2 Load is logged.
 [x] Desktop-mapped Load stores the mapped bytes, then posts mailbox Load for that Workspace Node, Directory Node, or File Node. That Load pushes the subject onto the Parse stack.
 [x] The client hop for desktop-mapped Load is retired. That Load does not read a desktop file for parse, and it does not post directory reconcile from the Browser.
 [x] The git Load after-step is retired. After git Load returns, the Browser does not run a second reconcile or parse. Git Load pushes that Workspace Node onto the Parse stack.
@@ -51,7 +55,8 @@ Parse and persist move text between disk and the graph.
 [ ] Every handoff uses the Parse stack.
 [ ] Unparsed starts the parse thread after the workspace lock releases.
 [x] Existing member: Directory reconcile does not mark an existing File Node or an existing child Directory Node Unparsed. A disk-newer member is an existing member.
-[x] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
+[o] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
+[ ] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, directory parse posts `Notice.NodeParsing` and `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
 ## Persist
 

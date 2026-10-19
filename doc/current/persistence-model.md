@@ -167,7 +167,8 @@ CREATE INDEX idx_node_children_child ON node_children (child_id);
 
 [x] Missing root: a present singleton whose `root_id` is missing from `nodes` fails closed, as other maintenance failures do.
 
-[x] Startup reads: the mailbox stays available while startup maintenance runs. In that mode it selectively serves `GetState`, `GetRevision`, and `GetChangesSince` from the frozen loaded state. Ordinary mutations stay buffered in FIFO order.
+[o] Startup reads: the mailbox stays available while startup maintenance runs. In that mode it serves `GetState`, `GetEventId`, `GetEventsSince`, `GetEventHistory`, and `EventsSince` from the frozen loaded state. Ordinary mutations stay buffered in FIFO order.
+[ ] Startup reads: the mailbox stays available while startup maintenance runs. In that mode it serves the `Ask` queries `State`, `LastEventId`, and `EventsSince`. History is events since zero. Ordinary mutations stay buffered in FIFO order. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 7 Ask reply.
 
 [x] Readiness: after a successful maintenance commit and Graph reload, or after a no-op that skips reload, the agent publishes readiness and enters its normal serialized receive loop.
 

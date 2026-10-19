@@ -16,11 +16,13 @@ A small set of operations transforms a graph of nodes.
 
 [x] Graph: pure, directed, and potentially cyclic. File: [Model.fs](../../src/Shared/Model.fs).
 [x] Cases and apply: [Op](op.md).
-[x] Undo and redo use inverted Ops. The client submits inverses. The server stores the forward log. File: [History](../../src/Shared/History.fs).
+[o] Undo and redo use inverted Ops. The client submits inverses. The server stores the forward log. File: [History](../../src/Shared/History.fs).
+[ ] Undo and redo: the client places `Order.Undo` or `Order.Redo` of the target `EventId`. The logged order carries that target. The client and the server resolve that target the same way. File: [History](../../src/Shared/History.fs). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 ## Change
 
-[x] Change: an Action. Event body carries the Op list. `submissionId`: Guid for deduplication. File: [History](../../src/Shared/History.fs).
+[o] Change: an Action. Event body carries the Op list. `submissionId`: Guid for deduplication. File: [History](../../src/Shared/History.fs).
+[ ] Change: `Order.Change` of an `Op` list on `PlacedOrder`. `orderId`: Guid for deduplication. File: [History](../../src/Shared/History.fs). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change and decision 16 Order carries its envelope fields.
 
 ## Model building
 
