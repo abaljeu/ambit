@@ -1879,6 +1879,82 @@ let ``iterativeDeepenUnfold unfolds only folded members when frontier is mixed``
         Assert.False(sm2.entries.[child].expanded)
 
 // ---------------------------------------------------------------------------
+// SiteMapOps.iterativeDeepenFold
+// ---------------------------------------------------------------------------
+
+let private expandedNodeIds (siteMap: SiteMap) : NodeId list =
+    siteMap.entries
+    |> Map.toList
+    |> List.choose (fun (_, entry) ->
+        if entry.expanded then Some entry.nodeId else None)
+    |> List.sort
+
+[<Fact>]
+let ``iterativeDeepenFold folds an unfolded frontier and stops`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, _ = expandEntry aInst graph siteMap nextId
+    let midInst = sm1.entries.[aInst].children.[0]
+    Assert.False(sm1.entries.[midInst].expanded)
+    let folded = iterativeDeepenFold graph sm1 [ aInst ]
+    Assert.False(folded.entries.[aInst].expanded)
+    Assert.False(folded.entries.[midInst].expanded)
+
+[<Fact>]
+let ``iterativeDeepenFold folds only the deepest unfolded level`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, next1 = expandEntry aInst graph siteMap nextId
+    let midInst = sm1.entries.[aInst].children.[0]
+    let sm2, _ = expandEntry midInst graph sm1 next1
+    let deepInst = sm2.entries.[midInst].children.[0]
+    Assert.False(sm2.entries.[deepInst].expanded)
+    let folded = iterativeDeepenFold graph sm2 [ aInst ]
+    Assert.True(folded.entries.[aInst].expanded)
+    Assert.False(folded.entries.[midInst].expanded)
+    Assert.False(folded.entries.[deepInst].expanded)
+
+[<Fact>]
+let ``iterativeDeepenFold folds only unfolded members at the deepest level`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.entries.[siteMap.rootId]
+    let aInst, bInst = root.children.[0], root.children.[1]
+    let sm1, _ = expandEntry aInst graph siteMap nextId
+    Assert.False(sm1.entries.[bInst].expanded)
+    let folded = iterativeDeepenFold graph sm1 [ aInst; bInst ]
+    Assert.False(folded.entries.[aInst].expanded)
+    Assert.False(folded.entries.[bInst].expanded)
+
+[<Fact>]
+let ``iterativeDeepenFold does nothing when nothing is unfolded`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let folded = iterativeDeepenFold graph siteMap [ aInst ]
+    Assert.Same(siteMap, folded)
+
+[<Fact>]
+let ``iterativeDeepenFold round trip restores the unfolded levels`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let unfold sm nid = iterativeDeepenUnfold graph sm nid [ aInst ]
+    let sm1, n1 = unfold siteMap nextId
+    let sm2, n2 = unfold sm1 n1
+    let sm3, _ = unfold sm2 n2
+    let back2 = iterativeDeepenFold graph sm3 [ aInst ]
+    Assert.Equal<NodeId list>(expandedNodeIds sm2, expandedNodeIds back2)
+    let back1 = iterativeDeepenFold graph back2 [ aInst ]
+    Assert.Equal<NodeId list>(expandedNodeIds sm1, expandedNodeIds back1)
+    let back0 = iterativeDeepenFold graph back1 [ aInst ]
+    Assert.Equal<NodeId list>(expandedNodeIds siteMap, expandedNodeIds back0)
+    let again = iterativeDeepenFold graph back0 [ aInst ]
+    Assert.Equal<NodeId list>(expandedNodeIds siteMap, expandedNodeIds again)
+
+// ---------------------------------------------------------------------------
 // SiteMapOps.foldExpandedMembers
 // ---------------------------------------------------------------------------
 
