@@ -17,7 +17,7 @@ Stand a persist stack of nodes inside Core, and a persist thread that pulls a no
 
 1. [ ] **Stack** — Add a persist stack of node ids inside [Core](../../../src/Server/Core). The stack is not a `MailboxProcessor`. Route registration does not construct it, start it, or hold its handles.
 2. [ ] **Thread** — The persist thread pulls one node from that stack and calls `DocumentPersistChange.persistGraphOps` or `DocumentPersistChange.persistGraphChange`. It does not edit the graph. It is not an Actor.
-3. [ ] **Finish** — After a successful write, the thread posts `InMsg.NodePersisted` through the private function. It does not set persist state. `SnapshotDone` stays the live-document snapshot. A failed write does not post `NodePersisted`. [46 — Record the persist version](46-record-the-persist-version.md) adds the launch version.
+3. [ ] **Finish** — After a successful write, the thread posts `InMsg.NodePersisted` through the private function. It does not set persist state. There is no whole-graph snapshot. [58 — Remove dead snapshot code](58-remove-dead-snapshot-code.md) drops the dead flush and the `Graph` payload. A failed write does not post `NodePersisted`. [46 — Record the persist version](46-record-the-persist-version.md) adds the launch version.
 
 ### Acceptance Criteria
 
