@@ -38,6 +38,7 @@ module ViewModel =
     let foldExpandedMembers = ViewModelSiteMap.foldExpandedMembers
     let expandEntry = ViewModelSiteMap.expandEntry
     let iterativeDeepenUnfold = ViewModelSiteMap.iterativeDeepenUnfold
+    let iterativeDeepenFold = ViewModelSiteMap.iterativeDeepenFold
     let parentSiblingTarget = ViewModelSiteMap.parentSiblingTarget
     let captureFoldOccurrences = ViewModelSiteMap.captureFoldOccurrences
     let restoreFoldOccurrences = ViewModelSiteMap.restoreFoldOccurrences
