@@ -339,16 +339,18 @@ let arrowFoldLeftOp (model: VM) : VM * Effect list =
             |> Option.defaultValue model
             |> fun m -> m, []
 
-/// Op: ArrowLeft in selection — move to parent (do not fold).
-let arrowLeftSelectionNoFoldOp (model: VM) : VM * Effect list =
-    model.selectedNodes
-    |> Option.bind focusedInstanceId
-    |> Option.bind (fun fid -> Map.tryFind fid model.siteMap.entries)
-    |> Option.bind (fun e -> e.parentInstanceId)
-    |> Option.bind (singleSelectionForInstance model.siteMap)
-    |> Option.map (fun ps -> { model with selectedNodes = Some ps })
-    |> Option.defaultValue model
-    |> fun m -> m, []
+/// Op: Shift+ArrowLeft — fold the deepest unfolded level; selection unchanged.
+let cursorFoldLeftOp (model: VM) : VM * Effect list =
+    match model.selectedNodes with
+    | None -> model, []
+    | Some sel ->
+        let frontier =
+            sel.range.parent.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let siteMap =
+            ViewModel.iterativeDeepenFold model.graph model.siteMap frontier
+        { model with siteMap = siteMap }, []
 
 /// Op: Shift+ArrowRight — iterative-deepening unfold; selection unchanged.
 let cursorUnfoldRightOp (model: VM) : VM * Effect list =
