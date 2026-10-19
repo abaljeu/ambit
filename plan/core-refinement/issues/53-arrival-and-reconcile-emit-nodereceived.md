@@ -7,11 +7,11 @@
 
 ## Context
 
-Graph change apply has an `InMsg.NodeReceived` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeReceived` and logs it. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `InMsg.NodeReceived` directly for a changed File Node already on the server (pull request 263). Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeReceived` once it exists. A second Load repairs a file that never arrived.
+Graph change apply has an `InMsg.NodeReceived` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeReceived` and logs it. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `InMsg.NodeReceived` directly for a changed File Node already on the server (pull request 263). Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeReceived` once it exists. A second Load repairs a file that never arrived.
 
 ## What to build
 
-Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. The upload Actor posts `InMsg.NodeReceived` once it exists. That Actor is [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md).
+Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for an incoming file. The upload Actor posts `InMsg.NodeReceived` once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
 
 ### 1. Arrival
 
@@ -34,5 +34,5 @@ Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeReceived` for a
 - [Document-state events](../spec.md)
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
-- [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md)
+- [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md)
 - [GLOSSARY](../../GLOSSARY.md)

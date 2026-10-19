@@ -7,11 +7,11 @@
 
 ## Context
 
-Graph change apply has an `InMsg.NodeUploading` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeUploading` and logs it. Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeUploading` once it exists.
+Graph change apply has an `InMsg.NodeUploading` handler in `CoreMailboxLoad.applyInMsg`. The handler applies `InMsg.NodeUploading` and logs it. Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `InMsg.NodeUploading` once it exists.
 
 ## What to build
 
-Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. The upload Actor posts `InMsg.NodeUploading` once it exists. That Actor is [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md).
+Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for the upload Change. The upload Actor posts `InMsg.NodeUploading` once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
 
 ### 1. Upload
 
@@ -33,5 +33,5 @@ Until the upload Actor exists, `Api.postEvents` posts `InMsg.NodeUploading` for 
 - [Document-state events](../spec.md)
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
-- [57 — Upload Actor posts document state](57-upload-actor-posts-document-state.md)
+- [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md)
 - [GLOSSARY](../../GLOSSARY.md)

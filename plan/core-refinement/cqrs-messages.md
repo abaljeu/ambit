@@ -148,10 +148,10 @@ type internal CoreQueue =
 
 ## 5. Tickets 44–57
 
-These tickets stay worded with `InMsg` and `CoreMsg`. This note does not retitle them. At the Expand rename, an `InMsg` case becomes the `Notice` case of the same name. [45 — SetDocumentState leaves CoreMsg](issues/45-remove-document-state-set-ops.md) and [57 — Upload Actor posts document state](issues/57-upload-actor-posts-document-state.md) need their own text updated in a later plan change.
+These tickets stay worded with `InMsg` and `CoreMsg`. This note does not retitle them. At the Expand rename, an `InMsg` case becomes the `Notice` case of the same name.
 
 1. **[44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md)** — Handlers for `InMsg.NodeUploading`, `InMsg.NodeReceived`, `InMsg.NodeParsing`, `InMsg.NodePersisting`, and `InMsg.NodePersisted` become handlers for those `Notice` cases. The effects in [Document-state events](spec.md) stay.
-2. **[45 — SetDocumentState leaves CoreMsg](issues/45-remove-document-state-set-ops.md)** — `Op.SetDocumentState` leaves. The Unpersisted mark is `Notice.NodeUnpersisted`. No `SetDocumentState` case is added. `InMsg.MarkUnparsed` still leaves and is not a `Notice`.
+2. **[45 — SetDocumentState leaves; NodeUnpersisted replaces it](issues/45-remove-document-state-set-ops.md)** — `Op.SetDocumentState` leaves. The Unpersisted mark is `Notice.NodeUnpersisted`. No `SetDocumentState` case is added. `InMsg.MarkUnparsed` still leaves and is not a `Notice`.
 3. **[46 — Record the persist version](issues/46-record-the-persist-version.md)** — `InMsg.NodePersisted(nodeId, version)` becomes `Notice.NodePersisted` of `NodeId * EventId`. The version check stays.
 4. **[47 — Undo and redo set Unpersisted](issues/47-undo-and-redo-set-unpersisted.md)** — Undo and Redo still set Unpersisted. The logged `order` is `Order.Undo` or `Order.Redo` of the target `EventId`, with no ops. The inverse-ops fill on today's `EventBody` is the shape decision 1 replaces.
 5. **[48 — Browser applies Node events](issues/48-browser-applies-node-events.md)** — The Browser applies the `Ev` log. Logged Node notices replace logged `InMsg` values. The client receives every `Ev`.
@@ -163,7 +163,7 @@ These tickets stay worded with `InMsg` and `CoreMsg`. This note does not retitle
 11. **[54 — Parse and import stop the Parsed Set](issues/54-parse-and-import-stop-the-parsed-set.md)** — The finish post becomes `Notice.NodeParsed`. The Parsed `Op.SetDocumentState` still leaves.
 12. **[55 — Stored replay sets Unpersisted](issues/55-stored-replay-sets-unpersisted.md)** — Stored replay skips `Notice.NodeUnpersisted` like the other Node notices and marks Unpersisted. Decision 14 **Stored replay**.
 13. **[56 — Remove ParseThread markUnparsed](issues/56-remove-parsethread-markunparsed.md)** — `ParseThread.markUnparsed` still leaves. `MarkUnparsed` is not a `Notice`.
-14. **[57 — Upload Actor posts document state](issues/57-upload-actor-posts-document-state.md)** — The core gives the upload Actor the notice function. The Actor posts `Notice.NodeUploading` and `Notice.NodeReceived` through that function. `Api.postEvents` still does not infer those two from the ops of a client `Change`.
+14. **[57 — Upload Actor posts Node notices](issues/57-upload-actor-posts-document-state.md)** — The core gives the upload Actor the notice function. The Actor posts `Notice.NodeUploading` and `Notice.NodeReceived` through that function. `Api.postEvents` still does not infer those two from the ops of a client `Change`.
 15. **[58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md)** — Deletes the dead flush, the `FileAgent` no-op, and the `Graph` payload. Renames the live follow-up file diff. Does not take the version check from [46 — Record the persist version](issues/46-record-the-persist-version.md).
 
 ## 6. SnapshotDone

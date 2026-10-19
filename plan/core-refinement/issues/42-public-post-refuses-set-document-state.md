@@ -46,4 +46,4 @@ A new public Change, and `postGraphOnly`, that contain `Op.SetDocumentState` are
 
 ## Comments
 
-- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [45 — Remove document-state Set ops](45-remove-document-state-set-ops.md).
+- 2026-10-17 — Superseded by the File event model. Status `cancelled`. Successor: [45 — SetDocumentState leaves; NodeUnpersisted replaces it](45-remove-document-state-set-ops.md).
