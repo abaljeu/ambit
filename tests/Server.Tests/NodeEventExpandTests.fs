@@ -133,6 +133,26 @@ let private received host id =
         | InMsg.NodeReceived found -> found = id
         | _ -> false)
 
+let private placeFile (dataDir: string) (rel: string) (text: string) =
+    let full =
+        Path.Combine(
+            dataDir,
+            "home",
+            rel.Replace('/', Path.DirectorySeparatorChar))
+    Directory.CreateDirectory(Path.GetDirectoryName full) |> ignore
+    File.WriteAllText(full, text)
+
+let private pullReceived host handle dataDir changes = task {
+    let! pulled =
+        LazyLoadReconciliationServer.reconcileReceivedFiles
+            { handle = handle
+              dataDir = dataDir
+              workspaceLabel = "home" }
+            changes
+        |> Async.StartAsTask
+    requireOk "pull" pulled |> ignore
+}
+
 let private parsedMsg host id =
     hasCase host (function
         | InMsg.NodeParsed found -> found = id
@@ -224,6 +244,83 @@ let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
                 [ LazyLoadReconciliation.Modified "note.txt" ]
             |> Async.StartAsTask
         requireOk "pull" pulled |> ignore
+        Assert.True(wroteSet host fileId Unparsed)
+        assertLogged host fileId Unparsed (received host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``renamed file posts NodeReceived`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        setState host wsId Unparsed Current
+        setState host fileId Unparsed Current
+        placeFile dataDir "note.txt" "body"
+        File.Move(
+            Path.Combine(dataDir, "home", "note.txt"),
+            Path.Combine(dataDir, "home", "renamed.txt"))
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
+        Assert.True(wroteSet host fileId Unparsed)
+        assertLogged host fileId Unparsed (received host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``moved file posts NodeReceived`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let docsId = addDirectory host wsId "docs"
+        let otherId = addDirectory host wsId "other"
+        setState host wsId Unparsed Current
+        setState host docsId Unparsed Current
+        setState host otherId Unparsed Current
+        let fileId = addFile host docsId "note.txt"
+        setState host fileId Unparsed Current
+        placeFile dataDir "docs/note.txt" "body"
+        Directory.CreateDirectory(
+            Path.Combine(dataDir, "home", "other"))
+        |> ignore
+        File.Move(
+            Path.Combine(dataDir, "home", "docs", "note.txt"),
+            Path.Combine(dataDir, "home", "other", "note.txt"))
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Renamed(
+                    "docs/note.txt", "other/note.txt") ]
+        Assert.True(wroteSet host fileId Unparsed)
+        assertLogged host fileId Unparsed (received host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``renamed and modified file posts NodeReceived`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        setState host wsId Unparsed Current
+        setState host fileId Unparsed Current
+        placeFile dataDir "renamed.txt" "changed body"
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
         Assert.True(wroteSet host fileId Unparsed)
         assertLogged host fileId Unparsed (received host fileId)
     finally

@@ -236,6 +236,38 @@ module Api =
               nodes = answer.nodes
               childMap = answer.childMap }
 
+    // Known design weakness: see the postEvents Note in
+    // plan/core-refinement/arch.md (inferred from Ops, not explicit commands).
+    let private inferredNodeEvents (event: Ev) : InMsg list =
+        let states =
+            match event.body with
+            | EventBody.Change ops ->
+                ops
+                |> List.choose (function
+                    | Op.SetDocumentState(id, oldState, newState) ->
+                        Some(id, oldState, newState)
+                    | _ -> None)
+            | _ -> []
+        let uploadOrArrival =
+            states
+            |> List.exists (function
+                | _, _, NoServerFile
+                | _, _, Unparsed -> true
+                | _ -> false)
+        let pick f = states |> List.choose f
+        pick (function
+            | id, _, NoServerFile -> Some(InMsg.NodeUploading id)
+            | _ -> None)
+        @ pick (function
+            | id, NoServerFile, Unparsed -> Some(InMsg.NodeReceived id)
+            | _ -> None)
+        @ (if uploadOrArrival then
+               []
+           else
+               pick (function
+                   | id, Unparsed, Current -> Some(InMsg.NodeParsed id)
+                   | _ -> None))
+
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -252,9 +284,9 @@ module Api =
         | Ok request ->
             match! CoreDoor.postEvents handle request.events with
             | Ok accepted ->
-                NodeEventBeside.post
-                    handle.host
-                    (NodeEventBeside.forPostedEvents request.events)
+                request.events
+                |> List.collect inferredNodeEvents
+                |> List.iter (CoreMailboxApi.addInMsg handle.host)
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
                 | Ok answer ->
@@ -462,9 +494,9 @@ module Api =
                 let event = GraphOnlyChangePost.mint "Parse" ops
                 match! CoreDoor.postGraphOnly handle event with
                 | Ok _ ->
-                    NodeEventBeside.post
+                    CoreMailboxApi.addInMsg
                         handle.host
-                        (NodeEventBeside.parsedMarks ops)
+                        (InMsg.NodeParsed fileId)
                     return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }

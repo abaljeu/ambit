@@ -341,6 +341,41 @@ module LazyLoadReconciliationServer =
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         reconcileChangedPathsWithDiscovery workspace None changedPaths
 
+    /// Existing File nodes the git pull marks Unparsed: a Modified file
+    /// not yet Unparsed, an Added path that names a NoServerFile stub,
+    /// and a Renamed file whose plan marks that node Unparsed.
+    let private receivedFileIds
+        (graph: Graph)
+        (workspaceLabel: string)
+        (files: LazyLoadReconciliation.ChangedPath list)
+        (ops: Op list)
+        : NodeId list =
+        let existingFile path =
+            match LazyLoadReconciliation.resolveOwnedPath graph workspaceLabel path with
+            | Ok(Some(id, File)) -> Some(id, Node.documentStateEnum graph.nodes.[id])
+            | _ -> None
+        let planMarksUnparsed id =
+            ops
+            |> List.exists (function
+                | Op.SetDocumentState(found, _, Unparsed) -> found = id
+                | _ -> false)
+        files
+        |> List.choose (function
+            | LazyLoadReconciliation.Modified path ->
+                match existingFile path with
+                | Some(id, (Current | NoServerFile)) -> Some id
+                | _ -> None
+            | LazyLoadReconciliation.Added path ->
+                match existingFile path with
+                | Some(id, NoServerFile) -> Some id
+                | _ -> None
+            | LazyLoadReconciliation.Renamed(oldPath, _) ->
+                match existingFile oldPath with
+                | Some(id, _) when planMarksUnparsed id -> Some id
+                | _ -> None
+            | _ -> None)
+        |> List.distinct
+
     /// Git pull. Each received file is marked. An added, removed, or renamed
     /// file marks its containing Directory. The list does not discover members.
     let reconcileReceivedFiles
@@ -365,11 +400,15 @@ module LazyLoadReconciliationServer =
                           artifactReads = files
                           beside =
                             fun ops ->
-                                NodeEventBeside.post
-                                    workspace.handle.host
-                                    (NodeEventBeside.receivedExistingFiles
-                                        stateResponse.graph
-                                        ops) }
+                                receivedFileIds
+                                    stateResponse.graph
+                                    workspace.workspaceLabel
+                                    files
+                                    ops
+                                |> List.iter (fun id ->
+                                    CoreMailboxApi.addInMsg
+                                        workspace.handle.host
+                                        (InMsg.NodeReceived id)) }
         }
 
     /// Load's directory match. One level: direct files and child directories.
