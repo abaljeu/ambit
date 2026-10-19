@@ -243,6 +243,35 @@ module LazyLoadReconciliationReport =
                     afterModified
             Ok { ops = ops; failures = failures })
 
+    /// A renamed File the pull actually moved. Resolve oldPath on the
+    /// pre-plan graph. A failed rename is not marked.
+    let private renamedFileUnparsedOps
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        (failures: Failure list)
+        : Op list =
+        let failed =
+            failures |> List.map (fun failure -> failure.path) |> Set.ofList
+        let renameFailed oldPath newPath =
+            failed.Contains(oldPath + " -> " + newPath)
+            || failed.Contains(oldPath)
+            || failed.Contains(newPath)
+        changes
+        |> List.collect (function
+            | LazyLoadReconciliation.Renamed(oldPath, newPath) when
+                not (renameFailed oldPath newPath) ->
+                match
+                    LazyLoadReconciliation.resolveOwnedPath
+                        graph
+                        workspaceLabel
+                        oldPath
+                with
+                | Ok(Some(id, File)) ->
+                    LazyLoadReconciliationApply.markUnparsed graph id
+                | _ -> []
+            | _ -> [])
+
     /// Git pull plan. Each file is marked. An added, removed, or renamed file
     /// also marks the containing Directory, or the nearest ancestor that exists.
     let planReceivedFiles
@@ -258,4 +287,10 @@ module LazyLoadReconciliationReport =
                 workspaceLabel
                 changes
             |> Result.map (fun markOps ->
-                { report with ops = report.ops @ markOps }))
+                let fileOps =
+                    renamedFileUnparsedOps
+                        graph
+                        workspaceLabel
+                        changes
+                        report.failures
+                { report with ops = report.ops @ markOps @ fileOps }))
