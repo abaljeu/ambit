@@ -131,6 +131,94 @@ let private putBytesWithMtime (client: HttpClient) (url: string) (bytes: byte[])
         return! client.SendAsync(req)
     }
 
+let private assertContentType (fileName: string) (expected: string) =
+    Assert.Equal(expected, WorkspaceWebDav.contentTypeFor fileName)
+    let dot = fileName.LastIndexOf('.')
+    if dot >= 0 then
+        let upper = fileName.Substring(0, dot) + fileName.Substring(dot).ToUpperInvariant()
+        Assert.Equal(expected, WorkspaceWebDav.contentTypeFor upper)
+
+[<Fact>]
+let ``content type pdf is application/pdf`` () =
+    assertContentType "doc.pdf" "application/pdf"
+
+[<Fact>]
+let ``content type png is image/png`` () =
+    assertContentType "pic.png" "image/png"
+
+[<Fact>]
+let ``content type jpg and jpeg are image/jpeg`` () =
+    assertContentType "pic.jpg" "image/jpeg"
+    assertContentType "pic.jpeg" "image/jpeg"
+
+[<Fact>]
+let ``content type gif is image/gif`` () =
+    assertContentType "pic.gif" "image/gif"
+
+[<Fact>]
+let ``content type webp is image/webp`` () =
+    assertContentType "pic.webp" "image/webp"
+
+[<Fact>]
+let ``content type svg is image/svg+xml`` () =
+    assertContentType "pic.svg" "image/svg+xml"
+
+[<Fact>]
+let ``content type heic is image/heic`` () =
+    assertContentType "pic.heic" "image/heic"
+
+[<Fact>]
+let ``content type txt log and csv are plain text`` () =
+    assertContentType "note.txt" "text/plain; charset=utf-8"
+    assertContentType "note.log" "text/plain; charset=utf-8"
+    assertContentType "note.csv" "text/plain; charset=utf-8"
+
+[<Fact>]
+let ``content type md and markdown are plain text`` () =
+    assertContentType "note.md" "text/plain; charset=utf-8"
+    assertContentType "note.markdown" "text/plain; charset=utf-8"
+
+[<Fact>]
+let ``content type json keeps a json media type`` () =
+    assertContentType "note.json" "application/json; charset=utf-8"
+
+[<Fact>]
+let ``content type html and htm are plain text`` () =
+    assertContentType "page.html" "text/plain; charset=utf-8"
+    assertContentType "page.htm" "text/plain; charset=utf-8"
+
+[<Fact>]
+let ``content type unknown or missing extension is octet-stream`` () =
+    assertContentType "archive.bin" "application/octet-stream"
+    Assert.Equal(
+        "application/octet-stream",
+        WorkspaceWebDav.contentTypeFor "README")
+    Assert.Equal(
+        "application/octet-stream",
+        WorkspaceWebDav.contentTypeFor "docs/README")
+
+[<SkippableFact>]
+let ``GET pdf returns application/pdf and no attachment`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    File.WriteAllBytes(Path.Combine(home, "doc.pdf"), [| 0x25uy; 0x50uy; 0x44uy; 0x46uy |])
+    use client = createClientForDir dataDir
+    Assert.True(client.DefaultRequestHeaders.Contains("Cookie"))
+    let! resp = client.GetAsync("/ambit/dav/home/doc.pdf")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    Assert.Equal("application/pdf", resp.Content.Headers.ContentType.MediaType)
+    let disposition = resp.Content.Headers.ContentDisposition
+    Assert.True(
+        isNull disposition
+        || not (
+            String.Equals(
+                disposition.DispositionType,
+                "attachment",
+                StringComparison.OrdinalIgnoreCase)))
+}
+
 [<SkippableFact>]
 let ``GET after PUT round-trips bytes`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")

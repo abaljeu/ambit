@@ -14,6 +14,7 @@ Current chapter: [[chapters/automatic-upload-and-download.md]]
 - [[chapters/markdown-styling.md]]
 - [[chapters/embed-an-image.md]]
 - [[chapters/tables.md]]
+- [[chapters/two-panel-view.md]] — vision. Not the current Chapter. Not planned work.
 
 ## Required for done
 

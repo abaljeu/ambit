@@ -37,7 +37,7 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ### charting
 
-- [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]])
+- [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]]; vision: [[epics/chapters/two-panel-view.md]])
 - [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki (current: [[epics/chapters/markdown-codec.md]])
 - [[epics/create-and-publish-web-pages.md]] — Create and publish web pages (current: [[epics/chapters/html-codec.md]])
 - [[epics/manage-a-project.md]] — Manage a project (current: [[epics/chapters/status.md]])
