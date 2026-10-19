@@ -2,7 +2,7 @@
 
 ALL your data in one infinite outline.
 
-- [Infinite Outliner](infinite-outliner.md) presents a graph as outline with cross-linking and focused views.
+- [Infinite Outliner](infinite-outliner.md) presents a graph as an outline with cross-linking and focused views. You open and close one level at a time from the selection.
 
 Multi-Client/Single Server (plus postgres) service
 - [Multi-Client Sync](multi-client-sync.md) enables independent views to simultaneously edit with safe automatic merge.
