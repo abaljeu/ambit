@@ -12,7 +12,7 @@ These commands start a node, stop that work, or check the outline.
 
 Keys: Ctrl+Enter and Alt+Enter. While you are selecting or editing.
 
-What it does: Starts the action on the focused node. When that node cannot run, Ambit shows an error.
+What it does: A line that starts with `?` starts that [Actor](doc/user/guide/actor.md). A line that contains `=` (including `= expr` and `name = expr`) starts a query [Actor](doc/user/guide/query-language.md). The [Amble](doc/user/reference/amble-language.md) evaluator runs on a line that starts with `>`, or on a line under an `=` owner when no `?` owner sits above it.
 
 Related: [Cancel](#cancel).
 
