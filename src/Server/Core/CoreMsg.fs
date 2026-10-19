@@ -74,7 +74,7 @@ type internal CoreMsg =
         AsyncReplyChannel<Gambol.Shared.EventLog>
 
 /// Internal message. Not an Op. No public enqueue door.
-type internal InMsg =
+type internal Notice =
     | NodeParsed of nodeId: NodeId
     | SnapshotDone of nodeId: NodeId
     | MarkUnparsed of nodeId: NodeId
@@ -82,9 +82,9 @@ type internal InMsg =
     | NodeReceived of nodeId: NodeId
 
 [<RequireQualifiedAccess>]
-type internal QueueSum =
-    | Core of CoreMsg
-    | In of InMsg
+type internal CoreQueue =
+    | Public of CoreMsg
+    | Notice of Notice
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>
@@ -111,5 +111,5 @@ type internal PersistFilling = {
     isReady: unit -> bool
     dispose: unit -> unit
     until: Async<Result<unit, string>> option
-    bindPersistFinished: (InMsg -> unit) -> unit
+    bindPersistFinished: (Notice -> unit) -> unit
 }

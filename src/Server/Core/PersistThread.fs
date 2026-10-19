@@ -126,9 +126,9 @@ module PersistThread =
 
     /// Private add after a successful finish. A failed write does not call this.
     let internal finishWhenBound
-        (slot: (InMsg -> unit) option ref)
+        (slot: (Notice -> unit) option ref)
         (nodeId: NodeId)
         =
         match slot.Value with
         | None -> ()
-        | Some post -> post (InMsg.SnapshotDone nodeId)
+        | Some post -> post (Notice.SnapshotDone nodeId)

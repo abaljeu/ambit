@@ -49,7 +49,7 @@
     <Compile Include="GithubTransportLoadPullTests.fs" />
     <Compile Include="ParseThreadLoadTests.fs" />
     <Compile Include="PersistThreadTests.fs" />
-    <Compile Include="CoreLoopInMsgTests.fs" />
+    <Compile Include="CoreLoopNoticeTests.fs" />
     <Compile Include="NodeEventExpandTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />

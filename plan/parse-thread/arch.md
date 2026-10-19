@@ -4,7 +4,7 @@ Spec: [spec](spec.md)
 Updated: 2026-10-11
 Sequence: module-build
 
-Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). InMsg on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
+Core stacks, axes, locks, and the mailbox stay [core-refinement architecture](../core-refinement/arch.md) and [core-refinement map](../core-refinement/map.md). Notice on the one mailbox queue stays [core-refinement architecture](../core-refinement/arch.md) §10 Core loop. This architecture is the Parse product delta only. A `[x]` hop is already true in code, or it is a Core door this Project cites and does not build. Open Core build stays on that architecture and on [Core](../../doc/current/core.md). A `[ ]` hop is Directory reconcile work.
 
 Sequence is module-build. Directory reconcile is in code. Story paths that only cite Core do not add modules. Tests for this Project cross Directory reconcile. They do not start the mailbox, the workspace lock, or the persist thread.
 
@@ -96,13 +96,13 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
     1. [x] **Item 8** — Client Load on Directory uses [core-refinement architecture](../core-refinement/arch.md) §5 item 8.
     2. [x] **No axis redesign** — This Project does not own the axes. See [04 — Parsed/Unparsed and Persisted/Unpersisted](../core-refinement/issues/04-parsed-unparsed-and-persisted-unpersisted.md).
 
-22. **Add InMsg**
-    1. [x] **Parse thread** — On finish the parse thread adds InMsg NodeParsed through the private function. It does not edit the graph axes.
-    2. [x] **Persist thread** — On finish the persist thread adds InMsg SnapshotDone through the private function. It does not edit the graph axes. This Project does not design the persist write body.
-    3. [x] **Core loop** — The mailbox has one queue. A private function adds InMsg. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands InMsg to the InMsg handler. NodeParsed sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
-    4. [x] **Not an Op** — InMsg is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry InMsg.
+22. **Add Notice**
+    1. [x] **Parse thread** — On finish the parse thread adds Notice NodeParsed through the private function. It does not edit the graph axes.
+    2. [x] **Persist thread** — On finish the persist thread adds Notice SnapshotDone through the private function. It does not edit the graph axes. This Project does not design the persist write body.
+    3. [x] **Core loop** — The mailbox has one queue. A private function adds Notice. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `CoreQueue.Notice` to `applyNotice`. NodeParsed sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. SnapshotDone sets Persisted only through `GraphMutate.setPersistState`.
+    4. [x] **Not an Op** — Notice is not an Op. `Op.SetPersistState` is not a writer. `Op.SetDocumentState` is not the writer of the parsed axis. `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly` do not carry Notice.
     5. [x] **Type home** — [core-refinement architecture](../core-refinement/arch.md) §10 Core loop.
-    6. [x] **MarkUnparsed** — For a disk-newer File Node the parse thread adds InMsg MarkUnparsed through the private function. The core loop sets Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
+    6. [x] **MarkUnparsed** — For a disk-newer File Node the parse thread adds Notice MarkUnparsed through the private function. The core loop sets Unparsed only through `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer.
 
 ### 23. Shared segments
 
@@ -110,7 +110,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
    1. [x] **Pop** — Parse stack pop of a File Node.
    2. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs).
    3. [x] **File parse** — `planParseFile`.
-   4. [x] **NodeParsed** — On finish the parse thread adds InMsg NodeParsed through the private function. It does not edit the graph axes.
+   4. [x] **NodeParsed** — On finish the parse thread adds Notice NodeParsed through the private function. It does not edit the graph axes.
 
 2. **Directory into Graph**
    1. [x] **Mark Unparsed** — Core §5 item 8.
@@ -147,7 +147,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       4. [x] **No mark** — Directory reconcile does not name an existing member for push.
       5. [x] **No extra info** — Structure-match uses the Directory body and the Graph only.
       6. [x] **Workspace** — Workspace nodes use the same reconcile process. (They also do other things.)
-      7. [x] **NodeParsed** — When Directory reconcile is done, the parse thread adds InMsg NodeParsed for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
+      7. [x] **NodeParsed** — When Directory reconcile is done, the parse thread adds Notice NodeParsed for that Directory Node through the private function. It does not edit the graph axes. The core loop sets Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged.
       8. [x] **New child Directory Node** — A disk directory the Graph lacks gets a Directory Node. That Directory Node starts Unparsed. An existing child Directory Node is not marked Unparsed. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
    3. **Uses**
       1. [x] **Parse thread** — [Parse thread](../../src/Server/ParseThread.fs) calls Directory reconcile when the popped node is a Directory Node.
@@ -155,7 +155,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
       3. [x] **File parse** — File text stays [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile`.
       4. [x] **Create File Node** — Missing File Nodes use [File node ops](../../src/Shared/FileNodeOps.fs) `planCreateOwnedFile`.
       5. [x] **Pop skip** — A Parsed node skips work. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 11.
-      6. [x] **NodeParsed** — Directory Parse done adds InMsg NodeParsed through the private function. The core loop sets that Directory Node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 6 **Directory Parse done** and §10 **Core loop**.
+      6. [x] **NodeParsed** — Directory Parse done adds Notice NodeParsed through the private function. The core loop sets that Directory Node Parsed only through `GraphMutate.setParseState`. PersistState stays unchanged. Rule: [core-refinement architecture](../core-refinement/arch.md) §5 item 6 **Directory Parse done** and §10 **Core loop**.
       7. [x] **Load axis** — Client Load on Directory stays §5 item 8 **Load on Directory**. Load on Directory goes through that Directory's members on disk. A new directory on disk gets marked: it is added and starts Unparsed. A deleted directory gets marked: it is removed. A directory that already exists and is still present is untouched; this operation does nothing to it. Load on Directory does not mark a file Unparsed unless it is a new file. A new file on disk gets marked Unparsed. An existing file that is still present is left alone. A deleted file is removed. Workspace Load: Load on a Workspace has an additional existing step: it pulls files from the Git server. If Git shows a file is modified, that file is marked Unparsed. If Git shows a file is moved, deleted, or added, the containing directory is marked Unparsed. A modified file does not mark its directory. Ticket: [14 — Directory reconcile matches disk members](issues/14-directory-reconcile-matches-disk-members.md).
       8. [x] **Reconcile rule** — Directory reconcile is defined in this item. [core-refinement architecture](../core-refinement/arch.md) §5 item 10 **Directory reconcile** points here. Lock: [01 — Directory body home](issues/01-directory-parse-body-home.md).
       9. [x] **Locks** — Workspace lock and member locks stay §6. Directory reconcile does not take them.
@@ -166,7 +166,7 @@ Sequence is module-build. Directory reconcile is in code. Story paths that only 
 1. **Directory reconcile**
    1. [x] Interface on **Directory reconcile**. Tests cross this seam.
 2. **Parse thread**
-   1. [x] Interface on the existing parse thread. A File Node pop stays `planParseFile`. A Directory Node pop calls **Directory reconcile**. On finish the parse thread adds InMsg NodeParsed through the private function.
+   1. [x] Interface on the existing parse thread. A File Node pop stays `planParseFile`. A Directory Node pop calls **Directory reconcile**. On finish the parse thread adds Notice NodeParsed through the private function.
 3. **File parse**
    1. [x] Interface on `planParseFile`. Unchanged.
 4. **Client Load on Directory**

@@ -1,7 +1,7 @@
 # Parse thread
 
 Stage: build
-Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add InMsg through the mailbox private function. The core loop sets the axes.
+Summary: A continuous Server parse thread turns file-shaped disk into Graph, takes priority from Browser wants, and emits Changes. A continuous persist thread turns Graph into disk. Both add Notice through the mailbox private function. The core loop sets the axes.
 Updated: 2026-10-15
 Started: 2026-09-28
 Actual: 10h 25m

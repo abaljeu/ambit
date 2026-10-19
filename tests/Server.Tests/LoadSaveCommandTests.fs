@@ -687,12 +687,12 @@ let private fileLoadHost (dataDir: string) =
           postOps = ParseThread.postParseOps handle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed nodeId)
+                CoreMailboxApi.postNotice host (Notice.MarkUnparsed nodeId)
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.addInMsg
+                CoreMailboxApi.postNotice
                     host
-                    (InMsg.NodeParsed nodeId) }
+                    (Notice.NodeParsed nodeId) }
     let router =
         { resolvePath = LoadSaveRouting.resolvePath dataDir
           startCommand =

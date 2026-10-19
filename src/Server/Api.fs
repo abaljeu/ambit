@@ -238,7 +238,7 @@ module Api =
 
     // Known design weakness: see the postEvents Note in
     // plan/core-refinement/arch.md (inferred from Ops, not explicit commands).
-    let private inferredNodeEvents (event: Ev) : InMsg list =
+    let private inferredNodeEvents (event: Ev) : Notice list =
         let states =
             match event.body with
             | EventBody.Change ops ->
@@ -256,16 +256,16 @@ module Api =
                 | _ -> false)
         let pick f = states |> List.choose f
         pick (function
-            | id, _, NoServerFile -> Some(InMsg.NodeUploading id)
+            | id, _, NoServerFile -> Some(Notice.NodeUploading id)
             | _ -> None)
         @ pick (function
-            | id, NoServerFile, Unparsed -> Some(InMsg.NodeReceived id)
+            | id, NoServerFile, Unparsed -> Some(Notice.NodeReceived id)
             | _ -> None)
         @ (if uploadOrArrival then
                []
            else
                pick (function
-                   | id, Unparsed, Current -> Some(InMsg.NodeParsed id)
+                   | id, Unparsed, Current -> Some(Notice.NodeParsed id)
                    | _ -> None))
 
     let postEvents
@@ -286,7 +286,7 @@ module Api =
             | Ok accepted ->
                 request.events
                 |> List.collect inferredNodeEvents
-                |> List.iter (CoreMailboxApi.addInMsg handle.host)
+                |> List.iter (CoreMailboxApi.postNotice handle.host)
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
                 | Ok answer ->
@@ -494,9 +494,9 @@ module Api =
                 let event = GraphOnlyChangePost.mint "Parse" ops
                 match! CoreDoor.postGraphOnly handle event with
                 | Ok _ ->
-                    CoreMailboxApi.addInMsg
+                    CoreMailboxApi.postNotice
                         handle.host
-                        (InMsg.NodeParsed fileId)
+                        (Notice.NodeParsed fileId)
                     return jsonResult """{"ok":true}"""
                 | Error err -> return agentErrorResult err
         }

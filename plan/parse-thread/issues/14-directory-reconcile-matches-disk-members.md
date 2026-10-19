@@ -10,7 +10,7 @@ Actual: 1h 45m
 
 A person reconciles a Directory Node. The reconcile examines that directory on disk. An earlier one-level reconcile marked each Current child Directory Node Unparsed on every parent reconcile. Alan replaced that mark on 2026-10-12. The Directory reconcile home is Parse thread architecture §2 Module map, item 1 Directory reconcile.
 
-When a Directory parse finishes, the Browser never learns that the Directory became Current. `InMsg.ParseFinished` sets the parse axis through `FileAgent.replaceGraph`, which posts no Event. The client poll applies Events only, so the row stays Unparsed.
+When a Directory parse finishes, the Browser never learns that the Directory became Current. `Notice.ParseFinished` sets the parse axis through `FileAgent.replaceGraph`, which posts no Event. The client poll applies Events only, so the row stays Unparsed.
 
 ## What to build
 
@@ -32,7 +32,7 @@ Directory reconcile examines the directory on disk. It adds a missing member nod
 
 ## Finish-up
 
-1. [x] **Piece answers** — The push list from Directory reconcile is empty. A missing member is removed with the existing drop-owned delete. `InMsg.ParseFinished` still sets the parse axis with no Event.
+1. [x] **Piece answers** — The push list from Directory reconcile is empty. A missing member is removed with the existing drop-owned delete. `Notice.ParseFinished` still sets the parse axis with no Event.
 2. [x] **Basis and reference docs** — [Parse thread architecture](../arch.md) §2 Module map, item 1 **Directory reconcile**, [Parse thread spec](../spec.md), and the Directory reconcile sentences in [core-refinement architecture](../../core-refinement/arch.md) match this ticket.
 3. [x] **Current and user docs** — [Parse and persist](../../../doc/current/parse-persist.md) and [Mailbox](../../../doc/current/mailbox.md) match this ticket. doc/user does not state this reconcile.
 
@@ -45,7 +45,7 @@ Directory reconcile examines the directory on disk. It adds a missing member nod
 ## Side effects
 
 1. **Update time** — `Op.SetDocumentState` touches `updateTime` on the Directory Node or Workspace Node. This ticket does not change that op.
-2. **Parsed axis** — `InMsg.ParseFinished` still sets Parsed through `FileAgent.replaceGraph` and posts no Event. The Browser learns Current from the new op. It does not learn Parsed from an Event.
+2. **Parsed axis** — `Notice.ParseFinished` still sets Parsed through `FileAgent.replaceGraph` and posts no Event. The Browser learns Current from the new op. It does not learn Parsed from an Event.
 3. **Disk-newer text** — An existing disk-newer File Node is not parsed by this reconcile. Its text stays as it was.
 4. **Delete path** — A member with no file is removed by `ViewModelDeleteOps.planDeleteDroppedOwnedMany`, which moves that node to trash.
 

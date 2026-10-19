@@ -7,7 +7,7 @@
 
 ## Context
 
-The server writes individual document files. It does not write a whole-graph snapshot. `flushSnapshot` returns `Ok ()`. `FileAgent.snapshotDone` ignores its arguments. The `Graph` on `InMsg.SnapshotDone` is not read by a live writer. The follow-up file diff in `DbAgent` is live and misnamed. Trace: [Message shape](../cqrs-messages.md) §6 **SnapshotDone**.
+The server writes individual document files. It does not write a whole-graph snapshot. `flushSnapshot` returns `Ok ()`. `FileAgent.snapshotDone` ignores its arguments. The `Graph` on `Notice.SnapshotDone` is not read by a live writer. The follow-up file diff in `DbAgent` is live and misnamed. Trace: [Message shape](../cqrs-messages.md) §6 **SnapshotDone**.
 
 ## What to build
 
@@ -16,7 +16,7 @@ Delete the confirmed-dead snapshot pieces. Rename the live follow-up file diff. 
 ### 1. Dead code and names
 
 1. [x] **Flush** — Remove `flushSnapshot` from `DbAgent`, `FileAgent`, `PersistFilling`, `MailboxHost`, and `CoreMailboxApi`. `SavePrep.syncDataDir` does not take a flush. When `DbStatus` is not `Ok`, save still reads the event id. `prepareGitSave` and `flushForGit` in `RouteRegistration.fs` stop passing a flush. Tests that only called `flushSnapshot` to get `Ok ()` drop that call.
-2. [x] **Graph** — `InMsg.SnapshotDone` carries the node id and no `Graph`. `PersistThread.finishWhenBound` posts that id. `CoreMailboxLoad.applyInMsg` still sets `PersistState.Persisted` from the node id. Remove the `graphEquals` copy in `DbAgent.handleSnapshotDone`. `DocumentPersistPath.stampNode` still stamps the graph the writer returns. If [46 — Record the persist version](46-record-the-persist-version.md) has already replaced this case with `NodePersisted`, do not put a `Graph` back on it.
+2. [x] **Graph** — `Notice.SnapshotDone` carries the node id and no `Graph`. `PersistThread.finishWhenBound` posts that id. `CoreMailboxLoad.applyNotice` still sets `PersistState.Persisted` from the node id. Remove the `graphEquals` copy in `DbAgent.handleSnapshotDone`. `DocumentPersistPath.stampNode` still stamps the graph the writer returns. If [46 — Record the persist version](46-record-the-persist-version.md) has already replaced this case with `NodePersisted`, do not put a `Graph` back on it.
 3. [x] **File no-op** — `FileAgent` does not supply snapshot bookkeeping. The database filling keeps the diff-count hook, with no `Graph`.
 4. [x] **Rename** — `requestSnapshot` becomes `requestFileDiff`. `startSnapshot` becomes `startFileDiff`. `enqueueSnapshot` becomes `enqueueFileDiff`. `snapshotWorkspaces` becomes `diffWorkspaces`. `snapshotIds` becomes `diffIds`. `snapshotMarks` becomes `diffMarksLeft`. `snapshotNeeded` becomes `diffNeeded`. `snapshotInProgress` becomes `diffInProgress`. `persistedGraph` becomes `baselineGraph`. `snapshotPost` becomes `persistFinished`. `bindSnapshot` becomes `bindPersistFinished`. `PersistHandlers.snapshotDone` becomes `noteDiffDone` of `NodeId`. `opsNotifiedIds` keeps its name. The diff still calls `DocumentPersistChange.persistGraphChange` for the same nodes.
 

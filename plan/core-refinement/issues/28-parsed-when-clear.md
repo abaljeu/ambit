@@ -8,7 +8,7 @@
 
 ## Context
 
-A File Node carries `noServerFile`. Parsed with `noServerFile` is not a state. The parse thread adds `InMsg` `ParseFinished` when it finishes that File Node. Core loop applies `ParseFinished`. The architecture says that apply sets the File Node Parsed only when `noServerFile` is clear. This ticket owns that rule. A Directory Node and a Workspace Node do not carry `noServerFile`.
+A File Node carries `noServerFile`. Parsed with `noServerFile` is not a state. The parse thread adds `Notice` `ParseFinished` when it finishes that File Node. Core loop applies `ParseFinished`. The architecture says that apply sets the File Node Parsed only when `noServerFile` is clear. This ticket owns that rule. A Directory Node and a Workspace Node do not carry `noServerFile`.
 
 ## What to build
 
