@@ -41,9 +41,9 @@ module internal CoreMailboxEvents =
         match event.body with
         | EventBody.Change _ -> { event with body = EventBody.Change ops }
         | EventBody.Undo(target, _) ->
-            { event with body = EventBody.Undo(target, ops) }
+            { event with body = EventBody.Undo(target, Some ops) }
         | EventBody.Redo(target, _) ->
-            { event with body = EventBody.Redo(target, ops) }
+            { event with body = EventBody.Redo(target, Some ops) }
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.ActorStop _ -> event
 

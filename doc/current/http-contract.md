@@ -528,9 +528,9 @@ Graph {
 9. [ ] **commandName.** `commandName` is a `string option` on `PlaceOrder` and on the `PlacedOrder`. Only an order that a Command started has one. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 11 commandName.
 10. [o] **Change body.** `body.kind` `"change"` has `ops`, an Op array.
 11. [ ] **Change body.** `EventBody.Order` carries a `PlacedOrder` whose logged Change holds the op list. `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin and decision 10 Order, not Command.
-12. [o] **Undo body.** `body.kind` `"undo"` has `target` (integer event id) and `ops`.
+12. **Undo body.** `body.kind` `"undo"` has `target` (integer event id). A new undo omits `ops`. A payload that still has `ops` decodes that list.
 13. [ ] **Undo body.** `Order.Undo` has `target` (integer event id). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
-14. [o] **Redo body.** `body.kind` `"redo"` has `target` (integer event id) and `ops`.
+14. **Redo body.** `body.kind` `"redo"` has `target` (integer event id). A new redo omits `ops`. A payload that still has `ops` decodes that list.
 15. [ ] **Redo body.** `Order.Redo` has `target` (integer event id). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 #### 2.12.6 Op

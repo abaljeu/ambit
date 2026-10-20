@@ -34,12 +34,40 @@ let ``Ev JSON round-trips a Change`` () =
     Assert.Equal(changeEvent, decoded)
 
 [<Fact>]
+let ``Ev JSON omits ops on a target-only Undo and still reads carried ops`` () =
+    let targetOnly =
+        { changeEvent with
+            body = EventBody.Undo(EventIdFixtures.storedId 3, None) }
+    let omitted = Enc.toString 0 (EventJson.encode targetOnly)
+    Assert.DoesNotContain("\"ops\"", omitted)
+    Assert.Equal(targetOnly, roundTrip targetOnly)
+    let graph, nodeId = Graph.newNode "old" (Graph.create ())
+    let carried = [ Op.SetText(nodeId, "old", "carried") ]
+    let withOps =
+        { changeEvent with
+            body = EventBody.Undo(EventIdFixtures.storedId 3, Some carried) }
+    let decoded = roundTrip withOps
+    match decoded.body with
+    | EventBody.Undo(_, Some ops) ->
+        Assert.Equal<Op list>(carried, ops)
+    | other -> failwith $"expected carried Undo, {other}"
+    let state = { graph = graph; eventId = EventId.zero }
+    match Ev.apply decoded state with
+    | ApplyResult.Changed after ->
+        Assert.Equal("carried", after.graph.nodes.[nodeId].text)
+    | other -> failwith $"expected carried Undo to apply, {other}"
+    let emptyOps =
+        { changeEvent with
+            body = EventBody.Undo(EventIdFixtures.storedId 3, Some []) }
+    Assert.Equal(emptyOps.body, (roundTrip emptyOps).body)
+
+[<Fact>]
 let ``Ev JSON round-trips name-only Undo`` () =
     let event =
         { changeEvent with
             id = EventIdFixtures.storedId 4
             commandName = "Undo"
-            body = EventBody.Undo(EventIdFixtures.storedId 3, []) }
+            body = EventBody.Undo(EventIdFixtures.storedId 3, None) }
     Assert.Equal(event, roundTrip event)
 
 [<Fact>]

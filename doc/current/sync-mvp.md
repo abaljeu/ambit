@@ -61,7 +61,7 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 
 A changes response carries the want answer, so the body stays smaller than a full graph.
 
-[o] Undo and redo server endpoints are deferred, so history stays on the client and inverse ops travel in a normal event.
+History stays on the client. A new undo or redo stores the target `EventId` and no op list. `ClientHistory` and `CoreEventDispatch` resolve that target the same way. A stored undo or redo that still carries ops applies that list.
 [ ] History stays on the client. The client places `Order.Undo` or `Order.Redo` of the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 Fewer than five clients edit, and edits are infrequent, so the MVP accepts that overwrite.

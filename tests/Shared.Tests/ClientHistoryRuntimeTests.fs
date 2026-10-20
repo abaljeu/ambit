@@ -51,12 +51,13 @@ let ``applyLocalEvent records the submitted Event at EventId.zero`` () =
             Ev.ops pending |> Option.defaultValue [])
         match ClientHistory.undo (Guid.NewGuid()) next.history with
         | None -> failwith "Expected recorded History"
-        | Some (inverse, _) ->
+        | Some (inverse, _, ops) ->
             Assert.Equal("Edit node", inverse.commandName)
             Assert.Equal(EventId.zero, inverse.id)
+            Assert.Equal(None, Ev.ops inverse)
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
-                Ev.ops inverse |> Option.defaultValue [])
+                ops)
 
 [<Fact>]
 let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
@@ -82,6 +83,11 @@ let ``applyLocalUndo projects the inverse through ResidentProjection`` () =
             Assert.Equal<Op list>(
                 [ Op.SetText(nodeId, "after", "before") ],
                 Ev.ops pending |> Option.defaultValue [])
+            let wire = SyncBatch.toWireBatch [ pending ]
+            match wire.Head.body with
+            | EventBody.Undo(target, None) ->
+                Assert.Equal(EventId.zero, target)
+            | _ -> failwith "expected the wire Undo to carry the target only"
 
 [<Fact>]
 let ``applyLocalRedo projects the inverse through ResidentProjection`` () =
@@ -200,7 +206,7 @@ let ``approve stamps matching zero when a foreign event leads the stream`` () =
     let approved = ClientHistory.approve [ foreign; confirmed ] recorded
     match ClientHistory.undoEvent approved with
     | None -> failwith "expected Undo"
-    | Some (event, _) ->
+    | Some (event, _, _) ->
         match event.body with
         | EventBody.Undo(target, _) ->
             Assert.Equal(EventIdFixtures.storedId 9, target)
@@ -214,10 +220,10 @@ let ``approve stamps Redo target written while undo id was zero`` () =
         |> ClientHistory.record { source with commandName = "Edit node" }
     match ClientHistory.undo (Guid.NewGuid()) recorded with
     | None -> failwith "expected Undo"
-    | Some (undo, undone) ->
+    | Some (undo, undone, _) ->
         match ClientHistory.redo (Guid.NewGuid()) undone with
         | None -> failwith "expected Redo"
-        | Some (_, redone) ->
+        | Some (_, redone, _) ->
             let confirmedOriginal =
                 { source with
                     commandName = "Edit node"
@@ -230,7 +236,7 @@ let ``approve stamps Redo target written while undo id was zero`` () =
             | Some event ->
                 match event.body with
                 | EventBody.Redo(target, _) ->
-                    Assert.Equal(EventIdFixtures.storedId 10, target)
+                    Assert.Equal(EventIdFixtures.storedId 9, target)
                 | _ -> failwith "expected Redo body"
 
 [<Fact>]

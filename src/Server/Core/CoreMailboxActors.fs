@@ -233,6 +233,25 @@ module internal CoreMailboxActors =
                 CoreMailboxEvents.replyList reply context stored [ stored ]
             | Ok None -> CoreMailboxEvents.replyList reply context event []
 
+    let private placeHistoryOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (order: Order)
+        (reply: PostedReply)
+        =
+        match
+            CoreEventDispatch.acceptUndoRedo
+                (CoreMailboxEvents.eventDispatchContext context)
+                caller
+                event.submissionId
+                event.id
+                (Some event.commandName)
+                order
+        with
+        | Error error -> reply.Reply(Error error)
+        | Ok (stored, accepted) -> reply.Reply(Ok(stored, accepted))
+
     let dispatchPostEvent
         (context: MailboxContext)
         (caller: Caller)
@@ -246,6 +265,12 @@ module internal CoreMailboxActors =
             postActorStart context caller event request reply
         | EventBody.Cancel focusId ->
             postCancel context caller event focusId reply
+        | EventBody.Undo(target, _) ->
+            placeHistoryOrder
+                context caller event (Order.Undo target) reply
+        | EventBody.Redo(target, _) ->
+            placeHistoryOrder
+                context caller event (Order.Redo target) reply
         | _ ->
             match
                 CoreEventDispatch.postEvent

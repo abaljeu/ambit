@@ -16,7 +16,7 @@ A small set of operations transforms a graph of nodes.
 
 [x] Graph: pure, directed, and potentially cyclic. File: [Model.fs](../../src/Shared/Model.fs).
 [x] Cases and apply: [Op](op.md).
-[o] Undo and redo use inverted Ops. The client submits inverses. The server stores the forward log. File: [History](../../src/Shared/History.fs).
+Undo and redo store the target `EventId` and no op list. `ClientHistory` and `CoreEventDispatch` resolve that target through `UndoTarget`. A stored undo or redo that still carries ops applies that list. File: [History](../../src/Shared/History.fs).
 [ ] Undo and redo: the client places `Order.Undo` or `Order.Redo` of the target `EventId`. The logged order carries that target. The client and the server resolve that target the same way. File: [History](../../src/Shared/History.fs). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 ## Change

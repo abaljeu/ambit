@@ -18,8 +18,16 @@ let private sending items =
         syncState = Sending 1 }
 
 let private confirm (item: Ev) suffix : Ev =
-    { item with
-        body = EventBody.Change (SpecialNodeTestHelpers.eventOps item @ suffix) }
+    match item.body with
+    | EventBody.Undo (target, _) ->
+        { item with body = EventBody.Undo(target, None) }
+    | EventBody.Redo (target, _) ->
+        { item with body = EventBody.Redo(target, None) }
+    | _ ->
+        { item with
+            body =
+                EventBody.Change(
+                    SpecialNodeTestHelpers.eventOps item @ suffix) }
 
 let private stamp nodeId =
     Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stampTime)

@@ -82,9 +82,34 @@ module EventLog =
     let afterCheckpoint (eventId: EventId) : EventLog =
         { empty with nextId = EventId.next eventId }
 
-    let private applyRecover state event =
+    let private withCarried (event: Ev) (ops: Op list) =
+        match event.body with
+        | EventBody.Undo(target, _) ->
+            { event with body = EventBody.Undo(target, Some ops) }
+        | EventBody.Redo(target, _) ->
+            { event with body = EventBody.Redo(target, Some ops) }
+        | _ -> event
+
+    let private recoverOps (log: Ev list) (event: Ev) =
+        match event.body with
+        | EventBody.Undo(_, Some ops)
+        | EventBody.Redo(_, Some ops)
+        | EventBody.Change ops -> Some ops
+        | EventBody.Undo(target, None) ->
+            UndoTarget.inverseOfTarget log target
+        | EventBody.Redo(target, None) ->
+            UndoTarget.forwardOfTarget log target
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _
+        | EventBody.Cancel _ -> None
+
+    let private applyRecover (log: EventLog) state event =
         let next =
-            match Ev.apply event state with
+            match recoverOps log.events event with
+            | None -> ApplyResult.Unchanged state
+            | Some ops -> Ev.apply (withCarried event ops) state
+        let next =
+            match next with
             | ApplyResult.Changed next -> next
             | ApplyResult.Unchanged next -> next
             | ApplyResult.Invalid (next, _) -> next
@@ -104,4 +129,4 @@ module EventLog =
                 |> List.rev
                 |> List.filter (fun event ->
                     EventId.value event.id > graphId)
-            List.fold applyRecover state ahead, log
+            List.fold (applyRecover log) state ahead, log

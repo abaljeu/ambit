@@ -267,11 +267,25 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (caller, _, _, _, reply) ->
-            if authorityHeld context caller then
-                replyUnsupported reply
-            else
+        | Mailbox.PlaceOrder (caller, orderId, commandName, order, reply) ->
+            if not (authorityHeld context caller) then
                 reply.Reply(Error droppedAuthority)
+            else
+                match order with
+                | Order.Undo _
+                | Order.Redo _ ->
+                    match
+                        CoreEventDispatch.acceptUndoRedo
+                            (CoreMailboxEvents.eventDispatchContext context)
+                            caller
+                            orderId
+                            EventId.zero
+                            commandName
+                            order
+                    with
+                    | Error error -> reply.Reply(Error error)
+                    | Ok (stored, _) -> reply.Reply(Ok stored.id)
+                | _ -> replyUnsupported reply
         | Mailbox.Ask query -> dispatchAsk context query
 
     let private dispatchItem

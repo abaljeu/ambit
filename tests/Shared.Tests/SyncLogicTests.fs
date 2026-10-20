@@ -1084,7 +1084,7 @@ let ``consumeCatchUpPoll stamps History when stream matches submissionId`` () =
         Assert.Equal(pending.submissionId, stamped.submissionId)
         match ClientHistory.undoEvent result.history with
         | None -> failwith "expected stamped Undo"
-        | Some (event, _) ->
+        | Some (event, _, _) ->
             match event.body with
             | EventBody.Undo(target, _) ->
                 Assert.Equal(EventIdFixtures.storedId 4, target)

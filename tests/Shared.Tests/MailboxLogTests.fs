@@ -61,12 +61,12 @@ let ``empty command name maps to None and returns as empty`` () =
 let ``Undo and Redo keep the target and drop the ops`` () =
     let target = EventId.fromJson 4
     let ops = [ childOp () ]
-    let undo = source "Undo" (EventBody.Undo(target, ops))
-    let redo = source "Redo" (EventBody.Redo(target, ops))
+    let undo = source "Undo" (EventBody.Undo(target, Some ops))
+    let redo = source "Redo" (EventBody.Redo(target, Some ops))
     Assert.Equal(Order.Undo target, (placed undo).order)
     Assert.Equal(Order.Redo target, (placed redo).order)
-    Assert.Equal(EventBody.Undo(target, []), (restored (logged undo)).body)
-    Assert.Equal(EventBody.Redo(target, []), (restored (logged redo)).body)
+    Assert.Equal(EventBody.Undo(target, None), (restored (logged undo)).body)
+    Assert.Equal(EventBody.Redo(target, None), (restored (logged redo)).body)
 
 [<Fact>]
 let ``StartPeerActor carries Shared PeerActorName`` () =

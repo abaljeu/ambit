@@ -130,7 +130,9 @@ module BootCache =
                 match acc with
                 | Error _ -> acc
                 | Ok st ->
-                    let ops = Ev.ops event |> Option.defaultValue []
+                    let ops =
+                        UndoTarget.forwardOfEvent ordered event
+                        |> Option.defaultValue []
                     let mark = Op.marksOwningPersist event.commandName
                     let guard = Op.guardsUnparsedDocument event.commandName
                     match

@@ -58,6 +58,22 @@ module SyncLogic =
     let private inStoredOrder (events: Ev list) =
         events |> List.sortBy (fun event -> EventId.value event.id)
 
+    let private projectOps (log: Ev list) (event: Ev) =
+        match event.body with
+        | EventBody.Change ops
+        | EventBody.Undo(_, Some ops)
+        | EventBody.Redo(_, Some ops) -> ops
+        | EventBody.Undo(target, None) ->
+            UndoTarget.inverseOfTarget log target |> Option.defaultValue []
+        | EventBody.Redo(target, None) ->
+            UndoTarget.forwardOfTarget log target |> Option.defaultValue []
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _
+        | EventBody.Cancel _ -> []
+
+    let private rememberEvent (state: ClientSyncState) (event: Ev) =
+        { state with eventLog = EventLog.restore [ event ] state.eventLog }
+
     let private foldProjectedEvents
         (events: Ev list)
         (state: ClientSyncState)
@@ -65,9 +81,9 @@ module SyncLogic =
         let step (st: ClientSyncState, undid) (event: Ev) =
             // Already applied. An append-style Replace is not idempotent.
             if event.id <= st.eventId then
-                Ok(st, undid)
+                Ok(rememberEvent st event, undid)
             else
-                let ops = Ev.ops event |> Option.defaultValue []
+                let ops = projectOps st.eventLog.events event
                 let mark = Op.marksOwningPersist event.commandName
                 let guard = Op.guardsUnparsedDocument event.commandName
                 match
@@ -82,7 +98,9 @@ module SyncLogic =
                 | ApplyResult.Changed newSt, note
                 | ApplyResult.Unchanged newSt, note ->
                     Ok(
-                        withProjectedGraph event st newSt note,
+                        rememberEvent
+                            (withProjectedGraph event st newSt note)
+                            event,
                         undid || note.IsSome)
                 | ApplyResult.Invalid (_, msg), _ -> Error msg
         inStoredOrder events
@@ -113,7 +131,10 @@ module SyncLogic =
         |> List.rev
         |> List.fold
             (fun graph event ->
-                let inverseOps = Ev.inverseOps event |> Option.defaultValue []
+                let inverseOps =
+                    ClientHistory.appliedOps state.history event
+                    |> Option.map Op.invertAll
+                    |> Option.defaultValue []
                 match
                     ResidentProjection.applyOps
                         inverseOps
@@ -139,8 +160,13 @@ module SyncLogic =
                 graph = undoPendingGraph state state.pending },
             true
 
-    let private applyPendingEvent (state: State) (event: Ev) : State =
-        let ops = Ev.ops event |> Option.defaultValue []
+    let private applyPendingEvent
+        (history: ClientHistory)
+        (state: State)
+        (event: Ev)
+        : State =
+        let ops =
+            ClientHistory.appliedOps history event |> Option.defaultValue []
         match ResidentProjection.applyOps ops state with
         | ApplyResult.Changed next
         | ApplyResult.Unchanged next -> next
@@ -156,7 +182,9 @@ module SyncLogic =
             state.pending
             |> List.filter (fun event ->
                 not (Set.contains event.submissionId playedIds))
-            |> List.fold applyPendingEvent (asProjectionState state)
+            |> List.fold
+                (applyPendingEvent state.history)
+                (asProjectionState state)
         { state with graph = next.graph }
 
     /// Apply a Sync response atomically under Loaded rules.
@@ -259,27 +287,38 @@ module SyncLogic =
             Ok(
                 { state with
                     graph = newState.graph
-                    history = history },
+                    history = history
+                    eventLog = EventLog.restore [ event ] state.eventLog },
                 posted)
 
     let private applyInverse
-        (planned: (Ev * ClientHistory) option)
+        (planned: (Ev * ClientHistory * Op list) option)
         (state: ClientSyncState)
         : Result<ClientSyncState * Ev, string> option =
         match planned with
         | None -> None
-        | Some (inverse, history) ->
-            let ops = Ev.ops inverse |> Option.defaultValue []
+        | Some (inverse, history, ops) ->
             match ResidentProjection.applyOps ops (asProjectionState state) with
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
-                let posted = { inverse with id = EventId.zero }
+                let posted =
+                    { inverse with
+                        id = EventId.zero
+                        body =
+                            match inverse.body with
+                            | EventBody.Undo (target, _) ->
+                                EventBody.Undo(target, Some ops)
+                            | EventBody.Redo (target, _) ->
+                                EventBody.Redo(target, Some ops)
+                            | other -> other }
                 Some(
                     Ok(
-                        { state with
-                            graph = newState.graph
-                            history = history },
+                        rememberEvent
+                            { state with
+                                graph = newState.graph
+                                history = history }
+                            posted,
                         posted))
 
     let applyLocalUndo
@@ -310,7 +349,10 @@ module SyncLogic =
             else Error "forbidden-suffix confirmation"
 
     let private eventOps (event: Ev) =
-        Ev.ops event |> Option.defaultValue []
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _ -> []
+        | _ -> Ev.ops event |> Option.defaultValue []
 
     let private identityError
         (submitted: Ev list)
@@ -458,6 +500,12 @@ module SyncLogic =
                 match collectSuffixes submitted confirmed with
                 | Error err -> AckReconcile.Rejected err
                 | Ok suffixOps ->
+                    let syncInfo =
+                        syncInfo
+                        |> SyncInfo.withPending (
+                            syncInfo.pending
+                            |> List.map (
+                                ClientHistory.retarget confirmed state.history))
                     match
                         queueOutcome
                             submitted

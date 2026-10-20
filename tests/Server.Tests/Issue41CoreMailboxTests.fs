@@ -141,9 +141,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let undo =
             wireEvent
                 undoId
-                (Gambol.Shared.EventBody.Undo(
-                    storedEvent.id,
-                    []))
+                (Gambol.Shared.EventBody.Undo(storedEvent.id, None))
         let! undoResult =
             CoreMailboxApi.postEvent host testCaller undo
             |> Async.StartAsTask
@@ -152,9 +150,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let redo =
             wireEvent
                 redoId
-                (Gambol.Shared.EventBody.Redo(
-                    storedUndo.id,
-                    []))
+                (Gambol.Shared.EventBody.Redo(storedEvent.id, None))
         let! redoResult =
             CoreMailboxApi.postEvent host testCaller redo
             |> Async.StartAsTask
@@ -165,12 +161,16 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
         let state = requireOk "state after redo" state
         Assert.Equal(undoId, storedUndo.submissionId)
         Assert.Equal(redoId, storedRedo.submissionId)
-        Assert.NotEmpty(
-            Ev.ops storedUndo
-            |> Option.defaultValue [])
-        Assert.NotEmpty(
-            Ev.ops storedRedo
-            |> Option.defaultValue [])
+        Assert.Equal(None, Ev.ops storedUndo)
+        Assert.Equal(None, Ev.ops storedRedo)
+        match storedUndo.body with
+        | EventBody.Undo(target, None) ->
+            Assert.Equal(storedEvent.id, target)
+        | _ -> Assert.Fail("expected Undo of the Change")
+        match storedRedo.body with
+        | EventBody.Redo(target, None) ->
+            Assert.Equal(storedEvent.id, target)
+        | _ -> Assert.Fail("expected Redo of the Change")
         Assert.Contains(
             Graph.children state.graph Graph.rootId,
             fun child -> child.id = childId)

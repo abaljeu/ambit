@@ -430,3 +430,29 @@ let ``workspace pending item is the exact Ev used before the request`` () =
         Assert.Equal(submitted, item)
     | _ ->
         failwith "Expected ContinuePostUploadStructure to carry the singleton"
+
+[<Fact>]
+let ``a zero-target Undo waits and the wire copy has no ops`` () =
+    let nodeId = NodeId.New()
+    let ops = [ Op.SetText(nodeId, "new", "old") ]
+    let undo =
+        { mkChange 0 with
+            body = EventBody.Undo(EventId.zero, Some ops) }
+    let syncInfo = { SyncInfo.initial with pending = [ undo ] }
+    let next, effects =
+        SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 3) syncInfo
+    Assert.Empty(effects)
+    Assert.Equal(Idle, next.syncState)
+    let wire = SyncBatch.toWireBatch [ undo ]
+    match wire.Head.body with
+    | EventBody.Undo (target, None) -> Assert.Equal(EventId.zero, target)
+    | other -> failwith $"expected a target-only wire Undo, {other}"
+    let changeId = EventIdFixtures.storedId 9
+    let stamped = { undo with body = EventBody.Undo(changeId, Some ops) }
+    let ready = { syncInfo with pending = [ stamped ] }
+    let _, readyEffects =
+        SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 3) ready
+    match readyEffects with
+    | [ SubmitPendingBatch (_, [ submitted ]) ] ->
+        Assert.Equal(changeId, Ev.target submitted |> Option.defaultValue EventId.zero)
+    | _ -> failwith "expected the stamped Undo to submit"

@@ -26,7 +26,7 @@ The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`
 [x] The callable door over the mailbox queue.
 [x] Core mailbox backend: the shared loop. 
 [x] Every mailbox message finishes quickly. Work that would hold the mailbox is an Actor. The Actor runs off the queue and posts more fast messages. [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
-[o] Mailbox event log: stores `ActorStart` and `ActorStop`. Undo and Redo stay Change-only. Actor events are not Undo targets.
+Mailbox event log: stores `ActorStart` and `ActorStop`. Undo and Redo store the target `EventId`. Actor events are not Undo targets.
 [ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId`. `Order.StartActor` and `Notice.ActorStop` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
 
 ## Interface

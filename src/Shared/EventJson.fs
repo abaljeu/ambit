@@ -144,22 +144,25 @@ module EventJson =
         | ActorFailed _
         | ActorCancelled -> Encode.object fields
 
+    let private encodeTarget kind target carried =
+        let fields =
+            [ "kind", Encode.string kind
+              "target", encodeEventId target ]
+        match carried with
+        | None -> Encode.object fields
+        | Some ops ->
+            Encode.object (fields @ [ "ops", encodeOps ops ])
+
     let private encodeBody (body: EventBody) =
         match body with
         | EventBody.Change ops ->
             Encode.object
                 [ "kind", Encode.string "change"
                   "ops", encodeOps ops ]
-        | EventBody.Undo(target, ops) ->
-            Encode.object
-                [ "kind", Encode.string "undo"
-                  "target", encodeEventId target
-                  "ops", encodeOps ops ]
-        | EventBody.Redo(target, ops) ->
-            Encode.object
-                [ "kind", Encode.string "redo"
-                  "target", encodeEventId target
-                  "ops", encodeOps ops ]
+        | EventBody.Undo(target, carried) ->
+            encodeTarget "undo" target carried
+        | EventBody.Redo(target, carried) ->
+            encodeTarget "redo" target carried
         | EventBody.ActorStart start -> encodeActorStart start
         | EventBody.Cancel focusId ->
             Encode.object
@@ -176,13 +179,13 @@ module EventJson =
         Decode.object (fun get ->
             EventBody.Undo(
                 get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
+                get.Optional.Field "ops" decodeOps))
 
     let private decodeRedoBody: Decoder<EventBody> =
         Decode.object (fun get ->
             EventBody.Redo(
                 get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
+                get.Optional.Field "ops" decodeOps))
 
     let private decodeActorStopBody: Decoder<EventBody> =
         Decode.object (fun get ->

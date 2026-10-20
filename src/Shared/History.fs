@@ -65,8 +65,8 @@ type ActorStart =
 [<RequireQualifiedAccess>]
 type EventBody =
     | Change of ops: Op list
-    | Undo of target: EventId * ops: Op list
-    | Redo of target: EventId * ops: Op list
+    | Undo of target: EventId * carried: Op list option
+    | Redo of target: EventId * carried: Op list option
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
     | Cancel of focusId: NodeId
@@ -408,20 +408,21 @@ module Ev =
     let ops (event: Ev) : Op list option =
         match event.body with
         | EventBody.Change ops
-        | EventBody.Undo(_, ops)
-        | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.Undo(_, Some ops)
+        | EventBody.Redo(_, Some ops) -> Some ops
+        | _ -> None
 
-    let isAction (event: Ev) : bool = ops event |> Option.isSome
+    let isAction (event: Ev) : bool =
+        match event.body with
+        | EventBody.ActorStart _ | EventBody.ActorStop _
+        | EventBody.Cancel _ -> false
+        | _ -> true
 
     let target (event: Ev) : EventId option =
         match event.body with
-        | EventBody.Undo(target, _)
-        | EventBody.Redo(target, _) -> Some target
-        | EventBody.Change _
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.Undo(id, _)
+        | EventBody.Redo(id, _) -> Some id
+        | _ -> None
 
     let inverseOps (event: Ev) : Op list option =
         ops event |> Option.map Op.invertAll
@@ -780,14 +781,13 @@ module PersistStamp =
             match event.body with
             | EventBody.Change ops ->
                 { event with body = EventBody.Change(appendToOps ops stampOps) }
-            | EventBody.Undo(target, ops) ->
+            | EventBody.Undo(target, Some ops) ->
                 { event with
-                    body = EventBody.Undo(target, appendToOps ops stampOps) }
-            | EventBody.Redo(target, ops) ->
+                    body = EventBody.Undo(target, Some(appendToOps ops stampOps)) }
+            | EventBody.Redo(target, Some ops) ->
                 { event with
-                    body = EventBody.Redo(target, appendToOps ops stampOps) }
-            | EventBody.ActorStart _ | EventBody.Cancel _
-            | EventBody.ActorStop _ -> event
+                    body = EventBody.Redo(target, Some(appendToOps ops stampOps)) }
+            | _ -> event
 
     let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
         if stampOps.IsEmpty || events.IsEmpty then

@@ -14,6 +14,20 @@ module SyncPlanner =
         | Sending _ | Polling | Uploading | Parsing | Loading -> true
         | _ -> false
 
+    let private waitsForTarget (event: Ev) =
+        match event.body with
+        | EventBody.Undo (target, _)
+        | EventBody.Redo (target, _) -> target = EventId.zero
+        | _ -> false
+
+    let private readyToSend (events: Ev list) =
+        let rec take ready remaining =
+            match remaining with
+            | next :: _ when waitsForTarget next -> List.rev ready
+            | next :: rest -> take (next :: ready) rest
+            | [] -> List.rev ready
+        take [] events
+
     let tryStartSubmit
         (baseEventId: Gambol.Shared.EventId)
         (syncInfo: SyncInfo)
@@ -23,8 +37,11 @@ module SyncPlanner =
         | _ when isBlocked syncInfo.syncState -> syncInfo, []
         | _ when isBusy syncInfo.syncState -> syncInfo, []
         | events ->
-            let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
-            nextInfo, [ SubmitPendingBatch (baseEventId, events) ]
+            match readyToSend events with
+            | [] -> syncInfo, []
+            | ready ->
+                let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
+                nextInfo, [ SubmitPendingBatch (baseEventId, ready) ]
 
     /// Append one Event and include it in a SubmitPendingBatch already opened
     /// by this turn. A busy queue keeps the Event behind the in-flight post.
@@ -40,7 +57,7 @@ module SyncPlanner =
             effects
             |> List.map (function
                 | SubmitPendingBatch (id, _) ->
-                    SubmitPendingBatch (id, pending)
+                    SubmitPendingBatch (id, readyToSend pending)
                 | other -> other)
         let opened =
             rewritten
@@ -75,9 +92,13 @@ module SyncPlanner =
         | [] ->
             baseInfo |> SyncInfo.withSyncState Idle, pending, []
         | events ->
-            baseInfo |> SyncInfo.withSyncState (Sending 1),
-            pending,
-            [ SubmitPendingBatch (eventId, events) ]
+            match readyToSend events with
+            | [] ->
+                baseInfo |> SyncInfo.withSyncState Idle, pending, []
+            | ready ->
+                baseInfo |> SyncInfo.withSyncState (Sending 1),
+                pending,
+                [ SubmitPendingBatch (eventId, ready) ]
 
     let restorePending
         (_serverEventId: Gambol.Shared.EventId)

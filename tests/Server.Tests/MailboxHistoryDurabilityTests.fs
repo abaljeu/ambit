@@ -128,7 +128,7 @@ let private nameOnlyUndo target : Ev =
       submissionId = Guid.NewGuid()
       authority = Authority "Wire"
       commandName = "test"
-      body = EventBody.Undo(target, []) }
+      body = EventBody.Undo(target, None) }
 
 let private assertRestartLog host = task {
     let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
@@ -259,7 +259,7 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
                 (nameOnlyUndo changeId)
             |> Async.StartAsTask
         let stored = requireOk "undo Change" undone
-        Assert.NotEmpty(Ev.ops stored |> Option.defaultValue [])
+        Assert.Equal(None, Ev.ops stored)
         let! rejected =
             CoreMailboxApi.postEvent
                 second

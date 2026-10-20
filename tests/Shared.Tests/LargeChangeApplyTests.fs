@@ -173,25 +173,25 @@ let private time f =
 
 let private undoInverse history =
     match ClientHistory.undo (Guid.NewGuid()) history with
-    | Some (inverse, _) -> inverse
+    | Some (inverse, _, ops) -> inverse, ops
     | None -> failwith "Undo had no inverse Change"
 
-let private projectInverse inverse state =
-    match ResidentProjection.applyOps (eventOps inverse) state with
+let private projectInverse (ops: Op list) state =
+    match ResidentProjection.applyOps ops state with
     | ApplyResult.Changed result -> result
     | ApplyResult.Unchanged _ -> failwith "projected apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "projected apply failed: %s" message
 
-let private serverApplyInverse inverse state =
-    match SpecialNodeTestHelpers.applyChange inverse state with
+let private serverApplyInverse (ops: Op list) state =
+    match ChangeValidation.applyOps ops state with
     | ApplyResult.Changed _ -> ()
     | ApplyResult.Unchanged _ -> failwith "server apply did not change the graph"
     | ApplyResult.Invalid(_, message) -> failwithf "server apply failed: %s" message
 
-let private assertNoCreateOps (event: Ev) =
-    Assert.Equal(1, (eventOps event).Length)
+let private assertNoCreateOps (ops: Op list) =
+    Assert.Equal(1, ops.Length)
     Assert.DoesNotContain(
-        eventOps event,
+        ops,
         fun op ->
             match op with
             | Op.NewNode _ | Op.NewSpecialNode _ -> true
@@ -206,9 +206,9 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         ClientHistory.record { change with commandName = "Paste" } (ClientHistory.clear ())
     let before = reachableStructure state.graph
     let after = reachableStructure changed.graph
-    let inverse, planMs = time (fun () -> undoInverse history0)
-    assertNoCreateOps inverse
-    let projected, projectedMs = time (fun () -> projectInverse inverse changed)
+    let (inverse, ops), planMs = time (fun () -> undoInverse history0)
+    assertNoCreateOps ops
+    let projected, projectedMs = time (fun () -> projectInverse ops changed)
     Assert.Equal(
         PersistState.Unpersisted,
         changed.graph.nodes.[state.graph.root].documentState.persistState)
@@ -216,12 +216,16 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         PersistState.Unpersisted,
         projected.graph.nodes.[state.graph.root].documentState.persistState)
     Assert.True((before = reachableStructure projected.graph))
-    let redo = invertEvent inverse.id (Guid.NewGuid()) inverse
+    let redo =
+        invertEvent
+            inverse.id
+            (Guid.NewGuid())
+            { inverse with body = EventBody.Change ops }
     Assert.True((after = reachableStructure (applied projected redo).graph))
     projected.graph.nodes
     |> Map.iter (fun nodeId _ ->
         Assert.True(Map.containsKey nodeId changed.graph.nodes))
-    let _, serverMs = time (fun () -> serverApplyInverse inverse changed)
+    let _, serverMs = time (fun () -> serverApplyInverse ops changed)
     Assert.True(
         projectedMs < 300.0,
         sprintf "projected inverse apply took %.3f ms" projectedMs)
@@ -264,7 +268,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         planMs projectedMs
     printfn
         "server-apply=%.3f ms sitemap=%.3f ms encode=%.3f ms ack-encode=%.3f ms ops=%d"
-        serverMs siteMs encodeMs ackMs (eventOps inverse).Length
+        serverMs siteMs encodeMs ackMs ops.Length
 
 /// A nested document parses into one Replace per parent whose children changed.
 let private nestedParseChange (documentRootId: NodeId) : Ev =

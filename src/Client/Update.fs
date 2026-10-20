@@ -374,15 +374,30 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             + string events.Length
                             + " newRev="
                             + string answeredState.eventId.Value)
+                        let pending =
+                            readyModel.syncInfo.pending
+                            |> List.map (
+                                ClientHistory.retarget
+                                    events
+                                    answeredState.history)
+                        let stamped =
+                            si
+                            |> SyncInfo.clearCatchUp
+                            |> SyncInfo.withPending pending
+                        let stamped, submit =
+                            SyncPlanner.tryStartSubmit
+                                answeredState.eventId
+                                stamped
                         let synced =
                             withAppliedResult
                                 events
                                 answeredState
-                                (si |> SyncInfo.clearCatchUp)
+                                stamped
                                 readyModel
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
-                        autoDownload synced
+                        let model, effects = autoDownload synced
+                        model, submit @ effects
             | Some _, [] ->
                 match
                     SyncLogic.applySyncResponse

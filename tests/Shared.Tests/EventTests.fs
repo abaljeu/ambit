@@ -266,10 +266,10 @@ let ``undo skips ActorStart/ActorStop and inverts the next Action`` () =
         |> ClientHistory.recordEvent "Edit node" changeEv
         |> ClientHistory.recordEvent "Start" (actorStart "Start")
         |> ClientHistory.recordEvent "Stop" (actorStop "Stop")
-    let undoEvent, undone =
+    let undoEvent, undone, _ =
         match ClientHistory.undoEvent recorded with
         | None -> failwith "expected Undo of Edit node"
-        | Some pair -> pair
+        | Some triple -> triple
     match undoEvent.body with
     | EventBody.Undo(target, _) -> Assert.Equal(Ev.id changeEv, target)
     | _ -> failwith "expected Undo body"
@@ -286,23 +286,23 @@ let ``redo skips ActorStart/ActorStop and inverts the next Action`` () =
         |> ClientHistory.recordEvent "Edit node" changeEv
         |> ClientHistory.recordEvent "Start" (actorStart "Start")
         |> ClientHistory.recordEvent "Stop" (actorStop "Stop")
-    let undoEvent, undone =
+    let undoEvent, undone, _ =
         match ClientHistory.undoEvent recorded with
         | None -> failwith "expected Undo"
-        | Some pair -> pair
-    let redoEvent, redone =
+        | Some triple -> triple
+    let redoEvent, redone, _ =
         match ClientHistory.redoEvent undone with
         | None -> failwith "expected Redo of the Undo Action"
-        | Some pair -> pair
+        | Some triple -> triple
     match redoEvent.body with
-    | EventBody.Redo(target, _) -> Assert.Equal(Ev.id undoEvent, target)
+    | EventBody.Redo(target, _) -> Assert.Equal(Ev.id changeEv, target)
     | _ -> failwith "expected Redo body"
     Assert.Equal("Edit node", redoEvent.commandName)
     Assert.Equal(None, ClientHistory.redoEvent redone)
     Assert.Equal(Some "Edit node", ClientHistory.tryPeekUndoName redone)
     match ClientHistory.undoEvent redone with
     | None -> failwith "expected Undo after Redo still skips Actors"
-    | Some (secondUndo, afterSecond) ->
+    | Some (secondUndo, afterSecond, _) ->
         match secondUndo.body with
         | EventBody.Undo(target, _) ->
             Assert.Equal(Ev.id redoEvent, target)
@@ -321,7 +321,7 @@ let ``tryPeekUndoName and tryPeekRedoName skip Actor events`` () =
     Assert.Equal(None, ClientHistory.tryPeekRedoName recorded)
     match ClientHistory.undoEvent recorded with
     | None -> failwith "expected Undo"
-    | Some (_, undone) ->
+    | Some (_, undone, _) ->
         Assert.Equal(None, ClientHistory.tryPeekUndoName undone)
         Assert.Equal(Some "Edit node", ClientHistory.tryPeekRedoName undone)
 
@@ -352,7 +352,7 @@ let ``tryPeek finds Action under Actors after Change-shaped record`` () =
     Assert.Equal(Some "Edit node", ClientHistory.tryPeekUndoName actionUnderActors)
     match ClientHistory.undo (Guid.NewGuid()) changeOnly with
     | None -> failwith "expected Change Undo"
-    | Some (_, undoneChange) ->
+    | Some (_, undoneChange, _) ->
         Assert.Equal(None, ClientHistory.tryPeekUndoName undoneChange)
         Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undoneChange)
 
@@ -366,17 +366,17 @@ let ``ClientHistory.record fold`` () =
     let afterUndo =
         match ClientHistory.undoEvent recorded with
         | None -> failwith "expected first Undo"
-        | Some (_, history) -> history
+        | Some (_, history, _) -> history
     let withSecond = ClientHistory.recordEvent "Second" second afterUndo
     Assert.Equal(Some "Second", ClientHistory.tryPeekUndoName withSecond)
     Assert.Equal(None, ClientHistory.tryPeekRedoName withSecond)
     match ClientHistory.undoEvent withSecond with
     | None -> failwith "expected Second Undo"
-    | Some (_, afterSecond) ->
+    | Some (_, afterSecond, _) ->
         Assert.Equal(Some "First", ClientHistory.tryPeekUndoName afterSecond)
         match ClientHistory.undoEvent afterSecond with
         | None -> failwith "expected folded First Undo"
-        | Some (_, emptyPast) ->
+        | Some (_, emptyPast, _) ->
             Assert.Equal(None, ClientHistory.tryPeekUndoName emptyPast)
 
 [<Fact>]
@@ -389,22 +389,31 @@ let ``Undo inverse Ops`` () =
     let recorded =
         ClientHistory.clear ()
         |> ClientHistory.recordEvent "Edit node" changeEvent
-    let undoEvent, undone =
+    let undoEvent, undone, undoOps =
         match ClientHistory.undoEvent recorded with
         | None -> failwith "expected Undo"
-        | Some pair -> pair
+        | Some triple -> triple
+    let literal = [ Op.SetText(nodeId, "new", "old") ]
     match undoEvent.body with
-    | EventBody.Undo(target, inverseOps) ->
+    | EventBody.Undo(target, None) ->
         Assert.Equal(changeEvent.id, target)
-        Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], inverseOps)
-    | _ -> failwith "expected Undo body"
-    let redoEvent, _ =
+        Assert.Equal<Op list>(literal, undoOps)
+    | _ -> failwith "expected target-only Undo"
+    Assert.Equal(
+        Some literal,
+        UndoTarget.inverseOfTarget [ changeEvent ] changeEvent.id)
+    let redoEvent, _, redoOps =
         match ClientHistory.redoEvent undone with
         | None -> failwith "expected Redo"
-        | Some pair -> pair
+        | Some triple -> triple
     match redoEvent.body with
-    | EventBody.Redo(target, _) -> Assert.Equal(Ev.id undoEvent, target)
-    | _ -> failwith "expected Redo body"
+    | EventBody.Redo(target, None) ->
+        Assert.Equal(changeEvent.id, target)
+        Assert.Equal<Op list>(ops, redoOps)
+    | _ -> failwith "expected target-only Redo"
+    Assert.Equal(
+        Some ops,
+        UndoTarget.forwardOfTarget [ changeEvent ] changeEvent.id)
 
 [<Fact>]
 let ``Actor bodies do not apply`` () =
@@ -425,9 +434,9 @@ let ``Undo Redo carried Ops`` () =
     let undoOps = [ Op.SetText(nodeId, "old", "undone") ]
     let redoOps = [ Op.SetText(nodeId, "undone", "redone") ]
     let undoEv =
-        event "" (EventBody.Undo(EventIdFixtures.storedId 99, undoOps))
+        event "" (EventBody.Undo(EventIdFixtures.storedId 99, Some undoOps))
     let redoEv =
-        event "" (EventBody.Redo(EventIdFixtures.storedId 99, redoOps))
+        event "" (EventBody.Redo(EventIdFixtures.storedId 99, Some redoOps))
     match Ev.apply undoEv state with
     | ApplyResult.Changed afterUndo ->
         Assert.Equal("undone", afterUndo.graph.nodes.[nodeId].text)
@@ -442,8 +451,8 @@ let ``Every Ev carries Authority`` () =
     let start = startRequest ()
     let bodies =
         [ EventBody.Change []
-          EventBody.Undo(EventIdFixtures.storedId 1, [])
-          EventBody.Redo(EventIdFixtures.storedId 1, [])
+          EventBody.Undo(EventIdFixtures.storedId 1, None)
+          EventBody.Redo(EventIdFixtures.storedId 1, None)
           EventBody.ActorStart start
           EventBody.ActorStop(start.focusId, ActorFailed "") ]
     bodies
@@ -487,4 +496,4 @@ let ``commandName is on the Ev`` () =
         ClientHistory.clear () |> ClientHistory.recordEvent "Cut" ev
     match ClientHistory.undoEvent recorded with
     | None -> failwith "expected Undo"
-    | Some (undoEvent, _) -> Assert.Equal("Cut", undoEvent.commandName)
+    | Some (undoEvent, _, _) -> Assert.Equal("Cut", undoEvent.commandName)

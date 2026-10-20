@@ -1,6 +1,7 @@
 # 65 — Undo and Redo resolve their ops from the target
 
 **Status:** `defined`
+**Actual:** 4h
 **Type:** coding
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
 **Trackers:** architecture
@@ -42,3 +43,18 @@ Place undo and redo as `Order.Undo` and `Order.Redo` of the target `EventId`. St
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [47 — Undo and redo set Unpersisted](47-undo-and-redo-set-unpersisted.md)
 - [GLOSSARY](../../../GLOSSARY.md)
+
+## Amendments
+
+1. **Carried ops** — `EventBody.Undo` and `EventBody.Redo` are `of target: EventId * carried: Op list option`. A new event uses `None`. The shape `of target: EventId` cannot keep an old op list through `EventJson`. `EventJson` omits `ops` when `carried` is `None` and reads a present `ops` field as `Some`, including an empty list.
+2. **Redo target** — `Order.Redo` targets the undone event, the event `Order.Undo` inverted. `CoreEventDispatch.acceptUndoRedo` applies that event's forward ops. The redo does not target the undo event's own id.
+3. **ClientHistory keeps events** — `ClientHistory` keeps an action that left the undo or redo stack so a later lookup still finds it. Local events share `EventId.zero`, so `ClientHistory` links the produced submission to the source submission and `ClientHistory.approve` stamps that target.
+4. **Client event log** — `SyncLogic` appends applied events to `ClientSyncState.eventLog` so a later target-only undo can resolve. A client that applied a change before that log existed cannot resolve a later target-only undo of that change.
+5. **Accept stores no ops** — `CoreEventDispatch.acceptUndoRedo` ignores ops on a newly posted undo or redo. It resolves the target, applies a temporary copy that carries the resolved ops, and commits the target-only event. `CoreMailboxActors.dispatchPostEvent` places `Order.Undo` or `Order.Redo` and replies with that stored event.
+6. **PlaceOrder replay** — `CoreEventDispatch.acceptUndoRedo` returns the stored event for a repeated submission. A new post whose `EventId` is not zero is refused.
+7. **Pending copy** — `SyncLogic.applyInverse` keeps the resolved ops on the pending event so `SyncPlanner.restorePending` and rewind can apply them. `SyncBatch.toWireBatch` strips those ops. `SyncPlanner.tryStartSubmit` holds an undo or redo whose target is still `EventId.zero` until `ClientHistory.retarget` fills that target from the confirmed change.
+8. **Boot fold** — `BootCache.foldLog` resolves a target-only undo or redo through `UndoTarget` against the delta it folds.
+
+## Time
+
+- 2026-10-20 4h (from chat) — undo and redo resolve ops from the target
