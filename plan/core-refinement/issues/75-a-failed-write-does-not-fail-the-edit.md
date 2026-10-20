@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md)
+**Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
 **Trackers:** architecture
 
 ## Context
@@ -31,5 +31,5 @@ Split from [69 — Persist an Edit without waiting](69-persist-an-edit-without-w
 ## See also
 
 - [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md)
-- [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md)
+- [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)

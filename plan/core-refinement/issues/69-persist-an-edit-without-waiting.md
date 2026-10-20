@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md); [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
+**Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md); [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
 **Trackers:** architecture
 
 ## Context
@@ -14,7 +14,7 @@ The mailbox waits for two results:
 1. The stamped graph. `PersistStamp.opsBetween` turns that graph into stamp ops. `FileAgent.preparePostChange` and `DbAgent.preparePostChange` pass those ops to `CoreMailboxEvents.overlayFreshEvents`. The stored Change and the ack both carry those ops.
 2. The persist message. That message becomes `CoreChangesAccepted.message`.
 
-Split 2026-10-20: [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md) handles a failed write, and [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md) puts Notices on the poll.
+Split 2026-10-20: [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md) handles a failed write, and [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md) puts Notices on the poll.
 
 Alan, 2026-10-20:
 
@@ -53,7 +53,7 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
-- [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md)
+- [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
 - [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
 - [70 — Add the persist request stack](70-add-the-persist-request-stack.md)
