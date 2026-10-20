@@ -182,6 +182,9 @@ module internal CoreMailboxLoad =
     /// set Persisted. NodeParsed is the renamed ParseFinished.
     /// NodeUploading and NodeReceived are logged by the queue puller and
     /// do not set state.
+    /// NodeParsing is logged by the queue puller. It does not set Unparsed,
+    /// does not change parse or persist state, and does not push.
+    /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
     let internal applyNotice
@@ -196,7 +199,14 @@ module internal CoreMailboxLoad =
                 persist.noteParsed nodeId
                 Ok ()
         | Notice.NodeUploading _
-        | Notice.NodeReceived _ -> Ok ()
+        | Notice.NodeReceived _
+        | Notice.NodeParsing _ -> Ok ()
+        | Notice.NodePersisting nodeId ->
+            writeAxis persist (fun live ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    live)
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
         | Notice.SnapshotDone nodeId ->
