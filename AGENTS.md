@@ -1,2 +1,1 @@
-If you are a cloud-based agent, and your iniitial working branch is not `staging` switch immediately, and reread this file.
-Follow [[.agents/rules/gambol.md]].
+If you are a cloud-based agent, the working head is `staging`.  The workspace you are reading now is obsolete.  Switch to `staging`
