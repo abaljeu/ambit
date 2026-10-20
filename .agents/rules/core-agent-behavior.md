@@ -79,3 +79,11 @@ If a requested course of action seems inefficient, stop and propose a more effic
 Tell me if you lack information.
 
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
+
+## Search
+
+Search with the Grep tool. Set `path` to one of the current Project (`plan/<slug>/`), `doc/`, `src/`, or `tests/`. The directory on disk is `tests/`, not `test/`. A result over 10,000 characters is not evidence. Narrow `path` or the pattern and search again. Done: the Grep call has a `path` in that list, and any result kept is at or under 10,000 characters.
+
+## Read
+
+When a search result names a file and a line, read that line range, not the whole file. Done: the read passes an offset and a limit that cover the hit and the lines around it that the task needs.
