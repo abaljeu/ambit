@@ -12,7 +12,7 @@ These commands open a node, move files, or change a name.
 
 Keys: Alt+J and `j`. Any Mode.
 
-What it does: A File node in a named Workspace opens in a new browser tab. A File node outside a named Workspace, a Workspace, and a Directory do not open. Any other node opens a link from its text, or from its first child, in a new browser tab.
+What it does: A File node in a named Workspace opens in a new browser tab. A text file shows in that tab. A File node outside a named Workspace, a Workspace, and a Directory do not open. Any other node opens a link from its text, or from its first child, in a new browser tab.
 
 ## Load
 

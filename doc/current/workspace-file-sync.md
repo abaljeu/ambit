@@ -37,7 +37,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] Server mount: `/ambit/dav/{label}/…` on `DataDir/{label}/`.
 [x] Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, and `MKCOL`.
 [x] `GET` admits the Browser auth cookie and sends no `Content-Disposition: attachment`.
-[x] `GET` sets Content-Type from the file extension through `contentTypeFor` in [WorkspaceWebDav.fs](src/Server/WorkspaceWebDav.fs).
+[x] `GET` sets Content-Type from the extension for PDF, images, HTML, and SVG, and from a short UTF-8 sample for every other file, through `contentTypeFor` in [WorkspaceFileMedia.fs](src/Server/WorkspaceFileMedia.fs). A text file is `text/plain; charset=utf-8` with `Content-Disposition: inline`.
 [x] After a Push batch, the desktop calls `_prepare-push`, then `_finish-commit`, on that mount.
 [x] `_prepare-push` runs `WorkspaceGit.jitCommitBeforeWorkspacePush` when DataDir is dirty.
 [x] `_finish-commit` adds and commits through [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) and [GitSave.fs](src/Server/GitSave.fs), so Server `HEAD` advances.
