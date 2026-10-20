@@ -39,7 +39,7 @@ Delete the confirmed-dead snapshot pieces. Rename the live follow-up file diff. 
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
-- [51 — Stand the persist stack](51-stand-the-persist-stack.md)
+- [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
 - [GLOSSARY](../../GLOSSARY.md)
 
 ## Time
