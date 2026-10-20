@@ -1,6 +1,6 @@
 # 43 — Expand Node events beside the Set output
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture, project spec

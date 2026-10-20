@@ -1,6 +1,6 @@
 # 58 — Remove dead snapshot code
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture

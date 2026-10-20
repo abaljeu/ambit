@@ -1,6 +1,6 @@
 # 62 — Admit at the entry
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Actual:** 15m
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
@@ -30,11 +30,11 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 ### Acceptance Criteria
 
-1. [ ] **Route** — `withBrowserChanges` returns 401 for a missing cookie and for a caller who is not logged in. It does not call `postEvent` on that path.
-2. [ ] **postEvent** — `CoreEventDispatch.postEvent` has no `admitCaller` call. A direct post stores the event and the stored `authority` is the caller's `authority`.
-3. [ ] **Actor start** — `prepareActorStart` rejects an Actor whose secret is not live. After a live start, `postEvent` from that Actor stores the event and does not call `admitCaller`.
-4. [ ] **Door switch** — Route admission remains in force while [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) changes the route post to `PlaceOrder`. Actor start admission is in force before [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) changes the Actor post. No test step exposes an order door without one of those entry checks.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Route** — `withBrowserChanges` returns 401 for a missing cookie and for a caller who is not logged in. It does not call `postEvent` on that path.
+2. [x] **postEvent** — `CoreEventDispatch.postEvent` has no `admitCaller` call. A direct post stores the event and the stored `authority` is the caller's `authority`.
+3. [x] **Actor start** — `prepareActorStart` rejects an Actor whose secret is not live. After a live start, `postEvent` from that Actor stores the event and does not call `admitCaller`.
+4. [x] **Door switch** — Route admission remains in force while [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) changes the route post to `PlaceOrder`. Actor start admission is in force before [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) changes the Actor post. No test step exposes an order door without one of those entry checks.
+5. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
@@ -44,7 +44,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 ## Amendments
 
-1. **Status** — Status stays `defined`. Acceptance stays unchecked.
+1. **Status** — Status is `done`. Acceptance is checked.
 2. **Docs** — Achieved admission claims in [HTTP contract](../../../doc/current/http-contract.md) and [Mailbox](../../../doc/current/mailbox.md) are plain statements. The old `[o]` admission lines are gone. `PlaceOrder` claims stay `[ ]`.
 3. **Name** — `prepare` names the event copy `withCallerAuthority`. That copy reads `caller.authority` and does not admit.
 4. **Search record** — `RecordSearchStart` and `RecordSearchStop` call `CoreEventDispatch` from the mailbox match. Those two one-line forwarders are gone.
