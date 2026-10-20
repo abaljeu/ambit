@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-19
 Started: 2026-09-29
-Actual: 21h30m
+Actual: 23h30m
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -68,6 +68,7 @@ Actual: 21h30m
 - 2026-10-19 — `SnapshotDone` is not a whole-graph snapshot. The trace is [[cqrs-messages.md]] §6. [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) deletes the dead flush, the `FileAgent` no-op, and the `Graph` payload, and renames the live file diff. Stage stays `build`.
 - 2026-10-19 — [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md) is `coded`. `flushSnapshot` is gone. `SnapshotDone` carries the node id. The follow-up file diff uses the file-diff names. Stage stays `build`.
 - 2026-10-19 — Mailbox target migration from [[cqrs-messages.md]] §4. [59 — Rename InMsg to Notice](issues/59-rename-inmsg-to-notice.md) through [68 — Remove the CoreMsg case](issues/68-remove-the-coremsg-case.md). Index: [[cqrs-messages.md]] §7. Stage stays `build`.
+- 2026-10-19 — [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md) is implemented. `CoreQueue.Public` carries `Mailbox`. Callers stay on `CoreMsg` and `History.Ev`. Status stays `defined`. Stage stays `build`.
 
 ## Issues
 

@@ -73,17 +73,28 @@ type internal CoreMsg =
         after: Gambol.Shared.EventId *
         AsyncReplyChannel<Gambol.Shared.EventLog>
 
-/// Internal message. Not an Op. No public enqueue door.
-type internal Notice =
-    | NodeParsed of nodeId: NodeId
-    | SnapshotDone of nodeId: NodeId
-    | MarkUnparsed of nodeId: NodeId
-    | NodeUploading of nodeId: NodeId
-    | NodeReceived of nodeId: NodeId
+[<RequireQualifiedAccess>]
+type internal Query =
+    | State of AsyncReplyChannel<Result<State, string>>
+    | LastEventId of AsyncReplyChannel<Result<EventId, string>>
+    | EventsSince of
+        after: EventId *
+        AsyncReplyChannel<Result<EventLog, string>>
+
+[<RequireQualifiedAccess>]
+type internal Mailbox =
+    | CoreMsg of CoreMsg
+    | PlaceOrder of
+        caller: Caller *
+        orderId: System.Guid *
+        commandName: string option *
+        order: Order *
+        reply: AsyncReplyChannel<Result<EventId, string>>
+    | Ask of Query
 
 [<RequireQualifiedAccess>]
 type internal CoreQueue =
-    | Public of CoreMsg
+    | Public of Mailbox
     | Notice of Notice
 
 type PersistHandlers = {

@@ -199,12 +199,33 @@ module internal CoreMailboxLoad =
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)
 
+    let private replyUnsupported
+        (reply: AsyncReplyChannel<Result<'a, string>>)
+        =
+        reply.Reply(Error "unsupported")
+
+    let private dispatchAsk (query: Query) =
+        match query with
+        | Query.State reply -> replyUnsupported reply
+        | Query.LastEventId reply -> replyUnsupported reply
+        | Query.EventsSince (_, reply) -> replyUnsupported reply
+
+    let private dispatchMailbox
+        (context: MailboxContext)
+        (message: Mailbox)
+        =
+        match message with
+        | Mailbox.CoreMsg msg -> dispatch context msg
+        | Mailbox.PlaceOrder (_, _, _, _, reply) ->
+            replyUnsupported reply
+        | Mailbox.Ask query -> dispatchAsk query
+
     let private dispatchItem
         (context: MailboxContext)
         (item: CoreQueue)
         =
         match item with
-        | CoreQueue.Public msg -> dispatch context msg
+        | CoreQueue.Public message -> dispatchMailbox context message
         | CoreQueue.Notice msg ->
             context.noticeLog := msg :: context.noticeLog.Value
             match applyNotice context.persist msg with
@@ -324,7 +345,8 @@ module internal CoreMailboxLoad =
                         inbox.TryScan(
                             (fun item ->
                                 match item with
-                                | CoreQueue.Public msg when isStartupRead msg ->
+                                | CoreQueue.Public (Mailbox.CoreMsg msg)
+                                    when isStartupRead msg ->
                                     Some(async { dispatch context msg })
                                 | _ -> None),
                             timeout = 20)

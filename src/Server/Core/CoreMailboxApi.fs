@@ -11,9 +11,9 @@ module CoreMailboxApi =
         | Ok value -> value
         | Error error -> failwith error
 
-    /// Public add: CoreMsg joins the one mailbox queue.
+    /// Public add: today's CoreMsg joins the queue as Mailbox.CoreMsg.
     let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
-        MailboxHost.postItem host (CoreQueue.Public msg)
+        MailboxHost.postItem host (MailboxHost.coreMsgItem msg)
 
     /// Private add: Notice joins that same queue. No public door.
     let internal postNotice (host: MailboxHost) (msg: Notice) =
