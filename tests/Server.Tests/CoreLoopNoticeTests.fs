@@ -131,6 +131,57 @@ let ``SnapshotDone sets Persisted and calls the diff hook`` () =
     Assert.Equal(id, Assert.Single(snaps))
 
 [<Fact>]
+let ``NodePersisting matches the Unpersisted Set`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodePersisting id)
+    let viaNotice = state.Value.graph.nodes.[id]
+    let viaSet =
+        Graph.setPersistState id PersistState.Unpersisted initial.graph
+        |> requireState "set"
+        |> fun graph -> graph.nodes.[id]
+    Assert.Equal(viaSet.documentState, viaNotice.documentState)
+    Assert.Equal(ParseState.Parsed, viaNotice.documentState.parseState)
+    Assert.Equal(PersistState.Unpersisted, viaNotice.documentState.persistState)
+    Assert.False(viaNotice.documentState.pullingFile)
+    Assert.Empty(snaps)
+
+[<Fact>]
+let ``NodeParsing changes nothing`` () =
+    task {
+        let id, initial =
+            fileState PersistState.Persisted ParseState.Parsed
+        let state = ref initial
+        let snaps = ResizeArray<NodeId>()
+        let pushes = ResizeArray<NodeId>()
+        let host =
+            CoreMailbox.hostWithParsePush
+                (CoreActorPool.create ())
+                (filling state snaps)
+                admittedCredentials
+                (fun nodeId -> pushes.Add nodeId)
+        try
+            CoreMailboxApi.postNotice host (Notice.NodeParsing id)
+            let! got =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let got = requireState "state" got
+            let node = got.graph.nodes.[id]
+            Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+            Assert.Equal(Current, node.documentState.AsEnum)
+            Assert.False(node.documentState.pullingFile)
+            Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+            Assert.Empty(pushes)
+            Assert.Empty(snaps)
+            Assert.Equal(
+                Notice.NodeParsing id,
+                Assert.Single(MailboxHost.loggedNotices host))
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``axis write failure is returned`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed

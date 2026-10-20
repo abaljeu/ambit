@@ -25,6 +25,8 @@ type Notice =
     | MarkUnparsed of nodeId: NodeId
     | NodeUploading of nodeId: NodeId
     | NodeReceived of nodeId: NodeId
+    | NodeParsing of nodeId: NodeId
+    | NodePersisting of nodeId: NodeId
 
 type PlacedOrder = {
     orderId: System.Guid
