@@ -1,8 +1,8 @@
 # 51 — Stand the persist stack
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
-**Blocked by:** None — can start immediately
+**Blocked by:** None — split into [70](70-add-the-persist-request-stack.md), [71](71-persist-thread-takes-from-the-stack.md), [72](72-push-parsed-nodes-to-the-persist-stack.md)
 **Trackers:** architecture, project spec
 
 ## Context
@@ -39,3 +39,7 @@ Stand a persist stack of nodes inside Core, and a persist thread that pulls a no
 - [46 — Record the persist version](46-record-the-persist-version.md)
 - [52 — Log stack pulls](52-log-stack-pulls.md)
 - [GLOSSARY](../../GLOSSARY.md)
+
+## History
+
+- 2026-10-20 — Alan: cancelled. Split into [70 — Add the persist request stack](70-add-the-persist-request-stack.md), [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md), and [72 — Push parsed nodes to the persist stack](72-push-parsed-nodes-to-the-persist-stack.md). The persist thread already exists; 71 switches it to the stack.
