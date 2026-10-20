@@ -185,21 +185,18 @@ let ``Actor PostChange with live row reaches PersistHandlers`` () =
     })
 
 [<Fact>]
-let ``Actor PostChange without live row is refused before persist`` () =
+let ``Actor PostChange does not repeat the live-row check`` () =
     let _, _, _, pool = recordingPool ()
     let actorSecret = Credential "actor-not-live"
     withHost pool (fun host -> task {
-        let handle = CoreDoor.create true host testCaller
-        let! before = CoreDoor.getEventId handle |> Async.StartAsTask
         let! result =
             CoreMailboxApi.postEvents
                 host
                 (actorCaller actorSecret)
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
-        let! after = CoreDoor.getEventId handle |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(before, after)
+        let accepted = requireOk "Actor post" result
+        Assert.True(EventId.isAccepted accepted.eventId)
     })
 
 [<Fact>]
@@ -256,7 +253,7 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     })
 
 [<Fact>]
-let ``ActorStop consults isLive once for a live Actor`` () =
+let ``ActorStop does not repeat the live-row admission check`` () =
     let isLiveCalls = ResizeArray<Credential>()
     let live = ResizeArray<Credential>()
     let actorSecret = Credential "actor-once"
@@ -292,12 +289,11 @@ let ``ActorStop consults isLive once for a live Actor`` () =
                 host (actorCaller actorSecret) ActorSucceeded
             |> Async.StartAsTask
         requireOk "ActorStop" result
-        Assert.Equal(1, isLiveCalls.Count)
-        Assert.Equal(actorSecret, isLiveCalls.[0])
+        Assert.Empty(isLiveCalls)
     })
 
 [<Fact>]
-let ``live Actor stop succeeds and already-finished cannot`` () =
+let ``live Actor stop succeeds and a later stop is safe`` () =
     let pool = CoreActorPool.create ()
     let seen = TaskCompletionSource<Credential>()
     pool.register (ActorName "root") (fun input _ -> async {
@@ -318,11 +314,11 @@ let ``live Actor stop succeeds and already-finished cannot`` () =
         let! again =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, again)
+        requireOk "later ActorStop" again
     })
 
 [<Fact>]
-let ``ActorStop of an already-finished Actor is refused`` () =
+let ``ActorStop of an already-finished Actor is idempotent`` () =
     let _, stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-finished"
     live.Add actorSecret
@@ -335,7 +331,7 @@ let ``ActorStop of an already-finished Actor is refused`` () =
         let! second =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, second)
+        requireOk "second stop" second
         Assert.Equal(1, stopped.Count)
         Assert.False(live.Contains actorSecret)
     })

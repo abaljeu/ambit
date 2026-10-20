@@ -28,15 +28,12 @@ module internal CoreMailboxLoad =
         (caller: Caller)
         (subject: NodeId)
         : Result<unit, string> =
-        match CoreMailboxEvents.admitCaller context caller with
+        match context.persist.getState () with
         | Error err -> Error err
-        | Ok () ->
-            match context.persist.getState () with
+        | Ok state ->
+            match isLoadSubject state.graph subject with
             | Error err -> Error err
-            | Ok state ->
-                match isLoadSubject state.graph subject with
-                | Error err -> Error err
-                | Ok () -> context.parsePush subject
+            | Ok () -> context.parsePush subject
 
     let private dispatchStartLoadSaveCommand
         context
@@ -73,11 +70,13 @@ module internal CoreMailboxLoad =
             dispatchStartLoadSaveCommand
                 context caller path peerName request reply
         | RecordSearchStart (caller, request, reply) ->
-            CoreMailboxActors.dispatchRecordSearchStart
-                context caller request reply
+            let dispatch = CoreMailboxEvents.eventDispatchContext context
+            reply.Reply(CoreEventDispatch.actorStart dispatch caller request)
         | RecordSearchStop (caller, rootId, reply) ->
-            CoreMailboxActors.dispatchRecordSearchStop
-                context caller rootId reply
+            let dispatch = CoreMailboxEvents.eventDispatchContext context
+            reply.Reply(
+                CoreEventDispatch.actorStop
+                    dispatch caller rootId ActorSucceeded)
         | LoadNode (caller, subject, reply) ->
             reply.Reply(dispatchLoad context caller subject)
         | ActorStop (caller, result, reply) ->

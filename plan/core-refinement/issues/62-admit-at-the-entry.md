@@ -2,6 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
+**Actual:** 15m
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
 **Trackers:** architecture
 
@@ -22,10 +23,10 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 ### 2. Change
 
-1. [ ] **Route** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. Keep this check in front of today's `PostEvent` and `PostGraphOnly` throughout [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md), then keep the same check in front of `PlaceOrder`.
-2. [ ] **Actor** — `CoreMailboxActors.prepareActorStart` admits `Authority "Actor"` when the start runs, using the pool live check `admitCaller` uses today. Establish this permission before removing any repeated core check. A later post from that Actor reads the established authority and does not admit again.
-3. [ ] **Core** — After the matching route or Actor-start check is active, remove `admitCaller` from `CoreEventDispatch.postEvent`. `prepare` still copies `caller.authority` onto the stored event. Remove `admitCaller` from `dispatchActorStop`, `runCancel`, `dispatchRecordSearchStart`, `dispatchRecordSearchStop`, and `dispatchLoad` only after each path has an established entry permission. Those handlers read the caller on the message.
-4. [ ] **Safe migration** — Keep the old inner admission check while its replacement entry check is being added. At no intermediate step may a user route or Actor reach `PostEvent`, `PostGraphOnly`, `PlaceOrder`, or a successor order door without established permission. Duplicate checks are allowed during the handoff; an unchecked order door is not.
+1. [x] **Route** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. Keep this check in front of today's `PostEvent` and `PostGraphOnly` throughout [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md), then keep the same check in front of `PlaceOrder`.
+2. [x] **Actor** — `CoreMailboxActors.prepareActorStart` admits `Authority "Actor"` when the start runs, using the pool live check `admitCaller` uses today. Establish this permission before removing any repeated core check. A later post from that Actor reads the established authority and does not admit again.
+3. [x] **Core** — After the matching route or Actor-start check is active, remove `admitCaller` from `CoreEventDispatch.postEvent`. `prepare` still copies `caller.authority` onto the stored event. Remove `admitCaller` from `dispatchActorStop`, `runCancel`, `dispatchRecordSearchStart`, `dispatchRecordSearchStop`, and `dispatchLoad` only after each path has an established entry permission. Those handlers read the caller on the message.
+4. [x] **Safe migration** — Keep the old inner admission check while its replacement entry check is being added. At no intermediate step may a user route or Actor reach `PostEvent`, `PostGraphOnly`, `PlaceOrder`, or a successor order door without established permission. Duplicate checks are allowed during the handoff; an unchecked order door is not.
 
 ### Acceptance Criteria
 
@@ -37,9 +38,20 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+
+## Amendments
+
+1. **Status** — Status stays `defined`. Acceptance stays unchecked.
+2. **Docs** — Achieved admission claims in [HTTP contract](../../../doc/current/http-contract.md) and [Mailbox](../../../doc/current/mailbox.md) are plain statements. The old `[o]` admission lines are gone. `PlaceOrder` claims stay `[ ]`.
+3. **Name** — `prepare` names the event copy `withCallerAuthority`. That copy reads `caller.authority` and does not admit.
+4. **Search record** — `RecordSearchStart` and `RecordSearchStop` call `CoreEventDispatch` from the mailbox match. Those two one-line forwarders are gone.
+
+## Time
+
+- 2026-10-20 15m — moved admission to the browser route and Actor start, and removed the repeated core checks (from the earlier implementation).
 
 ## See also
 

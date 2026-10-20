@@ -69,7 +69,7 @@ let ``two posted lists do not interleave`` () = task {
 }
 
 [<Fact>]
-let ``credential refusal applies nothing from the list`` () = task {
+let ``direct core list does not repeat entry admission`` () = task {
     let host = testHost ()
     try
         let stranger = { testCaller with secret = Credential "nope" }
@@ -80,12 +80,10 @@ let ``credential refusal applies nothing from the list`` () = task {
         let! result =
             CoreMailboxApi.postEvents host stranger events
             |> Async.StartAsTask
-        match result with
-        | Error err -> Assert.True(CoreAuth.isAuthRefuse err, err)
-        | Ok _ -> failwith "expected credential refusal"
+        requireOk "direct list" result |> ignore
         let! after =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Equal(before.events.Length, after.events.Length)
+        Assert.Equal(before.events.Length + 3, after.events.Length)
     finally
         CoreMailboxApi.dispose host
 }

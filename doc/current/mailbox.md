@@ -29,6 +29,8 @@ The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`
 [ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId`. `Order.StartActor` and `Notice.ActorStop` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
 
 ## Interface
+A browser route checks the logged-in caller before the core order door. Actor start checks the initiating caller and admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
+
 [o] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
 [ ] `Mailbox` is the public mailbox and is server-only. A client or an Actor places an `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 10 Order, not Command.
 [o] `CoreMailbox` on a `MailboxHost`. Each public order and Session call builds a `CoreMsg`.
@@ -69,7 +71,7 @@ One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The no
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
-The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole.
+The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The mailbox applies that posted list whole.
 
 [o] `postEvents` pushes that list onto the queue as one `PostEvent` after another.
 [ ] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
