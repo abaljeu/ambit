@@ -2,18 +2,19 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 70 — Add the persist request stack; 44 — Apply document state from Node events
+**Blocked by:** [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md); [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
 **Trackers:** architecture
 
 ## Context
 
 An Edit submits its document write with `wait = true`. `FileAgent.collectPersist` and `DbAgent.submitLiveOps` build that submit. Both use `PersistKind.Ops`. `PersistCollectors.waitReply` then blocks the Core mailbox until the persist thread replies. That wait breaks [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 
-The mailbox waits for three results:
+The mailbox waits for two results:
 
 1. The stamped graph. `PersistStamp.opsBetween` turns that graph into stamp ops. `FileAgent.preparePostChange` and `DbAgent.preparePostChange` pass those ops to `CoreMailboxEvents.overlayFreshEvents`. The stored Change and the ack both carry those ops.
 2. The persist message. That message becomes `CoreChangesAccepted.message`.
-3. A failed write. `PersistOutcome.Failed` becomes an Error on the order. `FileAgent.fromOutcome` and `DbAgent.liveOutcome` do that.
+
+Split 2026-10-20: [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md) handles a failed write, and [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md) puts Notices on the poll.
 
 Alan, 2026-10-20:
 
@@ -21,28 +22,26 @@ Alan, 2026-10-20:
 2. The mailbox does not wait on a document write.
 3. A failed persist does not fail the graph edit. The edit stands. The node stays Unpersisted.
 
-[71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md) posts `Notice.NodePersisted` after a successful write and does not edit the graph. [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md) handles that Notice in `CoreMailboxLoad.applyNotice`. [46 — Record the persist version](46-record-the-persist-version.md) adds the version gate on `Notice.NodePersisted` of `nodeId * version`. Decision 5 **SnapshotDone** in [Message shape](../cqrs-messages.md) keeps that shape. That case carries no stamp ops and no persist message. This ticket does not post `Notice.NodePersisted`, does not handle it, and does not add the version gate.
+[71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md) posts `Notice.NodePersisted` after a successful write and does not edit the graph. The `Notice.SnapshotDone` handler in `CoreMailboxLoad.applyNotice` already sets Persisted. [46 — Record the persist version](46-record-the-persist-version.md) adds the version gate on `Notice.NodePersisted` of `nodeId * version`. Decision 5 **SnapshotDone** in [Message shape](../cqrs-messages.md) keeps that shape. That case carries no stamp ops and no persist message. This ticket does not post `Notice.NodePersisted`, does not handle it, and does not add the version gate.
 
 This ticket is meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md).
 
 ## What to build
 
-An Edit document write returns before the persist thread finishes. Stamp ops and the persist message arrive on a Notice. A failed write leaves the node Unpersisted. The order still succeeds. The ack has no stamp ops and no persist message from the write. Upload, import, parse, Load, undo, and persist stay working.
+An Edit document write returns before the persist thread finishes. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack has no stamp ops and no persist message from the write. The wait and the ack stamp ops go in the same commit, so no stamp is lost or applied twice. Upload, import, parse, Load, undo, and persist stay working.
 
 ### 1. Edit write
 
 1. [ ] **Submit** — `FileAgent.collectPersist` and `DbAgent.submitLiveOps` set `wait = false` on the Edit `PersistKind.Ops` submit. `PersistCollectors.collect` returns `PersistOutcome.Queued`. The mailbox reply does not call `PersistCollectors.waitReply`.
-2. [ ] **Stamp Notice** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes with a stamped graph. The Notice carries the stamp ops from `PersistStamp.opsBetween` and the persist message. `CoreMailboxLoad.applyNotice` applies those ops and logs the Notice. A client sees that Notice through the event log and through poll. This Notice is separate from `Notice.NodePersisted`.
-3. [ ] **Failed write** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes as `PersistOutcome.Failed`. The Notice carries the message. `CoreMailboxLoad.applyNotice` leaves each node on that submit Unpersisted and logs the Notice. `FileAgent.fromOutcome` and `DbAgent.liveOutcome` do not turn that failure into an Error. The order reply stays success.
-4. [ ] **Ack** — `FileAgent.preparePostChange` and `DbAgent.preparePostChange` do not append stamp ops for that write and do not put the persist message on the ack. `CoreMailboxEvents.overlayFreshEvents` does not receive those stamp ops. The stored Change has no stamp ops from the write. `CoreChangesAccepted.message` is not that persist message.
+2. [ ] **Stamp Notice** — Add `Notice.NodeStamped`. `PersistThread.afterWrite` posts it through `CoreMailboxApi.postNotice` when that Edit write finishes with a stamped graph. The Notice carries the stamp ops from `PersistStamp.opsBetween` and the persist message. `CoreMailboxLoad.applyNotice` applies those ops and logs the Notice. This Notice is separate from `Notice.NodePersisted`.
+3. [ ] **Ack** — `FileAgent.preparePostChange` and `DbAgent.preparePostChange` do not append stamp ops for that write and do not put the persist message on the ack. `CoreMailboxEvents.overlayFreshEvents` does not receive those stamp ops. The stored Change has no stamp ops from the write. `CoreChangesAccepted.message` is not that persist message.
 
 ### Acceptance Criteria
 
 1. [ ] **No wait** — An Edit reply returns while the persist thread still holds the write. The reply is success.
-2. [ ] **Stamp** — After `CoreMailboxLoad.applyNotice` applies the stamp Notice, the graph has those stamp ops. A later poll returns that Notice.
-3. [ ] **Failure** — A failed write leaves the node Unpersisted. The log carries the message. The order is not an Error.
-4. [ ] **Ack** — The ack events have no stamp ops. The ack message is not the persist message.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+2. [ ] **Stamp** — After `CoreMailboxLoad.applyNotice` applies `Notice.NodeStamped`, the graph has those stamp ops. A later poll returns that Notice.
+3. [ ] **Ack** — The ack events have no stamp ops. The ack message is not the persist message.
+4. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
@@ -54,7 +53,8 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
-- [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
+- [74 — Put Notices on the event log](74-put-notices-on-the-event-log.md)
+- [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
 - [70 — Add the persist request stack](70-add-the-persist-request-stack.md)
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
