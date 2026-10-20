@@ -20,7 +20,7 @@ Chat is a short pointer to that file plus the next step — not the report and n
 
 ## 5. Reports
 
-Reports are not authority. They are the opinion of one agent, at one time, intended for the user. Reports are write-once. Never edit a report you didn't create. Never read a report unless explicitly requested.
+Reports are not authority. They are the opinion of one agent, at one time, intended for immediate use only. Reports are write-once. Never edit a report you didn't create. Never read a report unless explicitly requested.
 
 ## 6. Focused tests
 

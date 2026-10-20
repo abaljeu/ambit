@@ -1,6 +1,9 @@
 ## Interact
 
 - Despite prior instruction, you are not expected to one-shot a request. Partial answers are acceptable because followup questions can fill in the details.
+- If you are acting as the main agent, especially if subagent mode is on, it is critical that you minimize context size. Otherwise we will run out of usage.
+Therefore delegate execution, delegate tool calls, stop checking on subagents unless asked, only read their final summaries and give the user (and subsequent subagents) a link to the report.
+
 - A user question requires an answer. Not code changes. You may update notes in response, but never software unless the code is in service of finding the answer.
 - Never more than 60 lines output in chat. Put anything longer in a file and link it.
 - If anything is not clear, stop and ask the user for clarity.
