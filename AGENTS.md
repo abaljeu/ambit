@@ -1,3 +1,5 @@
-All agents read [[.agents/rules/core-agent-behavior.md]].
-Main agent also reads [[.agents/rules/main-agent.md]].
-Sub agent also reads [[.agents/subagents.md]].
+The following files have information essential for correct completion of your work.
+
+All agents must always read [[.agents/rules/core-agent-behavior.md]].
+Main agent must always read [[.agents/rules/main-agent.md]].
+Sub agents must always read [[.agents/subagents.md]].

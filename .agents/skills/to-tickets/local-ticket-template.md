@@ -7,18 +7,13 @@
 **Trackers:** the tracker names this ticket touches.
 
 ## Context
-Explain the scenario where the newly built feature will be applied.  Use paragraphs.  Write in the style of [[.agents/skills/wait-what/SKILL.md]].
+The situation where this work sits. [[.agents/skills/wait-what/SKILL.md]]. One home per fact: [[PUBLISH.md]].
 
 ## What to build
-The end-to-end behaviour this ticket makes work, from the user's perspective — not a layer-by-layer implementation list. Write in the style of [[.agents/skills/wait-what/SKILL.md]].  Write as a checklist.
-[ ] Behavior
-[ ] Behavior
+[ ] Behaviour. The architecture decision is on this item.
 
 ### Acceptance Criteria
-The layer-by-layer implementation list, including the architecture decisions it enforces.
-
-[ ] Acceptance criterion
-[ ] Acceptance criterion
+[ ] Test name — assertion
 
 ## Finish-up
 Insert these verbatim:

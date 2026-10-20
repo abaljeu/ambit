@@ -8,33 +8,40 @@
 
 ## Context
 
-Upload, an incoming file, a git-changed file, and import still write document state with today's code. `WorkspaceUploadStructure.planStubOps`, `WorkspaceUploadStructure.markNoServerFile` [o] obsolescent, and `WorkspaceUploadStructure.planServerFilePresentOps` stay shared Op-list planners and do not post. `Api.postEvents` runs the upload Change and the incoming-file Change. `LazyLoadReconciliationServer.reconcileReceivedFiles` runs git Load. Those callers post `Notice.NodeUploading` or `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside that write. `ImportText.markDocumentCurrentBeforeParse`, `ImportDocument.planParseFile`, and `DirectoryReconcile.planDirectoryReconcile` stay unchanged and do not post. `planParseFile` and `planDirectoryReconcile` run inside the parse thread, so `ParseThread` `finishParse` posts `Notice.NodeParsed`. `Api.postEvents` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` when it runs the import Change. `Api.postParseFile` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The post does not set state. Tests read the mailbox log where `Notice` cases are logged. [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md) applies `Notice.NodeUploading` and `Notice.NodeReceived` in `CoreMailboxLoad.applyNotice`.
+Upload, an incoming file, a git-changed file, and import still set document state with `Op.SetDocumentState`.
+
+Those writes sit in these places:
+
+- **Upload and incoming file** — `WorkspaceUploadStructure` plans the Ops. `Api.postEvents` runs them.
+- **Git-changed file** — `LazyLoadReconciliationServer.reconcileReceivedFiles` runs the Load.
+- **Import and parse** — `ImportText`, `ImportDocument`, and `DirectoryReconcile` plan the Ops. `planParseFile` and `planDirectoryReconcile` run inside the parse thread.
+
+`Notice.ParseFinished` sets Parsed. 44 — Apply document state from Node events applies `Notice.NodeUploading` and `Notice.NodeReceived`.
 
 ## What to build
 
-`Api.postEvents` and `LazyLoadReconciliationServer.reconcileReceivedFiles` post `Notice.NodeUploading` and `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The shared planners do not post. The post does not set state. Today's write still sets `NoServerFile` [o] obsolescent, which is PullingFile. `ParseThread` `finishParse`, `Api.postEvents` for the import Change, and `Api.postParseFile` post `Notice.NodeParsed` beside `Op.SetDocumentState`. Rename `Notice.ParseFinished` to `Notice.NodeParsed`.
-
-### 1. Expand
-
-1. [x] **Upload** — `WorkspaceUploadStructure.planStubOps` and `WorkspaceUploadStructure.markNoServerFile` [o] obsolescent stay shared Op-list planners and do not post. `Api.postEvents` runs that Change and posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The post does not set state. Today's write still sets NoServerFile.
-2. [x] **Received** — `WorkspaceUploadStructure.planServerFilePresentOps` stays a shared Op-list planner and does not post. `Api.postEvents` runs that Change and posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState` for each absent file that function already selects. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState` for a changed File Node already on the server. The post does not set state. Today's write still sets the state.
-3. [x] **Parsed** — `ImportText.markDocumentCurrentBeforeParse`, `ImportDocument.planParseFile`, and `DirectoryReconcile.planDirectoryReconcile` stay unchanged and do not post. `planParseFile` and `planDirectoryReconcile` run inside the parse thread, so `ParseThread` `finishParse` posts `Notice.NodeParsed`. `Api.postEvents` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` when it runs the import Change. `Api.postParseFile` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. Rename `Notice.ParseFinished` to `Notice.NodeParsed`. It is the same case. The same handler sets Parsed.
+1. [x] **Log** — The caller posts through `CoreMailboxApi.postNotice` beside the existing `Op.SetDocumentState`. The post does not add a state write. `Notice.NodeParsed` still sets Parsed. `Notice.NodeUploading` and `Notice.NodeReceived` do not set state. The post is stored on `MailboxHost.loggedNotices`. It is not appended to the client Event log.
+2. [x] **Upload** — `Api.postEvents` posts `Notice.NodeUploading` when the Change sets NoServerFile [o] obsolescent, which is PullingFile. `WorkspaceUploadStructure.planStubOps` and `WorkspaceUploadStructure.markNoServerFile` do not post.
+3. [x] **Incoming file** — `Api.postEvents` posts `Notice.NodeReceived` for each absent file `WorkspaceUploadStructure.planServerFilePresentOps` already selects. That planner does not post.
+4. [x] **Git-changed file** — `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeReceived` for a changed File Node already on the server.
+5. [x] **Import** — `Api.postEvents` posts `Notice.NodeParsed` when it runs the import Change. `ImportText.markDocumentCurrentBeforeParse` does not post.
+6. [x] **Parse thread** — `ParseThread` `finishParse` posts `Notice.NodeParsed`. `ImportDocument.planParseFile` and `DirectoryReconcile.planDirectoryReconcile` do not post.
+7. [x] **Parse file** — `Api.postParseFile` posts `Notice.NodeParsed`.
+8. [x] **Rename** — `Notice.ParseFinished` is `Notice.NodeParsed`.
 
 ### Acceptance Criteria
 
-1. [x] **Upload test** — `upload posts NodeUploading beside SetDocumentState`. The test calls `Api.postEvents` with the Change from `WorkspaceUploadStructure.planStubOps` and with the Change that contains `WorkspaceUploadStructure.markNoServerFile` [o] obsolescent `Op.SetDocumentState(nodeId, Current, NoServerFile)` and `Op.SetDocumentState(nodeId, Unparsed, NoServerFile)`. `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The planners do not post. The post does not set state. Today's write still sets NoServerFile.
-2. [x] **Git test** — `git changed file posts NodeReceived beside SetDocumentState`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`.
-3. [x] **Incoming-file test** — `incoming file posts NodeReceived beside SetDocumentState` extends `planServerFilePresentOps transitions only matching absent files`. The test calls `Api.postEvents` with the Change from `WorkspaceUploadStructure.planServerFilePresentOps`. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState` for those absent files. The planner does not post.
-4. [x] **Import test** — `import logs NodeParsed beside SetDocumentState` extends `build import marks unparsed file current before tree operations`. `Api.postEvents` runs the import Change and posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The test reads the mailbox log. `ImportText.markDocumentCurrentBeforeParse` stays unchanged and does not post.
-5. [x] **Parse-file test** — `planParseFile logs NodeParsed beside SetDocumentState`. `planParseFile` runs inside the parse thread, so `ParseThread` `finishParse` posts `Notice.NodeParsed`. `Api.postParseFile` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` beside `Op.SetDocumentState`. The test reads the mailbox log.
-6. [x] **Directory-reconcile test** — `planDirectoryReconcile logs NodeParsed beside SetDocumentState`. `planDirectoryReconcile` runs inside the parse thread, so `ParseThread` `finishParse` posts `Notice.NodeParsed`. The test reads the mailbox log.
-7. [x] **Rename test** — `ParseFinished is NodeParsed`. `Notice` has `NodeParsed` and no `ParseFinished`. `ParseThread` `finishParse` posts `Notice.NodeParsed`. The same handler sets Parsed.
+1. [x] **Upload test** — `upload posts NodeUploading beside SetDocumentState`. The mailbox log has `Notice.NodeUploading`.
+2. [x] **Git test** — `git changed file posts NodeReceived beside SetDocumentState`. The mailbox log has `Notice.NodeReceived`.
+3. [x] **Incoming-file test** — `incoming file posts NodeReceived beside SetDocumentState`. The mailbox log has `Notice.NodeReceived` for the absent file and not for the other file.
+4. [x] **Import test** — `import logs NodeParsed beside SetDocumentState`. The mailbox log has `Notice.NodeParsed`.
+5. [x] **Parse-file test** — `planParseFile logs NodeParsed beside SetDocumentState`. The mailbox log has `Notice.NodeParsed`.
+6. [x] **Directory-reconcile test** — `planDirectoryReconcile logs NodeParsed beside SetDocumentState`. The mailbox log has `Notice.NodeParsed`.
+7. [x] **Rename test** — `ParseFinished is NodeParsed`. `Notice` has `NodeParsed` and no `ParseFinished`.
 
 ## Amendments
 
-- Alan, 2026-10-17: the three Shared planners stay unchanged and do not post. `planParseFile` and `planDirectoryReconcile` run inside the parse thread, so the rename makes `ParseThread` `finishParse` post `Notice.NodeParsed`. For import and `Api.postParseFile`, the server route that runs them posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` beside today's `Op.SetDocumentState`. Tests read `NodeParsed` from the mailbox log where `Notice` cases are logged.
-- Alan, 2026-10-17: this ticket logs only. `Notice.NodeUploading` and `Notice.NodeReceived` handlers are owned by [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md). The renamed `Notice.NodeParsed` handler keeps setting Parsed.
-- The mailbox log is the in-memory `Notice` list on the mailbox (`MailboxHost.loggedNotices`). It is the list the tests read. These posts are not appended to the client Event log. An unknown Event kind fails the client decoder.
+- Alan, 2026-10-17: the choices made while coding are the What to build items.
 
 ## Finish-up
 

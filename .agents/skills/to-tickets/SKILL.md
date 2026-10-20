@@ -63,9 +63,9 @@ Done: every named ticket has one returned output for each section file.
 
 ### 5. Assemble
 
-Write one file per ticket per [[PUBLISH.md]]. Place each returned output in the section that section names. Under What to build, place the goal opening, then the architecture subsections, then the obligation checklist. Apply the link rules in [[PUBLISH.md]].
+Write one file per ticket per [[PUBLISH.md]]. Place the goal output in Context. Place the architecture checklist under What to build, then the Acceptance Criteria checklist. Apply the link rules in [[PUBLISH.md]].
 
-Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, the ticket text holds each section's decisions, and link placement matches [[PUBLISH.md]].
+Done: each ticket is one file in that shape, Trackers is set, Finish-up is present, the ticket text holds each section's decisions, each fact is in the one home [[PUBLISH.md]] names, and link placement matches [[PUBLISH.md]].
 
 ### 6. Publish
 
