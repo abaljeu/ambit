@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 61 — Move Session off the core mailbox; 63 — Move queries to Ask; 64 — Merge PostEvent and PostGraphOnly into Change; 65 — Log Undo and Redo as the target; 66 — Move Actor orders onto Order and Notice; 67 — Log Load as Order.Load
+**Blocked by:** 61 — Move Session off the core mailbox; 62 — Admit at the entry; 63 — Move queries to Ask; 64 — Merge PostEvent and PostGraphOnly into Change; 65 — Log Undo and Redo as the target; 66 — Move Actor orders onto Order and Notice; 67 — Log Load as Order.Load
 **Trackers:** architecture
 
 ## Context
@@ -39,6 +39,7 @@ Remove `CoreMsg`. Make the `MailboxLog` event the `History` event. Read the orde
 - [core-refinement](../project.md)
 - [59 — Rename InMsg to Notice](59-rename-inmsg-to-notice.md)
 - [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md)
+- [62 — Admit at the entry](62-admit-at-the-entry.md)
 - [63 — Move queries to Ask](63-move-queries-to-ask.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [65 — Log Undo and Redo as the target](65-log-undo-and-redo-as-the-target.md)
