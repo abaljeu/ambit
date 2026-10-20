@@ -1,6 +1,6 @@
 # 49 — Rename NoServerFile to PullingFile
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Actual:** 2h
 **Blocked by:** None — can start immediately
