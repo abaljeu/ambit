@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg
+**Blocked by:** 60 — Add Mailbox beside CoreMsg; 44 — Apply document state from Node events; 51 — Stand the persist stack
 **Trackers:** architecture
 
 ## Context
