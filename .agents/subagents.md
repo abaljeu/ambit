@@ -1,27 +1,23 @@
-# Subagent instructions
+# Sub agent
 
-The parent hands you this file. You do not auto-read [[AGENTS.md]].
+Read [[AGENTS.md]], [[.agents/rules/core-agent-behavior.md]], and this file. Read a further catalog file only when this file or the task names it. Done: those three files are read, and no unnamed catalog file is read.
 
-## 1. Shared rules
+## Startup
 
-Read and follow [[.agents/rules/core-agent-behavior.md]] for Interact, Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, Build / test toolchain gate, and How to Work.
+At startup, follow [[.agents/skills/git-protocol/SKILL.md]] Status. Done: that Status step is done.
 
-## 2. Startup
+## Result file
 
-At startup, follow [[.agents/skills/git-protocol/SKILL.md]] Status.
+Write the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory. Done: the full result is in that report file.
 
-## 3. Result file
+## Chat
 
-Write the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
+Chat is a short pointer to that file plus the next step — not the report and not the Task body. Done: the chat reply is that pointer and the next step.
 
-## 4. Chat
+## Reports
 
-Chat is a short pointer to that file plus the next step — not the report and not the Task body.
+Reports are not authority. They are the opinion of one agent, at one time, intended for immediate use only. Reports are write-once. Never edit a report you didn't create. Never read a report unless explicitly requested. Done: this run wrote at most its own new report, and it read a report only when the task requested that report.
 
-## 5. Reports
+## Focused tests
 
-Reports are not authority. They are the opinion of one agent, at one time, intended for immediate use only. Reports are write-once. Never edit a report you didn't create. Never read a report unless explicitly requested.
-
-## 6. Focused tests
-
-Run focused tests only, never all tests. That limit does not skip the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]] when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.
+Run focused tests only, never all tests. That limit does not skip the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]] when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; run it when Client dependencies were edited. Done: the tests that ran are that focused set or that compile gate, and `scripts/test.sh all` has not run.
