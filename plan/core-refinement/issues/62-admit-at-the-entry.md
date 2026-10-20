@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** None — can start immediately
+**Blocked by:** 60 — Add Mailbox beside CoreMsg
 **Trackers:** architecture
 
 ## Context
@@ -11,13 +11,13 @@
 
 ## What to build
 
-Check a logged-in user at the route, and admit an Actor in the start handler. `postEvent` reads `caller.authority` and does not admit.
+Order of work: `RouteRegistration` moves browser admission onto the route. `CoreMailboxActors.prepareActorStart` admits the Actor at start. The core handlers then drop the repeated `admitCaller` checks. `CoreEventDispatch.postEvent` is one of those checks.
 
 ### 1. Change
 
-1. [ ] **Route** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. The check stays in front of today's `PostEvent` and `PostGraphOnly`. When [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) adds `PlaceOrder`, this same check stays in front of that post.
-2. [ ] **Actor** — `CoreMailboxActors.prepareActorStart` admits `Authority "Actor"` when the start runs, using the pool live check `admitCaller` uses today. A later post from that Actor does not admit again.
-3. [ ] **Core** — Remove `admitCaller` from `CoreEventDispatch.postEvent`. `prepare` still copies `caller.authority` onto the stored event. Remove `admitCaller` from `dispatchActorStop`, `runCancel`, `dispatchRecordSearchStart`, `dispatchRecordSearchStop`, and `dispatchLoad`. Those handlers read the caller on the message.
+1. [ ] **Browser admission** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. The check stays in front of today's `PostEvent` and `PostGraphOnly`. When [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) adds `PlaceOrder`, this same check stays in front of that post.
+2. [ ] **Actor admission** — `CoreMailboxActors.prepareActorStart` admits `Authority "Actor"` when the start runs, using the pool live check `admitCaller` uses today. A later post from that Actor uses that admission.
+3. [ ] **Core checks** — Remove `admitCaller` from `CoreEventDispatch.postEvent`. `prepare` copies `caller.authority` onto the stored event. Remove `admitCaller` from `dispatchActorStop`, `runCancel`, `dispatchRecordSearchStart`, `dispatchRecordSearchStop`, and `dispatchLoad`. Those handlers read the caller on the message.
 
 ### Acceptance Criteria
 
@@ -36,6 +36,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
+- [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
 - [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [GLOSSARY](../../../GLOSSARY.md)

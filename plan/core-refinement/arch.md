@@ -51,7 +51,7 @@ Current Core is the [[plan/core-creation/project.md]] baseline: mailbox, Actor p
 
 Ordered path from §2 Starting point to Target — Server Core. The expand-contract is **slow**: gradually create the Core pieces, and gradually shift use. This pace applies to the whole sequence, not only Persist. Each step expands the new form beside the old, migrates callers while both exist, then contracts the old. §9 Story paths are this same sequence. §10 Module map is the home of State, Interface, and Uses.
 
-The mailbox and the event log follow [Message shape](cqrs-messages.md) §4 **Migration** and map decision 20 **Mailbox target**. Expand adds `Mailbox` with a `CoreMsg` case. Change moves messages one at a time to `PlaceOrder` and `Ask`. Collapse removes `CoreMsg`.
+The mailbox and the event log follow [Message shape](cqrs-messages.md) §4 **Migration** and map decision 20 **Mailbox target**. Expand adds `Mailbox` with a `CoreMsg` case. Change moves messages one at a time to `PlaceOrder` and `Ask`. Collapse removes `CoreMsg`. The route sequence is [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md), then [63 — Move queries to Ask](issues/63-move-queries-to-ask.md), then [62 — Admit at the entry](issues/62-admit-at-the-entry.md), then [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md).
 
 1. **State axes on special nodes**
    1. **Expand** — [x] Add `ParseState` and `PersistState` on special nodes beside `DocumentState`. Shipped: [20 — State axes on special nodes](../github-transport/issues/20-state-axes-on-special-nodes.md). Detail: §4 Step 1 Commitment.

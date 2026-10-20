@@ -2,12 +2,12 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg; 63 — Move queries to Ask
+**Blocked by:** 60 — Add Mailbox beside CoreMsg; 63 — Move queries to Ask; 62 — Admit at the entry
 **Trackers:** architecture
 
 ## Context
 
-`CoreMsg` carries `StartActor`, `RecordSearchStart`, `StartPeerActor`, `StartLoadSaveCommand`, `CancelActor`, `ActorStop`, and `RecordSearchStop`. `CoreMailboxActors.dispatchStartActor` starts the pool. `dispatchRecordSearchStart` appends `ActorStart` and does not run the walk. `RouteRegistration.searchDoor` calls `recordSearchStart` and `recordSearchStop`. `dispatchRecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded`. A client `PostEvent` of `EventBody.ActorStart` or `EventBody.Cancel` is handled in `dispatchPostEvent`. Decision 13 **PeerActorName** in [Message shape](../cqrs-messages.md): `PeerActorName` is Shared. [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md) moves it so `Order` can carry it. This ticket uses that type and does not declare it again. Upload, import, parse, Load, undo, and persist stay working.
+`CoreMsg` carries `StartActor`, `RecordSearchStart`, `StartPeerActor`, `StartLoadSaveCommand`, `CancelActor`, `ActorStop`, and `RecordSearchStop`. `CoreMailboxActors.dispatchStartActor` starts the pool. `dispatchRecordSearchStart` appends `ActorStart` and does not run the walk. `RouteRegistration.searchDoor` calls `recordSearchStart` and `recordSearchStop`. `dispatchRecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded`. A client `PostEvent` of `EventBody.ActorStart` or `EventBody.Cancel` is handled in `dispatchPostEvent`. Decision 13 **PeerActorName** in [Message shape](../cqrs-messages.md): `PeerActorName` is Shared. [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md) moves it so `Order` can carry it. This ticket uses that Shared `PeerActorName`. [62 — Admit at the entry](62-admit-at-the-entry.md) places admission on the route and on Actor start before these orders move. Upload, import, parse, Load, undo, and persist stay working.
 
 ## What to build
 
@@ -41,5 +41,6 @@ Move the actor cases off `CoreMsg`. Starts, peer start, load-save, and cancel be
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
+- [62 — Admit at the entry](62-admit-at-the-entry.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [GLOSSARY](../../../GLOSSARY.md)
