@@ -249,14 +249,14 @@ let ``PullingFile round-trip`` () =
     Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
 
     let row = GraphProjection.nodeRowFromNode node
-    Assert.Equal("noServerFile", row.documentState)
+    Assert.Equal("unparsed", row.documentState)
     let graph = Graph.create () |> Graph.addDetachedNode node
     match GraphProjection.graphRoundTrip graph with
     | Error msg -> failwith msg
     | Ok loaded ->
         let back = loaded.nodes.[node.id]
-        Assert.Equal(PullingFile, back.documentState.AsEnum)
-        Assert.True(back.documentState.pullingFile)
+        Assert.Equal(Unparsed, back.documentState.AsEnum)
+        Assert.False(back.documentState.pullingFile)
 
 [<Fact>]
 let ``PullingFile node and state op round-trip`` () =

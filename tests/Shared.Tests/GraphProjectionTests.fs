@@ -201,6 +201,7 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             name = None
             kind = "normal"
             documentState = "current"
+            persistState = "persisted"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = cid
@@ -208,6 +209,7 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             name = None
             kind = "normal"
             documentState = "current"
+            persistState = "persisted"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 
@@ -258,7 +260,7 @@ let ``graphRoundTrip preserves unparsed document state`` () =
     | Ok graph -> Assert.Equal(Unparsed, graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
-let ``graphRoundTrip preserves no-server-file document state`` () =
+let ``graphRoundTrip reloads PullingFile as unparsed`` () =
     let original, fileId = specialFileUnderRoot ()
     let absent =
         { original with
@@ -267,9 +269,61 @@ let ``graphRoundTrip preserves no-server-file document state`` () =
                   |> Map.add
                       fileId
                       (Node.withDocumentState PullingFile original.nodes.[fileId]) }
+    let rows = GraphProjection.nodeRowsFromGraph absent
+    let fileRow = rows |> List.find (fun row -> row.id = fileId.Value)
+    Assert.Equal("unparsed", fileRow.documentState)
     match GraphProjection.graphRoundTrip absent with
     | Error err -> Assert.Fail(err)
-    | Ok graph -> Assert.Equal(PullingFile, graph.nodes.[fileId].documentState.AsEnum)
+    | Ok graph ->
+        let node = graph.nodes.[fileId]
+        Assert.Equal(Unparsed, node.documentState.AsEnum)
+        Assert.False(node.documentState.pullingFile)
+
+[<Fact>]
+let ``reload keeps persist state`` () =
+    let original, fileId = specialFileUnderRoot ()
+    let requireOk = function
+        | Ok graph -> graph
+        | Error err -> failwith err
+    let graph =
+        original
+        |> Graph.setPersistState Graph.rootId PersistState.Persisted
+        |> requireOk
+        |> Graph.setPersistState fileId PersistState.Unpersisted
+        |> requireOk
+    let rows = GraphProjection.nodeRowsFromGraph graph
+    for row in rows do
+        Assert.True(row.documentState = "current" || row.documentState = "unparsed")
+    let fileRow = rows |> List.find (fun row -> row.id = fileId.Value)
+    let rootRow = rows |> List.find (fun row -> row.id = Graph.rootId.Value)
+    Assert.Equal("unpersisted", fileRow.persistState)
+    Assert.Equal("persisted", rootRow.persistState)
+    let children = GraphProjection.childRowsFromGraph graph
+    match GraphProjection.graphFromPersistence graph.root rows children with
+    | Error err -> Assert.Fail(err)
+    | Ok loaded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            loaded.nodes.[fileId].documentState.persistState)
+        Assert.Equal(
+            PersistState.Persisted,
+            loaded.nodes.[Graph.rootId].documentState.persistState)
+        let reloaded = GraphProjection.nodeRowsFromGraph loaded
+        for row in reloaded do
+            Assert.True(row.documentState = "current" || row.documentState = "unparsed")
+    let storedRows =
+        rows
+        |> List.map (fun row ->
+            if row.id = fileId.Value then
+                { row with documentState = "noServerFile" }
+            else
+                row)
+    match GraphProjection.graphFromPersistence graph.root storedRows children with
+    | Error err -> Assert.Fail(err)
+    | Ok loaded ->
+        let node = loaded.nodes.[fileId]
+        Assert.Equal(Unparsed, node.documentState.AsEnum)
+        Assert.False(node.documentState.pullingFile)
 
 [<Fact>]
 let ``graphEquals is false when kind differs`` () =
@@ -289,6 +343,7 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             name = None
             kind = "workspace"
             documentState = "current"
+            persistState = "persisted"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = Graph.workspacesId.Value
@@ -296,6 +351,7 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             name = None
             kind = "workspaces"
             documentState = "current"
+            persistState = "persisted"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = trash.Value
@@ -303,6 +359,7 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             name = None
             kind = "normal"
             documentState = "current"
+            persistState = "persisted"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 

@@ -155,15 +155,19 @@ module DatabaseProjection =
     let private upsertNodesSql =
         """
         INSERT INTO nodes (
-            id, text, name, css_classes, update_time, kind, document_state
+            id, text, name, css_classes, update_time, kind,
+            document_state, persist_state
         )
         SELECT
-            id, text, name, css_classes::jsonb, update_time, kind, document_state
+            id, text, name, css_classes::jsonb, update_time, kind,
+            document_state, persist_state
         FROM UNNEST(
             @ids::uuid[], @texts::text[], @names::text[], @css_classes::text[],
-            @update_times::timestamptz[], @kinds::text[], @document_states::text[]
+            @update_times::timestamptz[], @kinds::text[],
+            @document_states::text[], @persist_states::text[]
         ) AS rows(
-            id, text, name, css_classes, update_time, kind, document_state
+            id, text, name, css_classes, update_time, kind,
+            document_state, persist_state
         )
         ON CONFLICT (id) DO UPDATE SET
             text = EXCLUDED.text,
@@ -171,7 +175,8 @@ module DatabaseProjection =
             css_classes = EXCLUDED.css_classes,
             update_time = EXCLUDED.update_time,
             kind = EXCLUDED.kind,
-            document_state = EXCLUDED.document_state
+            document_state = EXCLUDED.document_state,
+            persist_state = EXCLUDED.persist_state
         """
 
     let private deleteChildrenSql =
@@ -216,7 +221,9 @@ module DatabaseProjection =
               { name = "update_times"; value = DateTimeValues(rows |> List.map _.updateTime) }
               { name = "kinds"; value = StringValues(rows |> List.map _.kind) }
               { name = "document_states";
-                value = StringValues(rows |> List.map _.documentState) } ]
+                value = StringValues(rows |> List.map _.documentState) }
+              { name = "persist_states";
+                value = StringValues(rows |> List.map _.persistState) } ]
         | DeleteChildren parentIds ->
             [ { name = "parent_ids"; value = GuidValues parentIds } ]
         | InsertChildren rows ->
@@ -357,6 +364,7 @@ module DatabaseProjection =
           name = if reader.IsDBNull 2 then None else Some(reader.GetString 2)
           kind = reader.GetString 5
           documentState = reader.GetString 6
+          persistState = reader.GetString 7
           cssClassNames = css
           updateTime = NodeUpdateTime.toDbPrecision (reader.GetDateTime 4) }
 
@@ -519,7 +527,7 @@ module DatabaseProjection =
                     new NpgsqlCommand(
                         """
                         SELECT id, text, name, css_classes::text, update_time,
-                               kind, document_state
+                               kind, document_state, persist_state
                         FROM nodes
                         """,
                         conn,

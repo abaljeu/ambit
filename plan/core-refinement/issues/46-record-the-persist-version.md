@@ -2,12 +2,12 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 51 — Stand the persist stack; 44 — Apply document state from Node events
+**Blocked by:** 71 — Persist thread takes from the stack; 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
 
 ## Context
 
-[51 — Stand the persist stack](51-stand-the-persist-stack.md) already has the persist thread post `Notice.NodePersisted` and skip the persist-state write. Graph change apply already gives the Core loop that handler. Persist can finish after a later graph change. Graph change persist version gives that message and the handler one version to compare.
+[71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md) already has the persist thread post `Notice.NodePersisted` and skip the persist-state write. Graph change apply already gives the Core loop that handler. Persist can finish after a later graph change. Graph change persist version gives that message and the handler one version to compare.
 
 ## What to build
 
@@ -16,7 +16,7 @@ Persist state is Unpersisted, or Persisted at a version. Carry the launch versio
 ### 1. Persist version
 
 1. [ ] **Persist collectors** — Add a launch-version field to `PersistSubmit`. `DbAgent.enqueueSnapshot`, `DbAgent.submitLiveOps`, and `FileAgent.collectPersist` copy `loaded.state.Value.eventId` onto that field when they build the job.
-2. [ ] **Persist thread** — Change the `Notice.NodePersisted` post from [51 — Stand the persist stack](51-stand-the-persist-stack.md). `PersistThread.runOne` and its success callback receive the launch version from the persist job and post `Notice.NodePersisted(nodeId, version)`. The thread still does not edit the graph.
+2. [ ] **Persist thread** — Change the `Notice.NodePersisted` post from [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md). `PersistThread.runOne` and its success callback receive the launch version from the persist job and post `Notice.NodePersisted(nodeId, version)`. The thread still does not edit the graph.
 3. [ ] **Graph-change applier** — Change the Core change applier behind `PersistHandlers.applyEvent` to receive the accepted Graph-changing Event id and record it when `GraphMutate` sets the nearest owning Special Node Unpersisted.
 4. [ ] **Core-loop version gate** — Change the NodePersisted handler in `CoreMailboxLoad.applyNotice` to receive the node id and launch version. It compares that version with the newer version recorded when the node was set Unpersisted. When they match, it sets persist state to that Persisted version. When the launch version is older, it leaves Unpersisted.
 
