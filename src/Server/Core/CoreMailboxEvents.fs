@@ -85,9 +85,6 @@ module internal CoreMailboxEvents =
             | ActorCancelled -> "ActorStop", "ActorCancelled"
             | ActorQuery _ -> "ActorStop", "ActorQuery"
         | CancelActor _ -> "CancelActor", ""
-        | Login _ -> "Login", ""
-        | Logout _ -> "Logout", ""
-        | AdmitCaller _ -> "AdmitCaller", ""
         | PostEvent _ -> "PostEvent", ""
 
     let replyFailure error msg =
@@ -104,9 +101,6 @@ module internal CoreMailboxEvents =
         | LoadNode (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
-        | Login (_, reply) -> reply.Reply(Error error)
-        | Logout (_, reply) -> reply.Reply(Error error)
-        | AdmitCaller (_, reply) -> reply.Reply(false)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
 
     type Started = {
@@ -115,7 +109,6 @@ module internal CoreMailboxEvents =
     }
 
     type MailboxContext = {
-        credentials: CoreCredentials ref
         persist: PersistHandlers
         pool: CoreActorPool
         parsePush: NodeId -> Result<unit, string>
@@ -125,18 +118,8 @@ module internal CoreMailboxEvents =
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         noticeLog: Notice list ref
+        session: Session
     }
-
-    let addCaller (context: MailboxContext) caller =
-        context.credentials.Value <-
-            CoreCredentials.add caller context.credentials.Value
-
-    let removeCaller (context: MailboxContext) caller =
-        context.credentials.Value <-
-            CoreCredentials.remove caller context.credentials.Value
-
-    let hasCaller (context: MailboxContext) caller =
-        CoreCredentials.contains caller context.credentials.Value
 
     let admitCaller (context: MailboxContext) (caller: Caller) =
         match caller.authority with
@@ -146,10 +129,7 @@ module internal CoreMailboxEvents =
             match CoreAuth.admit (context.pool.isLive caller.secret) with
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
-        | _ ->
-            match CoreAuth.admit (hasCaller context caller) with
-            | Error err -> Error(CoreAdmissionError.text err)
-            | Ok () -> Ok ()
+        | _ -> Ok ()
 
     let eventDispatchContext context : CoreEventDispatch.Context =
         { persist = context.persist

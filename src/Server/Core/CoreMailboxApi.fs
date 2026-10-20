@@ -252,19 +252,23 @@ module CoreMailboxApi =
             { authority = Authority "Browser"
               name = name
               secret = secret }
-        reply host (fun channel -> Login(caller, channel))
+        async.Return(Session.login (MailboxHost.session host) caller)
 
-    let logout
-        (host: MailboxHost)
-        (caller: Caller)
-        : Async<Result<unit, string>> =
-        reply host (fun channel -> Logout(caller, channel))
+    /// Stop admitting and queue CoreQueue.DropAuthority. The reply is that post.
+    let logout (host: MailboxHost) (caller: Caller) : Async<unit> =
+        let session = MailboxHost.session host
+        match Session.stopAdmitting session caller with
+        | None -> ()
+        | Some closed ->
+            MailboxHost.postItem host (CoreQueue.DropAuthority closed)
+        async.Return ()
 
     let isAdmitted
         (host: MailboxHost)
         (caller: Caller)
         : Async<bool> =
-        reply host (fun channel -> AdmitCaller(caller, channel))
+        async.Return(
+            Session.admissionIsOpen (MailboxHost.session host) caller)
 
     let isReady (host: MailboxHost) = MailboxHost.isReady host ()
 

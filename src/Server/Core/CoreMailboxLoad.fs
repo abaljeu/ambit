@@ -83,14 +83,6 @@ module internal CoreMailboxLoad =
             CoreMailboxActors.dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->
             CoreMailboxActors.dispatchCancelActor context caller focusId reply
-        | Login (caller, reply) ->
-            CoreMailboxEvents.addCaller context caller
-            reply.Reply(Ok ())
-        | Logout (caller, reply) ->
-            CoreMailboxEvents.removeCaller context caller
-            reply.Reply(Ok ())
-        | AdmitCaller (caller, reply) ->
-            reply.Reply(CoreMailboxEvents.hasCaller context caller)
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
 
@@ -109,18 +101,49 @@ module internal CoreMailboxLoad =
         with _ ->
             ()
 
+    let private droppedAuthority = "authority dropped"
+
+    /// Actor authority is the live pool secret. DropAuthority leaves it.
+    /// A caller Session never held still runs.
+    let private authorityHeld
+        (context: MailboxContext)
+        (caller: Caller)
+        =
+        match caller.authority with
+        | Authority "Actor" -> true
+        | _ -> not (Session.wasDropped context.session caller)
+
+    let private messageCaller (msg: CoreMsg) =
+        match msg with
+        | PostGraphOnly (caller, _, _)
+        | StartActor (caller, _, _)
+        | StartPeerActor (caller, _, _, _)
+        | StartLoadSaveCommand (caller, _, _, _, _)
+        | RecordSearchStart (caller, _, _)
+        | RecordSearchStop (caller, _, _)
+        | LoadNode (caller, _, _)
+        | ActorStop (caller, _, _)
+        | CancelActor (caller, _, _)
+        | PostEvent (caller, _, _) -> caller
+
+    let private rejectDropped (msg: CoreMsg) =
+        CoreMailboxEvents.replyFailure droppedAuthority msg
+
     let private dispatch (context: MailboxContext) (msg: CoreMsg) : unit =
-        try
-            runMsg context msg
-        with ex ->
-            let operation, detail =
-                CoreMailboxEvents.operationContext msg
-            reportDispatchException
-                context
-                (operation, detail)
-                ex
-                (fun error ->
-                    CoreMailboxEvents.replyFailure error msg)
+        if authorityHeld context (messageCaller msg) then
+            try
+                runMsg context msg
+            with ex ->
+                let operation, detail =
+                    CoreMailboxEvents.operationContext msg
+                reportDispatchException
+                    context
+                    (operation, detail)
+                    ex
+                    (fun error ->
+                        CoreMailboxEvents.replyFailure error msg)
+        else
+            rejectDropped msg
 
     let private writeAxis
         (persist: PersistHandlers)
@@ -244,8 +267,11 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (_, _, _, _, reply) ->
-            replyUnsupported reply
+        | Mailbox.PlaceOrder (caller, _, _, _, reply) ->
+            if authorityHeld context caller then
+                replyUnsupported reply
+            else
+                reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
 
     let private dispatchItem
@@ -259,6 +285,8 @@ module internal CoreMailboxLoad =
             match applyNotice context.persist msg with
             | Ok () -> ()
             | Error err -> reportNotice context err
+        | CoreQueue.DropAuthority stopped ->
+            Session.removeAuthority stopped
 
     let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
         getState = persist.getState
@@ -300,10 +328,10 @@ module internal CoreMailboxLoad =
         | Error err -> reportPushError persist err
 
     let makeMailBox
-        credentials
         (persist: PersistFilling)
         pool
         (rawPush: NodeId -> unit)
+        (session: Session)
         : MailboxContext * (NodeId -> unit) =
         let seeded = persist.handlers
         let eventLog, seedError, handlers =
@@ -313,8 +341,7 @@ module internal CoreMailboxLoad =
                 EventLog.empty, Some error, failedSeed seeded error
         let front = markUnparsedThenPush handlers rawPush
         let reported = pushReporting persist handlers rawPush
-        { credentials = ref credentials
-          persist = handlers
+        { persist = handlers
           pool = pool
           parsePush = front
           onError = persist.onError
@@ -322,7 +349,8 @@ module internal CoreMailboxLoad =
           eventLog = ref eventLog
           eventLogSeedError = seedError
           coreChanges = ref None
-          noticeLog = ref [] },
+          noticeLog = ref []
+          session = session },
         reported
 
     let private started mailbox (context: MailboxContext) : Started =

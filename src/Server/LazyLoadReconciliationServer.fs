@@ -507,67 +507,68 @@ module LazyLoadReconciliationServer =
 
     let registerDirectoryRoute
         (this: AmbitApp)
-        (getHandle: unit -> CoreChangesDoor)
+        (admit:
+            HttpRequest ->
+            (CoreChangesDoor -> Async<IResult>) ->
+            Async<IResult>)
         =
-        let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir
         this.MapPost(
             "/ambit/workspace/reconciliation/directory",
             Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
-                task {
-                    if not (isAuthenticated req) then
-                        return Results.Unauthorized()
-                    else
-                        use reader = new StreamReader(req.Body)
-                        let! body = reader.ReadToEndAsync()
-                        match decodeDirectoryBody body with
-                        | Error err ->
-                            return Results.BadRequest("invalid body: " + err)
-                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
-                            return Results.BadRequest("missing workspace")
-                        | Ok payload ->
-                            let workspace =
-                                { handle = getHandle ()
-                                  dataDir = dataDir
-                                  workspaceLabel = payload.workspace }
-                            let! result =
-                                if String.IsNullOrWhiteSpace payload.path then
-                                    reconcileWorkspace workspace
-                                else
-                                    reconcileDirectory workspace payload.path
-                            return failuresResult result
+                admit req (fun handle -> async {
+                    use reader = new StreamReader(req.Body)
+                    let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+                    match decodeDirectoryBody body with
+                    | Error err ->
+                        return Results.BadRequest("invalid body: " + err)
+                    | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
+                        return Results.BadRequest("missing workspace")
+                    | Ok payload ->
+                        let workspace = {
+                            handle = handle
+                            dataDir = dataDir
+                            workspaceLabel = payload.workspace
+                        }
+                        let! result =
+                            if String.IsNullOrWhiteSpace payload.path then
+                                reconcileWorkspace workspace
+                            else
+                                reconcileDirectory workspace payload.path
+                        return failuresResult result
                 })
+                |> Async.StartAsTask)
         )
         |> ignore
 
     let registerAddedRoute
         (this: AmbitApp)
-        (getHandle: unit -> CoreChangesDoor)
+        (admit:
+            HttpRequest ->
+            (CoreChangesDoor -> Async<IResult>) ->
+            Async<IResult>)
         =
-        let isAuthenticated = this.Auth.IsAuthenticated
         let dataDir = this.DataDir
         this.MapPost(
             "/ambit/workspace/reconciliation/added",
             Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
-                task {
-                    if not (isAuthenticated req) then
-                        return Results.Unauthorized()
-                    else
-                        use reader = new StreamReader(req.Body)
-                        let! body = reader.ReadToEndAsync()
-                        match decodeAddedBody body with
-                        | Error err ->
-                            return Results.BadRequest("invalid body: " + err)
-                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
-                            return Results.BadRequest("missing workspace")
-                        | Ok payload ->
-                            let! result =
-                                reconcileAddedPaths
-                                    { handle = getHandle ()
-                                      dataDir = dataDir
-                                      workspaceLabel = payload.workspace }
-                                    payload.paths
-                            return failuresResult result
+                admit req (fun handle -> async {
+                    use reader = new StreamReader(req.Body)
+                    let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+                    match decodeAddedBody body with
+                    | Error err ->
+                        return Results.BadRequest("invalid body: " + err)
+                    | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
+                        return Results.BadRequest("missing workspace")
+                    | Ok payload ->
+                        let! result =
+                            reconcileAddedPaths
+                                { handle = handle
+                                  dataDir = dataDir
+                                  workspaceLabel = payload.workspace }
+                                payload.paths
+                        return failuresResult result
                 })
+                |> Async.StartAsTask)
         )
         |> ignore
