@@ -179,7 +179,7 @@ let private withFilling filling pool body = task {
 }
 
 [<Fact>]
-let ``getEventsSince Error does not seed empty EventLog as success`` () =
+let ``getEventsSince seed Error surfaces on the door and closes writes`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with

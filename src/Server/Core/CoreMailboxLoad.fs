@@ -60,33 +60,8 @@ module internal CoreMailboxLoad =
                     request
                     path
                 |> Result.mapError StartError.Rejected)
-    let private runRead (context: MailboxContext) (msg: CoreMsg) =
-        match msg with
-        | GetState reply ->
-            match context.persist.getState () with
-            | Error err -> reply.Reply(Error err)
-            | Ok state ->
-                let graph =
-                    GraphSpan.withLockPresent
-                        (context.pool.liveFocusIds ())
-                        state.graph
-                reply.Reply(Ok { state with graph = graph })
-        | GetEventId reply -> reply.Reply(context.persist.getEventId ())
-        | GetEventsSince (after, reply) ->
-            reply.Reply(context.persist.getEventsSince after)
-        | GetEventHistory reply ->
-            reply.Reply(context.eventLog.Value)
-        | EventsSince (after, reply) ->
-            reply.Reply(EventLog.since after context.eventLog.Value)
-        | _ -> ()
-
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
-        | GetState _
-        | GetEventId _
-        | GetEventsSince _
-        | GetEventHistory _
-        | EventsSince _ -> runRead context msg
         | PostGraphOnly (caller, event, reply) ->
             CoreMailboxEvents.dispatchPostGraphOnly context caller event reply
         | StartActor (caller, request, reply) ->
@@ -120,19 +95,33 @@ module internal CoreMailboxLoad =
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
 
-    let private dispatch (contex: MailboxContext) (msg: CoreMsg) : unit =
+    let private reportDispatchException
+        (context: MailboxContext)
+        (operation, detail)
+        ex
+        (replyFailure: string -> unit)
+        =
         try
-            runMsg contex msg
+            context.onError operation detail ex
+        with _ ->
+            ()
+        try
+            replyFailure (context.formatError operation)
+        with _ ->
+            ()
+
+    let private dispatch (context: MailboxContext) (msg: CoreMsg) : unit =
+        try
+            runMsg context msg
         with ex ->
-            let operation, context = CoreMailboxEvents.operationContext msg
-            try
-                contex.onError operation context ex
-            with _ ->
-                ()
-            try
-                CoreMailboxEvents.replyFailure (contex.formatError operation) msg
-            with _ ->
-                ()
+            let operation, detail =
+                CoreMailboxEvents.operationContext msg
+            reportDispatchException
+                context
+                (operation, detail)
+                ex
+                (fun error ->
+                    CoreMailboxEvents.replyFailure error msg)
 
     let private writeAxis
         (persist: PersistHandlers)
@@ -204,11 +193,51 @@ module internal CoreMailboxLoad =
         =
         reply.Reply(Error "unsupported")
 
-    let private dispatchAsk (query: Query) =
+    let private runQuery (context: MailboxContext) (query: Query) =
         match query with
-        | Query.State reply -> replyUnsupported reply
-        | Query.LastEventId reply -> replyUnsupported reply
-        | Query.EventsSince (_, reply) -> replyUnsupported reply
+        | Query.State reply ->
+            match context.persist.getState () with
+            | Error err -> reply.Reply(Error err)
+            | Ok state ->
+                let graph =
+                    GraphSpan.withLockPresent
+                        (context.pool.liveFocusIds ())
+                        state.graph
+                reply.Reply(Ok { state with graph = graph })
+        | Query.LastEventId reply ->
+            reply.Reply(context.persist.getEventId ())
+        | Query.EventsSince (after, reply) ->
+            match context.eventLogSeedError with
+            | Some error -> reply.Reply(Error error)
+            | None ->
+                context.eventLog.Value
+                |> EventLog.since after
+                |> Ok
+                |> reply.Reply
+
+    let private queryOperation query =
+        match query with
+        | Query.State _ -> "State", ""
+        | Query.LastEventId _ -> "LastEventId", ""
+        | Query.EventsSince (after, _) ->
+            "EventsSince", $"after={after}"
+
+    let private replyQueryFailure error query =
+        match query with
+        | Query.State reply -> reply.Reply(Error error)
+        | Query.LastEventId reply -> reply.Reply(Error error)
+        | Query.EventsSince (_, reply) -> reply.Reply(Error error)
+
+    let private dispatchAsk (context: MailboxContext) (query: Query) =
+        try
+            runQuery context query
+        with ex ->
+            let operation, detail = queryOperation query
+            reportDispatchException
+                context
+                (operation, detail)
+                ex
+                (fun error -> replyQueryFailure error query)
 
     let private dispatchMailbox
         (context: MailboxContext)
@@ -218,7 +247,7 @@ module internal CoreMailboxLoad =
         | Mailbox.CoreMsg msg -> dispatch context msg
         | Mailbox.PlaceOrder (_, _, _, _, reply) ->
             replyUnsupported reply
-        | Mailbox.Ask query -> dispatchAsk query
+        | Mailbox.Ask query -> dispatchAsk context query
 
     let private dispatchItem
         (context: MailboxContext)
@@ -278,10 +307,11 @@ module internal CoreMailboxLoad =
         (rawPush: NodeId -> unit)
         : MailboxContext * (NodeId -> unit) =
         let seeded = persist.handlers
-        let eventLog, handlers =
+        let eventLog, seedError, handlers =
             match seedEventLog seeded with
-            | Ok log -> log, seeded
-            | Error error -> EventLog.empty, failedSeed seeded error
+            | Ok log -> log, None, seeded
+            | Error error ->
+                EventLog.empty, Some error, failedSeed seeded error
         let front = markUnparsedThenPush handlers rawPush
         let reported = pushReporting persist handlers rawPush
         { credentials = ref credentials
@@ -291,6 +321,7 @@ module internal CoreMailboxLoad =
           onError = persist.onError
           formatError = persist.formatError
           eventLog = ref eventLog
+          eventLogSeedError = seedError
           coreChanges = ref None
           noticeLog = ref [] },
         reported
@@ -300,14 +331,13 @@ module internal CoreMailboxLoad =
           bindCoreChanges =
             fun make -> context.coreChanges.Value <- Some make }
 
-    let private isStartupRead (msg: CoreMsg) =
-        match msg with
-        | GetState _
-        | GetEventId _
-        | GetEventsSince _
-        | GetEventHistory _
-        | EventsSince _ -> true
-        | _ -> false
+    let private isStartupRead (message: Mailbox) =
+        match message with
+        | Mailbox.Ask (Query.State _)
+        | Mailbox.Ask (Query.LastEventId _)
+        | Mailbox.Ask (Query.EventsSince _) -> true
+        | Mailbox.CoreMsg _
+        | Mailbox.PlaceOrder _ -> false
 
     let rec private pump
         (context: MailboxContext)
@@ -345,9 +375,11 @@ module internal CoreMailboxLoad =
                         inbox.TryScan(
                             (fun item ->
                                 match item with
-                                | CoreQueue.Public (Mailbox.CoreMsg msg)
-                                    when isStartupRead msg ->
-                                    Some(async { dispatch context msg })
+                                | CoreQueue.Public message
+                                    when isStartupRead message ->
+                                    Some(async {
+                                        dispatchMailbox context message
+                                    })
                                 | _ -> None),
                             timeout = 20)
                     return! startupLoop ()

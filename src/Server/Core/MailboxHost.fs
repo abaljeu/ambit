@@ -64,18 +64,31 @@ module MailboxHost =
             return Array.toList replies
         }
 
-    let internal postAndAsyncReply
+    let private postItemAndAsyncReply
         (host: MailboxHost)
-        (build: AsyncReplyChannel<'a> -> CoreMsg)
+        (build: AsyncReplyChannel<'a> -> CoreQueue)
         : Async<'a> =
         Async.FromContinuations(fun (cont, econt, ccont) ->
             lock host.gate (fun () ->
                 Async.StartWithContinuations(
-                    host.mailbox.PostAndAsyncReply(fun channel ->
-                        coreMsgItem (build channel)),
+                    host.mailbox.PostAndAsyncReply build,
                     cont,
                     econt,
                     ccont)))
+
+    let internal postAndAsyncReply
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> CoreMsg)
+        : Async<'a> =
+        postItemAndAsyncReply host (fun channel ->
+            coreMsgItem (build channel))
+
+    let internal postMailboxAndAsyncReply
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> Mailbox)
+        : Async<'a> =
+        postItemAndAsyncReply host (fun channel ->
+            CoreQueue.Public (build channel))
 
     let isReady (host: MailboxHost) = host.isReady
 

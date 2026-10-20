@@ -66,11 +66,6 @@ module internal CoreMailboxEvents =
 
     let operationContext msg =
         match msg with
-        | GetState _ -> "GetState", ""
-        | GetEventId _ -> "GetEventId", ""
-        | GetEventsSince (after, _) ->
-            "GetEventsSince", $"after={after}"
-        | GetEventHistory _ -> "GetEventHistory", ""
         | PostGraphOnly (_, event, _) ->
             let n = Ev.ops event |> Option.defaultValue [] |> List.length
             "PostGraphOnly", $"ops={n}"
@@ -94,14 +89,9 @@ module internal CoreMailboxEvents =
         | Logout _ -> "Logout", ""
         | AdmitCaller _ -> "AdmitCaller", ""
         | PostEvent _ -> "PostEvent", ""
-        | EventsSince (after, _) -> "EventsSince", $"after={after}"
 
     let replyFailure error msg =
         match msg with
-        | GetState reply -> reply.Reply(Error error)
-        | GetEventId reply -> reply.Reply(Error error)
-        | GetEventsSince (_, reply) -> reply.Reply(Error error)
-        | GetEventHistory reply -> reply.Reply(EventLog.empty)
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
@@ -118,7 +108,6 @@ module internal CoreMailboxEvents =
         | Logout (_, reply) -> reply.Reply(Error error)
         | AdmitCaller (_, reply) -> reply.Reply(false)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
-        | EventsSince (_, reply) -> reply.Reply(EventLog.empty)
 
     type Started = {
         processor: MailboxProcessor<CoreQueue>
@@ -133,6 +122,7 @@ module internal CoreMailboxEvents =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventLog: EventLog ref
+        eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         noticeLog: Notice list ref
     }
