@@ -100,10 +100,13 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Auto-download
 
-[x] A persisted change carries `SetUpdateTime` stamp ops on a rewritten document-root node.
+[o] A persisted change carries `SetUpdateTime` stamp ops on a rewritten document-root node.
+[ ] The stamp effect is `SetUpdateTime` ops on a rewritten document-root node. Those ops ride on the finish Notice. [69 — Persist an Edit without waiting](../../plan/core-refinement/issues/69-persist-an-edit-without-waiting.md).
 [x] The Browser reuses those stamps to refresh a mapped App folder.
-[x] An own edit uses the stamp ops on `SubmitResponse`.
-[x] A remote edit uses the same stamp ops on an applied poll Change.
+[o] An own edit uses the stamp ops on `SubmitResponse`.
+[ ] An own edit sees the stamp on the ordinary event and poll path. The mailbox reply does not carry stamp ops. [69 — Persist an Edit without waiting](../../plan/core-refinement/issues/69-persist-an-edit-without-waiting.md).
+[o] A remote edit uses the same stamp ops on an applied poll Change.
+[ ] A remote edit sees the same stamp on the finish Notice through the ordinary poll path. [69 — Persist an Edit without waiting](../../plan/core-refinement/issues/69-persist-an-edit-without-waiting.md).
 [x] Shared coalesce keeps at most one job per label, for a File, the nearest Directory, or the whole Workspace, so the manager cap holds.
 [x] The Browser sends `POST /_desktop/workspace-download` and does not wait. There is no folder picker. A label with no mapping is dropped.
 [x] The path runs only when `DesktopCapabilities.canWorkspaceSync` is true. Plain web does nothing on this path.

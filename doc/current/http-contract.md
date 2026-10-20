@@ -332,18 +332,19 @@ sequenceDiagram
 
 12. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
 13. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
-14. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
-15. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
-16. [o] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
-17. [ ] **Idempotent orderId.** The same `orderId` returns the stored event. `r` is the current snapshot event id. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
-18. [o] **Draft event id.** A posted `eventId` other than `0` is `400`.
-19. [ ] **Draft event id.** `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+14. [o] **Field message.** `message` is present only when artifact persistence returns a status string.
+15. [ ] **Field message.** The change reply does not carry a persist `message`. The persist message rides on a Notice. [69 — Persist an Edit without waiting](../../plan/core-refinement/issues/69-persist-an-edit-without-waiting.md).
+16. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
+17. [o] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
+18. [ ] **Idempotent orderId.** The same `orderId` returns the stored event. `r` is the current snapshot event id. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
+19. [o] **Draft event id.** A posted `eventId` other than `0` is `400`.
+20. [ ] **Draft event id.** `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
 ```json
 { "error": "posted EventId must be zero" }
 ```
 
-20. [x] **Invalid JSON.** A body that fails decode is `400`.
+21. [x] **Invalid JSON.** A body that fails decode is `400`.
 
 ```json
 { "error": "Invalid JSON: …" }

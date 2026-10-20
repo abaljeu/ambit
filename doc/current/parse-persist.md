@@ -18,6 +18,9 @@ Parse and persist move text between disk and the graph.
 [x] `NodeParsed` sets a File Node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
 [o] Persist thread: adds `Notice` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
 [ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
+[o] An Edit document write waits on the persist thread. The mailbox reply carries stamp ops and the persist message. A failed write fails the order.
+[ ] An Edit document write submits with `wait = false`. The persist thread posts a Notice when the write finishes. The stamp effect and the persist message ride on Notices. A failed write posts `Notice.PersistFailed`, leaves the node Unpersisted, and the order succeeds. [69 — Persist an Edit without waiting](../../plan/core-refinement/issues/69-persist-an-edit-without-waiting.md).
+
 ## Parse
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.

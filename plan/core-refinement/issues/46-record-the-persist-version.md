@@ -7,7 +7,7 @@
 
 ## Context
 
-[51 — Stand the persist stack](51-stand-the-persist-stack.md) already has the persist thread post `Notice.NodePersisted` and skip the persist-state write. Graph change apply already gives the Core loop that handler. Persist can finish after a later graph change. Graph change persist version gives that message and the handler one version to compare.
+[51 — Stand the persist stack](51-stand-the-persist-stack.md) already has the persist thread post `Notice.NodePersisted` and skip the persist-state write. Graph change apply already gives the Core loop that handler. Persist can finish after a later graph change. Graph change persist version gives that message and the handler one version to compare. [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md) carries the stamp effect and the persist message on Notices. This ticket keeps the `nodeId * version` pair and the version gate.
 
 ## What to build
 
@@ -37,4 +37,5 @@ Persist state is Unpersisted, or Persisted at a version. Carry the launch versio
 - [Document-state events](../spec.md)
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
+- [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md)
 - [GLOSSARY](../../GLOSSARY.md)
