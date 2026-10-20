@@ -7,26 +7,33 @@
 
 ## Context
 
-`CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly` both carry a caller, an `Ev`, and a reply. `CoreMailboxActors.dispatchPostEvent` sends `EventBody.Change` through `CoreEventDispatch.postEvent` with `graphOnly` false. `CoreMailboxEvents.dispatchPostGraphOnly` calls the same function with `graphOnly` true. Every `PostGraphOnly` caller mints `commandName` `"Parse"`: `ParseThread.postParseOps`, `Api.applyParseFile`, and `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks`. Decision 4 **One Change** and decision 12 **NodeUnpersisted** in [Message shape](../cqrs-messages.md): the two doors become `Order.Change`, and after an ordinary edit the server's `Change` handler posts `Notice.NodeUnpersisted`. `PostEvent` still carries `Undo`, `Redo`, `ActorStart`, and `Cancel` until [65 — Log Undo and Redo as the target](65-log-undo-and-redo-as-the-target.md) and [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md). Upload, import, parse, Load, undo, and persist stay working.
+`CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly` both carry a caller, an `Ev`, and a reply. Both send `EventBody.Change` through `CoreEventDispatch.postEvent`.
+
+- **Change** — `CoreMailboxActors.dispatchPostEvent` calls that function with `graphOnly` false.
+- **Graph only** — `CoreMailboxEvents.dispatchPostGraphOnly` calls that function with `graphOnly` true.
+
+Every `PostGraphOnly` caller mints `commandName` `"Parse"`:
+
+- **Parse ops** — `ParseThread.postParseOps`
+- **Parse file** — `Api.applyParseFile`
+- **Load** — `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks`
+
+`CoreMsg.PostEvent` also carries `Undo`, `Redo`, `ActorStart`, and `Cancel`. 65 — Log Undo and Redo as the target and 66 — Move Actor orders onto Order and Notice take those bodies.
 
 ## What to build
 
-`Api.postEvents` and the Parse `postGraphOnly` callers place `Order.Change`. The `Change` handler posts `Notice.NodeUnpersisted` after an ordinary edit. A `Parse` change keeps today's file skip.
-
-### 1. Change
-
-1. [ ] **Door** — `CoreMailboxApi.postEvents` and `postGraphOnly` place `Mailbox.PlaceOrder` of `Order.Change` of the op list. `Api.postEvents`, `RunAgentActor`, and `TestActor` use `postEvents`. `ParseThread.postParseOps`, `Api.applyParseFile`, and `LazyLoadReconciliationServer` use `postGraphOnly`. Remove `CoreMsg.PostGraphOnly`. `CoreMsg.PostEvent` stays for `EventBody.Undo`, `EventBody.Redo`, `EventBody.ActorStart`, and `EventBody.Cancel`.
+1. [ ] **Door** — Decision 4 **One Change**. `CoreMailboxApi.postEvents` and `postGraphOnly` place `Mailbox.PlaceOrder` of `Order.Change` of the op list. `Order.Change` has no graph-only flag. `Api.postEvents`, `RunAgentActor`, and `TestActor` use `postEvents`. The Parse callers in Context use `postGraphOnly`. Remove `CoreMsg.PostGraphOnly`. `CoreMsg.PostEvent` stays for the four bodies Context names.
 2. [ ] **Reply** — The `PlaceOrder` reply is `Result<EventId, string>`. `Ok` carries the assigned `EventId`. `Api.postEvents` builds the HTTP change response from that id and from the state read it already does. The mailbox reply is not `CoreChangesAccepted`.
-3. [ ] **Files** — `Order.Change` has no graph-only flag. `CoreEventDispatch` writes document files when `commandName` is not `Some "Parse"`. A `Change` whose `commandName` is `Some "Parse"` keeps the file skip `PostGraphOnly` uses today.
-4. [ ] **NodeUnpersisted** — Add `Notice.NodeUnpersisted of nodeId: NodeId`. After a successful `Change` whose `commandName` is not `Some "Parse"`, `CoreEventDispatch` posts one `Notice.NodeUnpersisted` for each document root of the ops, using `DocumentPartition.documentRootForNode`. `CoreMailboxLoad.applyNotice` sets that node `PersistState.Unpersisted` and appends one `Ev` whose body is that notice. A `Parse` change posts no `Notice.NodeUnpersisted`.
+3. [ ] **Files** — `CoreEventDispatch` writes document files when `commandName` is not `Some "Parse"`. A `Change` whose `commandName` is `Some "Parse"` keeps the file skip `PostGraphOnly` uses today.
+4. [ ] **NodeUnpersisted** — Decision 12 **NodeUnpersisted**. Add `Notice.NodeUnpersisted of nodeId: NodeId`. After a successful `Change` that writes document files, `CoreEventDispatch` posts one `Notice.NodeUnpersisted` for each document root of the ops, using `DocumentPartition.documentRootForNode`. `CoreMailboxLoad.applyNotice` sets that node `PersistState.Unpersisted` and appends one `Ev` whose body is that notice. A `Change` that keeps the file skip posts no `Notice.NodeUnpersisted`.
 
 ### Acceptance Criteria
 
-1. [ ] **One order** — `postEvents` of a `Change` and `postGraphOnly` of a `Parse` change both place `Order.Change`. Each reply is `Ok` of the new `EventId`. `CoreMsg` has no `PostGraphOnly`.
-2. [ ] **Parse** — `ParseThread.postParseOps` completes and does not write the document file. The log for that change has no `Notice.NodeUnpersisted`.
-3. [ ] **Edit** — A `Change` whose `commandName` is not `Parse` writes the document file the way `PostEvent` does today. The log then has `Notice.NodeUnpersisted` of the document root, and that node is `PersistState.Unpersisted`.
-4. [ ] **Other bodies** — `PostEvent` of `Undo`, `Redo`, `ActorStart`, and `Cancel` still uses `CoreMsg.PostEvent`.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [ ] **One order** — `postEvents and postGraphOnly place Order.Change`. Each reply is `Ok` of the new `EventId`. `CoreMsg` has no `PostGraphOnly`.
+2. [ ] **Parse** — `postParseOps skips the document file`. The call completes. The log for that change has no `Notice.NodeUnpersisted`.
+3. [ ] **Edit** — `an ordinary Change writes the document file`. The log has `Notice.NodeUnpersisted` of the document root, and that node is `PersistState.Unpersisted`.
+4. [ ] **Other bodies** — `the four bodies Context names stay on PostEvent`. A post of each of those bodies still uses `CoreMsg.PostEvent`.
+5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
 ## Finish-up
 
@@ -40,5 +47,6 @@
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
 - [65 — Log Undo and Redo as the target](65-log-undo-and-redo-as-the-target.md)
+- [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)
 - [62 — Admit at the entry](62-admit-at-the-entry.md)
 - [GLOSSARY](../../../GLOSSARY.md)
