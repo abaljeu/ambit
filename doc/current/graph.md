@@ -49,7 +49,9 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] Parsed with `pullingFile` is not a state. `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
 [x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `pullingFile`.
 [x] `parseState`, `persistState`, and `pullingFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
-[o] Graph JSON and the PostgreSQL node projection still encode a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
+[o] Graph JSON encodes a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
+[x] Persist state survives reload in `persist_state`. The stored words are `persisted` and `unpersisted`. Existing rows load as Persisted.
+[x] `document_state` stores Parsed or Unparsed only. The stored word for Parsed is `current`. The stored word for Unparsed is `unparsed`. PullingFile is not written. A stored word `noServerFile` reloads as Unparsed.
 [ ] `DocumentState`: not the special-node document axis.
 [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes. Values: `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`).
 [x] A state change on a special node writes `ParseState` and `PersistState`.

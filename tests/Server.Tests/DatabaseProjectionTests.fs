@@ -44,10 +44,13 @@ let private expectedRow node =
       name = Filename.tryValue node.name
       kind = NodeKindPersistence.toPersistString node.kind
       documentState =
-        match Node.documentStateEnum node with
-        | Current -> "current"
-        | Unparsed -> "unparsed"
-        | PullingFile -> "noServerFile"
+        match node.documentState.parseState with
+        | ParseState.Parsed -> "current"
+        | ParseState.Unparsed -> "unparsed"
+      persistState =
+        match node.documentState.persistState with
+        | PersistState.Persisted -> "persisted"
+        | PersistState.Unpersisted -> "unpersisted"
       cssClassNames = CssClass.toList node.cssClasses
       updateTime = node.updateTime }
     : GraphProjection.NodePersistenceRow
@@ -228,7 +231,7 @@ let ``commands expose deterministic SQL and bind values`` () =
 
     Assert.Equal<string list>(
         [ "ids"; "texts"; "names"; "css_classes"; "update_times"; "kinds";
-          "document_states" ],
+          "document_states"; "persist_states" ],
         bindings.[0] |> List.map _.name)
 
     match bindings.[0].Head.value with

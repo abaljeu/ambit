@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-20
 Started: 2026-09-29
-Actual: 27h
+Actual: 28.5h
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -74,6 +74,7 @@ Actual: 27h
 - 2026-10-20 — [62 — Admit at the entry](issues/62-admit-at-the-entry.md) is implemented. Browser routes check logged-in callers, Actor start admits the live Actor secret, and later core posts copy the caller's Authority. Status stays `defined`. Stage stays `build`.
 - 2026-10-20 — [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md) is implemented. `Session` owns login and admission. Logout stops admitting, queues `CoreQueue.DropAuthority`, and returns. The core removes the authority when it processes that case. Status stays `defined`. Stage stays `build`.
 - 2026-10-20 — Alan checked [58 — Remove dead snapshot code](issues/58-remove-dead-snapshot-code.md), [59 — Rename InMsg to Notice](issues/59-rename-inmsg-to-notice.md), [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md), [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md), [62 — Admit at the entry](issues/62-admit-at-the-entry.md), and [63 — Move queries to Ask](issues/63-move-queries-to-ask.md) interactively. Status is `done`. Stage stays `build`.
+- 2026-10-20 — [36 — Add the persist column](issues/36-add-the-persist-column.md) stores Persisted and Unpersisted in `persist_state`. `document_state` stores Parsed or Unparsed only. Status `coded`. Stage stays `build`.
 - 2026-10-20 — Alan: an Edit document write does not wait on the persist thread. Stamps and the persist message reach the core on a Notice. A failed write leaves the node Unpersisted and the order succeeds. The ack has no stamp ops and no persist message. Ticket: [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md). Blocked by [51 — Stand the persist stack](issues/51-stand-the-persist-stack.md) and [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md). [46 — Record the persist version](issues/46-record-the-persist-version.md) stays related and is not a blocker. Meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md). Stage stays `build`.
 
 ## Issues
@@ -113,7 +114,7 @@ Actual: 27h
 - [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) — `withWorkTreeGate` leaves Persist and git paths. Status `defined`.
 - [34 — Upload and import use the parse-state writer](issues/34-upload-and-import-use-the-parse-state-writer.md) — `DocumentStateEnum` and its converters leave. `Op.SetDocumentState` stays and carries the three-way parse state. Upload and import write through `GraphMutate.setParseState`. Status `defined`.
 - [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md) — node JSON sends the three-way parse state once, plus `persistState`. The derived `documentState` key leaves. Status `defined`.
-- [36 — Add the persist column](issues/36-add-the-persist-column.md) — a persist column stores persist state across reload. `document_state` stores Parsed or Unparsed only. PullingFile is not stored. Status `defined`.
+- [36 — Add the persist column](issues/36-add-the-persist-column.md) — a persist column stores persist state across reload. `document_state` stores Parsed or Unparsed only. PullingFile is not stored. Status `coded`.
 - [37 — Kind-specific node state](issues/37-kind-specific-node-state.md) — a Normal Node holds and sends neither parse state nor persist state. Only a File Node carries PullingFile. Status `defined`.
 - [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md) — history. Superseded by the File event model. Status `cancelled`.
 - [39 — Upload, import, undo, and stored replay use the mailbox writer](issues/39-upload-import-undo-replay-use-the-mailbox-writer.md) — history. Superseded by [43 — Expand Node events beside the Set output](issues/43-expand-file-events-beside-the-set-output.md), [44 — Apply document state from Node events](issues/44-apply-document-state-from-file-events.md), [45 — SetDocumentState leaves; NodeUnpersisted replaces it](issues/45-remove-document-state-set-ops.md), [47 — Undo and redo set Unpersisted](issues/47-undo-and-redo-set-unpersisted.md), [48 — Browser applies Node events](issues/48-browser-applies-node-events.md), [50 — Upload emits NodeUploading](issues/50-upload-emits-nodeuploading.md), [54 — Parse and import stop the Parsed Set](issues/54-parse-and-import-stop-the-parsed-set.md), and [55 — Stored replay sets Unpersisted](issues/55-stored-replay-sets-unpersisted.md). Status `cancelled`.

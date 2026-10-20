@@ -240,7 +240,7 @@ let ``directory Replace marks that directory only`` () =
     Assert.Equal(ParseState.Parsed, edited.nodes.[dirId].documentState.parseState)
 
 [<Fact>]
-let ``SQL reload derives parse state and defaults persist to Persisted`` () =
+let ``SQL reload keeps persist state and reloads PullingFile as Unparsed`` () =
     let cases = [ Current; Unparsed; PullingFile ]
     for documentState in cases do
         let id = NodeId.New()
@@ -257,9 +257,17 @@ let ``SQL reload derives parse state and defaults persist to Persisted`` () =
         | Error msg -> failwith msg
         | Ok loaded ->
             let back = loaded.nodes.[id]
-            Assert.Equal(documentState, back.documentState.AsEnum)
-            Assert.Equal(ParseState.ofDocumentState documentState, back.documentState.parseState)
-            Assert.Equal(PersistState.Persisted, back.documentState.persistState)
+            let expectedEnum =
+                if documentState = PullingFile then Unparsed else documentState
+            let expectedParse =
+                if documentState = PullingFile then
+                    ParseState.Unparsed
+                else
+                    ParseState.ofDocumentState documentState
+            Assert.Equal(expectedEnum, back.documentState.AsEnum)
+            Assert.Equal(expectedParse, back.documentState.parseState)
+            Assert.False(back.documentState.pullingFile)
+            Assert.Equal(PersistState.Unpersisted, back.documentState.persistState)
 
 [<Fact>]
 let ``JSON without axes derives parse state and defaults persist`` () =

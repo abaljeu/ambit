@@ -66,6 +66,9 @@ module Database =
                 ALTER TABLE nodes
                     ADD COLUMN IF NOT EXISTS document_state TEXT NOT NULL DEFAULT 'current';
 
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS persist_state TEXT NOT NULL DEFAULT 'persisted';
+
                 UPDATE nodes
                 SET kind = 'workspace'
                 WHERE id = '00000000-0000-0000-0000-000000000000';
@@ -108,7 +111,8 @@ module Database =
           css_classes: string
           update_time: DateTime
           kind: string
-          document_state: string }
+          document_state: string
+          persist_state: string }
 
     type NodeChildDbRow =
         { parent_id: Guid
@@ -217,7 +221,8 @@ module Database =
             let! rows =
                 conn.QueryAsync<NodeDbRow>(
                     """
-                    SELECT id, text, name, css_classes::text, update_time, kind, document_state
+                    SELECT id, text, name, css_classes::text, update_time, kind,
+                           document_state, persist_state
                     FROM nodes
                     """)
             return rows |> Seq.toList
@@ -272,6 +277,7 @@ module Database =
                                 Some r.name
                            kind = r.kind
                            documentState = r.document_state
+                           persistState = r.persist_state
                            cssClassNames = CssClass.toList (decodeCss r.css_classes)
                            updateTime = NodeUpdateTime.toDbPrecision r.update_time }
                         : GraphProjection.NodePersistenceRow))
@@ -323,11 +329,12 @@ module Database =
                     conn.ExecuteAsync(
                         """
                         INSERT INTO nodes (
-                            id, text, name, css_classes, update_time, kind, document_state
+                            id, text, name, css_classes, update_time, kind,
+                            document_state, persist_state
                         )
                         VALUES (
                             @id, @text, @name, CAST(@css AS jsonb), @update_time, @kind,
-                            @document_state
+                            @document_state, @persist_state
                         )
                         """,
                         {| id = r.id
@@ -336,7 +343,8 @@ module Database =
                            css = cssJson (CssClass.ofList r.cssClassNames)
                            update_time = NodeUpdateTime.toDbPrecision r.updateTime
                            kind = r.kind
-                           document_state = r.documentState |},
+                           document_state = r.documentState
+                           persist_state = r.persistState |},
                         tx)
                     :> Task
 
