@@ -21,17 +21,13 @@ Producers stay on their current writes. These tickets switch the producers:
 
 1. [ ] **Core-loop upload handler** — Graph change apply adds the handlers in `CoreMailboxLoad.applyNotice`. Tests call the handlers. Each handler receives its message, applies the effect Document-state events names, and logs the message. Each handler writes the resulting `document_state` and `persist_state` through `DatabaseProjection`. The `document_state` column stores Parsed or Unparsed only. The stored word for Parsed stays `current`. PullingFile is not written there. The `Notice.NodeUploading` handler sets PullingFile in memory and persist state Unpersisted. It does not insert the node.
 2. [ ] **Core-loop receive handler** — The `Notice.NodeReceived` handler calls `GraphMutate.setParseState` with Unparsed and `GraphMutate.setPersistState` with Unpersisted. `Node.withParseState` clears PullingFile. The code field is `pullingFile`.
-3. [ ] **Core-loop parsing handler** — `Notice.NodeParsing` means parse started. The handler does not set Unparsed and does not push. It leaves parse state and persist state unchanged.
-4. [ ] **Core-loop persisting handler** — The `Notice.NodePersisting` handler calls `GraphMutate.setPersistState` with Unpersisted. It leaves parse state unchanged.
-5. [ ] **Core-loop persisted handler** — The `Notice.NodePersisted` handler calls `GraphMutate.setPersistState` with the Persisted version. 46 — Record the persist version adds the version check.
+
+The `Notice.NodePersisted` handler already exists as the `Notice.SnapshotDone` handler, which sets Persisted. [73 — Add the NodeParsing and NodePersisting Notices](73-add-the-nodeparsing-and-nodepersisting-notices.md) adds the other two handlers.
 
 ### Acceptance Criteria
 
-1. [ ] **Upload test** — `upload NodeUploading creates a PullingFile node`. The node is PullingFile and Unpersisted. `document_state` does not store PullingFile.
+1. [ ] **Upload test** — `NodeUploading applies PullingFile`. The node is PullingFile and Unpersisted. `document_state` does not store PullingFile.
 2. [ ] **Receive test** — `NodeReceived applies Unparsed`. The File Node is Unparsed and Unpersisted. PullingFile is clear.
-3. [ ] **Parse test** — `NodeParsing does not push`. Parse state is unchanged. The node is not pushed. Persist state is unchanged.
-4. [ ] **Persist pull test** — `NodePersisting applies Unpersisted`. The node is Unpersisted. Parse state is unchanged.
-5. [ ] **Persisted test** — `NodePersisted writes the Persisted version`. `persist_state` is that version. The stored word for Parsed stays the word the Core-loop upload handler names.
 
 ## Finish-up
 
@@ -48,6 +44,7 @@ Producers stay on their current writes. These tickets switch the producers:
 - [36 — Add the persist column](36-add-the-persist-column.md)
 - [43 — Expand Node events beside the Set output](43-expand-file-events-beside-the-set-output.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
+- [73 — Add the NodeParsing and NodePersisting Notices](73-add-the-nodeparsing-and-nodepersisting-notices.md)
 - [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md)
 - [50 — Upload emits NodeUploading](50-upload-emits-nodeuploading.md)
 - [53 — Arrival and reconcile emit NodeReceived](53-arrival-and-reconcile-emit-nodereceived.md)
