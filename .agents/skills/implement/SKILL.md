@@ -23,6 +23,9 @@ A planned change that contradicts a binding rule stops here. Report the arch fil
 
 Done: binding rules are in hand, or you confirmed no `arch.md` binds this change. A contradiction is reported and coding has not started.
 
+### 2b. Asssess
+If the ticket is large spanning hundreds of lines across dozens of files, propose to abort for a replanning.  Better to abort early than after work is done but poorly.
+
 ### 3. Code
 
 Git: follow [[.agents/skills/git-protocol/SKILL.md]].
