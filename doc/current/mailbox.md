@@ -42,7 +42,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 `CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
 
-[ ] `CoreMailbox.coreChanges` places `Order.Change` through `Mailbox.PlaceOrder`. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
+[ ] `CoreMailbox.coreChanges` places `Order.Change` of ops and `ChangeOrigin` through `Mailbox.PlaceOrder`. `origin` exists only on that placed order. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
@@ -66,7 +66,7 @@ One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The no
 [o] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
 [ ] The persist thread adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when a file write finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 [o] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `Notice` stays off that path.
-[ ] Actor post path: `Mailbox.PlaceOrder` of `Order.Change`. The `Change` handler posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
+[ ] Actor post path: `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `CoreEventDispatch` reads that `origin` and posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [ ] Parsed axis and `PersistState`: internal. Outsiders may see them. The core loop writes them. Writer cases: [Op](op.md).
 
 ## Explanation
