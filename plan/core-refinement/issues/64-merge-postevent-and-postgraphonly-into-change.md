@@ -2,6 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
+Actual: 2h
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
 **Trackers:** architecture
 
@@ -33,6 +34,23 @@
 [ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
 [ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
 [ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+
+## Amendments
+
+1. **Logged notice** — `CoreMailboxLoad.applyNotice` appends one `Ev` whose body is `History.EventBody.NodeUnpersisted`. The queue message is `Notice.NodeUnpersisted`. The JSON kind is `nodeUnpersisted`.
+2. **Origin stays on the order** — `MailboxLog.toEv` logs `EventBody.Change` of the op list. `MailboxLog.ofEv` of that log returns Error `origin is not logged`.
+3. **HTTP ack** — `Api.postEvents` sets `eventId` from the `PlaceOrder` `EventId`. The `events` array is the request's stored events plus later events that are not that request and are not `NodeUnpersisted`, so a stored `ActorStop` stays on the ack. Poll returns the notice. `externalChanges` is true when the stored ops are not a prefix of the request ops.
+4. **Persist message** — `CoreEventDispatch` remembers the persist status string by the assigned `EventId`. `Query.PersistMessage` reads it. `Api` copies that string onto the HTTP `message`. The `PlaceOrder` reply stays `Result<EventId, string>`.
+5. **Mailbox log copy** — `applyNotice` appends through `persist.appendEvent`, using the next id after `persist.getEventId`. The notice puller copies that `Ev` onto the mailbox `EventLog` with `EventLog.restore`.
+6. **Change is PlaceOrder** — `CoreMailboxActors.dispatchPostEvent` refuses `EventBody.Change`. `CoreMailboxApi.postEvent` places `Mailbox.PlaceOrder` for a Change, then reads the stored `Ev`.
+7. **Draft id** — `CoreMailboxApi.placeOne` and `postGraphOnly` refuse a client `EventId` other than zero before `PlaceOrder`.
+8. **commandName leftover** — `ChangeAmendment.marksOwningPersist` still keys off `commandName`. The file skip and `Notice.NodeUnpersisted` use `ChangeOrigin` only.
+9. **Revision** — `graph.revision` stays the Change id. The notice is a later event row and advances the live event id.
+10. **Notice post** — `CoreEventDispatch` posts `Notice.NodeUnpersisted` on the mailbox processor. That post does not take `host.gate`, because the Change handler is already running on the queue.
+
+## Time
+
+- 2026-10-20 2h — placed `Order.Change`, origin `Edit` posts `Notice.NodeUnpersisted` `(from chat)`
 
 ## See also
 

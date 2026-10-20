@@ -75,16 +75,19 @@ let private runMixedHello host secret childText = task {
 }
 
 let private mixedIds (history: EventLog) =
-    match history.events with
-    | stop :: change :: start :: [] ->
-        match stop.body, change.body, start.body with
-        | EventBody.ActorStop _, EventBody.Change _, EventBody.ActorStart _ ->
-            stop.id, change.id, start.id
-        | _ ->
-            Assert.Fail("expected ActorStop, Change, ActorStart newest-head")
-            EventId.zero, EventId.zero, EventId.zero
+    let pick body =
+        history.events
+        |> List.tryFind (fun event ->
+            match event.body, body with
+            | EventBody.ActorStop _, "stop"
+            | EventBody.Change _, "change"
+            | EventBody.ActorStart _, "start" -> true
+            | _ -> false)
+    match pick "stop", pick "change", pick "start" with
+    | Some stop, Some change, Some start ->
+        stop.id, change.id, start.id
     | _ ->
-        Assert.Fail("expected three EventLog events")
+        Assert.Fail("expected ActorStop, Change, and ActorStart")
         EventId.zero, EventId.zero, EventId.zero
 
 let private assertChild state childId text =
@@ -105,6 +108,7 @@ let private bodyKind (event: Ev) =
     | EventBody.Cancel _ -> "cancel"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
+    | EventBody.NodeUnpersisted _ -> "unpersisted"
 
 let private assertBodiesMatch (history: EventLog) (since: Ev list) =
     Assert.Equal<string list>(

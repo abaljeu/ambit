@@ -45,18 +45,23 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
             CoreDoor.postEvents handle [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "typed post" accepted
-        Assert.True(EventId.isAccepted accepted.eventId)
-        Assert.Equal<Guid list>(
-            [ event.submissionId ],
-            accepted.events |> List.map (_.submissionId))
+        Assert.True(EventId.isAccepted accepted)
+        let! history =
+            CoreMailboxApi.eventHistory agent |> Async.StartAsTask
+        Assert.Equal(
+            event.submissionId,
+            Assert.Single(onlySubmission event.submissionId history.events)
+                .submissionId)
 
         let body = encodePollRequest EventId.zero [ Graph.rootId ]
         let! poll = Api.postPoll handle 10 20 body |> Async.StartAsTask
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
-            Assert.Equal(accepted.eventId.Value, response.eventId.Value)
-            Assert.Equal<Ev list>(accepted.events, response.events)
+            Assert.True(response.eventId >= accepted)
+            Assert.Contains(
+                response.events,
+                fun item -> item.submissionId = event.submissionId)
             Assert.True(Map.containsKey Graph.rootId response.childMap)
             Assert.NotEmpty(response.nodes)
         | other ->
@@ -76,7 +81,7 @@ let private runActor
 let private produceFromSubgraph
     (subgraph: Graph)
     (handle: CoreChangesDoor)
-    : Async<Result<CoreChangesAccepted, string>> =
+    : Async<Result<EventId, string>> =
     async {
         let priorChildren =
             match Map.tryFind Graph.rootId subgraph.nodes with
@@ -106,8 +111,10 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             let! accepted =
                 runActor subgraph handle produceFromSubgraph
             let accepted = requireOk "actor post" accepted
-            Assert.True(EventId.isAccepted accepted.eventId)
-            Assert.NotEmpty(accepted.events)
+            Assert.True(EventId.isAccepted accepted)
+            let! history =
+                CoreMailboxApi.eventHistory agent |> Async.StartAsTask
+            Assert.Contains(history.events, fun item -> item.id = accepted)
 
             let body = encodePollRequest EventId.zero []
             let! poll =
@@ -115,8 +122,8 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
-                Assert.Equal(accepted.eventId.Value, response.eventId.Value)
-                Assert.Equal<Ev list>(accepted.events, response.events)
+                Assert.True(response.eventId >= accepted)
+                Assert.Contains(response.events, fun item -> item.id = accepted)
                 Assert.Empty(response.nodes)
                 Assert.Empty(response.childMap)
             | other ->
@@ -148,7 +155,8 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         |> Async.StartAsTask
 
     let! history = CoreMailboxApi.eventHistory agent |> Async.StartAsTask
-    let posted = Assert.Single(history.events)
+    let posted =
+        Assert.Single(onlySubmission event.submissionId history.events)
     Assert.Equal(event.submissionId, posted.submissionId)
     match missingWant with
     | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->

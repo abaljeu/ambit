@@ -186,7 +186,7 @@ let private seedWorkspace host operationName =
     { workspaceId = workspaceId
       commandId = commandId
       focusId = focusId
-      eventId = accepted.eventId }
+      eventId = accepted }
 
 let private createGitHarness operationName =
     let dataDir = newTempDir ()

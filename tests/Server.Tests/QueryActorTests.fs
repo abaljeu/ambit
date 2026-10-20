@@ -236,8 +236,11 @@ let ``edit then ActorStart classifies the equals line after the edit`` () =
                     [ edit; queryStart root lineId eventId ]
                 |> Async.StartAsTask
             let accepted = requireOk "list" result
+            Assert.True(EventId.isAccepted accepted)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
             Assert.Contains(
-                accepted.events,
+                history.events,
                 fun event ->
                     match event.body with
                     | EventBody.Change _ -> true

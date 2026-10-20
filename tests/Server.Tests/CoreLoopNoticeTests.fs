@@ -155,6 +155,27 @@ let ``axis write failure is returned`` () =
         state.Value.graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
+let ``NodeUnpersisted sets Unpersisted and appends the notice`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let appended = ResizeArray<Ev>()
+    let persist =
+        { handlers state (ResizeArray<NodeId>()) with
+            appendEvent =
+                fun event ->
+                    appended.Add event
+                    state.Value <- { state.Value with eventId = event.id }
+                    Ok () }
+    apply persist (Notice.NodeUnpersisted id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    let stored = Assert.Single(appended)
+    Assert.Equal(EventBody.NodeUnpersisted id, stored.body)
+    Assert.True(EventId.isAccepted stored.id)
+
+[<Fact>]
 let ``mailbox queue applies ParseFinished`` () =
     task {
         let id, initial =

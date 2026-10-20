@@ -32,7 +32,8 @@ let ``getEventsSince returns Ev after postChange`` () = task {
                 host
                 (EventId.zero)
             |> Async.StartAsTask
-        let stored = Assert.Single(events)
+        let stored =
+            Assert.Single(onlySubmission event.submissionId events)
         Assert.Equal(event.submissionId, stored.submissionId)
         match stored.body with
         | EventBody.Change _ -> ()
@@ -58,7 +59,8 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
         let! history =
             CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored =
+            Assert.Single(onlySubmission event.submissionId history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
@@ -84,7 +86,8 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
         let! history =
             CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored =
+            Assert.Single(onlySubmission event.submissionId history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
@@ -249,7 +252,12 @@ let ``post Change uses Event id past Database row when payload does not decode``
         match posted with
         | Error error -> Assert.Fail($"postChange: {error}")
         | Ok accepted ->
-            let stored = Assert.Single(accepted.events)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let stored =
+                Assert.Single(
+                    onlySubmission event.submissionId history.events)
+            Assert.Equal(accepted, stored.id)
             Assert.True(EventId.isAccepted stored.id)
             Assert.NotEqual(occupied, stored.id)
     finally

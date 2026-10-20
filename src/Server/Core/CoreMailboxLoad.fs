@@ -59,8 +59,6 @@ module internal CoreMailboxLoad =
                 |> Result.mapError StartError.Rejected)
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
-        | PostGraphOnly (caller, event, reply) ->
-            CoreMailboxEvents.dispatchPostGraphOnly context caller event reply
         | StartActor (caller, request, reply) ->
             CoreMailboxActors.dispatchStartActor context caller request reply
         | StartPeerActor (caller, peerName, request, reply) ->
@@ -153,6 +151,41 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
+    let private nextStoredId (current: EventId) =
+        let next = EventId.next current
+        if EventId.isAccepted next then next else EventId.fromJson 1
+
+    let private unpersistedEvent (nodeId: NodeId) (id: EventId) : Ev = {
+        id = id
+        submissionId = Guid.NewGuid()
+        authority = Authority ""
+        commandName = ""
+        body = EventBody.NodeUnpersisted nodeId
+    }
+
+    let private appendUnpersisted
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        match persist.getEventId () with
+        | Error err -> Error err
+        | Ok current ->
+            persist.appendEvent (unpersistedEvent nodeId (nextStoredId current))
+
+    let private setUnpersisted
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        match
+            writeAxis persist (fun live ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    live)
+        with
+        | Error err -> Error err
+        | Ok () -> appendUnpersisted persist nodeId
+
     /// Core loop apply. NodeParsed writes Parsed only when noServerFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// noServerFile is set, that File Node stays Unparsed. It does not
@@ -161,11 +194,14 @@ module internal CoreMailboxLoad =
     /// do not set state.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    /// NodeUnpersisted sets Unpersisted and appends that notice.
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
         : Result<unit, string> =
         match msg with
+        | Notice.NodeUnpersisted nodeId ->
+            setUnpersisted persist nodeId
         | Notice.NodeParsed nodeId ->
             match writeParseState persist nodeId ParseState.Parsed with
             | Error err -> Error err
@@ -213,6 +249,8 @@ module internal CoreMailboxLoad =
                 |> EventLog.since after
                 |> Ok
                 |> reply.Reply
+        | Query.PersistMessage (id, reply) ->
+            reply.Reply(Ok(Map.tryFind id context.persistMessages.Value))
 
     let private queryOperation query =
         match query with
@@ -220,12 +258,15 @@ module internal CoreMailboxLoad =
         | Query.LastEventId _ -> "LastEventId", ""
         | Query.EventsSince (after, _) ->
             "EventsSince", $"after={after}"
+        | Query.PersistMessage (id, _) ->
+            "PersistMessage", $"{id}"
 
     let private replyQueryFailure error query =
         match query with
         | Query.State reply -> reply.Reply(Error error)
         | Query.LastEventId reply -> reply.Reply(Error error)
         | Query.EventsSince (_, reply) -> reply.Reply(Error error)
+        | Query.PersistMessage (_, reply) -> reply.Reply(Error error)
 
     let private dispatchAsk (context: MailboxContext) (query: Query) =
         try
@@ -238,14 +279,84 @@ module internal CoreMailboxLoad =
                 ex
                 (fun error -> replyQueryFailure error query)
 
+    let private placeOperation (order: Order) =
+        match order with
+        | Order.Change(ops, origin) ->
+            let which =
+                match origin with
+                | ChangeOrigin.Edit -> "Edit"
+                | ChangeOrigin.Parse -> "Parse"
+            "Change", $"{which} ops={List.length ops}"
+        | Order.Undo target -> "Undo", $"{target}"
+        | Order.Redo target -> "Redo", $"{target}"
+        | Order.StartActor _ -> "StartActor", ""
+        | Order.StartPeerActor(PeerActorName name, _) ->
+            "StartPeerActor", name
+        | Order.LoadSave(path, PeerActorName name, _) ->
+            "LoadSave", $"{path}:{name}"
+        | Order.Load nodeId -> "Load", $"{nodeId}"
+        | Order.Cancel focusId -> "Cancel", $"{focusId}"
+
+    let private dispatchPlaceOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (commandName: string option)
+        (order: Order)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match order with
+        | Order.Change(ops, origin) ->
+            let dispatch = CoreMailboxEvents.eventDispatchContext context
+            reply.Reply(
+                CoreEventDispatch.postChange
+                    dispatch
+                    caller
+                    orderId
+                    commandName
+                    ops
+                    origin)
+        | _ -> replyUnsupported reply
+
+    let private dispatchOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (commandName: string option)
+        (order: Order)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        try
+            dispatchPlaceOrder
+                context caller orderId commandName order reply
+        with ex ->
+            reportDispatchException
+                context
+                (placeOperation order)
+                ex
+                (fun error -> reply.Reply(Error error))
+
+    let private rememberUnpersisted (context: MailboxContext) =
+        match context.persist.getEventLog () with
+        | Error _ -> ()
+        | Ok log ->
+            match log.events with
+            | stored :: _ ->
+                match stored.body with
+                | EventBody.NodeUnpersisted _ ->
+                    context.eventLog.Value <-
+                        EventLog.restore [ stored ] context.eventLog.Value
+                | _ -> ()
+            | [] -> ()
+
     let private dispatchMailbox
         (context: MailboxContext)
         (message: Mailbox)
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (_, _, _, _, reply) ->
-            replyUnsupported reply
+        | Mailbox.PlaceOrder(caller, orderId, commandName, order, reply) ->
+            dispatchOrder context caller orderId commandName order reply
         | Mailbox.Ask query -> dispatchAsk context query
 
     let private dispatchItem
@@ -257,7 +368,11 @@ module internal CoreMailboxLoad =
         | CoreQueue.Notice msg ->
             context.noticeLog := msg :: context.noticeLog.Value
             match applyNotice context.persist msg with
-            | Ok () -> ()
+            | Ok () ->
+                match msg with
+                | Notice.NodeUnpersisted _ ->
+                    rememberUnpersisted context
+                | _ -> ()
             | Error err -> reportNotice context err
 
     let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
@@ -322,7 +437,9 @@ module internal CoreMailboxLoad =
           eventLog = ref eventLog
           eventLogSeedError = seedError
           coreChanges = ref None
-          noticeLog = ref [] },
+          noticeLog = ref []
+          enqueueNotice = ref ignore
+          persistMessages = ref Map.empty },
         reported
 
     let private started mailbox (context: MailboxContext) : Started =
@@ -334,7 +451,8 @@ module internal CoreMailboxLoad =
         match message with
         | Mailbox.Ask (Query.State _)
         | Mailbox.Ask (Query.LastEventId _)
-        | Mailbox.Ask (Query.EventsSince _) -> true
+        | Mailbox.Ask (Query.EventsSince _)
+        | Mailbox.Ask (Query.PersistMessage _) -> true
         | Mailbox.CoreMsg _
         | Mailbox.PlaceOrder _ -> false
 

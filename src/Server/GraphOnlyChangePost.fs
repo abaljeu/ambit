@@ -14,7 +14,7 @@ module GraphOnlyChangePost =
           body = EventBody.Change ops }
 
     let rec postChunks
-        (post: Ev -> Async<Result<CoreChangesAccepted, string>>)
+        (post: Ev -> Async<Result<EventId, string>>)
         (commandName: string)
         (chunks: Op list list)
         : Async<Result<unit, string>> =

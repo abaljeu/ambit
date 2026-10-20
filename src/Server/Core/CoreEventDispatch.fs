@@ -12,7 +12,9 @@ module internal CoreEventDispatch =
 
     type Context =
         { persist: PersistHandlers
-          eventLog: EventLog ref }
+          eventLog: EventLog ref
+          postNotice: Notice -> unit
+          rememberMessage: EventId -> string option -> unit }
 
     let private eventAuthority (Authority name) =
         Gambol.Shared.Authority name
@@ -116,6 +118,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Change _
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
+        | Gambol.Shared.EventBody.NodeUnpersisted _ ->
+            Error "NodeUnpersisted is a Notice"
         | Gambol.Shared.EventBody.ActorStart _
         | Gambol.Shared.EventBody.ActorStop _
         | Gambol.Shared.EventBody.Cancel _ ->
@@ -198,3 +202,65 @@ module internal CoreEventDispatch =
         match tryStored context event.submissionId with
         | Some existing -> Ok(existing, None)
         | None -> persistNew context caller event graphOnly
+
+    let private nodeIdsOfOp (op: Op) =
+        match op with
+        | Op.NewNode(nodeId, _)
+        | Op.SetText(nodeId, _, _)
+        | Op.SetClasses(nodeId, _, _)
+        | Op.NewSpecialNode(nodeId, _, _)
+        | Op.SetName(nodeId, _, _)
+        | Op.SetDocumentState(nodeId, _, _)
+        | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
+        | Op.Replace(parentId, oldChildren, newChildren) ->
+            parentId
+            :: (oldChildren @ newChildren
+                |> List.map (fun child -> child.id))
+
+    let private documentRoots (graph: Graph) (ops: Op list) =
+        ops
+        |> List.collect nodeIdsOfOp
+        |> List.choose (DocumentPartition.documentRootForNode graph)
+        |> List.distinct
+
+    let private postUnpersisted (context: Context) (ops: Op list) =
+        match context.persist.getState () with
+        | Error _ -> ()
+        | Ok state ->
+            documentRoots state.graph ops
+            |> List.iter (fun nodeId ->
+                context.postNotice (Notice.NodeUnpersisted nodeId))
+
+    let private commandText (commandName: string option) =
+        match commandName with
+        | None -> ""
+        | Some name -> name
+
+    /// Placed Change. Origin stays on the order. The logged body is the op list.
+    let postChange
+        (context: Context)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (commandName: string option)
+        (ops: Op list)
+        (origin: ChangeOrigin)
+        : Result<EventId, string> =
+        let event =
+            { id = EventId.zero
+              submissionId = orderId
+              authority = eventAuthority caller.authority
+              commandName = commandText commandName
+              body = Gambol.Shared.EventBody.Change ops }
+        let skipFiles = origin = ChangeOrigin.Parse
+        match postEvent context caller event skipFiles with
+        | Error error -> Error error
+        | Ok (stored, accepted) ->
+            match accepted with
+            | Some result ->
+                context.rememberMessage stored.id result.message
+            | None -> ()
+            match accepted with
+            | Some _ when origin = ChangeOrigin.Edit ->
+                postUnpersisted context ops
+            | _ -> ()
+            Ok stored.id

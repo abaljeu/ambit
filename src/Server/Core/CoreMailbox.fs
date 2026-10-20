@@ -25,6 +25,8 @@ module CoreMailbox =
                 persist
                 context.noticeLog
         persist.bindPersistFinished (CoreMailboxApi.postNotice created)
+        context.enqueueNotice.Value <-
+            fun msg -> started.processor.Post(CoreQueue.Notice msg)
         started.bindCoreChanges (fun caller ->
             { host = created
               caller = caller

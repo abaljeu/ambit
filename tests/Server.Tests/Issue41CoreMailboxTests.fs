@@ -49,12 +49,13 @@ let ``CoreMailboxApi.postEvents appends Change Events to EventLog`` () =
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored =
+            Assert.Single(onlySubmission event.submissionId history.events)
         let! state =
             CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -80,7 +81,7 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             CoreMailboxApi.getState host
             |> Async.StartAsTask
         let state = requireOk "get state" state
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
         let stored = Assert.Single(history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
@@ -101,9 +102,10 @@ let ``CoreChangesDoor builds Ev at postEvent and persists its Graph Ops`` () =
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored =
+            Assert.Single(onlySubmission event.submissionId history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal(
             Gambol.Shared.Authority "Test",
@@ -207,10 +209,9 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let! tail =
             CoreMailboxApi.eventsSince host storedFirst.id
             |> Async.StartAsTask
-        Assert.Equal(2, full.events.Length)
-        Assert.Equal<Ev list>(
-            [ storedSecond ],
-            tail.events)
+        Assert.Equal(4, full.events.Length)
+        Assert.Contains(storedSecond, tail.events)
+        Assert.DoesNotContain(storedFirst, tail.events)
         Assert.Equal(full.nextId, tail.nextId)
     })
 
@@ -324,4 +325,54 @@ let ``two live client edits with EventId.zero are admitted`` () =
             |> Async.StartAsTask
         let state = requireOk "state after edit" state
         Assert.Equal("after", state.graph.nodes.[childId].text)
+    })
+
+[<Fact>]
+let ``postEvents named Parse still logs NodeUnpersisted`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "named-parse"
+        let named =
+            { event with
+                commandName = "Parse"
+                authority = Authority "Parse" }
+        let! accepted =
+            CoreMailboxApi.postEvents host testCaller [ named ]
+            |> Async.StartAsTask
+        let id = requireOk "named parse" accepted
+        Assert.True(EventId.isAccepted id)
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.Contains(
+            history.events,
+            fun stored ->
+                match stored.body with
+                | EventBody.NodeUnpersisted root -> root = Graph.rootId
+                | _ -> false)
+        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let state = requireOk "state" state
+        Assert.Equal(
+            PersistState.Unpersisted,
+            state.graph.nodes.[Graph.rootId].documentState.persistState)
+    })
+
+[<Fact>]
+let ``postGraphOnly named Edit logs the Change without NodeUnpersisted`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "named-edit"
+        let named =
+            { event with
+                commandName = "Edit"
+                authority = Authority "Parse" }
+        let! accepted =
+            CoreMailboxApi.postGraphOnly host testCaller named
+            |> Async.StartAsTask
+        let id = requireOk "named edit" accepted
+        Assert.True(EventId.isAccepted id)
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored = Assert.Single(history.events)
+        match stored.body with
+        | EventBody.Change _ -> ()
+        | _ -> Assert.Fail("logged body is the op list")
+        Assert.Equal(event.submissionId, stored.submissionId)
     })

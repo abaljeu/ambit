@@ -3,10 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | PostGraphOnly of
-        caller: Caller *
-        event: Ev *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
     | Logout of
         Caller *
         AsyncReplyChannel<Result<unit, string>>
@@ -68,6 +64,9 @@ type internal Query =
     | EventsSince of
         after: EventId *
         AsyncReplyChannel<Result<EventLog, string>>
+    | PersistMessage of
+        EventId *
+        AsyncReplyChannel<Result<string option, string>>
 
 [<RequireQualifiedAccess>]
 type internal Mailbox =

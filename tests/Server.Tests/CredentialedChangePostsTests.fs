@@ -41,10 +41,14 @@ let ``live Browser credential is admitted and Change reaches PersistHandlers``
                 CoreMailboxApi.postEvents agent testCaller [ event ]
                 |> Async.StartAsTask
             let accepted = requireOk "live post" result
-            Assert.True(EventId.isAccepted accepted.eventId)
-            Assert.Equal<Guid list>(
-                [ event.submissionId ],
-                accepted.events |> List.map _.submissionId)
+            Assert.True(EventId.isAccepted accepted)
+            let! history =
+                CoreMailboxApi.eventHistory agent |> Async.StartAsTask
+            Assert.Equal(
+                event.submissionId,
+                Assert.Single(
+                    onlySubmission event.submissionId history.events)
+                    .submissionId)
             let! rev = CoreDoor.getEventId handle |> Async.StartAsTask
             Assert.True(EventId.isAccepted rev)
         finally
@@ -107,7 +111,7 @@ let ``request-carried cookie secret is admitted and foreign secret is refused at
             CoreDoor.postEvents handle [ event ]
             |> Async.StartAsTask
         let accepted = requireOk "cookie post" ok
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
         let foreign =
             BrowserRequestCreds.callerFromSecret
                 (Credential "not-the-cookie")
@@ -169,5 +173,5 @@ let ``request cookie value is admitted without closed-over browserCredential`` (
                     [ addRootChild "request-only" ]
                 |> Async.StartAsTask
             let accepted = requireOk "request secret" ok
-            Assert.True(EventId.isAccepted accepted.eventId)
+            Assert.True(EventId.isAccepted accepted)
     }

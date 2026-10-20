@@ -180,8 +180,11 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
                 host testCaller [ edit; launch commandId before ]
             |> Async.StartAsTask
         let accepted = requireOk "list" result
+        Assert.True(EventId.isAccepted accepted)
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let started =
-            accepted.events
+            history.events
             |> List.exists (fun event ->
                 match event.body with
                 | EventBody.ActorStart start ->

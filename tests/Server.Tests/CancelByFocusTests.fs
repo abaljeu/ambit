@@ -112,8 +112,11 @@ type CancelByFocusTests() =
                     match result with
                     | Ok value -> value
                     | Error err -> failwith err
+                Assert.True(EventId.isAccepted accepted)
+                let! history =
+                    CoreMailboxApi.eventHistory host |> Async.StartAsTask
                 let cancelled =
-                    accepted.events
+                    history.events
                     |> List.exists (fun event ->
                         match event.body with
                         | EventBody.ActorStop(fid, ActorCancelled)

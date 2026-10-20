@@ -35,27 +35,51 @@ let private placed event =
         Assert.Fail("expected Order")
         Unchecked.defaultof<_>
 
-[<Fact>]
-let ``ofEv then toEv keeps a Change`` () =
+let private placedChange origin commandName : MailboxLog.Ev =
     let ops = [ childOp () ]
-    let event = source "Set text" (EventBody.Change ops)
-    let order = placed event
-    Assert.Equal(event.id, (logged event).id)
-    Assert.Equal(event.submissionId, order.orderId)
-    Assert.Equal(event.authority, order.authority)
-    Assert.Equal(Some "Set text", order.commandName)
-    Assert.Equal(Order.Change ops, order.order)
-    Assert.Equal(event, restored (logged event))
+    {
+        id = EventId.zero
+        body =
+            MailboxLog.EventBody.Order {
+                orderId = Guid.Parse "11111111-1111-1111-1111-111111111111"
+                authority = Authority "Browser"
+                commandName = commandName
+                order = Order.Change(ops, origin)
+            }
+    }
+
+let private changeOps (event: MailboxLog.Ev) =
+    match event.body with
+    | MailboxLog.EventBody.Order placed ->
+        match placed.order with
+        | Order.Change(ops, _) -> ops
+        | _ -> []
+    | MailboxLog.EventBody.Notice _ -> []
+
+[<Fact>]
+let ``toEv keeps Change ops and drops origin`` () =
+    let edit = placedChange ChangeOrigin.Edit (Some "Set text")
+    let parse = placedChange ChangeOrigin.Parse None
+    let editBack = restored edit
+    let parseBack = restored parse
+    Assert.Equal(EventBody.Change(changeOps edit), editBack.body)
+    Assert.Equal(EventBody.Change(changeOps parse), parseBack.body)
+    Assert.Equal("Set text", editBack.commandName)
+    Assert.Equal("", parseBack.commandName)
+    match MailboxLog.ofEv editBack with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("origin is not on the logged Change")
 
 [<Fact>]
 let ``empty command name maps to None and returns as empty`` () =
-    let ops = [ childOp () ]
-    let event = source "" (EventBody.Change ops)
-    let order = placed event
-    Assert.Equal(None, order.commandName)
-    let back = restored (logged event)
+    let event = placedChange ChangeOrigin.Edit None
+    match event.body with
+    | MailboxLog.EventBody.Order order ->
+        Assert.Equal(None, order.commandName)
+    | MailboxLog.EventBody.Notice _ ->
+        Assert.Fail("expected Order")
+    let back = restored event
     Assert.Equal("", back.commandName)
-    Assert.Equal(event, back)
 
 [<Fact>]
 let ``Undo and Redo keep the target and drop the ops`` () =

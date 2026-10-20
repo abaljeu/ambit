@@ -86,7 +86,7 @@ let ``Actor isReady uses mailbox host isReady`` () =
 [<Fact>]
 let ``Actor postChange on scheduled handle reaches persist`` () =
     let persist = filePersist ()
-    let seen = TaskCompletionSource<Result<CoreChangesAccepted, string>>()
+    let seen = TaskCompletionSource<Result<EventId, string>>()
     let childId = NodeId.New()
     let event =
         changeEvent
@@ -105,5 +105,5 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
         requireOk "startActor" started
         let! posted = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         let accepted = requireOk "actor post" posted
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
     })

@@ -34,7 +34,13 @@ let ``Actor handle wrap does not repeat live-secret admission`` () = task {
         match result with
         | Error err -> Assert.Fail(err)
         | Ok accepted ->
-            Assert.Equal(Authority "Actor", accepted.events.Head.authority)
+            let! history =
+                CoreMailboxApi.eventHistory agent |> Async.StartAsTask
+            let stored =
+                Assert.Single(
+                    onlySubmission event.submissionId history.events)
+            Assert.Equal(accepted, stored.id)
+            Assert.Equal(Authority "Actor", stored.authority)
     finally
         CoreMailboxApi.dispose agent
 }

@@ -45,7 +45,8 @@ module internal CoreMailboxEvents =
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
         | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> event
+        | EventBody.ActorStop _
+        | EventBody.NodeUnpersisted _ -> event
 
     let overlayFreshEvents
         (confirmations: Gambol.Shared.Ev list)
@@ -66,9 +67,6 @@ module internal CoreMailboxEvents =
 
     let operationContext msg =
         match msg with
-        | PostGraphOnly (_, event, _) ->
-            let n = Ev.ops event |> Option.defaultValue [] |> List.length
-            "PostGraphOnly", $"ops={n}"
         | StartActor _ -> "StartActor", ""
         | StartPeerActor (_, PeerActorName name, _, _) ->
             "StartPeerActor", name
@@ -92,7 +90,6 @@ module internal CoreMailboxEvents =
 
     let replyFailure error msg =
         match msg with
-        | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
@@ -125,6 +122,8 @@ module internal CoreMailboxEvents =
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         noticeLog: Notice list ref
+        enqueueNotice: (Notice -> unit) ref
+        persistMessages: Map<EventId, string> ref
     }
 
     let addCaller (context: MailboxContext) caller =
@@ -153,33 +152,19 @@ module internal CoreMailboxEvents =
 
     let eventDispatchContext context : CoreEventDispatch.Context =
         { persist = context.persist
-          eventLog = context.eventLog }
+          eventLog = context.eventLog
+          postNotice = fun msg -> context.enqueueNotice.Value msg
+          rememberMessage = fun id message ->
+            match message with
+            | None -> ()
+            | Some text ->
+                context.persistMessages.Value <-
+                    Map.add id text context.persistMessages.Value }
 
     let graphNow context =
         match context.persist.getState () with
         | Ok state -> state.graph
         | Error _ -> Graph.create ()
-    let dispatchPostGraphOnly
-        (context: MailboxContext)
-        (caller: Caller)
-        (event: Ev)
-        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-        : unit =
-        match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
-        | Error err -> reply.Reply(Error err)
-        | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
-        | Ok (_, None) ->
-            match context.persist.getEventId () with
-            | Error err -> reply.Reply(Error err)
-            | Ok eventId ->
-                reply.Reply(
-                    Ok(
-                        CoreChanges.accepted
-                            eventId
-                            true
-                            []
-                            false
-                            None))
 
     type PostedReply =
         AsyncReplyChannel<

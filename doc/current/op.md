@@ -40,7 +40,7 @@ A single Graph modification, to a Node Header or to its Children.
 [ ] invert swaps old and new on SetText, SetClasses, Replace, SetName, and SetUpdateTime. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 12 NodeUnpersisted.
 [x] invertAll reverses the list and drops NewNode and NewSpecialNode.
 [o] SetText, SetClasses, SetName, and Replace mark the enclosing axis carrier Unpersisted. commandName Parse leaves PersistState unchanged. `marksOwningPersist`.
-[ ] `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`, writes document files, and posts `Notice.NodeUnpersisted` for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. The logged Change holds the op list. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
+`origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`, writes document files, and posts `Notice.NodeUnpersisted` for origin `Edit`. Origin `Parse` skips the document-file write. The logged Change holds the op list. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 
 `Op` has no `SetPersistState` case.
 [o] `Op.SetDocumentState`: not the writer of the parsed axis.

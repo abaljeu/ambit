@@ -42,12 +42,6 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
             message = Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
-let private decodeAck (accepted: CoreChangesAccepted) =
-    accepted
-
-let private decodeAckMessage (accepted: CoreChangesAccepted) =
-    accepted.message
-
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
     let childId = NodeId.New()
@@ -158,16 +152,24 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
     let dependencies = { defaults with persistGraphOps = softFailPersist }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
+        let changes = admittedChanges (host agent)
         let! postResult =
-            CoreDoor.postEvents (admittedChanges (host agent))
-                ((softFailEditBody ()))
+            CoreDoor.postEvents changes (softFailEditBody ())
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
-        | Ok ackJson ->
-            Assert.Equal(
-                Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
-                decodeAckMessage ackJson)
+        | Ok id ->
+            let! note =
+                CoreDoor.persistMessage changes id
+                |> Async.StartAsTask
+            match note with
+            | Ok (Some text) ->
+                Assert.Equal(
+                    DocumentPersistWrite.fileCouldNotSave
+                        "SYSTEM/secret.txt",
+                    text)
+            | other ->
+                Assert.Fail($"persist note %A{other} for %A{id}")
         let! state =
             getState agent |> Async.StartAsTask
         Assert.True(
@@ -204,7 +206,7 @@ let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(EventId.fromJson 1, state.eventId)
+        Assert.Equal(EventId.fromJson 2, state.eventId)
     finally
         CoreMailboxApi.dispose (host agent2)
 }
@@ -254,10 +256,13 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
-        | Ok ackJson ->
-            let ack = decodeAck ackJson
+        | Ok id ->
+            let! events =
+                CoreMailboxApi.getEventsSince (host agent) EventId.zero
+                |> Async.StartAsTask
             let confirmed =
-                Assert.Single(ack.events) 
+                Assert.Single(onlySubmission change.submissionId events)
+            Assert.Equal(id, confirmed.id)
             Assert.Equal(change.submissionId, confirmed.submissionId)
             Assert.Equal<Op list>(
                 (eventOps change),
@@ -270,16 +275,9 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
                 | Op.SetUpdateTime(nodeId, _, _) ->
                     Assert.Equal(Graph.workspacesId, nodeId)
                 | _ -> failwith "expected SetUpdateTime suffix")
-            let! events =
-                CoreMailboxApi.getEventsSince (host agent) (EventId.zero)
-                |> Async.StartAsTask
-            Assert.Single(events) |> ignore
-            let event = events.[0]
-            match Ev.ops event with
-            | Some ops ->
-                Assert.Equal<Op list>((eventOps confirmed), ops)
-            | None ->
-                Assert.Fail("Expected Change event")
+            match Ev.ops confirmed with
+            | Some _ -> ()
+            | None -> Assert.Fail("Expected Change event")
     finally
         CoreMailboxApi.dispose (host agent)
 }

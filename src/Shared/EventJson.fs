@@ -167,6 +167,10 @@ module EventJson =
                   "focusId", Serialization.encodeNodeId focusId ]
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
+        | EventBody.NodeUnpersisted nodeId ->
+            Encode.object
+                [ "kind", Encode.string "nodeUnpersisted"
+                  "nodeId", Serialization.encodeNodeId nodeId ]
 
     let private decodeChangeBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -211,6 +215,12 @@ module EventJson =
                             "focusId"
                             Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
+            | "nodeUnpersisted" ->
+                Decode.object (fun get ->
+                    EventBody.NodeUnpersisted(
+                        get.Required.Field
+                            "nodeId"
+                            Serialization.decodeNodeId))
             | other -> Decode.fail ("Unknown event body: " + other))
 
     let encode (event: Ev) =

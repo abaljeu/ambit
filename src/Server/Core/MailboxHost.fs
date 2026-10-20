@@ -90,6 +90,39 @@ module MailboxHost =
         postItemAndAsyncReply host (fun channel ->
             CoreQueue.Public (build channel))
 
+    /// Cold post. The message joins the queue when the async runs.
+    let internal beginMailbox
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> Mailbox)
+        : Async<'a> =
+        host.mailbox.PostAndAsyncReply(fun channel ->
+            CoreQueue.Public (build channel))
+
+    /// Start each post under the gate so the batch is queued in order.
+    let internal postForReplyList
+        (host: MailboxHost)
+        (posts: Async<'Reply> list)
+        : Async<'Reply list> =
+        let tasks =
+            lock host.gate (fun () ->
+                posts
+                |> List.map (fun post ->
+                    let source =
+                        System.Threading.Tasks.TaskCompletionSource<_>()
+                    Async.StartWithContinuations(
+                        post,
+                        (fun reply -> source.TrySetResult reply |> ignore),
+                        (fun ex -> source.TrySetException ex |> ignore),
+                        (fun _ -> ()))
+                    source.Task))
+        async {
+            let! replies =
+                tasks
+                |> List.map Async.AwaitTask
+                |> Async.Parallel
+            return Array.toList replies
+        }
+
     let isReady (host: MailboxHost) = host.isReady
 
     let dispose (host: MailboxHost) = host.dispose ()

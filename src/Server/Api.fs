@@ -214,27 +214,97 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
-    let private acceptedChangeResult
+    let private confirmedInOrder (requested: Ev list) (logged: Ev list) =
+        let bySubmission =
+            logged
+            |> List.map (fun event -> event.submissionId, event)
+            |> Map.ofList
+        requested
+        |> List.choose (fun event ->
+            Map.tryFind event.submissionId bySubmission)
+
+    let private samePrefix (requested: Op list) (stored: Op list) =
+        stored.Length >= requested.Length
+        && List.take requested.Length stored = requested
+
+    /// A persist stamp may follow the submitted ops. A real amendment does not.
+    let private opsDiffer (requested: Ev) (stored: Ev) =
+        match Ev.ops requested, Ev.ops stored with
+        | Some requestedOps, Some storedOps ->
+            not (samePrefix requestedOps storedOps)
+        | requestedOps, storedOps -> requestedOps <> storedOps
+
+    let private sideEffects
+        (beforeId: EventId)
+        (requested: Ev list)
+        (logged: Ev list)
+        =
+        let requestedIds =
+            requested
+            |> List.map (fun event -> event.submissionId)
+            |> Set.ofList
+        logged
+        |> List.filter (fun event ->
+            event.id > beforeId
+            && not (Set.contains event.submissionId requestedIds)
+            && match event.body with
+               | EventBody.NodeUnpersisted _ -> false
+               | _ -> true)
+        |> List.rev
+
+    let private ackEvents
+        (requested: Ev list)
+        (logged: Ev list)
+        (beforeId: EventId)
+        =
+        let confirmed = confirmedInOrder requested logged
+        let amended =
+            confirmed.Length = requested.Length
+            && List.exists2 opsDiffer requested confirmed
+        confirmed @ sideEffects beforeId requested logged, amended
+
+    let private changeFromAssigned
         buildEpochSec
         pageBuildEpochSec
-        (accepted: CoreChangesAccepted)
+        (isReady: bool)
+        (assignedId: EventId)
         (answer: SnapshotAnswer)
-        (laterEvents: Ev list)
+        (events: Ev list)
+        (externalChanges: bool)
+        (message: string option)
         =
         changeSuccessResult
-            { eventId = answer.state.eventId
+            { eventId = assignedId
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
               apiVersion = ApiVersion.current
-              isReady = accepted.isReady
-              externalChanges =
-                accepted.externalChanges
-                || not laterEvents.IsEmpty
-              events = accepted.events @ laterEvents
-              message = accepted.message
+              isReady = isReady
+              externalChanges = externalChanges
+              events = events
+              message = message
               bootstrapHash = None
               nodes = answer.nodes
               childMap = answer.childMap }
+
+    let private foldedPersistMessage
+        (handle: CoreChangesDoor)
+        (events: Ev list)
+        =
+        async {
+            let! notes =
+                events
+                |> List.map (fun event ->
+                    CoreDoor.persistMessage handle event.id)
+                |> Async.Parallel
+            return
+                notes
+                |> Array.fold
+                    (fun prior note ->
+                        match note with
+                        | Ok text -> Option.orElse prior text
+                        | Error _ -> prior)
+                    None
+        }
 
     // Known design weakness: see the postEvents Note in
     // plan/core-refinement/arch.md (inferred from Ops, not explicit commands).
@@ -268,6 +338,37 @@ module Api =
                    | id, Unparsed, Current -> Some(Notice.NodeParsed id)
                    | _ -> None))
 
+    let private responseForAssigned
+        (handle: CoreChangesDoor)
+        (buildEpochSec: int)
+        (pageBuildEpochSec: int)
+        (request: ChangeRequest)
+        (beforeId: EventId)
+        (assignedId: EventId)
+        : Async<IResult> =
+        async {
+            request.events
+            |> List.collect inferredNodeEvents
+            |> List.iter (CoreMailboxApi.postNotice handle.host)
+            match! wantAnswerFromHandle handle request.want with
+            | Error err -> return agentErrorResult err
+            | Ok answer ->
+                let! logged = CoreDoor.getEventsSince handle EventId.zero
+                let events, amended =
+                    ackEvents request.events logged beforeId
+                let! message = foldedPersistMessage handle events
+                return
+                    changeFromAssigned
+                        buildEpochSec
+                        pageBuildEpochSec
+                        (CoreDoor.isReady handle)
+                        assignedId
+                        answer
+                        events
+                        amended
+                        message
+        }
+
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -282,27 +383,18 @@ module Api =
         | Error err ->
             return agentErrorResult $"Invalid JSON: {err}"
         | Ok request ->
+            let! beforeId = CoreDoor.getEventId handle
             match! CoreDoor.postEvents handle request.events with
-            | Ok accepted ->
-                request.events
-                |> List.collect inferredNodeEvents
-                |> List.iter (CoreMailboxApi.postNotice handle.host)
-                match! wantAnswerFromHandle handle request.want with
-                | Error err -> return agentErrorResult err
-                | Ok answer ->
-                    let! laterEvents =
-                        eventsThroughSnapshot
-                            handle
-                            accepted.eventId
-                            answer.state.eventId
-                    return
-                        acceptedChangeResult
-                            buildEpochSec
-                            pageBuildEpochSec
-                            accepted
-                            answer
-                            laterEvents
             | Error err -> return agentErrorResult err
+            | Ok assignedId ->
+                return!
+                    responseForAssigned
+                        handle
+                        buildEpochSec
+                        pageBuildEpochSec
+                        request
+                        beforeId
+                        assignedId
     }
 
     let private nodesForRequest (graph: Graph) (graphIds: NodeId list) =

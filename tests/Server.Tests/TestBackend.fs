@@ -438,6 +438,10 @@ let wireEvent submissionId ops : Ev =
 let applyChange (event: Ev) (state: State) =
     ChangeValidation.applyOps (eventOps event) state
 
+let onlySubmission (submissionId: Guid) (events: Ev list) =
+    events
+    |> List.filter (fun event -> event.submissionId = submissionId)
+
 let addRootChildEvent text : NodeId * Ev =
     let childId = NodeId.New()
     childId,

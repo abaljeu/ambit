@@ -15,11 +15,9 @@ let private requireOk label result =
 [<Fact>]
 let ``postChunks mints Ev with EventId.zero and commandName`` () =
     let posts = ResizeArray<Ev>()
-    let accepted =
-        CoreChanges.accepted (EventIdFixtures.storedId 1) true [] false None
     let post event =
         posts.Add event
-        async.Return(Ok accepted)
+        async.Return(Ok (EventId.fromJson 1))
     GraphOnlyChangePost.postChunks
         post
         "Parse"

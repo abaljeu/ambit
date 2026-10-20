@@ -289,19 +289,22 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
         match first with
         | Ok ack -> ack
         | Error err -> failwith err
+    let! history =
+        CoreMailboxApi.eventHistory agent |> Async.StartAsTask
     Assert.Equal(
         accepted.submissionId,
-        Assert.Single(firstAck.events).submissionId)
+        Assert.Single(onlySubmission accepted.submissionId history.events)
+            .submissionId)
+    Assert.Equal(
+        firstAck,
+        Assert.Single(onlySubmission accepted.submissionId history.events).id)
     let! xminAfterFirst =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
         CoreDoor.postEvents core ((encodeBatch [ accepted ])) |> Async.StartAsTask
     match duplicate with
-    | Ok ack ->
-        Assert.Equal<Ev list>(
-            firstAck.events,
-            ack.events)
+    | Ok ack -> Assert.Equal(firstAck, ack)
     | Error err -> failwith err
 
     let noOp =
@@ -320,7 +323,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let! eventCount = scalar<int64> connStr "SELECT count(*) FROM events"
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    Assert.Equal(1L, eventCount)
+    Assert.Equal(2L, eventCount)
     Assert.Equal(EventId.toJson (EventIdFixtures.storedId 1), revision)
 }
 

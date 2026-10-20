@@ -22,8 +22,7 @@ Parse and persist move text between disk and the graph.
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.
 [x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
-[o] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
-[ ] `ParseThread.postParseOps` posts ops as a placed `Order.Change` of origin `Parse` through `Mailbox.PlaceOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
+`ParseThread.postParseOps` posts ops as a placed `Order.Change` of origin `Parse` through `Mailbox.PlaceOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [o] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
 [ ] `Order.Load` of a Workspace Node, a Directory Node, or a File Node is logged, then that node is pushed onto the Parse stack. A node inside a File Node uses that File Node. Effects follow as `Notice.NodeParsing`, Changes to that node and descendants, then `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 2 Load is logged.
 [x] Desktop-mapped Load stores the mapped bytes, then posts mailbox Load for that Workspace Node, Directory Node, or File Node. That Load pushes the subject onto the Parse stack.

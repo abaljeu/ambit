@@ -89,6 +89,8 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
         let logged =
             CoreMailboxApi.getEventsSince host (EventId.zero)
             |> Async.RunSynchronously
-        Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
+        Assert.Equal(
+            event.submissionId,
+            Assert.Single(onlySubmission event.submissionId logged).submissionId)
     finally
         CoreMailboxApi.dispose host

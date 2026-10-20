@@ -3,8 +3,13 @@ namespace Gambol.Shared
 type PeerActorName = PeerActorName of string
 
 [<RequireQualifiedAccess>]
+type ChangeOrigin =
+    | Edit
+    | Parse
+
+[<RequireQualifiedAccess>]
 type Order =
-    | Change of ops: Op list
+    | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId
     | Redo of target: EventId
     | StartActor of ActorStart
@@ -25,6 +30,7 @@ type Notice =
     | MarkUnparsed of nodeId: NodeId
     | NodeUploading of nodeId: NodeId
     | NodeReceived of nodeId: NodeId
+    | NodeUnpersisted of nodeId: NodeId
 
 type PlacedOrder = {
     orderId: System.Guid
@@ -63,17 +69,18 @@ module MailboxLog =
 
     let private orderOfBody (body: HistoryBody) =
         match body with
-        | HistoryBody.Change ops -> Ok (Order.Change ops)
+        | HistoryBody.Change _ -> Error "origin is not logged"
         | HistoryBody.Undo (target, _) -> Ok (Order.Undo target)
         | HistoryBody.Redo (target, _) -> Ok (Order.Redo target)
         | HistoryBody.ActorStart start ->
             Ok (Order.StartActor start)
         | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
-        | HistoryBody.ActorStop _ -> Error "unsupported"
+        | HistoryBody.ActorStop _
+        | HistoryBody.NodeUnpersisted _ -> Error "unsupported"
 
     let private historyBody (order: Order) =
         match order with
-        | Order.Change ops -> Ok (HistoryBody.Change ops)
+        | Order.Change(ops, _) -> Ok (HistoryBody.Change ops)
         | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)

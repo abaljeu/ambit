@@ -581,7 +581,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         let accepted = requireOk "graph-only admitted" result
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.True(EventId.isAccepted accepted)
     })
 
 [<Fact>]
@@ -653,13 +653,16 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
                 host
                 EventId.zero
             |> Async.StartAsTask
-        Assert.Equal(1, tail.events.Length)
+        Assert.Equal(2, tail.events.Length)
         Assert.Contains(stored, tail.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         let! afterStored =
             CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
-        Assert.Empty(afterStored.events)
+        let notice = Assert.Single(afterStored.events)
+        match notice.body with
+        | EventBody.NodeUnpersisted _ -> ()
+        | _ -> Assert.Fail("NodeUnpersisted follows the Change")
     })
 
 [<Fact>]

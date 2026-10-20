@@ -52,6 +52,9 @@ module CoreMailboxApi =
         : Async<Gambol.Shared.EventLog> =
         eventsSince host EventId.zero
 
+    let persistMessage (host: MailboxHost) (id: EventId) =
+        ask host (fun channel -> Query.PersistMessage(id, channel))
+
     let getEventId (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
             let! result = ask host Query.LastEventId
@@ -74,99 +77,143 @@ module CoreMailboxApi =
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
-    let postEvent
-        (host: MailboxHost)
-        (caller: Caller)
-        (event: Ev)
-        : Async<Result<Ev, string>> =
-        async {
-            let! result = postEventAccepted host caller event
-            return result |> Result.map fst
-        }
-
     let private isClientActorStop (event: Ev) =
         match event.body with
         | EventBody.ActorStop _ -> true
         | _ -> false
 
-    let private replyOf host (stored: Ev, accepted) =
-        match accepted with
-        | Some value -> value
-        | None ->
-            CoreChanges.accepted
-                stored.id
-                (MailboxHost.isReady host ())
-                [ stored ]
-                false
-                None
+    let private commandFrom (name: string) =
+        if name = "" then None else Some name
 
-    let private consEvents reversed events =
-        List.fold (fun acc event -> event :: acc) reversed events
+    let private placeChange
+        (host: MailboxHost)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (commandName: string option)
+        (ops: Op list)
+        (origin: ChangeOrigin)
+        : Async<Result<EventId, string>> =
+        MailboxHost.beginMailbox host (fun channel ->
+            Mailbox.PlaceOrder(
+                caller,
+                orderId,
+                commandName,
+                Order.Change(ops, origin),
+                channel))
 
-    let private mergeReplies host results =
-        let step
-            (state: Result<CoreChangesAccepted, string>, reversed)
-            result
-            =
+    let private idOfPosted (stored: Ev, _) = stored.id
+
+    let private placeOne
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Ev)
+        : Async<Result<EventId, string>> =
+        if event.id <> EventId.zero then
+            async { return Error "posted EventId must be zero" }
+        else
+            match event.body with
+            | EventBody.Change ops ->
+                placeChange
+                    host
+                    caller
+                    event.submissionId
+                    (commandFrom event.commandName)
+                    ops
+                    ChangeOrigin.Edit
+            | EventBody.Undo _
+            | EventBody.Redo _
+            | EventBody.ActorStart _
+            | EventBody.Cancel _ ->
+                async {
+                    let! result =
+                        MailboxHost.beginMailbox host (fun channel ->
+                            Mailbox.CoreMsg(PostEvent(caller, event, channel)))
+                    return result |> Result.map idOfPosted
+                }
+            | EventBody.ActorStop _ ->
+                async { return Error "ActorStop is not a client event type" }
+            | EventBody.NodeUnpersisted _ ->
+                async { return Error "NodeUnpersisted is a Notice" }
+
+    let private lastId
+        (results: Result<EventId, string> list)
+        : Result<EventId, string> =
+        let step state result =
             match state, result with
-            | Error err, _ -> Error err, reversed
-            | _, Error err -> Error err, reversed
-            | Ok prior, Ok pair ->
-                let next = replyOf host pair
-                let merged =
-                    CoreChanges.accepted
-                        next.eventId
-                        next.isReady
-                        []
-                        (prior.externalChanges || next.externalChanges)
-                        (next.message |> Option.orElse prior.message)
-                Ok merged, consEvents reversed next.events
+            | Error err, _ -> Error err
+            | _, Error err -> Error err
+            | _, Ok id -> Ok id
         match results with
         | [] -> Error "events must not be empty"
-        | Error err :: _ -> Error err
-        | Ok pair :: rest ->
-            let first = replyOf host pair
-            match List.fold step (Ok first, consEvents [] first.events) rest with
-            | Error err, _ -> Error err
-            | Ok last, reversed ->
-                Ok(
-                    CoreChanges.accepted
-                        last.eventId
-                        (MailboxHost.isReady host ())
-                        (List.rev reversed)
-                        last.externalChanges
-                        last.message)
+        | head :: rest -> List.fold step head rest
 
-    /// Push the list back to back, then merge the replies.
+    let private storedById (host: MailboxHost) (id: EventId) =
+        async {
+            let! events = getEventsSince host EventId.zero
+            match events |> List.tryFind (fun event -> event.id = id) with
+            | Some stored -> return Ok stored
+            | None -> return Error "stored event missing"
+        }
+
+    let postEvent
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Ev)
+        : Async<Result<Ev, string>> =
+        match event.body with
+        | EventBody.Change _ ->
+            async {
+                let! placed = placeOne host caller event
+                match placed with
+                | Error err -> return Error err
+                | Ok id -> return! storedById host id
+            }
+        | _ ->
+            async {
+                let! result = postEventAccepted host caller event
+                return result |> Result.map fst
+            }
+
+    /// Push the list back to back, then take the last assigned id.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
         (events: Ev list)
-        : Async<Result<CoreChangesAccepted, string>> =
+        : Async<Result<EventId, string>> =
         if List.isEmpty events then
             async { return Error "events must not be empty" }
         elif List.exists isClientActorStop events then
             async { return Error "ActorStop is not a client event type" }
         else
-            let builds =
+            let waiting =
                 events
-                |> List.map (fun (event: Ev) ->
-                    fun channel -> PostEvent(caller, event, channel))
-            let waiting = MailboxHost.postForReplies host builds
+                |> List.map (placeOne host caller)
+                |> MailboxHost.postForReplyList host
             async {
                 let! results = waiting
-                return mergeReplies host results
+                return lastId results
             }
 
-    /// Graph-only Ev: same flow as postEvents, skips file persist only.
+    /// Parse Change. Skips the document-file write.
     let postGraphOnly
         (host: MailboxHost)
         (caller: Caller)
         (event: Ev)
-        : Async<Result<CoreChangesAccepted, string>> =
-        reply host (fun channel ->
-            PostGraphOnly(caller, event, channel))
+        : Async<Result<EventId, string>> =
+        if event.id <> EventId.zero then
+            async { return Error "posted EventId must be zero" }
+        else
+            match event.body with
+            | EventBody.Change ops ->
+                placeChange
+                    host
+                    caller
+                    event.submissionId
+                    (commandFrom event.commandName)
+                    ops
+                    ChangeOrigin.Parse
+            | _ -> async { return Error "Parse change requires ops" }
 
     let startActor
         (host: MailboxHost)

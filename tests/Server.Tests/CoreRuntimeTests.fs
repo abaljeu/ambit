@@ -75,9 +75,13 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
         CoreDoor.postEvents (browserHandle runtime "alice" "secret") [ event ]
         |> Async.StartAsTask
     let accepted = requireOk "browser post" result
-    Assert.Equal<Guid list>(
-        [ event.submissionId ],
-        accepted.events |> List.map (_.submissionId))
+    Assert.True(EventId.isAccepted accepted)
+    let! history =
+        CoreMailboxApi.eventHistory runtime.host |> Async.StartAsTask
+    Assert.Equal(
+        event.submissionId,
+        Assert.Single(onlySubmission event.submissionId history.events)
+            .submissionId)
 }
 
 [<Fact>]

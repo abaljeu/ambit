@@ -533,6 +533,8 @@ Graph {
 14. [o] **Redo body.** `body.kind` `"redo"` has `target` (integer event id) and `ops`.
 15. [ ] **Redo body.** `Order.Redo` has `target` (integer event id). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
+The logged Unpersisted notice is `body.kind` `"nodeUnpersisted"` with `nodeId`. Poll `c` includes that event. `CoreMailboxLoad.applyNotice` sets that node `PersistState.Unpersisted`.
+
 #### 2.12.6 Op
 
 1. [x] **NewNode.** `NewNode` has `nodeId` and `text`.

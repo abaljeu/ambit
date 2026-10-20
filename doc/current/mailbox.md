@@ -53,7 +53,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
 [ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[o] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`, each of `nodeId: NodeId`.
+[o] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, and `NodeUnpersisted`, each of `nodeId: NodeId`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
 One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. There is no second queue.
 [o] `NodeParsed`: the renamed `ParseFinished`. The Notice handler sets that node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this case.
@@ -65,15 +65,14 @@ One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The no
 [ ] `Notice.NodePersisted` of `nodeId` and `version`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 [o] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
 [ ] The persist thread adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when a file write finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
-[o] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `Notice` stays off that path.
-[ ] Actor post path: `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `CoreEventDispatch` reads that `origin` and posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
+Actor post path: `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `CoreEventDispatch` reads that `origin` and posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [ ] Parsed axis and `PersistState`: internal. Outsiders may see them. The core loop writes them. Writer cases: [Op](op.md).
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
 The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The mailbox applies that posted list whole.
 
-[o] `postEvents` pushes that list onto the queue as one `PostEvent` after another.
+[o] `postEvents` places each `EventBody.Change` as `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `Undo`, `Redo`, `ActorStart`, and `Cancel` still post `CoreMsg.PostEvent`.
 [ ] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
 On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message.

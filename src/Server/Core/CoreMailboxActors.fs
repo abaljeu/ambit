@@ -246,6 +246,8 @@ module internal CoreMailboxActors =
             postActorStart context caller event request reply
         | EventBody.Cancel focusId ->
             postCancel context caller event focusId reply
+        | EventBody.Change _ ->
+            reply.Reply(Error "Change is PlaceOrder")
         | _ ->
             match
                 CoreEventDispatch.postEvent

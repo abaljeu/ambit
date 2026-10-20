@@ -127,11 +127,13 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
                 match result with
                 | Ok value -> value
                 | Error err -> failwith err
-            let latest = EventId.value accepted.eventId
+            let latest = EventId.value accepted
             let before = EventId.value beforeId
             Assert.True(latest > before, "eventId should advance")
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let started =
-                accepted.events
+                history.events
                 |> List.exists (fun ev ->
                     match ev.body with
                     | EventBody.ActorStart started ->

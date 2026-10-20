@@ -28,6 +28,9 @@ module CoreDoor =
     let getEventsSince door after =
         CoreMailboxApi.getEventsSince door.host after
 
+    let persistMessage door id =
+        CoreMailboxApi.persistMessage door.host id
+
     let isReady door =
         CoreMailboxApi.isReady door.host
 
