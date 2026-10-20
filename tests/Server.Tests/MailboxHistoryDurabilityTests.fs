@@ -105,6 +105,7 @@ let private bodyKind (event: Ev) =
     | EventBody.Cancel _ -> "cancel"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
+    | EventBody.Notice _ -> "notice"
 
 let private assertBodiesMatch (history: EventLog) (since: Ev list) =
     Assert.Equal<string list>(

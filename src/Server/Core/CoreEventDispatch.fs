@@ -116,6 +116,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Change _
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
+        | Gambol.Shared.EventBody.Notice _ ->
+            Error "Notice is not a client event type"
         | Gambol.Shared.EventBody.ActorStart _
         | Gambol.Shared.EventBody.ActorStop _
         | Gambol.Shared.EventBody.Cancel _ ->
