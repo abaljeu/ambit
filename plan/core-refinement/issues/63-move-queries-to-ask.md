@@ -1,6 +1,6 @@
 # 63 — Move queries to Ask
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Actual:** 1h15m
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
@@ -24,10 +24,10 @@ Move the five read cases to `Ask`. Each `Query` case keeps its own reply. `GetEv
 
 ### Acceptance Criteria
 
-1. [ ] **Cases** — `CoreMsg` has none of the five read cases. `CoreMailboxApi.getState` posts `Query.State`. `getEventId` posts `Query.LastEventId`.
-2. [ ] **One events query** — `GetEventsSince`, `GetEventHistory`, and `EventsSince` are gone. `Query.EventsSince` of `EventId.zero` returns the full log. `Query.EventsSince` of a later id returns the tail after that id. The reply type is `Result<EventLog, string>`.
-3. [ ] **Waits** — Post an order, then post `Ask` of `Query.LastEventId`. The `Ask` reply is the id assigned to that order, so the order finished first.
-4. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Cases** — `CoreMsg` has none of the five read cases. `CoreMailboxApi.getState` posts `Query.State`. `getEventId` posts `Query.LastEventId`.
+2. [x] **One events query** — `GetEventsSince`, `GetEventHistory`, and `EventsSince` are gone. `Query.EventsSince` of `EventId.zero` returns the full log. `Query.EventsSince` of a later id returns the tail after that id. The reply type is `Result<EventLog, string>`.
+3. [x] **Waits** — Post an order, then post `Ask` of `Query.LastEventId`. The `Ask` reply is the id assigned to that order, so the order finished first.
+4. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
@@ -37,7 +37,7 @@ Move the five read cases to `Ask`. Each `Query` case keeps its own reply. `GetEv
 
 ## Amendments
 
-1. **Status** — Status stays `defined`. Acceptance stays unchecked.
+1. **Status** — Status is `done`. Acceptance is checked.
 2. **Seed error** — `Query.EventsSince` replies `Error` when the EventLog seed fails. `CoreMailboxApi.getEventsSince` unwraps that result, so the door throws. The query does not reply an empty log.
 3. **Docs** — Achieved read claims in [Mailbox](../../../doc/current/mailbox.md) and [Persistence model](../../../doc/current/persistence-model.md) are plain statements. The old `[o]` read lines are gone. Orders and Session stay `[o]` or `[ ]`.
 4. **Names** — Ask failure labels are `State`, `LastEventId`, and `EventsSince`. `eventHistory` calls `eventsSince` of `EventId.zero`.

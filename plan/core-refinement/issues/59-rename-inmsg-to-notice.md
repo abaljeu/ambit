@@ -1,6 +1,6 @@
 # 59 — Rename InMsg to Notice
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture
@@ -22,15 +22,15 @@ Rename `InMsg` to `Notice` in place. The cases keep their names and payloads. `Q
 
 ### Acceptance Criteria
 
-1. [ ] **Names** — The server has `Notice`, `CoreQueue`, and `postNotice`. It has no `InMsg`, `QueueSum`, or `addInMsg`. `Notice` has the five cases in item 1. `SnapshotDone` is `nodeId`.
-2. [ ] **Same effects** — `applyNotice` on `Notice.NodeParsed` sets Parsed when `noServerFile` is clear. `applyNotice` on `Notice.SnapshotDone` calls `noteDiffDone` and sets that node `PersistState.Persisted`.
-3. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Names** — The server has `Notice`, `CoreQueue`, and `postNotice`. It has no `InMsg`, `QueueSum`, or `addInMsg`. `Notice` has the five cases in item 1. `SnapshotDone` is `nodeId`.
+2. [x] **Same effects** — `applyNotice` on `Notice.NodeParsed` sets Parsed when `noServerFile` is clear. `applyNotice` on `Notice.SnapshotDone` calls `noteDiffDone` and sets that node `PersistState.Persisted`.
+3. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
 
 ## See also
 

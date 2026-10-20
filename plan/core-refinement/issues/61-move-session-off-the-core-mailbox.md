@@ -1,6 +1,6 @@
 # 61 — Move Session off the core mailbox
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** 63 — Move queries to Ask; 62 — Admit at the entry
 **Trackers:** architecture
@@ -30,11 +30,11 @@ Move login, logout, and admit onto a `Session` component outside the credential 
 
 ### Acceptance Criteria
 
-1. [ ] **Cases** — `CoreMsg` has no `Login`, `Logout`, or `AdmitCaller`. A login test reaches `Session` and does not post those cases on `CoreQueue`.
-2. [ ] **Barrier** — Post an order, then log out. `Session` refuses a new route for that caller before `CoreQueue.DropAuthority` runs. The order posted before that case is applied before `CoreMailboxLoad` removes the authority.
-3. [ ] **Admission race** — Pause a route after it passes admission and before it queues its order, then log out. The logout reply has returned and `DropAuthority` is queued. A later admission check is refused. An order from that open route that queues after `DropAuthority` is rejected at Receive. `PlaceOrder` replies `Error` with a reason. Nothing is applied or logged. Authority removal happens when the core processes `DropAuthority`.
-4. [ ] **Login** — `RouteAuthentication.loginThenSetCookie` sets the cookie only after Session login returns `Ok ()`. That path does not post an `Ask`.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Cases** — `CoreMsg` has no `Login`, `Logout`, or `AdmitCaller`. A login test reaches `Session` and does not post those cases on `CoreQueue`.
+2. [x] **Barrier** — Post an order, then log out. `Session` refuses a new route for that caller before `CoreQueue.DropAuthority` runs. The order posted before that case is applied before `CoreMailboxLoad` removes the authority.
+3. [x] **Admission race** — Pause a route after it passes admission and before it queues its order, then log out. The logout reply has returned and `DropAuthority` is queued. A later admission check is refused. An order from that open route that queues after `DropAuthority` is rejected at Receive. `PlaceOrder` replies `Error` with a reason. Nothing is applied or logged. Authority removal happens when the core processes `DropAuthority`.
+4. [x] **Login** — `RouteAuthentication.loginThenSetCookie` sets the cookie only after Session login returns `Ok ()`. That path does not post an `Ask`.
+5. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
@@ -44,7 +44,7 @@ Move login, logout, and admit onto a `Session` component outside the credential 
 
 ## Amendments
 
-1. **Status** — Status stays `defined`. Acceptance stays unchecked.
+1. **Status** — Status is `done`. Acceptance is checked.
 2. **Session API** — `Session.login` registers authority and opens admission. `Session.admissionIsOpen` checks a caller. `Session.beginAdmittedRoute` and `Session.finishAdmittedRoute` hold one route from the check until that route queues or abandons. `Session.stopAdmitting` closes admission and leaves the authority in place. `Session.waitForAdmittedRoutes` completes when those routes finish. `Session.removeAuthority` drops only the generation that logout closed.
 3. **Logout order** — `GET /ambit/logout` in [RouteRegistration.fs](../../../src/Server/RouteRegistration.fs) calls `CoreMailboxApi.logout`. That door stops admitting, queues `CoreQueue.DropAuthority`, and returns. `CoreMailboxLoad` removes that generation when it processes the case. Login registers the authority on Session. Admit checks Session.
 4. **Scoped routes** — Parse, save, reconciliation, and the other browser order routes hold one admission through the Core handoff.
