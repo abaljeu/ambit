@@ -67,12 +67,12 @@ let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping re
     })
 
 [<Fact>]
-let ``CoreMailboxApi.startActor with inactive secret is refused`` () =
+let ``CoreMailboxApi.startActor from an inactive Actor is refused`` () =
     withHost (fun host _ -> task {
         let! result =
             CoreMailboxApi.startActor
                 host
-                { authority = testAuthority
+                { authority = Authority "Actor"
                   name = testCaller.name
                   secret = Credential "inactive" }
                 sampleRequest
@@ -585,14 +585,12 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
     })
 
 [<Fact>]
-let ``CoreMailboxApi.logout revokes entry permission without changing core authority`` () =
+let ``CoreMailboxApi.logout rejects a later order once authority is dropped`` () =
     withHost (fun host _ -> task {
         let! before =
             CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
         Assert.True(before)
-        let! loggedOut =
-            CoreMailboxApi.logout host testCaller |> Async.StartAsTask
-        requireOk "logout" loggedOut
+        do! CoreMailboxApi.logout host testCaller |> Async.StartAsTask
         let! after =
             CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
         Assert.False(after)
@@ -606,7 +604,20 @@ let ``CoreMailboxApi.logout revokes entry permission without changing core autho
                     commandName = ""
                     body = EventBody.Change [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
-        requireOk "direct post after logout" posted |> ignore
+        Assert.Equal(Error "authority dropped", posted)
+        Session.login (MailboxHost.session host) testCaller
+        |> requireOk "relogin"
+        let! again =
+            CoreMailboxApi.postEvents
+                host
+                testCaller
+                [ { id = EventId.zero
+                    submissionId = Guid.NewGuid()
+                    authority = Authority "Browser"
+                    commandName = ""
+                    body = EventBody.Change [ Op.NewNode(NodeId.New(), "after-login") ] } ]
+            |> Async.StartAsTask
+        requireOk "post after login" again |> ignore
     })
 
 [<Fact>]

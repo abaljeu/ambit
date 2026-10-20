@@ -24,7 +24,7 @@ let private mailboxKind (message: Mailbox) =
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let core =
         Mailbox.CoreMsg (
-            AdmitCaller (testCaller, Unchecked.defaultof<_>))
+            LoadNode(testCaller, Graph.rootId, Unchecked.defaultof<_>))
     let place =
         Mailbox.PlaceOrder (
             testCaller,
@@ -41,6 +41,8 @@ let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     | CoreQueue.Public (Mailbox.CoreMsg _) -> ()
     | CoreQueue.Public _ -> Assert.Fail("Public carries Mailbox")
     | CoreQueue.Notice _ -> Assert.Fail("Public is not Notice")
+    | CoreQueue.DropAuthority _ ->
+        Assert.Fail("Public is not DropAuthority")
     let serverPeer =
         typeof<ActorName>.Assembly.GetType("Gambol.Server.PeerActorName")
     Assert.True(isNull serverPeer)

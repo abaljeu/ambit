@@ -2,7 +2,7 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
-/// Mailbox-owned admitted Caller set. Not a second inbox.
+/// Caller set Session copies when the host starts.
 type CoreCredentials = private { callers: Set<Caller> }
 
 [<RequireQualifiedAccess>]
@@ -21,6 +21,8 @@ module CoreCredentials =
 
     let contains (caller: Caller) (creds: CoreCredentials) =
         Set.contains caller creds.callers
+
+    let internal callers (creds: CoreCredentials) = creds.callers
 
 type CoreAdmissionError =
     | Unauthorized

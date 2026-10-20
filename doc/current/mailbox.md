@@ -13,13 +13,14 @@ The mailbox is the Core loop and the public post path.
 ## Sources
 
 [CoreMsg](../../src/Server/Core/CoreMsg.fs) - the contract
+[Session](../../src/Server/Core/Session.fs) - browser authority and admission
 [Mailbox log](../../src/Shared/MailboxLog.fs) - `Order`, `Notice`, and the mapping from today's `Ev`
 [Core mailbox](../../src/Server/Core/CoreMailbox.fs) - the queue
 [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs).
 
 ## Data
 
-The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice`.
+The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice | DropAuthority`.
 
 ## Job
 [x] The callable door over the mailbox queue.
@@ -29,15 +30,17 @@ The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`
 [ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId`. `Order.StartActor` and `Notice.ActorStop` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
 
 ## Interface
-A browser route checks the logged-in caller before the core order door. Actor start checks the initiating caller and admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
+A browser route takes a Session admission for the caller before the core order door and finishes that admission after the route queues its order or abandons the post. Actor start admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
 
 [o] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
 [ ] `Mailbox` is the public mailbox and is server-only. A client or an Actor places an `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 10 Order, not Command.
-[o] `CoreMailbox` on a `MailboxHost`. Each public order and Session call builds a `CoreMsg`.
+[o] `CoreMailbox` on a `MailboxHost`. Each public order builds a `CoreMsg`.
 
 Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph and lock-present Focus ids. `Query.LastEventId` replies with the current event id. `Query.EventsSince` replies with the mailbox EventLog after the requested id; event id 0 returns the full log.
 
-[ ] Each public order posts `Mailbox.PlaceOrder`. `Session` (`Login`, `Logout`, `Admit`) is outside the core mailbox. Logout stops admission, awaits an `Ask` so earlier `PlaceOrder`s drain, then removes the authority. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
+`MailboxHost` holds `Session` beside the core mailbox. Login registers the caller's authority and opens admission. Admit checks that the caller may start a route. Logout stops admitting that caller and queues `CoreQueue.DropAuthority` behind orders already on the queue. The route returns at that post. The core removes the authority when it processes `DropAuthority`. At Receive, [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) rejects an order whose current generation `DropAuthority` closed. `PlaceOrder` replies `Error` with a reason. Nothing is applied or logged. A caller with an open generation still runs. Login returns `Ok`. A login while admission is closed opens a new generation, and the queued drop closes only the generation logout queued. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
+
+[ ] Each public order posts `Mailbox.PlaceOrder`.
 [o] `CoreMailbox.coreChanges` returns a `CoreChanges` record: `getState`, `getEventId`, `getEventsSince`, `postEvents`, `postGraphOnly`, `actorStop`, `asCaller`.
 
 `CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
