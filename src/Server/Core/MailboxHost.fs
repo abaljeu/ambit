@@ -30,6 +30,9 @@ module MailboxHost =
     let internal loggedNotices (host: MailboxHost) =
         List.rev host.noticeLog.Value
 
+    let internal coreMsgItem (msg: CoreMsg) : CoreQueue =
+        CoreQueue.Public (Mailbox.CoreMsg msg)
+
     let internal postItem (host: MailboxHost) (item: CoreQueue) =
         lock host.gate (fun () -> host.mailbox.Post item)
 
@@ -46,7 +49,7 @@ module MailboxHost =
                         System.Threading.Tasks.TaskCompletionSource<_>()
                     let post =
                         host.mailbox.PostAndAsyncReply(fun channel ->
-                            CoreQueue.Public(build channel))
+                            coreMsgItem (build channel))
                     Async.StartWithContinuations(
                         post,
                         (fun reply -> source.TrySetResult reply |> ignore),
@@ -69,7 +72,7 @@ module MailboxHost =
             lock host.gate (fun () ->
                 Async.StartWithContinuations(
                     host.mailbox.PostAndAsyncReply(fun channel ->
-                        CoreQueue.Public(build channel)),
+                        coreMsgItem (build channel)),
                     cont,
                     econt,
                     ccont)))

@@ -13,13 +13,13 @@ The mailbox is the Core loop and the public post path.
 ## Sources
 
 [CoreMsg](../../src/Server/Core/CoreMsg.fs) - the contract
+[Mailbox log](../../src/Shared/MailboxLog.fs) - `Order`, `Notice`, and the mapping from today's `Ev`
 [Core mailbox](../../src/Server/Core/CoreMailbox.fs) - the queue
 [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs).
 
 ## Data
 
-[o] The mailbox queue is one `MailboxProcessor`. Its element is a private sum of `CoreMsg` and `Notice`. That sum has no public name.
-[ ] The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
+The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice`.
 
 ## Job
 [x] The callable door over the mailbox queue.
@@ -45,10 +45,9 @@ The mailbox is the Core loop and the public post path.
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
 [ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[o] `Notice`: internal message type on module Core loop. Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`.
+[o] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`, each of `nodeId: NodeId`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
-[o] One queue: the mailbox queue. A private function on [Core mailbox](../../src/Server/Core/CoreMailbox.fs) adds `Notice`. A public function adds `CoreMsg`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands a `CoreMsg` to the `CoreMsg` handler and a `Notice` to the `Notice` handler. There is no second queue.
-[ ] One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
+One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. There is no second queue.
 [o] `NodeParsed`: the renamed `ParseFinished`. The Notice handler sets that node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this case.
 [ ] `Notice.NodeParsed`: the Notice handler sets that node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this `Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [o] `NodeUploading` and `NodeReceived`: posted beside `Op.SetDocumentState`. The post does not set state. [44 — Apply document state from Node events](../../plan/core-refinement/issues/44-apply-document-state-from-file-events.md) owns those handlers.

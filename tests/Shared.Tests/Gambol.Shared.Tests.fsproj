@@ -26,6 +26,7 @@
     <Compile Include="GraphFocusTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
+    <Compile Include="MailboxLogTests.fs" />
     <Compile Include="ClientHistoryTests.fs" />
     <Compile Include="EventTests.fs" />
     <Compile Include="OpListApplyTests.fs" />
