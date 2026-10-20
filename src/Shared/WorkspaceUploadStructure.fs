@@ -141,16 +141,16 @@ module WorkspaceUploadStructure =
         | Unparsed -> []
         | Current ->
             [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | NoServerFile ->
-            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
+        | PullingFile ->
+            [ Op.SetDocumentState(nodeId, PullingFile, Unparsed) ]
 
-    let private markNoServerFile (graph: Graph) nodeId =
+    let private markPullingFile (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
-        | NoServerFile -> []
+        | PullingFile -> []
         | Current ->
-            [ Op.SetDocumentState(nodeId, Current, NoServerFile) ]
+            [ Op.SetDocumentState(nodeId, Current, PullingFile) ]
         | Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, NoServerFile) ]
+            [ Op.SetDocumentState(nodeId, Unparsed, PullingFile) ]
 
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
@@ -205,7 +205,7 @@ module WorkspaceUploadStructure =
 
         foldStateOps markUnparsed graph directoryIds
         |> Result.bind (fun (withDirs, directoryOps) ->
-            foldStateOps markNoServerFile withDirs fileIds
+            foldStateOps markPullingFile withDirs fileIds
             |> Result.map (fun (withFiles, fileOps) ->
                 withFiles, directoryOps, fileOps))
         |> Result.bind (fun (withStubs, directoryOps, fileOps) ->
@@ -315,8 +315,8 @@ module WorkspaceUploadStructure =
             tryResolveFileNode graph workspaceLabel relative
             |> Option.bind (fun fileId ->
                 match Node.documentStateEnum graph.nodes.[fileId] with
-                | NoServerFile ->
-                    Some(Op.SetDocumentState(fileId, NoServerFile, Unparsed))
+                | PullingFile ->
+                    Some(Op.SetDocumentState(fileId, PullingFile, Unparsed))
                 | Current
                 | Unparsed -> None))
 
@@ -327,7 +327,7 @@ module WorkspaceUploadStructure =
         function
         | Unparsed -> true
         | Current
-        | NoServerFile -> false
+        | PullingFile -> false
 
     /// Persist stamp `SetUpdateTime` node ids that resolve to a File download
     /// scope, as AutoDownloadTarget values for auto-download coalescing.

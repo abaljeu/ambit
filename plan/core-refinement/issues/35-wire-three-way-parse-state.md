@@ -15,7 +15,7 @@ The node wire sends the three-way parse state once, plus persist state. The deri
 
 ### Wire
 
-1. [ ] **One parse value** — [Serialization](src/Shared/Serialization.fs) `encodeNode` (lines 142-148) and `nodeFromFields` (lines 169-177) send `parseState` as `parsed`, `unparsed`, or PullingFile. The JSON word is `noServerFile` [o] obsolescent until [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md). They send `persistState` as `persisted` or `unpersisted`. The column `document_state` does not store PullingFile.
+1. [ ] **One parse value** — [Serialization](src/Shared/Serialization.fs) `encodeNode` (lines 142-148) and `nodeFromFields` (lines 169-177) send `parseState` as `parsed`, `unparsed`, or PullingFile. The JSON word is `noServerFile`. They send `persistState` as `persisted` or `unpersisted`. The column `document_state` does not store PullingFile.
 2. [ ] **Derived key leaves** — The key `documentState` leaves the node object. `encodeDocumentState` (lines 13-17) and `decodeDocumentState` (lines 43-49) leave with that key.
 3. [ ] **Three-way restore** — Node JSON with `parseState` and `persistState` restores Parsed, Unparsed, or PullingFile, and restores persist state. Reload from `document_state` does not restore PullingFile.
 

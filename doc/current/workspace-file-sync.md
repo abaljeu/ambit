@@ -65,7 +65,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] An eligible bulk file is at most 1 MiB. Only eligible files and eligible bytes count toward the caps.
 [x] At most 1,500 eligible files and 16 MiB of eligible bytes keep the full structure, and the client uploads every eligible body.
 [x] Over either cap, the client keeps immediate-child structure and uploads the eligible top-level bodies.
-[x] An oversized selected file keeps a `NoServerFile` stub. The client transfers no body for that file.
+[x] An oversized selected file keeps a `PullingFile` stub. The client transfers no body for that file.
 [x] A direct single-file Upload keeps a 4 MiB body limit and does not skip on mtime.
 [x] A new File stub shows `∅` until PUT or an mtime skip confirms a server body, then shows `…` until Parse.
 [x] Desktop Upload does not run a post-upload disk-to-graph reconcile.

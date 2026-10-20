@@ -8,24 +8,24 @@
 
 ## Context
 
-A File Node carries `noServerFile`. Parsed with `noServerFile` is not a state. The parse thread adds `Notice` `ParseFinished` when it finishes that File Node. Core loop applies `ParseFinished`. The architecture says that apply sets the File Node Parsed only when `noServerFile` is clear. This ticket owns that rule. A Directory Node and a Workspace Node do not carry `noServerFile`.
+A File Node carries `pullingFile`. Parsed with `pullingFile` is not a state. The parse thread adds `Notice` `ParseFinished` when it finishes that File Node. Core loop applies `ParseFinished`. The architecture says that apply sets the File Node Parsed only when `pullingFile` is clear. This ticket owns that rule. A Directory Node and a Workspace Node do not carry `pullingFile`.
 
 ## What to build
 
-Core loop sets a File Node Parsed from `ParseFinished` only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
+Core loop sets a File Node Parsed from `ParseFinished` only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
 
 ### Parsed when clear
 
-1. [x] **Clear flag** — `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear.
-2. [x] **Set flag** — When `noServerFile` is set, `ParseFinished` leaves that File Node Unparsed.
+1. [x] **Clear pullingFile** — `ParseFinished` sets a File Node Parsed only when `pullingFile` is clear.
+2. [x] **Set pullingFile** — When `pullingFile` is set, `ParseFinished` leaves that File Node Unparsed.
 3. [x] **Field write** — The Parsed write is `GraphMutate.setParseState`. PersistState stays unchanged.
 
 ### Obligations
 
-1. [x] **Workspace graph claim** — The Workspace graph claim says Parsed with `noServerFile` is not a state, and `ParseFinished` sets a File Node Parsed only when `noServerFile` is clear.
+1. [x] **Workspace graph claim** — The Workspace graph claim says Parsed with `pullingFile` is not a state, and `ParseFinished` sets a File Node Parsed only when `pullingFile` is clear.
 2. [x] **Parse and persist claim** — The Parse and persist claim states that same File Node rule.
 3. [x] **Mailbox claim** — The Mailbox claim for Core loop states that same File Node rule.
-4. [x] **ParseFinished test** — A test applies `ParseFinished` to a File Node with `noServerFile` clear and that File Node becomes Parsed. A test applies `ParseFinished` to a File Node with `noServerFile` set and that File Node stays Unparsed.
+4. [x] **ParseFinished test** — A test applies `ParseFinished` to a File Node with `pullingFile` clear and that File Node becomes Parsed. A test applies `ParseFinished` to a File Node with `pullingFile` set and that File Node stays Unparsed.
 
 ## Finish-up
 
@@ -39,7 +39,7 @@ Core loop sets a File Node Parsed from `ParseFinished` only when `noServerFile` 
 
 ## Time
 
-- 2026-10-16 15m — `ParseFinished` leaves a `noServerFile` File Node Unparsed (from chat)
+- 2026-10-16 15m — `ParseFinished` leaves a `pullingFile` File Node Unparsed (from chat)
 
 ## See also
 

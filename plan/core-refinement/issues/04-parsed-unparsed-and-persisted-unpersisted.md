@@ -33,7 +33,7 @@ git Save is **permitted** while nodes are Unparsed or Unpersisted.
 
 Do not invent a Conflicted state. The two axes are independent drift markers, not a lock table. Workspace lock and per-member persist locks are additional: [[../arch.md]] §6. [01 — Persist/git work-tree gate](01-persist-git-work-tree-gate.md)’s exclusive gate is revoked.
 
-`DocumentState` today is `Current` | `Unparsed` | `NoServerFile` ([[src/Shared/Model.fs]]). Parsed is the other pole of Unparsed (`Current` is today’s name). Unpersisted is new. That is implement.
+`DocumentState` today is `Current` | `Unparsed` | `PullingFile` ([[src/Shared/Model.fs]]). Parsed is the other pole of Unparsed (`Current` is today’s name). Unpersisted is new. That is implement.
 
 Map gist: [[../map.md]] Decisions so far item 4.
 

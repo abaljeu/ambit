@@ -15,7 +15,7 @@ Upload, import, undo, and stored replay apply the three-way parse state through 
 
 ### Migrate
 
-1. [ ] **Upload** — [Workspace upload structure](src/Shared/WorkspaceUploadStructure.fs) reaches the mailbox writer. NoServerFile is `InMsg.SetDocumentState`. Unparsed is `InMsg.MarkUnparsed`. Parsed is `InMsg.ParseFinished`. A file planned as NoServerFile ends NoServerFile.
+1. [ ] **Upload** — [Workspace upload structure](src/Shared/WorkspaceUploadStructure.fs) reaches the mailbox writer. PullingFile is `InMsg.SetDocumentState`. Unparsed is `InMsg.MarkUnparsed`. Parsed is `InMsg.ParseFinished`. A file planned as PullingFile ends PullingFile.
 2. [ ] **Import** — [Import text](src/Shared/ImportText.fs) `markDocumentCurrentBeforeParse` reaches the mailbox writer as `InMsg.ParseFinished`. Import still attaches the imported nodes. The document ends Parsed.
 3. [ ] **Undo** — An Undo whose inverse includes `Op.SetDocumentState` applies that inverse through the mailbox writer. The node returns to the prior value. The Undo Event is stored. The client receives the parse-state Event.
 4. [ ] **Stored replay** — The same `submissionId` returns the stored Event. A stored Event that carries `Op.SetDocumentState` is returned. The client receives that Event.
@@ -24,7 +24,7 @@ Upload, import, undo, and stored replay apply the three-way parse state through 
 
 ### Obligations
 
-1. [ ] **Upload test** — `upload through the mailbox writer ends NoServerFile` in [Core loop InMsg tests](tests/Server.Tests/CoreLoopInMsgTests.fs). The file is NoServerFile. The client receives the parse-state Event. Upload succeeds.
+1. [ ] **Upload test** — `upload through the mailbox writer ends PullingFile` in [Core loop InMsg tests](tests/Server.Tests/CoreLoopInMsgTests.fs). The file is PullingFile. The client receives the parse-state Event. Upload succeeds.
 2. [ ] **Import test** — `import through the mailbox writer ends Parsed` in the same file. The document is Parsed. The imported nodes are attached. The client receives the parse-state Event.
 3. [ ] **Undo test** — `undo of SetDocumentState restores the prior parse state` in the same file. The client receives the parse-state Event.
 4. [ ] **Replay test** — `stored replay returns the stored Event` in the same file. The stored body carries `Op.SetDocumentState`.

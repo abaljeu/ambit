@@ -115,7 +115,29 @@ let ``exact amb inventory paths represent containing document roots`` () =
     Assert.Equal(Special File, (childNamed graph2 workspaceId "notes.amb").kind)
 
 [<Fact>]
-let ``new file stubs start NoServerFile; directory parent stays Current`` () =
+let ``markPullingFile sets PullingFile`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let items =
+        [ item "docs" true
+          item "docs/note.txt" false ]
+    let ops = requirePlan graph "home" items
+    let marked =
+        ops
+        |> List.choose (function
+            | Op.SetDocumentState(id, _, PullingFile) -> Some id
+            | _ -> None)
+    Assert.NotEmpty(marked)
+    let graph2 = applyOps graph ops
+    let docs = childNamed graph2 workspaceId "docs"
+    let file = childNamed graph2 docs.id "note.txt"
+    Assert.Contains(file.id, marked)
+    Assert.Equal(PullingFile, file.documentState.AsEnum)
+    Assert.True(file.documentState.pullingFile)
+    Assert.Equal(Current, docs.documentState.AsEnum)
+    Assert.False(docs.documentState.pullingFile)
+
+[<Fact>]
+let ``new file stubs start PullingFile; directory parent stays Current`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
 
     let items =
@@ -128,7 +150,7 @@ let ``new file stubs start NoServerFile; directory parent stays Current`` () =
     let docs = childNamed graph2 workspaceId "docs"
     let file = childNamed graph2 docs.id "note.txt"
     Assert.Equal(Current, docs.documentState.AsEnum)
-    Assert.Equal(NoServerFile, file.documentState.AsEnum)
+    Assert.Equal(PullingFile, file.documentState.AsEnum)
 
 [<Fact>]
 let ``reuses existing owned path without duplicating`` () =
@@ -156,7 +178,7 @@ let ``reuses existing owned path without duplicating`` () =
     Assert.Equal(docsBefore.id, docsAfter.id)
     let file = childNamed graph2 docsAfter.id "note.txt"
     Assert.Equal(Special File, file.kind)
-    Assert.Equal(NoServerFile, file.documentState.AsEnum)
+    Assert.Equal(PullingFile, file.documentState.AsEnum)
 
 [<Fact>]
 let ``TopLevel cap keeps only immediate children under scope`` () =
@@ -316,7 +338,7 @@ let ``planServerFilePresentOps transitions only matching absent files`` () =
         WorkspaceUploadStructure.tryResolveFileNode graph2 "home" "oversized.txt"
         |> Option.get
     Assert.Equal(Unparsed, graph2.nodes.[presentId].documentState.AsEnum)
-    Assert.Equal(NoServerFile, graph2.nodes.[oversizedId].documentState.AsEnum)
+    Assert.Equal(PullingFile, graph2.nodes.[oversizedId].documentState.AsEnum)
 
 [<Fact>]
 let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =
@@ -364,7 +386,7 @@ let ``shouldReparseAfterMtimeSkip only Unparsed`` () =
     Assert.True(WorkspaceUploadStructure.shouldReparseAfterMtimeSkip Unparsed)
     Assert.False(WorkspaceUploadStructure.shouldReparseAfterMtimeSkip Current)
     Assert.False(
-        WorkspaceUploadStructure.shouldReparseAfterMtimeSkip NoServerFile)
+        WorkspaceUploadStructure.shouldReparseAfterMtimeSkip PullingFile)
 
 [<Fact>]
 let ``planStubOps creates File under SYSTEM label`` () =

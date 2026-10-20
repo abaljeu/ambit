@@ -251,15 +251,15 @@ module Api =
         let uploadOrArrival =
             states
             |> List.exists (function
-                | _, _, NoServerFile
+                | _, _, PullingFile
                 | _, _, Unparsed -> true
                 | _ -> false)
         let pick f = states |> List.choose f
         pick (function
-            | id, _, NoServerFile -> Some(Notice.NodeUploading id)
+            | id, _, PullingFile -> Some(Notice.NodeUploading id)
             | _ -> None)
         @ pick (function
-            | id, NoServerFile, Unparsed -> Some(Notice.NodeReceived id)
+            | id, PullingFile, Unparsed -> Some(Notice.NodeReceived id)
             | _ -> None)
         @ (if uploadOrArrival then
                []

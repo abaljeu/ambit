@@ -209,18 +209,18 @@ let ``upload posts NodeUploading beside SetDocumentState`` () = task {
         Assert.False(anyNodeMsg host)
         do! postChange handle planned
         let noteId = fileNamed host wsId "note.txt"
-        assertBeside host noteId NoServerFile planned
+        assertBeside host noteId PullingFile planned
         Assert.True(uploading host noteId)
         let currentId = addFile host wsId "current.txt"
         setState host currentId Unparsed Current
         let plainId = addFile host wsId "plain.txt"
         let marks =
-            [ Op.SetDocumentState(currentId, Current, NoServerFile)
-              Op.SetDocumentState(plainId, Unparsed, NoServerFile) ]
+            [ Op.SetDocumentState(currentId, Current, PullingFile)
+              Op.SetDocumentState(plainId, Unparsed, PullingFile) ]
         do! postChange handle marks
-        assertBeside host currentId NoServerFile marks
+        assertBeside host currentId PullingFile marks
         Assert.True(uploading host currentId)
-        assertBeside host plainId NoServerFile marks
+        assertBeside host plainId PullingFile marks
         Assert.True(uploading host plainId)
     finally
         CoreMailboxApi.dispose host
@@ -333,9 +333,9 @@ let ``incoming file posts NodeReceived beside SetDocumentState`` () = task {
     let host, handle, wsId = admitHome dataDir
     try
         let presentId = addFile host wsId "present.txt"
-        setState host presentId Unparsed NoServerFile
+        setState host presentId Unparsed PullingFile
         let otherId = addFile host wsId "other.txt"
-        setState host otherId Unparsed NoServerFile
+        setState host otherId Unparsed PullingFile
         let ops =
             WorkspaceUploadStructure.planServerFilePresentOps
                 (stateOf host).graph
@@ -345,7 +345,7 @@ let ``incoming file posts NodeReceived beside SetDocumentState`` () = task {
         do! postChange handle ops
         assertBeside host presentId Unparsed ops
         Assert.True(received host presentId)
-        Assert.Equal(NoServerFile, documentState host otherId)
+        Assert.Equal(PullingFile, documentState host otherId)
         Assert.False(received host otherId)
     finally
         CoreMailboxApi.dispose host

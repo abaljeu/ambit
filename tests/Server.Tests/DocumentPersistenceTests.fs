@@ -288,7 +288,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
             "docs/uploaded.txt"
         |> Option.get
     let uploadedPath = artifactFullPath dataDir afterUpload uploadedId
-    Assert.Equal(NoServerFile, stamped.graph.nodes.[uploadedId].documentState.AsEnum)
+    Assert.Equal(PullingFile, stamped.graph.nodes.[uploadedId].documentState.AsEnum)
     Assert.False(File.Exists uploadedPath)
 
 [<Fact>]

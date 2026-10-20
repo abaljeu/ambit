@@ -41,20 +41,20 @@ let private place (parentId: NodeId) (childId: NodeId) (graph: Graph) : Graph =
         graph
 
 [<Fact>]
-let ``special node stores parse persist and noServerFile only inside DocumentState`` () =
+let ``special node stores parse persist and pullingFile only inside DocumentState`` () =
     let id = NodeId.New()
     let graph =
         apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
     let created = graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, created.documentState.parseState)
     Assert.Equal(PersistState.Persisted, created.documentState.persistState)
-    Assert.False(created.documentState.noServerFile)
+    Assert.False(created.documentState.pullingFile)
 
     let parsed = Graph.setParseState id ParseState.Parsed graph |> requireOk
     let parsedNode = parsed.nodes.[id]
     Assert.Equal(ParseState.Parsed, parsedNode.documentState.parseState)
     Assert.Equal(PersistState.Persisted, parsedNode.documentState.persistState)
-    Assert.False(parsedNode.documentState.noServerFile)
+    Assert.False(parsedNode.documentState.pullingFile)
 
     let dirty =
         Graph.setPersistState id PersistState.Unpersisted parsed |> requireOk
@@ -63,12 +63,12 @@ let ``special node stores parse persist and noServerFile only inside DocumentSta
         PersistState.Unpersisted,
         dirtyNode.documentState.persistState)
     Assert.Equal(ParseState.Parsed, dirtyNode.documentState.parseState)
-    Assert.False(dirtyNode.documentState.noServerFile)
+    Assert.False(dirtyNode.documentState.pullingFile)
 
     let absent =
-        apply [ Op.SetDocumentState(id, Current, NoServerFile) ] dirty
+        apply [ Op.SetDocumentState(id, Current, PullingFile) ] dirty
     let absentNode = absent.nodes.[id]
-    Assert.True(absentNode.documentState.noServerFile)
+    Assert.True(absentNode.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, absentNode.documentState.parseState)
     Assert.Equal(
         PersistState.Unpersisted,
@@ -80,8 +80,8 @@ let ``special node stores parse persist and noServerFile only inside DocumentSta
             text = "stub.txt",
             name = Filename.create "stub.txt",
             kind = Special File,
-            documentState = NoServerFile)
-    Assert.True(stub.documentState.noServerFile)
+            documentState = PullingFile)
+    Assert.True(stub.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, stub.documentState.parseState)
     Assert.Equal(PersistState.Persisted, stub.documentState.persistState)
 
@@ -135,28 +135,28 @@ let ``NewSpecialNode starts Unparsed and Persisted`` () =
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 
 [<Fact>]
-let ``SetDocumentState writes parseState and noServerFile together`` () =
+let ``SetDocumentState writes parseState and pullingFile together`` () =
     let graph, id = artifact File "file.txt"
     let dirty = Graph.setPersistState id PersistState.Unpersisted graph |> requireOk
     let unparsed =
         apply [ Op.SetDocumentState(id, Current, Unparsed) ] dirty
     Assert.Equal(Unparsed, unparsed.nodes.[id].documentState.AsEnum)
     Assert.Equal(ParseState.Unparsed, unparsed.nodes.[id].documentState.parseState)
-    Assert.False(unparsed.nodes.[id].documentState.noServerFile)
+    Assert.False(unparsed.nodes.[id].documentState.pullingFile)
     Assert.Equal(PersistState.Unpersisted, unparsed.nodes.[id].documentState.persistState)
 
     let parsed =
         apply [ Op.SetDocumentState(id, Unparsed, Current) ] unparsed
     Assert.Equal(Current, parsed.nodes.[id].documentState.AsEnum)
     Assert.Equal(ParseState.Parsed, parsed.nodes.[id].documentState.parseState)
-    Assert.False(parsed.nodes.[id].documentState.noServerFile)
+    Assert.False(parsed.nodes.[id].documentState.pullingFile)
     Assert.Equal(PersistState.Unpersisted, parsed.nodes.[id].documentState.persistState)
 
     let absent =
-        apply [ Op.SetDocumentState(id, Current, NoServerFile) ] parsed
-    Assert.Equal(NoServerFile, absent.nodes.[id].documentState.AsEnum)
+        apply [ Op.SetDocumentState(id, Current, PullingFile) ] parsed
+    Assert.Equal(PullingFile, absent.nodes.[id].documentState.AsEnum)
     Assert.Equal(ParseState.Unparsed, absent.nodes.[id].documentState.parseState)
-    Assert.True(absent.nodes.[id].documentState.noServerFile)
+    Assert.True(absent.nodes.[id].documentState.pullingFile)
     Assert.Equal(PersistState.Unpersisted, absent.nodes.[id].documentState.persistState)
 
 let private markPersisted id graph =
@@ -241,7 +241,7 @@ let ``directory Replace marks that directory only`` () =
 
 [<Fact>]
 let ``SQL reload derives parse state and defaults persist to Persisted`` () =
-    let cases = [ Current; Unparsed; NoServerFile ]
+    let cases = [ Current; Unparsed; PullingFile ]
     for documentState in cases do
         let id = NodeId.New()
         let node =
@@ -272,7 +272,7 @@ let ``JSON without axes derives parse state and defaults persist`` () =
     match Dec.fromString Serialization.decodeNode json with
     | Error msg -> failwith msg
     | Ok node ->
-        Assert.Equal(NoServerFile, node.documentState.AsEnum)
+        Assert.Equal(PullingFile, node.documentState.AsEnum)
         Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 

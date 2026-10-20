@@ -21,7 +21,7 @@ Those writes sit in these places:
 ## What to build
 
 1. [x] **Log** — The caller posts through `CoreMailboxApi.postNotice` beside the existing `Op.SetDocumentState`. The post does not add a state write. `Notice.NodeParsed` still sets Parsed. `Notice.NodeUploading` and `Notice.NodeReceived` do not set state. The post is stored on `MailboxHost.loggedNotices`. It is not appended to the client Event log.
-2. [x] **Upload** — `Api.postEvents` posts `Notice.NodeUploading` when the Change sets NoServerFile [o] obsolescent, which is PullingFile. `WorkspaceUploadStructure.planStubOps` and `WorkspaceUploadStructure.markNoServerFile` do not post.
+2. [x] **Upload** — `Api.postEvents` posts `Notice.NodeUploading` when the Change sets PullingFile. `WorkspaceUploadStructure.planStubOps` and `WorkspaceUploadStructure.markPullingFile` do not post.
 3. [x] **Incoming file** — `Api.postEvents` posts `Notice.NodeReceived` for each absent file `WorkspaceUploadStructure.planServerFilePresentOps` already selects. That planner does not post.
 4. [x] **Git-changed file** — `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeReceived` for a changed File Node already on the server.
 5. [x] **Import** — `Api.postEvents` posts `Notice.NodeParsed` when it runs the import Change. `ImportText.markDocumentCurrentBeforeParse` does not post.

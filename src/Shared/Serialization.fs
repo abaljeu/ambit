@@ -14,7 +14,7 @@ module Serialization =
         match state with
         | Current -> Encode.string "current"
         | Unparsed -> Encode.string "unparsed"
-        | NoServerFile -> Encode.string "noServerFile"
+        | PullingFile -> Encode.string "noServerFile"
 
     let private encodeParseState (state: ParseState) : IEncodable =
         match state with
@@ -45,7 +45,7 @@ module Serialization =
         |> Decode.andThen (function
             | "current" -> Decode.succeed Current
             | "unparsed" -> Decode.succeed Unparsed
-            | "noServerFile" -> Decode.succeed NoServerFile
+            | "noServerFile" -> Decode.succeed PullingFile
             | other -> Decode.fail $"Unknown document state: {other}")
 
     let private encodeChildrenStatus (status: ChildrenStatus) : IEncodable =

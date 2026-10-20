@@ -463,10 +463,10 @@ module ViewModelRowState =
         : WorkspacePathSyncStatus option =
         let unparsed = rowUnparsedObservationEligible model entry
         match
-            DocumentPartition.isMemberOfNoServerFile model.graph entry.nodeId,
+            DocumentPartition.isMemberOfPullingFile model.graph entry.nodeId,
             node.kind
         with
-        | true, _ -> Some WorkspacePathSyncStatus.NoServerFile
+        | true, _ -> Some WorkspacePathSyncStatus.PullingFile
         | false, Special (Workspace | File | Directory) ->
             match tryWorkspaceSyncFact model entry.nodeId with
             | Some(label, fact) ->
@@ -540,7 +540,7 @@ module ViewModelRowState =
             match Node.documentStateEnum node with
             | Current -> "Current"
             | Unparsed -> "Unparsed"
-            | NoServerFile -> "NoServerFile"
+            | PullingFile -> "PullingFile"
         $"Residency: {children}, {document}"
 
     /// Desktop local path for a Node (e.g. "d:\life\note.md"), when its workspace label

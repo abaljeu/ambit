@@ -24,7 +24,7 @@
 
 1. [ ] **Queue test** — `MarkUnparsed on the mailbox loop sets Unparsed and logs the Event` in [Core loop InMsg tests](tests/Server.Tests/CoreLoopInMsgTests.fs). The node is Unparsed. The client receives the parse-state Event. The test does not call `markUnparsedThenPush` from outside the mailbox.
 2. [ ] **Door test** — `public post of SetDocumentState is accepted` still passes.
-3. [ ] **Four functions** — `upload through the mailbox writer ends NoServerFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
+3. [ ] **Four functions** — `upload through the mailbox writer ends PullingFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
 
 ## Finish-up
 

@@ -154,7 +154,7 @@ let ``NewSpecialNode and Replace affect new root and parent package`` () =
 [<Fact>]
 let ``SetDocumentState includes the containing parent and filters unwritable root`` () =
     let graph, _, dirAId, _, fileAId, fileBId, _, _ = graphWithDocuments ()
-    let ops = [ Op.SetDocumentState(fileAId, Current, NoServerFile) ]
+    let ops = [ Op.SetDocumentState(fileAId, Current, PullingFile) ]
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops

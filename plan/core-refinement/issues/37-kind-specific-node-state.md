@@ -7,7 +7,7 @@
 
 ## Context
 
-[§1 Special-node Parse and Persist axes](plan/core-refinement/arch.md#1-special-node-parse-and-persist-axes) gives parse state and persist state to a Workspace Node, a Directory Node, and a File Node. A Normal Node carries neither ([GLOSSARY.md](GLOSSARY.md)). Only a File Node carries PullingFile. Today every Node holds `documentState` ([Model](src/Shared/Model.fs) line 138). `Node.Create` takes `documentState` (line 190) and fills the field for every kind (lines 196-207). The `DocumentState` record (lines 87-90) puts `noServerFile` [o] obsolescent on Directory and Workspace as well as File. [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md) renames that field and does not change which Kind carries it. This ticket follows the wire in [35 — Wire three-way parse state](35-wire-three-way-parse-state.md).
+[§1 Special-node Parse and Persist axes](plan/core-refinement/arch.md#1-special-node-parse-and-persist-axes) gives parse state and persist state to a Workspace Node, a Directory Node, and a File Node. A Normal Node carries neither ([GLOSSARY.md](GLOSSARY.md)). Only a File Node carries PullingFile. Today every Node holds `documentState` ([Model](src/Shared/Model.fs) line 138). `Node.Create` takes `documentState` (line 190) and fills the field for every kind (lines 196-207). The `DocumentState` record (lines 87-90) puts `pullingFile` on Directory and Workspace as well as File. [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md) renames that field and does not change which Kind carries it. This ticket follows the wire in [35 — Wire three-way parse state](35-wire-three-way-parse-state.md).
 
 ## What to build
 
@@ -17,7 +17,7 @@ Node state is kind-specific. A Normal Node does not hold parse state or persist 
 
 1. [ ] **Normal** — A Normal Node has no parse state and no persist state. `Node.Create` for Kind Normal does not store them.
 2. [ ] **Wire** — Node JSON for a Normal Node omits `parseState` and `persistState`.
-3. [ ] **File only** — PullingFile exists only on a File Node. A Directory Node and a Workspace Node carry parse state and persist state and do not carry PullingFile. The code field is `noServerFile` [o] obsolescent until [49 — Rename NoServerFile to PullingFile](49-rename-noserverfile-to-pullingfile.md).
+3. [ ] **File only** — PullingFile exists only on a File Node. A Directory Node and a Workspace Node carry parse state and persist state and do not carry PullingFile. The code field is `pullingFile`.
 4. [ ] **Already without state** — A Workspaces node and a Directory File stay without parse state and persist state.
 
 ### Obligations

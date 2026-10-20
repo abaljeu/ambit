@@ -353,7 +353,7 @@ let ``edit of no-server-file document is rejected`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
     let absent =
         Op.apply
-            (Op.SetDocumentState(fileId, Unparsed, NoServerFile))
+            (Op.SetDocumentState(fileId, Unparsed, PullingFile))
             state
         |> expectChanged
     assertUnparsedInvalid
