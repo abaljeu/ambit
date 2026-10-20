@@ -7,28 +7,34 @@
 
 ## Context
 
-`CoreMsg` carries `StartActor`, `RecordSearchStart`, `StartPeerActor`, `StartLoadSaveCommand`, `CancelActor`, `ActorStop`, and `RecordSearchStop`. `CoreMailboxActors.dispatchStartActor` starts the pool. `dispatchRecordSearchStart` appends `ActorStart` and does not run the walk. `RouteRegistration.searchDoor` calls `recordSearchStart` and `recordSearchStop`. `dispatchRecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded`. A client `PostEvent` of `EventBody.ActorStart` or `EventBody.Cancel` is handled in `dispatchPostEvent`. Decision 13 **PeerActorName** in [Message shape](../cqrs-messages.md): `PeerActorName` is Shared. [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md) moves it so `Order` can carry it. This ticket uses that type and does not declare it again. Upload, import, parse, Load, undo, and persist stay working.
+`CoreMsg` carries these cases:
+
+- `StartActor`
+- `RecordSearchStart`
+- `StartPeerActor`
+- `StartLoadSaveCommand`
+- `CancelActor`
+- `ActorStop`
+- `RecordSearchStop`
+
+`CoreMailboxActors.dispatchStartActor` starts the pool. `dispatchRecordSearchStart` appends `ActorStart` and does not run the walk. `RouteRegistration.searchDoor` calls `recordSearchStart` and `recordSearchStop`. `dispatchRecordSearchStop` stores `ActorStop` of the root id and `ActorSucceeded`. A client `PostEvent` of `EventBody.ActorStart` or `EventBody.Cancel` is handled in `dispatchPostEvent`. 60 — Add Mailbox beside CoreMsg moves `PeerActorName` onto Shared so `Order` can carry it.
 
 ## What to build
 
-Move the actor cases off `CoreMsg`. Starts, peer start, load-save, and cancel become `Order` cases. `ActorStop` and `RecordSearchStop` become `Notice.ActorStop`.
-
-### 1. Change
-
-1. [ ] **StartActor** — `CoreMailboxApi.startActor` and `recordSearchStart` place `Order.StartActor` of `ActorStart`. `CoreMailboxActors` starts the pool for `startActor`, as `dispatchStartActor` does. `recordSearchStart` only appends the start, as `dispatchRecordSearchStart` does. The search walk stays in the search route, outside the mailbox.
-2. [ ] **StartPeerActor** — `CoreMailboxApi.startPeerActor` places `Order.StartPeerActor` of `PeerActorName * ActorStart`. `GithubTransportActor` still passes `PeerActorName` `"github-load"` and `"github-save"`. The name is the Shared `PeerActorName`.
-3. [ ] **LoadSave** — `CoreMailboxApi.startLoadSaveCommand` places `Order.LoadSave` of `LoadSavePath * PeerActorName * LoadSaveCommandRequest`. `RouteRegistration` and `DeskLoadPush` still pass the path, the peer name, and the request.
+1. [ ] **StartActor** — `CoreMailboxApi.startActor` and `recordSearchStart` place `Order.StartActor` of `ActorStart`. For `startActor`, `CoreMailboxActors` keeps the pool start Context describes for `dispatchStartActor`. `recordSearchStart` keeps the behaviour Context describes for `dispatchRecordSearchStart`. The search walk stays in the search route, outside the mailbox.
+2. [ ] **StartPeerActor** — Decision 13 **PeerActorName** in Message shape. `CoreMailboxApi.startPeerActor` places `Order.StartPeerActor` of `PeerActorName * ActorStart`. `GithubTransportActor` still passes `PeerActorName` `"github-load"` and `"github-save"`. Use the `PeerActorName` from Context. This ticket does not declare that type again.
+3. [ ] **LoadSave** — `CoreMailboxApi.startLoadSaveCommand` places `Order.LoadSave` of `LoadSavePath * PeerActorName * LoadSaveCommandRequest`. `RouteRegistration` and `DeskLoadPush` still pass the path, the `PeerActorName`, and the request.
 4. [ ] **Cancel** — `CoreMailboxApi.cancelByFocus` and a client `EventBody.Cancel` in `dispatchPostEvent` place `Order.Cancel` of the focus `NodeId`. The handler finishes that actor, as `dispatchCancelActor` does.
-5. [ ] **ActorStop** — Add `Notice.ActorStop of focusId: NodeId * result: ActorResult`. `CoreMailboxApi.actorStop` and `recordSearchStop` call `postNotice`. `recordSearchStop` posts `ActorSucceeded` for the root id. `dispatchActorStop` still finishes the pool entry. `postNotice` returns when the notice is queued. A caller that needs the appended `Ev` awaits `Ask` of `Query.LastEventId` after the post.
-6. [ ] **Remove** — Remove `StartActor`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, `ActorStop`, and `CancelActor` from `CoreMsg`. Each `PlaceOrder` replies `Result<EventId, string>`. These handlers do not call `admitCaller`.
+5. [ ] **ActorStop** — Add `Notice.ActorStop of focusId: NodeId * result: ActorResult`. `CoreMailboxApi.actorStop` and `recordSearchStop` call `postNotice`. `recordSearchStop` posts the stop Context describes for `dispatchRecordSearchStop`. `dispatchActorStop` still finishes the pool entry. `postNotice` returns when the notice is queued. A caller that needs the appended `Ev` awaits `Ask` of `Query.LastEventId` after the post.
+6. [ ] **Remove** — Remove the cases Context lists from `CoreMsg`. Each `PlaceOrder` replies `Result<EventId, string>`. These handlers do not call `admitCaller`.
 
 ### Acceptance Criteria
 
-1. [ ] **Start** — `startActor` calls `pool.startActor` and the log contains the start. `recordSearchStart` does not call `pool.startActor` and the log contains the start.
-2. [ ] **Peer and load-save** — `startPeerActor` places `Order.StartPeerActor` with the Shared `PeerActorName`. `startLoadSaveCommand` places `Order.LoadSave` with that name, the path, and the request.
-3. [ ] **Cancel** — `cancelByFocus` places `Order.Cancel` of the focus id and finishes that actor. The reply is `Ok` of the new `EventId`.
-4. [ ] **Stop** — `actorStop` and `recordSearchStop` post `Notice.ActorStop`. The search stop uses the root id and `ActorSucceeded`. `CoreMsg` has none of the seven cases in item 6.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [ ] **Start** — `startActor calls pool.startActor`. The log contains the start. `recordSearchStart` does not call `pool.startActor`, and the log contains the start.
+2. [ ] **Peer and load-save** — `startPeerActor places Order.StartPeerActor`. The name is the `PeerActorName` item 2 names. `startLoadSaveCommand` places `Order.LoadSave` with that name, the path, and the request.
+3. [ ] **Cancel** — `cancelByFocus places Order.Cancel`. The actor for that focus id finishes. The reply is `Ok` of the new `EventId`.
+4. [ ] **Stop** — `actorStop and recordSearchStop post Notice.ActorStop`. The search stop is the stop Context describes. `CoreMsg` has none of the cases Context lists.
+5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
 ## Finish-up
 
