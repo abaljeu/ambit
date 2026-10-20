@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg; 63 — Move queries to Ask
+**Blocked by:** 60 — Add Mailbox beside CoreMsg; 63 — Move queries to Ask; 62 — Admit at the entry
 **Trackers:** architecture
 
 ## Context
@@ -41,5 +41,7 @@ Move the actor cases off `CoreMsg`. Starts, peer start, load-save, and cancel be
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
+- [62 — Admit at the entry](62-admit-at-the-entry.md)
+- [63 — Move queries to Ask](63-move-queries-to-ask.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [GLOSSARY](../../../GLOSSARY.md)
