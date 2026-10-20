@@ -1,6 +1,6 @@
 # 60 — Add Mailbox beside CoreMsg
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Actual:** 2h
 **Blocked by:** 59 — Rename InMsg to Notice
@@ -25,12 +25,12 @@ Add the public `Mailbox` and the Shared order log beside the types callers alrea
 
 ### Acceptance Criteria
 
-1. [ ] **Shape** — `Mailbox` is `CoreMsg`, `PlaceOrder`, and `Ask`. It has no `Notice` case. `CoreQueue` is `Public of Mailbox | Notice of Notice`.
-2. [ ] **Same path** — `CoreMailboxApi.postEvent` still runs today's `PostEvent` handler through `Mailbox.CoreMsg`.
-3. [ ] **Round trip** — `ofEv` then `toEv` on a `Change` keeps the ops, the authority, the order id, and the command name. `""` becomes `None` and returns as `""`.
-4. [ ] **Callers** — Route and Actor callers still build `History.Ev` and still post `CoreMsg`. `History.Ev` still has `submissionId`, `authority`, `commandName`, and `body`.
-5. [ ] **PeerActorName** — Shared declares `PeerActorName`. `CoreActorNames.fs` does not. `Order.StartPeerActor` carries it.
-6. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Shape** — `Mailbox` is `CoreMsg`, `PlaceOrder`, and `Ask`. It has no `Notice` case. `CoreQueue` is `Public of Mailbox | Notice of Notice`.
+2. [x] **Same path** — `CoreMailboxApi.postEvent` still runs today's `PostEvent` handler through `Mailbox.CoreMsg`.
+3. [x] **Round trip** — `ofEv` then `toEv` on a `Change` keeps the ops, the authority, the order id, and the command name. `""` becomes `None` and returns as `""`.
+4. [x] **Callers** — Route and Actor callers still build `History.Ev` and still post `CoreMsg`. `History.Ev` still has `submissionId`, `authority`, `commandName`, and `body`.
+5. [x] **PeerActorName** — Shared declares `PeerActorName`. `CoreActorNames.fs` does not. `Order.StartPeerActor` carries it.
+6. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
