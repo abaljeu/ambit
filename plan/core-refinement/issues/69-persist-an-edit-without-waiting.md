@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 51 — Stand the persist stack; 44 — Apply document state from Node events
+**Blocked by:** 51 — Build the persist stack; 44 — Apply document state from Node events
 **Trackers:** architecture
 
 ## Context
@@ -21,7 +21,7 @@ Alan, 2026-10-20:
 2. The mailbox does not wait on a document write.
 3. A failed persist does not fail the graph edit. The edit stands. The node stays Unpersisted.
 
-[51 — Stand the persist stack](51-stand-the-persist-stack.md) posts `Notice.NodePersisted` after a successful write and does not edit the graph. [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md) handles that Notice in `CoreMailboxLoad.applyNotice`. [46 — Record the persist version](46-record-the-persist-version.md) adds the version gate on `Notice.NodePersisted` of `nodeId * version`. Decision 5 **SnapshotDone** in [Message shape](../cqrs-messages.md) keeps that shape. That case carries no stamp ops and no persist message. This ticket does not post `Notice.NodePersisted`, does not handle it, and does not add the version gate.
+[51 — Build the persist stack](51-build-the-persist-stack.md) posts `Notice.NodePersisted` after a successful write and does not edit the graph. [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md) handles that Notice in `CoreMailboxLoad.applyNotice`. [46 — Record the persist version](46-record-the-persist-version.md) adds the version gate on `Notice.NodePersisted` of `nodeId * version`. Decision 5 **SnapshotDone** in [Message shape](../cqrs-messages.md) keeps that shape. That case carries no stamp ops and no persist message. This ticket does not post `Notice.NodePersisted`, does not handle it, and does not add the version gate.
 
 This ticket is meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md).
 
@@ -56,7 +56,7 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
-- [51 — Stand the persist stack](51-stand-the-persist-stack.md)
+- [51 — Build the persist stack](51-build-the-persist-stack.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md)
 - [GLOSSARY](../../../GLOSSARY.md)

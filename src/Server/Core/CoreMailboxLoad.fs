@@ -183,7 +183,7 @@ module internal CoreMailboxLoad =
     /// NodeUploading and NodeReceived are logged by the queue puller and
     /// do not set state.
     /// MarkUnparsed writes Unparsed only.
-    /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    /// NodePersisted runs the diff-count hook, then sets Persisted.
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
@@ -199,7 +199,7 @@ module internal CoreMailboxLoad =
         | Notice.NodeReceived _ -> Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
-        | Notice.SnapshotDone nodeId ->
+        | Notice.NodePersisted nodeId ->
             persist.noteDiffDone nodeId
             writeAxis persist (fun live ->
                 GraphMutate.setPersistState

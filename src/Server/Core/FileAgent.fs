@@ -29,6 +29,7 @@ module FileAgent =
         lastPersisted: Graph ref
         collect: (PersistSubmit -> PersistOutcome) option ref
         persistFinished: (Notice -> unit) option ref
+        persistPush: (NodeId -> unit) ref
     }
 
     let defaultDependencies (dataDir: string) =
@@ -350,7 +351,8 @@ module FileAgent =
           persistClean = ref true
           lastPersisted = ref loadedState.graph
           collect = ref None
-          persistFinished = ref None }
+          persistFinished = ref None
+          persistPush = ref ignore }
 
     let private startPersist
         (loaded: LoadedFile)
@@ -359,12 +361,23 @@ module FileAgent =
         loaded.lastPersisted.Value <- loaded.state.Value.graph
         let collect, consumer = PersistCollectors.create ()
         loaded.collect.Value <- Some collect
-        PersistThread.start {
-            consumer = consumer
+        let write = {
             persistOps = dependencies.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.persistFinished
             changeFailed = fun _ _ -> ()
+        }
+        PersistThread.start {
+            consumer = consumer
+            write = write
+        }
+        let pushNode, takeNode = PersistStack.create ()
+        loaded.persistPush.Value <- pushNode
+        PersistThread.startNodeStack {
+            take = takeNode
+            dataDir = Some loaded.dataDir
+            graph = fun () -> loaded.state.Value.graph
+            write = write
         }
 
     let createWithDependencies

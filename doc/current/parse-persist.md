@@ -16,7 +16,8 @@ Parse and persist move text between disk and the graph.
 [o] Parse thread: adds `Notice` `NodeParsed` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md)
 [ ] Parse thread: adds `Notice.NodeParsed` through the notice function when that File parse finishes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
 [x] `NodeParsed` sets a File Node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
-[o] Persist thread: adds `Notice` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
+[x] Persist stack: a stack of node ids inside [Core](../../src/Server/Core). The stack is not a `MailboxProcessor`. [Route registration](../../src/Server/RouteRegistration.fs) does not construct it, start it, or hold its handles. [Persist stack](../../src/Server/Core/PersistStack.fs).
+[x] Persist thread: pulls one node from that stack and calls [Document persist change](../../src/Server/DocumentPersistChange.fs). It does not edit the graph. A successful write posts `Notice.NodePersisted` of `nodeId` through `CoreMailboxApi.postNotice`. A failed write does not. The thread does not set persist state. It is not an Actor.
 [ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 ## Parse
 

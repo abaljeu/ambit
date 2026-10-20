@@ -31,6 +31,7 @@ module DbAgent =
         persistGraphOps:
             string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
         collect: (PersistSubmit -> PersistOutcome) option ref
+        persistPush: (NodeId -> unit) ref
     }
 
     type private LivePersist = {
@@ -108,7 +109,8 @@ module DbAgent =
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
           persistGraphOps = persistGraphOps
-          collect = ref None }
+          collect = ref None
+          persistPush = ref ignore }
 
     let private trimDeletedIds loaded deletedIds =
         let deletedNodeIds = deletedIds |> List.map NodeId
@@ -492,7 +494,7 @@ module DbAgent =
                     requestFileDiff loaded
 
     /// A failed Change leaves those nodes Unpersisted. Drop the batch
-    /// so a later post can try again. Do not post SnapshotDone.
+    /// so a later post can try again. Do not post NodePersisted.
     let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
         eprintfn "DbAgent: failed to write live documents: %s" err
         let hitsBatch =
@@ -626,6 +628,28 @@ module DbAgent =
             return Error error
     }
 
+    let private startPersistThreads (loaded: LoadedPersist) =
+        let collect, consumer = PersistCollectors.create ()
+        loaded.collect.Value <- Some collect
+        let write = {
+            persistOps = loaded.persistGraphOps
+            persistChange = DocumentPersistChange.persistGraphChange
+            finish = PersistThread.finishWhenBound loaded.persistFinished
+            changeFailed = changeFailed loaded
+        }
+        PersistThread.start {
+            consumer = consumer
+            write = write
+        }
+        let pushNode, takeNode = PersistStack.create ()
+        loaded.persistPush.Value <- pushNode
+        PersistThread.startNodeStack {
+            take = takeNode
+            dataDir = loaded.liveSaveDataDir
+            graph = fun () -> loaded.state.Value.graph
+            write = { write with changeFailed = fun _ _ -> () }
+        }
+
     let private createLoaded
         (initialState: State)
         (connectionString: string)
@@ -643,15 +667,7 @@ module DbAgent =
         let recovered = loadReconciled connectionString initialState
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
-        let collect, consumer = PersistCollectors.create ()
-        loaded.collect.Value <- Some collect
-        PersistThread.start {
-            consumer = consumer
-            persistOps = loaded.persistGraphOps
-            persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.persistFinished
-            changeFailed = changeFailed loaded
-        }
+        startPersistThreads loaded
         { filling =
             { handlers = persistHandlers loaded
               onError = logUnhandledException loaded.liveSaveDataDir
