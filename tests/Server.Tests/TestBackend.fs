@@ -184,7 +184,8 @@ let private cannedHandlers
       applyEvent = apply
       replaceGraph = ignore
       noteDiffDone = ignore
-      noteParsed = ignore }
+      noteParsed = ignore
+      persistNode = fun _ -> Error "no persist node write" }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =
     { handlers = cannedHandlers readState eventsSince apply

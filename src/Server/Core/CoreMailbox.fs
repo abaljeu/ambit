@@ -27,6 +27,14 @@ module CoreMailbox =
                 context.noticeLog
                 session
         persist.bindPersistFinished (CoreMailboxApi.postNotice created)
+        PersistNodeThread.start {
+            requests = context.persistRequests
+            write = persist.handlers.persistNode
+            finish = fun nodeId ->
+                CoreMailboxApi.postNotice
+                    created
+                    (Notice.NodePersisted nodeId)
+        }
         started.bindCoreChanges (fun caller ->
             { host = created
               caller = caller

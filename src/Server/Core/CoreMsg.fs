@@ -93,6 +93,7 @@ type PersistHandlers = {
     replaceGraph: Graph -> unit
     noteDiffDone: NodeId -> unit
     noteParsed: NodeId -> unit
+    persistNode: PersistRequest -> Result<PersistGraphOk, string>
 }
 
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox

@@ -256,6 +256,23 @@ module DocumentPersistChange =
             preGraph
             postGraph
 
+    /// Write the document for this node. The returned graph is the input graph.
+    let persistNode
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : Result<PersistGraphOk, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "persist node is not in the graph"
+        | Some node when
+            node.documentState.parseState = ParseState.Unparsed ->
+            Error "persist node is Unparsed"
+        | Some _ ->
+            match DocumentPersistWrite.writeDocument dataDir graph nodeId with
+            | Error err -> Error err
+            | Ok written ->
+                Ok { graph = graph; message = written.message }
+
     let private tryMtime
         (pathByRel: Map<string, string>)
         (rel: string)

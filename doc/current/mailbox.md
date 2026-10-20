@@ -49,14 +49,16 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
-[o] `CoreMsg` has no `SnapshotDone`. `SnapshotDone` is a case of `Notice`. A private function adds `Notice` to the mailbox queue. It has no public door.
+[o] `CoreMsg` has no persist-finished case. The old `Notice` case was `SnapshotDone`.
+[x] `Notice.NodePersisted` of `nodeId` is the persist-finished case. `CoreMailboxApi.postNotice` adds it to the mailbox queue. It has no public door.
 [ ] `Notice.NodePersisted` of `nodeId: NodeId * version: EventId`. The notice function posts that `Notice` onto `CoreQueue`. Holding the notice function is the permission. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone and decision 15 Notice has its own door.
 
 ## Messages
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
 [ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[o] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`, each of `nodeId: NodeId`.
+[o] `Notice`: the old case list included `SnapshotDone` of `nodeId`.
+[x] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`, each of `nodeId: NodeId`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
 One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. There is no second queue.
 [o] `NodeParsed`: the renamed `ParseFinished`. The Notice handler sets that node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this case.
@@ -64,9 +66,11 @@ One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The no
 [o] `NodeUploading` and `NodeReceived`: posted beside `Op.SetDocumentState`. The post does not set state. [44 — Apply document state from Node events](../../plan/core-refinement/issues/44-apply-document-state-from-file-events.md) owns those handlers.
 [ ] `Notice.NodeUploading` and `Notice.NodeReceived`: a holder of the notice function posts them. [44 — Apply document state from Node events](../../plan/core-refinement/issues/44-apply-document-state-from-file-events.md) owns those handlers. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [o] `MarkUnparsed`: the Notice handler sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer. Directory reconcile does not name an existing member for this case.
-[o] `SnapshotDone`: the message carries the node id and no graph. The Notice handler calls `noteDiffDone` with that id, then sets that node Persisted through `GraphMutate.setPersistState`. The diff-count hook clears the in-progress flag and starts another file diff when one is needed. `PersistThread.finishWhenBound` posts `Notice.SnapshotDone` for each node in the submit list after a successful write. `DbAgent` and `FileAgent` only pass the poster in through `bindPersistFinished`.
+[o] The old finish notice was `SnapshotDone` of the node id. `PersistThread.finishWhenBound` posted it after a successful collector write.
+[x] `NodePersisted`: the message carries the node id and no graph. The Notice handler calls `noteDiffDone` with that id, then sets that node Persisted through `GraphMutate.setPersistState`. The diff-count hook clears the in-progress flag and starts another file diff when one is needed. `PersistThread.finishWhenBound` posts `Notice.NodePersisted` for each node in the submit list after a successful write. The persist thread posts the same notice after `DocumentPersistChange.persistNode` succeeds for the taken request. `DbAgent` and `FileAgent` only pass the poster in through `bindPersistFinished`.
 [ ] `Notice.NodePersisted` of `nodeId` and `version`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
-[o] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
+[o] The persist thread added `SnapshotDone` through the private function when a file write finished.
+[x] The persist thread adds `Notice.NodePersisted` of `nodeId` through `CoreMailboxApi.postNotice` when a node write succeeds. A failed write does not post.
 [ ] The persist thread adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when a file write finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 [o] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `Notice` stays off that path.
 [ ] Actor post path: `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `CoreEventDispatch` reads that `origin` and posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.

@@ -183,7 +183,7 @@ module internal CoreMailboxLoad =
     /// NodeUploading and NodeReceived are logged by the queue puller and
     /// do not set state.
     /// MarkUnparsed writes Unparsed only.
-    /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    /// NodePersisted runs the diff-count hook, then sets Persisted.
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
@@ -199,7 +199,7 @@ module internal CoreMailboxLoad =
         | Notice.NodeReceived _ -> Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
-        | Notice.SnapshotDone nodeId ->
+        | Notice.NodePersisted nodeId ->
             persist.noteDiffDone nodeId
             writeAxis persist (fun live ->
                 GraphMutate.setPersistState
@@ -214,6 +214,19 @@ module internal CoreMailboxLoad =
         (reply: AsyncReplyChannel<Result<'a, string>>)
         =
         reply.Reply(Error "unsupported")
+
+    let private pushOpen (context: MailboxContext) (msg: Notice) =
+        match msg with
+        | Notice.NodeParsed nodeId ->
+            match context.persist.getState () with
+            | Ok state when
+                PersistStack.openForPersist state.graph nodeId ->
+                PersistStack.push context.persistRequests {
+                    graph = state.graph
+                    nodeId = nodeId
+                }
+            | _ -> ()
+        | _ -> ()
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
@@ -283,7 +296,7 @@ module internal CoreMailboxLoad =
         | CoreQueue.Notice msg ->
             context.noticeLog := msg :: context.noticeLog.Value
             match applyNotice context.persist msg with
-            | Ok () -> ()
+            | Ok () -> pushOpen context msg
             | Error err -> reportNotice context err
         | CoreQueue.DropAuthority stopped ->
             Session.removeAuthority stopped
@@ -298,6 +311,7 @@ module internal CoreMailboxLoad =
         replaceGraph = persist.replaceGraph
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
+        persistNode = persist.persistNode
     }
 
     let private failedSeed persist error : PersistHandlers =
@@ -350,7 +364,8 @@ module internal CoreMailboxLoad =
           eventLogSeedError = seedError
           coreChanges = ref None
           noticeLog = ref []
-          session = session },
+          session = session
+          persistRequests = PersistStack.create () },
         reported
 
     let private started mailbox (context: MailboxContext) : Started =

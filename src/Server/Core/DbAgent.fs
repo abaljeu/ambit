@@ -328,7 +328,7 @@ module DbAgent =
         =
         match stamped with
         | Some ok when ok.message.IsNone ->
-            ids |> List.filter (PersistCollectors.openNode graph)
+            ids |> List.filter (PersistStack.openForPersist graph)
         | _ -> []
 
     let private submitLiveOps loaded dataDir preGraph postGraph ops =
@@ -492,7 +492,7 @@ module DbAgent =
                     requestFileDiff loaded
 
     /// A failed Change leaves those nodes Unpersisted. Drop the batch
-    /// so a later post can try again. Do not post SnapshotDone.
+    /// so a later post can try again. Do not post NodePersisted.
     let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
         eprintfn "DbAgent: failed to write live documents: %s" err
         let hitsBatch =
@@ -545,28 +545,29 @@ module DbAgent =
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> writePersistedEvent loaded persisted)
 
-    let private catchUpParsed (loaded: LoadedPersist) (nodeId: NodeId) =
-        match loaded.liveSaveDataDir with
-        | None -> ()
-        | Some _ ->
-            enqueueFileDiff
-                loaded
-                [ nodeId ]
-                loaded.baselineGraph.Value
-                loaded.state.Value.graph
-
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
         match Map.tryFind nodeId loaded.state.Value.graph.nodes with
         | Some node when
             node.documentState.parseState = ParseState.Parsed
             && node.documentState.persistState = PersistState.Unpersisted ->
-            catchUpParsed loaded nodeId
             if
                 loaded.diffNeeded.Value
                 && not loaded.diffInProgress.Value
             then
                 requestFileDiff loaded
         | _ -> ()
+
+    let private persistOneNode
+        (loaded: LoadedPersist)
+        (request: PersistRequest)
+        =
+        match loaded.liveSaveDataDir with
+        | None -> Error "no live-save directory"
+        | Some dataDir ->
+            DocumentPersistChange.persistNode
+                dataDir
+                request.graph
+                request.nodeId
 
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
@@ -581,6 +582,7 @@ module DbAgent =
                 { loaded.state.Value with graph = graph }
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
+        persistNode = persistOneNode loaded
     }
 
     let private logUnhandledException liveSaveDataDir operation context (ex: exn) =

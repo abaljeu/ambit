@@ -37,14 +37,14 @@ module PersistThread =
         match submit.kind with
         | PersistKind.Ops ->
             submit.nodeIds
-            |> List.filter (PersistCollectors.openNode submit.postGraph)
+            |> List.filter (PersistStack.openForPersist submit.postGraph)
         | PersistKind.Change ->
             submit.nodeIds
             |> List.filter (fun id ->
                 not (PersistCollectors.unparsedNode submit.postGraph id))
 
     /// A Change job writes differing document files. One Unparsed
-    /// submitted id blocks that write. The caller does not get SnapshotDone.
+    /// submitted id blocks that write. The caller does not get NodePersisted.
     let private changeBlocked (submit: PersistSubmit) =
         submit.kind = PersistKind.Change
         && submit.nodeIds
@@ -131,4 +131,35 @@ module PersistThread =
         =
         match slot.Value with
         | None -> ()
-        | Some post -> post (Notice.SnapshotDone nodeId)
+        | Some post -> post (Notice.NodePersisted nodeId)
+
+/// The node thread takes requests. It does not read live state.
+type internal PersistNodeDeps = {
+    requests: System.Collections.Concurrent.BlockingCollection<PersistRequest>
+    write: PersistRequest -> Result<PersistGraphOk, string>
+    finish: NodeId -> unit
+}
+
+[<RequireQualifiedAccess>]
+module PersistNodeThread =
+
+    let private takeOne (deps: PersistNodeDeps) =
+        let request = deps.requests.Take()
+        let written =
+            try
+                deps.write request
+            with ex ->
+                Error ex.Message
+        match written with
+        | Ok _ -> deps.finish request.nodeId
+        | Error _ -> ()
+
+    let private loop (deps: PersistNodeDeps) =
+        while true do
+            takeOne deps
+
+    /// Hosts the node thread. It does not edit the graph.
+    let internal start (deps: PersistNodeDeps) =
+        let thread = Thread(ThreadStart(fun () -> loop deps))
+        thread.IsBackground <- true
+        thread.Start()

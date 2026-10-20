@@ -259,26 +259,14 @@ module FileAgent =
                             externalChanges
                             persistMessage)
 
-    let private scheduleCatchUp (loaded: LoadedFile) (nodeId: NodeId) =
-        match loaded.collect.Value with
-        | None -> ()
-        | Some collect ->
-            let post = loaded.state.Value.graph
-            match Map.tryFind nodeId post.nodes with
-            | Some node when
-                node.parseState = ParseState.Parsed
-                && node.persistState = PersistState.Unpersisted ->
-                collect {
-                    nodeIds = [ nodeId ]
-                    dataDir = Some loaded.dataDir
-                    preGraph = loaded.lastPersisted.Value
-                    postGraph = post
-                    ops = []
-                    kind = PersistKind.Change
-                    notify = true
-                    wait = false
-                } |> ignore
-            | _ -> ()
+    let private persistOneNode
+        (loaded: LoadedFile)
+        (request: PersistRequest)
+        =
+        DocumentPersistChange.persistNode
+            loaded.dataDir
+            request.graph
+            request.nodeId
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
@@ -308,7 +296,8 @@ module FileAgent =
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
-        noteParsed = scheduleCatchUp loaded
+        noteParsed = ignore
+        persistNode = persistOneNode loaded
     }
 
     let private loadOrFail (dataDir: string) =

@@ -62,15 +62,6 @@ module PersistCollectors =
             true
         | _ -> false
 
-    /// True when that node may be persisted: not Unparsed, and Unpersisted.
-    let openNode (graph: Graph) (nodeId: NodeId) : bool =
-        match Map.tryFind nodeId graph.nodes with
-        | Some node when
-            node.documentState.persistState = PersistState.Unpersisted
-            && not (unparsedNode graph nodeId) ->
-            true
-        | _ -> false
-
     /// Owning special nodes for these ops, nearest axis carrier first.
     let owningSpecials (graph: Graph) (ops: Op list) : NodeId list =
         ops

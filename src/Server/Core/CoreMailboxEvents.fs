@@ -1,6 +1,7 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
 open System.Threading.Tasks
 open Gambol.Shared
 
@@ -119,6 +120,7 @@ module internal CoreMailboxEvents =
         coreChanges: (Caller -> CoreChangesDoor) option ref
         noticeLog: Notice list ref
         session: Session
+        persistRequests: BlockingCollection<PersistRequest>
     }
 
     let admitCaller (context: MailboxContext) (caller: Caller) =

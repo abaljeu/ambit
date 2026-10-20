@@ -51,6 +51,7 @@
     <Compile Include="AiCommandArgs.fs" />
     <Compile Include="GrokBotSettings.fs" />
     <Compile Include="AiExtractPack.fs" />
+    <Compile Include="Core\PersistStack.fs" />
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\MailboxHost.fs" />
     <Compile Include="Core\CoreChangesDoor.fs" />
