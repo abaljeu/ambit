@@ -3,14 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | GetState of AsyncReplyChannel<Result<State, string>>
-    | GetEventId of AsyncReplyChannel<Result<EventId, string>>
-    | GetEventsSince of
-        after: Gambol.Shared.EventId *
-        AsyncReplyChannel<
-            Result<Ev list, string>>
-    | GetEventHistory of
-        AsyncReplyChannel<Gambol.Shared.EventLog>
     | PostGraphOnly of
         caller: Caller *
         event: Ev *
@@ -69,10 +61,6 @@ type internal CoreMsg =
                 Ev *
                 CoreChangesAccepted option,
                 string>>
-    | EventsSince of
-        after: Gambol.Shared.EventId *
-        AsyncReplyChannel<Gambol.Shared.EventLog>
-
 [<RequireQualifiedAccess>]
 type internal Query =
     | State of AsyncReplyChannel<Result<State, string>>

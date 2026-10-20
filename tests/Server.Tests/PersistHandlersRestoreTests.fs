@@ -179,7 +179,7 @@ let private withFilling filling pool body = task {
 }
 
 [<Fact>]
-let ``getEventsSince Error does not seed empty EventLog as success`` () =
+let ``getEventsSince seed Error propagates and closes writes`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with
@@ -188,13 +188,13 @@ let ``getEventsSince Error does not seed empty EventLog as success`` () =
                     getEventsSince =
                         fun _ -> Error "events unavailable" } }
     withFilling filling (CoreActorPool.create ()) (fun host -> task {
-        try
-            let! _ =
-                CoreMailboxApi.getEventsSince host (EventId.zero)
-                |> Async.StartAsTask
-            Assert.Fail("expected persist getEventsSince Error")
-        with ex ->
-            Assert.Contains("events unavailable", ex.Message)
+        let! result =
+            MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                Mailbox.Ask(Query.EventsSince(EventId.zero, channel)))
+            |> Async.StartAsTask
+        match result with
+        | Ok _ -> Assert.Fail("expected seed Error from EventsSince")
+        | Error error -> Assert.Equal("events unavailable", error)
         let _, event = addRootChild "seed-fail"
         let! posted =
             CoreMailboxApi.postEvents host testCaller [ event ]

@@ -175,7 +175,11 @@ let private cannedHandlers
       getEventId = fun () ->
           readState () |> Result.map (fun state -> state.eventId)
       getEventsSince = fun after -> Ok(eventsSince after)
-      getEventLog = fun () -> Ok EventLog.empty
+      getEventLog =
+          fun () ->
+              eventsSince EventId.zero
+              |> EventLog.adoptNewestHead
+              |> Ok
       appendEvent = fun _ -> Ok ()
       applyEvent = apply
       replaceGraph = ignore

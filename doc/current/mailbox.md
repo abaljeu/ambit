@@ -31,10 +31,16 @@ The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`
 ## Interface
 [o] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
 [ ] `Mailbox` is the public mailbox and is server-only. A client or an Actor places an `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 10 Order, not Command.
-[o] `CoreMailbox` on a `MailboxHost`. Each public function builds a `CoreMsg` and posts through `CoreMailbox.reply` → `MailboxHost.postAndAsyncReply` → the processor pump in `CoreMailboxBackend`.
-[ ] `CoreMailbox` on a `MailboxHost`. Each public order posts `Mailbox.PlaceOrder`. Each public read posts `Mailbox.Ask`. `Session` (`Login`, `Logout`, `Admit`) is outside the core mailbox. Logout stops admission, awaits an `Ask` so earlier `PlaceOrder`s drain, then removes the authority. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
+[o] `CoreMailbox` on a `MailboxHost`. Each public order and Session call builds a `CoreMsg`.
+
+Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph and lock-present Focus ids. `Query.LastEventId` replies with the current event id. `Query.EventsSince` replies with the mailbox EventLog after the requested id; event id 0 returns the full log.
+
+[ ] Each public order posts `Mailbox.PlaceOrder`. `Session` (`Login`, `Logout`, `Admit`) is outside the core mailbox. Logout stops admission, awaits an `Ask` so earlier `PlaceOrder`s drain, then removes the authority. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
 [o] `CoreMailbox.coreChanges` returns a `CoreChanges` record: `getState`, `getEventId`, `getEventsSince`, `postEvents`, `postGraphOnly`, `actorStop`, `asCaller`.
-[ ] `CoreMailbox.coreChanges` places `Order.Change` through `Mailbox.PlaceOrder` and asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change and decision 7 Ask reply.
+
+`CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
+
+[ ] `CoreMailbox.coreChanges` places `Order.Change` through `Mailbox.PlaceOrder`. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
