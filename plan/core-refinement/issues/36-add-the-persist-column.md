@@ -1,6 +1,6 @@
 # 36 — Add the persist column
 
-**Status:** `coded`
+**Status:** `done`
 **Actual:** 1.5h
 **Type:** coding
 **Blocked by:** None — can start immediately
