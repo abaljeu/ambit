@@ -180,6 +180,7 @@ Startup reads: the mailbox stays available while startup maintenance runs. In th
 [x] Unchanged documents: incremental writes skip unchanged documents.
 
 [x] Persist thread: an accepted change calls the collectors. The persist thread calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange`. `FileAgent` and `DbAgent` do not call those functions on the post path.
+[x] An Edit `PersistKind.Ops` write uses `wait = false`. The ack has no stamp ops and no persist message. Those arrive on `Notice.NodeStamped`. A failed write posts `Notice.PersistFailed`, leaves the node Unpersisted, and the order succeeds.
 
 [ ] Browser residency: want-driven.
 

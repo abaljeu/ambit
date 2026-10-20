@@ -176,6 +176,35 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
+    let private applyStampOps
+        (persist: PersistHandlers)
+        (ops: Op list)
+        : Result<unit, string> =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            match Op.applyAll ops state with
+            | ApplyResult.Invalid (_, err) -> Error err
+            | ApplyResult.Unchanged next
+            | ApplyResult.Changed next ->
+                persist.replaceGraph next.graph
+                Ok ()
+
+    let private leaveUnpersisted
+        (persist: PersistHandlers)
+        (nodeIds: NodeId list)
+        : Result<unit, string> =
+        let step acc nodeId =
+            match acc with
+            | Error err -> Error err
+            | Ok () ->
+                writeAxis persist (fun graph ->
+                    GraphMutate.setPersistState
+                        nodeId
+                        PersistState.Unpersisted
+                        graph)
+        List.fold step (Ok ()) nodeIds
+
     /// Core loop apply. NodeParsed writes Parsed only when pullingFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// pullingFile is set, that File Node stays Unparsed. It does not
@@ -184,6 +213,8 @@ module internal CoreMailboxLoad =
     /// do not set state.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    /// NodeStamped applies stamp ops. PersistFailed leaves those nodes
+    /// Unpersisted.
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
@@ -206,6 +237,14 @@ module internal CoreMailboxLoad =
                     nodeId
                     PersistState.Persisted
                     live)
+        | Notice.NodeStamped stamp ->
+            match applyStampOps persist stamp.ops with
+            | Error err -> Error err
+            | Ok () ->
+                persist.noteStamp stamp
+                Ok ()
+        | Notice.PersistFailed failure ->
+            leaveUnpersisted persist failure.nodeIds
 
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)
@@ -274,6 +313,33 @@ module internal CoreMailboxLoad =
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
 
+    let private appendNoticeEvent
+        (context: MailboxContext)
+        (notice: Notice)
+        : Result<unit, string> =
+        let event = {
+            id = EventLog.nextId context.eventLog.Value
+            submissionId = Guid.NewGuid()
+            authority = Authority "Server"
+            commandName = ""
+            body = EventBody.Notice notice
+        }
+        match context.persist.appendEvent event with
+        | Error err -> Error err
+        | Ok () ->
+            context.eventLog.Value <-
+                EventLog.append event context.eventLog.Value
+            Ok ()
+
+    let private logPollNotice (context: MailboxContext) (notice: Notice) =
+        match notice with
+        | Notice.NodeStamped _
+        | Notice.PersistFailed _ ->
+            match appendNoticeEvent context notice with
+            | Ok () -> ()
+            | Error err -> reportNotice context err
+        | _ -> ()
+
     let private dispatchItem
         (context: MailboxContext)
         (item: CoreQueue)
@@ -283,7 +349,7 @@ module internal CoreMailboxLoad =
         | CoreQueue.Notice msg ->
             context.noticeLog := msg :: context.noticeLog.Value
             match applyNotice context.persist msg with
-            | Ok () -> ()
+            | Ok () -> logPollNotice context msg
             | Error err -> reportNotice context err
         | CoreQueue.DropAuthority stopped ->
             Session.removeAuthority stopped
@@ -298,6 +364,7 @@ module internal CoreMailboxLoad =
         replaceGraph = persist.replaceGraph
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
+        noteStamp = ignore
     }
 
     let private failedSeed persist error : PersistHandlers =

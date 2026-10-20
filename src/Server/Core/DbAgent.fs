@@ -248,6 +248,8 @@ module DbAgent =
                 postGraph = postGraph
                 ops = []
                 kind = PersistKind.Change
+                role = PersistRole.FollowUp
+                eventId = EventId.zero
                 notify = true
                 wait = false
             } |> ignore
@@ -319,7 +321,7 @@ module DbAgent =
             Ok(liveOf (Some stamped) true)
         | PersistOutcome.Blocked -> Ok(liveOf None false)
         | PersistOutcome.Queued -> Ok(liveOf None false)
-        | PersistOutcome.Failed err -> Error err
+        | PersistOutcome.Failed _ -> Ok(liveOf None false)
 
     let private notifiedOwners
         (graph: Graph)
@@ -331,7 +333,14 @@ module DbAgent =
             ids |> List.filter (PersistCollectors.openNode graph)
         | _ -> []
 
-    let private submitLiveOps loaded dataDir preGraph postGraph ops =
+    let private submitLiveOps
+        loaded
+        dataDir
+        eventId
+        preGraph
+        postGraph
+        ops
+        =
         match loaded.collect.Value with
         | None -> Error "persist collectors are not bound"
         | Some collect ->
@@ -345,8 +354,10 @@ module DbAgent =
                         postGraph = postGraph
                         ops = ops
                         kind = PersistKind.Ops
+                        role = PersistRole.Edit
+                        eventId = eventId
                         notify = true
-                        wait = true
+                        wait = false
                     })
             with
             | Error err -> Error err
@@ -364,22 +375,19 @@ module DbAgent =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            submitLiveOps loaded dataDir preGraph newState.graph ops
+            submitLiveOps
+                loaded
+                dataDir
+                newState.eventId
+                preGraph
+                newState.graph
+                ops
         | _ -> Ok(liveOf None true)
 
-    let private preparePostChange newState confirmations fresh
-        (stampedOpt: PersistGraphOk option)
-        =
-        let stampOps, stateToStore, persistMessage =
-            match stampedOpt with
-            | Some stamped ->
-                PersistStamp.opsBetween newState.graph stamped.graph,
-                { newState with graph = stamped.graph },
-                stamped.message
-            | None -> [], newState, None
-        let stampedFresh, ackEvents =
-            CoreMailboxEvents.overlayFreshEvents confirmations fresh stampOps
-        stateToStore, ackEvents, persistMessage
+    let private preparePostChange newState confirmations fresh =
+        let _, ackEvents =
+            CoreMailboxEvents.overlayFreshEvents confirmations fresh []
+        newState, ackEvents, None
 
     let private commitPostChange
         loaded
@@ -434,8 +442,7 @@ module DbAgent =
             | Error err -> Error err
             | Ok live ->
                 let stateToStore, ackEvents, persistMessage =
-                    preparePostChange
-                        newState confirmations fresh live.stamped
+                    preparePostChange newState confirmations fresh
                 commitPostChange
                     loaded
                     graphOnly
@@ -581,6 +588,7 @@ module DbAgent =
                 { loaded.state.Value with graph = graph }
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
+        noteStamp = ignore
     }
 
     let private logUnhandledException liveSaveDataDir operation context (ex: exn) =
@@ -651,6 +659,7 @@ module DbAgent =
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.persistFinished
             changeFailed = changeFailed loaded
+            postNotice = PersistThread.postWhenBound loaded.persistFinished
         }
         { filling =
             { handlers = persistHandlers loaded

@@ -61,6 +61,7 @@ Parse and persist move text between disk and the graph.
 ## Persist
 
 [x] Persist: turns graph information into files.
+[x] An Edit document write returns before the persist thread finishes. The thread posts `Notice.NodeStamped` or `Notice.PersistFailed`. A failed write leaves the node Unpersisted. The order stays success.
 [ ] Core: owns read file, write file, read directory, and write directory. Callers pass a node, or a relative path derived from a node. Core holds the absolute `DataDir` residency.
 [ ] No caller outside Core builds or holds a `DataDir` absolute path.
 ## Lock

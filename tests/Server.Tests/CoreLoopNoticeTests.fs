@@ -36,7 +36,8 @@ let private handlers
         fun graph ->
             state.Value <- { state.Value with graph = graph }
       noteDiffDone = snaps.Add
-      noteParsed = ignore }
+      noteParsed = ignore
+      noteStamp = ignore }
 
 let private filling state snaps : PersistFilling =
     { handlers = handlers state snaps
@@ -64,6 +65,42 @@ let private apply persist msg =
     match CoreMailboxLoad.applyNotice persist msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``NodeStamped applies stamp ops`` () =
+    let id, initial =
+        fileState PersistState.Unpersisted ParseState.Parsed
+    let state = ref initial
+    let before = state.Value.graph.nodes.[id].updateTime
+    let stampTime = before.AddMinutes 3.0
+    let snaps = ResizeArray<NodeId>()
+    let stamp = {
+        nodeIds = [ id ]
+        ops = [ Op.SetUpdateTime(id, before, stampTime) ]
+        message = Some "saved"
+        eventId = EventId.zero
+    }
+    apply (handlers state snaps) (Notice.NodeStamped stamp)
+    Assert.Equal(stampTime, state.Value.graph.nodes.[id].updateTime)
+    Assert.Equal(
+        PersistState.Unpersisted,
+        state.Value.graph.nodes.[id].documentState.persistState)
+
+[<Fact>]
+let ``PersistFailed leaves the node Unpersisted`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply
+        (handlers state snaps)
+        (Notice.PersistFailed {
+            nodeIds = [ id ]
+            message = "disk full"
+        })
+    Assert.Equal(
+        PersistState.Unpersisted,
+        state.Value.graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``ParseFinished sets Parsed and leaves PersistState`` () =

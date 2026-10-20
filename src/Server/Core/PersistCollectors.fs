@@ -9,6 +9,12 @@ type PersistKind =
     | Ops
     | Change
 
+/// Edit returns before the write. FollowUp is the file-diff job.
+[<RequireQualifiedAccess>]
+type PersistRole =
+    | Edit
+    | FollowUp
+
 /// One persist job. The persist thread is the caller of the write body.
 type PersistSubmit = {
     nodeIds: NodeId list
@@ -17,6 +23,8 @@ type PersistSubmit = {
     postGraph: Graph
     ops: Op list
     kind: PersistKind
+    role: PersistRole
+    eventId: EventId
     notify: bool
     wait: bool
 }

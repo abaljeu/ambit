@@ -46,7 +46,8 @@ module ActorLive =
         | EventBody.Change _
         | EventBody.Undo _
         | EventBody.Redo _
-        | EventBody.Cancel _ -> live
+        | EventBody.Cancel _
+        | EventBody.Notice _ -> live
 
     let applyEvents (events: Ev list) (live: Set<NodeId>) : Set<NodeId> =
         List.fold (fun acc event -> applyEvent event acc) live events
@@ -154,7 +155,8 @@ module ActorLive =
         | EventBody.Change _
         | EventBody.Undo _
         | EventBody.Redo _
-        | EventBody.Cancel _ -> None
+        | EventBody.Cancel _
+        | EventBody.Notice _ -> None
 
     let lastCmdResult
         (graph: Graph)

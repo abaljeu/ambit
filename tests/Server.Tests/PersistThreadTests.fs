@@ -37,6 +37,7 @@ let private startWith persistOps persistChange =
                 persistChange post
         finish = finishes.Add
         changeFailed = fun _ err -> failures.Add(err)
+        postNotice = ignore
     }
     collect, calls, finishes, failures
 
@@ -56,6 +57,8 @@ let ``open node calls persist ops and adds SnapshotDone`` () =
             postGraph = graph
             ops = edit id
             kind = PersistKind.Ops
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }
@@ -80,6 +83,8 @@ let ``Unparsed node is blocked and does not call persist`` () =
             postGraph = graph
             ops = edit id
             kind = PersistKind.Ops
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }
@@ -103,6 +108,8 @@ let ``snapshot change calls persist change and adds SnapshotDone`` () =
             postGraph = graph
             ops = []
             kind = PersistKind.Change
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }
@@ -137,6 +144,8 @@ let ``Change is blocked when any submitted node is Unparsed`` () =
             postGraph = graph
             ops = []
             kind = PersistKind.Change
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }
@@ -159,6 +168,8 @@ let ``failed Change does not add SnapshotDone`` () =
             postGraph = graph
             ops = []
             kind = PersistKind.Change
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }
@@ -186,6 +197,8 @@ let ``thrown persist ops return Failed`` () =
             postGraph = graph
             ops = edit id
             kind = PersistKind.Ops
+            role = PersistRole.FollowUp
+            eventId = EventId.zero
             notify = true
             wait = true
         }

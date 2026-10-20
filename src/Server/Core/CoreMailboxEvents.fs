@@ -45,7 +45,8 @@ module internal CoreMailboxEvents =
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
         | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> event
+        | EventBody.ActorStop _
+        | EventBody.Notice _ -> event
 
     let overlayFreshEvents
         (confirmations: Gambol.Shared.Ev list)

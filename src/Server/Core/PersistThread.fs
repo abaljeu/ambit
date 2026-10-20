@@ -13,6 +13,7 @@ type internal PersistThreadDeps = {
         string -> Graph -> Graph -> Result<PersistGraphOk, string>
     finish: NodeId -> unit
     changeFailed: NodeId list -> string -> unit
+    postNotice: Notice -> unit
 }
 
 /// One long-lived persist thread. It pulls collector jobs and calls the
@@ -72,6 +73,30 @@ module PersistThread =
             | PersistKind.Change ->
                 deps.persistChange dataDir submit.preGraph submit.postGraph
 
+    let private editNotice
+        (submit: PersistSubmit)
+        (written: Result<PersistGraphOk, string>)
+        : Notice option =
+        if submit.role <> PersistRole.Edit then
+            None
+        else
+            match written with
+            | Error err ->
+                Some (Notice.PersistFailed {
+                    nodeIds = submit.nodeIds
+                    message = err
+                })
+            | Ok stamped ->
+                Some (Notice.NodeStamped {
+                    nodeIds = submit.nodeIds
+                    ops =
+                        PersistStamp.opsBetween
+                            submit.postGraph
+                            stamped.graph
+                    message = stamped.message
+                    eventId = submit.eventId
+                })
+
     let private afterWrite
         (deps: PersistThreadDeps)
         (work: PersistWork)
@@ -79,6 +104,9 @@ module PersistThread =
         (written: Result<PersistGraphOk, string>)
         =
         let submit = work.submit
+        match editNotice submit written with
+        | None -> ()
+        | Some notice -> deps.postNotice notice
         match written with
         | Error err ->
             if submit.kind = PersistKind.Change then
@@ -124,11 +152,18 @@ module PersistThread =
         thread.IsBackground <- true
         thread.Start()
 
+    /// Private add. An empty slot drops the notice.
+    let internal postWhenBound
+        (slot: (Notice -> unit) option ref)
+        (notice: Notice)
+        =
+        match slot.Value with
+        | None -> ()
+        | Some post -> post notice
+
     /// Private add after a successful finish. A failed write does not call this.
     let internal finishWhenBound
         (slot: (Notice -> unit) option ref)
         (nodeId: NodeId)
         =
-        match slot.Value with
-        | None -> ()
-        | Some post -> post (Notice.SnapshotDone nodeId)
+        postWhenBound slot (Notice.SnapshotDone nodeId)

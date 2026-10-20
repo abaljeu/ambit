@@ -62,6 +62,28 @@ type ActorStart =
       graphIds: NodeId list
       eventId: EventId }
 
+type NodeStamp = {
+    nodeIds: NodeId list
+    ops: Op list
+    message: string option
+    eventId: EventId
+}
+
+type PersistFailure = {
+    nodeIds: NodeId list
+    message: string
+}
+
+[<RequireQualifiedAccess>]
+type Notice =
+    | NodeParsed of nodeId: NodeId
+    | SnapshotDone of nodeId: NodeId
+    | MarkUnparsed of nodeId: NodeId
+    | NodeUploading of nodeId: NodeId
+    | NodeReceived of nodeId: NodeId
+    | NodeStamped of NodeStamp
+    | PersistFailed of PersistFailure
+
 [<RequireQualifiedAccess>]
 type EventBody =
     | Change of ops: Op list
@@ -70,6 +92,7 @@ type EventBody =
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
     | Cancel of focusId: NodeId
+    | Notice of Notice
 
 type Ev =
     { id: EventId
@@ -411,7 +434,8 @@ module Ev =
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.ActorStop _
+        | EventBody.Notice _ -> None
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
 
@@ -421,7 +445,8 @@ module Ev =
         | EventBody.Redo(target, _) -> Some target
         | EventBody.Change _
         | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.ActorStop _
+        | EventBody.Notice _ -> None
 
     let inverseOps (event: Ev) : Op list option =
         ops event |> Option.map Op.invertAll
@@ -787,7 +812,8 @@ module PersistStamp =
                 { event with
                     body = EventBody.Redo(target, appendToOps ops stampOps) }
             | EventBody.ActorStart _ | EventBody.Cancel _
-            | EventBody.ActorStop _ -> event
+            | EventBody.ActorStop _
+            | EventBody.Notice _ -> event
 
     let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
         if stampOps.IsEmpty || events.IsEmpty then

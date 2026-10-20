@@ -332,7 +332,7 @@ sequenceDiagram
 
 12. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
 13. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
-14. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
+14. [x] **Field message.** An Edit ack does not carry the persist message. That message is on `Notice.NodeStamped` or `Notice.PersistFailed`.
 15. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
 16. [o] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
 17. [ ] **Idempotent orderId.** The same `orderId` returns the stored event. `r` is the current snapshot event id. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.

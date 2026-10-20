@@ -1,8 +1,9 @@
 # 69 — Persist an Edit without waiting
 
-**Status:** `defined`
+**Status:** `coded`
+**Actual:** 1h
 **Type:** coding
-**Blocked by:** 70 — Add the persist request stack; 44 — Apply document state from Node events
+**Blocked by:** None
 **Trackers:** architecture
 
 ## Context
@@ -31,24 +32,34 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 
 ### 1. Edit write
 
-1. [ ] **Submit** — `FileAgent.collectPersist` and `DbAgent.submitLiveOps` set `wait = false` on the Edit `PersistKind.Ops` submit. `PersistCollectors.collect` returns `PersistOutcome.Queued`. The mailbox reply does not call `PersistCollectors.waitReply`.
-2. [ ] **Stamp Notice** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes with a stamped graph. The Notice carries the stamp ops from `PersistStamp.opsBetween` and the persist message. `CoreMailboxLoad.applyNotice` applies those ops and logs the Notice. A client sees that Notice through the event log and through poll. This Notice is separate from `Notice.NodePersisted`.
-3. [ ] **Failed write** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes as `PersistOutcome.Failed`. The Notice carries the message. `CoreMailboxLoad.applyNotice` leaves each node on that submit Unpersisted and logs the Notice. `FileAgent.fromOutcome` and `DbAgent.liveOutcome` do not turn that failure into an Error. The order reply stays success.
-4. [ ] **Ack** — `FileAgent.preparePostChange` and `DbAgent.preparePostChange` do not append stamp ops for that write and do not put the persist message on the ack. `CoreMailboxEvents.overlayFreshEvents` does not receive those stamp ops. The stored Change has no stamp ops from the write. `CoreChangesAccepted.message` is not that persist message.
+1. [x] **Submit** — `FileAgent.collectPersist` and `DbAgent.submitLiveOps` set `wait = false` on the Edit `PersistKind.Ops` submit. `PersistCollectors.collect` returns `PersistOutcome.Queued`. The mailbox reply does not call `PersistCollectors.waitReply`.
+2. [x] **Stamp Notice** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes with a stamped graph. The Notice carries the stamp ops from `PersistStamp.opsBetween` and the persist message. `CoreMailboxLoad.applyNotice` applies those ops and logs the Notice. A client sees that Notice through the event log and through poll. This Notice is separate from `Notice.NodePersisted`.
+3. [x] **Failed write** — `PersistThread.afterWrite` posts a Notice through `CoreMailboxApi.postNotice` when that Edit write finishes as `PersistOutcome.Failed`. The Notice carries the message. `CoreMailboxLoad.applyNotice` leaves each node on that submit Unpersisted and logs the Notice. `FileAgent.fromOutcome` and `DbAgent.liveOutcome` do not turn that failure into an Error. The order reply stays success.
+4. [x] **Ack** — `FileAgent.preparePostChange` and `DbAgent.preparePostChange` do not append stamp ops for that write and do not put the persist message on the ack. `CoreMailboxEvents.overlayFreshEvents` does not receive those stamp ops. The stored Change has no stamp ops from the write. `CoreChangesAccepted.message` is not that persist message.
 
 ### Acceptance Criteria
 
-1. [ ] **No wait** — An Edit reply returns while the persist thread still holds the write. The reply is success.
-2. [ ] **Stamp** — After `CoreMailboxLoad.applyNotice` applies the stamp Notice, the graph has those stamp ops. A later poll returns that Notice.
-3. [ ] **Failure** — A failed write leaves the node Unpersisted. The log carries the message. The order is not an Error.
-4. [ ] **Ack** — The ack events have no stamp ops. The ack message is not the persist message.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **No wait** — An Edit reply returns while the persist thread still holds the write. The reply is success.
+2. [x] **Stamp** — After `CoreMailboxLoad.applyNotice` applies the stamp Notice, the graph has those stamp ops. A later poll returns that Notice.
+3. [x] **Failure** — A failed write leaves the node Unpersisted. The log carries the message. The order is not an Error.
+4. [x] **Ack** — The ack events have no stamp ops. The ack message is not the persist message.
+5. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+
+## Amendments
+
+1. **Notice names** — `Notice.NodeStamped` of `NodeStamp`. Fields: `nodeIds`, `ops`, `message`, `eventId`. `Notice.PersistFailed` of `PersistFailure`. Fields: `nodeIds`, `message`.
+2. **Edit role** — `PersistRole.Edit` on the submit. `PersistRole.FollowUp` is the file-diff job. The thread does not read `commandName` or `Authority`.
+3. **Poll** — The queue appends that Notice as `EventBody.Notice` after apply. `Ev.ops` of that event is empty, so undo skips it. Poll returns the Notice.
+
+## Time
+
+- 2026-10-20 1h — edit persist without waiting (from chat)
 
 ## See also
 

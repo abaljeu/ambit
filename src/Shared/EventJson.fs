@@ -144,6 +144,43 @@ module EventJson =
         | ActorFailed _
         | ActorCancelled -> Encode.object fields
 
+    let private encodeNodeIdNotice (kind: string) (nodeId: NodeId) =
+        Encode.object
+            [ "kind", Encode.string kind
+              "nodeId", Serialization.encodeNodeId nodeId ]
+
+    let private encodeStamp (stamp: NodeStamp) =
+        let message =
+            match stamp.message with
+            | None -> []
+            | Some text -> [ "message", Encode.string text ]
+        Encode.object (
+            [ "kind", Encode.string "nodeStamped"
+              "nodeIds", encodeNodeIds stamp.nodeIds
+              "ops", encodeOps stamp.ops
+              "eventId", encodeEventId stamp.eventId ]
+            @ message)
+
+    let private encodeFailure (failure: PersistFailure) =
+        Encode.object
+            [ "kind", Encode.string "persistFailed"
+              "nodeIds", encodeNodeIds failure.nodeIds
+              "message", Encode.string failure.message ]
+
+    let private encodeNotice (notice: Notice) =
+        match notice with
+        | Notice.NodeParsed id -> encodeNodeIdNotice "nodeParsed" id
+        | Notice.SnapshotDone id ->
+            encodeNodeIdNotice "snapshotDone" id
+        | Notice.MarkUnparsed id ->
+            encodeNodeIdNotice "markUnparsed" id
+        | Notice.NodeUploading id ->
+            encodeNodeIdNotice "nodeUploading" id
+        | Notice.NodeReceived id ->
+            encodeNodeIdNotice "nodeReceived" id
+        | Notice.NodeStamped stamp -> encodeStamp stamp
+        | Notice.PersistFailed failure -> encodeFailure failure
+
     let private encodeBody (body: EventBody) =
         match body with
         | EventBody.Change ops ->
@@ -167,6 +204,47 @@ module EventJson =
                   "focusId", Serialization.encodeNodeId focusId ]
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
+        | EventBody.Notice notice ->
+            Encode.object
+                [ "kind", Encode.string "notice"
+                  "notice", encodeNotice notice ]
+
+    let private decodeNodeIdNotice kind =
+        Decode.object (fun get ->
+            kind (get.Required.Field "nodeId" Serialization.decodeNodeId))
+
+    let private decodeStamp: Decoder<NodeStamp> =
+        Decode.object (fun get ->
+            { nodeIds =
+                get.Required.Field
+                    "nodeIds"
+                    (Decode.list Serialization.decodeNodeId)
+              ops = get.Required.Field "ops" decodeOps
+              message = get.Optional.Field "message" Decode.string
+              eventId = get.Required.Field "eventId" decodeEventId })
+
+    let private decodeFailure: Decoder<PersistFailure> =
+        Decode.object (fun get ->
+            { nodeIds =
+                get.Required.Field
+                    "nodeIds"
+                    (Decode.list Serialization.decodeNodeId)
+              message = get.Required.Field "message" Decode.string })
+
+    let private decodeNotice: Decoder<Notice> =
+        Decode.field "kind" Decode.string
+        |> Decode.andThen (fun kind ->
+            match kind with
+            | "nodeParsed" -> decodeNodeIdNotice Notice.NodeParsed
+            | "snapshotDone" -> decodeNodeIdNotice Notice.SnapshotDone
+            | "markUnparsed" -> decodeNodeIdNotice Notice.MarkUnparsed
+            | "nodeUploading" -> decodeNodeIdNotice Notice.NodeUploading
+            | "nodeReceived" -> decodeNodeIdNotice Notice.NodeReceived
+            | "nodeStamped" ->
+                decodeStamp |> Decode.map Notice.NodeStamped
+            | "persistFailed" ->
+                decodeFailure |> Decode.map Notice.PersistFailed
+            | other -> Decode.fail ("Unknown notice: " + other))
 
     let private decodeChangeBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -211,6 +289,9 @@ module EventJson =
                             "focusId"
                             Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
+            | "notice" ->
+                Decode.field "notice" decodeNotice
+                |> Decode.map EventBody.Notice
             | other -> Decode.fail ("Unknown event body: " + other))
 
     let encode (event: Ev) =

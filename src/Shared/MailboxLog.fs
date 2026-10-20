@@ -18,14 +18,6 @@ type Order =
     | Load of nodeId: NodeId
     | Cancel of focusId: NodeId
 
-[<RequireQualifiedAccess>]
-type Notice =
-    | NodeParsed of nodeId: NodeId
-    | SnapshotDone of nodeId: NodeId
-    | MarkUnparsed of nodeId: NodeId
-    | NodeUploading of nodeId: NodeId
-    | NodeReceived of nodeId: NodeId
-
 type PlacedOrder = {
     orderId: System.Guid
     authority: Authority
@@ -69,7 +61,8 @@ module MailboxLog =
         | HistoryBody.ActorStart start ->
             Ok (Order.StartActor start)
         | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
-        | HistoryBody.ActorStop _ -> Error "unsupported"
+        | HistoryBody.ActorStop _
+        | HistoryBody.Notice _ -> Error "unsupported"
 
     let private historyBody (order: Order) =
         match order with

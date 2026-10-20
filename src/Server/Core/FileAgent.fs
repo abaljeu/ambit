@@ -70,6 +70,7 @@ module FileAgent =
 
     let private collectPersist
         (loaded: LoadedFile)
+        (eventId: EventId)
         (preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
@@ -84,8 +85,10 @@ module FileAgent =
                 postGraph = postGraph
                 ops = ops
                 kind = PersistKind.Ops
+                role = PersistRole.Edit
+                eventId = eventId
                 notify = true
-                wait = true
+                wait = false
             })
 
     let private fromOutcome
@@ -97,7 +100,7 @@ module FileAgent =
         | PersistOutcome.Wrote stamped -> acceptWrote loaded eventId stamped
         | PersistOutcome.Blocked -> Ok None
         | PersistOutcome.Queued -> Ok None
-        | PersistOutcome.Failed err -> Error err
+        | PersistOutcome.Failed _ -> Ok None
 
     let private persistCollected
         (loaded: LoadedFile)
@@ -106,7 +109,7 @@ module FileAgent =
         (postGraph: Graph)
         (ops: Op list)
         =
-        match collectPersist loaded preGraph postGraph ops with
+        match collectPersist loaded eventId preGraph postGraph ops with
         | Error err -> Error err
         | Ok outcome -> fromOutcome loaded eventId outcome
 
@@ -188,25 +191,10 @@ module FileAgent =
         (newState: State)
         (confirmations: Ev list)
         (fresh: Ev list)
-        (stampedOpt: PersistGraphOk option)
         =
-        let stampOps, stampedGraph, persistMessage =
-            match stampedOpt with
-            | Some stamped ->
-                PersistStamp.opsBetween newState.graph stamped.graph,
-                stamped.graph,
-                stamped.message
-            | None -> [], newState.graph, None
-        let stampedFresh, ackEvents =
-            CoreMailboxEvents.overlayFreshEvents
-                confirmations
-                fresh
-                stampOps
-        let finalState =
-            match stampedOpt with
-            | Some _ -> { newState with graph = stampedGraph }
-            | None -> newState
-        finalState, ackEvents, persistMessage
+        let _, ackEvents =
+            CoreMailboxEvents.overlayFreshEvents confirmations fresh []
+        newState, ackEvents, None
 
     let private commitPostChange
         loaded
@@ -245,13 +233,12 @@ module FileAgent =
                             fresh
                     with
                     | Error err -> Error err
-                    | Ok stampedOpt ->
+                    | Ok _ ->
                         let finalState, ackEvents, persistMessage =
                             preparePostChange
                                 newState
                                 confirmations
                                 fresh
-                                stampedOpt
                         loaded.state.Value <- finalState
                         Ok(accepted
                             loaded
@@ -275,10 +262,22 @@ module FileAgent =
                     postGraph = post
                     ops = []
                     kind = PersistKind.Change
+                    role = PersistRole.FollowUp
+                    eventId = EventId.zero
                     notify = true
                     wait = false
                 } |> ignore
             | _ -> ()
+
+    let private noteStamp (loaded: LoadedFile) (stamp: NodeStamp) =
+        match stamp.message with
+        | Some _ -> loaded.persistClean.Value <- false
+        | None when not loaded.persistClean.Value -> ()
+        | None ->
+            match Bookkeeping.writeEventId loaded.dataDir stamp.eventId with
+            | Error _ -> loaded.persistClean.Value <- false
+            | Ok () ->
+                loaded.lastPersisted.Value <- loaded.state.Value.graph
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
@@ -309,6 +308,7 @@ module FileAgent =
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = scheduleCatchUp loaded
+        noteStamp = noteStamp loaded
     }
 
     let private loadOrFail (dataDir: string) =
@@ -365,6 +365,7 @@ module FileAgent =
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.persistFinished
             changeFailed = fun _ _ -> ()
+            postNotice = PersistThread.postWhenBound loaded.persistFinished
         }
 
     let createWithDependencies
