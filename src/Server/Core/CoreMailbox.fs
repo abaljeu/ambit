@@ -12,18 +12,20 @@ module CoreMailbox =
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
         : MailboxHost * (NodeId -> unit) =
+        let session = Session.create credentials
         let context, push =
             CoreMailboxLoad.makeMailBox
-                credentials
                 persist
                 pool
                 parsePush
+                session
         let started = CoreMailboxLoad.start context persist
         let created =
             MailboxHost.create
                 started.processor
                 persist
                 context.noticeLog
+                session
         persist.bindPersistFinished (CoreMailboxApi.postNotice created)
         started.bindCoreChanges (fun caller ->
             { host = created

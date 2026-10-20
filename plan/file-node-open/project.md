@@ -2,9 +2,9 @@
 
 Stage: build
 Summary: Extend the existing Open command (which opens links) so that on a File node it opens the server's copy of the file with the browser's native handling.
-Updated: 2026-10-15
+Updated: 2026-10-20
 Started: 2026-10-15
-Actual: 4.5h
+Actual: 6.5h
 
 Spec: [spec.md](spec.md)
 Arch: [arch.md](arch.md)

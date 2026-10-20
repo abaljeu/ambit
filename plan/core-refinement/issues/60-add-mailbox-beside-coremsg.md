@@ -1,6 +1,6 @@
 # 60 — Add Mailbox beside CoreMsg
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Actual:** 2h
 **Blocked by:** 59 — Rename InMsg to Notice
@@ -21,16 +21,16 @@ Add the public `Mailbox` and the Shared order log beside the types callers alrea
 3. [ ] **Shared log** — Add `src/Shared/MailboxLog.fs`, module `MailboxLog`. It holds `Order` with `Change`, `Undo of target: EventId`, `Redo of target: EventId`, `StartActor of ActorStart`, `StartPeerActor of PeerActorName * ActorStart`, `LoadSave of LoadSavePath * PeerActorName * LoadSaveCommandRequest`, `Load of NodeId`, and `Cancel of NodeId`. It holds `PlacedOrder` of `orderId`, `authority`, `commandName: string option`, and `order`. It holds `EventBody = Order of PlacedOrder | Notice of Notice` and `Ev = { id: EventId; body: EventBody }`. Move `Notice` from the server file into this module so the body can hold it. The five cases and payloads from [59 — Rename InMsg to Notice](59-rename-inmsg-to-notice.md) stay.
 4. [ ] **Query** — Add server-only `Query` beside `Mailbox`. The cases are `State of AsyncReplyChannel<Result<State, string>>`, `LastEventId of AsyncReplyChannel<Result<EventId, string>>`, and `EventsSince of after: EventId * AsyncReplyChannel<Result<EventLog, string>>`. No caller posts `Ask` or `PlaceOrder` in this ticket. The `PlaceOrder` arm replies `Error "unsupported"`. The `Ask` arm replies `Error "unsupported"` on that `Query` channel.
 5. [ ] **PeerActorName** — Move `PeerActorName` from `CoreActorNames.fs` to Shared. `ActorName` stays in `CoreActorNames.fs`. `Order.StartPeerActor` and `Order.LoadSave` use the Shared `PeerActorName`.
-6. [ ] **Mapping** — `MailboxLog.ofEv` and `MailboxLog.toEv` return `Result`. The post path leaves both functions unused. `submissionId` maps to `orderId`. `authority` maps onto `PlacedOrder`. `commandName` `""` maps to `None`, and any other string maps to `Some`. `toEv` maps `None` back to `""`. Mapped cases: `Change` keeps the ops; `Undo` and `Redo` keep the target, `ofEv` drops the ops, and `toEv` supplies an empty op list; `ActorStart` maps to `Order.StartActor`; `Cancel` maps to `Order.Cancel`. Unused cases return `Error "unsupported"`: `ofEv` on `ActorStop` (`Notice` has no `ActorStop` case; [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)); `toEv` on a `Notice` body, and on `StartPeerActor`, `LoadSave`, and `Load` (today's `History.Ev` has no body for those orders).
+6. [ ] **Mapping** — `MailboxLog.ofEv` and `MailboxLog.toEv` return `Result`. The post path leaves both functions unused. `submissionId` maps to `orderId`. `authority` maps onto `PlacedOrder`. `commandName` `""` maps to `None`, and any other string maps to `Some`. `toEv` maps `None` back to `""`. Mapped cases: `Change` keeps the ops. The logged Change holds the op list. `origin` exists only on the placed order under [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) ([Document-state events](../spec.md) §4); `Undo` and `Redo` keep the target, `ofEv` drops the ops, and `toEv` supplies an empty op list; `ActorStart` maps to `Order.StartActor`; `Cancel` maps to `Order.Cancel`. Unused cases return `Error "unsupported"`: `ofEv` on `ActorStop` (`Notice` has no `ActorStop` case; [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)); `toEv` on a `Notice` body, and on `StartPeerActor`, `LoadSave`, and `Load` (today's `History.Ev` has no body for those orders).
 
 ### Acceptance Criteria
 
-1. [ ] **Shape** — `Mailbox` is `CoreMsg`, `PlaceOrder`, and `Ask`. It has no `Notice` case. `CoreQueue` is `Public of Mailbox | Notice of Notice`.
-2. [ ] **Same path** — `CoreMailboxApi.postEvent` still runs today's `PostEvent` handler through `Mailbox.CoreMsg`.
-3. [ ] **Round trip** — `ofEv` then `toEv` on a `Change` keeps the ops, the authority, the order id, and the command name. `""` becomes `None` and returns as `""`.
-4. [ ] **Callers** — Route and Actor callers still build `History.Ev` and still post `CoreMsg`. `History.Ev` still has `submissionId`, `authority`, `commandName`, and `body`.
-5. [ ] **PeerActorName** — Shared declares `PeerActorName`. `CoreActorNames.fs` does not. `Order.StartPeerActor` carries it.
-6. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Shape** — `Mailbox` is `CoreMsg`, `PlaceOrder`, and `Ask`. It has no `Notice` case. `CoreQueue` is `Public of Mailbox | Notice of Notice`.
+2. [x] **Same path** — `CoreMailboxApi.postEvent` still runs today's `PostEvent` handler through `Mailbox.CoreMsg`.
+3. [x] **Round trip** — `ofEv` then `toEv` on a `Change` keeps the ops, the authority, the order id, and the command name. `""` becomes `None` and returns as `""`.
+4. [x] **Callers** — Route and Actor callers still build `History.Ev` and still post `CoreMsg`. `History.Ev` still has `submissionId`, `authority`, `commandName`, and `body`.
+5. [x] **PeerActorName** — Shared declares `PeerActorName`. `CoreActorNames.fs` does not. `Order.StartPeerActor` carries it.
+6. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 

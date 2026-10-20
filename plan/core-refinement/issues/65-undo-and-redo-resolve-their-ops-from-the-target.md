@@ -1,4 +1,4 @@
-# 65 — Log Undo and Redo as the target
+# 65 — Undo and Redo resolve their ops from the target
 
 **Status:** `defined`
 **Type:** coding

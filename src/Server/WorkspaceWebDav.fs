@@ -368,26 +368,6 @@ module WorkspaceWebDav =
                 "application/xml; charset=utf-8",
                 statusCode = 207)
 
-    let internal contentTypeFor (fileName: string) : string =
-        match Path.GetExtension(fileName).ToLowerInvariant() with
-        | ".pdf" -> "application/pdf"
-        | ".png" -> "image/png"
-        | ".jpg"
-        | ".jpeg" -> "image/jpeg"
-        | ".gif" -> "image/gif"
-        | ".webp" -> "image/webp"
-        | ".svg" -> "image/svg+xml"
-        | ".heic" -> "image/heic"
-        | ".txt"
-        | ".log"
-        | ".csv" -> "text/plain; charset=utf-8"
-        | ".md"
-        | ".markdown" -> "text/plain; charset=utf-8"
-        | ".json" -> "application/json; charset=utf-8"
-        | ".html"
-        | ".htm" -> "text/plain; charset=utf-8"
-        | _ -> "application/octet-stream"
-
     let private handleGet (resolved: Resolved) =
         match rejectIfIgnored resolved with
         | Error "ignored" -> Results.NotFound()
@@ -397,9 +377,9 @@ module WorkspaceWebDav =
             | None -> Results.NotFound()
             | Some(true, _, _) -> Results.BadRequest("is a collection")
             | Some(false, _, _) ->
-                Results.File(
-                    resolved.fullPath,
-                    contentTypeFor resolved.fullPath)
+                match WorkspaceFileMedia.openFileResult resolved.fullPath with
+                | Error e -> Results.Problem(detail = e, statusCode = 500)
+                | Ok result -> result
 
     let private trySourceMtime (req: HttpRequest) =
         match req.Headers.TryGetValue(WorkspaceDavClient.SourceMtimeHeaderName) with

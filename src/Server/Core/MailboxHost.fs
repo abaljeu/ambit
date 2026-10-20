@@ -9,6 +9,7 @@ type MailboxHost =
         isReady: unit -> bool
         dispose: unit -> unit
         noticeLog: Notice list ref
+        session: Session
     }
 
 [<RequireQualifiedAccess>]
@@ -18,17 +19,21 @@ module MailboxHost =
         mailbox
         (persist: PersistFilling)
         (noticeLog: Notice list ref)
+        session
         : MailboxHost = {
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
         dispose = persist.dispose
         noticeLog = noticeLog
+        session = session
     }
 
     /// Notice posts the mailbox has logged. Newest last.
     let internal loggedNotices (host: MailboxHost) =
         List.rev host.noticeLog.Value
+
+    let internal session (host: MailboxHost) = host.session
 
     let internal coreMsgItem (msg: CoreMsg) : CoreQueue =
         CoreQueue.Public (Mailbox.CoreMsg msg)

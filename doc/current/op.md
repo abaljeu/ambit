@@ -40,7 +40,7 @@ A single Graph modification, to a Node Header or to its Children.
 [ ] invert swaps old and new on SetText, SetClasses, Replace, SetName, and SetUpdateTime. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 12 NodeUnpersisted.
 [x] invertAll reverses the list and drops NewNode and NewSpecialNode.
 [o] SetText, SetClasses, SetName, and Replace mark the enclosing axis carrier Unpersisted. commandName Parse leaves PersistState unchanged. `marksOwningPersist`.
-[ ] After an ordinary edit, the server's `Change` handler posts `Notice.NodeUnpersisted`. Parse posts its Changes, then `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
+[ ] `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`, writes document files, and posts `Notice.NodeUnpersisted` for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. The logged Change holds the op list. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 
 `Op` has no `SetPersistState` case.
 [o] `Op.SetDocumentState`: not the writer of the parsed axis.
@@ -48,7 +48,7 @@ A single Graph modification, to a Node Header or to its Children.
 ## Store
 
 [o] Change, Undo, and Redo: an Op list on the Event body.
-[ ] `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Change` carries an `Op` list. `Order.Undo` and `Order.Redo` carry the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 4 One Change.
+[ ] `EventBody` is `Order of PlacedOrder | Notice of Notice`. The logged Change holds the op list. `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`. `Order.Undo` and `Order.Redo` carry the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 18 ChangeOrigin.
 [o] ActorStart and ActorStop: an Actor record. No Op list.
 [ ] `Order.StartActor` carries `ActorStart`. `Notice.ActorStop` carries `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 

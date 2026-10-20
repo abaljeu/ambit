@@ -7,9 +7,6 @@ type internal CoreMsg =
         caller: Caller *
         event: Ev *
         AsyncReplyChannel<Result<CoreChangesAccepted, string>>
-    | Logout of
-        Caller *
-        AsyncReplyChannel<Result<unit, string>>
     | StartActor of
         caller: Caller *
         request: Gambol.Shared.ActorStart *
@@ -49,10 +46,6 @@ type internal CoreMsg =
         caller: Caller *
         focusId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
-    | Login of
-        Caller *
-        AsyncReplyChannel<Result<unit, string>>
-    | AdmitCaller of Caller * AsyncReplyChannel<bool>
     | PostEvent of
         caller: Caller *
         event: Ev *
@@ -84,6 +77,7 @@ type internal Mailbox =
 type internal CoreQueue =
     | Public of Mailbox
     | Notice of Notice
+    | DropAuthority of stopped: StoppedAdmission
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>

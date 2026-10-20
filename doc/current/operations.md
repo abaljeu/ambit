@@ -22,7 +22,7 @@ A small set of operations transforms a graph of nodes.
 ## Change
 
 [o] Change: an Action. Event body carries the Op list. `submissionId`: Guid for deduplication. File: [History](../../src/Shared/History.fs).
-[ ] Change: `Order.Change` of an `Op` list on `PlacedOrder`. `orderId`: Guid for deduplication. File: [History](../../src/Shared/History.fs). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change and decision 16 Order carries its envelope fields.
+[ ] Change: the placed `Order.Change` is `ops: Op list * origin: ChangeOrigin`. The logged Change holds the op list. `orderId`: Guid for deduplication. File: [Mailbox log](../../src/Shared/MailboxLog.fs). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin and decision 16 Order carries its envelope fields.
 
 ## Model building
 
