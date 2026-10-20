@@ -18,12 +18,12 @@ Rename `InMsg` to `Notice` in place. The cases keep their names and payloads. `Q
 1. [ ] **Notice** — Rename `InMsg` to `Notice` in `CoreMsg.fs`. It stays server-internal. The cases stay `NodeParsed` of `nodeId`, `SnapshotDone` of `nodeId`, `MarkUnparsed` of `nodeId`, `NodeUploading` of `nodeId`, and `NodeReceived` of `nodeId`. `SnapshotDone` carries the node id.
 2. [ ] **CoreQueue** — Replace `QueueSum` with `type internal CoreQueue = Public of CoreMsg | Notice of Notice`. `Public` holds today's `CoreMsg`. [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md) changes that payload to `Mailbox`.
 3. [ ] **Notice function** — Rename `CoreMailboxApi.addInMsg` to `CoreMailboxApi.postNotice`. `postNotice` posts `CoreQueue.Notice`. `addCoreMsg` posts `CoreQueue.Public`. `PersistFilling.bindPersistFinished` takes `Notice -> unit`. `CoreMailbox.hostPublishing` passes `postNotice`.
-4. [ ] **Handler** — Rename `CoreMailboxLoad.applyInMsg` to `applyNotice`. `dispatchItem` matches `CoreQueue`. `SnapshotDone` still calls `noteDiffDone` and sets `PersistState.Persisted`. `NodeParsed` still sets Parsed when `noServerFile` is clear. Rename `MailboxHost.inMsgLog` to `noticeLog` and `loggedInMsgs` to `loggedNotices`.
+4. [ ] **Handler** — Rename `CoreMailboxLoad.applyInMsg` to `applyNotice`. `dispatchItem` matches `CoreQueue`. `SnapshotDone` still calls `noteDiffDone` and sets `PersistState.Persisted`. `NodeParsed` still sets Parsed when `pullingFile` is clear. Rename `MailboxHost.inMsgLog` to `noticeLog` and `loggedInMsgs` to `loggedNotices`.
 
 ### Acceptance Criteria
 
 1. [x] **Names** — The server has `Notice`, `CoreQueue`, and `postNotice`. It has no `InMsg`, `QueueSum`, or `addInMsg`. `Notice` has the five cases in item 1. `SnapshotDone` is `nodeId`.
-2. [x] **Same effects** — `applyNotice` on `Notice.NodeParsed` sets Parsed when `noServerFile` is clear. `applyNotice` on `Notice.SnapshotDone` calls `noteDiffDone` and sets that node `PersistState.Persisted`.
+2. [x] **Same effects** — `applyNotice` on `Notice.NodeParsed` sets Parsed when `pullingFile` is clear. `applyNotice` on `Notice.SnapshotDone` calls `noteDiffDone` and sets that node `PersistState.Persisted`.
 3. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up

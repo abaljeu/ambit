@@ -141,8 +141,8 @@ module DocumentPartition =
     let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
         isMemberOfDocumentState Unparsed graph nodeId
 
-    /// Unparsed or NoServerFile document membership. One ancestor walk — Op.apply
-    /// gates every Replace on this, so doubling the walk (Unparsed then NoServerFile)
+    /// Unparsed or PullingFile document membership. One ancestor walk — Op.apply
+    /// gates every Replace on this, so doubling the walk (Unparsed then PullingFile)
     /// shows up on nested parse tails with hundreds of Replace ops.
     let isMemberOfInaccessibleDocument (graph: Graph) (nodeId: NodeId) : bool =
         containingDocumentRootIds graph nodeId
@@ -150,7 +150,7 @@ module DocumentPartition =
             match Map.tryFind rootId graph.nodes with
             | Some node ->
                 Node.documentStateEnum node = Unparsed
-                || Node.documentStateEnum node = NoServerFile
+                || Node.documentStateEnum node = PullingFile
             | None -> false)
 
     let isMemberOfUnparsedFile (graph: Graph) (nodeId: NodeId) : bool =
@@ -162,13 +162,13 @@ module DocumentPartition =
                 && Node.documentStateEnum node = Unparsed
             | None -> false)
 
-    let isMemberOfNoServerFile (graph: Graph) (nodeId: NodeId) : bool =
+    let isMemberOfPullingFile (graph: Graph) (nodeId: NodeId) : bool =
         containingDocumentRootIds graph nodeId
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
             | Some node ->
                 node.kind = Special File
-                && Node.documentStateEnum node = NoServerFile
+                && Node.documentStateEnum node = PullingFile
             | None -> false)
 
     let private isDirectoryNode (node: Node) : bool =

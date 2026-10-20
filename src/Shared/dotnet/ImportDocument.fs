@@ -100,7 +100,7 @@ module ImportDocument =
             match Map.tryFind fileId graph.nodes with
             | Some { kind = Special File
                      documentState = ds } when
-                DocumentState.toLegacy ds = NoServerFile ->
+                DocumentState.toLegacy ds = PullingFile ->
                 Error "no file on server"
             | Some { kind = Special File
                      documentState = ds } ->
@@ -115,7 +115,7 @@ module ImportDocument =
                             | Current
                             | Unparsed ->
                                 previousArtifactText graph fileId relativePath
-                            | NoServerFile -> None
+                            | PullingFile -> None
 
                         DocumentParseOps.planApplyArtifact
                             graph
@@ -132,7 +132,7 @@ module ImportDocument =
                                         Unparsed,
                                         Current) ]
                                 | Current -> []
-                                | NoServerFile -> []
+                                | PullingFile -> []
 
                             markCurrent @ parseOps))
             | _ -> Error "file not found or not a File document")
@@ -147,7 +147,7 @@ module ImportDocument =
         match Map.tryFind fileId graph.nodes with
         | Some { kind = Special File
                  documentState = ds } when
-            DocumentState.toLegacy ds = NoServerFile ->
+            DocumentState.toLegacy ds = PullingFile ->
             Error "no file on server"
         | Some { kind = Special File
                  documentState = ds } when

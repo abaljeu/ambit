@@ -266,10 +266,10 @@ let ``graphRoundTrip preserves no-server-file document state`` () =
                   original.nodes
                   |> Map.add
                       fileId
-                      (Node.withDocumentState NoServerFile original.nodes.[fileId]) }
+                      (Node.withDocumentState PullingFile original.nodes.[fileId]) }
     match GraphProjection.graphRoundTrip absent with
     | Error err -> Assert.Fail(err)
-    | Ok graph -> Assert.Equal(NoServerFile, graph.nodes.[fileId].documentState.AsEnum)
+    | Ok graph -> Assert.Equal(PullingFile, graph.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``graphEquals is false when kind differs`` () =

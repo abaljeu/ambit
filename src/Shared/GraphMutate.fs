@@ -221,11 +221,11 @@ module GraphMutate =
         | Error msg -> Error msg
         | Ok node when
             parseState = ParseState.Parsed
-            && node.documentState.noServerFile ->
+            && node.documentState.pullingFile ->
             Ok graph
         | Ok node when
             node.documentState.parseState = parseState
-            && not node.documentState.noServerFile ->
+            && not node.documentState.pullingFile ->
             Ok graph
         | Ok node ->
             let updated =

@@ -41,14 +41,14 @@ The graph is the central data structure of the outliner.  There are rules for wo
 
 [x] `Current`: graph content represents the server artifact.
 [x] `Unparsed`: a server artifact exists and has not been parsed into current graph content.
-[x] `NoServerFile`: a File node has no server body.
-[x] `NoServerFile` and Unparsed documents block content edits.
-[x] Desktop Upload creates new File stubs as `NoServerFile`.
+[x] `PullingFile`: a File node has no server body.
+[x] `PullingFile` and Unparsed documents block content edits.
+[x] Desktop Upload creates new File stubs as `PullingFile`.
 [x] A successful PUT, or an already-present mtime skip, changes matching paths to Unparsed before Parse.
 [x] Directories keep their existing state behavior.
-[x] Parsed with `noServerFile` is not a state. `NodeParsed` sets a File Node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed.
-[x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `noServerFile`.
-[x] `parseState`, `persistState`, and `noServerFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
+[x] Parsed with `pullingFile` is not a state. `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
+[x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `pullingFile`.
+[x] `parseState`, `persistState`, and `pullingFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
 [o] Graph JSON and the PostgreSQL node projection still encode a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
 [ ] `DocumentState`: not the special-node document axis.
 [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes. Values: `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`).

@@ -254,11 +254,11 @@ let ``web or unmapped desktop only surfaces Unparsed`` () =
 
 [<Fact>]
 let ``web and desktop surface no-server-file before path comparison`` () =
-    let baseModel, wsId, fileId = modelWithWorkspaceFile NoServerFile
+    let baseModel, wsId, fileId = modelWithWorkspaceFile PullingFile
     let entry = entryUnderParentNode wsId fileId baseModel
     let node = baseModel.graph.nodes.[fileId]
     Assert.Equal(
-        Some WorkspacePathSyncStatus.NoServerFile,
+        Some WorkspacePathSyncStatus.PullingFile,
         rowWorkspacePathSyncStatus baseModel entry node)
     Assert.Equal("\u2205", rowFileIndicatorText baseModel entry node)
     Assert.Equal(

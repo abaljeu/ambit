@@ -26,7 +26,7 @@ A new public Change, and `postGraphOnly`, that contain `Op.SetDocumentState` are
 
 1. [ ] **Refusal test** — `public post of SetDocumentState is refused` in [Core loop InMsg tests](tests/Server.Tests/CoreLoopInMsgTests.fs). The post returns an error. The graph is unchanged.
 2. [ ] **List test** — `a posted list with SetDocumentState applies nothing` in [Ordered event stream tests](tests/Server.Tests/OrderedEventStreamTests.fs). An earlier Event in that post is not stored.
-3. [ ] **Four functions** — `upload through the mailbox writer ends NoServerFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
+3. [ ] **Four functions** — `upload through the mailbox writer ends PullingFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
 4. [ ] **Recover test** — `File recover applies Ops Ev ahead of Graph checkpoint` still passes.
 5. [ ] **Op claim** — [Op](doc/current/op.md) says the public post refuses a new `Op.SetDocumentState`, and the Op stays as the Event the client displays. The writer of the axis is the mailbox writer on Core loop.
 

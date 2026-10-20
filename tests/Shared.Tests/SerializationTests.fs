@@ -228,18 +228,49 @@ let ``Unparsed node round-trip`` () =
     Assert.Equal(Unparsed, decoded.documentState.AsEnum)
 
 [<Fact>]
-let ``NoServerFile node and state op round-trip`` () =
+let ``PullingFile round-trip`` () =
     let node =
         Node.Create(
             NodeId.New(),
             text = "file",
             kind = Special File,
-            documentState = NoServerFile)
+            documentState = PullingFile)
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    Assert.Contains("\"documentState\":\"noServerFile\"", json)
+    Assert.DoesNotContain("pullingFile", json)
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(NoServerFile, decoded.documentState.AsEnum)
+    Assert.Equal(PullingFile, decoded.documentState.AsEnum)
+    Assert.True(decoded.documentState.pullingFile)
+
+    let op = Op.SetDocumentState(node.id, PullingFile, Unparsed)
+    let opJson = Enc.toString 0 (Serialization.encodeOp op)
+    Assert.Contains("\"noServerFile\"", opJson)
+    Assert.DoesNotContain("pullingFile", opJson)
+    Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
+
+    let row = GraphProjection.nodeRowFromNode node
+    Assert.Equal("noServerFile", row.documentState)
+    let graph = Graph.create () |> Graph.addDetachedNode node
+    match GraphProjection.graphRoundTrip graph with
+    | Error msg -> failwith msg
+    | Ok loaded ->
+        let back = loaded.nodes.[node.id]
+        Assert.Equal(PullingFile, back.documentState.AsEnum)
+        Assert.True(back.documentState.pullingFile)
+
+[<Fact>]
+let ``PullingFile node and state op round-trip`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = PullingFile)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.Equal(PullingFile, decoded.documentState.AsEnum)
 
     let op =
-        Op.SetDocumentState(node.id, NoServerFile, Unparsed)
+        Op.SetDocumentState(node.id, PullingFile, Unparsed)
     Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
 
 [<Fact>]

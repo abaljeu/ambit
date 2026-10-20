@@ -17,7 +17,7 @@ File parse, directory reconcile, and lazy load apply the three-way parse state t
 
 1. [ ] **File parse** — [Import document](src/Shared/dotnet/ImportDocument.fs) `planParseFile` reaches the mailbox writer. Unparsed to Parsed is `InMsg.ParseFinished`. Content ops still post. The client receives the parse-state Event from the mailbox writer.
 2. [ ] **Directory reconcile** — [Directory reconcile](src/Shared/dotnet/DirectoryReconcile.fs) `planDirectoryReconcile` reaches the mailbox writer. Parsed is `InMsg.ParseFinished`. Unparsed is `InMsg.MarkUnparsed`. Content ops still post.
-3. [ ] **Lazy load** — [Lazy load reconciliation server](src/Server/LazyLoadReconciliationServer.fs) sends a planned parse-state transition to the mailbox writer. NoServerFile is `InMsg.SetDocumentState`. Content ops still post through `postGraphOnly`. The client receives the parse-state Event.
+3. [ ] **Lazy load** — [Lazy load reconciliation server](src/Server/LazyLoadReconciliationServer.fs) sends a planned parse-state transition to the mailbox writer. PullingFile is `InMsg.SetDocumentState`. Content ops still post through `postGraphOnly`. The client receives the parse-state Event.
 4. [ ] **Public body** — These callers do not put `Op.SetDocumentState` on the public post. The logged Event is the Event the client displays.
 5. [ ] **Public post** — A direct public post of `Op.SetDocumentState` still succeeds.
 
@@ -25,7 +25,7 @@ File parse, directory reconcile, and lazy load apply the three-way parse state t
 
 1. [ ] **Reconcile test** — `reconcile reaches Parsed through the mailbox writer` in [Core loop InMsg tests](tests/Server.Tests/CoreLoopInMsgTests.fs). The node is Parsed. The content ops are posted. The client receives the parse-state Event.
 2. [ ] **Door test** — `public post of SetDocumentState is accepted` still passes.
-3. [ ] **Four functions** — `upload through the mailbox writer ends NoServerFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
+3. [ ] **Four functions** — `upload through the mailbox writer ends PullingFile`, `import through the mailbox writer ends Parsed`, `undo of SetDocumentState restores the prior parse state`, and `stored replay returns the stored Event` still pass. The client still receives the parse-state Event on each.
 
 ## Finish-up
 

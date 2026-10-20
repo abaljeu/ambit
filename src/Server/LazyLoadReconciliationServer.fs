@@ -342,7 +342,7 @@ module LazyLoadReconciliationServer =
         reconcileChangedPathsWithDiscovery workspace None changedPaths
 
     /// Existing File nodes the git pull marks Unparsed: a Modified file
-    /// not yet Unparsed, an Added path that names a NoServerFile stub,
+    /// not yet Unparsed, an Added path that names a PullingFile stub,
     /// and a Renamed file whose plan marks that node Unparsed.
     let private receivedFileIds
         (graph: Graph)
@@ -363,11 +363,11 @@ module LazyLoadReconciliationServer =
         |> List.choose (function
             | LazyLoadReconciliation.Modified path ->
                 match existingFile path with
-                | Some(id, (Current | NoServerFile)) -> Some id
+                | Some(id, (Current | PullingFile)) -> Some id
                 | _ -> None
             | LazyLoadReconciliation.Added path ->
                 match existingFile path with
-                | Some(id, NoServerFile) -> Some id
+                | Some(id, PullingFile) -> Some id
                 | _ -> None
             | LazyLoadReconciliation.Renamed(oldPath, _) ->
                 match existingFile oldPath with

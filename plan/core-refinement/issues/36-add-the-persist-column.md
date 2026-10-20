@@ -13,18 +13,18 @@ The stored words in `document_state` are:
 
 - `current`
 - `unparsed`
-- `noServerFile` [o] obsolescent
+- `noServerFile`
 
 ## What to build
 
 1. [ ] **Migration** — Database adds `persist_state` on `nodes` with the same `ADD COLUMN IF NOT EXISTS` statement used for `document_state`. Existing rows are Persisted.
-2. [ ] **Read and write** — Database and Database projection read and write `persist_state` beside `document_state`. `current` remains the stored word for Parsed. `unparsed` remains the stored word for Unparsed. PullingFile is not written. A stored word `noServerFile` [o] obsolescent reloads as Unparsed, not PullingFile.
+2. [ ] **Read and write** — Database and Database projection read and write `persist_state` beside `document_state`. `current` remains the stored word for Parsed. `unparsed` remains the stored word for Unparsed. PullingFile is not written. A stored word `noServerFile` reloads as Unparsed, not PullingFile.
 3. [ ] **Reload** — Graph projection `nodeRowFromNode` and `graphFromPersistence` carry persist state both ways. An Unpersisted node stays Unpersisted after reload. A Persisted node stays Persisted after reload.
 
 ### Acceptance Criteria
 
 1. [ ] **Workspace graph** — `doc/current/graph.md` states that persist state survives reload in `persist_state`, and that `document_state` stores Parsed or Unparsed only.
-2. [ ] **Reload test** — `reload keeps persist state`. The test stores one Persisted node and one Unpersisted node, reloads, and reads those same persist states. `document_state` on the reloaded rows is `current` or `unparsed`. A row stored as `noServerFile` [o] obsolescent reloads as Unparsed, not PullingFile.
+2. [ ] **Reload test** — `reload keeps persist state`. The test stores one Persisted node and one Unpersisted node, reloads, and reads those same persist states. `document_state` on the reloaded rows is `current` or `unparsed`. A row stored as `noServerFile` reloads as Unparsed, not PullingFile.
 
 ## Finish-up
 

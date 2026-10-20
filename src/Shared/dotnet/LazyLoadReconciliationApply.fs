@@ -21,8 +21,8 @@ module internal LazyLoadReconciliationApply =
         match Node.documentStateEnum graph.nodes.[nodeId] with
         | Unparsed -> []
         | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | NoServerFile ->
-            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
+        | PullingFile ->
+            [ Op.SetDocumentState(nodeId, PullingFile, Unparsed) ]
 
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
@@ -54,7 +54,7 @@ module internal LazyLoadReconciliationApply =
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
                 | Ok(Some(nodeId, k)) when k = kind ->
                     match Map.tryFind nodeId graph.nodes with
-                    | Some node when Node.documentStateEnum node = NoServerFile ->
+                    | Some node when Node.documentStateEnum node = PullingFile ->
                         Some nodeId
                     | _ -> None
                 | _ -> None)
@@ -98,7 +98,7 @@ module internal LazyLoadReconciliationApply =
         | _ -> None
 
     /// Skip Added-path Directory File parse when stub already exists Current
-    /// and ensureChild emitted no creates. New / Unparsed / NoServerFile parse.
+    /// and ensureChild emitted no creates. New / Unparsed / PullingFile parse.
     let skipParseAddedDirInfo
         (graph: Graph)
         workspaceId
@@ -136,17 +136,17 @@ module internal LazyLoadReconciliationApply =
                         let previousText =
                             match docState with
                             | Unparsed
-                            | NoServerFile -> None
+                            | PullingFile -> None
                             | Current ->
                                 previousArtifactText graph nodeId relativePath
                         let markCurrent =
                             match docState with
                             | Unparsed ->
                                 [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-                            | NoServerFile ->
+                            | PullingFile ->
                                 [ Op.SetDocumentState(
                                     nodeId,
-                                    NoServerFile,
+                                    PullingFile,
                                     Current) ]
                             | Current -> []
                         DocumentParseOps.planApplyArtifact

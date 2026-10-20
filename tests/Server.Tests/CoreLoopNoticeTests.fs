@@ -75,12 +75,12 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
-    Assert.False(node.documentState.noServerFile)
+    Assert.False(node.documentState.pullingFile)
     Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
+let ``ParseFinished leaves a pullingFile File Node Unparsed`` () =
     let id = NodeId.New()
     let node =
         Node.Create(
@@ -88,7 +88,7 @@ let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
             text = "note.txt",
             name = Filename.create "note.txt",
             kind = Special File,
-            documentState = NoServerFile,
+            documentState = PullingFile,
             parseState = ParseState.Unparsed,
             persistState = PersistState.Unpersisted)
     let state =
@@ -99,8 +99,8 @@ let ``ParseFinished leaves a noServerFile File Node Unparsed`` () =
     apply (handlers state snaps) (Notice.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
-    Assert.True(after.documentState.noServerFile)
-    Assert.Equal(NoServerFile, after.documentState.AsEnum)
+    Assert.True(after.documentState.pullingFile)
+    Assert.Equal(PullingFile, after.documentState.AsEnum)
     Assert.Equal(PersistState.Unpersisted, after.documentState.persistState)
     Assert.Empty(snaps)
 

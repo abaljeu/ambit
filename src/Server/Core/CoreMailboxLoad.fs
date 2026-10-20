@@ -176,9 +176,9 @@ module internal CoreMailboxLoad =
         writeParseState persist nodeId ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
-    /// Core loop apply. NodeParsed writes Parsed only when noServerFile
+    /// Core loop apply. NodeParsed writes Parsed only when pullingFile
     /// is clear, then noteParsed so a blocked edit can catch up. When
-    /// noServerFile is set, that File Node stays Unparsed. It does not
+    /// pullingFile is set, that File Node stays Unparsed. It does not
     /// set Persisted. NodeParsed is the renamed ParseFinished.
     /// NodeUploading and NodeReceived are logged by the queue puller and
     /// do not set state.
