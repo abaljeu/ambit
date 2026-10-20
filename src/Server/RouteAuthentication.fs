@@ -55,7 +55,7 @@ module RouteAuthentication =
             ClearCookie = clearAuthCookie
         }
 
-    /// Login first, then SetCookie. Do not issue a secret the mailbox set lacks.
+    /// Session login, then SetCookie.
     let loginThenSetCookie
         (host: MailboxHost)
         (auth: Authentication)

@@ -29,6 +29,7 @@
     <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
+    <Compile Include="WorkspaceFileMedia.fs" />
     <Compile Include="WorkspaceWebDav.fs" />
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
     <Compile Include="GitGatewayDiagnostics.fs" />
@@ -43,6 +44,7 @@
     <Compile Include="ParseStack.fs" />
     <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="Core\CoreCredentials.fs" />
+    <Compile Include="Core\Session.fs" />
     <Compile Include="Core\CoreActorNames.fs" />
     <Compile Include="AiKeys.fs" />
     <Compile Include="AiRepos.fs" />

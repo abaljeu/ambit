@@ -136,7 +136,7 @@ let testCaller =
       name = "test"
       secret = testSecret }
 
-/// Admitted Callers the mailbox holds at host start (no public add).
+/// Admitted Callers Session copies when the host starts.
 let admittedCredentials =
     CoreCredentials.ofCallers (Set.singleton testCaller)
 

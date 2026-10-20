@@ -136,13 +136,13 @@ let ``GetState stamps lockPresent from the live table after startActor`` () =
     })
 
 [<Fact>]
-let ``StartActor with inactive secret does not hand off`` () =
+let ``StartActor from an inactive Actor does not hand off`` () =
     let started, _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =
             postStartActor
                 host
-                { authority = testAuthority
+                { authority = Authority "Actor"
                   name = testCaller.name
                   secret = Credential "inactive" }
                 sampleRequest

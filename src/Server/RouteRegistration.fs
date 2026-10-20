@@ -100,21 +100,80 @@ module RouteRegistration =
         | LoadSaveOperation.Load -> GithubTransportOperation.Load
         | LoadSaveOperation.Save -> GithubTransportOperation.Save
 
-    /// Missing cookie is 401 without Core. Present cookie uses mailbox admit.
+    let private withAdmittedCaller
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: Caller -> Async<IResult>)
+        : Async<IResult> =
+        match BrowserRequestCreds.tryCookieCaller req with
+        | None -> async.Return(Results.Unauthorized())
+        | Some caller ->
+            let session = MailboxHost.session persistence.Core.host
+            if Session.admissionIsOpen session caller then
+                cont caller
+            else
+                async.Return(Results.Unauthorized())
+
+    let private withAdmittedChanges
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: CoreChangesDoor -> Async<IResult>)
+        : Async<IResult> =
+        withAdmittedCaller persistence req (fun caller ->
+            cont (boundChanges persistence caller))
+
+    let private withBrowserCaller
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: Caller -> Async<IResult>)
+        : Async<IResult> =
+        match BrowserRequestCreds.tryCookieCaller req with
+        | None -> async.Return(Results.Unauthorized())
+        | Some caller ->
+            let session = MailboxHost.session persistence.Core.host
+            match Session.beginAdmittedRoute session caller with
+            | None -> async.Return(Results.Unauthorized())
+            | Some route ->
+                async {
+                    try
+                        return! cont caller
+                    finally
+                        Session.finishAdmittedRoute route
+                }
+
+    /// Missing cookie is 401. The admission covers the order handoff.
     let private withBrowserChanges
         (persistence: PersistenceContext)
         (req: HttpRequest)
         (cont: CoreChangesDoor -> Async<IResult>)
         : Async<IResult> =
-        match BrowserRequestCreds.tryCookieCaller req with
-        | None -> async.Return(Results.Unauthorized())
-        | Some caller ->
-            async {
-                let! live =
-                    CoreMailboxApi.isAdmitted persistence.Core.host caller
-                if live then return! cont (boundChanges persistence caller)
-                else return Results.Unauthorized()
-            }
+        withBrowserCaller persistence req (fun caller ->
+            cont (boundChanges persistence caller))
+
+    let internal withBrowserReconciliation
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        (cont: CoreChangesDoor -> Async<IResult>)
+        : Async<IResult> =
+        withBrowserCaller persistence req (fun _ ->
+            cont (parseBound persistence))
+
+    let private logoutAndRedirect
+        (this: AmbitApp)
+        (persistence: PersistenceContext)
+        (ctx: HttpContext)
+        : Task<IResult> =
+        task {
+            match BrowserRequestCreds.tryCookieCaller ctx.Request with
+            | Some caller ->
+                let! _ =
+                    CoreMailboxApi.logout persistence.Core.host caller
+                    |> Async.StartAsTask
+                ()
+            | None -> ()
+            this.Auth.ClearCookie ctx.Response
+            return Results.Redirect("/ambit/login")
+        }
 
     let private registerAuthRoutes (routes: AppShellContext) =
         let this = routes.AmbitApp
@@ -141,16 +200,11 @@ module RouteRegistration =
             else
                 return Results.Redirect("/ambit/login?error=1")
         })) |> ignore
-        this.MapGet("/ambit/logout", Func<HttpContext, IResult>(fun ctx ->
-            match BrowserRequestCreds.tryCookieCaller ctx.Request with
-            | Some caller ->
-                CoreMailboxApi.logout persistence.Core.host caller
-                |> Async.RunSynchronously
-                |> ignore
-            | None -> ()
-            this.Auth.ClearCookie ctx.Response
-            Results.Redirect("/ambit/login")
-        )) |> ignore
+        this.MapGet(
+            "/ambit/logout",
+            Func<HttpContext, Task<IResult>>(
+                logoutAndRedirect this persistence))
+        |> ignore
         // Git PAT for smart HTTP (cookie session required; not the cookie itself).
         this.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
             if this.Auth.ExpectedUser = "" && this.Auth.ExpectedPass = "" then
@@ -201,21 +255,13 @@ module RouteRegistration =
             bindClientHint req |> ignore
             use reader = new StreamReader(req.Body)
             let! body = reader.ReadToEndAsync()
-            match BrowserRequestCreds.tryCookieCaller req with
-            | None -> return Results.Unauthorized()
-            | Some caller ->
-                let! live =
-                    CoreMailboxApi.isAdmitted persistence.Core.host caller
-                    |> Async.StartAsTask
-                if not live then
-                    return Results.Unauthorized()
-                else
+            return!
+                withBrowserCaller persistence req (fun caller ->
                     let changes = boundChanges persistence caller
-                    return!
-                        Api.postSearch
-                            (searchDoor persistence caller changes)
-                            body
-                        |> Async.StartAsTask
+                    Api.postSearch
+                        (searchDoor persistence caller changes)
+                        body)
+                |> Async.StartAsTask
         }
 
     let private registerStateRoutes (routes: AppShellContext) =
@@ -225,7 +271,7 @@ module RouteRegistration =
         this.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
             try
                 return!
-                    withBrowserChanges persistence req (fun handle ->
+                    withAdmittedChanges persistence req (fun handle ->
                         Api.getState handle req)
                     |> Async.StartAsTask
             with ex ->
@@ -245,7 +291,7 @@ module RouteRegistration =
             let! body = reader.ReadToEndAsync()
             let pageEpoch = stamps.PageBuildEpochSec ()
             return!
-                withBrowserChanges persistence req (fun handle ->
+                withAdmittedChanges persistence req (fun handle ->
                     Api.postPoll
                         handle
                         (stamps.DeployEpochSec ())
@@ -258,7 +304,7 @@ module RouteRegistration =
             let! body = reader.ReadToEndAsync()
             let pageEpoch = stamps.PageBuildEpochSec ()
             return!
-                withBrowserChanges persistence req (fun handle ->
+                withAdmittedChanges persistence req (fun handle ->
                     Api.postLoad
                         handle
                         (stamps.DeployEpochSec ())
@@ -305,15 +351,8 @@ module RouteRegistration =
                 bindClientHint req |> ignore
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                match BrowserRequestCreds.tryCookieCaller req with
-                | None -> return Results.Unauthorized()
-                | Some caller ->
-                    let! live =
-                        CoreMailboxApi.isAdmitted persistence.Core.host caller
-                        |> Async.StartAsTask
-                    if not live then
-                        return Results.Unauthorized()
-                    else
+                return!
+                    withBrowserCaller persistence req (fun caller ->
                         let router =
                             { resolvePath =
                                 LoadSaveRouting.resolvePath persistence.DataDir
@@ -326,19 +365,18 @@ module RouteRegistration =
                                         (GithubTransportActor.peerName
                                             (githubOperation request.operation))
                                         request }
-                        return!
-                            Api.postLoadSaveCommand
-                                router
-                                (boundChanges persistence caller)
-                                body
-                            |> Async.StartAsTask
+                        Api.postLoadSaveCommand
+                            router
+                            (boundChanges persistence caller)
+                            body)
+                    |> Async.StartAsTask
             }))
         |> ignore
         this.MapGet(
             "/ambit/workspace-remotes",
             Func<HttpRequest, Task<IResult>>(fun req -> task {
                 return!
-                    withBrowserChanges persistence req (fun handle ->
+                    withAdmittedChanges persistence req (fun handle ->
                         Api.getWorkspaceRemotes persistence.DataDir handle)
                     |> Async.StartAsTask
             }))
@@ -370,6 +408,32 @@ module RouteRegistration =
                 persistence.DataDir
     }
 
+    let internal postParseRequest
+        (persistence: PersistenceContext)
+        (req: HttpRequest)
+        : Task<IResult> =
+        withBrowserCaller persistence req (fun _ -> async {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+            return!
+                Api.postParseFile
+                    (parseBound persistence)
+                    persistence.DataDir
+                    body
+        })
+        |> Async.StartAsTask
+
+    let internal postSaveRequest
+        (persistence: PersistenceContext)
+        (prepare: unit -> Async<Result<int, string>>)
+        (req: HttpRequest)
+        : Task<IResult> =
+        withBrowserCaller persistence req (fun _ -> async {
+            let clientHint = bindClientHint req
+            return! Api.gitSave prepare persistence.DataDir clientHint
+        })
+        |> Async.StartAsTask
+
     let private registerSaveRoutes (routes: AppShellContext) =
         let this = routes.AmbitApp
         let persistence = routes.Persistence
@@ -396,29 +460,15 @@ module RouteRegistration =
                 | true, value ->
                     return Api.getImportFile persistence.DataDir (string value)
         })) |> ignore
-        this.MapPost("/ambit/file/parse", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (this.Auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                use reader = new StreamReader(req.Body)
-                let! body = reader.ReadToEndAsync()
-                return!
-                    Api.postParseFile
-                        (parseBound persistence)
-                        persistence.DataDir
-                        body
-                    |> Async.StartAsTask
-        })) |> ignore
-        this.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (this.Auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                let clientHint = bindClientHint req
-                let prepare = prepareGitSave persistence
-                return!
-                    Api.gitSave prepare persistence.DataDir clientHint
-                    |> Async.StartAsTask
-        })) |> ignore
+        this.MapPost(
+            "/ambit/file/parse",
+            Func<HttpRequest, Task<IResult>>(postParseRequest persistence))
+        |> ignore
+        this.MapPost(
+            "/ambit/save",
+            Func<HttpRequest, Task<IResult>>(
+                postSaveRequest persistence (prepareGitSave persistence)))
+        |> ignore
 
     let private mailboxIsAuthenticated persistence req =
         match BrowserRequestCreds.tryCookieCaller req with
@@ -481,10 +531,10 @@ module RouteRegistration =
             GitGatewayDiagnostics.registerRoute this
             LazyLoadReconciliationServer.registerDirectoryRoute
                 this
-                (fun () -> parseBound persistence)
+                (withBrowserReconciliation persistence)
             LazyLoadReconciliationServer.registerAddedRoute
                 this
-                (fun () -> parseBound persistence)
+                (withBrowserReconciliation persistence)
             WorkspaceWebDav.registerRoutes this
             RouteAppShell.registerCssAndShellRoutes routes
             DailyGitSave.register this
