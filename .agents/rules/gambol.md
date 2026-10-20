@@ -5,7 +5,8 @@ If the IDE reports that a file became 1 line, ignore the false report; don't inv
 
 Canonical project rules are split across [[.agents/rules/]]. Cursor attaches them through thin stubs in [[.cursor/rules/]] (`alwaysApply` or `globs`).
 
-- [[.agents/rules/core-agent-behavior.md]] — YOU MUST READ AND FOLLOW THIS.
+- [[.agents/rules/core-agent-behavior.md]] — rules for every agent
+- [[.agents/rules/main-agent.md]] — rules for the main agent
 - [[.agents/rules/project-values.md]] — project aims and stack
 READ EXACTLY ONE OF THESE TWO:
 - [[.agents/rules/environment-windows-cursor-ide.md]] — Windows Cursor IDE (shell, paths, tooling)

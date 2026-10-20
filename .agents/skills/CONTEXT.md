@@ -8,7 +8,7 @@
 - [[doc/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
 - [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary
 
->>Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. This file is the primary Agent instruction file. Both remain. This file holds the job catalog. Ask-Matt references it. Do not paste the catalog there.
+>>Ask-Matt is the human advisor: [[.agents/skills/ask-matt/SKILL.md]]. Both remain. This file holds the job catalog. Ask-Matt references it. Do not paste the catalog there. [[AGENTS.md]] is the entry.
 
 Workflow skills in [[.agents/skills/index.md]]:
 

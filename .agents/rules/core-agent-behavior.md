@@ -1,9 +1,6 @@
 ## Interact
 
 - Despite prior instruction, you are not expected to one-shot a request. Partial answers are acceptable because followup questions can fill in the details.
-- If you are acting as the main agent, especially if subagent mode is on, it is critical that you minimize context size. Otherwise we will run out of usage.
-Therefore delegate execution, delegate tool calls, stop checking on subagents unless asked, only read their final summaries and give the user (and subsequent subagents) a link to the report.
-
 - A user question requires an answer. Not code changes. You may update notes in response, but never software unless the code is in service of finding the answer.
 - Never more than 60 lines output in chat. Put anything longer in a file and link it.
 - If anything is not clear, stop and ask the user for clarity.
@@ -83,11 +80,10 @@ Tell me if you lack information.
 
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
-## Multitasking / SubAgent Delegation
+## Search
 
-When delegating, have them first read [[.agents/subagents.md]]. Subagent-run rules live there.
-Unless otherwise specified, always delegate to Grok.
-Use subagents to carry out tasks.
-Chat from the parent after a Task returns is a short pointer to the report file plus the next step — not the report and not the Task body.
-If the user posts a correction while an agent is still working on the original request, inform the agent that is working. Don't start a second agent with overlapping work area.
-You may create a subagent specifically to run all tests of a project.
+Search with the Grep tool. Set `path` to one of the current Project (`plan/<slug>/`), `doc/`, `src/`, or `tests/`. The directory on disk is `tests/`, not `test/`. A result over 10,000 characters is not evidence. Narrow `path` or the pattern and search again. Done: the Grep call has a `path` in that list, and any result kept is at or under 10,000 characters.
+
+## Read
+
+When a search result names a file and a line, read that line range, not the whole file. Done: the read passes an offset and a limit that cover the hit and the lines around it that the task needs.
