@@ -1,6 +1,5 @@
 module Gambol.Server.Tests.CoreCredentialsTests
 
-open Microsoft.AspNetCore.Http
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -68,21 +67,14 @@ let ``live credential is enqueued`` () = task {
 }
 
 [<Fact>]
-let ``Adapter cookie fail and inactive sender are the same refuse family`` () =
+let ``inactive caller is not admitted at the entry`` () =
     task {
-        let cookieFail = Results.Unauthorized()
         let host, handle = strangerDoor ()
-        let event = addRootChild "adapter"
-        let body =
-            Encode.toString 0 (
-                ApiResponseSerialization.encodeChangeRequest
-                    { events = [ event ]; want = [] })
         try
-            let! coreFail =
-                Api.postEvents handle 10 20 body
+            let! admitted =
+                CoreMailboxApi.isAdmitted host handle.caller
                 |> Async.StartAsTask
-            Assert.Equal(cookieFail.GetType(), coreFail.GetType())
-            Assert.Equal("UnauthorizedHttpResult", coreFail.GetType().Name)
+            Assert.False(admitted)
         finally
             CoreMailboxApi.dispose host
     }

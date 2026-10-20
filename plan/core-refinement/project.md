@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-20
 Started: 2026-09-29
-Actual: 24h45m
+Actual: 25h
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -71,6 +71,7 @@ Actual: 24h45m
 - 2026-10-19 — [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md) is implemented. `CoreQueue.Public` carries `Mailbox`. Callers stay on `CoreMsg` and `History.Ev`. Status stays `defined`. Stage stays `build`.
 - 2026-10-20 — Alan: the admission order is [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md), then [63 — Move queries to Ask](issues/63-move-queries-to-ask.md), then [62 — Admit at the entry](issues/62-admit-at-the-entry.md), then [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md). [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md) is blocked by [63 — Move queries to Ask](issues/63-move-queries-to-ask.md) and [62 — Admit at the entry](issues/62-admit-at-the-entry.md). [62 — Admit at the entry](issues/62-admit-at-the-entry.md) is blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md) only. [66 — Move Actor orders onto Order and Notice](issues/66-move-actor-orders-onto-order-and-notice.md) and [68 — Remove the CoreMsg case](issues/68-remove-the-coremsg-case.md) are also blocked by [62 — Admit at the entry](issues/62-admit-at-the-entry.md). Logout on [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md) stops admitting, drains prior orders by an `Ask` of `Query.LastEventId`, then removes the authority. Stage stays `build`.
 - 2026-10-20 — [63 — Move queries to Ask](issues/63-move-queries-to-ask.md) is implemented. State, last event id, and events-since reads use `Mailbox.Ask`; startup serves those queries. Status stays `defined`. Stage stays `build`.
+- 2026-10-20 — [62 — Admit at the entry](issues/62-admit-at-the-entry.md) is implemented. Browser routes check logged-in callers, Actor start admits the live Actor secret, and later core posts copy the caller's Authority. Status stays `defined`. Stage stays `build`.
 
 ## Issues
 

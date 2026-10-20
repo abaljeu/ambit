@@ -88,8 +88,7 @@ sequenceDiagram
 5. [x] **Login failure.** A mismatch redirects `302` to `/ambit/login?error=1`.
 6. [x] **Logout.** `GET /ambit/logout` clears the cookie and redirects `302` to `/ambit/login`.
 7. [x] **Cookie.** The cookie name is `gambol_auth`. The cookie is HttpOnly, SameSite=Lax, and Secure. The value is HMAC-SHA256 of the username, keyed by the password. The code is [Auth token](../../src/Shared/dotnet/AuthToken.fs).
-8. [o] **Protected routes.** When the cookie is missing, or the mailbox does not admit the caller, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body.
-9. [ ] **Protected routes.** When the cookie is missing, or the caller is not logged in, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body. The route checks the logged-in user. An Actor is admitted at start. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry.
+8. **Protected routes.** When the cookie is missing, or the caller is not logged in, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body. The route checks the logged-in user. An Actor is admitted at start.
 10. [x] **Empty auth settings.** When both auth fields are empty, `GET /ambit` admits a session and sets `gambol_auth`. The protected routes in item 8 still return `401` when that cookie is missing.
 
 ### 2.5 Endpoints
@@ -402,8 +401,7 @@ sequenceDiagram
 ### 2.11 POST /ambit/save
 
 1. [x] **Method and path.** `POST /ambit/save`.
-2. [o] **Cookie.** `gambol_auth` is required. A missing or unadmitted cookie is `401` with an empty body.
-3. [ ] **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry.
+2. **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user.
 4. [x] **Header.** `X-Gambol-Client` is an optional string. The commit message can include it.
 5. [x] **Body.** The handler does not read a JSON body.
 6. [x] **Disabled.** When the data directory is not a git repo, the status is `200` and `application/json`.
@@ -588,8 +586,7 @@ Graph {
 2. [x] **302.** `302` means login, logout, or the shell auth redirect.
 3. [o] **400.** `400` means a JSON decode error, a posted `eventId` other than `0`, a load that spans workspaces, or another handler error string.
 4. [ ] **400.** `400` means a JSON decode error, a load that spans workspaces, or another handler error string. `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
-5. [o] **401.** `401` means the cookie is missing, the mailbox does not admit the caller, or the handler error text is `Unauthorized`. The body is empty.
-6. [ ] **401.** `401` means the cookie is missing, the caller is not logged in, or the handler error text is `Unauthorized`. The route checks the logged-in user. The body is empty. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry.
+5. **401.** `401` means the cookie is missing, the caller is not logged in, or the handler error text is `Unauthorized`. The route checks the logged-in user. The body is empty.
 7. [x] **500.** A handler error whose text starts with `Internal server error` is `500` and `text/plain`. A startup failure or a missing production config is `500` and `text/html`.
 
 ### 2.15 Notes
@@ -624,8 +621,7 @@ Graph {
 ### 2.18 POST /ambit/search
 
 1. [x] **Method and path.** `POST /ambit/search`.
-2. [o] **Cookie.** `gambol_auth` is required. A missing or unadmitted cookie is `401` with an empty body.
-3. [ ] **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry.
+2. **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user.
 4. [x] **Body.** JSON `text` (string) and `startId` (Node id). Optional `generation` (number) is the reply match when it is present. Detail: [Search Actor](search-actor.md).
 5. [x] **Success.** `200` and `application/json`. The body has `ids` (at most 200 Node ids) and either `text` or `generation`.
 6. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once, and returns that reply. There is no continuation cursor.

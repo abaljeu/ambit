@@ -46,7 +46,7 @@ let ``CoreRuntime seeds Browser credential from AuthToken.deriveToken`` () =
     }
 
 [<Fact>]
-let ``bound Changes refuses an inactive sender and does not enqueue`` () =
+let ``bound Changes does not repeat entry admission`` () =
     task {
         let runtime = fileRuntime ()
         let bound =
@@ -54,13 +54,17 @@ let ``bound Changes refuses an inactive sender and does not enqueue`` () =
                 runtime.host
                 (BrowserRequestCreds.callerFromSecret (Credential "inactive"))
         let! before = CoreDoor.getEventId bound |> Async.StartAsTask
+        let! admitted =
+            CoreMailboxApi.isAdmitted runtime.host bound.caller
+            |> Async.StartAsTask
+        Assert.False(admitted)
         let event = addRootChild "refused"
         let! result =
             CoreDoor.postEvents bound [ event ] 
             |> Async.StartAsTask
         let! after = CoreDoor.getEventId bound |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(before, after)
+        requireOk "direct core post" result |> ignore
+        Assert.True(after > before)
     }
 
 [<Fact>]
@@ -77,7 +81,7 @@ let ``bound Browser Changes admits a live Browser cookie credential`` () = task 
 }
 
 [<Fact>]
-let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
+let ``API order adapter does not repeat entry admission``
     () =
     task {
         let dataDir = newTempDir ()
@@ -99,8 +103,8 @@ let ``HTTP Adapter refuses inactive Core sender with 401 and does not enqueue``
                 Api.postEvents bound 10 20 body
                 |> Async.StartAsTask
             let! after = CoreDoor.getEventId handle |> Async.StartAsTask
-            Assert.Equal("UnauthorizedHttpResult", result.GetType().Name)
-            Assert.Equal(before, after)
+            Assert.Equal("ContentHttpResult", result.GetType().Name)
+            Assert.True(after > before)
         finally
             CoreMailboxApi.dispose agent
     }
@@ -134,7 +138,7 @@ let ``callers reach changes on the mailbox Core door`` () = task {
 }
 
 [<Fact>]
-let ``Graph-only post refuses an inactive Caller`` () = task {
+let ``Graph-only post does not repeat entry admission`` () = task {
     let runtime = fileRuntime ()
     let bound =
         CoreDoor.create true
@@ -147,8 +151,8 @@ let ``Graph-only post refuses an inactive Caller`` () = task {
             [ [ Op.NewNode(NodeId.New(), "x") ] ]
         |> Async.StartAsTask
     match result with
-    | Error err -> Assert.Equal(CoreAuth.refuse, err)
-    | Ok () -> Assert.Fail("inactive Graph-only must be refused")
+    | Error err -> Assert.Fail(err)
+    | Ok () -> ()
 }
 
 [<Fact>]

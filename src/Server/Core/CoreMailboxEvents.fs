@@ -152,8 +152,7 @@ module internal CoreMailboxEvents =
             | Ok () -> Ok ()
 
     let eventDispatchContext context : CoreEventDispatch.Context =
-        { admit = admitCaller context
-          persist = context.persist
+        { persist = context.persist
           eventLog = context.eventLog }
 
     let graphNow context =

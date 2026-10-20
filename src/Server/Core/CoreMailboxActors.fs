@@ -29,7 +29,13 @@ module internal CoreMailboxActors =
                 let getState () = CoreMailboxEvents.graphNow context
                 match start request getState with
                 | Error err -> Error err
-                | Ok secret -> Ok(secret, make)
+                | Ok None -> Ok(None, make)
+                | Ok (Some secret) ->
+                    match context.pool.admit secret with
+                    | Ok () -> Ok(Some secret, make)
+                    | Error err ->
+                        context.pool.drop secret
+                        Error (StartError.Rejected err)
 
     let private finishReadyStart
         (context: MailboxContext)
@@ -114,27 +120,24 @@ module internal CoreMailboxActors =
         (result: ActorResult)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         : unit =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            match caller.authority with
-            | Authority "Actor" ->
-                match context.pool.getFocusId caller.secret with
-                | None -> reply.Reply(Ok ())
-                | Some focusId ->
-                    match
-                        CoreEventDispatch.actorStop
-                            (CoreMailboxEvents.eventDispatchContext context)
-                            caller
-                            focusId
-                            result
-                    with
-                    | Error err -> reply.Reply(Error err)
-                    | Ok () ->
-                        reply.Reply(
-                            context.pool.finish caller.secret result)
-            | _ ->
-                reply.Reply(Error CoreAuth.refuse)
+        match caller.authority with
+        | Authority "Actor" ->
+            match context.pool.getFocusId caller.secret with
+            | None -> reply.Reply(Ok ())
+            | Some focusId ->
+                match
+                    CoreEventDispatch.actorStop
+                        (CoreMailboxEvents.eventDispatchContext context)
+                        caller
+                        focusId
+                        result
+                with
+                | Error err -> reply.Reply(Error err)
+                | Ok () ->
+                    reply.Reply(
+                        context.pool.finish caller.secret result)
+        | _ ->
+            reply.Reply(Error CoreAuth.refuse)
 
     let private runCancel
         (context: MailboxContext)
@@ -142,24 +145,21 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         (submissionId: System.Guid)
         : Result<Ev option, string> =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> Error err
-        | Ok () ->
-            match context.pool.trySecretForFocus focusId with
-            | None -> Ok None
-            | Some secret ->
-                match
-                    CoreEventDispatch.appendLifecycle
-                        (CoreMailboxEvents.eventDispatchContext context)
-                        caller
-                        submissionId
-                        (EventBody.ActorStop(focusId, ActorCancelled))
-                with
+        match context.pool.trySecretForFocus focusId with
+        | None -> Ok None
+        | Some secret ->
+            match
+                CoreEventDispatch.appendLifecycle
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    caller
+                    submissionId
+                    (EventBody.ActorStop(focusId, ActorCancelled))
+            with
+            | Error err -> Error err
+            | Ok stored ->
+                match context.pool.finish secret ActorCancelled with
                 | Error err -> Error err
-                | Ok stored ->
-                    match context.pool.finish secret ActorCancelled with
-                    | Error err -> Error err
-                    | Ok () -> Ok(Some stored)
+                | Ok () -> Ok(Some stored)
 
     let dispatchCancelActor
         (context: MailboxContext)
@@ -257,35 +257,3 @@ module internal CoreMailboxActors =
             | Ok (stored, None) ->
                 CoreMailboxEvents.replyList reply context stored [ stored ]
             | other -> reply.Reply other
-
-    let dispatchRecordSearchStart
-        (context: MailboxContext)
-        (caller: Caller)
-        (request: Gambol.Shared.ActorStart)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            CoreEventDispatch.actorStart
-                (CoreMailboxEvents.eventDispatchContext context)
-                caller
-                request
-            |> reply.Reply
-
-    /// The queue puts ActorStop on the event source. The id is the root.
-    let dispatchRecordSearchStop
-        (context: MailboxContext)
-        (caller: Caller)
-        (rootId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            CoreEventDispatch.actorStop
-                (CoreMailboxEvents.eventDispatchContext context)
-                caller
-                rootId
-                ActorSucceeded
-            |> reply.Reply
