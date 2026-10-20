@@ -7,6 +7,7 @@ disable-model-invocation: true
 # Implement
 
 Entry for building a ticket. Start here. Keep going. Do not stop for review between a failing test and the code that makes it pass.
+Delegate separate workers to each section of the process.
 
 ## Process
 
