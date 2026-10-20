@@ -11,9 +11,9 @@ module CoreMailboxApi =
         | Ok value -> value
         | Error error -> failwith error
 
-    /// Public add: CoreMsg joins the one mailbox queue.
+    /// Public add: today's CoreMsg joins the queue as Mailbox.CoreMsg.
     let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
-        MailboxHost.postItem host (CoreQueue.Public msg)
+        MailboxHost.postItem host (MailboxHost.coreMsgItem msg)
 
     /// Private add: Notice joins that same queue. No public door.
     let internal postNotice (host: MailboxHost) (msg: Notice) =
@@ -22,24 +22,39 @@ module CoreMailboxApi =
     let private reply host build =
         MailboxHost.postAndAsyncReply host build
 
+    let private ask host build =
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.Ask (build channel))
+
     let tryGetState
         (host: MailboxHost)
         : Async<Result<State, string>> =
-        reply host GetState
+        ask host Query.State
 
     let getState
         (host: MailboxHost)
         : Async<Result<State, string>> =
         tryGetState host
 
+    let eventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.EventId)
+        : Async<Gambol.Shared.EventLog> =
+        async {
+            let! result =
+                ask host (fun channel ->
+                    Query.EventsSince(after, channel))
+            return unwrap result
+        }
+
     let eventHistory
         (host: MailboxHost)
         : Async<Gambol.Shared.EventLog> =
-        reply host GetEventHistory
+        eventsSince host EventId.zero
 
     let getEventId (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
-            let! result = reply host GetEventId
+            let! result = ask host Query.LastEventId
             return unwrap result
         }
 
@@ -48,9 +63,8 @@ module CoreMailboxApi =
         (after: Gambol.Shared.EventId)
         : Async<Ev list> =
         async {
-            let! result =
-                reply host (fun channel -> GetEventsSince(after, channel))
-            return unwrap result
+            let! log = eventsSince host after
+            return log.events
         }
 
     let private postEventAccepted
@@ -144,12 +158,6 @@ module CoreMailboxApi =
                 let! results = waiting
                 return mergeReplies host results
             }
-
-    let eventsSince
-        (host: MailboxHost)
-        (after: Gambol.Shared.EventId)
-        : Async<Gambol.Shared.EventLog> =
-        reply host (fun channel -> EventsSince(after, channel))
 
     /// Graph-only Ev: same flow as postEvents, skips file persist only.
     let postGraphOnly

@@ -13,13 +13,13 @@ The mailbox is the Core loop and the public post path.
 ## Sources
 
 [CoreMsg](../../src/Server/Core/CoreMsg.fs) - the contract
+[Mailbox log](../../src/Shared/MailboxLog.fs) - `Order`, `Notice`, and the mapping from today's `Ev`
 [Core mailbox](../../src/Server/Core/CoreMailbox.fs) - the queue
 [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs).
 
 ## Data
 
-[o] The mailbox queue is one `MailboxProcessor`. Its element is a private sum of `CoreMsg` and `Notice`. That sum has no public name.
-[ ] The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
+The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice`.
 
 ## Job
 [x] The callable door over the mailbox queue.
@@ -29,12 +29,20 @@ The mailbox is the Core loop and the public post path.
 [ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId`. `Order.StartActor` and `Notice.ActorStop` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
 
 ## Interface
+A browser route checks the logged-in caller before the core order door. Actor start checks the initiating caller and admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
+
 [o] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
 [ ] `Mailbox` is the public mailbox and is server-only. A client or an Actor places an `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 10 Order, not Command.
-[o] `CoreMailbox` on a `MailboxHost`. Each public function builds a `CoreMsg` and posts through `CoreMailbox.reply` → `MailboxHost.postAndAsyncReply` → the processor pump in `CoreMailboxBackend`.
-[ ] `CoreMailbox` on a `MailboxHost`. Each public order posts `Mailbox.PlaceOrder`. Each public read posts `Mailbox.Ask`. `Session` (`Login`, `Logout`, `Admit`) is outside the core mailbox. Logout stops admission, awaits an `Ask` so earlier `PlaceOrder`s drain, then removes the authority. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
+[o] `CoreMailbox` on a `MailboxHost`. Each public order and Session call builds a `CoreMsg`.
+
+Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph and lock-present Focus ids. `Query.LastEventId` replies with the current event id. `Query.EventsSince` replies with the mailbox EventLog after the requested id; event id 0 returns the full log.
+
+[ ] Each public order posts `Mailbox.PlaceOrder`. `Session` (`Login`, `Logout`, `Admit`) is outside the core mailbox. Logout stops admission, awaits an `Ask` so earlier `PlaceOrder`s drain, then removes the authority. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
 [o] `CoreMailbox.coreChanges` returns a `CoreChanges` record: `getState`, `getEventId`, `getEventsSince`, `postEvents`, `postGraphOnly`, `actorStop`, `asCaller`.
-[ ] `CoreMailbox.coreChanges` places `Order.Change` through `Mailbox.PlaceOrder` and asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change and decision 7 Ask reply.
+
+`CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
+
+[ ] `CoreMailbox.coreChanges` places `Order.Change` through `Mailbox.PlaceOrder`. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 4 One Change.
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
@@ -45,10 +53,9 @@ The mailbox is the Core loop and the public post path.
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
 [ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[o] `Notice`: internal message type on module Core loop. Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`.
+[o] `Notice`: Shared type in [Mailbox log](../../src/Shared/MailboxLog.fs). Not an Op. It carries the node. Cases: `NodeParsed`, `SnapshotDone`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`, each of `nodeId: NodeId`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
-[o] One queue: the mailbox queue. A private function on [Core mailbox](../../src/Server/Core/CoreMailbox.fs) adds `Notice`. A public function adds `CoreMsg`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands a `CoreMsg` to the `CoreMsg` handler and a `Notice` to the `Notice` handler. There is no second queue.
-[ ] One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
+One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. There is no second queue.
 [o] `NodeParsed`: the renamed `ParseFinished`. The Notice handler sets that node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this case.
 [ ] `Notice.NodeParsed`: the Notice handler sets that node Parsed only when `noServerFile` is clear. When `noServerFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this `Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [o] `NodeUploading` and `NodeReceived`: posted beside `Op.SetDocumentState`. The post does not set state. [44 — Apply document state from Node events](../../plan/core-refinement/issues/44-apply-document-state-from-file-events.md) owns those handlers.
@@ -64,7 +71,7 @@ The mailbox is the Core loop and the public post path.
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
-The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole.
+The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The mailbox applies that posted list whole.
 
 [o] `postEvents` pushes that list onto the queue as one `PostEvent` after another.
 [ ] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.

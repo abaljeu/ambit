@@ -81,6 +81,74 @@ let ``CoreMailboxApi.startActor with inactive secret is refused`` () =
     })
 
 [<Fact>]
+let ``Actor start rejects a secret the pool does not admit`` () =
+    let actorSecret = Credential "dead-at-start"
+    let basePool = CoreActorPool.create ()
+    let pool =
+        { basePool with
+            startActor = fun _ _ -> Ok actorSecret
+            admit = fun _ -> Error CoreAuth.refuse }
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+        try
+            let! result =
+                CoreMailboxApi.startActor host testCaller sampleRequest
+                |> Async.StartAsTask
+            Assert.Equal(Error CoreAuth.refuse, result)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``Actor start admits the secret and a later post skips the pool live check`` () =
+    let actorSecret = Credential "live-at-start"
+    let admitCount = ref 0
+    let basePool = CoreActorPool.create ()
+    let pool =
+        { basePool with
+            startActor = fun _ _ -> Ok actorSecret
+            isLive = fun _ -> false
+            admit =
+                fun secret ->
+                    Assert.Equal(actorSecret, secret)
+                    admitCount.Value <- admitCount.Value + 1
+                    Ok () }
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.host
+                pool
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+        try
+            let! started =
+                CoreMailboxApi.startActor host testCaller sampleRequest
+                |> Async.StartAsTask
+            requireOk "startActor" started
+            let caller = actorCaller actorSecret
+            let childId = NodeId.New()
+            let event =
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Wire"
+                  commandName = "Actor post"
+                  body = EventBody.Change [ Op.NewNode(childId, "Actor post") ] }
+            let! posted =
+                CoreMailboxApi.postEvent host caller event
+                |> Async.StartAsTask
+            let stored = requireOk "Actor post" posted
+            Assert.Equal(1, admitCount.Value)
+            Assert.Equal(Authority "Actor", stored.authority)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``CoreMailboxApi.login privately admits a Browser secret`` () =
     task {
         let dataDir = newTempDir ()
@@ -107,10 +175,6 @@ let ``CoreMailboxApi.login privately admits a Browser secret`` () =
                                                 Graph.rootId,
                                                 [],
                                                 [ ChildNode.owner childId ]) ] }
-            let! refused =
-                CoreMailboxApi.postEvents host caller [ event ]
-                |> Async.StartAsTask
-            Assert.Equal(Error CoreAuth.refuse, refused)
             let! before =
                 CoreMailboxApi.isAdmitted host caller
                 |> Async.StartAsTask
@@ -478,20 +542,27 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
     })
 
 [<Fact>]
-let ``Graph-only post without admitted Caller is refused`` () =
+let ``Graph-only post reads authority without repeated admission`` () =
     withHost (fun host _ -> task {
         let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
-                      authority = Authority "Browser"
+                      authority = Authority "Wire"
                       commandName = ""
                       body = EventBody.Change [ Op.NewNode(NodeId.New(), "nope") ] }
+        let caller =
+            { testCaller with
+                authority = Authority "Direct"
+                secret = Credential "inactive" }
         let! result =
             CoreMailboxApi.postGraphOnly
                 host
-                { testCaller with secret = Credential "inactive" }
+                caller
                 event
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
+        requireOk "graph-only direct" result |> ignore
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.Equal(Authority "Direct", history.events.Head.authority)
     })
 
 [<Fact>]
@@ -514,7 +585,7 @@ let ``Graph-only post with admitted Caller reaches persist`` () =
     })
 
 [<Fact>]
-let ``CoreMailboxApi.logout revokes the Caller at the mailbox`` () =
+let ``CoreMailboxApi.logout revokes entry permission without changing core authority`` () =
     withHost (fun host _ -> task {
         let! before =
             CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
@@ -525,7 +596,7 @@ let ``CoreMailboxApi.logout revokes the Caller at the mailbox`` () =
         let! after =
             CoreMailboxApi.isAdmitted host testCaller |> Async.StartAsTask
         Assert.False(after)
-        let! refused =
+        let! posted =
             CoreMailboxApi.postEvents
                 host
                 testCaller
@@ -535,7 +606,7 @@ let ``CoreMailboxApi.logout revokes the Caller at the mailbox`` () =
                     commandName = ""
                     body = EventBody.Change [ Op.NewNode(NodeId.New(), "after-logout") ] } ]
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, refused)
+        requireOk "direct post after logout" posted |> ignore
     })
 
 [<Fact>]
@@ -592,15 +663,20 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
     })
 
 [<Fact>]
-let ``CoreMailboxApi.postEvent without admitted Caller is refused`` () =
+let ``CoreMailboxApi.postEvent stores Caller authority without admission`` () =
     withHost (fun host _ -> task {
+        let caller =
+            { testCaller with
+                authority = Authority "Direct"
+                secret = Credential "inactive" }
         let! result =
             CoreMailboxApi.postEvent
                 host
-                { testCaller with secret = Credential "inactive" }
+                caller
                 (postedEvent ())
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
+        let stored = requireOk "direct post" result
+        Assert.Equal(Authority "Direct", stored.authority)
     })
 
 [<Fact>]

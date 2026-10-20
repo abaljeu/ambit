@@ -11,8 +11,7 @@ module internal CoreEventDispatch =
     module EventLog = Gambol.Shared.EventLog
 
     type Context =
-        { admit: Caller -> Result<unit, string>
-          persist: PersistHandlers
+        { persist: PersistHandlers
           eventLog: EventLog ref }
 
     let private eventAuthority (Authority name) =
@@ -150,11 +149,11 @@ module internal CoreEventDispatch =
         (caller: Caller)
         (event: Ev)
         =
-        let admitted =
+        let withCallerAuthority =
             { event with
                 id = EventLog.nextId context.eventLog.Value
                 authority = eventAuthority caller.authority }
-        completeAction context.eventLog.Value admitted
+        completeAction context.eventLog.Value withCallerAuthority
 
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
@@ -196,9 +195,6 @@ module internal CoreEventDispatch =
         (event: Ev)
         (graphOnly: bool)
         : Result<Ev * CoreChangesAccepted option, string> =
-        match context.admit caller with
-        | Error error -> Error error
-        | Ok () ->
-            match tryStored context event.submissionId with
-            | Some existing -> Ok(existing, None)
-            | None -> persistNew context caller event graphOnly
+        match tryStored context event.submissionId with
+        | Some existing -> Ok(existing, None)
+        | None -> persistNew context caller event graphOnly

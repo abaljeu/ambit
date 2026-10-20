@@ -3,14 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | GetState of AsyncReplyChannel<Result<State, string>>
-    | GetEventId of AsyncReplyChannel<Result<EventId, string>>
-    | GetEventsSince of
-        after: Gambol.Shared.EventId *
-        AsyncReplyChannel<
-            Result<Ev list, string>>
-    | GetEventHistory of
-        AsyncReplyChannel<Gambol.Shared.EventLog>
     | PostGraphOnly of
         caller: Caller *
         event: Ev *
@@ -69,21 +61,28 @@ type internal CoreMsg =
                 Ev *
                 CoreChangesAccepted option,
                 string>>
+[<RequireQualifiedAccess>]
+type internal Query =
+    | State of AsyncReplyChannel<Result<State, string>>
+    | LastEventId of AsyncReplyChannel<Result<EventId, string>>
     | EventsSince of
-        after: Gambol.Shared.EventId *
-        AsyncReplyChannel<Gambol.Shared.EventLog>
+        after: EventId *
+        AsyncReplyChannel<Result<EventLog, string>>
 
-/// Internal message. Not an Op. No public enqueue door.
-type internal Notice =
-    | NodeParsed of nodeId: NodeId
-    | SnapshotDone of nodeId: NodeId
-    | MarkUnparsed of nodeId: NodeId
-    | NodeUploading of nodeId: NodeId
-    | NodeReceived of nodeId: NodeId
+[<RequireQualifiedAccess>]
+type internal Mailbox =
+    | CoreMsg of CoreMsg
+    | PlaceOrder of
+        caller: Caller *
+        orderId: System.Guid *
+        commandName: string option *
+        order: Order *
+        reply: AsyncReplyChannel<Result<EventId, string>>
+    | Ask of Query
 
 [<RequireQualifiedAccess>]
 type internal CoreQueue =
-    | Public of CoreMsg
+    | Public of Mailbox
     | Notice of Notice
 
 type PersistHandlers = {

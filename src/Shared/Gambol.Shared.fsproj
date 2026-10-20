@@ -56,6 +56,7 @@
     <Compile Include="ClientIdentity.fs" />
     <Compile Include="PathPick.fs" />
     <Compile Include="LoadSaveCommand.fs" />
+    <Compile Include="MailboxLog.fs" />
     <Compile Include="WorkspaceGitRemote.fs" />
     <Compile Include="ServerCapabilities.fs" />
 
