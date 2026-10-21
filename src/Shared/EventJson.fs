@@ -144,6 +144,52 @@ module EventJson =
         | ActorFailed _
         | ActorCancelled -> Encode.object fields
 
+    let private noticeTag =
+        function
+        | Notice.NodeParsed _ -> "nodeParsed"
+        | Notice.SnapshotDone _ -> "snapshotDone"
+        | Notice.MarkUnparsed _ -> "markUnparsed"
+        | Notice.NodeUploading _ -> "nodeUploading"
+        | Notice.NodeReceived _ -> "nodeReceived"
+        | Notice.NodeParsing _ -> "nodeParsing"
+        | Notice.NodePersisting _ -> "nodePersisting"
+
+    let private noticeNodeId =
+        function
+        | Notice.NodeParsed nodeId
+        | Notice.SnapshotDone nodeId
+        | Notice.MarkUnparsed nodeId
+        | Notice.NodeUploading nodeId
+        | Notice.NodeReceived nodeId
+        | Notice.NodeParsing nodeId
+        | Notice.NodePersisting nodeId -> nodeId
+
+    let private encodeNotice (notice: Notice) =
+        Encode.object
+            [ "kind", Encode.string "notice"
+              "notice", Encode.string (noticeTag notice)
+              "nodeId", Serialization.encodeNodeId (noticeNodeId notice) ]
+
+    let private noticeFrom tag nodeId =
+        match tag with
+        | "nodeParsed" -> Ok (Notice.NodeParsed nodeId)
+        | "snapshotDone" -> Ok (Notice.SnapshotDone nodeId)
+        | "markUnparsed" -> Ok (Notice.MarkUnparsed nodeId)
+        | "nodeUploading" -> Ok (Notice.NodeUploading nodeId)
+        | "nodeReceived" -> Ok (Notice.NodeReceived nodeId)
+        | "nodeParsing" -> Ok (Notice.NodeParsing nodeId)
+        | "nodePersisting" -> Ok (Notice.NodePersisting nodeId)
+        | other -> Error ("Unknown notice: " + other)
+
+    let private decodeNoticeBody: Decoder<EventBody> =
+        Decode.object (fun get ->
+            noticeFrom
+                (get.Required.Field "notice" Decode.string)
+                (get.Required.Field "nodeId" Serialization.decodeNodeId))
+        |> Decode.andThen (function
+            | Ok notice -> Decode.succeed (EventBody.Notice notice)
+            | Error message -> Decode.fail message)
+
     let private encodeBody (body: EventBody) =
         match body with
         | EventBody.Change ops ->
@@ -167,6 +213,7 @@ module EventJson =
                   "focusId", Serialization.encodeNodeId focusId ]
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
+        | EventBody.Notice notice -> encodeNotice notice
 
     let private decodeChangeBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -211,6 +258,7 @@ module EventJson =
                             "focusId"
                             Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
+            | "notice" -> decodeNoticeBody
             | other -> Decode.fail ("Unknown event body: " + other))
 
     let encode (event: Ev) =

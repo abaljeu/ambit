@@ -1,6 +1,6 @@
 # 74 — Add the Notice event body
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture
@@ -13,19 +13,27 @@ Split from [69 — Persist an Edit without waiting](69-persist-an-edit-without-w
 
 No behaviour changes.
 
-1. [ ] **Event body** — Add `EventBody.Notice of Notice`, beside the existing `EventBody` cases. Move `Notice` to where `EventBody` can use it. Every match on `EventBody` treats a Notice as no ops, no target, and no Actor change.
-2. [ ] **JSON** — `EventJson` encodes and decodes each `Notice` case, built like the existing body encodings. Server and client both decode it.
+1. [x] **Event body** — Add `EventBody.Notice of Notice`, beside the existing `EventBody` cases. Move `Notice` to where `EventBody` can use it. Every match on `EventBody` treats a Notice as no ops, no target, and no Actor change.
+2. [x] **JSON** — `EventJson` encodes and decodes each `Notice` case, built like the existing body encodings. Server and client both decode it.
 
 ### Acceptance Criteria
 
-1. [ ] **Test** — `Notice JSON round trip`. Each `Notice` case encodes and decodes to the same value.
-2. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [x] **Test** — `Notice JSON round trip`. Each `Notice` case encodes and decodes to the same value.
+2. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket.
+
+## Amendments
+
+None changed. `Notice` moved to its own file so `EventBody` can name it. A Notice body encodes as `kind` `"notice"`, a `notice` tag, and `nodeId`.
+
+## Time
+
+- 2026-10-20 1h — Notice event body and JSON (from chat)
 
 ## See also
 

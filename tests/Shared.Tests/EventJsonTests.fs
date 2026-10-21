@@ -134,6 +134,25 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
         Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
+let ``Notice JSON round trip`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let notices =
+        [ Notice.NodeParsed nodeId
+          Notice.SnapshotDone nodeId
+          Notice.MarkUnparsed nodeId
+          Notice.NodeUploading nodeId
+          Notice.NodeReceived nodeId
+          Notice.NodeParsing nodeId
+          Notice.NodePersisting nodeId ]
+    notices
+    |> List.iter (fun notice ->
+        let event =
+            { changeEvent with
+                commandName = ""
+                body = EventBody.Notice notice }
+        Assert.Equal(event, roundTrip event))
+
+[<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =
     let event = ClientHistory.mintChange "Edit node" []
     Assert.Equal(EventId.zero, event.id)
