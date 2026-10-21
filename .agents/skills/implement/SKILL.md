@@ -38,13 +38,13 @@ What a good test is, seams, and red-green: [[.agents/skills/tdd/SKILL.md]]. Use 
 
 When the change covers more than 20 files (`git diff --stat` against the base branch), stop coding and ask the user whether to continue. Explain what remains and what makes it hard to finish: the files and modules still to touch, the tests still failing, and the risk to upload, import, parse, Load, undo and persist. Continue only on the user's yes.
 
-Work in small steps: edit, then test. When a test fails, make a small fix or undo the edit. Commit only when every test passes; never commit or push with failing tests.
+Work in small steps: edit, then test. When a test fails, make a small fix or undo the edit. Commit only when the directly relevant tests (`scripts/agent-test.sh --filter ...`) pass; never commit or push with a failing test.
 
 Run typechecking and the directly relevant tests as you go. Done: the ticket's What to build is coded; targeted checks from the F# skill have been run.
 
 ### 4. Check
 
-Run the full test suite as a background task.
+Start the full test suite (`scripts/agent-test.sh --full`) as a background task, and keep working while it runs: do the review, the Finish-up and the report. Do not wait on it before you commit, push or report. Check its result before you finish; when it fails, report the failing tests, and fix them with a small change or undo.
 
 Use [[.agents/skills/code-review/SKILL.md]]. The Arch pass in that review is the re-check of the binding rules from step 2. 
 
