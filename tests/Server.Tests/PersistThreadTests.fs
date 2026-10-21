@@ -33,6 +33,8 @@ let private startWith persistOps persistChange =
         Interlocked.Increment pulls |> ignore
         consumer ()
     PersistThread.start {
+        currentState =
+            fun () -> { graph = Graph.create (); eventId = EventId.zero }
         consumer = wrapped
         persistOps =
             fun _ _ post ops ->

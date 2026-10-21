@@ -6,6 +6,7 @@ open Gambol.Shared
 /// Dependencies for the long-lived persist thread. The thread does not
 /// edit graph axes. finish reports one node whose file write succeeded.
 type internal PersistThreadDeps = {
+    currentState: unit -> State
     consumer: unit -> PersistWork option
     persistOps:
         string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>

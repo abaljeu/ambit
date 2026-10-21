@@ -3,9 +3,8 @@ namespace Gambol.Server
 open System.Collections.Concurrent
 open Gambol.Shared
 
-/// Graph at the time of the push, and the node that push names.
+/// The node that this push names.
 type PersistRequest = {
-    graph: Graph
     nodeId: NodeId
 }
 
