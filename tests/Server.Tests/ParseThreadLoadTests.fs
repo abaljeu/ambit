@@ -97,8 +97,8 @@ let ``ParseStack push then consumer is LIFO`` () =
     let b = NodeId.New()
     push a
     push b
-    Assert.Equal(b, consumer ())
-    Assert.Equal(a, consumer ())
+    Assert.Equal(Some b, consumer ())
+    Assert.Equal(Some a, consumer ())
 
 [<Fact>]
 let ``mailbox Load of File node pushes onto Parse stack`` () =
@@ -118,7 +118,7 @@ let ``mailbox Load of File node pushes onto Parse stack`` () =
                 CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
             requireOk "Load" loaded
-            Assert.Equal(fileId, consumer ())
+            Assert.Equal(Some fileId, consumer ())
         finally
             CoreMailboxApi.dispose host
     }

@@ -25,7 +25,7 @@ let private startWith persistOps persistChange =
     let finishes = ResizeArray<NodeId>()
     let failures = ResizeArray<string>()
     let notices = ResizeArray<Notice>()
-    let collect, consumer = PersistCollectors.create ()
+    let collect, consumer, _ = PersistCollectors.create ()
     PersistThread.start {
         consumer = consumer
         persistOps =
@@ -40,6 +40,7 @@ let private startWith persistOps persistChange =
         postNotice = notices.Add
         changeFailed = fun _ err -> failures.Add(err)
     }
+    |> ignore
     collect, calls, finishes, failures, notices
 
 let private okGraph post _ =

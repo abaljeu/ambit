@@ -8,8 +8,10 @@ open Gambol.Shared
 module ParseStack =
 
     /// Closes private cells; returns push and the blocking consumer.
-    let create () : (NodeId -> unit) * (unit -> NodeId) =
+    /// None means the stack was stopped and drained.
+    let create () : (NodeId -> unit) * (unit -> NodeId option) =
         let gate = obj ()
+        let stopped = ref false
         let items: NodeId list ref = ref []
         let push (fileId: NodeId) =
             lock gate (fun () ->
@@ -17,12 +19,18 @@ module ParseStack =
                 Monitor.Pulse gate)
         let rec waitForHead () =
             match items.Value with
+            | head :: rest ->
+                items.Value <- rest
+                Some head
+            | [] when stopped.Value -> None
             | [] ->
                 Monitor.Wait gate |> ignore
                 waitForHead ()
-            | head :: rest ->
-                items.Value <- rest
-                head
+        let requestStop () =
+            lock gate (fun () ->
+                stopped.Value <- true
+                Monitor.PulseAll gate)
+        ServerRunRegistry.registerParseUnblock requestStop
         let consumer () =
             lock gate (fun () -> waitForHead ())
         push, consumer

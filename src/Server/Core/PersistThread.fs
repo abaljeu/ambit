@@ -6,7 +6,7 @@ open Gambol.Shared
 /// Dependencies for the long-lived persist thread. The thread does not
 /// edit graph axes. finish reports one node whose file write succeeded.
 type internal PersistThreadDeps = {
-    consumer: unit -> PersistWork
+    consumer: unit -> PersistWork option
     persistOps:
         string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     persistChange:
@@ -119,14 +119,29 @@ module PersistThread =
             runWrite deps work ops (notifyIds work.submit)
 
     let private loop (deps: PersistThreadDeps) =
-        while true do
-            runOne deps (deps.consumer ())
+        let rec run () =
+            match deps.consumer () with
+            | None -> ()
+            | Some work ->
+                runOne deps work
+                run ()
+        run ()
 
-    /// Hosts the perpetual consumer on a background thread.
-    let internal start (deps: PersistThreadDeps) =
+    /// Hosts the consumer. The returned join waits until the thread exits.
+    let internal start (deps: PersistThreadDeps) : unit -> unit =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
+        thread.Name <- "gambol-persist"
         thread.Start()
+        let gate = obj ()
+        let joined = ref false
+        let join () =
+            lock gate (fun () ->
+                if not joined.Value then
+                    joined.Value <- true
+                    thread.Join())
+        ServerRunRegistry.registerPersistJoin join
+        join
 
     /// The slot is filled with CoreMailboxApi.postNotice.
     let internal postWhenBound

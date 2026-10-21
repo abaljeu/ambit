@@ -650,22 +650,26 @@ module DbAgent =
         let recovered = loadReconciled connectionString initialState
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
-        let collect, consumer = PersistCollectors.create ()
+        let collect, consumer, requestStop = PersistCollectors.create ()
         loaded.collect.Value <- Some collect
-        PersistThread.start {
-            consumer = consumer
-            persistOps = loaded.persistGraphOps
-            persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.persistFinished
-            postNotice = PersistThread.postWhenBound loaded.persistFinished
-            changeFailed = changeFailed loaded
-        }
+        let join =
+            PersistThread.start {
+                consumer = consumer
+                persistOps = loaded.persistGraphOps
+                persistChange = DocumentPersistChange.persistGraphChange
+                finish = PersistThread.finishWhenBound loaded.persistFinished
+                postNotice = PersistThread.postWhenBound loaded.persistFinished
+                changeFailed = changeFailed loaded
+            }
+        let stopPersist () =
+            requestStop ()
+            join ()
         { filling =
             { handlers = persistHandlers loaded
               onError = logUnhandledException loaded.liveSaveDataDir
               formatError = formatError loaded.liveSaveDataDir
               isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
-              dispose = fun () -> ()
+              dispose = stopPersist
               until = Some(startupPrelude loaded runStartupSweep)
               bindPersistFinished =
                 fun post -> loaded.persistFinished.Value <- Some post } }

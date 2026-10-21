@@ -110,17 +110,9 @@ let requireDbConnStr () =
             "or DB_CONNECTION_STRING in appsettings.Development.json. " +
             "When using appsettings.Development.json, tests derive a sibling *_test database.")
 
+/// Stops the previous server, waits for its threads, then clears the database.
 let resetTestDatabase (connStr: string) : Task<unit> =
-    task {
-        do! Database.initSchema connStr |> Async.AwaitTask
-        use conn = new NpgsqlConnection(connStr)
-        do! conn.OpenAsync()
-        use cmd = conn.CreateCommand()
-        cmd.CommandText <-
-            "TRUNCATE TABLE events, node_children, nodes, graph RESTART IDENTITY CASCADE;"
-        let! _ = cmd.ExecuteNonQueryAsync()
-        return ()
-    }
+    ServerTestReset.resetBetweenTests connStr
 
 let newTempDir () =
     let dir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")

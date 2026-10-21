@@ -25,6 +25,7 @@ module CoreMailbox =
                 started.processor
                 persist
                 session
+                started.shutdown
         persist.bindPersistFinished (CoreMailboxApi.postNotice created)
         started.bindCoreChanges (fun caller ->
             { host = created

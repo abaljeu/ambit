@@ -16,11 +16,15 @@ module MailboxHost =
         mailbox
         (persist: PersistFilling)
         session
+        (shutdown: unit -> unit)
         : MailboxHost = {
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
-        dispose = persist.dispose
+        dispose =
+            fun () ->
+                shutdown ()
+                persist.dispose ()
         session = session
     }
 
