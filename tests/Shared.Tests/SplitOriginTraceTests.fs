@@ -109,6 +109,35 @@ let ``applyLoadResponse answer-only with pending is raced Load answer`` () =
     Assert.True(Map.containsKey suffixId split.graph.nodes)
 
 [<Fact>]
+let ``applyLoadResponse ignores a Notice when guarding a raced Load answer`` () =
+    let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
+    let split, _ = applyMiddleSplit helloId sibId zoomId graph
+    let st =
+        { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
+          with
+            pending =
+                [ pendingSplit (System.Guid.NewGuid()) [] ] }
+    let notice =
+        { pendingSplit (System.Guid.NewGuid()) [] with
+            id = EventIdFixtures.storedId 9
+            authority = Authority "Browser"
+            commandName = "Edit node"
+            body = EventBody.Notice (Notice.NodePersisted helloId) }
+    let response: SyncResponse =
+        { events = [ notice ]
+          nodes = [ split.graph.nodes.[helloId] ]
+          childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
+    match
+        SyncLogic.applyLoadResponse
+            split.eventId
+            true
+            response
+            st
+    with
+    | Error msg -> Assert.Equal("raced Load answer", msg)
+    | Ok _ -> failwith "expected raced Load answer"
+
+[<Fact>]
 let ``applySyncResponse stale Want re-applies the pending split for visibility`` () =
     let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
     let suffixId = NodeId.New()

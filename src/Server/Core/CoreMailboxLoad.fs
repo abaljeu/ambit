@@ -189,7 +189,7 @@ module internal CoreMailboxLoad =
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
     /// MarkUnparsed writes Unparsed only.
-    /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    /// NodePersisted runs the diff-count hook, then sets Persisted.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
         match Map.tryFind nodeId graph.nodes with
         | None -> Error "node not found"
@@ -249,7 +249,7 @@ module internal CoreMailboxLoad =
         | Notice.PersistFailed _ -> Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
-        | Notice.SnapshotDone nodeId ->
+        | Notice.NodePersisted nodeId ->
             persist.noteDiffDone nodeId
             writeAxis persist (fun live ->
                 GraphMutate.setPersistState

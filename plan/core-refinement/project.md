@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-21
 Started: 2026-09-29
-Actual: 33.5h
+Actual: 35.5h
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -85,6 +85,7 @@ Actual: 33.5h
 - 2026-10-20 — [74 — Add the Notice event body](issues/74-put-notices-on-the-event-log.md) is coded. `EventBody.Notice` and Notice JSON sit beside the existing bodies. Nothing writes a Notice. Status `coded`. Stage stays `build`.
 - 2026-10-21 — [76 — Log Notices on the event log](issues/76-log-notices-on-the-event-log.md) is coded. Each posted Notice is appended to the event log, then applied. Poll returns it. `noticeLog` is gone. Stage stays `build`.
 - 2026-10-21 — [75 — A failed write does not fail the edit](issues/75-a-failed-write-does-not-fail-the-edit.md) is coded. One `Notice.PersistFailed` per submitted node. The edit stays in the graph. The order succeeds and its `message` carries the write error. The handler does not change the persist state. Stage stays `build`.
+- 2026-10-21 — [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) is coded. `Notice.NodePersisted` of `nodeId` replaces `Notice.SnapshotDone`. A Notice does not set `externalChanges` and does not start a browser catch-up. Stage stays `build`.
 
 ## Issues
 
@@ -162,5 +163,5 @@ Actual: 33.5h
 - [74 — Add the Notice event body](issues/74-put-notices-on-the-event-log.md) — Expand: `EventBody.Notice` and Notice JSON beside the existing bodies. Nothing writes it. Status `coded`.
 - [76 — Log Notices on the event log](issues/76-log-notices-on-the-event-log.md) — Change over: each Notice goes on the event log, so poll returns it. `noticeLog` is gone. Status `coded`.
 - [75 — A failed write does not fail the edit](issues/75-a-failed-write-does-not-fail-the-edit.md) — one `Notice.PersistFailed` per submitted node; the edit stands; the handler does not change the persist state. Blocked by 76. Status `coded`.
-- [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) — `Notice.SnapshotDone` becomes `Notice.NodePersisted`; a Notice sets no `externalChanges` and starts no browser catch-up. Blocked by 76. Status `defined`.
+- [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) — `Notice.SnapshotDone` becomes `Notice.NodePersisted`; a Notice sets no `externalChanges` and starts no browser catch-up. Blocked by 76. Status `coded`.
 - [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md) — An Edit `PersistKind.Ops` write uses `wait = false`. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack has no stamp ops and no persist message. Blocked by 76, 75 and 77. Meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md). Status `defined`.

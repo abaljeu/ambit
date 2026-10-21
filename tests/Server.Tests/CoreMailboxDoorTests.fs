@@ -671,8 +671,8 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
             CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
         match Assert.Single(afterStored.events).body with
-        | EventBody.Notice (Notice.SnapshotDone _) -> ()
-        | other -> Assert.Fail($"expected SnapshotDone, got {other}")
+        | EventBody.Notice (Notice.NodePersisted _) -> ()
+        | other -> Assert.Fail($"expected NodePersisted, got {other}")
     })
 
 [<Fact>]
