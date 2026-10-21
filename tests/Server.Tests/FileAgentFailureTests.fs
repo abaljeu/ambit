@@ -25,8 +25,6 @@ let private changedBody () =
 
 let private host agent = admittedHostFile agent
 
-let private oldPersistTimeoutMs = 8000
-
 let private getState agent = async {
     match! CoreMailboxApi.getState (host agent) with
     | Ok state -> return state
@@ -174,9 +172,7 @@ let ``Failed write keeps the edit`` () = task {
         match postResult with
         | Error error -> Assert.Fail($"expected success, got {error}")
         | Ok accepted ->
-            Assert.Equal(
-                Some "injected persistence failure",
-                accepted.message)
+            Assert.Equal(None, accepted.message)
         let! state =
             getState agent
             |> Async.StartAsTask
@@ -208,9 +204,16 @@ let ``Failed write posts PersistFailed`` () = task {
         | Error error -> Assert.Fail($"expected success, got {error}")
         | Ok _ -> ()
         let! events =
-            CoreMailboxApi.getEventsSince mailbox EventId.zero
-            |> Async.StartAsTask
-            |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
+            waitForNotices
+                (fun () ->
+                    CoreMailboxApi.getEventsSince mailbox EventId.zero
+                    |> Async.StartAsTask)
+                (fun events ->
+                    events
+                    |> List.exists (fun event ->
+                        match event.body with
+                        | EventBody.Notice (Notice.PersistFailed _) -> true
+                        | _ -> false))
         let nodeId, message = Assert.Single(persistFailed events)
         Assert.Equal(fileId, nodeId)
         Assert.Contains("injected persistence failure", message)
@@ -219,7 +222,7 @@ let ``Failed write posts PersistFailed`` () = task {
 }
 
 [<Fact>]
-let ``Persist waits past the old timeout and continues after gate release`` () = task {
+let ``Edit reply returns while the persist thread still holds the write`` () = task {
     let dataDir = newTempDir ()
     let workspaceRoot = Path.Combine(dataDir, "home")
     let holderEntered = TaskCompletionSource<unit>()
@@ -251,27 +254,48 @@ let ``Persist waits past the old timeout and continues after gate release`` () =
             CoreDoor.postEvents (admittedChanges (host agent))
                 ((changedBody ()))
             |> Async.StartAsTask
-        persistAttempted.Task.Wait()
-        Assert.False(
-            pending.Wait(oldPersistTimeoutMs + 250))
-        Assert.Empty(writes)
-        releaseHolder.SetResult()
-
         let! postResult = pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
-        | Error error -> Assert.Fail($"expected queued Persist to continue: {error}")
-        | Ok _ -> ()
+        | Error error -> Assert.Fail($"expected success while the write is held: {error}")
+        | Ok accepted -> Assert.Equal(None, accepted.message)
+        Assert.True(persistAttempted.Task.Wait(2000))
+        Assert.Empty(writes)
+        releaseHolder.SetResult()
+        let released = System.Threading.SpinWait.SpinUntil(
+            (fun () -> not writes.IsEmpty),
+            2000)
+        Assert.True(released)
         Assert.Single(writes) |> ignore
-
-        let! state =
-            getState agent
-            |> Async.StartAsTask
-            |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.True(EventId.isAccepted state.eventId)
     finally
         releaseHolder.TrySetResult() |> ignore
         holder.Wait()
         CoreMailboxApi.dispose (host agent)
+}
+
+let private waitForStamp agent = task {
+    let! events =
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince (host agent) EventId.zero
+                |> Async.StartAsTask)
+            (fun events ->
+                events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodeStamped _) -> true
+                    | _ -> false))
+    match
+        events
+        |> List.tryPick (fun event ->
+            match event.body with
+            | EventBody.Notice (Notice.NodeStamped (ops, message)) ->
+                Some (ops, message)
+            | _ -> None)
+    with
+    | Some stamp -> return stamp
+    | None ->
+        Assert.Fail("expected NodeStamped")
+        return [], None
 }
 
 [<Fact>]
@@ -288,9 +312,11 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
+            Assert.Equal(None, decodeAckMessage ackJson)
+            let! _ops, message = waitForStamp agent
             Assert.Equal(
                 Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
-                decodeAckMessage ackJson)
+                message)
         let! state =
             getState agent |> Async.StartAsTask
         Assert.True(
@@ -327,7 +353,7 @@ let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
         Assert.True(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
-        Assert.Equal(EventId.fromJson 1, state.eventId)
+        Assert.Equal(EventId.fromJson 2, state.eventId)
     finally
         CoreMailboxApi.dispose (host agent2)
 }
@@ -358,11 +384,8 @@ let private addChildChange _rev text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
-let private suffixAfter (submitted: Ev) (confirmed: Ev) =
-    List.skip (eventOps submitted).Length (eventOps confirmed)
-
 [<Fact>]
-let ``ACK returns stamped complete Change equal to EventLog`` () = task {
+let ``ACK keeps the Edit events and NodeStamped carries the stamp`` () = task {
     let dataDir = newTempDir ()
     let count = ref 0
     let defaults = FileAgent.defaultDependencies dataDir
@@ -379,29 +402,30 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             let ack = decodeAck ackJson
-            let confirmed =
-                Assert.Single(ack.events) 
+            Assert.Equal(None, ack.message)
+            let confirmed = Assert.Single(ack.events)
             Assert.Equal(change.submissionId, confirmed.submissionId)
-            Assert.Equal<Op list>(
-                (eventOps change),
-                List.take (eventOps change).Length (eventOps confirmed))
-            let suffix = suffixAfter change confirmed
-            Assert.NotEmpty(suffix)
-            suffix
+            Assert.Equal<Op list>((eventOps change), (eventOps confirmed))
+            let! ops, message = waitForStamp agent
+            Assert.Equal(None, message)
+            Assert.NotEmpty(ops)
+            ops
             |> List.iter (fun op ->
                 match op with
                 | Op.SetUpdateTime(nodeId, _, _) ->
                     Assert.Equal(Graph.workspacesId, nodeId)
-                | _ -> failwith "expected SetUpdateTime suffix")
+                | _ -> failwith "expected SetUpdateTime")
             let! events =
-                CoreMailboxApi.getEventsSince (host agent) (EventId.zero)
+                CoreMailboxApi.getEventsSince (host agent) EventId.zero
                 |> Async.StartAsTask
             let event = Assert.Single(changesOnly events)
             match Ev.ops event with
-            | Some ops ->
-                Assert.Equal<Op list>((eventOps confirmed), ops)
-            | None ->
-                Assert.Fail("Expected Change event")
+            | Some stored ->
+                Assert.Equal<Op list>((eventOps change), stored)
+            | None -> Assert.Fail("Expected Change event")
+            let! state = getState agent |> Async.StartAsTask
+            let stamped = state.graph.nodes.[Graph.workspacesId].updateTime
+            Assert.Equal(stampBase.AddMinutes(1.0), stamped)
     finally
         CoreMailboxApi.dispose (host agent)
 }

@@ -59,6 +59,52 @@ module SyncLogic =
         | EventBody.Notice _ -> true
         | _ -> false
 
+    /// Latest write error on this poll. Other events are left alone.
+    let persistFailedMessage (events: Ev list) : string option =
+        events
+        |> List.fold (fun latest event ->
+            match event.body with
+            | EventBody.Notice (Notice.PersistFailed (_, message)) ->
+                Some message
+            | _ -> latest)
+            None
+
+    /// Change ops, plus stamp ops that arrive on NodeStamped.
+    let opsForDownload (event: Ev) : Op list =
+        match event.body with
+        | EventBody.Notice (Notice.NodeStamped (ops, _)) -> ops
+        | _ -> Ev.ops event |> Option.defaultValue []
+
+    let private projectStampOps
+        (event: Ev)
+        (ops: Op list)
+        (st: ClientSyncState)
+        (undid: bool)
+        =
+        match
+            ResidentProjection.applyOpsForSyncAllowing
+                false
+                false
+                ops
+                (asProjectionState st)
+                { pending = st.pending
+                  submissionId = event.submissionId }
+        with
+        | ApplyResult.Changed newSt, _
+        | ApplyResult.Unchanged newSt, _ ->
+            Ok(withProjectedGraph event st newSt None, undid)
+        | ApplyResult.Invalid (_, msg), _ -> Error msg
+
+    let private applyLoggedNotice
+        (event: Ev)
+        (st: ClientSyncState)
+        (undid: bool)
+        =
+        match event.body with
+        | EventBody.Notice (Notice.NodeStamped (ops, _)) ->
+            projectStampOps event ops st undid
+        | _ -> Ok({ st with eventId = event.id }, undid)
+
     /// EventLog storage is newest-head. Apply from the older id upward.
     let private inStoredOrder (events: Ev list) =
         events |> List.sortBy (fun event -> EventId.value event.id)
@@ -72,7 +118,7 @@ module SyncLogic =
             if event.id <= st.eventId then
                 Ok(st, undid)
             elif isNoticeEvent event then
-                Ok({ st with eventId = event.id }, undid)
+                applyLoggedNotice event st undid
             else
                 let ops = Ev.ops event |> Option.defaultValue []
                 let mark = Op.marksOwningPersist event.commandName

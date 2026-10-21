@@ -101,9 +101,7 @@ let ``Failed write keeps the edit`` () = task {
     match postResult with
     | Error error -> Assert.Fail($"expected success, got {error}")
     | Ok accepted ->
-        Assert.Equal(
-            Some "injected persistence failure",
-            accepted.message)
+        Assert.Equal(None, accepted.message)
     let! state =
         getState agent
         |> Async.StartAsTask
@@ -136,9 +134,16 @@ let ``Failed write posts PersistFailed`` () = task {
     | Error error -> Assert.Fail($"expected success, got {error}")
     | Ok _ -> ()
     let! events =
-        CoreMailboxApi.getEventsSince (host agent) EventId.zero
-        |> Async.StartAsTask
-        |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince (host agent) EventId.zero
+                |> Async.StartAsTask)
+            (fun events ->
+                events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.PersistFailed _) -> true
+                    | _ -> false))
     let nodeId, message = Assert.Single(persistFailed events)
     Assert.Equal(fileId, nodeId)
     Assert.Contains("injected persistence failure", message)

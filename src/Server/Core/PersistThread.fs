@@ -21,11 +21,6 @@ type internal PersistThreadDeps = {
 [<RequireQualifiedAccess>]
 module PersistThread =
 
-    let private reply (work: PersistWork) (outcome: PersistOutcome) =
-        match work.reply with
-        | None -> ()
-        | Some send -> send outcome
-
     let private notify
         (deps: PersistThreadDeps)
         (submit: PersistSubmit)
@@ -87,7 +82,6 @@ module PersistThread =
             submit.nodeIds
             |> List.iter (fun nodeId ->
                 deps.postNotice (Notice.PersistFailed(nodeId, err)))
-            reply work (PersistOutcome.Failed err)
         | Ok stamped ->
             let clean = stamped.message.IsNone
             let tell =
@@ -95,7 +89,10 @@ module PersistThread =
                 && (submit.kind = PersistKind.Change || clean)
             if tell then
                 notify deps submit ids
-            reply work (PersistOutcome.Wrote stamped)
+            if submit.kind = PersistKind.Ops then
+                let ops =
+                    PersistStamp.opsBetween submit.postGraph stamped.graph
+                deps.postNotice (Notice.NodeStamped(ops, stamped.message))
 
     let private runWrite
         (deps: PersistThreadDeps)
@@ -113,9 +110,7 @@ module PersistThread =
     let private runOne (deps: PersistThreadDeps) (work: PersistWork) =
         let ops =
             PersistCollectors.opsOpenForPersist work.submit.postGraph work.submit.ops
-        if blocked work.submit ops then
-            reply work PersistOutcome.Blocked
-        else
+        if not (blocked work.submit ops) then
             runWrite deps work ops (notifyIds work.submit)
 
     let private loop (deps: PersistThreadDeps) =

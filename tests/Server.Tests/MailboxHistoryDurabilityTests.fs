@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.MailboxHistoryDurabilityTests
 
 open System
+open System.IO
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -93,8 +94,8 @@ let private assertChild state childId text =
 let private assertTipEquals host (history: EventLog) = task {
     let stopId, _, _ = mixedIds history
     let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-    Assert.Equal(stopId, eventId)
-    Assert.Equal(stopId, history.events.Head.id)
+    Assert.True(EventId.value eventId >= EventId.value stopId)
+    Assert.Contains(stopId, history.events |> List.map (fun event -> event.id))
 }
 
 let private bodyKind (event: Ev) =
@@ -245,9 +246,17 @@ let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
     let first = hostFile dir secret
     try
         let! _ = runMixedHello first secret "undo-hello"
-        ()
+        let meta = Bookkeeping.metaPath dir
+        let persisted =
+            System.Threading.SpinWait.SpinUntil(
+                (fun () ->
+                    File.Exists meta
+                    && File.ReadAllText(meta).Trim() <> "0"),
+                2000)
+        Assert.True(persisted, "hello edit was not persisted")
     finally
         CoreMailboxApi.dispose first
+    File.WriteAllText(Bookkeeping.metaPath dir, "0")
     let second = CoreMailbox.createFile dir admittedCredentials
     try
         let! history = CoreMailboxApi.eventHistory second |> Async.StartAsTask

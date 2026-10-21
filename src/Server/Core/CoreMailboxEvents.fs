@@ -49,23 +49,6 @@ module internal CoreMailboxEvents =
         | EventBody.ActorStop _
         | EventBody.Notice _ -> event
 
-    let overlayFreshEvents
-        (confirmations: Gambol.Shared.Ev list)
-        (fresh: Gambol.Shared.Ev list)
-        (stampOps: Op list)
-        : Gambol.Shared.Ev list * Gambol.Shared.Ev list =
-        let stamped = PersistStamp.appendToLastEvent fresh stampOps
-        let stampedById =
-            stamped
-            |> List.map (fun event -> event.submissionId, event)
-            |> Map.ofList
-        let confirmed =
-            confirmations
-            |> List.map (fun event ->
-                Map.tryFind event.submissionId stampedById
-                |> Option.defaultValue event)
-        stamped, confirmed
-
     let operationContext msg =
         match msg with
         | PostGraphOnly (_, event, _) ->

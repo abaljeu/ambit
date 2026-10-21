@@ -92,9 +92,11 @@ type PersistHandlers = {
         Ev -> Result<unit, string>
     applyEvent:
         Ev -> bool -> Result<CoreChangesAccepted, string>
-    replaceGraph: Graph -> unit
+    replaceGraph: Notice -> Graph -> unit
     noteDiffDone: NodeId -> unit
     noteParsed: NodeId -> unit
+    noteStamped: Op list -> string option -> unit
+    noteWriteFailed: unit -> unit
 }
 
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox

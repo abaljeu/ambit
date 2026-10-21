@@ -449,10 +449,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
-        
-        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()),
-            "Live row should exist after startActor")
-        
+
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         

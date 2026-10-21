@@ -174,9 +174,11 @@ let private cannedHandlers
               |> Ok
       appendEvent = fun _ -> Ok ()
       applyEvent = apply
-      replaceGraph = ignore
+      replaceGraph = fun _ _ -> ()
       noteDiffDone = ignore
-      noteParsed = ignore }
+      noteParsed = ignore
+      noteStamped = fun _ _ -> ()
+      noteWriteFailed = ignore }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =
     { handlers = cannedHandlers readState eventsSince apply
@@ -427,6 +429,23 @@ let changesOnly (events: Ev list) =
         match event.body with
         | EventBody.Notice _ -> false
         | _ -> true)
+
+/// Poll the event log until `ready` is true, or two seconds pass.
+let waitForNotices
+    (read: unit -> Task<Ev list>)
+    (ready: Ev list -> bool)
+    =
+    let timeout = TimeSpan.FromSeconds(2.0)
+    let start = DateTime.UtcNow
+    let rec poll () = task {
+        let! events = read ()
+        if ready events || (DateTime.UtcNow - start) >= timeout then
+            return events
+        else
+            do! Task.Delay 20
+            return! poll ()
+    }
+    poll ()
 
 let wireEvent submissionId ops : Ev =
     { id = EventId.zero

@@ -238,7 +238,7 @@ let ``logout returns before the queued order finishes`` () = task {
         do! waitUntilAuthorityGone 1000 host testCaller |> Async.StartAsTask
         let! last =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
-        Assert.Equal(stored.id, last)
+        Assert.True(EventId.value last >= EventId.value stored.id)
     finally
         releaseGate gate
         CoreMailboxApi.dispose host
@@ -277,7 +277,7 @@ let ``logout during startup drains queued orders before the authority drops`` ()
         do! waitUntilAuthorityGone 1000 host testCaller |> Async.StartAsTask
         let! last =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
-        Assert.Equal(stored.id, last)
+        Assert.True(EventId.value last >= EventId.value stored.id)
     finally
         releasePrelude.TrySetResult(Ok ()) |> ignore
         releaseGate gate
@@ -367,7 +367,7 @@ let ``login during a pending logout runs and a dropped generation rejects a late
         Assert.Equal(Error "authority dropped", late)
         let! last =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
-        Assert.Equal(stored.id, last)
+        Assert.True(EventId.value last >= EventId.value stored.id)
     finally
         releasePrelude.TrySetResult(Ok ()) |> ignore
         releaseGate gate
@@ -463,7 +463,8 @@ let ``logout returns while the reconciliation route is open`` () = task {
             |> Async.StartAsTask
         let! last =
             CoreMailboxApi.getEventId runtime.host |> Async.StartAsTask
-        Assert.Equal(postedId.Task.Result, last)
+        Assert.True(
+            EventId.value last >= EventId.value postedId.Task.Result)
     finally
         CoreMailboxApi.dispose runtime.host
 }

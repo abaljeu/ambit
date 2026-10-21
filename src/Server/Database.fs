@@ -423,3 +423,132 @@ module Database =
                 |> Async.AwaitTask
             tx.Commit()
         }
+
+    let private updateDocumentStateSql =
+        """
+        UPDATE nodes
+        SET document_state = @document_state
+        WHERE id = @id
+        """
+
+    let private updatePersistStateSql =
+        """
+        UPDATE nodes
+        SET persist_state = @persist_state
+        WHERE id = @id
+        """
+
+    let private updateStampTimeSql =
+        """
+        UPDATE nodes
+        SET update_time = @update_time
+        WHERE id = @id
+        """
+
+    let private updateReceivedNodeSql =
+        """
+        UPDATE nodes
+        SET text = @text,
+            name = @name,
+            css_classes = CAST(@css AS jsonb),
+            update_time = @update_time,
+            kind = @kind,
+            document_state = @document_state,
+            persist_state = @persist_state
+        WHERE id = @id
+        """
+
+    let private executeSql
+        (connectionString: string)
+        (sql: string)
+        (args: obj)
+        : Task<unit> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! _ = conn.ExecuteAsync(sql, args)
+            return ()
+        }
+
+    let private rowOf (graph: Graph) (nodeId: NodeId) =
+        Map.tryFind nodeId graph.nodes
+        |> Option.map GraphProjection.nodeRowFromNode
+
+    let private writeDocumentState connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updateDocumentStateSql
+                {| id = row.id
+                   document_state = row.documentState |}
+
+    let private writePersistState connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updatePersistStateSql
+                {| id = row.id
+                   persist_state = row.persistState |}
+
+    let private writeStampTimes connectionString graph (ops: Op list) =
+        task {
+            for op in ops do
+                match op with
+                | Op.SetUpdateTime(nodeId, _, _) ->
+                    match rowOf graph nodeId with
+                    | None -> ()
+                    | Some row ->
+                        do!
+                            executeSql
+                                connectionString
+                                updateStampTimeSql
+                                {| id = row.id
+                                   update_time = row.updateTime |}
+                | _ -> ()
+        }
+
+    let private writeReceivedNode connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            let nameParam: obj =
+                match row.name with
+                | None -> null
+                | Some name -> box name
+            executeSql
+                connectionString
+                updateReceivedNodeSql
+                {| id = row.id
+                   text = row.text
+                   name = nameParam
+                   css = cssJson (CssClass.ofList row.cssClassNames)
+                   update_time = row.updateTime
+                   kind = row.kind
+                   document_state = row.documentState
+                   persist_state = row.persistState |}
+
+    /// One node row for a Notice. Other Notices do not write.
+    let writeNoticeRow
+        (connectionString: string)
+        (notice: Notice)
+        (graph: Graph)
+        : Task =
+        match notice with
+        | Notice.NodeParsed nodeId
+        | Notice.MarkUnparsed nodeId ->
+            writeDocumentState connectionString graph nodeId
+        | Notice.NodePersisting nodeId
+        | Notice.NodePersisted nodeId ->
+            writePersistState connectionString graph nodeId
+        | Notice.NodeStamped(ops, _) ->
+            writeStampTimes connectionString graph ops
+        | Notice.NodeReceived nodeId ->
+            writeReceivedNode connectionString graph nodeId
+        | Notice.NodeUploading _
+        | Notice.NodeParsing _
+        | Notice.PersistFailed _ ->
+            task { return () }

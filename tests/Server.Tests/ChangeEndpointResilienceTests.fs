@@ -136,9 +136,15 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
-    Assert.Equal(
-        "\"background\" : #fff" + Environment.NewLine,
-        File.ReadAllText(Path.Combine(dataDir, "SYSTEM", "user.css")))
+    let cssPath = Path.Combine(dataDir, "SYSTEM", "user.css")
+    let expected = "\"background\" : #fff" + Environment.NewLine
+    let saved =
+        System.Threading.SpinWait.SpinUntil(
+            (fun () ->
+                File.Exists cssPath && File.ReadAllText cssPath = expected),
+            2000)
+    Assert.True(saved, "persist did not write user.css")
+    Assert.Equal(expected, File.ReadAllText cssPath)
     use! stateResponse = client.GetAsync("/ambit/state") |> timeout
     Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
 }
