@@ -2,6 +2,7 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open System.Threading
 open Gambol.Shared
 
 type FileAgentDependencies = {
@@ -336,6 +337,7 @@ module FileAgent =
         loaded.collect.Value <- Some collect
         let join =
             PersistThread.start {
+                currentState = fun () -> Volatile.Read(&loaded.state).Value
                 consumer = consumer
                 persistOps = dependencies.persistGraphOps
                 persistChange = DocumentPersistChange.persistGraphChange

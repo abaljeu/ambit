@@ -8,8 +8,7 @@ open Gambol.Server
 open Gambol.Shared
 
 let private request () : PersistRequest =
-    { graph = Graph.create ()
-      nodeId = NodeId.New() }
+    { nodeId = NodeId.New() }
 
 [<Fact>]
 let ``persist stack takes the newest request`` () =
@@ -20,7 +19,6 @@ let ``persist stack takes the newest request`` () =
     PersistRequestStack.push stack second
     let got = PersistRequestStack.take stack
     Assert.Equal(second.nodeId, got.nodeId)
-    Assert.Equal(second.graph, got.graph)
 
 [<Fact>]
 let ``persist stack take waits for a push`` () =
@@ -36,4 +34,3 @@ let ``persist stack take waits for a push`` () =
     pusher.Wait()
     Assert.True(clock.ElapsedMilliseconds >= 150L)
     Assert.Equal(pending.nodeId, got.nodeId)
-    Assert.Equal(pending.graph, got.graph)

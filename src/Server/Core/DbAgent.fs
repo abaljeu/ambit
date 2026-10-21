@@ -1,6 +1,7 @@
 namespace Gambol.Server
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open Gambol.Shared
 open Gambol.Shared
@@ -659,6 +660,7 @@ module DbAgent =
         loaded.collect.Value <- Some collect
         let join =
             PersistThread.start {
+                currentState = fun () -> Volatile.Read(&loaded.state).Value
                 consumer = consumer
                 persistOps = loaded.persistGraphOps
                 persistChange = DocumentPersistChange.persistGraphChange
