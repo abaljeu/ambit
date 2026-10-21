@@ -1,7 +1,6 @@
 namespace Gambol.Server
 
 open System
-open System.Threading.Tasks
 open Gambol.Shared
 
 /// Actor input: Graph plus named ids and Actor secret.
@@ -311,9 +310,7 @@ module CoreActorPool =
                         { getGraph = getGraph
                           secret = secret }
                         coreChanges
-            let task =
-                Async.StartAsTask(work, cancellationToken = row.cancel.Token)
-            ServerRunRegistry.track task
+            Async.Start(work, row.cancel.Token)
 
     let dropAndReply
         (pool: CoreActorPool)

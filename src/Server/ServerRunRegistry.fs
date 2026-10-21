@@ -79,15 +79,15 @@ module internal ServerRunRegistry =
                 task.Wait()
             with _ -> ())
 
-    /// Stop hosts, then threads, then actors, then mailboxes. Each phase finishes.
+    /// Stop hosts and actors, then parse and persist threads, then mailboxes.
+    /// Tracked tasks are finite writes. Actor bodies are cancelled, not awaited.
     let stopAll () =
         let items = takeStops ()
         run (function ServerRunStop.Host stop -> Some stop | _ -> None) items
-        waitTasks ()
+        run (function ServerRunStop.Pool stop -> Some stop | _ -> None) items
         run (function ServerRunStop.ParseUnblock s -> Some s | _ -> None) items
         run (function ServerRunStop.ParseJoin stop -> Some stop | _ -> None) items
         run (function ServerRunStop.PersistUnblock s -> Some s | _ -> None) items
         run (function ServerRunStop.PersistJoin s -> Some s | _ -> None) items
-        run (function ServerRunStop.Pool stop -> Some stop | _ -> None) items
         run (function ServerRunStop.Mailbox s -> Some s | _ -> None) items
         waitTasks ()
