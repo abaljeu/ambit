@@ -25,7 +25,7 @@ A query expression runs on its own Actor.
 ## Interface
 
 [o] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
-[ ] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is `Order.StartActor` (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on `Notice.ActorStop` (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[ ] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is `Order.StartActor` (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on `Notice.ActorStopped` (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 
 ## Messages
@@ -34,7 +34,7 @@ A query expression runs on its own Actor.
 [o] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `commandId` is that same Node.
 [ ] Start. Run on a Node whose text contains `=`. The request is `Order.StartActor`. `focusId` is that line when Run is on it. `commandId` is that same Node. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor.
 [o] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids.
-[ ] Eval reply. The result is Node ids on `Notice.ActorStop` (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
+[ ] Eval reply. The result is Node ids on `Notice.ActorStopped` (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json

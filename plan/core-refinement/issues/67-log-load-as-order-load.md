@@ -7,26 +7,25 @@
 
 ## Context
 
-`CoreMsg.LoadNode` is the parse-stack Load. `CoreMailboxLoad.dispatchLoad` checks that the subject is a Workspace, Directory, or File, then pushes that node. It does not append an `Ev` and it does not post a node notice. `CoreDoor.loadNode` and `GithubTransportActor` call `CoreMailboxApi.mbLoadNode`. Decision 2 **Load is logged** in [Message shape](../cqrs-messages.md): `Order.Load` is logged, and its effects follow as ordinary entries. The Load order itself posts no node notice. `NodeParsing` stays a later entry from the parse pull in [52 — Log stack pulls](52-log-stack-pulls.md). Upload, import, parse, Load, undo, and persist stay working.
+`CoreMsg.LoadNode` is the parse-stack Load. `CoreMailboxLoad.dispatchLoad` checks that the subject is a Workspace, Directory, or File, then pushes that node on the parse stack. It appends no `Ev`. `CoreDoor.loadNode`, `GithubTransportActor`, and `DeskLoadPush.runLoadSave` call it. `Order.Load of nodeId: NodeId` is in `src/Shared/MailboxLog.fs`. `MailboxLog.historyBody` has no stored body for it.
 
 ## What to build
 
-Replace `LoadNode` with `Order.Load`. Log that order. Keep the parse push. Post no notice from this handler.
+Decision 2 **Load is logged** and decision 19 **One case each** in [Message shape](../cqrs-messages.md).
 
-### 1. Change
-
-1. [ ] **Order** — `CoreMailboxApi.mbLoadNode` and `CoreDoor.loadNode` place `Order.Load` of the subject `NodeId`. Remove `CoreMsg.LoadNode`.
-2. [ ] **Log** — Accept appends one `Ev` whose order is `Order.Load` of that node. The `PlaceOrder` reply is `Ok` of that `EventId`.
-3. [ ] **Push** — The handler still rejects a subject that is not a Workspace, Directory, or File. On success it pushes the subject on the parse stack. It posts no `Notice`.
-4. [ ] **Follow-on** — This handler does not post `NodeParsing`, a `Change`, or `NodeParsed`. The parse thread still posts its Changes and `Notice.NodeParsed`. `NodeParsing` stays the pull post in [52 — Log stack pulls](52-log-stack-pulls.md).
+1. [ ] **Stored body** — Add `EventBody.Load of nodeId: NodeId` to `src/Shared/History.fs`. `EventJson` writes and reads it. `MailboxLog.ofEv` and `MailboxLog.toEv` map it to `Order.Load` both ways. Undo skips it.
+2. [ ] **Place** — `CoreMailboxApi.mbLoadNode` places `Order.Load` of the subject through `Mailbox.PlaceOrder`.
+3. [ ] **Handle** — The `PlaceOrder` arm for `Order.Load` runs `dispatchLoad`. On success it appends one `Ev` of `EventBody.Load` of the subject and replies `Ok` of that `EventId`. A subject that is not a Workspace, Directory, or File replies `Error`.
+4. [ ] **Desk Load** — `DeskLoadPush.runLoadSave` keeps calling `dispatchLoad` in the same mailbox turn.
+5. [ ] **Remove** — Remove `CoreMsg.LoadNode`.
 
 ### Acceptance Criteria
 
-1. [ ] **Logged** — `loadNode` of a File replies `Ok` of a new `EventId`. The log at that id is `Order.Load` of that file.
-2. [ ] **Push** — That file is on the parse stack after the reply.
-3. [ ] **No notice** — The Load handler posts no `Notice`. A Load that parses still reaches `Notice.NodeParsed` from the parse thread.
-4. [ ] **Case** — `CoreMsg` has no `LoadNode`.
-5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+1. [ ] **Logged** — `loadNode logs Order.Load`. `loadNode` of a File replies `Ok` of a new `EventId`, and the log at that id is `Load` of that file.
+2. [ ] **Push** — `loadNode pushes the subject`. That file is on the parse stack after the reply, and parsing it reaches `Notice.NodeParsed`.
+3. [ ] **Round trip** — `Load keeps its node through EventJson and MailboxLog`.
+4. [ ] **Rejected** — `loadNode of a plain Node replies Error`. The log has no new entry.
+5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
 ## Finish-up
 

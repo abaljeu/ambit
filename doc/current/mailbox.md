@@ -27,7 +27,7 @@ The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`
 [x] Core mailbox backend: the shared loop. 
 [x] Every mailbox message finishes quickly. Work that would hold the mailbox is an Actor. The Actor runs off the queue and posts more fast messages. [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [o] Mailbox event log: stores `ActorStart` and `ActorStop`. Undo and Redo stay Change-only. Actor events are not Undo targets.
-[ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId`. `Order.StartActor` and `Notice.ActorStop` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
+[ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list. `Order.StartActor` and `Notice.ActorStopped` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
 
 ## Interface
 A browser route takes a Session admission for the caller before the core order door and finishes that admission after the route queues its order or abandons the post. Actor start admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
@@ -45,7 +45,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 `CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
 
-[ ] `CoreMailbox.coreChanges` places `Order.Change` of ops and `ChangeOrigin` through `Mailbox.PlaceOrder`. `origin` exists only on that placed order. `Notice.ActorStop` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
+[ ] `CoreMailbox.coreChanges` places `Order.Change` of ops and `ChangeOrigin` through `Mailbox.PlaceOrder`. `origin` exists only on that placed order. `Notice.ActorStopped` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
@@ -54,7 +54,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 ## Messages
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
-[ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStopped`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
 [o] `Notice`: Shared type in [Notice](../../src/Shared/Notice.fs). Not an Op. It carries the node. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.

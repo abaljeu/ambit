@@ -20,7 +20,7 @@ The parse posters place origin `Parse`:
 
 Decision 4 **One Change**, decision 12 **NodeUnpersisted**, and decision 18 **ChangeOrigin** in [Message shape](../cqrs-messages.md): the two doors become `Order.Change` of `ops: Op list * origin: ChangeOrigin`. Every other `Change` poster places origin `Edit`. `origin` exists only on the placed order. `CoreEventDispatch` reads that `origin`, writes document files, and posts `Notice.NodeUnpersisted` for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. The logged Change holds the op list.
 
-`CoreMsg.PostEvent` also carries `Undo`, `Redo`, `ActorStart`, and `Cancel`. [65 — Undo and Redo resolve their ops from the target](65-undo-and-redo-resolve-their-ops-from-the-target.md) and [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) take those bodies. Upload, import, parse, Load, undo, and persist stay working.
+`CoreMsg.PostEvent` also carries `Undo`, `Redo`, `ActorStart`, and `Cancel`. [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md) and [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) take those bodies. Upload, import, parse, Load, undo, and persist stay working.
 
 ## What to build
 
@@ -48,7 +48,7 @@ Decision 4 **One Change**, decision 12 **NodeUnpersisted**, and decision 18 **Ch
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
-- [65 — Undo and Redo resolve their ops from the target](65-undo-and-redo-resolve-their-ops-from-the-target.md)
+- [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 - [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)
 - [62 — Admit at the entry](62-admit-at-the-entry.md)
 - [GLOSSARY](../../../GLOSSARY.md)
