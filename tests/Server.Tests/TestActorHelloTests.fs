@@ -33,6 +33,8 @@ let private waitForActorFinished host focusId timeoutMs =
                     match event.body with
                     | Gambol.Shared.EventBody.ActorStop(fid, _)
                         when fid = focusId -> true
+                    | EventBody.Notice (Notice.ActorStopped (fid, _))
+                        when fid = focusId -> true
                     | _ -> false)
             if not found then
                 do! Task.Delay(10)
@@ -259,6 +261,9 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     Some focusId
+                | EventBody.Notice (Notice.ActorStopped (focusId, _))
+                    when focusId = request.focusId ->
+                    Some focusId
                 | _ -> None)
         Assert.Equal(1, actorFinishedEvents.Length)
     })
@@ -341,6 +346,9 @@ let ``TestActor hello observes ActorStarted before output`` () =
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
+                | EventBody.Notice (Notice.ActorStopped (focusId, _))
+                    when focusId = request.focusId ->
+                    true
                 | _ -> false)
         
         Assert.True(actorStartedIndex.IsSome)
@@ -418,6 +426,9 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
                 | EventBody.ActorStop(fid, result)
                     when fid = request.focusId ->
                     Some result
+                | EventBody.Notice (Notice.ActorStopped (fid, result))
+                    when fid = request.focusId ->
+                    Some result
                 | _ -> None)
         Assert.Equal(Some (ActorFailed ""), stopResult)
         let! state =
@@ -492,6 +503,9 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
                     true
+                | EventBody.Notice (Notice.ActorStopped (focusId, _))
+                    when focusId = request.focusId ->
+                    true
                 | _ -> false)
         
         let actorFinishedCount =
@@ -499,6 +513,9 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             |> List.filter (fun event ->
                 match event.body with
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
+                    true
+                | EventBody.Notice (Notice.ActorStopped (focusId, _))
                     when focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -527,6 +544,9 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                     when started.focusId = request.focusId ->
                     true
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
+                    when focusId = request.focusId ->
+                    true
+                | EventBody.Notice (Notice.ActorStopped (focusId, _))
                     when focusId = request.focusId ->
                     true
                 | _ -> false)

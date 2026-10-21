@@ -18,6 +18,9 @@ let private lastActorStopEvent host focusId =
                 match event.body with
                 | EventBody.ActorStop(fid, _) when fid = focusId ->
                     true
+                | EventBody.Notice (Notice.ActorStopped (fid, _))
+                    when fid = focusId ->
+                    true
                 | _ -> false)
     }
 
@@ -41,7 +44,9 @@ type AgentAuthErrorTests() =
                     | None -> Assert.Fail("missing ActorStop")
                     | Some event ->
                         match event.body with
-                        | EventBody.ActorStop(_, ActorFailed msg) ->
+                        | EventBody.ActorStop(_, ActorFailed msg)
+                        | EventBody.Notice (
+                            Notice.ActorStopped (_, ActorFailed msg)) ->
                             Assert.Equal(named, msg)
                         | other ->
                             Assert.Fail($"bad stop, {other}")
@@ -74,7 +79,9 @@ type AgentAuthErrorTests() =
             | None -> Assert.Fail("missing ActorStop")
             | Some event ->
                 match event.body with
-                | EventBody.ActorStop(_, ActorFailed msg) ->
+                | EventBody.ActorStop(_, ActorFailed msg)
+                | EventBody.Notice (
+                    Notice.ActorStopped (_, ActorFailed msg)) ->
                     Assert.Equal(named, msg)
                 | other ->
                     Assert.Fail($"bad stop, {other}")

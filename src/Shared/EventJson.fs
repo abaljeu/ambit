@@ -144,6 +144,21 @@ module EventJson =
         | ActorFailed _
         | ActorCancelled -> Encode.object fields
 
+    let private encodeActorStopped focusId result =
+        let fields =
+            [ "kind", Encode.string "notice"
+              "notice", Encode.string "actorStopped"
+              "nodeId", Serialization.encodeNodeId focusId
+              "result", encodeActorResult result ]
+        match result with
+        | ActorFailed message when message <> "" ->
+            Encode.object (fields @ [ "message", Encode.string message ])
+        | ActorQuery ids ->
+            Encode.object (fields @ [ "ids", encodeNodeIds ids ])
+        | ActorSucceeded
+        | ActorFailed _
+        | ActorCancelled -> Encode.object fields
+
     let private encodeSingleNotice tag nodeId =
         Encode.object
             [ "kind", Encode.string "notice"
@@ -194,6 +209,10 @@ module EventJson =
             encodePersistFailed nodeId message
         | Notice.NodeStamped (ops, message) ->
             encodeNodeStamped ops message
+        | Notice.ActorStopped (focusId, result) ->
+            encodeActorStopped focusId result
+        | Notice.SearchStopped rootId ->
+            encodeSingleNotice "searchStopped" rootId
 
     let private noticeFrom tag nodeId =
         match tag with
@@ -203,6 +222,7 @@ module EventJson =
         | "nodeReceived" -> Ok (Notice.NodeReceived nodeId)
         | "nodeParsing" -> Ok (Notice.NodeParsing nodeId)
         | "nodePersisting" -> Ok (Notice.NodePersisting nodeId)
+        | "searchStopped" -> Ok (Notice.SearchStopped nodeId)
         | other -> Error ("Unknown notice: " + other)
 
     let private decodeSingleNotice: Decoder<Notice> =
@@ -234,6 +254,17 @@ module EventJson =
                 get.Required.Field "ops" decodeOps,
                 get.Optional.Field "message" Decode.string))
 
+    let private decodeActorStopped: Decoder<Notice> =
+        Decode.object (fun get ->
+            Notice.ActorStopped(
+                get.Required.Field "nodeId" Serialization.decodeNodeId,
+                actorResultFrom
+                    (get.Required.Field "result" decodeActorResultTag)
+                    (get.Optional.Field "message" Decode.string)
+                    (get.Optional.Field
+                        "ids"
+                        (Decode.list Serialization.decodeNodeId))))
+
     let private decodeNoticeBody: Decoder<EventBody> =
         Decode.field "notice" Decode.string
         |> Decode.andThen (fun tag ->
@@ -245,6 +276,8 @@ module EventJson =
                 decodePersistFailed |> Decode.map EventBody.Notice
             | "nodeStamped" ->
                 decodeNodeStamped |> Decode.map EventBody.Notice
+            | "actorStopped" ->
+                decodeActorStopped |> Decode.map EventBody.Notice
             | _ ->
                 decodeSingleNotice |> Decode.map EventBody.Notice)
 
@@ -272,6 +305,10 @@ module EventJson =
         | EventBody.Load nodeId ->
             Encode.object
                 [ "kind", Encode.string "load"
+                  "nodeId", Serialization.encodeNodeId nodeId ]
+        | EventBody.Save nodeId ->
+            Encode.object
+                [ "kind", Encode.string "save"
                   "nodeId", Serialization.encodeNodeId nodeId ]
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
@@ -322,6 +359,12 @@ module EventJson =
             | "load" ->
                 Decode.object (fun get ->
                     EventBody.Load(
+                        get.Required.Field
+                            "nodeId"
+                            Serialization.decodeNodeId))
+            | "save" ->
+                Decode.object (fun get ->
+                    EventBody.Save(
                         get.Required.Field
                             "nodeId"
                             Serialization.decodeNodeId))

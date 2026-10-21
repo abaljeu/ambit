@@ -277,7 +277,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
             let! stopped =
                 CoreMailboxApi.actorStop host actorCaller ActorSucceeded
                 |> Async.StartAsTask
-            requireOk "stop actor" stopped
+            requireOk "stop actor" stopped |> ignore
             let! history =
                 CoreMailboxApi.eventHistory host
                 |> Async.StartAsTask

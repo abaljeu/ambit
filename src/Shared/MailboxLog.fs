@@ -8,6 +8,7 @@ type Order =
     | Undo of target: EventId
     | Redo of target: EventId
     | StartActor of ActorStart
+    | RecordSearchStart of ActorStart
     | StartPeerActor of
         peerName: PeerActorName *
         request: ActorStart
@@ -16,7 +17,9 @@ type Order =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest
     | Load of nodeId: NodeId
+    | Save of nodeId: NodeId
     | Cancel of focusId: NodeId
+    | ActorStop of callerId: string * result: ActorResult
 
 type PlacedOrder = {
     orderId: System.Guid
@@ -62,7 +65,10 @@ module MailboxLog =
             Ok (Order.StartActor start)
         | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
         | HistoryBody.Load nodeId -> Ok (Order.Load nodeId)
-        | HistoryBody.ActorStop _
+        | HistoryBody.Save nodeId -> Ok (Order.Save nodeId)
+        | HistoryBody.ActorStop (focusId, result) ->
+            let (NodeId guid) = focusId
+            Ok (Order.ActorStop(guid.ToString(), result))
         | HistoryBody.Notice _ -> Error "unsupported"
 
     let private historyBody (order: Order) =
@@ -70,9 +76,17 @@ module MailboxLog =
         | Order.Change ops -> Ok (HistoryBody.Change ops)
         | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
-        | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
+        | Order.StartActor start
+        | Order.RecordSearchStart start ->
+            Ok (HistoryBody.ActorStart start)
         | Order.Cancel focusId -> Ok (HistoryBody.Cancel focusId)
         | Order.Load nodeId -> Ok (HistoryBody.Load nodeId)
+        | Order.Save nodeId -> Ok (HistoryBody.Save nodeId)
+        | Order.ActorStop (callerId, result) ->
+            match System.Guid.TryParse callerId with
+            | true, guid ->
+                Ok (HistoryBody.ActorStop(NodeId guid, result))
+            | false, _ -> Error "unsupported"
         | Order.StartPeerActor _
         | Order.LoadSave _ -> Error "unsupported"
 
@@ -86,6 +100,21 @@ module MailboxLog =
 
     let toEv (event: Ev) : Result<HistoryEv, string> =
         match event.body with
+        | EventBody.Notice (Notice.ActorStopped (focusId, result)) ->
+            Ok {
+                id = event.id
+                submissionId = System.Guid.Empty
+                authority = Authority ""
+                commandName = ""
+                body = HistoryBody.ActorStop(focusId, result) }
+        | EventBody.Notice (Notice.SearchStopped rootId) ->
+            Ok {
+                id = event.id
+                submissionId = System.Guid.Empty
+                authority = Authority ""
+                commandName = ""
+                body =
+                    HistoryBody.ActorStop(rootId, ActorSucceeded) }
         | EventBody.Notice _ -> Error "unsupported"
         | EventBody.Order placed ->
             match historyBody placed.order with

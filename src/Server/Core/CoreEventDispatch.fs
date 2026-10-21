@@ -134,6 +134,8 @@ module internal CoreEventDispatch =
             Error "Actor lifecycle Events are mailbox-generated"
         | Gambol.Shared.EventBody.Load _ ->
             Error "Load is mailbox-generated"
+        | Gambol.Shared.EventBody.Save _ ->
+            Error "Save is mailbox-generated"
 
     let private withConfirmedOps
         (event: Ev)

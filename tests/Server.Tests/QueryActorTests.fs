@@ -50,6 +50,8 @@ let private queryStop (host: MailboxHost) =
         |> List.tryPick (fun event ->
             match event.body with
             | EventBody.ActorStop(_, ActorQuery ids) -> Some(ActorQuery ids)
+            | EventBody.Notice (Notice.ActorStopped (_, ActorQuery ids)) ->
+                Some(ActorQuery ids)
             | _ -> None)
 
 let private stopFor (getGraph: unit -> Graph) (lineId: NodeId) =
@@ -162,6 +164,8 @@ let private waitStopEvent (host: MailboxHost) (lineId: NodeId) = task {
             |> List.tryFind (fun event ->
                 match event.body with
                 | EventBody.ActorStop(id, ActorQuery _) -> id = lineId
+                | EventBody.Notice (Notice.ActorStopped (id, ActorQuery _)) ->
+                    id = lineId
                 | _ -> false)
         if found.IsNone then do! Task.Delay 10
     return found
@@ -170,6 +174,7 @@ let private waitStopEvent (host: MailboxHost) (lineId: NodeId) = task {
 let private idsOfStop (event: Ev) =
     match event.body with
     | EventBody.ActorStop(_, ActorQuery ids) -> ids
+    | EventBody.Notice (Notice.ActorStopped (_, ActorQuery ids)) -> ids
     | other -> failwith $"expected ActorQuery, got {other}"
 
 let private hostNow () =

@@ -273,6 +273,9 @@ let rec private waitForStopUntil
                 match event.body with
                 | EventBody.ActorStop(id, result) when id = focusId ->
                     Some result
+                | EventBody.Notice (Notice.ActorStopped (id, result))
+                    when id = focusId ->
+                    Some result
                 | _ -> None)
         match stopped with
         | Some result -> return Some result
@@ -321,6 +324,8 @@ let private hasActorStart focusId event =
 let private hasActorStop focusId event =
     match event.body with
     | EventBody.ActorStop(id, ActorSucceeded) -> id = focusId
+    | EventBody.Notice (Notice.ActorStopped (id, ActorSucceeded)) ->
+        id = focusId
     | _ -> false
 
 let private isParseChange event =
@@ -646,8 +651,10 @@ let ``plain Load of a File or Directory stays Desk when a remote exists`` () =
             let! history =
                 CoreMailboxApi.eventHistory harness.host
                 |> Async.StartAsTask
-            Assert.DoesNotContain(history.events, hasActorStart fileId)
-            Assert.DoesNotContain(history.events, hasActorStart dirId)
+            Assert.Contains(history.events, hasActorStart fileId)
+            Assert.Contains(history.events, hasActorStart dirId)
+            Assert.Contains(history.events, hasActorStop fileId)
+            Assert.Contains(history.events, hasActorStop dirId)
         finally
             CoreMailboxApi.dispose harness.host
     }

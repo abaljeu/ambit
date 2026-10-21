@@ -60,7 +60,12 @@ let private recordingPool () =
                     Some sampleRequest.focusId
                 else
                     None
-        trySecretForFocus = fun _ -> None
+        trySecretForFocus =
+            fun focusId ->
+                if focusId = sampleRequest.focusId && live.Count > 0 then
+                    Some live.[0]
+                else
+                    None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -226,7 +231,7 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () =
                 host (actorCaller actorSecret) ActorSucceeded
             |> Async.StartAsTask
         sw.Stop()
-        requireOk "ActorStop" result
+        requireOk "ActorStop" result |> ignore
         Assert.Equal(1, stopped.Count)
         Assert.Equal(actorSecret, fst stopped.[0])
         Assert.Equal(ActorSucceeded, snd stopped.[0])
@@ -245,7 +250,7 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
             postActorStop
                 host (actorCaller actorSecret) (ActorFailed "")
             |> Async.StartAsTask
-        requireOk "ActorStop fail" result
+        requireOk "ActorStop fail" result |> ignore
         Assert.Equal(1, stopped.Count)
         Assert.Equal(actorSecret, fst stopped.[0])
         Assert.Equal(ActorFailed "", snd stopped.[0])
@@ -288,7 +293,7 @@ let ``ActorStop does not repeat the live-row admission check`` () =
             postActorStop
                 host (actorCaller actorSecret) ActorSucceeded
             |> Async.StartAsTask
-        requireOk "ActorStop" result
+        Assert.Equal(Error "no running actor", result)
         Assert.Empty(isLiveCalls)
     })
 
@@ -309,12 +314,12 @@ let ``live Actor stop succeeds and a later stop is safe`` () =
         let! stopped =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "ActorStop" stopped
+        requireOk "ActorStop" stopped |> ignore
         Assert.False(pool.isLive secret)
         let! again =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "later ActorStop" again
+        Assert.Equal(Error "no running actor", again)
     })
 
 [<Fact>]
@@ -327,11 +332,11 @@ let ``ActorStop of an already-finished Actor is idempotent`` () =
         let! first =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "first stop" first
+        requireOk "first stop" first |> ignore
         let! second =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "second stop" second
+        Assert.Equal(Error "no running actor", second)
         Assert.Equal(1, stopped.Count)
         Assert.False(live.Contains actorSecret)
     })
@@ -400,3 +405,210 @@ let ``ActorStop with Parse credentials is refused`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+let private logBodies host = task {
+    let! log =
+        CoreMailboxApi.eventsSince host EventId.zero
+        |> Async.StartAsTask
+    return log.events |> List.map (fun event -> event.body)
+}
+
+[<Fact>]
+let ``startActor places Order.StartActor`` () =
+    let started, _, _, pool = recordingPool ()
+    withHost pool (fun host -> task {
+        let! result =
+            CoreMailboxApi.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), result)
+        let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+        Assert.Equal(sampleRequest, handed)
+        let! bodies = logBodies host
+        Assert.Contains(EventBody.ActorStart sampleRequest, bodies)
+        match
+            bodies
+            |> List.tryFind (fun body ->
+                body = EventBody.ActorStart sampleRequest)
+        with
+        | Some body ->
+            let event = {
+                id = EventId.zero
+                submissionId = Guid.Empty
+                authority = Authority "Browser"
+                commandName = ""
+                body = body }
+            match MailboxLog.ofEv event with
+            | Ok logged ->
+                match logged.body with
+                | MailboxLog.EventBody.Order placed ->
+                    Assert.Equal(Order.StartActor sampleRequest, placed.order)
+                | MailboxLog.EventBody.Notice _ ->
+                    Assert.Fail("expected Order")
+            | Error err -> Assert.Fail(err)
+        | None -> Assert.Fail("missing ActorStart")
+    })
+
+[<Fact>]
+let ``startPeerActor and startLoadSaveCommand place their orders`` () =
+    let peers = ResizeArray<PeerActorName>()
+    let _, _, _, pool = recordingPool ()
+    let pool = {
+        pool with
+            startPeerActor =
+                fun name _ _ ->
+                    peers.Add name
+                    Ok (Credential "peer") }
+    let name = PeerActorName "github-load"
+    withHost pool (fun host -> task {
+        let! peer =
+            CoreMailboxApi.startPeerActor
+                host testCaller name sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), peer)
+        let command = {
+            operation = LoadSaveOperation.Load
+            prePick = LoadSavePrePick.Git
+            holdStack = true
+            start = sampleRequest }
+        let! saved =
+            CoreMailboxApi.startLoadSaveCommand
+                host
+                testCaller
+                LoadSavePath.Git
+                name
+                command
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), saved)
+        Assert.Equal<PeerActorName list>(
+            [ name; name ],
+            peers |> Seq.toList)
+        match Order.StartPeerActor(name, sampleRequest) with
+        | Order.StartPeerActor (peerName = found) ->
+            Assert.Equal(name, found)
+        | _ -> Assert.Fail("StartPeerActor")
+        match Order.LoadSave(LoadSavePath.Git, name, command) with
+        | Order.LoadSave (peerName = found) ->
+            Assert.Equal(name, found)
+        | _ -> Assert.Fail("LoadSave")
+    })
+
+[<Fact>]
+let ``each accepted Actor order appends an Ev`` () =
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    withHost pool (fun host -> task {
+        let! started =
+            CoreMailboxApi.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), started)
+        let idleFocus = NodeId.New()
+        let desk = {
+            operation = LoadSaveOperation.Load
+            prePick = LoadSavePrePick.Desk
+            holdStack = true
+            start = { sampleRequest with focusId = idleFocus } }
+        let! idle =
+            CoreMailboxApi.startLoadSaveCommand
+                host
+                testCaller
+                LoadSavePath.Desk
+                (PeerActorName "desk")
+                desk
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), idle)
+        let! bodies = logBodies host
+        Assert.Contains(EventBody.ActorStart sampleRequest, bodies)
+        Assert.Contains(EventBody.ActorStart desk.start, bodies)
+        Assert.Contains(
+            EventBody.ActorStop(idleFocus, ActorSucceeded),
+            bodies)
+    })
+
+[<Fact>]
+let ``recordSearchStart places its order and recordSearchStop posts SearchStopped`` () =
+    let started, _, _, pool = recordingPool ()
+    withHost pool (fun host -> task {
+        let! recorded =
+            CoreMailboxApi.recordSearchStart
+                host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), recorded)
+        Assert.False(started.Task.IsCompleted)
+        let! stopped =
+            CoreMailboxApi.recordSearchStop
+                host testCaller sampleRequest.focusId
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), stopped)
+        let! log =
+            CoreMailboxApi.eventsSince host EventId.zero
+            |> Async.StartAsTask
+        let startId =
+            log.events
+            |> List.find (fun event ->
+                event.body = EventBody.ActorStart sampleRequest)
+            |> fun event -> event.id
+        let stopId =
+            log.events
+            |> List.find (fun event ->
+                event.body =
+                    EventBody.Notice (
+                        Notice.SearchStopped sampleRequest.focusId))
+            |> fun event -> event.id
+        Assert.True(startId < stopId)
+    })
+
+[<Fact>]
+let ``cancelByFocus places Order.Cancel`` () =
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    withHost pool (fun host -> task {
+        let! started =
+            CoreMailboxApi.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), started)
+        let! cancelled =
+            CoreMailboxApi.cancelByFocus
+                host testCaller sampleRequest.focusId
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), cancelled)
+        Assert.False(
+            Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        let! bodies = logBodies host
+        Assert.Contains(
+            EventBody.Notice (
+                Notice.ActorStopped(
+                    sampleRequest.focusId,
+                    ActorCancelled)),
+            bodies)
+    })
+
+[<Fact>]
+let ``actorStop places Order.ActorStop`` () =
+    let pool = CoreActorPool.create ()
+    let seen = TaskCompletionSource<Credential>()
+    pool.register (ActorName "root") (fun input _ -> async {
+        seen.TrySetResult input.secret |> ignore
+    })
+    withHost pool (fun host -> task {
+        let! started =
+            CoreMailboxApi.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), started)
+        let! secret = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+        let! stopped =
+            CoreMailboxApi.actorStop
+                host (actorCaller secret) ActorSucceeded
+            |> Async.StartAsTask
+        Assert.False(pool.isLive secret)
+        let! log =
+            CoreMailboxApi.eventsSince host EventId.zero
+            |> Async.StartAsTask
+        let entry =
+            log.events
+            |> List.find (fun event ->
+                event.body =
+                    EventBody.ActorStop(
+                        sampleRequest.focusId,
+                        ActorSucceeded))
+        Assert.Equal(Ok entry.id, stopped)
+    })

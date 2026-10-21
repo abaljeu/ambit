@@ -47,6 +47,7 @@ module internal CoreMailboxEvents =
             { event with body = EventBody.Redo(target, ops) }
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
+        | EventBody.Save _
         | EventBody.ActorStop _
         | EventBody.Notice _ -> event
 
@@ -55,35 +56,11 @@ module internal CoreMailboxEvents =
         | PostGraphOnly (_, event, _) ->
             let n = Ev.ops event |> Option.defaultValue [] |> List.length
             "PostGraphOnly", $"ops={n}"
-        | StartActor _ -> "StartActor", ""
-        | StartPeerActor (_, PeerActorName name, _, _) ->
-            "StartPeerActor", name
-        | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
-            "StartLoadSaveCommand", $"{path}:{name}"
-        | RecordSearchStart _ -> "RecordSearchStart", ""
-        | RecordSearchStop _ -> "RecordSearchStop", ""
-        | ActorStop (_, result, _) ->
-            match result with
-            | ActorSucceeded -> "ActorStop", "ActorSucceeded"
-            | ActorFailed _ -> "ActorStop", "ActorFailed"
-            | ActorCancelled -> "ActorStop", "ActorCancelled"
-            | ActorQuery _ -> "ActorStop", "ActorQuery"
-        | CancelActor _ -> "CancelActor", ""
         | PostEvent _ -> "PostEvent", ""
 
     let replyFailure error msg =
         match msg with
         | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
-        | StartActor (_, _, reply) -> reply.Reply(Error error)
-        | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
-        | StartLoadSaveCommand (_, _, _, _, reply) ->
-            reply.Reply(Error error)
-        | RecordSearchStart (_, _, reply) ->
-            reply.Reply(Error error)
-        | RecordSearchStop (_, _, reply) ->
-            reply.Reply(Error error)
-        | ActorStop (_, _, reply) -> reply.Reply(Error error)
-        | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
 
     type Started = {

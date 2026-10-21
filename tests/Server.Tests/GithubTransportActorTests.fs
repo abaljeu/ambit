@@ -89,6 +89,9 @@ let rec private waitForStop host focusId remainingMs =
                 match event.body with
                 | EventBody.ActorStop(id, result) when id = focusId ->
                     Some result
+                | EventBody.Notice (Notice.ActorStopped (id, result))
+                    when id = focusId ->
+                    Some result
                 | _ -> None)
         match stopped with
         | Some result -> return Some result
@@ -350,6 +353,51 @@ let ``git Save gates commit then releases before push`` () =
                   $"gate release {root}"
                   $"push {root}" ],
                 steps |> Seq.toList)
+            let! history =
+                CoreMailboxApi.eventHistory host
+                |> Async.StartAsTask
+            Assert.Contains(
+                EventBody.Save seed.workspaceId,
+                history.events |> List.map (fun event -> event.body))
+        })
+
+[<Fact>]
+let ``git Save places Order.Save and returns its id`` () =
+    let deps =
+        dependencies
+            (ResizeArray())
+            (fun _ _ -> Error "pull unused")
+            (fun _ _ _ -> Ok(tracked, "committed"))
+            (fun _ _ _ -> Ok "pushed")
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ _ seed -> task {
+            let root = Path.Combine(dataDir, "home")
+            let changes = CoreDoor.create true host testCaller
+            let! saved =
+                GithubTransportActor.runOperation
+                    GithubTransportOperation.Save
+                    deps
+                    dataDir
+                    changes
+                    seed.workspaceId
+                    root
+                |> Async.StartAsTask
+            let id = requireOk "save" saved
+            let! history =
+                CoreMailboxApi.eventHistory host
+                |> Async.StartAsTask
+            let savedBody =
+                history.events
+                |> List.find (fun event -> event.id = id)
+                |> fun event -> event.body
+            Assert.Equal(EventBody.Save seed.workspaceId, savedBody)
+            let loads =
+                history.events
+                |> List.filter (fun event ->
+                    match event.body with
+                    | EventBody.Load _ -> true
+                    | _ -> false)
+            Assert.Empty(loads)
         })
 
 [<Fact>]

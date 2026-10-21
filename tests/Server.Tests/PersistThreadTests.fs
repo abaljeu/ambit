@@ -205,7 +205,12 @@ let private applyPersisted (state: State ref) (notice: Notice) =
         noteStamped = fun _ _ -> ()
         noteWriteFailed = ignore
     }
-    match CoreMailboxLoad.applyNotice handlers notice with
+    match
+        CoreMailboxLoad.applyNotice
+            handlers
+            (CoreActorPool.create ())
+            notice
+    with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 

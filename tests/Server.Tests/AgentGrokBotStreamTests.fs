@@ -27,6 +27,9 @@ let private lastActorStop host focusId =
                 match event.body with
                 | EventBody.ActorStop(fid, _) when fid = focusId ->
                     true
+                | EventBody.Notice (Notice.ActorStopped (fid, _))
+                    when fid = focusId ->
+                    true
                 | _ -> false)
     }
 
@@ -261,7 +264,9 @@ type AgentGrokBotStreamTests() =
             | None -> Assert.Fail("missing ActorStop")
             | Some event ->
                 match event.body with
-                | EventBody.ActorStop(_, ActorFailed msg) ->
+                | EventBody.ActorStop(_, ActorFailed msg)
+                | EventBody.Notice (
+                    Notice.ActorStopped (_, ActorFailed msg)) ->
                     Assert.Equal(named, msg)
                     Assert.DoesNotContain(
                         "secret-must-not-leak", msg)
@@ -288,7 +293,9 @@ type AgentGrokBotStreamTests() =
             | None -> Assert.Fail("missing ActorStop")
             | Some event ->
                 match event.body with
-                | EventBody.ActorStop(_, ActorFailed msg) ->
+                | EventBody.ActorStop(_, ActorFailed msg)
+                | EventBody.Notice (
+                    Notice.ActorStopped (_, ActorFailed msg)) ->
                     Assert.Equal(named, msg)
                     Assert.DoesNotContain(
                         "inbound-must-not-leak", msg)

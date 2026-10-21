@@ -570,5 +570,7 @@ module Database =
             writeReceivedNode connectionString graph nodeId
         | Notice.NodeUploading _
         | Notice.NodeParsing _
-        | Notice.PersistFailed _ ->
+        | Notice.PersistFailed _
+        | Notice.ActorStopped _
+        | Notice.SearchStopped _ ->
             task { return () }

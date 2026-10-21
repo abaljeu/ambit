@@ -44,6 +44,8 @@ let private stopped (events: Ev list) =
     |> List.exists (fun event ->
         match event.body with
         | EventBody.ActorStop(_, ActorSucceeded) -> true
+        | EventBody.Notice (Notice.ActorStopped (_, ActorSucceeded)) ->
+            true
         | _ -> false)
 
 let private waitLog (host: MailboxHost) = task {

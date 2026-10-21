@@ -253,7 +253,12 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> Some Graph.rootId
-        trySecretForFocus = fun _ -> None
+        trySecretForFocus =
+            fun focus ->
+                if focus = Graph.rootId && live.Count > 0 then
+                    Some live.[0]
+                else
+                    None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -271,7 +276,7 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                     (actorCaller actorSecret)
                     ActorSucceeded
                 |> Async.StartAsTask
-            requireOk "actorStop" result
+            requireOk "actorStop" result |> ignore
             Assert.Equal(1, stopped.Count)
             Assert.Equal(actorSecret, fst stopped.[0])
             Assert.False(live.Contains actorSecret)
@@ -337,7 +342,12 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
                 Ok ()
         liveFocusIds = fun () -> Set.empty
         getFocusId = fun _ -> Some sampleRequest.focusId
-        trySecretForFocus = fun _ -> None
+        trySecretForFocus =
+            fun focus ->
+                if focus = sampleRequest.focusId && live.Count > 0 then
+                    Some live.[0]
+                else
+                    None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -355,7 +365,7 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
                     (actorCaller actorSecret)
                     ActorSucceeded
                 |> Async.StartAsTask
-            requireOk "actorStop" stopResult
+            requireOk "actorStop" stopResult |> ignore
             Assert.False(live.Contains actorSecret)
             let! events =
                 eventPast host
@@ -364,7 +374,7 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
                 events
                 |> List.choose (fun event ->
                     match event.body with
-                    | Gambol.Shared.EventBody.ActorStop(focusId, _)
+                    | EventBody.ActorStop(focusId, _)
                         when focusId = sampleRequest.focusId ->
                         Some focusId
                     | _ -> None)

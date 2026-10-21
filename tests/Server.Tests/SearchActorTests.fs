@@ -270,6 +270,8 @@ let ``postSearch records ActorStart at the root`` () = task {
                 match event.body with
                 | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
                     stoppedId = graph.root
+                | EventBody.Notice (Notice.SearchStopped stoppedId) ->
+                    stoppedId = graph.root
                 | _ -> false)
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally

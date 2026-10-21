@@ -47,3 +47,6 @@ module CoreDoor =
 
     let loadNode door subject =
         callIfReady CoreMailboxApi.mbLoadNode door subject
+
+    let saveNode door subject =
+        callIfReady CoreMailboxApi.mbSaveNode door subject

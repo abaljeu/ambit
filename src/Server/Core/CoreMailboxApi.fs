@@ -168,13 +168,29 @@ module CoreMailboxApi =
         reply host (fun channel ->
             PostGraphOnly(caller, event, channel))
 
+    let private placeUnit
+        (host: MailboxHost)
+        (caller: Caller)
+        (order: Order)
+        : Async<Result<unit, string>> =
+        async {
+            let! result =
+                MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                    Mailbox.PlaceOrder(
+                        caller,
+                        System.Guid.NewGuid(),
+                        None,
+                        order,
+                        channel))
+            return result |> Result.map ignore
+        }
+
     let startActor
         (host: MailboxHost)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartActor(caller, request, channel))
+        placeUnit host caller (Order.StartActor request)
 
     let startPeerActor
         (host: MailboxHost)
@@ -182,8 +198,7 @@ module CoreMailboxApi =
         (peerName: PeerActorName)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartPeerActor(caller, peerName, request, channel))
+        placeUnit host caller (Order.StartPeerActor(peerName, request))
 
     /// Append ActorStart for a Search Actor. The walk stays off this queue.
     let recordSearchStart
@@ -191,8 +206,7 @@ module CoreMailboxApi =
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStart(caller, request, channel))
+        placeUnit host caller (Order.RecordSearchStart request)
 
     /// Enqueue ActorStop for that Search Actor. The id is the root.
     let recordSearchStop
@@ -200,8 +214,12 @@ module CoreMailboxApi =
         (caller: Caller)
         (rootId: NodeId)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStop(caller, rootId, channel))
+        async {
+            postNotice host (Notice.SearchStopped rootId)
+            let! _ = getEventId host
+            ignore caller
+            return Ok ()
+        }
 
     let startLoadSaveCommand
         (host: MailboxHost)
@@ -210,13 +228,10 @@ module CoreMailboxApi =
         (peerName: PeerActorName)
         (request: LoadSaveCommandRequest)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartLoadSaveCommand(
-                caller,
-                path,
-                peerName,
-                request,
-                channel))
+        placeUnit
+            host
+            caller
+            (Order.LoadSave(path, peerName, request))
 
     /// Mailbox Load of a Workspace, Directory, or File: push onto the Parse stack.
     let mbLoadNode
@@ -232,21 +247,44 @@ module CoreMailboxApi =
                 Order.Load subject,
                 channel))
 
+    /// Mailbox Save of a Workspace: append EventBody.Save and return its id.
+    let mbSaveNode
+        (host: MailboxHost)
+        (caller: Caller)
+        (subject: NodeId)
+        : Async<Result<EventId, string>> =
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.PlaceOrder(
+                caller,
+                System.Guid.NewGuid(),
+                None,
+                Order.Save subject,
+                channel))
+
+    /// The caller secret selects the live focus. The mailbox assigns the id.
     let actorStop
         (host: MailboxHost)
         (caller: Caller)
         (result: ActorResult)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            ActorStop(caller, result, channel))
+        : Async<Result<EventId, string>> =
+        match caller.authority with
+        | Authority "Actor" ->
+            let (Credential callerId) = caller.secret
+            MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                Mailbox.PlaceOrder(
+                    caller,
+                    System.Guid.NewGuid(),
+                    None,
+                    Order.ActorStop(callerId, result),
+                    channel))
+        | _ -> async.Return (Error CoreAuth.refuse)
 
     let cancelByFocus
         (host: MailboxHost)
         (caller: Caller)
         (focusId: NodeId)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            CancelActor(caller, focusId, channel))
+        placeUnit host caller (Order.Cancel focusId)
 
     let login
         (host: MailboxHost)

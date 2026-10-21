@@ -47,6 +47,7 @@ module PersistStamp =
                     body = EventBody.Redo(target, appendToOps ops stampOps) }
             | EventBody.ActorStart _ | EventBody.Cancel _
             | EventBody.Load _
+            | EventBody.Save _
             | EventBody.ActorStop _ | EventBody.Notice _ -> event
 
     let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =

@@ -25,7 +25,7 @@ let private mailboxKind (message: Mailbox) =
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let core =
         Mailbox.CoreMsg (
-            StartActor(
+            PostGraphOnly(
                 testCaller,
                 Unchecked.defaultof<_>,
                 Unchecked.defaultof<_>))

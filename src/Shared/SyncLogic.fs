@@ -119,8 +119,19 @@ module SyncLogic =
             projectStampOps event ops st undid
         | EventBody.Notice (Notice.NodePersisted (nodeId, updateTime)) ->
             let next = withNodeUpdateTime nodeId updateTime st
-            Ok({ next with eventId = event.id }, undid)
-        | _ -> Ok({ st with eventId = event.id }, undid)
+            Ok(
+                { next with
+                    eventId = event.id
+                    actorLiveFocusIds =
+                        ActorLive.applyEvent event next.actorLiveFocusIds },
+                undid)
+        | _ ->
+            Ok(
+                { st with
+                    eventId = event.id
+                    actorLiveFocusIds =
+                        ActorLive.applyEvent event st.actorLiveFocusIds },
+                undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.
     let private inStoredOrder (events: Ev list) =

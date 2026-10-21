@@ -85,7 +85,11 @@ type CancelByFocusTests() =
                 let! request = startLiveAsk host pool "?ai"
                 do! awaitHang hangStarted
                 do! cancelFocus host request.focusId
-                do! cancelFocus host request.focusId
+                let! second =
+                    CoreMailboxApi.cancelByFocus
+                        host testCaller request.focusId
+                    |> Async.StartAsTask
+                Assert.Equal(Error "no running actor", second)
                 do! expectActorCancelled host pool request.focusId
                 do! Task.Delay 200
                 let! stops = actorStopCount host request.focusId
@@ -116,7 +120,8 @@ type CancelByFocusTests() =
                     accepted.events
                     |> List.exists (fun event ->
                         match event.body with
-                        | EventBody.ActorStop(fid, ActorCancelled)
+                        | EventBody.Notice (
+                            Notice.ActorStopped (fid, ActorCancelled))
                             when fid = request.focusId -> true
                         | _ -> false)
                 Assert.True(cancelled)

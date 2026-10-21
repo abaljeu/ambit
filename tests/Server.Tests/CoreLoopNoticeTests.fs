@@ -64,7 +64,12 @@ let private hostFor state snaps =
         admittedCredentials
 
 let private apply persist msg =
-    match CoreMailboxLoad.applyNotice persist msg with
+    match
+        CoreMailboxLoad.applyNotice
+            persist
+            (CoreActorPool.create ())
+            msg
+    with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 
@@ -306,12 +311,14 @@ let ``axis write failure is returned`` () =
     let missingResult =
         CoreMailboxLoad.applyNotice
             (handlers state snaps)
+            (CoreActorPool.create ())
             (Notice.NodeParsed missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
         CoreMailboxLoad.applyNotice
             (handlers state snaps)
+            (CoreActorPool.create ())
             (Notice.NodePersisted(Graph.workspacesId, DateTime.UtcNow))
     Assert.Equal(
         Error "workspaces is not a graph document",

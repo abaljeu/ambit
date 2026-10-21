@@ -35,52 +35,10 @@ module internal CoreMailboxLoad =
             | Error err -> Error err
             | Ok () -> context.parsePush subject
 
-    let private dispatchStartLoadSaveCommand
-        context
-        caller
-        path
-        peerName
-        (request: LoadSaveCommandRequest)
-        reply
-        =
-        CoreMailboxActors.dispatchActorStartResult
-            context
-            caller
-            request.start
-            reply
-            (fun _ getState ->
-                DeskLoadPush.runLoadSave
-                    { pool = context.pool
-                      getState = getState
-                      peerName = peerName }
-                    (dispatchLoad context caller)
-                    request
-                    path
-                |> Result.mapError StartError.Rejected)
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | PostGraphOnly (caller, event, reply) ->
             CoreMailboxEvents.dispatchPostGraphOnly context caller event reply
-        | StartActor (caller, request, reply) ->
-            CoreMailboxActors.dispatchStartActor context caller request reply
-        | StartPeerActor (caller, peerName, request, reply) ->
-            CoreMailboxActors.dispatchStartPeerActor
-                context caller peerName request reply
-        | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
-            dispatchStartLoadSaveCommand
-                context caller path peerName request reply
-        | RecordSearchStart (caller, request, reply) ->
-            let dispatch = CoreMailboxEvents.eventDispatchContext context
-            reply.Reply(CoreEventDispatch.actorStart dispatch caller request)
-        | RecordSearchStop (caller, rootId, reply) ->
-            let dispatch = CoreMailboxEvents.eventDispatchContext context
-            reply.Reply(
-                CoreEventDispatch.actorStop
-                    dispatch caller rootId ActorSucceeded)
-        | ActorStop (caller, result, reply) ->
-            CoreMailboxActors.dispatchActorStop context caller result reply
-        | CancelActor (caller, focusId, reply) ->
-            CoreMailboxActors.dispatchCancelActor context caller focusId reply
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
 
@@ -114,13 +72,6 @@ module internal CoreMailboxLoad =
     let private messageCaller (msg: CoreMsg) =
         match msg with
         | PostGraphOnly (caller, _, _)
-        | StartActor (caller, _, _)
-        | StartPeerActor (caller, _, _, _)
-        | StartLoadSaveCommand (caller, _, _, _, _)
-        | RecordSearchStart (caller, _, _)
-        | RecordSearchStop (caller, _, _)
-        | ActorStop (caller, _, _)
-        | CancelActor (caller, _, _)
         | PostEvent (caller, _, _) -> caller
 
     let private rejectDropped (msg: CoreMsg) =
@@ -273,8 +224,14 @@ module internal CoreMailboxLoad =
             persist.noteStamped ops message
             Ok ()
 
+    let private finishActorStopped pool focusId result =
+        match pool.trySecretForFocus focusId with
+        | None -> Ok ()
+        | Some secret -> pool.finish secret result
+
     let internal applyNotice
         (persist: PersistHandlers)
+        (pool: CoreActorPool)
         (msg: Notice)
         : Result<unit, string> =
         match msg with
@@ -302,6 +259,9 @@ module internal CoreMailboxLoad =
         | Notice.NodePersisted (nodeId, updateTime) ->
             persist.noteDiffDone nodeId
             writePersisted persist nodeId updateTime
+        | Notice.ActorStopped (focusId, result) ->
+            finishActorStopped pool focusId result
+        | Notice.SearchStopped _ -> Ok ()
 
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)
@@ -323,6 +283,18 @@ module internal CoreMailboxLoad =
             orderId
             (EventBody.Load subject)
 
+    let private appendSave
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (subject: NodeId)
+        =
+        CoreEventDispatch.appendLifecycle
+            (CoreMailboxEvents.eventDispatchContext context)
+            caller
+            orderId
+            (EventBody.Save subject)
+
     let private placeLoad
         (context: MailboxContext)
         (caller: Caller)
@@ -337,6 +309,73 @@ module internal CoreMailboxLoad =
             | Error err -> reply.Reply(Error err)
             | Ok stored -> reply.Reply(Ok stored.id)
 
+    let private placeSave
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (subject: NodeId)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match appendSave context caller orderId subject with
+        | Error err -> reply.Reply(Error err)
+        | Ok stored -> reply.Reply(Ok stored.id)
+
+    let private replyId
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (result: Result<EventId, string>)
+        =
+        match result with
+        | Error err -> reply.Reply(Error err)
+        | Ok eventId -> reply.Reply(Ok eventId)
+
+    let private placeStartActor context caller orderId request reply =
+        CoreMailboxActors.placedActorStart
+            context
+            caller
+            orderId
+            request
+            (fun start getState ->
+                context.pool.startActor start getState
+                |> Result.map Some)
+        |> replyId reply
+
+    let private placePeer context caller orderId peerName request reply =
+        CoreMailboxActors.placedActorStart
+            context
+            caller
+            orderId
+            request
+            (fun start getState ->
+                context.pool.startPeerActor peerName start getState
+                |> Result.mapError StartError.Rejected
+                |> Result.map Some)
+        |> replyId reply
+
+    let private placeLoadSave
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (path: LoadSavePath)
+        (peerName: PeerActorName)
+        (request: LoadSaveCommandRequest)
+        reply
+        =
+        CoreMailboxActors.placedActorStart
+            context
+            caller
+            orderId
+            request.start
+            (fun start getState ->
+                DeskLoadPush.runLoadSave
+                    { pool = context.pool
+                      getState = getState
+                      peerName = peerName }
+                    (dispatchLoad context caller)
+                    { request with start = start }
+                    path
+                |> Result.mapError StartError.Rejected)
+        |> replyId reply
+
     let private placeOrder
         (context: MailboxContext)
         (caller: Caller)
@@ -347,7 +386,30 @@ module internal CoreMailboxLoad =
         match order with
         | Order.Load subject ->
             placeLoad context caller orderId subject reply
-        | _ -> replyUnsupported reply
+        | Order.Save subject ->
+            placeSave context caller orderId subject reply
+        | Order.StartActor request ->
+            placeStartActor context caller orderId request reply
+        | Order.RecordSearchStart request ->
+            CoreMailboxActors.placedSearchStart
+                context caller orderId request
+            |> replyId reply
+        | Order.StartPeerActor (peerName, request) ->
+            placePeer context caller orderId peerName request reply
+        | Order.LoadSave (path, peerName, request) ->
+            placeLoadSave
+                context caller orderId path peerName request reply
+        | Order.Cancel focusId ->
+            CoreMailboxActors.placedCancel
+                context caller orderId focusId
+            |> replyId reply
+        | Order.ActorStop (callerId, result) ->
+            CoreMailboxActors.placedActorStop
+                context caller orderId callerId result
+            |> replyId reply
+        | Order.Change _
+        | Order.Undo _
+        | Order.Redo _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
@@ -429,7 +491,7 @@ module internal CoreMailboxLoad =
             match logged with
             | Error err -> reportNotice context err
             | Ok _ -> ()
-            match applyNotice context.persist msg with
+            match applyNotice context.persist context.pool msg with
             | Ok () -> ()
             | Error err -> reportNotice context err
         | CoreQueue.DropAuthority stopped ->

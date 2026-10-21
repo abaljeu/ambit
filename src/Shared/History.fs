@@ -73,6 +73,8 @@ type Notice =
     | NodePersisting of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
     | NodeStamped of ops: Op list * message: string option
+    | ActorStopped of focusId: NodeId * result: ActorResult
+    | SearchStopped of rootId: NodeId
 
 [<RequireQualifiedAccess>]
 type EventBody =
@@ -83,6 +85,7 @@ type EventBody =
     | ActorStop of focusId: NodeId * result: ActorResult
     | Cancel of focusId: NodeId
     | Load of nodeId: NodeId
+    | Save of nodeId: NodeId
     | Notice of Notice
 
 type Ev =
@@ -426,6 +429,7 @@ module Ev =
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
+        | EventBody.Save _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
@@ -437,6 +441,7 @@ module Ev =
         | EventBody.Change _
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
+        | EventBody.Save _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let inverseOps (event: Ev) : Op list option =

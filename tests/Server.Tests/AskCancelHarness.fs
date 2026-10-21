@@ -48,6 +48,9 @@ let private actorStops host focusId =
                 match event.body with
                 | EventBody.ActorStop(fid, result) when fid = focusId ->
                     Some result
+                | EventBody.Notice (Notice.ActorStopped (fid, result))
+                    when fid = focusId ->
+                    Some result
                 | _ -> None)
     }
 

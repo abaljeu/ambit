@@ -46,6 +46,9 @@ let private tryActorStop host focusId =
                 match event.body with
                 | EventBody.ActorStop(fid, result) when fid = focusId ->
                     Some result
+                | EventBody.Notice (Notice.ActorStopped (fid, result))
+                    when fid = focusId ->
+                    Some result
                 | _ -> None)
     }
 
@@ -275,7 +278,9 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         | [ stopEvent ] ->
             Assert.Equal("", stopEvent.commandName)
             match stopEvent.body with
-            | EventBody.ActorStop(fid, ActorFailed _) ->
+            | EventBody.ActorStop(fid, ActorFailed _)
+            | EventBody.Notice (
+                Notice.ActorStopped (fid, ActorFailed _)) ->
                 Assert.Equal(request.focusId, fid)
             | other ->
                 Assert.Fail($"expected ActorStop ActorFailed, got {other}")

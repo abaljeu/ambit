@@ -43,11 +43,16 @@ module ActorLive =
         match event.body with
         | EventBody.ActorStart start -> Set.add start.focusId live
         | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
+        | EventBody.Notice (Notice.ActorStopped (focusId, _)) ->
+            Set.remove focusId live
+        | EventBody.Notice (Notice.SearchStopped rootId) ->
+            Set.remove rootId live
         | EventBody.Change _
         | EventBody.Undo _
         | EventBody.Redo _
         | EventBody.Cancel _
         | EventBody.Load _
+        | EventBody.Save _
         | EventBody.Notice _ -> live
 
     let applyEvents (events: Ev list) (live: Set<NodeId>) : Set<NodeId> =
@@ -134,7 +139,7 @@ module ActorLive =
             |> Option.defaultValue "Actor"
         CmdLastResult.Detail (Some "Run", $"{label} started.")
 
-    let private resultOf
+    let rec private resultOf
         (graph: Graph)
         (zoomRoot: NodeId)
         (event: Ev)
@@ -153,11 +158,25 @@ module ActorLive =
                 Some (CmdLastResult.Error (chip, failedText message))
             | ActorCancelled ->
                 Some (CmdLastResult.Error (chip, "Actor cancelled."))
+        | EventBody.Notice (Notice.ActorStopped (focusId, result)) ->
+            resultOf
+                graph
+                zoomRoot
+                { event with
+                    body = EventBody.ActorStop(focusId, result) }
+        | EventBody.Notice (Notice.SearchStopped rootId) ->
+            resultOf
+                graph
+                zoomRoot
+                { event with
+                    body =
+                        EventBody.ActorStop(rootId, ActorSucceeded) }
         | EventBody.Change _
         | EventBody.Undo _
         | EventBody.Redo _
         | EventBody.Cancel _
         | EventBody.Load _
+        | EventBody.Save _
         | EventBody.Notice _ -> None
 
     let lastCmdResult

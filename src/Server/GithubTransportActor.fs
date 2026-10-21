@@ -170,8 +170,35 @@ module GithubTransportActor =
                         changed
         }
 
-    let private runSave dependencies root =
-        saveTracked dependencies.git root |> Result.map ignore
+    /// Place Order.Save of the Workspace, then push. Return that id.
+    let private saveWorkspace dependencies changes workspaceId root =
+        async {
+            match! CoreDoor.saveNode changes workspaceId with
+            | Error err -> return Error err
+            | Ok eventId ->
+                match saveTracked dependencies.git root with
+                | Error err -> return Error err
+                | Ok _ -> return Ok eventId
+        }
+
+    let internal runOperation
+        operation
+        dependencies
+        dataDir
+        changes
+        workspaceId
+        root
+        =
+        match operation with
+        | GithubTransportOperation.Load ->
+            runLoad
+                dependencies
+                dataDir
+                changes
+                workspaceId
+                root
+        | GithubTransportOperation.Save ->
+            saveWorkspace dependencies changes workspaceId root
 
     let private runBody dataDir operation dependencies input coreChanges =
         async {
@@ -187,22 +214,17 @@ module GithubTransportActor =
                 with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
-                    match operation with
-                    | GithubTransportOperation.Load ->
-                        match!
-                            runLoad
-                                dependencies
-                                dataDir
-                                actorChanges
-                                workspaceId
-                                root
-                        with
-                        | Ok _ -> return ActorSucceeded
-                        | Error err -> return ActorFailed err
-                    | GithubTransportOperation.Save ->
-                        match runSave dependencies root with
-                        | Ok () -> return ActorSucceeded
-                        | Error err -> return ActorFailed err
+                    match!
+                        runOperation
+                            operation
+                            dependencies
+                            dataDir
+                            actorChanges
+                            workspaceId
+                            root
+                    with
+                    | Ok _ -> return ActorSucceeded
+                    | Error err -> return ActorFailed err
         }
 
     let actorFn

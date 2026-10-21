@@ -632,3 +632,78 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
             Map.tryFind aId projected.ownerParentByChild)
 }
 
+[<Fact>]
+let ``Actor stop notices are stored in the events table`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let agent = DbAgent.create connStr
+    let seen = TaskCompletionSource<Credential>()
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun input _ -> async {
+        seen.TrySetResult input.secret |> ignore
+    })
+    let mailbox =
+        CoreMailbox.host
+            pool
+            (DbAgent.persist agent)
+            admittedCredentials
+    let! ready =
+        waitUntil 5000 (fun () -> CoreMailboxApi.isReady mailbox)
+    Assert.True(ready, "database mailbox did not become ready")
+    let focus = Graph.rootId
+    CoreMailboxApi.postNotice
+        mailbox
+        (Notice.ActorStopped(focus, ActorSucceeded))
+    let! search =
+        CoreMailboxApi.recordSearchStop mailbox testCaller focus
+        |> Async.StartAsTask
+    Assert.Equal(Ok (), search)
+    let request = {
+        zoomId = focus
+        focusId = focus
+        commandId = focus
+        graphIds = [ focus ]
+        eventId = EventId.zero }
+    let! started =
+        CoreMailboxApi.startActor mailbox testCaller request
+        |> Async.StartAsTask
+    Assert.Equal(Ok (), started)
+    let! secret = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
+    let caller = {
+        authority = Authority "Actor"
+        name = ""
+        secret = secret }
+    let! stopped =
+        CoreMailboxApi.actorStop mailbox caller ActorSucceeded
+        |> Async.StartAsTask
+    let stopId =
+        match stopped with
+        | Ok id -> id
+        | Error err ->
+            Assert.Fail(err)
+            EventId.zero
+    let! rows = Database.getEvents connStr |> Async.AwaitTask
+    let bodies =
+        rows
+        |> List.choose (fun row ->
+            match EventLogFile.decodeEvent row.payload with
+            | Ok event -> Some event.body
+            | Error _ -> None)
+    Assert.Contains(
+        EventBody.Notice (Notice.ActorStopped(focus, ActorSucceeded)),
+        bodies)
+    Assert.Contains(
+        EventBody.Notice (Notice.SearchStopped focus),
+        bodies)
+    let stored =
+        rows
+        |> List.choose (fun row ->
+            match EventLogFile.decodeEvent row.payload with
+            | Ok event when event.id = stopId -> Some event.body
+            | Ok _
+            | Error _ -> None)
+    Assert.Equal<EventBody list>(
+        [ EventBody.ActorStop(focus, ActorSucceeded) ],
+        stored)
+}
+

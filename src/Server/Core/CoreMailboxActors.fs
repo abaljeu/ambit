@@ -59,24 +59,68 @@ module internal CoreMailboxActors =
             context.pool.schedule secret (make caller)
             Ok stored
 
-    let dispatchActorStartResult
+    let private appendIdleStart
         (context: MailboxContext)
         (caller: Caller)
+        (orderId: System.Guid)
         (request: Gambol.Shared.ActorStart)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
+        =
+        let dispatch = CoreMailboxEvents.eventDispatchContext context
+        match
+            CoreEventDispatch.appendLifecycle
+                dispatch
+                caller
+                orderId
+                (EventBody.ActorStart request)
+        with
+        | Error err -> Error err
+        | Ok started ->
+            match
+                CoreEventDispatch.appendLifecycle
+                    dispatch
+                    caller
+                    (Guid.NewGuid())
+                    (EventBody.ActorStop(
+                        request.focusId,
+                        ActorSucceeded))
+            with
+            | Error err -> Error err
+            | Ok _ -> Ok started.id
+
+    let placedActorStart
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (request: Gambol.Shared.ActorStart)
         start
         =
-        match prepareActorStart context caller request start with
-        | Error error ->
-            reply.Reply(Error (StartError.text error))
-        | Ok (None, _) -> reply.Reply(Ok ())
-        | Ok (Some secret, make) ->
-            match
+        match CoreMailboxEvents.storedBySubmission context orderId with
+        | Some stored -> Ok stored.id
+        | None ->
+            match prepareActorStart context caller request start with
+            | Error error -> Error (StartError.text error)
+            | Ok (None, _) ->
+                appendIdleStart context caller orderId request
+            | Ok (Some secret, make) ->
                 finishReadyStart
-                    context caller request secret make (Guid.NewGuid())
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok _ -> reply.Reply(Ok ())
+                    context caller request secret make orderId
+                |> Result.map (fun stored -> stored.id)
+
+    let placedSearchStart
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (request: Gambol.Shared.ActorStart)
+        =
+        match CoreMailboxEvents.storedBySubmission context orderId with
+        | Some stored -> Ok stored.id
+        | None ->
+            CoreEventDispatch.appendLifecycle
+                (CoreMailboxEvents.eventDispatchContext context)
+                caller
+                orderId
+                (EventBody.ActorStart request)
+            |> Result.map (fun stored -> stored.id)
 
     /// Query reads post-edit State. `graphIds` do not replace that Graph.
     let private startChosen
@@ -93,83 +137,53 @@ module internal CoreMailboxActors =
             context.pool.startActor request getState
             |> Result.map Some
 
-    let dispatchStartActor context caller request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startActor start getState
-                |> Result.map Some)
-
-    let dispatchStartPeerActor
-        context caller peerName request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startPeerActor peerName start getState
-                |> Result.mapError StartError.Rejected
-                |> Result.map Some)
-    let dispatchActorStop
+    let placedActorStop
         (context: MailboxContext)
         (caller: Caller)
+        (orderId: System.Guid)
+        (callerId: string)
         (result: ActorResult)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match caller.authority with
-        | Authority "Actor" ->
-            match context.pool.getFocusId caller.secret with
-            | None -> reply.Reply(Ok ())
+        =
+        match CoreMailboxEvents.storedBySubmission context orderId with
+        | Some stored -> Ok stored.id
+        | None ->
+            match context.pool.getFocusId (Credential callerId) with
+            | None -> Error "no running actor"
             | Some focusId ->
                 match
-                    CoreEventDispatch.actorStop
+                    CoreEventDispatch.appendLifecycle
                         (CoreMailboxEvents.eventDispatchContext context)
                         caller
-                        focusId
-                        result
+                        orderId
+                        (EventBody.ActorStop(focusId, result))
                 with
-                | Error err -> reply.Reply(Error err)
-                | Ok () ->
-                    reply.Reply(
-                        context.pool.finish caller.secret result)
-        | _ ->
-            reply.Reply(Error CoreAuth.refuse)
+                | Error err -> Error err
+                | Ok stored ->
+                    match context.pool.finish (Credential callerId) result with
+                    | Error err -> Error err
+                    | Ok () -> Ok stored.id
 
-    let private runCancel
+    let placedCancel
         (context: MailboxContext)
         (caller: Caller)
+        (orderId: System.Guid)
         (focusId: NodeId)
-        (submissionId: System.Guid)
-        : Result<Ev option, string> =
+        =
         match context.pool.trySecretForFocus focusId with
-        | None -> Ok None
+        | None -> Error "no running actor"
         | Some secret ->
+            let notice =
+                Notice.ActorStopped(focusId, ActorCancelled)
             match
-                CoreEventDispatch.appendLifecycle
+                CoreEventDispatch.logNotice
                     (CoreMailboxEvents.eventDispatchContext context)
-                    caller
-                    submissionId
-                    (EventBody.ActorStop(focusId, ActorCancelled))
+                    notice
             with
             | Error err -> Error err
             | Ok stored ->
                 match context.pool.finish secret ActorCancelled with
                 | Error err -> Error err
-                | Ok () -> Ok(Some stored)
-
-    let dispatchCancelActor
-        (context: MailboxContext)
-        (caller: Caller)
-        (focusId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        =
-        match runCancel context caller focusId (Guid.NewGuid()) with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok ())
+                | Ok () -> Ok stored.id
 
     let private failedMessage error =
         match error with
@@ -194,44 +208,8 @@ module internal CoreMailboxActors =
             with
             | Error err -> reply.Reply(Error err)
             | Ok stopped ->
-                CoreMailboxEvents.replyList reply context stopped [ started; stopped ]
-
-    let private postActorStart context caller event request reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored ->
-            let events = CoreMailboxEvents.eventsForStored context stored
-            CoreMailboxEvents.replyList reply context (List.last events) events
-        | None ->
-            let start req getState =
-                startChosen context req getState
-            match prepareActorStart context caller request start with
-            | Error error ->
-                recordFailedStart
-                    context caller request event.submissionId
-                    (failedMessage error) reply
-            | Ok (None, _) -> CoreMailboxEvents.replyList reply context event []
-            | Ok (Some secret, make) ->
-                match
-                    finishReadyStart
-                        context caller request secret make
-                        event.submissionId
-                with
-                | Error err -> reply.Reply(Error err)
-                | Ok stored ->
-                    CoreMailboxEvents.replyList reply context stored [ stored ]
-
-    let private postCancel context caller event focusId reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored -> CoreMailboxEvents.replyList reply context stored [ stored ]
-        | None ->
-            match
-                runCancel
-                    context caller focusId event.submissionId
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok (Some stored) ->
-                CoreMailboxEvents.replyList reply context stored [ stored ]
-            | Ok None -> CoreMailboxEvents.replyList reply context event []
+                CoreMailboxEvents.replyList
+                    reply context stopped [ started; stopped ]
 
     let dispatchPostEvent
         (context: MailboxContext)
@@ -243,9 +221,45 @@ module internal CoreMailboxActors =
         | EventBody.ActorStop _ ->
             reply.Reply(Error "ActorStop is not a client event type")
         | EventBody.ActorStart request ->
-            postActorStart context caller event request reply
+            let start req getState =
+                startChosen context req getState
+            match
+                placedActorStart
+                    context caller event.submissionId request start
+            with
+            | Error message ->
+                let stored =
+                    if message.Contains "not registered" then
+                        "unknown actor"
+                    else
+                        message
+                recordFailedStart
+                    context
+                    caller
+                    request
+                    event.submissionId
+                    stored
+                    reply
+            | Ok eventId ->
+                let stored =
+                    context.eventLog.Value.events
+                    |> List.find (fun item -> item.id = eventId)
+                CoreMailboxEvents.replyList
+                    reply context stored [ stored ]
         | EventBody.Cancel focusId ->
-            postCancel context caller event focusId reply
+            match
+                placedCancel
+                    context caller event.submissionId focusId
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok eventId when eventId = EventId.zero ->
+                CoreMailboxEvents.replyList reply context event []
+            | Ok eventId ->
+                let stored =
+                    context.eventLog.Value.events
+                    |> List.find (fun item -> item.id = eventId)
+                CoreMailboxEvents.replyList
+                    reply context stored [ stored ]
         | _ ->
             match
                 CoreEventDispatch.postEvent

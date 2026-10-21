@@ -71,7 +71,7 @@ let private runMixedHello host secret childText = task {
             (actorCaller secret)
             ActorSucceeded
         |> Async.StartAsTask
-    requireOk "actorStop" stopped
+    requireOk "actorStop" stopped |> ignore
     return childId
 }
 
@@ -105,6 +105,7 @@ let private bodyKind (event: Ev) =
     | EventBody.ActorStop _ -> "stop"
     | EventBody.Cancel _ -> "cancel"
     | EventBody.Load _ -> "load"
+    | EventBody.Save _ -> "save"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
     | EventBody.Notice _ -> "notice"

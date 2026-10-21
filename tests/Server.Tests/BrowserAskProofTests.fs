@@ -18,6 +18,9 @@ let private lifecycleIndexes (events: Ev list) focusId =
             match event.body with
             | EventBody.ActorStop(fid, ActorSucceeded)
                 when fid = focusId -> true
+            | EventBody.Notice (
+                Notice.ActorStopped (fid, ActorSucceeded))
+                when fid = focusId -> true
             | _ -> false)
     started, finished
 
