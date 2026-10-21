@@ -180,13 +180,49 @@ module internal CoreMailboxLoad =
     /// is clear, then noteParsed so a blocked edit can catch up. When
     /// pullingFile is set, that File Node stays Unparsed. It does not
     /// set Persisted. NodeParsed is the renamed ParseFinished.
-    /// NodeUploading and NodeReceived are logged by the queue puller and
-    /// do not set state.
+    /// NodeUploading sets PullingFile in memory and Unpersisted. It does
+    /// not insert the node. The column word stays Parsed or Unparsed.
+    /// NodeReceived sets Unparsed and Persisted. withParseState clears
+    /// PullingFile. The queue puller logs both messages.
     /// NodeParsing is logged by the queue puller. It does not set Unparsed,
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
+    let private withPullingFile (nodeId: NodeId) (graph: Graph) =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node ->
+            let updated = Node.withDocumentState PullingFile node
+            Ok { graph with nodes = Map.add nodeId updated graph.nodes }
+
+    let private writePullingFileUnpersisted
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        writeAxis persist (fun live ->
+            match
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    live
+            with
+            | Error err -> Error err
+            | Ok graph -> withPullingFile nodeId graph)
+
+    let private writeReceived
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        writeAxis persist (fun live ->
+            match GraphMutate.setParseState nodeId ParseState.Unparsed live with
+            | Error err -> Error err
+            | Ok graph ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Persisted
+                    graph)
+
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
@@ -198,8 +234,10 @@ module internal CoreMailboxLoad =
             | Ok () ->
                 persist.noteParsed nodeId
                 Ok ()
-        | Notice.NodeUploading _
-        | Notice.NodeReceived _
+        | Notice.NodeUploading nodeId ->
+            writePullingFileUnpersisted persist nodeId
+        | Notice.NodeReceived nodeId ->
+            writeReceived persist nodeId
         | Notice.NodeParsing _ -> Ok ()
         | Notice.NodePersisting nodeId ->
             writeAxis persist (fun live ->

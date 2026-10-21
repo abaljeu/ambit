@@ -1,6 +1,7 @@
 # 44 — Apply document state from Node events
 
-**Status:** `defined`
+**Status:** `coded`
+**Actual:** 1h
 **Type:** coding
 **Blocked by:** 43 — Expand Node events beside the Set output; 36 — Add the persist column
 **Trackers:** architecture, project spec
@@ -19,21 +20,29 @@ Producers stay on their current writes. These tickets switch the producers:
 
 ## What to build
 
-1. [ ] **Core-loop upload handler** — Graph change apply adds the handlers in `CoreMailboxLoad.applyNotice`. Tests call the handlers. Each handler receives its message, applies the effect Document-state events names, and logs the message. Each handler writes the resulting `document_state` and `persist_state` through `DatabaseProjection`. The `document_state` column stores Parsed or Unparsed only. The stored word for Parsed stays `current`. PullingFile is not written there. The `Notice.NodeUploading` handler sets PullingFile in memory and persist state Unpersisted. It does not insert the node.
-2. [ ] **Core-loop receive handler** — The `Notice.NodeReceived` handler calls `GraphMutate.setParseState` with Unparsed and `GraphMutate.setPersistState` with Unpersisted. `Node.withParseState` clears PullingFile. The code field is `pullingFile`.
+1. [x] **Core-loop upload handler** — Graph change apply adds the handlers in `CoreMailboxLoad.applyNotice`. Tests call the handlers. Each handler receives its message, applies the effect Document-state events names, and logs the message. Each handler writes the resulting `document_state` and `persist_state` through `DatabaseProjection`. The `document_state` column stores Parsed or Unparsed only. The stored word for Parsed stays `current`. PullingFile is not written there. The `Notice.NodeUploading` handler sets PullingFile in memory and persist state Unpersisted. It does not insert the node.
+2. [x] **Core-loop receive handler** — The `Notice.NodeReceived` handler calls `GraphMutate.setParseState` with Unparsed and `GraphMutate.setPersistState` with Persisted. `Node.withParseState` clears PullingFile. The code field is `pullingFile`.
 
 The `Notice.NodePersisted` handler already exists as the `Notice.SnapshotDone` handler, which sets Persisted. [73 — Add the NodeParsing and NodePersisting Notices](73-add-the-nodeparsing-and-nodepersisting-notices.md) adds the other two handlers.
 
 ### Acceptance Criteria
 
-1. [ ] **Upload test** — `NodeUploading applies PullingFile`. The node is PullingFile and Unpersisted. `document_state` does not store PullingFile.
-2. [ ] **Receive test** — `NodeReceived applies Unparsed`. The File Node is Unparsed and Unpersisted. PullingFile is clear.
+1. [x] **Upload test** — `NodeUploading applies PullingFile`. The node is PullingFile and Unpersisted. `document_state` does not store PullingFile.
+2. [x] **Receive test** — `NodeReceived applies Unparsed`. The File Node is Unparsed and Persisted. PullingFile is clear.
+
+## Amendments
+
+- Alan 2026-10-20: NodeReceived sets Persisted, not Unpersisted.
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
+
+## Time
+
+- 2026-10-20 1h — NodeUploading and NodeReceived handlers in applyNotice
 
 ## See also
 

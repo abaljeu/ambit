@@ -131,6 +131,52 @@ let ``SnapshotDone sets Persisted and calls the diff hook`` () =
     Assert.Equal(id, Assert.Single(snaps))
 
 [<Fact>]
+let ``NodeUploading applies PullingFile`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let beforeCount = initial.graph.nodes.Count
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeUploading id)
+    let node = state.Value.graph.nodes.[id]
+    let row = GraphProjection.nodeRowFromNode node
+    Assert.Equal(beforeCount, state.Value.graph.nodes.Count)
+    Assert.True(node.documentState.pullingFile)
+    Assert.Equal(PullingFile, node.documentState.AsEnum)
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+    Assert.Equal("unparsed", row.documentState)
+    Assert.Equal("unpersisted", row.persistState)
+    Assert.Empty(snaps)
+
+[<Fact>]
+let ``NodeReceived applies Unparsed`` () =
+    let id = NodeId.New()
+    let node =
+        Node.Create(
+            id,
+            text = "note.txt",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            documentState = PullingFile,
+            parseState = ParseState.Unparsed,
+            persistState = PersistState.Unpersisted)
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = EventId.zero }
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeReceived id)
+    let after = state.Value.graph.nodes.[id]
+    let row = GraphProjection.nodeRowFromNode after
+    Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
+    Assert.False(after.documentState.pullingFile)
+    Assert.Equal(Unparsed, after.documentState.AsEnum)
+    Assert.Equal(PersistState.Persisted, after.documentState.persistState)
+    Assert.Equal("unparsed", row.documentState)
+    Assert.Equal("persisted", row.persistState)
+    Assert.Empty(snaps)
+
+[<Fact>]
 let ``NodePersisting matches the Unpersisted Set`` () =
     let id, initial =
         fileState PersistState.Persisted ParseState.Parsed
