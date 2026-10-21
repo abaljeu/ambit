@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md); [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md)
+**Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md); [75 — A failed write does not fail the edit](75-a-failed-write-does-not-fail-the-edit.md); [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md)
 **Trackers:** architecture
 
 ## Context
