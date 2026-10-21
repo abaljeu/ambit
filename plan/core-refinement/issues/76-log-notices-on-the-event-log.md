@@ -1,6 +1,6 @@
 # 76 — Log Notices on the event log
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** [74 — Add the Notice event body](74-put-notices-on-the-event-log.md)
 **Trackers:** architecture

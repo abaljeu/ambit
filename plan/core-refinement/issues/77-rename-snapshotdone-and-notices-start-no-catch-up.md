@@ -1,6 +1,6 @@
 # 77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
 **Trackers:** architecture
