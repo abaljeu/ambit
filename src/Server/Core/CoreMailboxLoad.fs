@@ -414,12 +414,18 @@ module internal CoreMailboxLoad =
         let gate = obj ()
         let stopped = ref false
         let shutdown () =
-            lock gate (fun () ->
-                if not stopped.Value then
-                    stopped.Value <- true
-                    mailbox.PostAndReply(fun reply ->
-                        CoreQueue.Shutdown reply)
-                    |> ignore)
+            let run =
+                lock gate (fun () ->
+                    if stopped.Value then
+                        false
+                    else
+                        stopped.Value <- true
+                        true)
+            if run then
+                mailbox.TryPostAndReply(
+                    (fun reply -> CoreQueue.Shutdown reply),
+                    2000)
+                |> ignore
         ServerRunRegistry.registerMailbox shutdown
         shutdown
 

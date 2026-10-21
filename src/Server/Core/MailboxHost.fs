@@ -23,8 +23,8 @@ module MailboxHost =
         isReady = persist.isReady
         dispose =
             fun () ->
-                persist.dispose ()
                 shutdown ()
+                persist.dispose ()
         session = session
     }
 
