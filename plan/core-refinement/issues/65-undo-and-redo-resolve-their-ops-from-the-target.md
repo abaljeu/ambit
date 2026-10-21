@@ -1,28 +1,27 @@
-# 65 — Undo and Redo resolve their ops from the target
+# 65 — Place Undo and Redo as orders
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg
+**Blocked by:** 60 — Add Mailbox beside CoreMsg; 64 — Merge PostEvent and PostGraphOnly into Change
 **Trackers:** architecture
 
 ## Context
 
-`EventBody.Undo` and `EventBody.Redo` each store an `EventId` and an Op list. `CoreMailboxActors.dispatchPostEvent` sends those bodies through `CoreEventDispatch.postEvent`. `ClientHistory.invertAs` and `CoreEventDispatch` fill that Op list. 64 — Merge PostEvent and PostGraphOnly into Change leaves `Undo` and `Redo` on `CoreMsg.PostEvent`.
+`EventBody.Undo` and `EventBody.Redo` each store a target `EventId` and an Op list. `CoreMailboxActors.dispatchPostEvent` sends those bodies through `CoreEventDispatch.postEvent`. When the client sends an empty Op list, `CoreEventDispatch.completeAction` fills it with the inverse ops of the target. `Order.Undo` and `Order.Redo` in `src/Shared/MailboxLog.fs` carry only the target. `MailboxLog.historyBody` maps them to an empty Op list.
 
 ## What to build
 
-1. [ ] **Order** — The Undo and Redo arm of `CoreMailboxActors.dispatchPostEvent` places `Order.Undo` or `Order.Redo` of the target `EventId`. It does not place `Order.Change`. The `PlaceOrder` reply is `Result<EventId, string>`.
-2. [ ] **Log** — Decision 1 **Logged as placed** in Message shape. The stored body is the order from item 1 and has no Op list. `History.EventBody.Undo` and `History.EventBody.Redo` become `of target: EventId`, so an `Ev` can store them until 68 — Remove the CoreMsg case. Accept copies the target from the order. It does not fill the Op list. `EventJson` writes the target id. The decoder still reads an old payload that carries an Op list. Item 4 applies that list. `MailboxLog.ofEv` and `MailboxLog.toEv` carry only the target.
-3. [ ] **Resolve** — `ClientHistory` and `CoreEventDispatch` load the target event from the log. Undo uses the inverse of the target. Redo uses the target's forward Op list. The client and the server use that same resolution. `ClientHistory.tryPeekUndoName` still returns the Undo event's command name.
-4. [ ] **Old events** — A stored Undo or Redo that still carries an Op list applies that list.
+1. [ ] **Order shape** — `Order.Undo` and `Order.Redo` are `of target: EventId * ops: Op list`. `MailboxLog.ofEv` and `MailboxLog.toEv` carry the target and the Op list both ways.
+2. [ ] **Order** — The Undo and Redo arm of `CoreMailboxActors.dispatchPostEvent` places `Order.Undo` or `Order.Redo` of the target and the Op list through `Mailbox.PlaceOrder`. The `PlaceOrder` reply is `Result<EventId, string>`.
+3. [ ] **Fill** — Accept fills an empty Op list from the inverse ops of the target, as `completeAction` does. The stored event holds the target and the filled Op list.
+4. [ ] **Remove** — `CoreMsg.PostEvent` carries no Undo or Redo body.
 
 ### Acceptance Criteria
 
-1. [ ] **New undo** — `new undo stores the target`. After a Change, the stored event has that target and no ops. The graph matches the inverse of the target.
-2. [ ] **New redo** — `new redo stores the target`. The stored event has the undone `EventId` and no ops. The graph matches the target's forward Op list.
-3. [ ] **Same resolution** — `client and server resolve one target`. For one target, `ClientHistory` and `CoreEventDispatch` produce the same Op list.
-4. [ ] **Old undo** — `old undo applies its op list`. An event already stored as `Undo` of an id and an Op list still applies that list.
-5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
+1. [ ] **Undo** — `undo places Order.Undo`. After a Change, an Undo of it replies `Ok` of a new `EventId`. The stored event holds the target and the inverse ops. The graph matches the state before the Change.
+2. [ ] **Redo** — `redo places Order.Redo`. The stored event holds the undone `EventId` and its ops. The graph matches the state after the Change.
+3. [ ] **Round trip** — `Undo and Redo keep their ops through MailboxLog`. `MailboxLog.toEv` of `MailboxLog.ofEv` returns the same target and Op list.
+4. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
 ## Finish-up
 

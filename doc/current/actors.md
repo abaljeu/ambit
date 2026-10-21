@@ -20,7 +20,7 @@ An Actor is a function outside Core.
 [o] The mailbox calls `startActor`, records `ActorStart`, and does not wait for the body. The pool schedules the body. Detail: Mailbox.
 [ ] The mailbox places `Order.StartActor` and records that `Order`. The pool schedules the body. Detail: Mailbox. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor.
 [o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
-[ ] `Notice.ActorStop`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
+[ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.
 [x] A CloudAgents Agent is not an Actor. Detail: Gambol.CloudAgents.
 [ ] An Actor requests git Load, git Save, pull, push, or commit by a post to the mailbox. The Actor does not perform that git mutation. Detail: Core.
