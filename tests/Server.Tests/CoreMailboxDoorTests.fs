@@ -664,13 +664,15 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
                 host
                 EventId.zero
             |> Async.StartAsTask
-        Assert.Equal(1, tail.events.Length)
+        Assert.Equal(2, tail.events.Length)
         Assert.Contains(stored, tail.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         let! afterStored =
             CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
-        Assert.Empty(afterStored.events)
+        match Assert.Single(afterStored.events).body with
+        | EventBody.Notice (Notice.SnapshotDone _) -> ()
+        | other -> Assert.Fail($"expected SnapshotDone, got {other}")
     })
 
 [<Fact>]

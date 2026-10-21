@@ -118,7 +118,6 @@ module internal CoreMailboxEvents =
         eventLog: EventLog ref
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
-        noticeLog: Notice list ref
         session: Session
     }
 

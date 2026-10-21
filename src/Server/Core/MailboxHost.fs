@@ -1,14 +1,11 @@
 namespace Gambol.Server
 
-open Gambol.Shared
-
 type MailboxHost =
     private {
         mailbox: MailboxProcessor<CoreQueue>
         gate: obj
         isReady: unit -> bool
         dispose: unit -> unit
-        noticeLog: Notice list ref
         session: Session
     }
 
@@ -18,20 +15,14 @@ module MailboxHost =
     let internal create
         mailbox
         (persist: PersistFilling)
-        (noticeLog: Notice list ref)
         session
         : MailboxHost = {
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
         dispose = persist.dispose
-        noticeLog = noticeLog
         session = session
     }
-
-    /// Notice posts the mailbox has logged. Newest last.
-    let internal loggedNotices (host: MailboxHost) =
-        List.rev host.noticeLog.Value
 
     let internal session (host: MailboxHost) = host.session
 

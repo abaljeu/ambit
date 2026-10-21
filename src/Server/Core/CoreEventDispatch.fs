@@ -48,6 +48,16 @@ module internal CoreEventDispatch =
         | Some existing -> Ok existing
         | None -> appendNew context event
 
+    /// A Notice has no caller. Envelope fields stay blank; the body is the case.
+    let logNotice (context: Context) (notice: Gambol.Shared.Notice) =
+        catchUpNextId context
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Gambol.Shared.Authority ""
+          commandName = ""
+          body = Gambol.Shared.EventBody.Notice notice }
+        |> appendNew context
+
     let private lifecycleEvent
         (caller: Caller)
         (body: Gambol.Shared.EventBody)

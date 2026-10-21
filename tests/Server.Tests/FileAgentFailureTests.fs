@@ -273,8 +273,7 @@ let ``ACK returns stamped complete Change equal to EventLog`` () = task {
             let! events =
                 CoreMailboxApi.getEventsSince (host agent) (EventId.zero)
                 |> Async.StartAsTask
-            Assert.Single(events) |> ignore
-            let event = events.[0]
+            let event = Assert.Single(changesOnly events)
             match Ev.ops event with
             | Some ops ->
                 Assert.Equal<Op list>((eventOps confirmed), ops)

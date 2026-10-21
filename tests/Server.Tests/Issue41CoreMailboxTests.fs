@@ -49,7 +49,7 @@ let ``CoreMailboxApi.postEvents appends Change Events to EventLog`` () =
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         let! state =
             CoreMailboxApi.getState host
             |> Async.StartAsTask
@@ -81,7 +81,7 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.True(EventId.isAccepted accepted.eventId)
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
     })
@@ -101,7 +101,7 @@ let ``CoreChangesDoor builds Ev at postEvent and persists its Graph Ops`` () =
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
         Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -207,10 +207,10 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         let! tail =
             CoreMailboxApi.eventsSince host storedFirst.id
             |> Async.StartAsTask
-        Assert.Equal(2, full.events.Length)
+        Assert.Equal(4, full.events.Length)
         Assert.Equal<Ev list>(
             [ storedSecond ],
-            tail.events)
+            changesOnly tail.events)
         Assert.Equal(full.nextId, tail.nextId)
     })
 

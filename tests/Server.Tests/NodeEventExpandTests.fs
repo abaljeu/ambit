@@ -53,7 +53,14 @@ let private postChange (handle: CoreChangesDoor) (ops: Op list) = task {
 
 let private hasCase (host: MailboxHost) pred =
     let _ = stateOf host
-    MailboxHost.loggedNotices host |> List.exists pred
+    let log =
+        CoreMailboxApi.eventsSince host EventId.zero
+        |> Async.RunSynchronously
+    log.events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.Notice notice -> pred notice
+        | _ -> false)
 
 let private documentState host id =
     Node.documentStateEnum (stateOf host).graph.nodes.[id]

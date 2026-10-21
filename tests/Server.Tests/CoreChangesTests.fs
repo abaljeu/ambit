@@ -55,8 +55,10 @@ let ``typed Normal caller publishes accepted Change to Poll`` () = task {
         match box poll with
         | :? ContentHttpResult as content ->
             let response = decodeChangeResponse content.ResponseContent
-            Assert.Equal(accepted.eventId.Value, response.eventId.Value)
-            Assert.Equal<Ev list>(accepted.events, response.events)
+            Assert.Equal(accepted.eventId.Value + 1, response.eventId.Value)
+            Assert.Equal<Ev list>(
+                accepted.events,
+                changesOnly response.events)
             Assert.True(Map.containsKey Graph.rootId response.childMap)
             Assert.NotEmpty(response.nodes)
         | other ->
@@ -115,8 +117,10 @@ let ``test Actor posts Normal Change off apply mailbox and Poll sees it`` () =
             match box poll with
             | :? ContentHttpResult as content ->
                 let response = decodeChangeResponse content.ResponseContent
-                Assert.Equal(accepted.eventId.Value, response.eventId.Value)
-                Assert.Equal<Ev list>(accepted.events, response.events)
+                Assert.Equal(accepted.eventId.Value + 1, response.eventId.Value)
+                Assert.Equal<Ev list>(
+                    accepted.events,
+                    changesOnly response.events)
                 Assert.Empty(response.nodes)
                 Assert.Empty(response.childMap)
             | other ->
@@ -148,7 +152,7 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         |> Async.StartAsTask
 
     let! history = CoreMailboxApi.eventHistory agent |> Async.StartAsTask
-    let posted = Assert.Single(history.events)
+    let posted = Assert.Single(changesOnly history.events)
     Assert.Equal(event.submissionId, posted.submissionId)
     match missingWant with
     | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->
@@ -160,7 +164,7 @@ let ``HTTP Adapter passes typed Changes only after valid decode`` () = task {
         let response = decodeChangeResponse content.ResponseContent
         Assert.Equal<Guid list>(
             [ event.submissionId ],
-            response.events |> List.map _.submissionId)
+            changesOnly response.events |> List.map _.submissionId)
         Assert.True(Map.containsKey Graph.rootId response.childMap)
         Assert.NotEmpty(response.nodes)
     | other ->
