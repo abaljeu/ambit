@@ -11,8 +11,10 @@ Part 3 of [51 — Stand the persist stack](51-stand-the-persist-stack.md). Today
 
 ## What to build
 
-1. [ ] **Push** — When `Notice.NodeParsed` leaves a node Parsed and Unpersisted, the Core mailbox pushes `PersistRequest { nodeId }`. The mailbox does not wait.
-2. [ ] **Remove** — Delete `FileAgent.scheduleCatchUp` and its `noteParsed` wiring.
+Do these steps in order. Finish each step before starting the next.
+
+1. [ ] **Push** — Add `pushPersist: NodeId -> unit` to `PersistHandlers`. In the `Notice.NodeParsed` arm of `CoreMailboxLoad.applyNotice`, after Parsed is written, read the node from `persist.getState ()` and call `persist.pushPersist nodeId` when it is Parsed and Unpersisted; the mailbox does not wait. `FileAgent` and `DbAgent` build `pushPersist` as `PersistRequestStack.push` of `{ nodeId = nodeId }` onto the stack their persist thread takes from; the test handlers set it to `ignore` or a recording list. Files: `src/Server/Core/CoreMsg.fs` (where `PersistHandlers` is defined), `src/Server/Core/CoreMailboxLoad.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/TestBackend.fs`, `tests/Server.Tests/CoreLoopNoticeTests.fs` (add `NodeParsed pushes a persist request`). Done when `NodeParsed pushes a persist request` passes.
+2. [ ] **Remove** — Delete `FileAgent.scheduleCatchUp` and set the `FileAgent` `noteParsed` handler to `ignore`. Delete `DbAgent.catchUpParsed` and its call in `DbAgent.noteParsed`; `DbAgent.noteParsed` keeps its file-diff request. Add the second acceptance test, which runs a NodeParsed through the persist thread and checks the node is Persisted. Files: `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/PersistThreadTests.fs`. Done when the second acceptance test passes and no file under `src/` or `tests/` names `scheduleCatchUp` or `catchUpParsed`.
 
 ### Acceptance Criteria
 
@@ -22,8 +24,6 @@ Part 3 of [51 — Stand the persist stack](51-stand-the-persist-stack.md). Today
 ## Finish-up
 
 [ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket.
 
 ## See also
 
