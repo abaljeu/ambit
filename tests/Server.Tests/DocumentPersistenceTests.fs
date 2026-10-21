@@ -756,6 +756,16 @@ let ``resolveArtifactPath unknown document root identifies missing node`` () =
     Assert.False(Directory.EnumerateFiles(dataDir, "*", SearchOption.AllDirectories) |> Seq.exists (fun _ -> true))
 
 [<Fact>]
+let ``persistNode writes one document node's file`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    DocumentPersistChange.persistNode dataDir graph fileId
+    |> requireOk "persistNode"
+    |> ignore
+    let filePath = artifactFullPath dataDir graph fileId
+    Assert.Contains("body", File.ReadAllText filePath)
+
+[<Fact>]
 let ``writeDocument round trip preserves member text`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()

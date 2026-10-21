@@ -256,6 +256,15 @@ module DocumentPersistChange =
             preGraph
             postGraph
 
+    /// Writes one document node's whole file from the given graph.
+    let persistNode
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        DocumentPersistWrite.writeDocument dataDir graph nodeId
+        |> Result.map ignore
+
     let private tryMtime
         (pathByRel: Map<string, string>)
         (rel: string)
