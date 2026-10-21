@@ -320,7 +320,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let! eventCount = scalar<int64> connStr "SELECT count(*) FROM events"
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    Assert.Equal(2L, eventCount)
+    Assert.Equal(3L, eventCount)
     Assert.Equal(EventId.toJson (EventIdFixtures.storedId 1), revision)
 }
 

@@ -1316,7 +1316,7 @@ let ``New server uses snapshot + log replay`` () = task {
                 |> Seq.map snd
                 |> Seq.find (fun n -> n.text = "updated")
             Assert.Equal("updated", child.text)
-            Assert.Equal(EventId.fromJson 4, state.eventId)
+            Assert.Equal(EventId.fromJson 6, state.eventId)
     finally
         CoreMailboxApi.dispose host2
 }

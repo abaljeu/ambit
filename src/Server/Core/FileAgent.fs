@@ -59,14 +59,43 @@ module FileAgent =
                 PersistRequestStack.push stack { nodeId = nodeId })
             Ok ()
 
+    /// A new special node is created Persisted, so the thread would skip
+    /// its first file write. Open those nodes before the push.
+    let private openForWrite (loaded: LoadedFile) (ids: NodeId list) =
+        let graph = loaded.state.Value.graph
+        let opened =
+            ids
+            |> List.fold (fun current nodeId ->
+                match Map.tryFind nodeId current.nodes with
+                | Some node when
+                    node.persistState = PersistState.Persisted ->
+                    let updated =
+                        Node.withPersistState PersistState.Unpersisted node
+                    { current with
+                        nodes = Map.add nodeId updated current.nodes }
+                | _ -> current) graph
+        if opened <> graph then
+            loaded.state.Value <-
+                { loaded.state.Value with graph = opened }
+
     let private persistCollected
         (loaded: LoadedFile)
-        (_eventId: EventId)
+        (eventId: EventId)
         (_preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
         =
-        pushIds loaded (PersistThread.owningSpecials postGraph ops)
+        loaded.pendingCheckpoint.Value <-
+            loaded.pendingCheckpoint.Value @ [ eventId ]
+        let ids = PersistThread.owningSpecials postGraph ops
+        openForWrite loaded ids
+        if List.isEmpty ids then
+            PersistThread.postWhenBound
+                loaded.persistFinished
+                (Notice.NodeStamped([], None))
+            Ok ()
+        else
+            pushIds loaded ids
 
     let private applyOne
         loaded
@@ -205,28 +234,32 @@ module FileAgent =
         | _ -> ()
 
     /// A clean Edit write checkpoints the event id. A soft-fail keeps the
-    /// meta behind the log for the rest of this process.
+    /// meta behind the log for the rest of this process. A second stamp
+    /// with an empty queue leaves that checkpoint where it is.
     let private takeCheckpoint (loaded: LoadedFile) =
         match loaded.pendingCheckpoint.Value with
-        | [] -> loaded.state.Value.eventId
+        | [] -> None
         | head :: rest ->
             loaded.pendingCheckpoint.Value <- rest
-            head
+            Some head
 
     let private noteStamped
         (loaded: LoadedFile)
         (_ops: Op list)
         (message: string option)
         =
-        let eventId = takeCheckpoint loaded
-        match message with
-        | Some _ -> loaded.persistClean.Value <- false
-        | None when not loaded.persistClean.Value -> ()
-        | None ->
-            match Bookkeeping.writeEventId loaded.dataDir eventId with
-            | Error _ -> loaded.persistClean.Value <- false
-            | Ok () ->
-                loaded.lastPersisted.Value <- loaded.state.Value.graph
+        match takeCheckpoint loaded with
+        | None -> ()
+        | Some eventId ->
+            match message with
+            | Some _ -> loaded.persistClean.Value <- false
+            | None when not loaded.persistClean.Value -> ()
+            | None ->
+                match Bookkeeping.writeEventId loaded.dataDir eventId with
+                | Error _ -> loaded.persistClean.Value <- false
+                | Ok () ->
+                    loaded.lastPersisted.Value <-
+                        loaded.state.Value.graph
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
