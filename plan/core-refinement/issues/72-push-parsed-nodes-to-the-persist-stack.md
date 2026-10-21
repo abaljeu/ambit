@@ -11,7 +11,7 @@ Part 3 of [51 — Stand the persist stack](51-stand-the-persist-stack.md). Today
 
 ## What to build
 
-1. [ ] **Push** — When `Notice.NodeParsed` leaves a node Parsed and Unpersisted, the Core mailbox pushes `PersistRequest { Graph = current graph; NodeId }`. The mailbox does not wait.
+1. [ ] **Push** — When `Notice.NodeParsed` leaves a node Parsed and Unpersisted, the Core mailbox pushes `PersistRequest { nodeId }`. The mailbox does not wait.
 2. [ ] **Remove** — Delete `FileAgent.scheduleCatchUp` and its `noteParsed` wiring.
 
 ### Acceptance Criteria
