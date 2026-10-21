@@ -426,3 +426,66 @@ let ``ACK keeps the Edit events and NodePersisted follows the write`` () = task 
         CoreMailboxApi.dispose (host agent)
 }
 
+/// A new special node starts Persisted. Mark it Unpersisted before
+/// the persist push so the first file write is not skipped. That
+/// mark does not post NodePersisting.
+[<Fact>]
+let ``new special node writes its file without NodePersisting`` () = task {
+    let dataDir = newTempDir ()
+    let agent = FileAgent.create dataDir
+    let mailbox = host agent
+    try
+        let! state =
+            CoreMailboxApi.getState mailbox |> Async.StartAsTask
+        let state = requireOk "state" state
+        let wsId, ops =
+            FileNodeOps.planCreateWorkspace state.graph "home"
+        let event =
+            { id = EventId.zero
+              submissionId = Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = "Create workspace"
+              body = EventBody.Change ops }
+        let! posted =
+            CoreMailboxApi.postEvents mailbox testCaller [ event ]
+            |> Async.StartAsTask
+        requireOk "post" posted |> ignore
+        let! events =
+            waitForNotices
+                (fun () ->
+                    CoreMailboxApi.getEventsSince mailbox EventId.zero
+                    |> Async.StartAsTask)
+                (fun events ->
+                    events
+                    |> List.exists (fun event ->
+                        match event.body with
+                        | EventBody.Notice (Notice.NodePersisted (id, _)) ->
+                            id = wsId
+                        | _ -> false))
+        let hasNotice pred =
+            events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.Notice notice -> pred notice
+                | _ -> false)
+        Assert.False(
+            hasNotice (function
+                | Notice.NodePersisting id -> id = wsId
+                | _ -> false),
+            $"NodePersisting was posted, got {events}")
+        Assert.True(
+            hasNotice (function
+                | Notice.NodePersisted (id, _) -> id = wsId
+                | _ -> false),
+            $"NodePersisted missing, got {events}")
+        let! after =
+            CoreMailboxApi.getState mailbox |> Async.StartAsTask
+        let after = requireOk "after" after
+        let path =
+            DocumentPersistPath.resolveArtifactPath dataDir after.graph wsId
+            |> requireOk "path"
+        Assert.True(File.Exists path, path)
+    finally
+        CoreMailboxApi.dispose mailbox
+}
+

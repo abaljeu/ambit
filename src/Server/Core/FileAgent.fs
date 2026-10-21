@@ -59,24 +59,33 @@ module FileAgent =
                 PersistRequestStack.push stack { nodeId = nodeId })
             Ok ()
 
+    let private persistedNode (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when
+            node.persistState = PersistState.Persisted -> true
+        | _ -> false
+
     /// A new special node is created Persisted, so the thread would skip
-    /// its first file write. Open those nodes before the push.
+    /// its first file write. Mark it Unpersisted before the stack push.
+    let private markUnpersisted (graph: Graph) (nodeId: NodeId) =
+        if not (persistedNode graph nodeId) then
+            graph
+        else
+            match
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    graph
+            with
+            | Ok next -> next
+            | Error _ -> graph
+
     let private openForWrite (loaded: LoadedFile) (ids: NodeId list) =
-        let graph = loaded.state.Value.graph
-        let opened =
+        let graph =
             ids
-            |> List.fold (fun current nodeId ->
-                match Map.tryFind nodeId current.nodes with
-                | Some node when
-                    node.persistState = PersistState.Persisted ->
-                    let updated =
-                        Node.withPersistState PersistState.Unpersisted node
-                    { current with
-                        nodes = Map.add nodeId updated current.nodes }
-                | _ -> current) graph
-        if opened <> graph then
-            loaded.state.Value <-
-                { loaded.state.Value with graph = opened }
+            |> List.fold markUnpersisted loaded.state.Value.graph
+        loaded.state.Value <-
+            { loaded.state.Value with graph = graph }
 
     let private persistCollected
         (loaded: LoadedFile)
@@ -285,7 +294,7 @@ module FileAgent =
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        replaceGraph = fun _ graph ->
+        replaceGraph = fun _notice graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
