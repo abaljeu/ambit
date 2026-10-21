@@ -88,6 +88,7 @@
     <Compile Include="DatabaseProjectionTests.fs" />
     <Compile Include="DatabaseProjectionContractTests.fs" />
     <Compile Include="DbAgentTests.fs" />
+    <Compile Include="DbAgentNoticeTests.fs" />
     <Compile Include="DbAgentFailureTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
     <Compile Include="SearchActorTests.fs" />

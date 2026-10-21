@@ -147,6 +147,7 @@ module internal CoreMailboxLoad =
 
     let private writeAxis
         (persist: PersistHandlers)
+        (notice: Notice)
         (mutate: Graph -> Result<Graph, string>)
         : Result<unit, string> =
         match persist.getState () with
@@ -155,15 +156,16 @@ module internal CoreMailboxLoad =
             match mutate state.graph with
             | Error err -> Error err
             | Ok graph ->
-                persist.replaceGraph graph
+                persist.replaceGraph notice graph
                 Ok ()
 
     let private writeParseState
         (persist: PersistHandlers)
+        (notice: Notice)
         (nodeId: NodeId)
         (parseState: ParseState)
         : Result<unit, string> =
-        writeAxis persist (fun graph ->
+        writeAxis persist notice (fun graph ->
             GraphMutate.setParseState nodeId parseState graph)
 
     /// Marks the node Unparsed, then pushes. The mark writes the axis
@@ -173,7 +175,11 @@ module internal CoreMailboxLoad =
         (rawPush: NodeId -> unit)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeParseState persist nodeId ParseState.Unparsed
+        writeParseState
+            persist
+            (Notice.MarkUnparsed nodeId)
+            nodeId
+            ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
 
     /// Core loop apply. NodeParsed writes Parsed only when pullingFile
@@ -188,6 +194,7 @@ module internal CoreMailboxLoad =
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
+    /// NodeStamped applies the stamp ops and leaves persist state alone.
     /// MarkUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, then sets Persisted.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
@@ -201,7 +208,7 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (fun live ->
+        writeAxis persist (Notice.NodeUploading nodeId) (fun live ->
             match
                 GraphMutate.setPersistState
                     nodeId
@@ -215,7 +222,7 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (fun live ->
+        writeAxis persist (Notice.NodeReceived nodeId) (fun live ->
             match GraphMutate.setParseState nodeId ParseState.Unparsed live with
             | Error err -> Error err
             | Ok graph ->
@@ -224,34 +231,57 @@ module internal CoreMailboxLoad =
                     PersistState.Persisted
                     graph)
 
+    let private applyStampOps (ops: Op list) (graph: Graph) =
+        if List.isEmpty ops then
+            Ok graph
+        else
+            let state = { graph = graph; eventId = EventId.zero }
+            match Op.applyAll ops state with
+            | ApplyResult.Invalid (_, err) -> Error err
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> Ok next.graph
+
+    let private applyStampNotice persist ops message =
+        match
+            writeAxis
+                persist
+                (Notice.NodeStamped(ops, message))
+                (applyStampOps ops)
+        with
+        | Error err -> Error err
+        | Ok () ->
+            persist.noteStamped ops message
+            Ok ()
+
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
         : Result<unit, string> =
         match msg with
         | Notice.NodeParsed nodeId ->
-            match writeParseState persist nodeId ParseState.Parsed with
-            | Error err -> Error err
-            | Ok () ->
-                persist.noteParsed nodeId
-                Ok ()
+            writeParseState persist msg nodeId ParseState.Parsed
+            |> Result.map (fun () -> persist.noteParsed nodeId)
         | Notice.NodeUploading nodeId ->
             writePullingFileUnpersisted persist nodeId
         | Notice.NodeReceived nodeId ->
             writeReceived persist nodeId
         | Notice.NodeParsing _ -> Ok ()
         | Notice.NodePersisting nodeId ->
-            writeAxis persist (fun live ->
+            writeAxis persist msg (fun live ->
                 GraphMutate.setPersistState
                     nodeId
                     PersistState.Unpersisted
                     live)
-        | Notice.PersistFailed _ -> Ok ()
+        | Notice.PersistFailed _ ->
+            persist.noteWriteFailed ()
+            Ok ()
+        | Notice.NodeStamped (ops, message) ->
+            applyStampNotice persist ops message
         | Notice.MarkUnparsed nodeId ->
-            writeParseState persist nodeId ParseState.Unparsed
+            writeParseState persist msg nodeId ParseState.Unparsed
         | Notice.NodePersisted nodeId ->
             persist.noteDiffDone nodeId
-            writeAxis persist (fun live ->
+            writeAxis persist msg (fun live ->
                 GraphMutate.setPersistState
                     nodeId
                     PersistState.Persisted
@@ -356,6 +386,8 @@ module internal CoreMailboxLoad =
         replaceGraph = persist.replaceGraph
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
+        noteStamped = persist.noteStamped
+        noteWriteFailed = persist.noteWriteFailed
     }
 
     let private failedSeed persist error : PersistHandlers =

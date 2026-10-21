@@ -136,6 +136,7 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
 [<Fact>]
 let ``Notice JSON round trip`` () =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
     let notices =
         [ Notice.NodeParsed nodeId
           Notice.NodePersisted nodeId
@@ -144,7 +145,10 @@ let ``Notice JSON round trip`` () =
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId
           Notice.NodePersisting nodeId
-          Notice.PersistFailed(nodeId, "disk full") ]
+          Notice.PersistFailed(nodeId, "disk full")
+          Notice.NodeStamped(
+              [ Op.SetUpdateTime(nodeId, stamp, stamp.AddMinutes 1.0) ],
+              Some "saved") ]
     notices
     |> List.iter (fun notice ->
         let event =

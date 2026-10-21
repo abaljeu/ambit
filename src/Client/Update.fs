@@ -314,11 +314,18 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         // applyLoadResponse to reject answer-only Load payloads.
         let autoDownload model' =
             UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
-                (events
-                 |> List.collect (fun e ->
-                    Ev.ops e |> Option.defaultValue []))
+                (List.collect SyncLogic.opsForDownload events)
                 model'
             |> continueAutoWant syncResponse
+        let finishPoll (model, effects) =
+            match SyncLogic.persistFailedMessage events with
+            | None -> model, effects
+            | Some message ->
+                { model with
+                    lastCmdResult =
+                        Some (CmdLastResult.Error (None, message)) },
+                effects
+        finishPoll (
         match readyModel.syncInfo.syncState with
         | Loading ->
             readyModel, []
@@ -446,6 +453,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         autoDownload synced
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
+        )
 
     | SysMsg (BootGraphApplied (applied, ready)) ->
         { model with

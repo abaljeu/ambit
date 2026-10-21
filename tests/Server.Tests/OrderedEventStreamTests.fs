@@ -30,6 +30,10 @@ let private newNode (commandName: string) (text: string) =
 let private commandNames (events: Ev list) =
     events
     |> List.sortBy (fun event -> EventId.value event.id)
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Notice _ -> false
+        | _ -> true)
     |> List.map (fun event -> event.commandName)
 
 let private hostWith pool =
@@ -83,7 +87,7 @@ let ``direct core list does not repeat entry admission`` () = task {
         requireOk "direct list" result |> ignore
         let! after =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Equal(before.events.Length + 3, after.events.Length)
+        Assert.Equal(before.events.Length + 6, after.events.Length)
     finally
         CoreMailboxApi.dispose host
 }

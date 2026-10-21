@@ -44,8 +44,8 @@
     <Compile Include="WorkspaceSyncScope.fs" />
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
-    <Compile Include="Notice.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="PersistStamp.fs" />
     <Compile Include="CssClassToggle.fs" />
     <Compile Include="ExprRun.fs" />
     <Compile Include="ChildListWire.fs" />

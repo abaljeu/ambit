@@ -27,7 +27,8 @@ module FileAgent =
         state: State ref
         persistClean: bool ref
         lastPersisted: Graph ref
-        collect: (PersistSubmit -> PersistOutcome) option ref
+        pendingCheckpoint: EventId list ref
+        collect: (PersistSubmit -> unit) option ref
         persistFinished: (Notice -> unit) option ref
     }
 
@@ -48,28 +49,9 @@ module FileAgent =
             externalChanges
             message
 
-    let private acceptWrote
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (stamped: PersistGraphOk)
-        =
-        // Soft-fail (or prior soft-fail in this process): keep meta behind the
-        // log so startup replay can restore graph edits that never hit disk.
-        if stamped.message.IsSome then
-            loaded.persistClean.Value <- false
-        let shouldCheckpoint =
-            stamped.message.IsNone && loaded.persistClean.Value
-        if not shouldCheckpoint then
-            Ok (Some stamped)
-        else
-            match Bookkeeping.writeEventId loaded.dataDir eventId with
-            | Error err -> Error err
-            | Ok () ->
-                loaded.lastPersisted.Value <- stamped.graph
-                Ok (Some stamped)
-
     let private collectPersist
         (loaded: LoadedFile)
+        (eventId: EventId)
         (preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
@@ -77,7 +59,9 @@ module FileAgent =
         match loaded.collect.Value with
         | None -> Error "persist collectors are not bound"
         | Some collect ->
-            Ok (collect {
+            loaded.pendingCheckpoint.Value <-
+                loaded.pendingCheckpoint.Value @ [ eventId ]
+            collect {
                 nodeIds = PersistCollectors.owningSpecials postGraph ops
                 dataDir = Some loaded.dataDir
                 preGraph = preGraph
@@ -85,23 +69,8 @@ module FileAgent =
                 ops = ops
                 kind = PersistKind.Ops
                 notify = true
-                wait = true
-            })
-
-    let private failedKept (postGraph: Graph) (err: string) =
-        Ok (Some { graph = postGraph; message = Some err })
-
-    let private fromOutcome
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (postGraph: Graph)
-        (outcome: PersistOutcome)
-        =
-        match outcome with
-        | PersistOutcome.Wrote stamped -> acceptWrote loaded eventId stamped
-        | PersistOutcome.Blocked -> Ok None
-        | PersistOutcome.Queued -> Ok None
-        | PersistOutcome.Failed err -> failedKept postGraph err
+            }
+            Ok ()
 
     let private persistCollected
         (loaded: LoadedFile)
@@ -110,9 +79,7 @@ module FileAgent =
         (postGraph: Graph)
         (ops: Op list)
         =
-        match collectPersist loaded preGraph postGraph ops with
-        | Error err -> Error err
-        | Ok outcome -> fromOutcome loaded eventId postGraph outcome
+        collectPersist loaded eventId preGraph postGraph ops
 
     let private applyOne
         loaded
@@ -186,31 +153,13 @@ module FileAgent =
                 newState.graph
                 ops
         else
-            Ok None
+            Ok ()
 
     let private preparePostChange
         (newState: State)
         (confirmations: Ev list)
-        (fresh: Ev list)
-        (stampedOpt: PersistGraphOk option)
         =
-        let stampOps, stampedGraph, persistMessage =
-            match stampedOpt with
-            | Some stamped ->
-                PersistStamp.opsBetween newState.graph stamped.graph,
-                stamped.graph,
-                stamped.message
-            | None -> [], newState.graph, None
-        let stampedFresh, ackEvents =
-            CoreMailboxEvents.overlayFreshEvents
-                confirmations
-                fresh
-                stampOps
-        let finalState =
-            match stampedOpt with
-            | Some _ -> { newState with graph = stampedGraph }
-            | None -> newState
-        finalState, ackEvents, persistMessage
+        newState, confirmations, None
 
     let private commitPostChange
         loaded
@@ -249,13 +198,9 @@ module FileAgent =
                             fresh
                     with
                     | Error err -> Error err
-                    | Ok stampedOpt ->
+                    | Ok () ->
                         let finalState, ackEvents, persistMessage =
-                            preparePostChange
-                                newState
-                                confirmations
-                                fresh
-                                stampedOpt
+                            preparePostChange newState confirmations
                         loaded.state.Value <- finalState
                         Ok(accepted
                             loaded
@@ -280,9 +225,32 @@ module FileAgent =
                     ops = []
                     kind = PersistKind.Change
                     notify = true
-                    wait = false
-                } |> ignore
+                }
             | _ -> ()
+
+    /// A clean Edit write checkpoints the event id. A soft-fail keeps the
+    /// meta behind the log for the rest of this process.
+    let private takeCheckpoint (loaded: LoadedFile) =
+        match loaded.pendingCheckpoint.Value with
+        | [] -> loaded.state.Value.eventId
+        | head :: rest ->
+            loaded.pendingCheckpoint.Value <- rest
+            head
+
+    let private noteStamped
+        (loaded: LoadedFile)
+        (_ops: Op list)
+        (message: string option)
+        =
+        let eventId = takeCheckpoint loaded
+        match message with
+        | Some _ -> loaded.persistClean.Value <- false
+        | None when not loaded.persistClean.Value -> ()
+        | None ->
+            match Bookkeeping.writeEventId loaded.dataDir eventId with
+            | Error _ -> loaded.persistClean.Value <- false
+            | Ok () ->
+                loaded.lastPersisted.Value <- loaded.state.Value.graph
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
@@ -308,11 +276,13 @@ module FileAgent =
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        replaceGraph = fun graph ->
+        replaceGraph = fun _ graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = scheduleCatchUp loaded
+        noteStamped = noteStamped loaded
+        noteWriteFailed = ignore
     }
 
     let private loadOrFail (dataDir: string) =
@@ -353,6 +323,7 @@ module FileAgent =
           state = ref loadedState
           persistClean = ref true
           lastPersisted = ref loadedState.graph
+          pendingCheckpoint = ref []
           collect = ref None
           persistFinished = ref None }
 

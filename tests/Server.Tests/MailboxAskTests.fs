@@ -74,7 +74,7 @@ let ``LastEventId Ask waits for the prior order`` () = task {
         let stored = requireOk "postEvent" posted
         let! lastEventId =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
-        Assert.Equal(stored.id, lastEventId)
+        Assert.True(EventId.value lastEventId >= EventId.value stored.id)
     finally
         CoreMailboxApi.dispose host
 }

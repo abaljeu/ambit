@@ -18,20 +18,10 @@ type PersistSubmit = {
     ops: Op list
     kind: PersistKind
     notify: bool
-    wait: bool
 }
-
-/// Result of a collector call. A thrown write becomes Failed.
-[<RequireQualifiedAccess>]
-type PersistOutcome =
-    | Wrote of PersistGraphOk
-    | Blocked
-    | Failed of string
-    | Queued
 
 type internal PersistWork = {
     submit: PersistSubmit
-    reply: (PersistOutcome -> unit) option
 }
 
 /// Stack of persist jobs. Not a MailboxProcessor.
@@ -85,27 +75,9 @@ module PersistCollectors =
             | Some id when unparsedNode graph id -> false
             | _ -> true)
 
-    let private waitReply
-        (push: PersistWork -> unit)
-        (submit: PersistSubmit)
-        : PersistOutcome =
-        let cell = ref None
-        let gate = obj ()
-        let reply outcome =
-            lock gate (fun () ->
-                cell.Value <- Some outcome
-                Monitor.Pulse gate)
-        push { submit = submit; reply = Some reply }
-        lock gate (fun () ->
-            while cell.Value.IsNone do
-                Monitor.Wait gate |> ignore
-            match cell.Value with
-            | Some outcome -> outcome
-            | None -> PersistOutcome.Failed "persist collector lost the reply")
-
     /// Closes the stack. None from the consumer means stop and drain finished.
     let internal create ()
-        : (PersistSubmit -> PersistOutcome)
+        : (PersistSubmit -> unit)
           * (unit -> PersistWork option)
           * (unit -> unit) =
         let gate = obj ()
@@ -132,9 +104,5 @@ module PersistCollectors =
         let consumer () =
             lock gate (fun () -> waitHead ())
         let collect (submit: PersistSubmit) =
-            if submit.wait then
-                waitReply push submit
-            else
-                push { submit = submit; reply = None }
-                PersistOutcome.Queued
+            push { submit = submit }
         collect, consumer, requestStop

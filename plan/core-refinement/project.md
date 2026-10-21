@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-21
 Started: 2026-09-29
-Actual: 35.5h
+Actual: 38.5h
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -86,6 +86,7 @@ Actual: 35.5h
 - 2026-10-21 — [76 — Log Notices on the event log](issues/76-log-notices-on-the-event-log.md) is coded. Each posted Notice is appended to the event log, then applied. Poll returns it. `noticeLog` is gone. Stage stays `build`.
 - 2026-10-21 — [75 — A failed write does not fail the edit](issues/75-a-failed-write-does-not-fail-the-edit.md) is coded. One `Notice.PersistFailed` per submitted node. The edit stays in the graph. The order succeeds and its `message` carries the write error. The handler does not change the persist state. Stage stays `build`.
 - 2026-10-21 — [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) is coded. `Notice.NodePersisted` of `nodeId` replaces `Notice.SnapshotDone`. A Notice does not set `externalChanges` and does not start a browser catch-up. Stage stays `build`.
+- 2026-10-21 — [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md) is coded. An Edit document write returns before the persist thread finishes. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack has no stamp ops and no persist message. A poll of `Notice.PersistFailed` sets the browser command error. Stage stays `build`.
 - 2026-10-21 — Alan verified 75, 76 and 77 (file load and save work). All three are `done`.
 - 2026-10-21 — Alan: the persist stack holds node ids. On take, the persist thread reads the live state through a read function over `LoadedFile.state`, skips a node already Persisted, and writes from that graph, so repeated pushes write once. [46 — Record the persist version](issues/46-record-the-persist-version.md) follows [71 — Persist thread takes from the stack](issues/71-persist-thread-takes-from-the-stack.md) and records the version of the graph actually written.
 
@@ -166,4 +167,4 @@ Actual: 35.5h
 - [76 — Log Notices on the event log](issues/76-log-notices-on-the-event-log.md) — Change over: each Notice goes on the event log, so poll returns it. `noticeLog` is gone. Status `done`.
 - [75 — A failed write does not fail the edit](issues/75-a-failed-write-does-not-fail-the-edit.md) — one `Notice.PersistFailed` per submitted node; the edit stands; the handler does not change the persist state. Blocked by 76. Status `done`.
 - [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) — `Notice.SnapshotDone` becomes `Notice.NodePersisted`; a Notice sets no `externalChanges` and starts no browser catch-up. Blocked by 76. Status `done`.
-- [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md) — The persist wait is removed. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack carries the Edit's own events and result. A polled `Notice.PersistFailed` shows in `CmdLastResult`. Blocked by 76, 75 and 77. Meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md). Status `defined`.
+- [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md) — An Edit document write returns before the persist thread finishes. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack has no stamp ops and no persist message. A polled `Notice.PersistFailed` sets the browser command error. Meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md). Status `coded`.

@@ -22,6 +22,7 @@ module DbAgent =
         diffWorkspaces: NodeId list ref
         diffIds: NodeId list ref
         opsNotifiedIds: NodeId list ref
+        pendingNotify: NodeId list ref
         diffMarksLeft: int ref
         ready: TaskCompletionSource<unit>
         persistFinished: (Notice -> unit) option ref
@@ -30,7 +31,7 @@ module DbAgent =
         liveSaveDataDir: string option
         persistGraphOps:
             string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
-        collect: (PersistSubmit -> PersistOutcome) option ref
+        collect: (PersistSubmit -> unit) option ref
     }
 
     type private LivePersist = {
@@ -99,6 +100,7 @@ module DbAgent =
           diffWorkspaces = ref []
           diffIds = ref []
           opsNotifiedIds = ref []
+          pendingNotify = ref []
           diffMarksLeft = ref 0
           ready =
             TaskCompletionSource<unit>(
@@ -249,8 +251,7 @@ module DbAgent =
                 ops = []
                 kind = PersistKind.Change
                 notify = true
-                wait = false
-            } |> ignore
+            }
 
     let private startFileDiff loaded =
         let graph = loaded.state.Value.graph
@@ -313,56 +314,25 @@ module DbAgent =
         notifiedIds = []
     }
 
-    let private failedKept (postGraph: Graph) (err: string) =
-        liveOf (Some { graph = postGraph; message = Some err }) false
-
-    let private liveOutcome
-        (postGraph: Graph)
-        (outcome: PersistOutcome)
-        : Result<LivePersist, string> =
-        match outcome with
-        | PersistOutcome.Wrote stamped ->
-            Ok(liveOf (Some stamped) true)
-        | PersistOutcome.Blocked -> Ok(liveOf None false)
-        | PersistOutcome.Queued -> Ok(liveOf None false)
-        | PersistOutcome.Failed err -> Ok(failedKept postGraph err)
-
-    let private notifiedOwners
-        (graph: Graph)
-        (ids: NodeId list)
-        (stamped: PersistGraphOk option)
-        =
-        match stamped with
-        | Some ok when ok.message.IsNone ->
-            ids |> List.filter (PersistCollectors.openNode graph)
-        | _ -> []
-
     let private submitLiveOps loaded dataDir preGraph postGraph ops =
         match loaded.collect.Value with
         | None -> Error "persist collectors are not bound"
         | Some collect ->
-            let nodeIds = PersistCollectors.owningSpecials postGraph ops
-            match
-                liveOutcome
-                    postGraph
-                    (collect {
-                        nodeIds = nodeIds
-                        dataDir = Some dataDir
-                        preGraph = preGraph
-                        postGraph = postGraph
-                        ops = ops
-                        kind = PersistKind.Ops
-                        notify = true
-                        wait = true
-                    })
-            with
-            | Error err -> Error err
-            | Ok live ->
-                Ok {
-                    live with
-                        notifiedIds =
-                            notifiedOwners postGraph nodeIds live.stamped
-                }
+            let notifyIds =
+                PersistCollectors.owningSpecials postGraph ops
+                |> List.filter (PersistCollectors.openNode postGraph)
+            loaded.pendingNotify.Value <-
+                loaded.pendingNotify.Value @ notifyIds
+            collect {
+                nodeIds = PersistCollectors.owningSpecials postGraph ops
+                dataDir = Some dataDir
+                preGraph = preGraph
+                postGraph = postGraph
+                ops = ops
+                kind = PersistKind.Ops
+                notify = true
+            }
+            Ok(liveOf None false)
 
     let private persistLiveChange loaded graphOnly preGraph newState fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
@@ -374,19 +344,8 @@ module DbAgent =
             submitLiveOps loaded dataDir preGraph newState.graph ops
         | _ -> Ok(liveOf None true)
 
-    let private preparePostChange newState confirmations fresh
-        (stampedOpt: PersistGraphOk option)
-        =
-        let stampOps, stateToStore, persistMessage =
-            match stampedOpt with
-            | Some stamped ->
-                PersistStamp.opsBetween newState.graph stamped.graph,
-                { newState with graph = stamped.graph },
-                stamped.message
-            | None -> [], newState, None
-        let stampedFresh, ackEvents =
-            CoreMailboxEvents.overlayFreshEvents confirmations fresh stampOps
-        stateToStore, ackEvents, persistMessage
+    let private preparePostChange newState confirmations =
+        newState, confirmations, None
 
     let private commitPostChange
         loaded
@@ -420,7 +379,6 @@ module DbAgent =
                     requestFileDiff loaded
             elif not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-                loaded.diffNeeded.Value <- true
             Ok(accepted loaded ackEvents externalChanges persistMessage)
 
     let private finishAppliedPostChange
@@ -441,8 +399,7 @@ module DbAgent =
             | Error err -> Error err
             | Ok live ->
                 let stateToStore, ackEvents, persistMessage =
-                    preparePostChange
-                        newState confirmations fresh live.stamped
+                    preparePostChange newState confirmations
                 commitPostChange
                     loaded
                     graphOnly
@@ -575,6 +532,51 @@ module DbAgent =
                 requestFileDiff loaded
         | _ -> ()
 
+    let private takePendingNotify (loaded: LoadedPersist) =
+        let pending = loaded.pendingNotify.Value
+        loaded.pendingNotify.Value <- []
+        pending
+
+    let private noteWriteFailed (loaded: LoadedPersist) () =
+        loaded.pendingNotify.Value <- []
+        loaded.diffNeeded.Value <- true
+
+    let private noteStamped
+        (loaded: LoadedPersist)
+        (_ops: Op list)
+        (message: string option)
+        =
+        let pending = takePendingNotify loaded
+        match message with
+        | None ->
+            loaded.opsNotifiedIds.Value <-
+                pending @ loaded.opsNotifiedIds.Value
+                |> List.distinct
+        | Some _ -> ()
+        loaded.baselineGraph.Value <- loaded.state.Value.graph
+        if List.isEmpty loaded.diffWorkspaces.Value then
+            ()
+        elif loaded.diffInProgress.Value then
+            loaded.diffNeeded.Value <- true
+        else
+            requestFileDiff loaded
+
+    let private persistNoticeRow loaded notice graph =
+        if String.IsNullOrWhiteSpace loaded.connectionString then
+            ()
+        else
+            try
+                (Database.writeNoticeRow
+                    loaded.connectionString
+                    notice
+                    graph)
+                    .GetAwaiter()
+                    .GetResult()
+            with ex ->
+                eprintfn
+                    "DbAgent: failed to persist notice: %s"
+                    ex.Message
+
     let private persistHandlers loaded = {
         getState = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
@@ -583,11 +585,14 @@ module DbAgent =
         appendEvent = appendPersistedEvent loaded
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        replaceGraph = fun graph ->
+        replaceGraph = fun notice graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
+            persistNoticeRow loaded notice graph
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
+        noteStamped = noteStamped loaded
+        noteWriteFailed = noteWriteFailed loaded
     }
 
     let private logUnhandledException liveSaveDataDir operation context (ex: exn) =

@@ -100,10 +100,10 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Auto-download
 
-[x] A persisted change carries `SetUpdateTime` stamp ops on a rewritten document-root node.
+[x] A persisted Edit posts `SetUpdateTime` stamp ops on `Notice.NodeStamped`.
 [x] The Browser reuses those stamps to refresh a mapped App folder.
-[x] An own edit uses the stamp ops on `SubmitResponse`.
-[x] A remote edit uses the same stamp ops on an applied poll Change.
+[x] An own edit's ack has no stamp ops. A later poll applies `Notice.NodeStamped`.
+[x] A remote edit uses the same stamp ops on that polled Notice.
 [x] Shared coalesce keeps at most one job per label, for a File, the nearest Directory, or the whole Workspace, so the manager cap holds.
 [x] The Browser sends `POST /_desktop/workspace-download` and does not wait. There is no folder picker. A label with no mapping is dropped.
 [x] The path runs only when `DesktopCapabilities.canWorkspaceSync` is true. Plain web does nothing on this path.

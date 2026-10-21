@@ -201,13 +201,31 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
             CoreMailboxApi.postEvent host testCaller secondEvent
             |> Async.StartAsTask
         let storedSecond = requireOk "second" secondResult
+        let! _ =
+            waitForNotices
+                (fun () ->
+                    CoreMailboxApi.getEventsSince host EventId.zero
+                    |> Async.StartAsTask)
+                (fun events ->
+                    let stamps, persisted =
+                        events
+                        |> List.fold
+                            (fun (stamps, persisted) event ->
+                                match event.body with
+                                | EventBody.Notice (Notice.NodeStamped _) ->
+                                    stamps + 1, persisted
+                                | EventBody.Notice (Notice.NodePersisted _) ->
+                                    stamps, persisted + 1
+                                | _ -> stamps, persisted)
+                            (0, 0)
+                    stamps >= 2 && persisted >= 2)
         let! full =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         let! tail =
             CoreMailboxApi.eventsSince host storedFirst.id
             |> Async.StartAsTask
-        Assert.Equal(4, full.events.Length)
+        Assert.Equal(2, (changesOnly full.events).Length)
         Assert.Equal<Ev list>(
             [ storedSecond ],
             changesOnly tail.events)
