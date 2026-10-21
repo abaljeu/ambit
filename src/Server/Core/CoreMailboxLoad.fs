@@ -77,8 +77,6 @@ module internal CoreMailboxLoad =
             reply.Reply(
                 CoreEventDispatch.actorStop
                     dispatch caller rootId ActorSucceeded)
-        | LoadNode (caller, subject, reply) ->
-            reply.Reply(dispatchLoad context caller subject)
         | ActorStop (caller, result, reply) ->
             CoreMailboxActors.dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->
@@ -121,7 +119,6 @@ module internal CoreMailboxLoad =
         | StartLoadSaveCommand (caller, _, _, _, _)
         | RecordSearchStart (caller, _, _)
         | RecordSearchStop (caller, _, _)
-        | LoadNode (caller, _, _)
         | ActorStop (caller, _, _)
         | CancelActor (caller, _, _)
         | PostEvent (caller, _, _) -> caller
@@ -314,6 +311,44 @@ module internal CoreMailboxLoad =
         =
         reply.Reply(Error "unsupported")
 
+    let private appendLoad
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (subject: NodeId)
+        =
+        CoreEventDispatch.appendLifecycle
+            (CoreMailboxEvents.eventDispatchContext context)
+            caller
+            orderId
+            (EventBody.Load subject)
+
+    let private placeLoad
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (subject: NodeId)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match dispatchLoad context caller subject with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            match appendLoad context caller orderId subject with
+            | Error err -> reply.Reply(Error err)
+            | Ok stored -> reply.Reply(Ok stored.id)
+
+    let private placeOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: System.Guid)
+        (order: Order)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match order with
+        | Order.Load subject ->
+            placeLoad context caller orderId subject reply
+        | _ -> replyUnsupported reply
+
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
         | Query.State reply ->
@@ -366,9 +401,16 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (caller, _, _, _, reply) ->
+        | Mailbox.PlaceOrder (caller, orderId, _, order, reply) ->
             if authorityHeld context caller then
-                replyUnsupported reply
+                try
+                    placeOrder context caller orderId order reply
+                with ex ->
+                    reportDispatchException
+                        context
+                        ("PlaceOrder", "")
+                        ex
+                        (fun error -> reply.Reply(Error error))
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query

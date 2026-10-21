@@ -4,7 +4,7 @@ Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
 Updated: 2026-10-21
 Started: 2026-09-29
-Actual: 38.5h
+Actual: 39.5h
 
 **Sequel to:** [[plan/core-creation/project.md]]
 **Feeds:** [[plan/github-transport/project.md]] (thin remainder: lock workspace, receive files, inform Core)
@@ -161,7 +161,7 @@ Actual: 38.5h
 - [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md) — Change. Both doors become `Order.Change` of ops and `ChangeOrigin`. `origin` exists only on the placed order. Origin `Edit` posts `Notice.NodeUnpersisted`. Origin `Parse` keeps the file skip. The logged Change holds the op list. Blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md). Status `defined`.
 - [65 — Place Undo and Redo as orders](issues/65-undo-and-redo-resolve-their-ops-from-the-target.md) — Change. Undo and Redo are placed as orders with their target and Op list. Blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md) and [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md). Status `defined`.
 - [66 — Move Actor orders onto Order and Notice](issues/66-move-actor-orders-onto-order-and-notice.md) — Change. Each Actor case moves to its own `Order` or `Notice` case and logs an `Ev`. `ActorStop` becomes `Notice.ActorStopped`, and `RecordSearchStop` becomes `Notice.SearchStopped`. Blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md), [63 — Move queries to Ask](issues/63-move-queries-to-ask.md), and [62 — Admit at the entry](issues/62-admit-at-the-entry.md). Status `defined`.
-- [67 — Log Load as Order.Load](issues/67-log-load-as-order-load.md) — Change. `LoadNode` becomes a logged `Order.Load`. The handler posts no notice. Blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md). Status `defined`.
+- [67 — Log Load as Order.Load](issues/67-log-load-as-order-load.md) — Change. `LoadNode` becomes a logged `Order.Load`. The handler posts no notice. Blocked by [60 — Add Mailbox beside CoreMsg](issues/60-add-mailbox-beside-coremsg.md). Status `coded`.
 - [68 — Remove the CoreMsg case](issues/68-remove-the-coremsg-case.md) — Collapse. `CoreMsg` leaves. `Ev` becomes `{ id; body }`. Blocked by the move tickets [61 — Move Session off the core mailbox](issues/61-move-session-off-the-core-mailbox.md), [62 — Admit at the entry](issues/62-admit-at-the-entry.md), [63 — Move queries to Ask](issues/63-move-queries-to-ask.md), [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md), [65 — Place Undo and Redo as orders](issues/65-undo-and-redo-resolve-their-ops-from-the-target.md), [66 — Move Actor orders onto Order and Notice](issues/66-move-actor-orders-onto-order-and-notice.md), and [67 — Log Load as Order.Load](issues/67-log-load-as-order-load.md). Status `defined`.
 - [74 — Add the Notice event body](issues/74-put-notices-on-the-event-log.md) — Expand: `EventBody.Notice` and Notice JSON beside the existing bodies. Nothing writes it. Status `coded`.
 - [76 — Log Notices on the event log](issues/76-log-notices-on-the-event-log.md) — Change over: each Notice goes on the event log, so poll returns it. `noticeLog` is gone. Status `done`.

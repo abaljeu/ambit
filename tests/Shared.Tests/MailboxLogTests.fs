@@ -4,6 +4,9 @@ open System
 open Xunit
 open Gambol.Shared
 
+module Enc = Thoth.Json.Newtonsoft.Encode
+module Dec = Thoth.Json.Newtonsoft.Decode
+
 let private childOp () =
     Op.NewNode(NodeId.New(), "hello")
 
@@ -84,3 +87,15 @@ let ``StartPeerActor carries Shared PeerActorName`` () =
         Assert.Equal(name, foundName)
         Assert.Equal(start, foundStart)
     | _ -> Assert.Fail("expected StartPeerActor")
+
+[<Fact>]
+let ``Load keeps its node through EventJson and MailboxLog`` () =
+    let nodeId = NodeId.New()
+    let event = source "" (EventBody.Load nodeId)
+    Assert.Equal(Order.Load nodeId, (placed event).order)
+    Assert.Equal(EventBody.Load nodeId, (restored (logged event)).body)
+    Assert.Equal(event, restored (logged event))
+    let json = Enc.toString 0 (EventJson.encode event)
+    match Dec.fromString EventJson.decode json with
+    | Ok decoded -> Assert.Equal(event, decoded)
+    | Error err -> Assert.Fail(err)

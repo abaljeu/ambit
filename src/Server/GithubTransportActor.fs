@@ -170,26 +170,8 @@ module GithubTransportActor =
                         changed
         }
 
-    let private runOperation
-        operation
-        dependencies
-        dataDir
-        changes
-        workspaceId
-        root
-        =
-        match operation with
-        | GithubTransportOperation.Load ->
-            runLoad
-                dependencies
-                dataDir
-                changes
-                workspaceId
-                root
-        | GithubTransportOperation.Save ->
-            async.Return(
-                saveTracked dependencies.git root
-                |> Result.map ignore)
+    let private runSave dependencies root =
+        saveTracked dependencies.git root |> Result.map ignore
 
     let private runBody dataDir operation dependencies input coreChanges =
         async {
@@ -205,17 +187,22 @@ module GithubTransportActor =
                 with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
-                    match!
-                        runOperation
-                            operation
-                            dependencies
-                            dataDir
-                            actorChanges
-                            workspaceId
-                            root
-                    with
-                    | Ok () -> return ActorSucceeded
-                    | Error err -> return ActorFailed err
+                    match operation with
+                    | GithubTransportOperation.Load ->
+                        match!
+                            runLoad
+                                dependencies
+                                dataDir
+                                actorChanges
+                                workspaceId
+                                root
+                        with
+                        | Ok _ -> return ActorSucceeded
+                        | Error err -> return ActorFailed err
+                    | GithubTransportOperation.Save ->
+                        match runSave dependencies root with
+                        | Ok () -> return ActorSucceeded
+                        | Error err -> return ActorFailed err
         }
 
     let actorFn

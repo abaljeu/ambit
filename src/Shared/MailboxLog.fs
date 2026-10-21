@@ -61,6 +61,7 @@ module MailboxLog =
         | HistoryBody.ActorStart start ->
             Ok (Order.StartActor start)
         | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
+        | HistoryBody.Load nodeId -> Ok (Order.Load nodeId)
         | HistoryBody.ActorStop _
         | HistoryBody.Notice _ -> Error "unsupported"
 
@@ -71,9 +72,9 @@ module MailboxLog =
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
         | Order.Cancel focusId -> Ok (HistoryBody.Cancel focusId)
+        | Order.Load nodeId -> Ok (HistoryBody.Load nodeId)
         | Order.StartPeerActor _
-        | Order.LoadSave _
-        | Order.Load _ -> Error "unsupported"
+        | Order.LoadSave _ -> Error "unsupported"
 
     let ofEv (event: HistoryEv) : Result<Ev, string> =
         match orderOfBody event.body with

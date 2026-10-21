@@ -269,6 +269,10 @@ module EventJson =
             Encode.object
                 [ "kind", Encode.string "cancel"
                   "focusId", Serialization.encodeNodeId focusId ]
+        | EventBody.Load nodeId ->
+            Encode.object
+                [ "kind", Encode.string "load"
+                  "nodeId", Serialization.encodeNodeId nodeId ]
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
         | EventBody.Notice notice -> encodeNotice notice
@@ -314,6 +318,12 @@ module EventJson =
                     EventBody.Cancel(
                         get.Required.Field
                             "focusId"
+                            Serialization.decodeNodeId))
+            | "load" ->
+                Decode.object (fun get ->
+                    EventBody.Load(
+                        get.Required.Field
+                            "nodeId"
                             Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
             | "notice" -> decodeNoticeBody

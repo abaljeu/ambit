@@ -132,6 +132,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.ActorStop _
         | Gambol.Shared.EventBody.Cancel _ ->
             Error "Actor lifecycle Events are mailbox-generated"
+        | Gambol.Shared.EventBody.Load _ ->
+            Error "Load is mailbox-generated"
 
     let private withConfirmedOps
         (event: Ev)
