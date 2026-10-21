@@ -36,6 +36,10 @@ On first implement for this Project, set `Stage: build`.
 
 What a good test is, seams, and red-green: [[.agents/skills/tdd/SKILL.md]]. Use tdd at the test seam from arch when present, else at pre-agreed seams. Do not copy that loop here.
 
+When the change covers more than 20 files (`git diff --stat` against the base branch), stop coding and ask the user whether to continue. Explain what remains and what makes it hard to finish: the files and modules still to touch, the tests still failing, and the risk to upload, import, parse, Load, undo and persist. Continue only on the user's yes.
+
+Work in small steps: edit, then test. When a test fails, make a small fix or undo the edit. Commit only when every test passes; never commit or push with failing tests.
+
 Run typechecking and the directly relevant tests as you go. Done: the ticket's What to build is coded; targeted checks from the F# skill have been run.
 
 ### 4. Check
