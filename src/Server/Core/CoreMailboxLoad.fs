@@ -187,6 +187,7 @@ module internal CoreMailboxLoad =
     /// NodeParsing is logged by the queue puller. It does not set Unparsed,
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
+    /// PersistFailed does not change persist state.
     /// MarkUnparsed writes Unparsed only.
     /// SnapshotDone runs the diff-count hook, then sets Persisted.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
@@ -245,6 +246,7 @@ module internal CoreMailboxLoad =
                     nodeId
                     PersistState.Unpersisted
                     live)
+        | Notice.PersistFailed _ -> Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist nodeId ParseState.Unparsed
         | Notice.SnapshotDone nodeId ->

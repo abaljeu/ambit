@@ -144,31 +144,37 @@ module EventJson =
         | ActorFailed _
         | ActorCancelled -> Encode.object fields
 
-    let private noticeTag =
-        function
-        | Notice.NodeParsed _ -> "nodeParsed"
-        | Notice.SnapshotDone _ -> "snapshotDone"
-        | Notice.MarkUnparsed _ -> "markUnparsed"
-        | Notice.NodeUploading _ -> "nodeUploading"
-        | Notice.NodeReceived _ -> "nodeReceived"
-        | Notice.NodeParsing _ -> "nodeParsing"
-        | Notice.NodePersisting _ -> "nodePersisting"
-
-    let private noticeNodeId =
-        function
-        | Notice.NodeParsed nodeId
-        | Notice.SnapshotDone nodeId
-        | Notice.MarkUnparsed nodeId
-        | Notice.NodeUploading nodeId
-        | Notice.NodeReceived nodeId
-        | Notice.NodeParsing nodeId
-        | Notice.NodePersisting nodeId -> nodeId
-
-    let private encodeNotice (notice: Notice) =
+    let private encodeSingleNotice tag nodeId =
         Encode.object
             [ "kind", Encode.string "notice"
-              "notice", Encode.string (noticeTag notice)
-              "nodeId", Serialization.encodeNodeId (noticeNodeId notice) ]
+              "notice", Encode.string tag
+              "nodeId", Serialization.encodeNodeId nodeId ]
+
+    let private encodePersistFailed nodeId message =
+        Encode.object
+            [ "kind", Encode.string "notice"
+              "notice", Encode.string "persistFailed"
+              "nodeId", Serialization.encodeNodeId nodeId
+              "message", Encode.string message ]
+
+    let private encodeNotice (notice: Notice) =
+        match notice with
+        | Notice.NodeParsed nodeId ->
+            encodeSingleNotice "nodeParsed" nodeId
+        | Notice.SnapshotDone nodeId ->
+            encodeSingleNotice "snapshotDone" nodeId
+        | Notice.MarkUnparsed nodeId ->
+            encodeSingleNotice "markUnparsed" nodeId
+        | Notice.NodeUploading nodeId ->
+            encodeSingleNotice "nodeUploading" nodeId
+        | Notice.NodeReceived nodeId ->
+            encodeSingleNotice "nodeReceived" nodeId
+        | Notice.NodeParsing nodeId ->
+            encodeSingleNotice "nodeParsing" nodeId
+        | Notice.NodePersisting nodeId ->
+            encodeSingleNotice "nodePersisting" nodeId
+        | Notice.PersistFailed (nodeId, message) ->
+            encodePersistFailed nodeId message
 
     let private noticeFrom tag nodeId =
         match tag with
@@ -181,14 +187,29 @@ module EventJson =
         | "nodePersisting" -> Ok (Notice.NodePersisting nodeId)
         | other -> Error ("Unknown notice: " + other)
 
-    let private decodeNoticeBody: Decoder<EventBody> =
+    let private decodeSingleNotice: Decoder<Notice> =
         Decode.object (fun get ->
             noticeFrom
                 (get.Required.Field "notice" Decode.string)
                 (get.Required.Field "nodeId" Serialization.decodeNodeId))
         |> Decode.andThen (function
-            | Ok notice -> Decode.succeed (EventBody.Notice notice)
+            | Ok notice -> Decode.succeed notice
             | Error message -> Decode.fail message)
+
+    let private decodePersistFailed: Decoder<Notice> =
+        Decode.object (fun get ->
+            Notice.PersistFailed(
+                get.Required.Field "nodeId" Serialization.decodeNodeId,
+                get.Required.Field "message" Decode.string))
+
+    let private decodeNoticeBody: Decoder<EventBody> =
+        Decode.field "notice" Decode.string
+        |> Decode.andThen (fun tag ->
+            match tag with
+            | "persistFailed" ->
+                decodePersistFailed |> Decode.map EventBody.Notice
+            | _ ->
+                decodeSingleNotice |> Decode.map EventBody.Notice)
 
     let private encodeBody (body: EventBody) =
         match body with

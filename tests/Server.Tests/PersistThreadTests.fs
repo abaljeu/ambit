@@ -24,6 +24,7 @@ let private startWith persistOps persistChange =
     let calls = ResizeArray<string>()
     let finishes = ResizeArray<NodeId>()
     let failures = ResizeArray<string>()
+    let notices = ResizeArray<Notice>()
     let collect, consumer = PersistCollectors.create ()
     PersistThread.start {
         consumer = consumer
@@ -36,9 +37,10 @@ let private startWith persistOps persistChange =
                 calls.Add("change")
                 persistChange post
         finish = finishes.Add
+        postNotice = notices.Add
         changeFailed = fun _ err -> failures.Add(err)
     }
-    collect, calls, finishes, failures
+    collect, calls, finishes, failures, notices
 
 let private okGraph post _ =
     Ok { graph = post; message = None }
@@ -46,7 +48,7 @@ let private okGraph post _ =
 [<Fact>]
 let ``open node calls persist ops and adds SnapshotDone`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
+    let collect, calls, finishes, _failures, _notices =
         startWith okGraph (fun post -> okGraph post [])
     let outcome =
         collect {
@@ -70,7 +72,7 @@ let ``open node calls persist ops and adds SnapshotDone`` () =
 [<Fact>]
 let ``Unparsed node is blocked and does not call persist`` () =
     let id, graph = fileGraph ParseState.Unparsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
+    let collect, calls, finishes, _failures, notices =
         startWith okGraph (fun post -> okGraph post [])
     let outcome =
         collect {
@@ -88,12 +90,13 @@ let ``Unparsed node is blocked and does not call persist`` () =
     | other -> Assert.Fail($"expected Blocked, got {other}")
     Assert.Empty(calls)
     Assert.Empty(finishes)
+    Assert.Empty(notices)
     Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``snapshot change calls persist change and adds SnapshotDone`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
+    let collect, calls, finishes, _failures, _notices =
         startWith okGraph (fun post -> okGraph post [])
     let outcome =
         collect {
@@ -127,7 +130,7 @@ let ``Change is blocked when any submitted node is Unparsed`` () =
             parseState = ParseState.Unparsed,
             persistState = PersistState.Unpersisted)
     let graph = Graph.addDetachedNode blockedNode graph
-    let collect, calls, finishes, _failures =
+    let collect, calls, finishes, _failures, notices =
         startWith okGraph (fun post -> okGraph post [])
     let outcome =
         collect {
@@ -145,15 +148,17 @@ let ``Change is blocked when any submitted node is Unparsed`` () =
     | other -> Assert.Fail($"expected Blocked, got {other}")
     Assert.Empty(calls)
     Assert.Empty(finishes)
+    Assert.Empty(notices)
 
 [<Fact>]
 let ``failed Change does not add SnapshotDone`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, failures =
+    let other = NodeId.New()
+    let collect, calls, finishes, failures, notices =
         startWith okGraph (fun _ -> Error "disk full")
     let outcome =
         collect {
-            nodeIds = [ id ]
+            nodeIds = [ id; other ]
             dataDir = Some "data"
             preGraph = graph
             postGraph = graph
@@ -168,12 +173,16 @@ let ``failed Change does not add SnapshotDone`` () =
     Assert.Equal<string>([ "change" ], calls)
     Assert.Empty(finishes)
     Assert.Equal<string>([ "disk full" ], failures)
+    Assert.Equal<Notice list>(
+        [ Notice.PersistFailed(id, "disk full")
+          Notice.PersistFailed(other, "disk full") ],
+        List.ofSeq notices)
     Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
 let ``thrown persist ops return Failed`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, _calls, finishes, failures =
+    let collect, _calls, finishes, failures, notices =
         startWith
             (fun _ _ ->
                 raise (System.InvalidOperationException("injected persistence failure")))
@@ -195,4 +204,9 @@ let ``thrown persist ops return Failed`` () =
     | other -> Assert.Fail($"expected Failed, got {other}")
     Assert.Empty(finishes)
     Assert.Empty(failures)
+    match Assert.Single(notices) with
+    | Notice.PersistFailed (nodeId, message) ->
+        Assert.Equal(id, nodeId)
+        Assert.Contains("injected persistence failure", message)
+    | other -> Assert.Fail($"expected PersistFailed, got {other}")
     Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)

@@ -195,6 +195,20 @@ let ``NodePersisting matches the Unpersisted Set`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
+let ``PersistFailed does not change persist state`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply
+        (handlers state snaps)
+        (Notice.PersistFailed(id, "disk full"))
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Empty(snaps)
+
+[<Fact>]
 let ``NodeParsing changes nothing`` () =
     task {
         let id, initial =
