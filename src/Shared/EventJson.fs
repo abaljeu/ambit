@@ -130,11 +130,12 @@ module EventJson =
     let private encodeNodeIds ids =
         ids |> List.map Serialization.encodeNodeId |> Encode.list
 
-    let private encodeActorStop focusId result =
+    let private encodeActorStop kind idName id result leading =
         let fields =
-            [ "kind", Encode.string "actorStop"
-              "focusId", Serialization.encodeNodeId focusId
-              "result", encodeActorResult result ]
+            [ "kind", Encode.string kind ]
+            @ leading
+            @ [ idName, Serialization.encodeNodeId id
+                "result", encodeActorResult result ]
         match result with
         | ActorFailed message when message <> "" ->
             Encode.object (fields @ [ "message", Encode.string message ])
@@ -145,19 +146,12 @@ module EventJson =
         | ActorCancelled -> Encode.object fields
 
     let private encodeActorStopped focusId result =
-        let fields =
-            [ "kind", Encode.string "notice"
-              "notice", Encode.string "actorStopped"
-              "nodeId", Serialization.encodeNodeId focusId
-              "result", encodeActorResult result ]
-        match result with
-        | ActorFailed message when message <> "" ->
-            Encode.object (fields @ [ "message", Encode.string message ])
-        | ActorQuery ids ->
-            Encode.object (fields @ [ "ids", encodeNodeIds ids ])
-        | ActorSucceeded
-        | ActorFailed _
-        | ActorCancelled -> Encode.object fields
+        encodeActorStop
+            "notice"
+            "nodeId"
+            focusId
+            result
+            [ "notice", Encode.string "actorStopped" ]
 
     let private encodeSingleNotice tag nodeId =
         Encode.object
@@ -311,7 +305,7 @@ module EventJson =
                 [ "kind", Encode.string "save"
                   "nodeId", Serialization.encodeNodeId nodeId ]
         | EventBody.ActorStop(focusId, result) ->
-            encodeActorStop focusId result
+            encodeActorStop "actorStop" "focusId" focusId result []
         | EventBody.Notice notice -> encodeNotice notice
 
     let private decodeChangeBody: Decoder<EventBody> =

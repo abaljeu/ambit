@@ -20,6 +20,7 @@ let private mailboxKind (message: Mailbox) =
     | Mailbox.CoreMsg _ -> "CoreMsg"
     | Mailbox.PlaceOrder _ -> "PlaceOrder"
     | Mailbox.Ask _ -> "Ask"
+    | Mailbox.SearchStop _ -> "SearchStop"
 
 [<Fact>]
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =

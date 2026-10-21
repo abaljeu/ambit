@@ -33,6 +33,10 @@ type internal Mailbox =
         order: Order *
         reply: AsyncReplyChannel<Result<EventId, string>>
     | Ask of Query
+    | SearchStop of
+        caller: Caller *
+        rootId: NodeId *
+        reply: AsyncReplyChannel<Result<unit, string>>
 
 [<RequireQualifiedAccess>]
 type internal CoreQueue =

@@ -68,32 +68,6 @@ module internal CoreEventDispatch =
           commandName = ""
           body = body }
 
-    let actorStart (context: Context) caller request =
-        lifecycleEvent
-            caller
-            (Gambol.Shared.EventBody.ActorStart request)
-        |> commit context
-        |> Result.map ignore
-
-    let actorStop (context: Context) caller focusId result =
-        let sharedResult =
-            match result with
-            | ActorSucceeded ->
-                Gambol.Shared.ActorResult.ActorSucceeded
-            | ActorFailed message ->
-                Gambol.Shared.ActorResult.ActorFailed message
-            | ActorCancelled ->
-                Gambol.Shared.ActorResult.ActorCancelled
-            | ActorQuery ids ->
-                Gambol.Shared.ActorResult.ActorQuery ids
-        lifecycleEvent
-            caller
-            (Gambol.Shared.EventBody.ActorStop(
-                focusId,
-                sharedResult))
-        |> commit context
-        |> Result.map ignore
-
     /// Caller already checked submissionId. This append does not scan again.
     let appendLifecycle
         (context: Context)

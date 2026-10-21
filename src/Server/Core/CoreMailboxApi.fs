@@ -214,12 +214,8 @@ module CoreMailboxApi =
         (caller: Caller)
         (rootId: NodeId)
         : Async<Result<unit, string>> =
-        async {
-            postNotice host (Notice.SearchStopped rootId)
-            let! _ = getEventId host
-            ignore caller
-            return Ok ()
-        }
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.SearchStop(caller, rootId, channel))
 
     let startLoadSaveCommand
         (host: MailboxHost)

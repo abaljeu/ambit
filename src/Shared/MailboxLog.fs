@@ -98,23 +98,19 @@ module MailboxLog =
                 id = event.id
                 body = EventBody.Order (placedOrder event order) }
 
+    let private historyNotice (event: Ev) (notice: Notice) =
+        Ok {
+            id = event.id
+            submissionId = System.Guid.Empty
+            authority = Authority ""
+            commandName = ""
+            body = HistoryBody.Notice notice }
+
     let toEv (event: Ev) : Result<HistoryEv, string> =
         match event.body with
-        | EventBody.Notice (Notice.ActorStopped (focusId, result)) ->
-            Ok {
-                id = event.id
-                submissionId = System.Guid.Empty
-                authority = Authority ""
-                commandName = ""
-                body = HistoryBody.ActorStop(focusId, result) }
-        | EventBody.Notice (Notice.SearchStopped rootId) ->
-            Ok {
-                id = event.id
-                submissionId = System.Guid.Empty
-                authority = Authority ""
-                commandName = ""
-                body =
-                    HistoryBody.ActorStop(rootId, ActorSucceeded) }
+        | EventBody.Notice (Notice.ActorStopped _ as notice)
+        | EventBody.Notice (Notice.SearchStopped _ as notice) ->
+            historyNotice event notice
         | EventBody.Notice _ -> Error "unsupported"
         | EventBody.Order placed ->
             match historyBody placed.order with

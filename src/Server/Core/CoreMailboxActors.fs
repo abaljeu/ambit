@@ -59,33 +59,63 @@ module internal CoreMailboxActors =
             context.pool.schedule secret (make caller)
             Ok stored
 
+    let private stopFollows
+        (context: MailboxContext)
+        (startId: EventId)
+        (focusId: NodeId)
+        =
+        context.eventLog.Value.events
+        |> List.exists (fun event ->
+            event.id.Value > startId.Value
+            && (match event.body with
+                | EventBody.ActorStop(id, _) -> id = focusId
+                | EventBody.Notice (Notice.ActorStopped(id, _)) ->
+                    id = focusId
+                | _ -> false))
+
+    let private appendSucceededStop
+        (context: MailboxContext)
+        (caller: Caller)
+        (focusId: NodeId)
+        =
+        CoreEventDispatch.appendLifecycle
+            (CoreMailboxEvents.eventDispatchContext context)
+            caller
+            (Guid.NewGuid())
+            (EventBody.ActorStop(focusId, ActorSucceeded))
+
     let private appendIdleStart
         (context: MailboxContext)
         (caller: Caller)
         (orderId: System.Guid)
         (request: Gambol.Shared.ActorStart)
         =
-        let dispatch = CoreMailboxEvents.eventDispatchContext context
         match
             CoreEventDispatch.appendLifecycle
-                dispatch
+                (CoreMailboxEvents.eventDispatchContext context)
                 caller
                 orderId
                 (EventBody.ActorStart request)
         with
         | Error err -> Error err
         | Ok started ->
-            match
-                CoreEventDispatch.appendLifecycle
-                    dispatch
-                    caller
-                    (Guid.NewGuid())
-                    (EventBody.ActorStop(
-                        request.focusId,
-                        ActorSucceeded))
-            with
-            | Error err -> Error err
-            | Ok _ -> Ok started.id
+            appendSucceededStop context caller request.focusId
+            |> Result.map (fun _ -> started.id)
+
+    /// Replay after a failed stop append still writes that stop.
+    let private replayStoredStart
+        (context: MailboxContext)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (stored: Ev)
+        =
+        if context.pool.trySecretForFocus request.focusId <> None
+           || stopFollows context stored.id request.focusId
+        then
+            Ok stored.id
+        else
+            appendSucceededStop context caller request.focusId
+            |> Result.map (fun _ -> stored.id)
 
     let placedActorStart
         (context: MailboxContext)
@@ -93,18 +123,22 @@ module internal CoreMailboxActors =
         (orderId: System.Guid)
         (request: Gambol.Shared.ActorStart)
         start
-        =
+        : Result<EventId, StartError> =
         match CoreMailboxEvents.storedBySubmission context orderId with
-        | Some stored -> Ok stored.id
+        | Some stored ->
+            replayStoredStart context caller request stored
+            |> Result.mapError StartError.Rejected
         | None ->
             match prepareActorStart context caller request start with
-            | Error error -> Error (StartError.text error)
+            | Error error -> Error error
             | Ok (None, _) ->
                 appendIdleStart context caller orderId request
+                |> Result.mapError StartError.Rejected
             | Ok (Some secret, make) ->
                 finishReadyStart
                     context caller request secret make orderId
                 |> Result.map (fun stored -> stored.id)
+                |> Result.mapError StartError.Rejected
 
     let placedSearchStart
         (context: MailboxContext)
@@ -170,7 +204,7 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         =
         match context.pool.trySecretForFocus focusId with
-        | None -> Error "no running actor"
+        | None -> Ok EventId.zero
         | Some secret ->
             let notice =
                 Notice.ActorStopped(focusId, ActorCancelled)
@@ -211,6 +245,56 @@ module internal CoreMailboxActors =
                 CoreMailboxEvents.replyList
                     reply context stopped [ started; stopped ]
 
+    let private replyFound
+        (context: MailboxContext)
+        (reply: PostedReply)
+        (eventId: EventId)
+        =
+        match
+            context.eventLog.Value.events
+            |> List.tryFind (fun item -> item.id = eventId)
+        with
+        | None -> reply.Reply(Error "event not found")
+        | Some stored ->
+            CoreMailboxEvents.replyList reply context stored [ stored ]
+
+    let private dispatchActorStart
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        let start req getState = startChosen context req getState
+        match
+            placedActorStart
+                context caller event.submissionId request start
+        with
+        | Error error ->
+            recordFailedStart
+                context
+                caller
+                request
+                event.submissionId
+                (failedMessage error)
+                reply
+        | Ok eventId -> replyFound context reply eventId
+
+    let private dispatchCancel
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (focusId: NodeId)
+        (reply: PostedReply)
+        =
+        match
+            placedCancel context caller event.submissionId focusId
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok eventId when eventId = EventId.zero ->
+            CoreMailboxEvents.replyList reply context event []
+        | Ok eventId -> replyFound context reply eventId
+
     let dispatchPostEvent
         (context: MailboxContext)
         (caller: Caller)
@@ -221,45 +305,9 @@ module internal CoreMailboxActors =
         | EventBody.ActorStop _ ->
             reply.Reply(Error "ActorStop is not a client event type")
         | EventBody.ActorStart request ->
-            let start req getState =
-                startChosen context req getState
-            match
-                placedActorStart
-                    context caller event.submissionId request start
-            with
-            | Error message ->
-                let stored =
-                    if message.Contains "not registered" then
-                        "unknown actor"
-                    else
-                        message
-                recordFailedStart
-                    context
-                    caller
-                    request
-                    event.submissionId
-                    stored
-                    reply
-            | Ok eventId ->
-                let stored =
-                    context.eventLog.Value.events
-                    |> List.find (fun item -> item.id = eventId)
-                CoreMailboxEvents.replyList
-                    reply context stored [ stored ]
+            dispatchActorStart context caller event request reply
         | EventBody.Cancel focusId ->
-            match
-                placedCancel
-                    context caller event.submissionId focusId
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok eventId when eventId = EventId.zero ->
-                CoreMailboxEvents.replyList reply context event []
-            | Ok eventId ->
-                let stored =
-                    context.eventLog.Value.events
-                    |> List.find (fun item -> item.id = eventId)
-                CoreMailboxEvents.replyList
-                    reply context stored [ stored ]
+            dispatchCancel context caller event focusId reply
         | _ ->
             match
                 CoreEventDispatch.postEvent

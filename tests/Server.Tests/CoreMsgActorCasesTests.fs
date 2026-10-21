@@ -583,6 +583,37 @@ let ``cancelByFocus places Order.Cancel`` () =
     })
 
 [<Fact>]
+let ``second Cancel for the same run logs one stop`` () =
+    let pool = CoreActorPool.create ()
+    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    withHost pool (fun host -> task {
+        let! started =
+            CoreMailboxApi.startActor host testCaller sampleRequest
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), started)
+        let! first =
+            CoreMailboxApi.cancelByFocus
+                host testCaller sampleRequest.focusId
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), first)
+        let! second =
+            CoreMailboxApi.cancelByFocus
+                host testCaller sampleRequest.focusId
+            |> Async.StartAsTask
+        Assert.Equal(Ok (), second)
+        let! bodies = logBodies host
+        let stops =
+            bodies
+            |> List.filter (fun body ->
+                body =
+                    EventBody.Notice(
+                        Notice.ActorStopped(
+                            sampleRequest.focusId,
+                            ActorCancelled)))
+        Assert.Equal(1, List.length stops)
+    })
+
+[<Fact>]
 let ``actorStop places Order.ActorStop`` () =
     let pool = CoreActorPool.create ()
     let seen = TaskCompletionSource<Credential>()

@@ -324,9 +324,7 @@ module internal CoreMailboxLoad =
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         (result: Result<EventId, string>)
         =
-        match result with
-        | Error err -> reply.Reply(Error err)
-        | Ok eventId -> reply.Reply(Ok eventId)
+        reply.Reply result
 
     let private placeStartActor context caller orderId request reply =
         CoreMailboxActors.placedActorStart
@@ -337,6 +335,7 @@ module internal CoreMailboxLoad =
             (fun start getState ->
                 context.pool.startActor start getState
                 |> Result.map Some)
+        |> Result.mapError StartError.text
         |> replyId reply
 
     let private placePeer context caller orderId peerName request reply =
@@ -349,32 +348,35 @@ module internal CoreMailboxLoad =
                 context.pool.startPeerActor peerName start getState
                 |> Result.mapError StartError.Rejected
                 |> Result.map Some)
+        |> Result.mapError StartError.text
         |> replyId reply
 
     let private placeLoadSave
         (context: MailboxContext)
         (caller: Caller)
         (orderId: System.Guid)
-        (path: LoadSavePath)
-        (peerName: PeerActorName)
-        (request: LoadSaveCommandRequest)
+        order
         reply
         =
-        CoreMailboxActors.placedActorStart
-            context
-            caller
-            orderId
-            request.start
-            (fun start getState ->
-                DeskLoadPush.runLoadSave
-                    { pool = context.pool
-                      getState = getState
-                      peerName = peerName }
-                    (dispatchLoad context caller)
-                    { request with start = start }
-                    path
-                |> Result.mapError StartError.Rejected)
-        |> replyId reply
+        match order with
+        | Order.LoadSave(path, peerName, request) ->
+            CoreMailboxActors.placedActorStart
+                context
+                caller
+                orderId
+                request.start
+                (fun start getState ->
+                    DeskLoadPush.runLoadSave
+                        { pool = context.pool
+                          getState = getState
+                          peerName = peerName }
+                        (dispatchLoad context caller)
+                        { request with start = start }
+                        path
+                    |> Result.mapError StartError.Rejected)
+            |> Result.mapError StartError.text
+            |> replyId reply
+        | _ -> replyUnsupported reply
 
     let private placeOrder
         (context: MailboxContext)
@@ -396,9 +398,8 @@ module internal CoreMailboxLoad =
             |> replyId reply
         | Order.StartPeerActor (peerName, request) ->
             placePeer context caller orderId peerName request reply
-        | Order.LoadSave (path, peerName, request) ->
-            placeLoadSave
-                context caller orderId path peerName request reply
+        | Order.LoadSave _ as order ->
+            placeLoadSave context caller orderId order reply
         | Order.Cancel focusId ->
             CoreMailboxActors.placedCancel
                 context caller orderId focusId
@@ -457,6 +458,25 @@ module internal CoreMailboxLoad =
                 ex
                 (fun error -> replyQueryFailure error query)
 
+    let private placeSearchStop
+        (context: MailboxContext)
+        (caller: Caller)
+        (rootId: NodeId)
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        =
+        if authorityHeld context caller then
+            let notice = Notice.SearchStopped rootId
+            let logged =
+                CoreEventDispatch.logNotice
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    notice
+            match applyNotice context.persist context.pool notice with
+            | Ok () -> ()
+            | Error err -> reportNotice context err
+            reply.Reply(logged |> Result.map ignore)
+        else
+            reply.Reply(Error droppedAuthority)
+
     let private dispatchMailbox
         (context: MailboxContext)
         (message: Mailbox)
@@ -476,6 +496,8 @@ module internal CoreMailboxLoad =
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
+        | Mailbox.SearchStop (caller, rootId, reply) ->
+            placeSearchStop context caller rootId reply
 
     let private dispatchItem
         (context: MailboxContext)
@@ -596,7 +618,8 @@ module internal CoreMailboxLoad =
         | Mailbox.Ask (Query.LastEventId _)
         | Mailbox.Ask (Query.EventsSince _) -> true
         | Mailbox.CoreMsg _
-        | Mailbox.PlaceOrder _ -> false
+        | Mailbox.PlaceOrder _
+        | Mailbox.SearchStop _ -> false
 
     let rec private pump
         (context: MailboxContext)

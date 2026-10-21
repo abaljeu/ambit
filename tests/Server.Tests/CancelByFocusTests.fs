@@ -89,7 +89,7 @@ type CancelByFocusTests() =
                     CoreMailboxApi.cancelByFocus
                         host testCaller request.focusId
                     |> Async.StartAsTask
-                Assert.Equal(Error "no running actor", second)
+                Assert.Equal(Result.Ok (), second)
                 do! expectActorCancelled host pool request.focusId
                 do! Task.Delay 200
                 let! stops = actorStopCount host request.focusId

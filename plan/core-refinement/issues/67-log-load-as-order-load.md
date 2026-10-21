@@ -40,8 +40,6 @@ Do these steps in order. Finish each step before starting the next.
 
 - 2026-10-21 1h — log Load as Order.Load
 
-
-
 ## See also
 
 - [Message shape](../cqrs-messages.md)

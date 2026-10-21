@@ -132,6 +132,32 @@ let ``RecordSearchStart stores ActorStart`` () =
         | Error err -> Assert.Fail(err)
 
 [<Fact>]
+let ``toEv keeps ActorStopped and SearchStopped`` () =
+    let focusId = NodeId.New()
+    let stopped: MailboxLog.Ev = {
+        id = EventId.zero
+        body =
+            MailboxLog.EventBody.Notice(
+                Notice.ActorStopped(focusId, ActorCancelled)) }
+    match MailboxLog.toEv stopped with
+    | Ok restored ->
+        Assert.Equal(
+            EventBody.Notice(
+                Notice.ActorStopped(focusId, ActorCancelled)),
+            restored.body)
+    | Error err -> Assert.Fail(err)
+    let search: MailboxLog.Ev = {
+        id = EventId.zero
+        body =
+            MailboxLog.EventBody.Notice(Notice.SearchStopped focusId) }
+    match MailboxLog.toEv search with
+    | Ok restored ->
+        Assert.Equal(
+            EventBody.Notice(Notice.SearchStopped focusId),
+            restored.body)
+    | Error err -> Assert.Fail(err)
+
+[<Fact>]
 let ``Save keeps its node through EventJson and MailboxLog`` () =
     let nodeId = NodeId.New()
     let event = source "" (EventBody.Save nodeId)
