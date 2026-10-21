@@ -103,10 +103,13 @@ module PersistCollectors =
             | Some outcome -> outcome
             | None -> PersistOutcome.Failed "persist collector lost the reply")
 
-    /// Closes the stack. Returns collect and the blocking consumer.
+    /// Closes the stack. None from the consumer means stop and drain finished.
     let internal create ()
-        : (PersistSubmit -> PersistOutcome) * (unit -> PersistWork) =
+        : (PersistSubmit -> PersistOutcome)
+          * (unit -> PersistWork option)
+          * (unit -> unit) =
         let gate = obj ()
+        let stopped = ref false
         let items: PersistWork list ref = ref []
         let push (work: PersistWork) =
             lock gate (fun () ->
@@ -114,12 +117,18 @@ module PersistCollectors =
                 Monitor.Pulse gate)
         let rec waitHead () =
             match items.Value with
+            | head :: rest ->
+                items.Value <- rest
+                Some head
+            | [] when stopped.Value -> None
             | [] ->
                 Monitor.Wait gate |> ignore
                 waitHead ()
-            | head :: rest ->
-                items.Value <- rest
-                head
+        let requestStop () =
+            lock gate (fun () ->
+                stopped.Value <- true
+                Monitor.PulseAll gate)
+        ServerRunRegistry.registerPersistUnblock requestStop
         let consumer () =
             lock gate (fun () -> waitHead ())
         let collect (submit: PersistSubmit) =
@@ -128,4 +137,4 @@ module PersistCollectors =
             else
                 push { submit = submit; reply = None }
                 PersistOutcome.Queued
-        collect, consumer
+        collect, consumer, requestStop

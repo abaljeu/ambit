@@ -173,7 +173,7 @@ let private stateWithChild (text: string) =
 /// Fresh Database HTTP client for state and Change facts.
 let private withClient (f: HttpClient -> Task<unit>) = task {
     let connStr = requireDbConnStr ()
-    do! resetTestDatabase connStr
+    do! ServerTestReset.resetBetweenTests connStr
     use client = createDbClient connStr
     return! f client
 }

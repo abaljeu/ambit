@@ -6,7 +6,7 @@ open Gambol.Shared
 /// Dependencies for the long-lived Parse consumer thread (outside Core).
 type ParseThreadDeps =
     { dataDir: string
-      consumer: unit -> NodeId
+      consumer: unit -> NodeId option
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
       postOps: Op list -> Async<Result<unit, string>>
@@ -131,15 +131,28 @@ module ParseThread =
         }
 
     let private loop (deps: ParseThreadDeps) =
-        while true do
-            let fileId = deps.consumer ()
-            parseOne deps fileId |> Async.RunSynchronously
+        let rec run () =
+            match deps.consumer () with
+            | None -> ()
+            | Some fileId ->
+                parseOne deps fileId |> Async.RunSynchronously
+                run ()
+        run ()
 
-    /// Hosts the perpetual consumer on a background thread.
+    /// Hosts the consumer. Reset joins this thread after the stack stops.
     let start (deps: ParseThreadDeps) =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
+        thread.Name <- "gambol-parse"
         thread.Start()
+        let gate = obj ()
+        let joined = ref false
+        let join () =
+            lock gate (fun () ->
+                if not joined.Value then
+                    joined.Value <- true
+                    thread.Join())
+        ServerRunRegistry.registerParseJoin join
 
     let postParseOps
         (handle: CoreChangesDoor)

@@ -28,6 +28,7 @@ module internal CoreMailboxEvents =
         (f: unit -> Result<'a, string>)
         : Result<'a, string> =
         let task = Task.Run(fun () -> f ())
+        ServerRunRegistry.track task
         let settledIndex = Task.WaitAny([| task :> Task |], timeoutMs)
         if settledIndex = -1 then
             Error "change processing timed out"
@@ -107,6 +108,7 @@ module internal CoreMailboxEvents =
     type Started = {
         processor: MailboxProcessor<CoreQueue>
         bindCoreChanges: (Caller -> CoreChangesDoor) -> unit
+        shutdown: unit -> unit
     }
 
     type MailboxContext = {

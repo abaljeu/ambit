@@ -361,16 +361,20 @@ module FileAgent =
         (dependencies: FileAgentDependencies)
         =
         loaded.lastPersisted.Value <- loaded.state.Value.graph
-        let collect, consumer = PersistCollectors.create ()
+        let collect, consumer, requestStop = PersistCollectors.create ()
         loaded.collect.Value <- Some collect
-        PersistThread.start {
-            consumer = consumer
-            persistOps = dependencies.persistGraphOps
-            persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.persistFinished
-            postNotice = PersistThread.postWhenBound loaded.persistFinished
-            changeFailed = fun _ _ -> ()
-        }
+        let join =
+            PersistThread.start {
+                consumer = consumer
+                persistOps = dependencies.persistGraphOps
+                persistChange = DocumentPersistChange.persistGraphChange
+                finish = PersistThread.finishWhenBound loaded.persistFinished
+                postNotice = PersistThread.postWhenBound loaded.persistFinished
+                changeFailed = fun _ _ -> ()
+            }
+        fun () ->
+            requestStop ()
+            join ()
 
     let createWithDependencies
         (dependencies: FileAgentDependencies)
@@ -383,7 +387,7 @@ module FileAgent =
             openLoaded
                 dependencies dataDir eventStream eventOffsets loadedState
         reconcileLoaded loaded
-        startPersist loaded dependencies
+        let stopPersist = startPersist loaded dependencies
         let capturedInitialState = loaded.state.Value
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
         let onError operation context ex =
@@ -397,6 +401,7 @@ module FileAgent =
               isReady = fun () -> true
               dispose =
                 fun () ->
+                    stopPersist ()
                     eventStream.Flush()
                     eventStream.Dispose()
               until = None

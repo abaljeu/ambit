@@ -343,6 +343,8 @@ module internal CoreMailboxLoad =
             | Error err -> reportNotice context err
         | CoreQueue.DropAuthority stopped ->
             Session.removeAuthority stopped
+        | CoreQueue.Shutdown reply ->
+            reply.Reply()
 
     let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
         getState = persist.getState
@@ -408,10 +410,24 @@ module internal CoreMailboxLoad =
           session = session },
         reported
 
+    let private armMailbox (mailbox: MailboxProcessor<CoreQueue>) =
+        let gate = obj ()
+        let stopped = ref false
+        let shutdown () =
+            lock gate (fun () ->
+                if not stopped.Value then
+                    stopped.Value <- true
+                    mailbox.PostAndReply(fun reply ->
+                        CoreQueue.Shutdown reply)
+                    |> ignore)
+        ServerRunRegistry.registerMailbox shutdown
+        shutdown
+
     let private started mailbox (context: MailboxContext) : Started =
         { processor = mailbox
           bindCoreChanges =
-            fun make -> context.coreChanges.Value <- Some make }
+            fun make -> context.coreChanges.Value <- Some make
+          shutdown = armMailbox mailbox }
 
     let private isStartupRead (message: Mailbox) =
         match message with
@@ -427,16 +443,23 @@ module internal CoreMailboxLoad =
         =
         async {
             let! item = inbox.Receive()
-            dispatchItem context item
-            return! pump context inbox
+            match item with
+            | CoreQueue.Shutdown reply ->
+                reply.Reply()
+            | other ->
+                dispatchItem context other
+                return! pump context inbox
         }
 
     let private runUntil (until: Async<Result<unit, string>>) =
-        Task.Run(fun () ->
-            try
-                until |> Async.RunSynchronously
-            with ex ->
-                Error $"Startup prelude failed: {ex.Message}")
+        let task =
+            Task.Run(fun () ->
+                try
+                    until |> Async.RunSynchronously
+                with ex ->
+                    Error $"Startup prelude failed: {ex.Message}")
+        ServerRunRegistry.track task
+        task
 
     let private startNow (context: MailboxContext) : Started =
         started (MailboxProcessor<CoreQueue>.Start(pump context)) context
@@ -468,9 +491,13 @@ module internal CoreMailboxLoad =
             }
             and failedLoop error = async {
                 let! item = inbox.Receive()
-                let failed = failedPersist context.persist error
-                dispatchItem { context with persist = failed } item
-                return! failedLoop error
+                match item with
+                | CoreQueue.Shutdown reply ->
+                    reply.Reply()
+                | other ->
+                    let failed = failedPersist context.persist error
+                    dispatchItem { context with persist = failed } other
+                    return! failedLoop error
             }
             startupLoop ()
         )

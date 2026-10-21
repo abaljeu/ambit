@@ -45,6 +45,13 @@ module RouteRegistration =
 <pre>%s</pre>
 </body></html>""" message
 
+    let private registerRunningHost (this: AmbitApp) =
+        let app = this.App
+        ServerRunRegistry.registerHost (fun () ->
+            try
+                app.StopAsync().GetAwaiter().GetResult()
+            with _ -> ())
+
     let private registerStartupError (this: AmbitApp) (message: string) =
         let errorHtml = errorTemplate message
         let writeError (ctx: HttpContext) =
@@ -491,6 +498,7 @@ module RouteRegistration =
             this
         | Ok _ ->
             let persistence = createPersistenceContext this
+            registerRunningHost this
             let this = withMailboxAdmit this persistence
             let assets, stamps = RouteAppShell.createBuildStamps this
             let routes =

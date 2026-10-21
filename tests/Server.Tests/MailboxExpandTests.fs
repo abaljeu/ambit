@@ -43,6 +43,8 @@ let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     | CoreQueue.Notice _ -> Assert.Fail("Public is not Notice")
     | CoreQueue.DropAuthority _ ->
         Assert.Fail("Public is not DropAuthority")
+    | CoreQueue.Shutdown _ ->
+        Assert.Fail("Public is not Shutdown")
     let serverPeer =
         typeof<ActorName>.Assembly.GetType("Gambol.Server.PeerActorName")
     Assert.True(isNull serverPeer)

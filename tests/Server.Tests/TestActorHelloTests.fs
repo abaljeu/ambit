@@ -83,6 +83,7 @@ let private createHost () =
 
 let private withHost body =
     task {
+        do! ServerTestReset.resetBetweenTests (requireDbConnStr ())
         let host, pool = createHost ()
         try
             do! body host pool

@@ -78,6 +78,8 @@ type internal CoreQueue =
     | Public of Mailbox
     | Notice of Notice
     | DropAuthority of stopped: StoppedAdmission
+    /// Reset asks the loop to exit after this item. The reply means it exited.
+    | Shutdown of AsyncReplyChannel<unit>
 
 type PersistHandlers = {
     getState: unit -> Result<State, string>

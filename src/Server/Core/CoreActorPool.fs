@@ -1,6 +1,7 @@
 namespace Gambol.Server
 
 open System
+open System.Threading.Tasks
 open Gambol.Shared
 
 /// Actor input: Graph plus named ids and Actor secret.
@@ -310,7 +311,9 @@ module CoreActorPool =
                         { getGraph = getGraph
                           secret = secret }
                         coreChanges
-            Async.Start(work, row.cancel.Token)
+            let task =
+                Async.StartAsTask(work, cancellationToken = row.cancel.Token)
+            ServerRunRegistry.track task
 
     let dropAndReply
         (pool: CoreActorPool)
@@ -382,6 +385,14 @@ module CoreActorPool =
                                 { row with inbox = [] }
                                 model.live }
                 Ok texts
+        let clearLive () =
+            let live = model.live
+            model <-
+                { model with
+                    live = Map.empty
+                    bySession = Map.empty }
+            live |> Map.iter (fun _ row -> row.cancel.Cancel())
+        ServerRunRegistry.registerPool clearLive
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }

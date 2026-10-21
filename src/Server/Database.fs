@@ -161,6 +161,20 @@ module Database =
             do! conn.ExecuteAsync("DELETE FROM events") :> Task
         }
 
+    /// Schema plus an empty graph. Identity on events restarts at 1.
+    let resetStoredTables (connectionString: string) : Task<unit> =
+        task {
+            do! initSchema connectionString
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            use cmd = conn.CreateCommand()
+            cmd.CommandText <-
+                "TRUNCATE TABLE events, node_children, nodes, graph " +
+                "RESTART IDENTITY CASCADE;"
+            let! _ = cmd.ExecuteNonQueryAsync()
+            return ()
+        }
+
     let getEventsAfter
         (connectionString: string)
         (afterEventId: int)
