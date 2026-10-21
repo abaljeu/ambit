@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 61 — Move Session off the core mailbox; 62 — Admit at the entry; 63 — Move queries to Ask; 64 — Merge PostEvent and PostGraphOnly into Change; 65 — Place Undo and Redo as orders; 66 — Move Actor orders onto Order and Notice; 67 — Log Load as Order.Load
+**Blocked by:** 61 — Move Session off the core mailbox; 62 — Admit at the entry; 63 — Move queries to Ask; 64 — Merge PostEvent and PostGraphOnly into Change; 65 — Place Undo and Redo as orders; 79 — Place git Save as Order.Save; 80 — Place Actor orders through PlaceOrder; 81 — Log Actor and search stops as Notices; 67 — Log Load as Order.Load
 **Trackers:** architecture
 
 ## Context
@@ -43,6 +43,8 @@ Remove `CoreMsg`. Make the `MailboxLog` event the `History` event. Read the orde
 - [63 — Move queries to Ask](63-move-queries-to-ask.md)
 - [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
-- [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)
+- [79 — Place git Save as Order.Save](79-place-git-save-as-order-save.md)
+- [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md)
+- [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
 - [67 — Log Load as Order.Load](67-log-load-as-order-load.md)
 - [GLOSSARY](../../../GLOSSARY.md)
