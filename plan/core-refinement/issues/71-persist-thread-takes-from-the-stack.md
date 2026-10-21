@@ -1,6 +1,6 @@
 # 71 — Persist thread takes from the stack
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** [70 — Add the persist request stack](70-add-the-persist-request-stack.md); [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md); [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md)
 **Trackers:** architecture
@@ -19,22 +19,38 @@ Do these steps in order. Finish each step before starting the next.
 
 1. [x] **Write one node** — Add `DocumentPersistChange.persistNode dataDir graph nodeId`, which writes that node's whole document file from the given graph, with a test. Files: `src/Server/DocumentPersistChange.fs`, `tests/Server.Tests/DocumentPersistenceTests.fs`. Done when the new test writes the node's file and passes.
 2. [x] **Id and live read** — Make `PersistRequest` hold `nodeId` only, and add `currentState: unit -> State` to `PersistThreadDeps`, built in `FileAgent.startPersist` and the `DbAgent` start as `fun () -> Volatile.Read(loaded.state).Value`. Files: `src/Server/Core/PersistRequestStack.fs` (where `PersistRequest` is defined), `src/Server/Core/PersistThread.fs` (where `PersistThreadDeps` is defined), `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/PersistRequestStackTests.fs`. Done when it compiles and `PersistRequestStackTests` pass.
-3. [ ] **Push and take** — Replace each collector submit in `FileAgent` and `DbAgent` with one `PersistRequest` push per node. The persist thread `take`s a request, calls `currentState ()` once, skips a node already Persisted, otherwise calls `persistNode` with that state's graph, then posts `Notice.NodePersisted nodeId` on success or `Notice.PersistFailed nodeId message` on failure. Delete the collector queue, `PersistWork` and `PersistSubmit`, and add the three tests below. The persist request stack registers its stop with `ServerRunRegistry.registerPersistUnblock`, the way the collector does now. Files: `src/Server/Core/PersistThread.fs`, `src/Server/Core/PersistRequestStack.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `src/Server/Gambol.Server.fsproj` (drop `Core\PersistCollectors.fs`), `tests/Server.Tests/PersistThreadTests.fs` (the three tests, and its existing `PersistSubmit` uses); delete `src/Server/Core/PersistCollectors.fs`. Done when the three tests pass, `ServerTestReset` still stops the persist thread between tests, and no file under `src/` or `tests/` names `PersistSubmit` or `PersistWork`.
+3. [x] **Push and take** — Replace each collector submit in `FileAgent` and `DbAgent` with one `PersistRequest` push per node. The persist thread `take`s a request, calls `currentState ()` once, skips a node already Persisted, otherwise calls `persistNode` with that state's graph, then posts `Notice.NodePersisted nodeId` on success or `Notice.PersistFailed nodeId message` on failure. Delete the collector queue, `PersistWork` and `PersistSubmit`, and add the three tests below. The persist request stack registers its stop with `ServerRunRegistry.registerPersistUnblock`, the way the collector does now. Files: `src/Server/Core/PersistThread.fs`, `src/Server/Core/PersistRequestStack.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `src/Server/Gambol.Server.fsproj` (drop `Core\PersistCollectors.fs`), `tests/Server.Tests/PersistThreadTests.fs` (the three tests, and its existing `PersistSubmit` uses); delete `src/Server/Core/PersistCollectors.fs`. Done when the three tests pass, `ServerTestReset` still stops the persist thread between tests, and no file under `src/` or `tests/` names `PersistSubmit` or `PersistWork`.
 
 ### Acceptance Criteria
 
-1. [ ] **Test** — `persist thread writes from the live graph`. An edit made after the push and before the take is in the written file.
-2. [ ] **Test** — `repeated pushes write once`. Four pushes for one node, then four takes, give one write.
-3. [ ] **Test** — `persist thread posts NodePersisted on success only`.
+1. [x] **Test** — `persist thread writes from the live graph`. An edit made after the push and before the take is in the written file.
+2. [x] **Test** — `repeated pushes write once`. Four pushes for one node, then four takes, give one write.
+3. [x] **Test** — `persist thread posts NodePersisted on success only`.
 4. [ ] **Still working** — Upload, import, parse, Load, undo and persist still complete. The server starts no extra thread.
 
 ## Finish-up
 
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+
+- The agent stores the new state, then pushes. The take reads that state.
+- `FileAgentDependencies` and the DbAgent test seam take `persistNode`. The thread calls that function.
+- `opAnchor`, `unparsedNode`, and `owningSpecials` now live on `PersistThread`. `PersistCollectors.fs` is deleted.
+- The thread posts `Notice.NodePersisted` or `Notice.PersistFailed`. It does not post `Notice.NodeStamped`.
+- `DbAgent.noteWriteFailed` drops an in-progress file diff after `PersistFailed`.
+- Tests that waited for `NodeStamped` from the thread now wait for `NodePersisted` or `PersistFailed`.
+- The file-server replay test expects event id 4. The stamp notice is gone.
+- `Notice.NodePersisted` carries `nodeId` and `updateTime`.
+- `DocumentPersistChange.persistNode` returns the written file last-write time in UTC at database precision.
+- The persist thread posts `Notice.NodePersisted(nodeId, updateTime)` after a successful write.
+- The `NodePersisted` handler sets Persisted and the node `updateTime` in one write.
+- The database writes `persist_state` and `update_time` for that node in one SQL update.
+- Browser sync applies that time where it applies `NodeStamped` stamp ops.
+- A stored `snapshotDone` or `nodePersisted` record must include `updateTime`.
 
 ## Time
 
 - 2026-10-21 — `persistNode` writes one document file
+- 2026-10-21 — persist thread takes a node id from the stack
 
 ## See also
 

@@ -33,12 +33,10 @@ let private getState agent = async {
         return Unchecked.defaultof<_>
 }
 
-let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
-    fun _ _ postGraph _ ->
-        Ok {
-            graph = postGraph
-            message = Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt")
-        }
+let private softFailPersist
+    : string -> Graph -> NodeId -> Result<DateTime, string> =
+    fun _ _ _ ->
+        Error(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt")
 
 let private decodeAck (accepted: CoreChangesAccepted) =
     accepted
@@ -136,8 +134,8 @@ let private openThenEdit mailbox = async {
 }
 
 let private throwingPersist
-    : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
-    fun _ _ _ _ ->
+    : string -> Graph -> NodeId -> Result<DateTime, string> =
+    fun _ _ _ ->
         raise (InvalidOperationException("injected persistence failure"))
 
 let private persistFailed events =
@@ -150,7 +148,7 @@ let private persistFailed events =
 
 let private agentWithFailure dataDir =
     let defaults = FileAgent.defaultDependencies dataDir
-    let dependencies = { defaults with persistGraphOps = throwingPersist }
+    let dependencies = { defaults with persistNode = throwingPersist }
     FileAgent.createWithDependencies dependencies dataDir
 
 /// A failed document write keeps the edit. The order succeeds. The file
@@ -241,12 +239,13 @@ let ``Edit reply returns while the persist thread still holds the write`` () = t
     let dependencies =
         {
             defaults with
-                persistGraphOps =
-                    fun _ _ postGraph _ ->
+                persistNode =
+                    fun _ _ _ ->
                         persistAttempted.SetResult()
                         WorkspaceGit.withWorkTreeGate workspaceRoot (fun () ->
                             writes.Enqueue("persisted")
-                            Ok { graph = postGraph; message = None })
+                            Ok ())
+                        |> Result.map (fun () -> DateTime.UtcNow)
         }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
@@ -272,7 +271,7 @@ let ``Edit reply returns while the persist thread still holds the write`` () = t
         CoreMailboxApi.dispose (host agent)
 }
 
-let private waitForStamp agent = task {
+let private waitForPersistFailure agent = task {
     let! events =
         waitForNotices
             (fun () ->
@@ -282,27 +281,27 @@ let private waitForStamp agent = task {
                 events
                 |> List.exists (fun event ->
                     match event.body with
-                    | EventBody.Notice (Notice.NodeStamped _) -> true
+                    | EventBody.Notice (Notice.PersistFailed _) -> true
                     | _ -> false))
     match
         events
         |> List.tryPick (fun event ->
             match event.body with
-            | EventBody.Notice (Notice.NodeStamped (ops, message)) ->
-                Some (ops, message)
+            | EventBody.Notice (Notice.PersistFailed (_, message)) ->
+                Some message
             | _ -> None)
     with
-    | Some stamp -> return stamp
+    | Some message -> return message
     | None ->
-        Assert.Fail("expected NodeStamped")
-        return [], None
+        Assert.Fail("expected PersistFailed")
+        return ""
 }
 
 [<Fact>]
 let ``soft-fail live-save still commits graph and returns could-not-save message`` () = task {
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
-    let dependencies = { defaults with persistGraphOps = softFailPersist }
+    let dependencies = { defaults with persistNode = softFailPersist }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
@@ -313,9 +312,9 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             Assert.Equal(None, decodeAckMessage ackJson)
-            let! _ops, message = waitForStamp agent
+            let! message = waitForPersistFailure agent
             Assert.Equal(
-                Some(DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt"),
+                DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt",
                 message)
         let! state =
             getState agent |> Async.StartAsTask
@@ -331,7 +330,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
 let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
-    let dependencies = { defaults with persistGraphOps = softFailPersist }
+    let dependencies = { defaults with persistNode = softFailPersist }
     let agent1 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! postResult =
@@ -358,21 +357,10 @@ let ``soft-fail log is replayed into FileAgent state after restart`` () = task {
         CoreMailboxApi.dispose (host agent2)
 }
 
-let private stampBase = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
-
-let private incrementingStampPersist (count: int ref) =
-    fun _ _ (postGraph: Graph) _ ->
+let private countingPersist (count: int ref) =
+    fun _ _ (_: NodeId) ->
         count.Value <- count.Value + 1
-        let stampedTime = stampBase.AddMinutes(float count.Value)
-        let node = postGraph.nodes.[Graph.workspacesId]
-        let graph =
-            { postGraph with
-                nodes =
-                    Map.add
-                        Graph.workspacesId
-                        { node with updateTime = stampedTime }
-                        postGraph.nodes }
-        Ok { graph = graph; message = None }
+        Ok DateTime.UtcNow
 
 let private addChildChange _rev text =
     let childId = NodeId.New()
@@ -384,13 +372,28 @@ let private addChildChange _rev text =
         [ Op.NewNode(childId, text)
           Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
+let private waitForPersisted agent = task {
+    let! events =
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince (host agent) EventId.zero
+                |> Async.StartAsTask)
+            (fun events ->
+                events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisted _) -> true
+                    | _ -> false))
+    return events
+}
+
 [<Fact>]
-let ``ACK keeps the Edit events and NodeStamped carries the stamp`` () = task {
+let ``ACK keeps the Edit events and NodePersisted follows the write`` () = task {
     let dataDir = newTempDir ()
     let count = ref 0
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies =
-        { defaults with persistGraphOps = incrementingStampPersist count }
+        { defaults with persistNode = countingPersist count }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
         let change = addChildChange 0 "stamp-prefix"
@@ -406,26 +409,19 @@ let ``ACK keeps the Edit events and NodeStamped carries the stamp`` () = task {
             let confirmed = Assert.Single(ack.events)
             Assert.Equal(change.submissionId, confirmed.submissionId)
             Assert.Equal<Op list>((eventOps change), (eventOps confirmed))
-            let! ops, message = waitForStamp agent
-            Assert.Equal(None, message)
-            Assert.NotEmpty(ops)
-            ops
-            |> List.iter (fun op ->
-                match op with
-                | Op.SetUpdateTime(nodeId, _, _) ->
-                    Assert.Equal(Graph.workspacesId, nodeId)
-                | _ -> failwith "expected SetUpdateTime")
-            let! events =
-                CoreMailboxApi.getEventsSince (host agent) EventId.zero
-                |> Async.StartAsTask
-            let event = Assert.Single(changesOnly events)
-            match Ev.ops event with
+            let! events = waitForPersisted agent
+            Assert.Contains(
+                events,
+                fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisted _) -> true
+                    | _ -> false)
+            let storedChange = Assert.Single(changesOnly events)
+            match Ev.ops storedChange with
             | Some stored ->
                 Assert.Equal<Op list>((eventOps change), stored)
             | None -> Assert.Fail("Expected Change event")
-            let! state = getState agent |> Async.StartAsTask
-            let stamped = state.graph.nodes.[Graph.workspacesId].updateTime
-            Assert.Equal(stampBase.AddMinutes(1.0), stamped)
+            Assert.True(count.Value >= 1)
     finally
         CoreMailboxApi.dispose (host agent)
 }

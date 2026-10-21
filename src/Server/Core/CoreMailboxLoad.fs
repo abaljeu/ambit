@@ -196,7 +196,8 @@ module internal CoreMailboxLoad =
     /// PersistFailed does not change persist state.
     /// NodeStamped applies the stamp ops and leaves persist state alone.
     /// MarkUnparsed writes Unparsed only.
-    /// NodePersisted runs the diff-count hook, then sets Persisted.
+    /// NodePersisted runs the diff-count hook, then sets Persisted
+    /// and the node's updateTime in one write.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
         match Map.tryFind nodeId graph.nodes with
         | None -> Error "node not found"
@@ -230,6 +231,28 @@ module internal CoreMailboxLoad =
                     nodeId
                     PersistState.Persisted
                     graph)
+
+    let private stampUpdateTime
+        (nodeId: NodeId)
+        (updateTime: DateTime)
+        (graph: Graph)
+        : Result<Graph, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node ->
+            let stamped = NodeUpdateTime.withStamp updateTime node
+            Ok { graph with nodes = Map.add nodeId stamped graph.nodes }
+
+    let private writePersisted persist nodeId updateTime =
+        writeAxis
+            persist
+            (Notice.NodePersisted(nodeId, updateTime))
+            (fun live ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Persisted
+                    live
+                |> Result.bind (stampUpdateTime nodeId updateTime))
 
     let private applyStampOps (ops: Op list) (graph: Graph) =
         if List.isEmpty ops then
@@ -279,13 +302,9 @@ module internal CoreMailboxLoad =
             applyStampNotice persist ops message
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist msg nodeId ParseState.Unparsed
-        | Notice.NodePersisted nodeId ->
+        | Notice.NodePersisted (nodeId, updateTime) ->
             persist.noteDiffDone nodeId
-            writeAxis persist msg (fun live ->
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Persisted
-                    live)
+            writePersisted persist nodeId updateTime
 
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)

@@ -438,6 +438,14 @@ module Database =
         WHERE id = @id
         """
 
+    let private updatePersistedSql =
+        """
+        UPDATE nodes
+        SET persist_state = @persist_state,
+            update_time = @update_time
+        WHERE id = @id
+        """
+
     let private updateStampTimeSql =
         """
         UPDATE nodes
@@ -494,6 +502,17 @@ module Database =
                 {| id = row.id
                    persist_state = row.persistState |}
 
+    let private writePersistedNode connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updatePersistedSql
+                {| id = row.id
+                   persist_state = row.persistState
+                   update_time = row.updateTime |}
+
     let private writeStampTimes connectionString graph (ops: Op list) =
         task {
             for op in ops do
@@ -541,9 +560,10 @@ module Database =
         | Notice.NodeParsed nodeId
         | Notice.MarkUnparsed nodeId ->
             writeDocumentState connectionString graph nodeId
-        | Notice.NodePersisting nodeId
-        | Notice.NodePersisted nodeId ->
+        | Notice.NodePersisting nodeId ->
             writePersistState connectionString graph nodeId
+        | Notice.NodePersisted (nodeId, _) ->
+            writePersistedNode connectionString graph nodeId
         | Notice.NodeStamped(ops, _) ->
             writeStampTimes connectionString graph ops
         | Notice.NodeReceived nodeId ->

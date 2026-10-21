@@ -95,6 +95,20 @@ module SyncLogic =
             Ok(withProjectedGraph event st newSt None, undid)
         | ApplyResult.Invalid (_, msg), _ -> Error msg
 
+    let private withNodeUpdateTime
+        (nodeId: NodeId)
+        (updateTime: System.DateTime)
+        (st: ClientSyncState)
+        =
+        match Map.tryFind nodeId st.graph.nodes with
+        | None -> st
+        | Some node ->
+            let stamped = NodeUpdateTime.withStamp updateTime node
+            { st with
+                graph =
+                    { st.graph with
+                        nodes = Map.add nodeId stamped st.graph.nodes } }
+
     let private applyLoggedNotice
         (event: Ev)
         (st: ClientSyncState)
@@ -103,6 +117,9 @@ module SyncLogic =
         match event.body with
         | EventBody.Notice (Notice.NodeStamped (ops, _)) ->
             projectStampOps event ops st undid
+        | EventBody.Notice (Notice.NodePersisted (nodeId, updateTime)) ->
+            let next = withNodeUpdateTime nodeId updateTime st
+            Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.

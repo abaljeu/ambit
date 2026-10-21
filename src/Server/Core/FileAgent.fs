@@ -1,13 +1,13 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open System.Threading
 open Gambol.Shared
 
 type FileAgentDependencies = {
-    persistGraphOps:
-        string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
+    persistNode: string -> Graph -> NodeId -> Result<DateTime, string>
     appendException: string -> string -> exn -> unit
 }
 
@@ -29,13 +29,13 @@ module FileAgent =
         persistClean: bool ref
         lastPersisted: Graph ref
         pendingCheckpoint: EventId list ref
-        collect: (PersistSubmit -> unit) option ref
+        stack: PersistRequest BlockingCollection option ref
         persistFinished: (Notice -> unit) option ref
     }
 
     let defaultDependencies (dataDir: string) =
         {
-            persistGraphOps = DocumentPersistChange.persistGraphOps
+            persistNode = DocumentPersistChange.persistNode
             appendException =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
@@ -50,37 +50,23 @@ module FileAgent =
             externalChanges
             message
 
-    let private collectPersist
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (preGraph: Graph)
-        (postGraph: Graph)
-        (ops: Op list)
-        =
-        match loaded.collect.Value with
-        | None -> Error "persist collectors are not bound"
-        | Some collect ->
-            loaded.pendingCheckpoint.Value <-
-                loaded.pendingCheckpoint.Value @ [ eventId ]
-            collect {
-                nodeIds = PersistCollectors.owningSpecials postGraph ops
-                dataDir = Some loaded.dataDir
-                preGraph = preGraph
-                postGraph = postGraph
-                ops = ops
-                kind = PersistKind.Ops
-                notify = true
-            }
+    let private pushIds (loaded: LoadedFile) (ids: NodeId list) =
+        match loaded.stack.Value with
+        | None -> Error "persist stack is not bound"
+        | Some stack ->
+            ids
+            |> List.iter (fun nodeId ->
+                PersistRequestStack.push stack { nodeId = nodeId })
             Ok ()
 
     let private persistCollected
         (loaded: LoadedFile)
-        (eventId: EventId)
-        (preGraph: Graph)
+        (_eventId: EventId)
+        (_preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
         =
-        collectPersist loaded eventId preGraph postGraph ops
+        pushIds loaded (PersistThread.owningSpecials postGraph ops)
 
     let private applyOne
         loaded
@@ -189,6 +175,9 @@ module FileAgent =
                 match validatePostChange loaded graphOnly preGraph newState.graph with
                 | Error err -> Error err
                 | Ok () ->
+                    let finalState, ackEvents, persistMessage =
+                        preparePostChange newState confirmations
+                    loaded.state.Value <- finalState
                     match
                         persistPostChange
                             loaded
@@ -200,9 +189,6 @@ module FileAgent =
                     with
                     | Error err -> Error err
                     | Ok () ->
-                        let finalState, ackEvents, persistMessage =
-                            preparePostChange newState confirmations
-                        loaded.state.Value <- finalState
                         Ok(accepted
                             loaded
                             ackEvents
@@ -210,24 +196,13 @@ module FileAgent =
                             persistMessage)
 
     let private scheduleCatchUp (loaded: LoadedFile) (nodeId: NodeId) =
-        match loaded.collect.Value with
-        | None -> ()
-        | Some collect ->
-            let post = loaded.state.Value.graph
-            match Map.tryFind nodeId post.nodes with
-            | Some node when
-                node.parseState = ParseState.Parsed
-                && node.persistState = PersistState.Unpersisted ->
-                collect {
-                    nodeIds = [ nodeId ]
-                    dataDir = Some loaded.dataDir
-                    preGraph = loaded.lastPersisted.Value
-                    postGraph = post
-                    ops = []
-                    kind = PersistKind.Change
-                    notify = true
-                }
-            | _ -> ()
+        let post = loaded.state.Value.graph
+        match Map.tryFind nodeId post.nodes with
+        | Some node when
+            node.parseState = ParseState.Parsed
+            && node.persistState = PersistState.Unpersisted ->
+            pushIds loaded [ nodeId ] |> ignore
+        | _ -> ()
 
     /// A clean Edit write checkpoints the event id. A soft-fail keeps the
     /// meta behind the log for the rest of this process.
@@ -325,7 +300,7 @@ module FileAgent =
           persistClean = ref true
           lastPersisted = ref loadedState.graph
           pendingCheckpoint = ref []
-          collect = ref None
+          stack = ref None
           persistFinished = ref None }
 
     let private startPersist
@@ -333,20 +308,19 @@ module FileAgent =
         (dependencies: FileAgentDependencies)
         =
         loaded.lastPersisted.Value <- loaded.state.Value.graph
-        let collect, consumer, requestStop = PersistCollectors.create ()
-        loaded.collect.Value <- Some collect
+        let stack = PersistRequestStack.create ()
+        loaded.stack.Value <- Some stack
         let join =
             PersistThread.start {
                 currentState = fun () -> Volatile.Read(&loaded.state).Value
-                consumer = consumer
-                persistOps = dependencies.persistGraphOps
-                persistChange = DocumentPersistChange.persistGraphChange
-                finish = PersistThread.finishWhenBound loaded.persistFinished
+                take = fun () -> PersistRequestStack.takeUntilStop stack
+                persistNode =
+                    fun graph nodeId ->
+                        dependencies.persistNode loaded.dataDir graph nodeId
                 postNotice = PersistThread.postWhenBound loaded.persistFinished
-                changeFailed = fun _ _ -> ()
             }
         fun () ->
-            requestStop ()
+            PersistRequestStack.stop stack
             join ()
 
     let createWithDependencies

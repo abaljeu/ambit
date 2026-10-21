@@ -60,8 +60,8 @@ let private editBody bodyId =
     } ]
 
 let private throwingPersist
-    : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
-    fun _ _ _ _ ->
+    : string -> Graph -> NodeId -> Result<DateTime, string> =
+    fun _ _ _ ->
         raise (InvalidOperationException("injected persistence failure"))
 
 let private persistFailed events =

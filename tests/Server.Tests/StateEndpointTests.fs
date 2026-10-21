@@ -1274,7 +1274,7 @@ let ``New server uses snapshot + log replay`` () = task {
                     events
                     |> List.exists (fun event ->
                         match event.body with
-                        | EventBody.Notice (Notice.NodeStamped _) -> true
+                        | EventBody.Notice (Notice.NodePersisted _) -> true
                         | _ -> false))
         let ops = [ Op.SetText(firstId, "first", "updated") ]
         let update =
@@ -1293,14 +1293,14 @@ let ``New server uses snapshot + log replay`` () = task {
                     CoreMailboxApi.getEventsSince host1 EventId.zero
                     |> Async.StartAsTask)
                 (fun events ->
-                    let stamps =
+                    let persisted =
                         events
                         |> List.filter (fun event ->
                             match event.body with
-                            | EventBody.Notice (Notice.NodeStamped _) ->
+                            | EventBody.Notice (Notice.NodePersisted _) ->
                                 true
                             | _ -> false)
-                    stamps.Length >= 2)
+                    persisted.Length >= 2)
         return ()
     finally
         CoreMailboxApi.dispose host1
@@ -1316,7 +1316,7 @@ let ``New server uses snapshot + log replay`` () = task {
                 |> Seq.map snd
                 |> Seq.find (fun n -> n.text = "updated")
             Assert.Equal("updated", child.text)
-            Assert.Equal(EventId.fromJson 6, state.eventId)
+            Assert.Equal(EventId.fromJson 4, state.eventId)
     finally
         CoreMailboxApi.dispose host2
 }

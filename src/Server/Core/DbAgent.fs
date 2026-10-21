@@ -1,6 +1,7 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
 open System.Threading
 open System.Threading.Tasks
 open Gambol.Shared
@@ -30,9 +31,8 @@ module DbAgent =
         startupError: string option ref
         connectionString: string
         liveSaveDataDir: string option
-        persistGraphOps:
-            string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
-        collect: (PersistSubmit -> unit) option ref
+        persistNode: string -> Graph -> NodeId -> Result<DateTime, string>
+        stack: PersistRequest BlockingCollection option ref
     }
 
     type private LivePersist = {
@@ -91,7 +91,7 @@ module DbAgent =
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
-        persistGraphOps
+        persistNode
         : LoadedPersist =
         { state = ref initialState
           baselineGraph = ref initialState.graph
@@ -110,8 +110,8 @@ module DbAgent =
           startupError = ref None
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
-          persistGraphOps = persistGraphOps
-          collect = ref None }
+          persistNode = persistNode
+          stack = ref None }
 
     let private trimDeletedIds loaded deletedIds =
         let deletedNodeIds = deletedIds |> List.map NodeId
@@ -226,7 +226,7 @@ module DbAgent =
         events
         |> List.collect (fun event ->
             Ev.ops event |> Option.defaultValue [])
-        |> List.choose PersistCollectors.opAnchor
+        |> List.choose PersistThread.opAnchor
         |> List.choose (GraphQuery.enclosingWorkspace graph)
         |> List.distinct
 
@@ -235,24 +235,13 @@ module DbAgent =
         loaded.diffWorkspaces.Value <-
             loaded.diffWorkspaces.Value @ more |> List.distinct
 
-    let private enqueueFileDiff
-        loaded
-        (ids: NodeId list)
-        (preGraph: Graph)
-        (postGraph: Graph)
-        =
-        match loaded.collect.Value with
+    let private pushIds (loaded: LoadedPersist) (ids: NodeId list) =
+        match loaded.stack.Value with
         | None -> ()
-        | Some collect ->
-            collect {
-                nodeIds = ids
-                dataDir = loaded.liveSaveDataDir
-                preGraph = preGraph
-                postGraph = postGraph
-                ops = []
-                kind = PersistKind.Change
-                notify = true
-            }
+        | Some stack ->
+            ids
+            |> List.iter (fun nodeId ->
+                PersistRequestStack.push stack { nodeId = nodeId })
 
     let private startFileDiff loaded =
         let graph = loaded.state.Value.graph
@@ -261,7 +250,7 @@ module DbAgent =
         let pending = loaded.diffWorkspaces.Value
         loaded.diffWorkspaces.Value <- []
         let unparsed id =
-            PersistCollectors.unparsedNode graph id
+            PersistThread.unparsedNode graph id
         let ids =
             pending
             |> List.filter (fun id ->
@@ -286,11 +275,7 @@ module DbAgent =
             loaded.diffInProgress.Value <- true
             loaded.diffIds.Value <- ids
             loaded.diffMarksLeft.Value <- List.length ids
-            enqueueFileDiff
-                loaded
-                ids
-                loaded.baselineGraph.Value
-                loaded.state.Value.graph
+            pushIds loaded ids
 
     let private requestFileDiff loaded =
         match loaded.persistFinished.Value with
@@ -315,34 +300,22 @@ module DbAgent =
         notifiedIds = []
     }
 
-    let private submitLiveOps loaded dataDir preGraph postGraph ops =
-        match loaded.collect.Value with
-        | None -> Error "persist collectors are not bound"
-        | Some collect ->
-            let notifyIds =
-                PersistCollectors.owningSpecials postGraph ops
-                |> List.filter (PersistCollectors.openNode postGraph)
+    let private submitLiveOps loaded postGraph ops =
+        match loaded.stack.Value with
+        | None -> Error "persist stack is not bound"
+        | Some _ ->
             loaded.pendingNotify.Value <-
-                loaded.pendingNotify.Value @ notifyIds
-            collect {
-                nodeIds = PersistCollectors.owningSpecials postGraph ops
-                dataDir = Some dataDir
-                preGraph = preGraph
-                postGraph = postGraph
-                ops = ops
-                kind = PersistKind.Ops
-                notify = true
-            }
+                PersistThread.owningSpecials postGraph ops
             Ok(liveOf None false)
 
-    let private persistLiveChange loaded graphOnly preGraph newState fresh =
+    let private persistLiveChange loaded graphOnly _preGraph newState fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
-        | false, Some dataDir, _::_ ->
+        | false, Some _, _::_ ->
             let ops =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            submitLiveOps loaded dataDir preGraph newState.graph ops
+            submitLiveOps loaded newState.graph ops
         | _ -> Ok(liveOf None true)
 
     let private preparePostChange newState confirmations =
@@ -363,9 +336,14 @@ module DbAgent =
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> persistGraphProjection loaded stateToStore ackEvents)
         with
-        | Error err -> Error err
+        | Error err ->
+            loaded.pendingNotify.Value <- []
+            Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
+            let ids = loaded.pendingNotify.Value
+            loaded.pendingNotify.Value <- []
+            pushIds loaded ids
             if graphOnly then
                 loaded.baselineGraph.Value <- stateToStore.graph
             elif not (List.isEmpty fresh) && live.allowFileDiff then
@@ -456,24 +434,6 @@ module DbAgent =
                 if loaded.diffNeeded.Value then
                     requestFileDiff loaded
 
-    /// A failed Change leaves those nodes Unpersisted. Drop the batch
-    /// so a later post can try again. Do not post NodePersisted.
-    let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
-        eprintfn "DbAgent: failed to write live documents: %s" err
-        let hitsBatch =
-            loaded.diffInProgress.Value
-            && List.exists
-                (fun id -> List.contains id loaded.diffIds.Value)
-                ids
-        if hitsBatch then
-            let pending = loaded.diffIds.Value
-            loaded.diffIds.Value <- []
-            loaded.diffMarksLeft.Value <- 0
-            loaded.diffInProgress.Value <- false
-            loaded.diffWorkspaces.Value <-
-                List.distinct (pending @ loaded.diffWorkspaces.Value)
-            loaded.diffNeeded.Value <- true
-
     let private eventsSince loaded after =
         EventLog.since after loaded.eventLog.Value |> fun log -> log.events
 
@@ -514,11 +474,7 @@ module DbAgent =
         match loaded.liveSaveDataDir with
         | None -> ()
         | Some _ ->
-            enqueueFileDiff
-                loaded
-                [ nodeId ]
-                loaded.baselineGraph.Value
-                loaded.state.Value.graph
+            pushIds loaded [ nodeId ]
 
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
         match Map.tryFind nodeId loaded.state.Value.graph.nodes with
@@ -538,8 +494,17 @@ module DbAgent =
         loaded.pendingNotify.Value <- []
         pending
 
+    /// A failed write leaves the node Unpersisted. Drop an in-progress
+    /// file diff so a later post can try again.
     let private noteWriteFailed (loaded: LoadedPersist) () =
         loaded.pendingNotify.Value <- []
+        if loaded.diffInProgress.Value then
+            let pending = loaded.diffIds.Value
+            loaded.diffIds.Value <- []
+            loaded.diffMarksLeft.Value <- 0
+            loaded.diffInProgress.Value <- false
+            loaded.diffWorkspaces.Value <-
+                List.distinct (pending @ loaded.diffWorkspaces.Value)
         loaded.diffNeeded.Value <- true
 
     let private noteStamped
@@ -639,11 +604,25 @@ module DbAgent =
             return Error error
     }
 
+    /// No data directory: there is no file. Keep the node's current time.
+    let private persistLive
+        (dataDir: string option)
+        (persistNode: string -> Graph -> NodeId -> Result<DateTime, string>)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : Result<DateTime, string> =
+        match dataDir with
+        | Some dir -> persistNode dir graph nodeId
+        | None ->
+            match Map.tryFind nodeId graph.nodes with
+            | None -> Error "node not found"
+            | Some node -> Ok(NodeUpdateTime.toDbPrecision node.updateTime)
+
     let private createLoaded
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
-        persistGraphOps
+        persistNode
         (runStartupSweep:
             Graph -> Result<DatabaseProjection.ProjectionMaintenanceResult, string>)
         : DbAgent =
@@ -652,24 +631,27 @@ module DbAgent =
                 initialState
                 connectionString
                 liveSaveDataDir
-                persistGraphOps
+                persistNode
         let recovered = loadReconciled connectionString initialState
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
-        let collect, consumer, requestStop = PersistCollectors.create ()
-        loaded.collect.Value <- Some collect
+        let stack = PersistRequestStack.create ()
+        loaded.stack.Value <- Some stack
         let join =
             PersistThread.start {
                 currentState = fun () -> Volatile.Read(&loaded.state).Value
-                consumer = consumer
-                persistOps = loaded.persistGraphOps
-                persistChange = DocumentPersistChange.persistGraphChange
-                finish = PersistThread.finishWhenBound loaded.persistFinished
+                take = fun () -> PersistRequestStack.takeUntilStop stack
+                persistNode =
+                    fun graph nodeId ->
+                        persistLive
+                            loaded.liveSaveDataDir
+                            loaded.persistNode
+                            graph
+                            nodeId
                 postNotice = PersistThread.postWhenBound loaded.persistFinished
-                changeFailed = changeFailed loaded
             }
         let stopPersist () =
-            requestStop ()
+            PersistRequestStack.stop stack
             join ()
         { filling =
             { handlers = persistHandlers loaded
@@ -718,7 +700,7 @@ module DbAgent =
             initialState
             connectionString
             liveSaveDataDir
-            DocumentPersistChange.persistGraphOps
+            DocumentPersistChange.persistNode
             (liveStartupSweep connectionString)
 
     let private wrapFakeSweep
@@ -739,7 +721,7 @@ module DbAgent =
             initialState
             ""
             None
-            DocumentPersistChange.persistGraphOps
+            DocumentPersistChange.persistNode
             (wrapFakeSweep runStartupSweep)
 
     /// Test-only seam: injects a stand-in for the live-persist step (and an optional
@@ -748,14 +730,14 @@ module DbAgent =
     let createForTestWithDependencies
         (initialState: State)
         (liveSaveDataDir: string option)
-        persistGraphOps
+        persistNode
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         createLoaded
             initialState
             ""
             liveSaveDataDir
-            persistGraphOps
+            persistNode
             (wrapFakeSweep runStartupSweep)
 
     let createWithDataDir
