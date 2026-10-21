@@ -48,8 +48,8 @@ Use [[.agents/skills/code-review/SKILL.md]]. The Arch pass in that review is the
 
 Complete the ticket's Finish-up section ([[.agents/skills/to-tickets/PUBLISH.md]]).
 
-Done: the ticket's What to build is implemented and verified, and Finish-up is complete. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
+Done: the ticket's What to build is implemented and verified, and Finish-up is complete. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only.
 
-Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
+Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:`. Backfill from this chat and commits when a session was not logged.
 
 Write a PR body, use [[.agents/skills/pr/SKILL.md]].
