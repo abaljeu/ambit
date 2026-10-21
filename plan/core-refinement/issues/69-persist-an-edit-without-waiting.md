@@ -18,7 +18,7 @@ Rules:
 
 1. Stamps and persist results reach the core through Notices.
 2. The mailbox does not wait on a document write.
-3. A failed write does not fail the edit. `PersistThread.afterWrite` posts `Notice.PersistFailed` for each node, and the handler leaves the persist field unchanged.
+3. A failed write does not fail the edit. `PersistThread.afterWrite` posts `Notice.PersistFailed` for each node, and the handler leaves the persist field unchanged. The browser shows the write error in `CmdLastResult`.
 
 This ticket does not change `Notice.NodePersisted`. It comes before [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md).
 
@@ -31,13 +31,15 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 1. [ ] **Remove the wait** — Delete `PersistSubmit.wait`, `PersistCollectors.waitReply`, `PersistWork.reply`, `PersistThread.reply` and `PersistOutcome`. `PersistCollectors.collect` pushes the submit and returns `unit`. `FileAgent.collectPersist` and `DbAgent.submitLiveOps` no longer read an outcome, so `acceptWrote` and `failedKept` go too.
 2. [ ] **Stamp Notice** — Add `Notice.NodeStamped`. `PersistThread.afterWrite` posts it through `CoreMailboxApi.postNotice` when that Edit write finishes with a stamped graph. The Notice carries the stamp ops from `PersistStamp.opsBetween` and the persist message. `CoreMailboxLoad.applyNotice` applies those ops and logs the Notice. This Notice is separate from `Notice.NodePersisted`.
 3. [ ] **Ack** — For an Edit, `FileAgent.preparePostChange` and `DbAgent.preparePostChange` build the ack and the stored Change from the Edit's own events. `CoreChangesAccepted.message` carries the Edit's own result.
+4. [ ] **Failed write** — When a poll brings `Notice.PersistFailed`, the browser's `PollDone` handler in `Update.fs` sets `lastCmdResult` to `CmdLastResult.Error (None, message)`. The Notice starts no catch-up.
 
 ### Acceptance Criteria
 
 1. [ ] **No wait** — An Edit reply returns while the persist thread still holds the write. The reply is success. No code path waits on the persist thread.
 2. [ ] **Stamp** — After `CoreMailboxLoad.applyNotice` applies `Notice.NodeStamped`, the graph has those stamp ops. A later poll returns that Notice.
 3. [ ] **Ack** — The ack events are the Edit's own events, and the ack message is the Edit's own result.
-4. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+4. [ ] **Failed write** — After a poll with `Notice.PersistFailed`, `lastCmdResult` holds that write error and the graph is unchanged.
+5. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
 
