@@ -13,7 +13,7 @@ Upstream is mattpocock/skills `skills/engineering/retro` (v1.3). This skill is u
 
 - `CODING_STANDARDS.md` is not a file in this repo. Judgement rules live in [[.agents/rules/]]. Review procedure is [[.agents/skills/code-review/SKILL.md]]. Smells live in [[.agents/skills/code-review/SMELLS.md]]. The mechanical scan is `standards-scan.py`.
 - [[AGENTS.md]] is the entry router: all agents, then main agent, then sub agent. Normative rules live in the role file. Catalog edits go in gambol.md through [[.agents/skills/prepare-agent-instruction-change/SKILL.md]].
-- Checks to read first are `dotnet test`, the code-review scan, and CI. `package.json` is not the primary check list.
+- Checks to read first are `scripts/agent-test.sh`, the code-review scan, and CI. `package.json` is not the primary check list.
 - Product deepening stays [[.agents/skills/improve-codebase-architecture/SKILL.md]]. [[.agents/skills/diagnosing-bugs/SKILL.md]] Phase 6 already hands architecture to that skill. This change does not replace that handoff.
 - [[.agents/skills/handoff/SKILL.md]] carries a session to another harness. This skill does not write a handoff.
 - [[.agents/skills/maintain-doc-currency/SKILL.md]] owns `doc/` placement. The default target here is the agent environment under `.agents/`.

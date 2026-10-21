@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    dotnet test on a project invokes the VSTest target. Visual Studio and the
+    Cursor test explorer build the project, then host vstest themselves, so
+    they do not run this target.
+  -->
+  <PropertyGroup>
+    <AmbitTestProject Condition="'$(IsTestProject)' == 'true' OR $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">true</AmbitTestProject>
+  </PropertyGroup>
+
+  <Target Name="RequireAgentTestFilter"
+          BeforeTargets="VSTest"
+          Condition="'$(AmbitTestProject)' == 'true' AND '$(VSTestTestCaseFilter)' == '' AND '$(AMBIT_FULL_SUITE)' != '1'">
+    <Error Text="Refusing an unfiltered test run. Use scripts/agent-test.sh for a focused run, or scripts/agent-test.sh --full for the full suite." />
+  </Target>
+</Project>

@@ -4,11 +4,12 @@ Invocations for [[SKILL.md]].
 
 ## Foreground
 
-Use `dotnet test` with a filter. The vscode test runner hangs.
+Run `scripts/agent-test.sh` and wait. That command tests the files edited against `origin/staging`.
+
+To run one module:
 
 ```bash
-dotnet build tests/Shared.Tests -c Debug
-dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
+scripts/agent-test.sh --filter "FullyQualifiedName~YourTestModule" shared
 ```
 
 Replace `YourTestModule` with the test module that covers the change.
@@ -23,14 +24,8 @@ Replace `YourTestModule` with the test module that covers the change.
 
 ## Background
 
-Shared:
-
 ```bash
-./scripts/test.sh shared
+scripts/agent-test.sh --full
 ```
 
-Shared and Server:
-
-```bash
-./scripts/test.sh all
-```
+Do not wait. The command prints the log path and the PID.
