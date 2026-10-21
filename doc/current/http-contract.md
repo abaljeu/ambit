@@ -239,7 +239,7 @@ sequenceDiagram
 10. [x] **Field p.** `p` is the latest write time of the page artifacts in wwwroot, in Unix seconds. When those files are missing, `p` is the server assembly write time.
 11. [x] **Field v.** `v` is the API version integer.
 12. [x] **Field ready.** `ready` is a boolean.
-13. [x] **Field externalChanges.** On poll, `externalChanges` is `true` when `c` has one or more events.
+13. [x] **Field externalChanges.** On poll, `externalChanges` is `true` when `c` has an event whose body is not a Notice. A Notice rides in `c` and does not set the flag.
 14. [x] **Field c.** `c` is the events after the client `eventId`. The field is required. It may be empty. Each item is an Event object.
 15. [x] **Field nodes.** `nodes` is the want-answer Node array. The field is required. It may be empty.
 16. [x] **Field childMap.** `childMap` is the want-answer edge array. The field is required. It may be empty.
@@ -331,7 +331,7 @@ sequenceDiagram
 ```
 
 12. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
-13. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
+13. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when a later event is not a Notice. A later Notice still rides in `c`.
 14. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
 15. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
 16. [o] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
@@ -574,7 +574,7 @@ Graph {
 2. [o] **Local edit.** The client builds an event whose `eventId` is `0` and whose `submissionId` is new.
 3. [ ] **Local edit.** The client builds an `Order` whose `orderId` is new. `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 16 Order carries its envelope fields.
 4. [x] **Submit.** `POST /ambit/changes` sends `events` and `want`. On success the client reads `r`, `c`, `nodes`, and `childMap`.
-5. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. The client applies the `c` tail when it is behind.
+5. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. The client applies the `c` tail when it is behind. A Notice in that tail does not start a catch-up, a rewind, or a replay. Another client's Change still does.
 6. [x] **Resync.** When a resync is needed, `GET /ambit/state` returns the graph.
 7. [x] **Conflicts.** Conflict handling is last-write-wins, in server apply order. Detail: [Multi-client sync](sync-mvp.md).
 8. [o] **Undo.** Undo and redo are client-local. The client posts undo and redo events. Server undo and redo endpoints are absent.

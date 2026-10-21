@@ -72,6 +72,11 @@ module Api =
                         event.id <= snapshotId)
         }
 
+    let private countsAsExternal (event: Ev) =
+        match event.body with
+        | EventBody.Notice _ -> false
+        | _ -> true
+
     let postPoll
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -101,7 +106,8 @@ module Api =
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = CoreDoor.isReady handle
-                          externalChanges = not events.IsEmpty
+                          externalChanges =
+                            List.exists countsAsExternal events
                           events = events
                           message = None
                           bootstrapHash = None
@@ -229,7 +235,7 @@ module Api =
               isReady = accepted.isReady
               externalChanges =
                 accepted.externalChanges
-                || not laterEvents.IsEmpty
+                || List.exists countsAsExternal laterEvents
               events = accepted.events @ laterEvents
               message = accepted.message
               bootstrapHash = None

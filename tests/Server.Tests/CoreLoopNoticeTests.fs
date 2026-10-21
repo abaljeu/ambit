@@ -118,12 +118,12 @@ let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``SnapshotDone sets Persisted and calls the diff hook`` () =
+let ``NodePersisted sets Persisted and calls the diff hook`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.SnapshotDone id)
+    apply (handlers state snaps) (Notice.NodePersisted id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
@@ -259,7 +259,7 @@ let ``axis write failure is returned`` () =
     let rejected =
         CoreMailboxLoad.applyNotice
             (handlers state snaps)
-            (Notice.SnapshotDone Graph.workspacesId)
+            (Notice.NodePersisted Graph.workspacesId)
     Assert.Equal(
         Error "workspaces is not a graph document",
         rejected)
@@ -308,7 +308,7 @@ let ``mailbox queue applies ParseFinished`` () =
     }
 
 [<Fact>]
-let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
+let ``mailbox queue applies NodePersisted off CoreMsg`` () =
     task {
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Parsed
@@ -316,7 +316,7 @@ let ``mailbox queue applies SnapshotDone off CoreMsg`` () =
         let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.postNotice host (Notice.SnapshotDone id)
+            CoreMailboxApi.postNotice host (Notice.NodePersisted id)
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

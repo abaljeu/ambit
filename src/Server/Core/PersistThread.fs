@@ -45,7 +45,7 @@ module PersistThread =
                 not (PersistCollectors.unparsedNode submit.postGraph id))
 
     /// A Change job writes differing document files. One Unparsed
-    /// submitted id blocks that write. The caller does not get SnapshotDone.
+    /// submitted id blocks that write. The caller does not get NodePersisted.
     let private changeBlocked (submit: PersistSubmit) =
         submit.kind = PersistKind.Change
         && submit.nodeIds
@@ -142,4 +142,4 @@ module PersistThread =
         (slot: (Notice -> unit) option ref)
         (nodeId: NodeId)
         =
-        postWhenBound slot (Notice.SnapshotDone nodeId)
+        postWhenBound slot (Notice.NodePersisted nodeId)

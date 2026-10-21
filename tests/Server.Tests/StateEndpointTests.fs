@@ -256,7 +256,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.True(post.buildEpochSec > 0)
         Assert.True(post.pageBuildEpochSec > 0)
         Assert.True(post.isReady)
-        Assert.True(post.externalChanges)
+        Assert.False(post.externalChanges)
         Assert.Equal<Guid list>(
             [ change.submissionId; undo.submissionId; redo.submissionId ],
             changesOnly post.events
@@ -279,6 +279,26 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         Assert.Equal<Ev list>(
             List.rev (changesOnly post.events),
             changesOnly poll.events)
+    })
+
+[<Fact>]
+let ``Edit reply with only a persist Notice has no external changes`` () =
+    withClient (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let change, _ = changeAddChild rootId 0 "persist-notice"
+        let! response = postChange client testFile change
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+        let! ackJson = response.Content.ReadAsStringAsync()
+        let post = decodeSuccess ackJson
+        Assert.False(post.externalChanges)
+        Assert.Contains(change.submissionId, decodeAckChangeIds ackJson)
+        Assert.True(
+            post.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.Notice (Notice.NodePersisted _) -> true
+                | _ -> false))
     })
 
 [<Fact>]

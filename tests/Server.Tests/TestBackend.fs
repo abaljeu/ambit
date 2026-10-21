@@ -428,7 +428,7 @@ let changeEvent commandName (id: EventId) submissionId ops : Ev =
       commandName = commandName
       body = EventBody.Change ops }
 
-/// Persisted changes also append Notice.SnapshotDone. These are the other events.
+/// Persisted changes also append Notice.NodePersisted. These are the other events.
 let changesOnly (events: Ev list) =
     events
     |> List.filter (fun event ->

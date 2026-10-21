@@ -46,7 +46,7 @@ let private okGraph post _ =
     Ok { graph = post; message = None }
 
 [<Fact>]
-let ``open node calls persist ops and adds SnapshotDone`` () =
+let ``open node calls persist ops and adds NodePersisted`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
     let collect, calls, finishes, _failures, _notices =
         startWith okGraph (fun post -> okGraph post [])
@@ -94,7 +94,7 @@ let ``Unparsed node is blocked and does not call persist`` () =
     Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
 
 [<Fact>]
-let ``snapshot change calls persist change and adds SnapshotDone`` () =
+let ``snapshot change calls persist change and adds NodePersisted`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
     let collect, calls, finishes, _failures, _notices =
         startWith okGraph (fun post -> okGraph post [])
@@ -151,7 +151,7 @@ let ``Change is blocked when any submitted node is Unparsed`` () =
     Assert.Empty(notices)
 
 [<Fact>]
-let ``failed Change does not add SnapshotDone`` () =
+let ``failed Change does not add NodePersisted`` () =
     let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
     let other = NodeId.New()
     let collect, calls, finishes, failures, notices =

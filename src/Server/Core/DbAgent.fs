@@ -499,7 +499,7 @@ module DbAgent =
                     requestFileDiff loaded
 
     /// A failed Change leaves those nodes Unpersisted. Drop the batch
-    /// so a later post can try again. Do not post SnapshotDone.
+    /// so a later post can try again. Do not post NodePersisted.
     let private changeFailed (loaded: LoadedPersist) (ids: NodeId list) (err: string) =
         eprintfn "DbAgent: failed to write live documents: %s" err
         let hitsBatch =

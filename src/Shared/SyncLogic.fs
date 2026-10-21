@@ -54,6 +54,11 @@ module SyncLogic =
                 | Some _ as existing -> existing
                 | None -> note }
 
+    let private isNoticeEvent (event: Ev) =
+        match event.body with
+        | EventBody.Notice _ -> true
+        | _ -> false
+
     /// EventLog storage is newest-head. Apply from the older id upward.
     let private inStoredOrder (events: Ev list) =
         events |> List.sortBy (fun event -> EventId.value event.id)
@@ -66,6 +71,8 @@ module SyncLogic =
             // Already applied. An append-style Replace is not idempotent.
             if event.id <= st.eventId then
                 Ok(st, undid)
+            elif isNoticeEvent event then
+                Ok({ st with eventId = event.id }, undid)
             else
                 let ops = Ev.ops event |> Option.defaultValue []
                 let mark = Op.marksOwningPersist event.commandName
@@ -199,8 +206,11 @@ module SyncLogic =
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
+        let substantive =
+            response.events
+            |> List.filter (fun event -> not (isNoticeEvent event))
         let answerOnly =
-            List.isEmpty response.events
+            List.isEmpty substantive
             && not (List.isEmpty response.nodes)
         if
             answerOnly
@@ -226,7 +236,9 @@ module SyncLogic =
           pageBuildEpochSec = response.pageBuildEpochSec
           apiVersion = response.apiVersion
           isReady = response.isReady
-          externalChanges = not response.events.IsEmpty
+          externalChanges =
+            response.events
+            |> List.exists (fun event -> not (isNoticeEvent event))
           events = response.events
           message = None
           bootstrapHash = None
@@ -312,10 +324,14 @@ module SyncLogic =
     let private eventOps (event: Ev) =
         Ev.ops event |> Option.defaultValue []
 
+    let private dropNotices (events: Ev list) =
+        events |> List.filter (fun event -> not (isNoticeEvent event))
+
     let private identityError
         (submitted: Ev list)
         (confirmed: Ev list)
         : string option =
+        let confirmed = dropNotices confirmed
         if confirmed.Length < submitted.Length then
             Some "missing confirmation"
         elif confirmed.Length > submitted.Length then
@@ -337,6 +353,7 @@ module SyncLogic =
         (submitted: Ev list)
         (confirmed: Ev list)
         : Result<Op list, string> =
+        let confirmed = dropNotices confirmed
         let rec loop acc submittedItems (confirmedItems: Ev list) =
             match submittedItems, confirmedItems with
             | [], [] -> Ok (List.concat (List.rev acc))

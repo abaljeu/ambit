@@ -395,3 +395,40 @@ let ``amended confirmation echo routes through external ACK not Reject`` () =
         failwithf "expected external Applied, got Rejected: %s" msg
     | AckReconcile.Ignored -> failwith "expected Applied, got Ignored"
     Assert.False(SyncLogic.isConfirmationEcho [ pending ] amended)
+
+[<Fact>]
+let ``Notice in the reply keeps the confirmation echo`` () =
+    let nodeId, state, pending = seededEdit ()
+    let notice =
+        { pending with
+            id = EventIdFixtures.storedId 2
+            submissionId = Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = "Edit node"
+            body = EventBody.Notice (Notice.NodePersisted nodeId) }
+    let confirmed = [ confirm pending []; notice ]
+    Assert.True(SyncLogic.isConfirmationEcho [ pending ] confirmed)
+    let applied =
+        SyncLogic.reconcileAck
+            [ pending ]
+            confirmed
+            (EventIdFixtures.storedId 2)
+            state
+            (sending [ pending ])
+    let _, syncInfo, _, _ = expectApplied applied
+    Assert.True(syncInfo.catchUp.IsNone)
+    let foreign =
+        { confirm pending [] with
+            submissionId = Guid.NewGuid()
+            body = EventBody.Change [ Op.SetText(nodeId, "before", "other") ] }
+    Assert.False(SyncLogic.isConfirmationEcho [ pending ] [ foreign; notice ])
+    match
+        SyncLogic.reconcileExternalAck
+            [ pending ]
+            (EventIdFixtures.storedId 3)
+            state
+            (sending [ pending ])
+    with
+    | AckReconcile.Applied (_, caught, _, _) ->
+        Assert.True(caught.catchUp.IsSome)
+    | other -> failwithf "expected catch-up Applied, got %A" other
