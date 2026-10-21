@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [70 — Add the persist request stack](70-add-the-persist-request-stack.md); [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md)
+**Blocked by:** [70 — Add the persist request stack](70-add-the-persist-request-stack.md); [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md); [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md)
 **Trackers:** architecture
 
 ## Context
@@ -14,13 +14,13 @@ Part 2 of [51 — Stand the persist stack](51-stand-the-persist-stack.md). The p
 1. [ ] **Write one node** — Add `DocumentPersistChange.persistNode dataDir graph nodeId`. It writes that node's document file from the given graph.
 2. [ ] **Push** — Each place that submits to the collector pushes one `PersistRequest` per node instead, with the graph at that moment.
 3. [ ] **Take** — The existing persist thread `take`s a request and calls `persistNode` with the request's graph. It does not query the mailbox and does not edit the graph.
-4. [ ] **Finish** — On success it posts `Notice.SnapshotDone nodeId`. On failure it posts `Notice.PersistFailed` from [75](75-a-failed-write-does-not-fail-the-edit.md) and fails no edit.
+4. [ ] **Finish** — On success it posts `Notice.NodePersisted nodeId` ([77](77-rename-snapshotdone-and-notices-start-no-catch-up.md) renames `SnapshotDone`). On failure it posts `Notice.PersistFailed` from [75](75-a-failed-write-does-not-fail-the-edit.md) and fails no edit.
 5. [ ] **Remove** — Delete the collector queue, `PersistWork` and `PersistSubmit`.
 
 ### Acceptance Criteria
 
 1. [ ] **Test** — `persist thread writes from the request graph`.
-2. [ ] **Test** — `persist thread posts SnapshotDone on success only`.
+2. [ ] **Test** — `persist thread posts NodePersisted on success only`.
 3. [ ] **Still working** — Upload, import, parse, Load, undo and persist still complete. The server starts no extra thread.
 
 ## Finish-up
