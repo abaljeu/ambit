@@ -106,9 +106,18 @@ let ``persist thread writes from the live graph`` () =
     let text = File.ReadAllText path
     Assert.Contains("after-edit", text)
     Assert.DoesNotContain("before", text)
-    match Assert.Single(notices) with
-    | Notice.NodePersisted (id, _) -> Assert.Equal(fileId, id)
-    | other -> Assert.Fail($"expected NodePersisted, got {other}")
+    let persisted =
+        notices
+        |> Seq.tryPick (function
+            | Notice.NodePersisted (id, _) -> Some id
+            | _ -> None)
+    let stamped =
+        notices
+        |> Seq.exists (function
+            | Notice.NodeStamped _ -> true
+            | _ -> false)
+    Assert.Equal(Some fileId, persisted)
+    Assert.True(stamped, "expected NodeStamped after the write")
 
 [<Fact>]
 let ``repeated pushes write once`` () =
@@ -174,9 +183,12 @@ let ``persist thread posts NodePersisted on success only`` () =
 
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
-    Assert.Equal<Notice list>(
-        [ Notice.NodePersisted(okId, written) ],
-        okNotices)
+    match okNotices with
+    | [ Notice.NodePersisted (id, time); Notice.NodeStamped (_, None) ] ->
+        Assert.Equal(okId, id)
+        Assert.Equal(written, time)
+    | other ->
+        Assert.Fail($"expected persisted then stamped, got {other}")
 
     let badId, badNotices = run (fun _ _ -> Error "disk full")
     Assert.Equal<Notice list>(
@@ -237,8 +249,13 @@ let ``NodePersisted carries the written file time`` () =
         |> requireOk "path"
     let fileTime =
         File.GetLastWriteTimeUtc path |> NodeUpdateTime.toDbPrecision
-    match Assert.Single(notices) with
-    | Notice.NodePersisted (id, updateTime) ->
+    match
+        notices
+        |> Seq.tryFind (function
+            | Notice.NodePersisted _ -> true
+            | _ -> false)
+    with
+    | Some (Notice.NodePersisted (id, updateTime)) ->
         Assert.Equal(fileId, id)
         Assert.Equal(fileTime, updateTime)
         Assert.Equal(fileTime, state.Value.graph.nodes.[fileId].updateTime)
