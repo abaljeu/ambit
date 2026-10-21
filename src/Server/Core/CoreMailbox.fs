@@ -24,7 +24,6 @@ module CoreMailbox =
             MailboxHost.create
                 started.processor
                 persist
-                context.noticeLog
                 session
         persist.bindPersistFinished (CoreMailboxApi.postNotice created)
         started.bindCoreChanges (fun caller ->

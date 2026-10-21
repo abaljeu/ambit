@@ -32,7 +32,7 @@ let ``getEventsSince returns Ev after postChange`` () = task {
                 host
                 (EventId.zero)
             |> Async.StartAsTask
-        let stored = Assert.Single(events)
+        let stored = Assert.Single(changesOnly events)
         Assert.Equal(event.submissionId, stored.submissionId)
         match stored.body with
         | EventBody.Change _ -> ()
@@ -58,7 +58,7 @@ let ``EventLog.restore seeds mailbox across File restart`` () = task {
         let! history =
             CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)
@@ -84,7 +84,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
         let! history =
             CoreMailboxApi.eventHistory second
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.True(EventId.isAccepted stored.id)
         Assert.NotEqual(stored.id, EventLog.nextId history)

@@ -220,9 +220,11 @@ let ``NodeParsing changes nothing`` () =
             Assert.Equal(PersistState.Persisted, node.documentState.persistState)
             Assert.Empty(pushes)
             Assert.Empty(snaps)
-            Assert.Equal(
-                Notice.NodeParsing id,
-                Assert.Single(MailboxHost.loggedNotices host))
+            let! log =
+                CoreMailboxApi.eventsSince host EventId.zero
+                |> Async.StartAsTask
+            let stored = Assert.Single(log.events)
+            Assert.Equal(EventBody.Notice(Notice.NodeParsing id), stored.body)
         finally
             CoreMailboxApi.dispose host
     }
@@ -250,6 +252,25 @@ let ``axis write failure is returned`` () =
     Assert.Equal(
         PersistState.Unpersisted,
         state.Value.graph.nodes.[id].documentState.persistState)
+
+[<Fact>]
+let ``Posted Notice is on poll`` () =
+    task {
+        let id, initial =
+            fileState PersistState.Persisted ParseState.Parsed
+        let state = ref initial
+        let snaps = ResizeArray<NodeId>()
+        let host = hostFor state snaps
+        try
+            CoreMailboxApi.postNotice host (Notice.NodeParsing id)
+            let! log =
+                CoreMailboxApi.eventsSince host EventId.zero
+                |> Async.StartAsTask
+            let stored = Assert.Single(log.events)
+            Assert.Equal(EventBody.Notice(Notice.NodeParsing id), stored.body)
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``mailbox queue applies ParseFinished`` () =

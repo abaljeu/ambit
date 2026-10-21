@@ -329,7 +329,13 @@ module internal CoreMailboxLoad =
         match item with
         | CoreQueue.Public message -> dispatchMailbox context message
         | CoreQueue.Notice msg ->
-            context.noticeLog := msg :: context.noticeLog.Value
+            let logged =
+                CoreEventDispatch.logNotice
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    msg
+            match logged with
+            | Error err -> reportNotice context err
+            | Ok _ -> ()
             match applyNotice context.persist msg with
             | Ok () -> ()
             | Error err -> reportNotice context err
@@ -397,7 +403,6 @@ module internal CoreMailboxLoad =
           eventLog = ref eventLog
           eventLogSeedError = seedError
           coreChanges = ref None
-          noticeLog = ref []
           session = session },
         reported
 
