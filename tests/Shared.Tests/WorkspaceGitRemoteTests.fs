@@ -10,16 +10,16 @@ let ``repoPath uses locked gateway shape`` () =
 [<Fact>]
 let ``remoteUrl joins ambit base and label`` () =
     Assert.Equal(
-        "http://localhost:5215/ambit/git/home.git",
-        WorkspaceGitRemote.remoteUrl "http://localhost:5215/ambit" "home")
+        "http://localhost:8081/ambit/git/home.git",
+        WorkspaceGitRemote.remoteUrl "http://localhost:8081/ambit" "home")
 
 [<Fact>]
 let ``remoteUrlMatches accepts case-insensitive gateway URL`` () =
     Assert.True(
         WorkspaceGitRemote.remoteUrlMatches
-            "http://localhost:5215/ambit"
+            "http://localhost:8081/ambit"
             "home"
-            "HTTP://LOCALHOST:5215/ambit/git/home.git")
+            "HTTP://LOCALHOST:8081/ambit/git/home.git")
 
 [<Fact>]
 let ``tryLabelFromRepoName accepts label.git`` () =

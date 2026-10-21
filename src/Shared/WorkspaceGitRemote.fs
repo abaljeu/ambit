@@ -64,7 +64,7 @@ module WorkspaceGitRemote =
         sprintf "/ambit/git/%s.git" label
 
     /// Full remote URL. `ambitBase` is the app base ending in `/ambit`
-    /// (e.g. `https://host/ambit` or `http://localhost:5215/ambit`).
+    /// (e.g. `https://host/ambit` or `http://localhost:8081/ambit`).
     let remoteUrl (ambitBase: string) (label: string) : string =
         let baseUrl =
             if isNull ambitBase then "" else ambitBase.TrimEnd('/')

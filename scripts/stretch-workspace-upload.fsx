@@ -8,7 +8,7 @@ let private clientHint = "stretch-workspace-upload"
 let private parseArgs (argv: string[]) =
     let ambitBase =
         if argv.Length > 0 then argv.[0]
-        else "http://127.0.0.1:5215/ambit"
+        else "http://127.0.0.1:8081/ambit"
     let mappedRoot =
         if argv.Length > 1 then argv.[1]
         else "/tmp/ambit-stretch-upload"
