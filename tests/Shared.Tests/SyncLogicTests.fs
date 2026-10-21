@@ -1380,3 +1380,20 @@ let ``NodeStamped applies the stamp and PersistFailed leaves the graph`` () =
                 persist,
                 afterFail.graph.nodes.[nodeId].documentState.persistState)
             Assert.Equal(Some "disk full", SyncLogic.persistFailedMessage [ failed ])
+
+[<Fact>]
+let ``NodePersisted applies the written file time`` () =
+    let st, nodeId = stateWithNode "before"
+    let before = st.graph.nodes.[nodeId].updateTime
+    let fileTime = before.AddMinutes(4.0)
+    let persisted =
+        { id = EventIdFixtures.storedId 3
+          submissionId = System.Guid.NewGuid()
+          authority = Authority ""
+          commandName = ""
+          body =
+            EventBody.Notice(Notice.NodePersisted(nodeId, fileTime)) }
+    match applyTail [ persisted ] st with
+    | Error msg -> failwith msg
+    | Ok next ->
+        Assert.Equal(fileTime, next.graph.nodes.[nodeId].updateTime)

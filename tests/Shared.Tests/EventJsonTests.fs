@@ -139,7 +139,7 @@ let ``Notice JSON round trip`` () =
     let stamp = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
     let notices =
         [ Notice.NodeParsed nodeId
-          Notice.NodePersisted nodeId
+          Notice.NodePersisted(nodeId, stamp)
           Notice.MarkUnparsed nodeId
           Notice.NodeUploading nodeId
           Notice.NodeReceived nodeId
@@ -160,6 +160,7 @@ let ``Notice JSON round trip`` () =
 [<Fact>]
 let ``Stored snapshotDone decodes as NodePersisted`` () =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 10, 21, 18, 0, 0, DateTimeKind.Utc)
     let legacy =
         String.concat
             ""
@@ -170,18 +171,21 @@ let ``Stored snapshotDone decodes as NodePersisted`` () =
               "\"body\":{\"kind\":\"notice\",\"notice\":\"snapshotDone\","
               "\"nodeId\":\""
               nodeId.Value.ToString()
-              "\"}}" ]
+              "\",\"updateTime\":"
+              string stamp.Ticks
+              "}}" ]
     match Dec.fromString EventJson.decode legacy with
     | Error err -> failwith err
     | Ok decoded ->
         match decoded.body with
-        | EventBody.Notice (Notice.NodePersisted id) ->
+        | EventBody.Notice (Notice.NodePersisted (id, time)) ->
             Assert.Equal(nodeId, id)
+            Assert.Equal(stamp, time)
         | other -> failwith $"expected NodePersisted, {other}"
     let current =
         { changeEvent with
             commandName = "Edit node"
-            body = EventBody.Notice (Notice.NodePersisted nodeId) }
+            body = EventBody.Notice (Notice.NodePersisted(nodeId, stamp)) }
     let json = Enc.toString 0 (EventJson.encode current)
     Assert.Contains("\"notice\":\"nodePersisted\"", json)
     Assert.DoesNotContain("snapshotDone", json)

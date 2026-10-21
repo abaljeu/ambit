@@ -672,22 +672,18 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
                             | EventBody.Notice notice -> pred notice
                             | _ -> false)
                     saw (function
-                        | Notice.NodeStamped _ -> true
-                        | _ -> false)
-                    && saw (function
                         | Notice.NodePersisted _ -> true
                         | _ -> false))
-        Assert.Equal(3, tail.Length)
+        Assert.Equal(2, tail.Length)
         Assert.Contains(stored, tail)
         Assert.Equal(event.submissionId, stored.submissionId)
         let! afterStored =
             CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
         match afterStored.events |> List.map (fun event -> event.body) with
-        | [ EventBody.Notice (Notice.NodeStamped _)
-            EventBody.Notice (Notice.NodePersisted _) ] -> ()
+        | [ EventBody.Notice (Notice.NodePersisted _) ] -> ()
         | other ->
-            Assert.Fail($"expected stamp then persisted, got {other}")
+            Assert.Fail($"expected persisted, got {other}")
     })
 
 [<Fact>]

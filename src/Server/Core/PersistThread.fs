@@ -1,125 +1,84 @@
 namespace Gambol.Server
 
+open System
 open System.Threading
 open Gambol.Shared
 
 /// Dependencies for the long-lived persist thread. The thread does not
-/// edit graph axes. finish reports one node whose file write succeeded.
+/// edit graph axes. It reads live state once per taken request.
 type internal PersistThreadDeps = {
     currentState: unit -> State
-    consumer: unit -> PersistWork option
-    persistOps:
-        string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
-    persistChange:
-        string -> Graph -> Graph -> Result<PersistGraphOk, string>
-    finish: NodeId -> unit
+    take: unit -> PersistRequest option
+    persistNode: Graph -> NodeId -> Result<DateTime, string>
     postNotice: Notice -> unit
-    changeFailed: NodeId list -> string -> unit
 }
 
-/// One long-lived persist thread. It pulls collector jobs and calls the
-/// existing persist functions. It is not an Actor and has no MailboxProcessor.
+/// One long-lived persist thread. It takes a node id from the persist
+/// request stack and writes that node from the live graph. It is not an
+/// Actor and has no MailboxProcessor.
 [<RequireQualifiedAccess>]
 module PersistThread =
 
-    let private notify
-        (deps: PersistThreadDeps)
-        (submit: PersistSubmit)
-        (ids: NodeId list)
-        =
-        if submit.notify then
-            ids |> List.iter deps.finish
+    /// Node id an op names, when the op names one.
+    let internal opAnchor (op: Op) : NodeId option =
+        match op with
+        | Op.NewNode(id, _)
+        | Op.SetText(id, _, _)
+        | Op.SetClasses(id, _, _)
+        | Op.NewSpecialNode(id, _, _)
+        | Op.SetName(id, _, _)
+        | Op.SetDocumentState(id, _, _)
+        | Op.Replace(id, _, _) -> Some id
+        | Op.SetUpdateTime _ -> None
 
-    let private notifyIds (submit: PersistSubmit) : NodeId list =
-        match submit.kind with
-        | PersistKind.Ops ->
-            submit.nodeIds
-            |> List.filter (PersistCollectors.openNode submit.postGraph)
-        | PersistKind.Change ->
-            submit.nodeIds
-            |> List.filter (fun id ->
-                not (PersistCollectors.unparsedNode submit.postGraph id))
+    let private ownerOf (graph: Graph) (op: Op) : NodeId option =
+        opAnchor op
+        |> Option.bind (
+            GraphQuery.enclosing graph Node.carriesStateAxes)
 
-    /// A Change job writes differing document files. One Unparsed
-    /// submitted id blocks that write. The caller does not get NodePersisted.
-    let private changeBlocked (submit: PersistSubmit) =
-        submit.kind = PersistKind.Change
-        && submit.nodeIds
-           |> List.exists (
-               PersistCollectors.unparsedNode submit.postGraph)
+    /// True when that node is Unparsed.
+    let internal unparsedNode (graph: Graph) (nodeId: NodeId) : bool =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when
+            node.documentState.parseState = ParseState.Unparsed ->
+            true
+        | _ -> false
 
-    let private blocked (submit: PersistSubmit) (ops: Op list) : bool =
-        let droppedOps =
-            submit.kind = PersistKind.Ops
-            && not (List.isEmpty submit.ops)
-            && List.isEmpty ops
-        droppedOps || changeBlocked submit
+    /// Owning special nodes for these ops, nearest axis carrier first.
+    let internal owningSpecials (graph: Graph) (ops: Op list) : NodeId list =
+        ops
+        |> List.choose (ownerOf graph)
+        |> List.distinct
 
-    let private invoke
-        (deps: PersistThreadDeps)
-        (submit: PersistSubmit)
-        (ops: Op list)
-        : Result<PersistGraphOk, string> =
-        match submit.dataDir with
-        | None -> Ok { graph = submit.postGraph; message = None }
-        | Some dataDir ->
-            match submit.kind with
-            | PersistKind.Ops ->
-                deps.persistOps dataDir submit.preGraph submit.postGraph ops
-            | PersistKind.Change ->
-                deps.persistChange dataDir submit.preGraph submit.postGraph
+    let private persistedNode (state: State) (nodeId: NodeId) : bool =
+        match Map.tryFind nodeId state.graph.nodes with
+        | Some node when
+            node.documentState.persistState = PersistState.Persisted ->
+            true
+        | _ -> false
 
-    let private afterWrite
-        (deps: PersistThreadDeps)
-        (work: PersistWork)
-        (ids: NodeId list)
-        (written: Result<PersistGraphOk, string>)
-        =
-        let submit = work.submit
-        match written with
-        | Error err ->
-            if submit.kind = PersistKind.Change then
-                deps.changeFailed submit.nodeIds err
-            submit.nodeIds
-            |> List.iter (fun nodeId ->
-                deps.postNotice (Notice.PersistFailed(nodeId, err)))
-        | Ok stamped ->
-            let clean = stamped.message.IsNone
-            let tell =
-                submit.notify
-                && (submit.kind = PersistKind.Change || clean)
-            if tell then
-                notify deps submit ids
-            if submit.kind = PersistKind.Ops then
-                let ops =
-                    PersistStamp.opsBetween submit.postGraph stamped.graph
-                deps.postNotice (Notice.NodeStamped(ops, stamped.message))
-
-    let private runWrite
-        (deps: PersistThreadDeps)
-        (work: PersistWork)
-        (ops: Op list)
-        (ids: NodeId list)
-        =
-        let written =
-            try
-                invoke deps work.submit ops
-            with ex ->
-                Error ex.Message
-        afterWrite deps work ids written
-
-    let private runOne (deps: PersistThreadDeps) (work: PersistWork) =
-        let ops =
-            PersistCollectors.opsOpenForPersist work.submit.postGraph work.submit.ops
-        if not (blocked work.submit ops) then
-            runWrite deps work ops (notifyIds work.submit)
+    let private runRequest (deps: PersistThreadDeps) (request: PersistRequest) =
+        let state = deps.currentState ()
+        if not (persistedNode state request.nodeId) then
+            let written =
+                try
+                    deps.persistNode state.graph request.nodeId
+                with ex ->
+                    Error ex.Message
+            match written with
+            | Ok updateTime ->
+                deps.postNotice (
+                    Notice.NodePersisted(request.nodeId, updateTime))
+            | Error message ->
+                deps.postNotice (
+                    Notice.PersistFailed(request.nodeId, message))
 
     let private loop (deps: PersistThreadDeps) =
         let rec run () =
-            match deps.consumer () with
+            match deps.take () with
             | None -> ()
-            | Some work ->
-                runOne deps work
+            | Some request ->
+                runRequest deps request
                 run ()
         run ()
 
@@ -147,10 +106,3 @@ module PersistThread =
         match slot.Value with
         | None -> ()
         | Some post -> post notice
-
-    /// Private add after a successful finish. A failed write does not call this.
-    let internal finishWhenBound
-        (slot: (Notice -> unit) option ref)
-        (nodeId: NodeId)
-        =
-        postWhenBound slot (Notice.NodePersisted nodeId)

@@ -207,18 +207,16 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
                     CoreMailboxApi.getEventsSince host EventId.zero
                     |> Async.StartAsTask)
                 (fun events ->
-                    let stamps, persisted =
+                    let persisted =
                         events
                         |> List.fold
-                            (fun (stamps, persisted) event ->
+                            (fun persisted event ->
                                 match event.body with
-                                | EventBody.Notice (Notice.NodeStamped _) ->
-                                    stamps + 1, persisted
                                 | EventBody.Notice (Notice.NodePersisted _) ->
-                                    stamps, persisted + 1
-                                | _ -> stamps, persisted)
-                            (0, 0)
-                    stamps >= 2 && persisted >= 2)
+                                    persisted + 1
+                                | _ -> persisted)
+                            0
+                    persisted >= 2)
         let! full =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask

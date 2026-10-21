@@ -257,13 +257,16 @@ module DocumentPersistChange =
             postGraph
 
     /// Writes one document node's whole file from the given graph.
+    /// The time is that file's last-write time in UTC at database precision.
     let persistNode
         (dataDir: string)
         (graph: Graph)
         (nodeId: NodeId)
-        : Result<unit, string> =
+        : Result<DateTime, string> =
         DocumentPersistWrite.writeDocument dataDir graph nodeId
-        |> Result.map ignore
+        |> Result.map (fun written ->
+            File.GetLastWriteTimeUtc written.path
+            |> NodeUpdateTime.toDbPrecision)
 
     let private tryMtime
         (pathByRel: Map<string, string>)

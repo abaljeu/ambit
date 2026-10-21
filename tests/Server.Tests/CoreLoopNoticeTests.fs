@@ -1,5 +1,6 @@
 module Gambol.Server.Tests.CoreLoopNoticeTests
 
+open System
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -125,9 +126,11 @@ let ``NodePersisted sets Persisted and calls the diff hook`` () =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodePersisted id)
+    let stamp = DateTime(2026, 10, 21, 1, 2, 3, DateTimeKind.Utc)
+    apply (handlers state snaps) (Notice.NodePersisted(id, stamp))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+    Assert.Equal(stamp, node.updateTime)
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
     Assert.Equal(id, Assert.Single(snaps))
@@ -309,7 +312,7 @@ let ``axis write failure is returned`` () =
     let rejected =
         CoreMailboxLoad.applyNotice
             (handlers state snaps)
-            (Notice.NodePersisted Graph.workspacesId)
+            (Notice.NodePersisted(Graph.workspacesId, DateTime.UtcNow))
     Assert.Equal(
         Error "workspaces is not a graph document",
         rejected)
@@ -366,7 +369,7 @@ let ``mailbox queue applies NodePersisted off CoreMsg`` () =
         let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.postNotice host (Notice.NodePersisted id)
+            CoreMailboxApi.postNotice host (Notice.NodePersisted(id, DateTime.UtcNow))
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

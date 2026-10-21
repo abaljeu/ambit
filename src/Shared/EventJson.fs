@@ -150,6 +150,13 @@ module EventJson =
               "notice", Encode.string tag
               "nodeId", Serialization.encodeNodeId nodeId ]
 
+    let private encodeNodePersisted nodeId (updateTime: System.DateTime) =
+        Encode.object
+            [ "kind", Encode.string "notice"
+              "notice", Encode.string "nodePersisted"
+              "nodeId", Serialization.encodeNodeId nodeId
+              "updateTime", Encode.int64 updateTime.Ticks ]
+
     let private encodePersistFailed nodeId message =
         Encode.object
             [ "kind", Encode.string "notice"
@@ -171,8 +178,8 @@ module EventJson =
         match notice with
         | Notice.NodeParsed nodeId ->
             encodeSingleNotice "nodeParsed" nodeId
-        | Notice.NodePersisted nodeId ->
-            encodeSingleNotice "nodePersisted" nodeId
+        | Notice.NodePersisted (nodeId, updateTime) ->
+            encodeNodePersisted nodeId updateTime
         | Notice.MarkUnparsed nodeId ->
             encodeSingleNotice "markUnparsed" nodeId
         | Notice.NodeUploading nodeId ->
@@ -191,8 +198,6 @@ module EventJson =
     let private noticeFrom tag nodeId =
         match tag with
         | "nodeParsed" -> Ok (Notice.NodeParsed nodeId)
-        | "nodePersisted"
-        | "snapshotDone" -> Ok (Notice.NodePersisted nodeId)
         | "markUnparsed" -> Ok (Notice.MarkUnparsed nodeId)
         | "nodeUploading" -> Ok (Notice.NodeUploading nodeId)
         | "nodeReceived" -> Ok (Notice.NodeReceived nodeId)
@@ -208,6 +213,14 @@ module EventJson =
         |> Decode.andThen (function
             | Ok notice -> Decode.succeed notice
             | Error message -> Decode.fail message)
+
+    let private decodeNodePersisted: Decoder<Notice> =
+        Decode.object (fun get ->
+            Notice.NodePersisted(
+                get.Required.Field "nodeId" Serialization.decodeNodeId,
+                System.DateTime(
+                    get.Required.Field "updateTime" Decode.int64,
+                    System.DateTimeKind.Utc)))
 
     let private decodePersistFailed: Decoder<Notice> =
         Decode.object (fun get ->
@@ -225,6 +238,9 @@ module EventJson =
         Decode.field "notice" Decode.string
         |> Decode.andThen (fun tag ->
             match tag with
+            | "nodePersisted"
+            | "snapshotDone" ->
+                decodeNodePersisted |> Decode.map EventBody.Notice
             | "persistFailed" ->
                 decodePersistFailed |> Decode.map EventBody.Notice
             | "nodeStamped" ->

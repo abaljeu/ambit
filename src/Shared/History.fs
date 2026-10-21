@@ -65,7 +65,7 @@ type ActorStart =
 [<RequireQualifiedAccess>]
 type Notice =
     | NodeParsed of nodeId: NodeId
-    | NodePersisted of nodeId: NodeId
+    | NodePersisted of nodeId: NodeId * updateTime: System.DateTime
     | MarkUnparsed of nodeId: NodeId
     | NodeUploading of nodeId: NodeId
     | NodeReceived of nodeId: NodeId
