@@ -20,4 +20,4 @@ Reports are not authority. They are the opinion of one agent, at one time, inten
 
 ## Focused tests
 
-Run focused tests only, never all tests. That limit does not skip the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]] when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; run it when Client dependencies were edited. Done: the tests that ran are that focused set or that compile gate, and `scripts/test.sh all` has not run.
+Run `scripts/agent-test.sh` and wait. Do not run `scripts/agent-test.sh --full`. That limit does not skip the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]] when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; run it when Client dependencies were edited. Done: the tests that ran are that focused command or that compile gate, and `scripts/agent-test.sh --full` has not run.

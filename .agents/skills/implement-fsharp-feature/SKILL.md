@@ -21,9 +21,9 @@ Project structure: [[doc/current/arch.md]]. Layer behavior: [[doc/current/browse
 
 Invocations for each class: [[TEST-COMMANDS.md]].
 
-1. **Foreground.** Run related tests only. Done: those tests pass.
+1. **Foreground.** Run `scripts/agent-test.sh` and wait. Done: those tests pass.
 2. **Client compile gate.** When Client dependencies changed (`src/Shared/`, `src/Client/`, or anything the Client fsproj references, including Shared documents when that project is in the Client graph), run the Client compile gate. Shared.Tests is not enough. A Fable failure is a real failure, not a skip. Done: the gate succeeds.
-3. **Background.** After coding is complete, run the full suite as a background task. Use the shared suite unless Server tests may be affected. Done: the suite is running in the background.
+3. **Background.** After coding is complete, run `scripts/agent-test.sh --full`. Do not wait. Done: the command has returned and the suite runs in the background.
 
 ## Escalation
 

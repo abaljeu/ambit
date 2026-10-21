@@ -10,4 +10,4 @@ Unless otherwise specified, always delegate to Grok. Done: the sub agent is Grok
 
 When the user posts a correction while an agent is still working on the original request, inform the agent that is working. Do not start a second agent with that same work area. Done: the working agent has the correction, and no second agent has the same work area.
 
-You may create a sub agent to run all tests of a project. Done: a whole-suite run is that sub agent's task.
+Start the full suite with `scripts/agent-test.sh --full`. Done: that command has returned, and the suite runs in the background.

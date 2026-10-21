@@ -60,11 +60,27 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Build / test toolchain gate
 
-Before you claim compile or tests are green, and before you commit code changes, run `dotnet test` (or the project's documented commands). Success means those commands ran and passed.
+Before you claim compile or tests are green, and before you commit code changes, run the tests that [Test runs](#test-runs) names (`scripts/agent-test.sh`). Success means those commands ran and passed.
 
 If `dotnet` or another required toolchain is missing, or the command fails to start, stop. Report that as an environment failure. Do not treat a missing toolchain as "build skipped" or optional. Do not commit. Do not mark the work done as if verification passed.
 
 A missing toolchain is an environment failure to surface. It is not a reason to proceed without verification.
+
+## Test runs
+
+During development, run only the tests for the files you edited, and wait for each of those runs to finish. The command is `scripts/agent-test.sh`.
+
+To run one filter and wait, use one of these commands:
+
+- `scripts/agent-test.sh --filter <expr>`
+- `scripts/agent-test.sh --filter <expr> server`
+- `scripts/agent-test.sh --filter <expr> shared`
+
+When all edits are finished, start the full suite once with `scripts/agent-test.sh --full`. Do not wait. Report the log path and the PID that the command prints. The full Server suite takes about 3 minutes 30 seconds, so waiting on it mid-work costs about 5 minutes each time.
+
+A bare `dotnet test` of a test project fails. The full suite runs only through `scripts/agent-test.sh --full`.
+
+This rule covers every agent in this repo, including rebase and ticket-edit work. Done: each run you waited on is a focused run, and the full suite was started once at the end without waiting.
 
 ## How to Work
 
