@@ -485,16 +485,18 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
 }
 
 [<Fact>]
-let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
+let ``DbAgent postChange live-saves artifacts after the persist completes`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let tempRoot = newTempDir ()
 
     let agent = DbAgent.createWithDataDir connStr tempRoot
+    let mailbox = host agent
 
-    let! state0 = getState agent |> Async.StartAsTask
+    let! state0 = getStateFrom mailbox |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
+    let! beforeId = CoreMailboxApi.getEventId mailbox |> Async.StartAsTask
 
     let change =
         { id = EventId.zero
@@ -507,13 +509,29 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
 
     let! postResult =
         CoreDoor.postEvents
-            (admittedChanges (host agent))
+            (admittedChanges mailbox)
             ((encodeChangeBatch [ change ]))
         |> Async.StartAsTask
 
     match postResult with
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
+
+    let persisted (events: Ev list) =
+        events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.Notice (Notice.NodePersisted _) -> true
+            | _ -> false)
+
+    let! events =
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince mailbox beforeId
+                |> Async.StartAsTask)
+            persisted
+
+    Assert.True(persisted events, "Expected NodePersisted after the live-save write.")
 
     let ambPath = Path.Combine(tempRoot, ".amb")
     Assert.True(File.Exists ambPath)
