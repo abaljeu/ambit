@@ -7,8 +7,8 @@ disable-model-invocation: true
 # Implement
 
 Entry for building a ticket. Start here. Keep going. Do not stop for review between a failing test and the code that makes it pass.
-Delegate separate workers to each section of the process.
 
+You cannot do the entire process yourself.  Context will be overwhelmed.  For each section spawn a subagent.
 ## Process
 
 ### 1. Load the ticket
@@ -40,9 +40,9 @@ Run typechecking and the directly relevant tests as you go. Done: the ticket's W
 
 ### 4. Check
 
-While the end-of-build suite from [[.agents/skills/implement-fsharp-feature/SKILL.md]] runs in the background, use [[.agents/skills/code-review/SKILL.md]]. The Arch pass in that review is the re-check of the binding rules from step 2. When this run writes a PR body, use [[.agents/skills/pr/SKILL.md]] after that review. [[.agents/skills/retro/SKILL.md]] is a separate human invoke.
+Run the full test suite as a background task.
 
-Anything you write on tickets or under `reports/` — number and name every section and list item per [[.agents/rules/refer-by-name.md]]. Done: that Arch pass has been run against the binding rules from step 2. Code-review has been run for this change. The suite was started only after coding finished.
+Use [[.agents/skills/code-review/SKILL.md]]. The Arch pass in that review is the re-check of the binding rules from step 2. 
 
 ### 5. Log time and finish
 
@@ -51,3 +51,5 @@ Complete the ticket's Finish-up section ([[.agents/skills/to-tickets/PUBLISH.md]
 Done: the ticket's What to build is implemented and verified, and Finish-up is complete. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only ([[doc/agents/triage-labels.md]]).
 
 Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:` per [[doc/agents/issue-tracker.md]] (Time tracking). Backfill from this chat and commits when a session was not logged.
+
+Write a PR body, use [[.agents/skills/pr/SKILL.md]].
