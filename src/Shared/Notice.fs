@@ -9,3 +9,4 @@ type Notice =
     | NodeReceived of nodeId: NodeId
     | NodeParsing of nodeId: NodeId
     | NodePersisting of nodeId: NodeId
+    | PersistFailed of nodeId: NodeId * message: string

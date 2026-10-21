@@ -88,16 +88,20 @@ module FileAgent =
                 wait = true
             })
 
+    let private failedKept (postGraph: Graph) (err: string) =
+        Ok (Some { graph = postGraph; message = Some err })
+
     let private fromOutcome
         (loaded: LoadedFile)
         (eventId: EventId)
+        (postGraph: Graph)
         (outcome: PersistOutcome)
         =
         match outcome with
         | PersistOutcome.Wrote stamped -> acceptWrote loaded eventId stamped
         | PersistOutcome.Blocked -> Ok None
         | PersistOutcome.Queued -> Ok None
-        | PersistOutcome.Failed err -> Error err
+        | PersistOutcome.Failed err -> failedKept postGraph err
 
     let private persistCollected
         (loaded: LoadedFile)
@@ -108,7 +112,7 @@ module FileAgent =
         =
         match collectPersist loaded preGraph postGraph ops with
         | Error err -> Error err
-        | Ok outcome -> fromOutcome loaded eventId outcome
+        | Ok outcome -> fromOutcome loaded eventId postGraph outcome
 
     let private applyOne
         loaded
@@ -364,6 +368,7 @@ module FileAgent =
             persistOps = dependencies.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.persistFinished
+            postNotice = PersistThread.postWhenBound loaded.persistFinished
             changeFailed = fun _ _ -> ()
         }
 

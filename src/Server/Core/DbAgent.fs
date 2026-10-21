@@ -313,13 +313,19 @@ module DbAgent =
         notifiedIds = []
     }
 
-    let private liveOutcome (outcome: PersistOutcome) : Result<LivePersist, string> =
+    let private failedKept (postGraph: Graph) (err: string) =
+        liveOf (Some { graph = postGraph; message = Some err }) false
+
+    let private liveOutcome
+        (postGraph: Graph)
+        (outcome: PersistOutcome)
+        : Result<LivePersist, string> =
         match outcome with
         | PersistOutcome.Wrote stamped ->
             Ok(liveOf (Some stamped) true)
         | PersistOutcome.Blocked -> Ok(liveOf None false)
         | PersistOutcome.Queued -> Ok(liveOf None false)
-        | PersistOutcome.Failed err -> Error err
+        | PersistOutcome.Failed err -> Ok(failedKept postGraph err)
 
     let private notifiedOwners
         (graph: Graph)
@@ -337,8 +343,9 @@ module DbAgent =
         | Some collect ->
             let nodeIds = PersistCollectors.owningSpecials postGraph ops
             match
-                liveOutcome (
-                    collect {
+                liveOutcome
+                    postGraph
+                    (collect {
                         nodeIds = nodeIds
                         dataDir = Some dataDir
                         preGraph = preGraph
@@ -650,6 +657,7 @@ module DbAgent =
             persistOps = loaded.persistGraphOps
             persistChange = DocumentPersistChange.persistGraphChange
             finish = PersistThread.finishWhenBound loaded.persistFinished
+            postNotice = PersistThread.postWhenBound loaded.persistFinished
             changeFailed = changeFailed loaded
         }
         { filling =

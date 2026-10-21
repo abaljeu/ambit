@@ -143,7 +143,8 @@ let ``Notice JSON round trip`` () =
           Notice.NodeUploading nodeId
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId
-          Notice.NodePersisting nodeId ]
+          Notice.NodePersisting nodeId
+          Notice.PersistFailed(nodeId, "disk full") ]
     notices
     |> List.iter (fun notice ->
         let event =

@@ -63,36 +63,159 @@ let private softFailEditBody () =
             ]
     } ]
 
-[<Fact>]
-let ``persistence failure is returned and mailbox survives`` () = task {
-    let dataDir = newTempDir ()
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error error -> failwith $"{label}: {error}"
+
+let private owned = ChildNode.owners
+
+let private special id kind name owner =
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind)
+
+let private fileEditGraph () =
+    let wsId = NodeId.New()
+    let fileId = NodeId.New()
+    let bodyId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode
+            (special wsId Workspace "home" Graph.workspacesId)
+        |> Graph.addDetachedNode (special fileId File "a.txt" wsId)
+        |> Graph.addDetachedNode
+            (Node.Create(bodyId, text = "alpha", owner = fileId))
+        |> Graph.replace Graph.workspacesId 0 [] (owned [ wsId ])
+        |> requireOk "workspaces"
+        |> Graph.replace wsId 0 [] (owned [ fileId ])
+        |> requireOk "file"
+        |> Graph.replace fileId 0 [] (owned [ bodyId ])
+        |> requireOk "body"
+    graph, fileId, bodyId
+
+let private fileIdIn (state: State) =
+    state.graph.nodes
+    |> Map.pick (fun id node ->
+        match node.kind, Filename.tryValue node.name with
+        | Special File, Some "a.txt" -> Some id
+        | _ -> None)
+
+let private childEdit fileId =
+    let childId = NodeId.New()
+    let events =
+        [ {
+            id = EventId.zero
+            submissionId = Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = ""
+            body =
+                EventBody.Change
+                    [ Op.NewNode(childId, "ALPHA")
+                      Op.Replace(fileId, [], [ ChildNode.owner childId ]) ]
+          } ]
+    childId, events
+
+let private openThenEdit mailbox = async {
+    let! stateResult = CoreMailboxApi.getState mailbox
+    let state =
+        match stateResult with
+        | Ok value -> value
+        | Error error -> failwith $"state: {error}"
+    let fileId = fileIdIn state
+    CoreMailboxApi.postNotice mailbox (Notice.NodeParsed fileId)
+    let! parsed = CoreMailboxApi.getState mailbox
+    match parsed with
+    | Error error -> failwith $"parsed: {error}"
+    | Ok _ -> ()
+    let childId, events = childEdit fileId
+    let! posted =
+        CoreDoor.postEvents (admittedChanges mailbox) events
+    return fileId, childId, posted
+}
+
+let private throwingPersist
+    : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
+    fun _ _ _ _ ->
+        raise (InvalidOperationException("injected persistence failure"))
+
+let private persistFailed events =
+    events
+    |> List.choose (fun event ->
+        match event.body with
+        | EventBody.Notice (Notice.PersistFailed (nodeId, message)) ->
+            Some (nodeId, message)
+        | _ -> None)
+
+let private agentWithFailure dataDir =
     let defaults = FileAgent.defaultDependencies dataDir
-    let dependencies =
-        {
-            defaults with
-                persistGraphOps =
-                    fun _ _ _ _ ->
-                        raise (InvalidOperationException("injected persistence failure"))
-        }
-    let agent = FileAgent.createWithDependencies dependencies dataDir
+    let dependencies = { defaults with persistGraphOps = throwingPersist }
+    FileAgent.createWithDependencies dependencies dataDir
+
+/// A failed document write keeps the edit. The order succeeds. The file
+/// stays Unpersisted. The mailbox still serves a later read.
+[<Fact>]
+let ``Failed write keeps the edit`` () = task {
+    let dataDir = newTempDir ()
+    let graph, _fileId, _bodyId = fileEditGraph ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph
+    |> requireOk "seed"
+    |> ignore
+    let agent = agentWithFailure dataDir
+    let mailbox = host agent
     try
-        let! postResult =
-            CoreDoor.postEvents (admittedChanges (host agent))
-                ((changedBody ()))
+        let! fileId, childId, postResult =
+            openThenEdit mailbox
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
-        | Ok _ -> Assert.Fail("Expected persistence failure.")
-        | Error error ->
-            Assert.Contains("injected persistence failure", error)
-
+        | Error error -> Assert.Fail($"expected success, got {error}")
+        | Ok accepted ->
+            Assert.Equal(
+                Some "injected persistence failure",
+                accepted.message)
         let! state =
             getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Equal(EventId.zero, state.eventId)
+        Assert.Equal("ALPHA", state.graph.nodes.[childId].text)
+        Assert.Equal(
+            PersistState.Unpersisted,
+            state.graph.nodes.[fileId].documentState.persistState)
+        Assert.True(EventId.isAccepted state.eventId)
     finally
-        CoreMailboxApi.dispose (host agent)
+        CoreMailboxApi.dispose mailbox
+}
+
+[<Fact>]
+let ``Failed write posts PersistFailed`` () = task {
+    let dataDir = newTempDir ()
+    let graph, _fileId, _bodyId = fileEditGraph ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph
+    |> requireOk "seed"
+    |> ignore
+    let agent = agentWithFailure dataDir
+    let mailbox = host agent
+    try
+        let! fileId, _childId, postResult =
+            openThenEdit mailbox
+            |> Async.StartAsTask
+            |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
+        match postResult with
+        | Error error -> Assert.Fail($"expected success, got {error}")
+        | Ok _ -> ()
+        let! events =
+            CoreMailboxApi.getEventsSince mailbox EventId.zero
+            |> Async.StartAsTask
+            |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
+        let nodeId, message = Assert.Single(persistFailed events)
+        Assert.Equal(fileId, nodeId)
+        Assert.Contains("injected persistence failure", message)
+    finally
+        CoreMailboxApi.dispose mailbox
 }
 
 [<Fact>]

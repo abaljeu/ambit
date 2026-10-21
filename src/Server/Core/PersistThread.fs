@@ -12,6 +12,7 @@ type internal PersistThreadDeps = {
     persistChange:
         string -> Graph -> Graph -> Result<PersistGraphOk, string>
     finish: NodeId -> unit
+    postNotice: Notice -> unit
     changeFailed: NodeId list -> string -> unit
 }
 
@@ -83,6 +84,9 @@ module PersistThread =
         | Error err ->
             if submit.kind = PersistKind.Change then
                 deps.changeFailed submit.nodeIds err
+            submit.nodeIds
+            |> List.iter (fun nodeId ->
+                deps.postNotice (Notice.PersistFailed(nodeId, err)))
             reply work (PersistOutcome.Failed err)
         | Ok stamped ->
             let clean = stamped.message.IsNone
@@ -124,11 +128,18 @@ module PersistThread =
         thread.IsBackground <- true
         thread.Start()
 
+    /// The slot is filled with CoreMailboxApi.postNotice.
+    let internal postWhenBound
+        (slot: (Notice -> unit) option ref)
+        (notice: Notice)
+        =
+        match slot.Value with
+        | None -> ()
+        | Some post -> post notice
+
     /// Private add after a successful finish. A failed write does not call this.
     let internal finishWhenBound
         (slot: (Notice -> unit) option ref)
         (nodeId: NodeId)
         =
-        match slot.Value with
-        | None -> ()
-        | Some post -> post (Notice.SnapshotDone nodeId)
+        postWhenBound slot (Notice.SnapshotDone nodeId)
