@@ -5,13 +5,13 @@ description: Review working-tree changes vs HEAD (or a user-named fixed point wh
 
 Review of a working-tree or tip diff:
 
-- **Standards** — does the code conform to this repo's documented coding standards?
+- **Standards** — does the code conform to this repo's coding standards?
 - **Spec** — does the code faithfully implement the originating issue / PRD / spec?
 - **Arch** — does the diff obey each binding `arch.md` rule it touches?
 
 The three passes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
-Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git: [[.agents/skills/git-protocol/SKILL.md]].
+Issue tracker: local `plan/`. Git: [[.agents/skills/git-protocol/SKILL.md]].
 
 When pinning the range, run the mechanical Standards scan in step 2. Optional F# narrowing (`--fn`, `--range`, `--usage`) stays in [[.agents/skills/code-review-fsharp/SKILL.md]].
 
@@ -41,8 +41,8 @@ Done: the script has been run for this range, its stdout is in the Standards pro
 
 Look for the originating spec, in this order:
 
-1. A `plan/` path the user passed (preferred) — read it per [[doc/agents/issue-tracker.md]].
-2. A PRD/spec under `plan/<feature>/` (or rarely `doc/` / `specs/`) matching the feature.
+1. A `plan/` path the user passed (preferred).
+2. A PRD/spec under `plan/<feature>/` (or rarely `specs/`) matching the feature.
 3. If nothing is found, ask the user for the local spec path. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec source. No SHA bookkeeping on tickets. Done: you have a local spec path to pass, or Spec will report "no spec available".
@@ -68,7 +68,7 @@ Paste the matching step 7 labels into each brief. Each sub-agent returns a Markd
 - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
 - The stdout of the mechanical scan from step 2 (or `scan: none`).
 - The list of standards-source files you found in step 4, **plus [[SMELLS.md]]**: include that file's contents in the prompt, or give the path and instruct the sub-agent to read it. The sub-agent has no other access to the smell baseline.
-- The brief: each documented-standard violation cites the standard (file + the rule) as a **Hard** item. Each smell you will stand behind names the smell, quotes the hunk, and is a **Judgement** item. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. The phrase list is the Banned phrasings section of GLOSSARY.md. The file limit is in .agents/rules/fsharp-source.md. No findings: one item, `No findings.` Scan notes that are not findings are further items.
+- The brief: each standard violation cites the standard (file + the rule) as a **Hard** item. Each smell you will stand behind names the smell, quotes the hunk, and is a **Judgement** item. Distinguish hard violations from judgement calls per the included smell baseline. Count a scan line only when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. The phrase list is the Banned phrasings section of GLOSSARY.md. The file limit is in .agents/rules/fsharp-source.md. No findings: one item, `No findings.` Scan notes that are not findings are further items.
 
 **Spec sub-agent prompt** — include:
 
@@ -88,7 +88,7 @@ When no arch.md binds this diff, skip the Arch sub-agent and note that in the fi
 
 ### 7. Aggregate
 
-Write the report under a Project path (`plan/<slug>/reports/…`) per [[doc/agents/issue-tracker.md]] Conventions. Do not write the report directly under `plan/`. The report is a title plus lists. Each section body is a list. If a sub-agent returns a paragraph, split it into list items before writing the file. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
+Write the report under a Project path (`plan/<slug>/reports/…`). Do not write the report directly under `plan/`. The report is a title plus lists. Each section body is a list. If a sub-agent returns a paragraph, split it into list items before writing the file. Keep the axes separate: do not merge or rerank findings, and do not pick a single winner across axes.
 
 ```markdown
 # Code review — <name>
@@ -125,4 +125,4 @@ Omit a header bullet when that source was not in the review. An empty axis is on
 
 ### 8. Ticket Status
 
-A report is not approval. Leave `coded` unless the user approves the review for a named ticket. Then set that ticket `**Status:** done` ([[doc/agents/triage-labels.md]]). Do not rewrite a legacy Status on a ticket you did not set to `coded`. Done: Status is `done` only after that approval; otherwise Status is unchanged.
+A report is not approval. Leave `coded` unless the user approves the review for a named ticket. Then set that ticket `**Status:** done`. Do not rewrite a legacy Status on a ticket you did not set to `coded`. Done: Status is `done` only after that approval; otherwise Status is unchanged.
