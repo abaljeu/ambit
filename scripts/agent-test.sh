@@ -21,8 +21,8 @@ run_full() {
     local ts log
     ts="$(date +%Y%m%d-%H%M%S)"
     log="/tmp/ambit-full-suite-${ts}.log"
-    # setsid keeps the suite alive after this script returns.
-    setsid nohup bash -c '
+    # Background so this script returns while the suite runs.
+    nohup bash -c '
         set -euo pipefail
         export AMBIT_FULL_SUITE=1
         echo "AMBIT_FULL_SUITE=1"
