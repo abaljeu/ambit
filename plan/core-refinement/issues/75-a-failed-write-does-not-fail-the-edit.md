@@ -1,6 +1,6 @@
 # 75 — A failed write does not fail the edit
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
 **Trackers:** architecture
