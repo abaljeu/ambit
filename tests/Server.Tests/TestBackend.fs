@@ -3,6 +3,7 @@ module Gambol.Server.Tests.TestBackend
 open System
 open System.IO
 open System.Net.Http
+open System.Reflection
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
@@ -238,6 +239,39 @@ let acceptingHost (pool: CoreActorPool) : MailboxHost =
         (fun event _ ->
             Ok(CoreChanges.accepted event.id true [ event ] false None))
 
+/// Keeps the host alive until the client is disposed, then waits until
+/// that server's persist thread has finished.
+type private DrainWhenDisposedHandler
+    (factory: WebApplicationFactory<Program>, inner: HttpMessageHandler) =
+    inherit DelegatingHandler(inner)
+    let host = factory
+
+    override _.Dispose(disposing) =
+        if disposing then
+            ignore host
+            ServerRunRegistry.drainBackground ()
+        base.Dispose(disposing)
+
+let private invokerField name =
+    typeof<HttpMessageInvoker>.GetField(
+        name,
+        BindingFlags.Instance ||| BindingFlags.NonPublic)
+
+/// CreateClient's handler follows redirects and stores cookies.
+/// The returned client disposes that handler, then drains persist.
+let private clientFromFactory (factory: WebApplicationFactory<Program>) =
+    let created = factory.CreateClient()
+    let handler = invokerField "_handler"
+    let disposeHandler = invokerField "_disposeHandler"
+    let inner = handler.GetValue created :?> HttpMessageHandler
+    disposeHandler.SetValue(created, false)
+    let baseAddress = created.BaseAddress
+    created.Dispose()
+    let client =
+        new HttpClient(new DrainWhenDisposedHandler(factory, inner), true)
+    client.BaseAddress <- baseAddress
+    client
+
 let private suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp
         dataDir
@@ -267,7 +301,7 @@ let createClientForDirWithoutCookie (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        clientFromFactory factory
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -308,7 +342,7 @@ let createClientForDirWithAuth
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        clientFromFactory factory
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -336,7 +370,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -364,7 +398,7 @@ let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -402,7 +436,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)

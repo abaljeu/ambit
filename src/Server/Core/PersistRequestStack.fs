@@ -32,7 +32,12 @@ module PersistRequestStack =
         (stack: BlockingCollection<PersistRequest>)
         (request: PersistRequest)
         =
-        stack.Add request
+        ServerRunRegistry.notePersistQueued ()
+        try
+            stack.Add request
+        with _ ->
+            ServerRunRegistry.notePersistFinished ()
+            reraise ()
 
     /// Block until a request is present, then return the newest.
     let take (stack: BlockingCollection<PersistRequest>) : PersistRequest =

@@ -96,7 +96,10 @@ module PersistThread =
             match deps.take () with
             | None -> ()
             | Some request ->
-                runRequest deps request
+                try
+                    runRequest deps request
+                finally
+                    ServerRunRegistry.notePersistFinished ()
                 run ()
         run ()
 
