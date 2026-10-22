@@ -69,7 +69,7 @@ module PersistThread =
             | Ok updateTime ->
                 deps.postNotice (
                     Notice.NodePersisted(request.nodeId, updateTime))
-                deps.postNotice (Notice.NodeStamped([], None))
+                deps.postNotice Notice.NodeStamped
             | Error message ->
                 deps.postNotice (
                     Notice.PersistFailed(request.nodeId, message))

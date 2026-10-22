@@ -114,7 +114,7 @@ let ``persist thread writes from the live graph`` () =
     let stamped =
         notices
         |> Seq.exists (function
-            | Notice.NodeStamped ([], None) -> true
+            | Notice.NodeStamped -> true
             | _ -> false)
     Assert.Equal(Some fileId, persisted)
     Assert.True(stamped, "expected an empty NodeStamped after the write")
@@ -184,7 +184,7 @@ let ``persist thread posts NodePersisted on success only`` () =
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
     match okNotices with
-    | [ Notice.NodePersisted (id, time); Notice.NodeStamped ([], None) ] ->
+    | [ Notice.NodePersisted (id, time); Notice.NodeStamped ] ->
         Assert.Equal(okId, id)
         Assert.Equal(written, time)
     | other ->
@@ -214,7 +214,7 @@ let private applyPersisted (state: State ref) (notice: Notice) =
                 state.Value <- { state.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = ignore
-        noteStamped = fun _ _ -> ()
+        noteStamped = ignore
         noteWriteFailed = ignore
     }
     match CoreMailboxLoad.applyNotice handlers notice with

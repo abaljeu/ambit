@@ -101,7 +101,7 @@ module FileAgent =
         if List.isEmpty ids then
             PersistThread.postWhenBound
                 loaded.persistFinished
-                (Notice.NodeStamped([], None))
+                Notice.NodeStamped
             Ok ()
         else
             pushIds loaded ids
@@ -252,23 +252,16 @@ module FileAgent =
             loaded.pendingCheckpoint.Value <- rest
             Some head
 
-    let private noteStamped
-        (loaded: LoadedFile)
-        (_ops: Op list)
-        (message: string option)
-        =
+    let private noteStamped (loaded: LoadedFile) () =
         match takeCheckpoint loaded with
         | None -> ()
+        | Some _ when not loaded.persistClean.Value -> ()
         | Some eventId ->
-            match message with
-            | Some _ -> loaded.persistClean.Value <- false
-            | None when not loaded.persistClean.Value -> ()
-            | None ->
-                match Bookkeeping.writeEventId loaded.dataDir eventId with
-                | Error _ -> loaded.persistClean.Value <- false
-                | Ok () ->
-                    loaded.lastPersisted.Value <-
-                        loaded.state.Value.graph
+            match Bookkeeping.writeEventId loaded.dataDir eventId with
+            | Error _ -> loaded.persistClean.Value <- false
+            | Ok () ->
+                loaded.lastPersisted.Value <-
+                    loaded.state.Value.graph
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value

@@ -69,31 +69,9 @@ module SyncLogic =
             | _ -> latest)
             None
 
-    /// Change ops, plus stamp ops that arrive on NodeStamped.
+    /// Change, undo, and redo ops. A notice contributes none.
     let opsForDownload (event: Ev) : Op list =
-        match event.body with
-        | EventBody.Notice (Notice.NodeStamped (ops, _)) -> ops
-        | _ -> Ev.ops event |> Option.defaultValue []
-
-    let private projectStampOps
-        (event: Ev)
-        (ops: Op list)
-        (st: ClientSyncState)
-        (undid: bool)
-        =
-        match
-            ResidentProjection.applyOpsForSyncAllowing
-                false
-                false
-                ops
-                (asProjectionState st)
-                { pending = st.pending
-                  submissionId = event.submissionId }
-        with
-        | ApplyResult.Changed newSt, _
-        | ApplyResult.Unchanged newSt, _ ->
-            Ok(withProjectedGraph event st newSt None, undid)
-        | ApplyResult.Invalid (_, msg), _ -> Error msg
+        Ev.ops event |> Option.defaultValue []
 
     let private withNodeUpdateTime
         (nodeId: NodeId)
@@ -115,8 +93,6 @@ module SyncLogic =
         (undid: bool)
         =
         match event.body with
-        | EventBody.Notice (Notice.NodeStamped (ops, _)) ->
-            projectStampOps event ops st undid
         | EventBody.Notice (Notice.NodePersisted (nodeId, updateTime)) ->
             let next = withNodeUpdateTime nodeId updateTime st
             Ok({ next with eventId = event.id }, undid)

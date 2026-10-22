@@ -194,7 +194,7 @@ module internal CoreMailboxLoad =
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
-    /// NodeStamped applies the stamp ops and leaves persist state alone.
+    /// NodeStamped leaves persist state alone.
     /// MarkUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, then sets Persisted
     /// and the node's updateTime in one write.
@@ -254,28 +254,6 @@ module internal CoreMailboxLoad =
                     live
                 |> Result.bind (stampUpdateTime nodeId updateTime))
 
-    let private applyStampOps (ops: Op list) (graph: Graph) =
-        if List.isEmpty ops then
-            Ok graph
-        else
-            let state = { graph = graph; eventId = EventId.zero }
-            match Op.applyAll ops state with
-            | ApplyResult.Invalid (_, err) -> Error err
-            | ApplyResult.Changed next
-            | ApplyResult.Unchanged next -> Ok next.graph
-
-    let private applyStampNotice persist ops message =
-        match
-            writeAxis
-                persist
-                (Notice.NodeStamped(ops, message))
-                (applyStampOps ops)
-        with
-        | Error err -> Error err
-        | Ok () ->
-            persist.noteStamped ops message
-            Ok ()
-
     let internal applyNotice
         (persist: PersistHandlers)
         (msg: Notice)
@@ -298,8 +276,12 @@ module internal CoreMailboxLoad =
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()
-        | Notice.NodeStamped (ops, message) ->
-            applyStampNotice persist ops message
+        | Notice.NodeStamped ->
+            match writeAxis persist msg (fun graph -> Ok graph) with
+            | Error err -> Error err
+            | Ok () ->
+                persist.noteStamped ()
+                Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist msg nodeId ParseState.Unparsed
         | Notice.NodePersisted (nodeId, updateTime) ->

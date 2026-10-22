@@ -177,7 +177,7 @@ let private cannedHandlers
       replaceGraph = fun _ _ -> ()
       noteDiffDone = ignore
       noteParsed = ignore
-      noteStamped = fun _ _ -> ()
+      noteStamped = ignore
       noteWriteFailed = ignore }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =
