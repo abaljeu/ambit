@@ -108,7 +108,7 @@ let private countPersistProgress (events: Ev list) =
                 changes + 1, persisted, stamped
             | EventBody.Notice (Notice.NodePersisted _) ->
                 changes, persisted + 1, stamped
-            | EventBody.Notice (Notice.NodeStamped([],None)) ->
+            | EventBody.Notice (Notice.NodeStamped) ->
                 changes, persisted, stamped + 1
             | _ -> changes, persisted, stamped)
         (0, 0, 0)
