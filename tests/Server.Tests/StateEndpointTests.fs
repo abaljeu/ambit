@@ -1,3 +1,4 @@
+
 module Gambol.Server.Tests.StateEndpointTests
 
 open System
@@ -107,7 +108,7 @@ let private countPersistProgress (events: Ev list) =
                 changes + 1, persisted, stamped
             | EventBody.Notice (Notice.NodePersisted _) ->
                 changes, persisted + 1, stamped
-            | EventBody.Notice (Notice.NodeStamped _) ->
+            | EventBody.Notice (Notice.NodeStamped([],None)) ->
                 changes, persisted, stamped + 1
             | _ -> changes, persisted, stamped)
         (0, 0, 0)
@@ -1318,12 +1319,17 @@ let ``DB restart replays log when projection is cleared`` () = task {
     let change1, childId1 = changeAddChild rootId 0 "first"
     let! r1 = postChange client1 testFile change1
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
-    let! _ = waitUntilPersistSettled client1
+
+    let! baseline = waitUntilPersistSettled client1
     let change2, childId2 = changeAddChild rootId 1 "second"
     let! r2 = postChange client1 testFile change2
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
+    let! postBody = r2.Content.ReadAsStringAsync()
+    let returned = decodeSuccessRevision postBody
     let! settled = waitUntilPersistSettled client1
     Assert.Equal(EventId.fromJson 6, settled)
+    assertAckWithinSettled baseline returned settled
+
     let! logRows = Database.getEventsAfter connStr 0 |> Async.AwaitTask
     Assert.Equal(6, logRows.Length)
     // Wipe projection only; EventLog persist is the restart authority.

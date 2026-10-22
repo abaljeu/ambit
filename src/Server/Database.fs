@@ -15,13 +15,37 @@ module Database =
     let getConnection (connectionString: string) =
         new NpgsqlConnection(connectionString)
 
-    let initSchema (connectionString: string) : Task =
-        task {
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-            use cmd = conn.CreateCommand()
+    let private deadlockSqlState = "40P01"
 
-            cmd.CommandText <- """
+    let private isDeadlock (ex: exn) =
+        match ex with
+        | :? PostgresException as pg ->
+            pg.SqlState = deadlockSqlState
+        | _ -> false
+
+    /// Retry when Postgres aborts this transaction as the deadlock victim.
+    /// Schema work locks `nodes` before `node_children`. A peer that already
+    /// holds `node_children` and then waits for `nodes` deadlocks with it.
+    let private executeWithDeadlockRetry
+        (connectionString: string)
+        (sql: string)
+        : Task =
+        let rec attempt (retriesLeft: int) : Task =
+            task {
+                try
+                    use conn = getConnection connectionString
+                    do! conn.OpenAsync()
+                    use cmd = conn.CreateCommand()
+                    cmd.CommandText <- sql
+                    do! cmd.ExecuteNonQueryAsync() :> Task
+                with ex when isDeadlock ex && retriesLeft > 0 ->
+                    do! attempt (retriesLeft - 1)
+            }
+
+        attempt 4
+
+    let initSchema (connectionString: string) : Task =
+        executeWithDeadlockRetry connectionString """
                 DROP TABLE IF EXISTS snapshots;
                 DROP TABLE IF EXISTS changes;
 
@@ -93,9 +117,6 @@ module Database =
                     ON node_children (child_id);
             """
 
-            do! cmd.ExecuteNonQueryAsync() :> Task
-        }
-
     type EventRow =
         { event_id: int
           payload: string }
@@ -165,13 +186,11 @@ module Database =
     let resetStoredTables (connectionString: string) : Task<unit> =
         task {
             do! initSchema connectionString
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-            use cmd = conn.CreateCommand()
-            cmd.CommandText <-
-                "TRUNCATE TABLE events, node_children, nodes, graph " +
-                "RESTART IDENTITY CASCADE;"
-            let! _ = cmd.ExecuteNonQueryAsync()
+            do!
+                executeWithDeadlockRetry
+                    connectionString
+                    ("TRUNCATE TABLE events, node_children, nodes, graph " +
+                     "RESTART IDENTITY CASCADE;")
             return ()
         }
 

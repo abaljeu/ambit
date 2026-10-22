@@ -591,6 +591,7 @@ let ``WorkspaceFileSync.post uploads edited local file into DataDir`` () = task 
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
     try
+        suppressDailyGitSave dataDir
         use factory =
             (new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->

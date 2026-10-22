@@ -271,8 +271,7 @@ let private clientFromFactory (factory: WebApplicationFactory<Program>) =
         new HttpClient(new DrainWhenDisposedHandler(factory, inner), true)
     client.BaseAddress <- baseAddress
     client
-
-let private suppressDailyGitSave (dataDir: string) =
+let suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp
         dataDir
         (DailyGitSave.formatUtcDay DateTime.UtcNow)
