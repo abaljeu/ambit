@@ -1,46 +1,26 @@
 ---
 name: git-protocol
-description: "Gambol git procedure: four named places (dev, ready, master, staging), commits, merge only when Alan asks, merge --no-ff into ready. First git step is Status. Wrong workplace: abort and tell Alan. Do not research git history unless Alan asked. Use when committing, merging, branching, tagging, implement, or any other git instruction."
+description: "How agents should use git"
 ---
 
 # Git protocol
 
-Canonical git procedure for this repo. Other rules and skills point here; they do not copy these steps.
+Rule 1: Do no work on staging or ready or master, unless explicitly told to use that branch.
 
-## Status
+Run `scripts/gitstatus.sh` to determine where things are.
 
-1. From the project root, this is the first git step. DO NOT RUN `bash scripts/gitstatus.sh`. Run `scripts/gitstatus.sh`. No arguments. Done when the script printed the current branch and short status.
-2. Read that output. Proceed only when the workplace is right for this run. On Desktop, a right workplace has HEAD `dev`, and the tree is not dirty in a way that blocks this work. If the workplace is wrong, abort. Tell Alan what the script showed. Stop the task. Done when the workplace is right, or when you stopped and told Alan.
-3. Extra git after a right workplace is only for a current-task fact that the status script did not print (paths for [[scripts/commit.sh]], a working-tree diff of files this task will change). Historical research is opt-in: run `git log`, merge-base, ancestor checks, `cat-file`, `git show` of old SHAs, or reconstruct history only when Alan asked for that research. Done when you proceed from the status output with extra git only for the current task, or you abort.
 
-## Places
+## Cloud
+Cloud agents get their files from staging.
+Branch to a new branch.
+Do the work.
+PR back into staging.
 
-Three Desktop places. Reuse these names. Do not write per-project git notes. All Desktop work on **dev**; promote to **ready**. Cloud agents work on a disposable branch and send to **staging**: [[.agents/skills/cloud-agent-git/SKILL.md]].
+## Desktop
+Desktop agents get files from dev.
+Work in dev.
+Do not commit unless asked.
+Do not merge unless asked.
 
-**dev** — workplace on this machine. All Desktop edits and ordinary commits happen here. Local-only; do not push `dev`.
+User will commit.  User will merge.  User will push/pull.
 
-**ready** — integration. Sit on `ready` and `git merge --no-ff dev`. Bisect commit-by-commit here. This is “brought into ready.”
-
-**master** — one commit per squashed merge from `ready`. Updating it is explicit invocation only, by the human: [[.agents/skills/git-master/SKILL.md]].
-
-A hotfix is born on the oldest place that must contain it, then merged toward `dev`.
-
-## Commits
-
-Desktop commits on `dev` only when Alan asks to commit. Then run [[scripts/commit.sh]] `"<message>"` `[files...]` or the human runs `git commit` in the CLI. The script refuses when HEAD is not `dev`, stages `.` (or only the given files), and commits with the message. A tool approval card is not that ask. Done when Alan asked and that commit exists, or when Alan did not ask and no commit ran.
-
-Do not commit on `dev`, `ready`, `staging`, or `master` unless Alan asked. Cloud agents commit freely on a disposable local branch: [[.agents/skills/cloud-agent-git/SKILL.md]].
-
-Commit AFTER writing any report files, not before.
-
-## Merges
-
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/gitready.sh]], [[scripts/gitmaster.sh]], and [[scripts/gitdev.sh]] or the human types them in the CLI. Run a merge script only when Alan asked. Land downloaded `staging` into `dev` is [[.agents/skills/cloud-agent-git/SKILL.md]]. `gitready.sh` with no argument lists dev commits not on `ready`. `gitmaster.sh` with no argument lists `ready` commits not on `master`. `gitready.sh "<msg>"` brings `dev` into `ready` (`--no-ff`); `gitdev.sh` brings a hotfix from `master` toward `dev` with a stock forward message. The merge scripts refuse a dirty tree, and refuse a local `ready` that is behind `origin/ready`.
-
-## Bisect
-
-The agent prepares a read-only recipe (log range and a red command). The human runs bisect. The agent does not check out bisect commits.
-
-## Sharing
-
-Agents may pull `ready` freely. Pushing `ready` is approval-gated. Procedure: [[.agents/skills/git-share/SKILL.md]]. Cloud-agent `staging`: [[.agents/skills/cloud-agent-git/SKILL.md]].
