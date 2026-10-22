@@ -17,23 +17,38 @@ run_filtered() {
     dotnet test "$project" --filter "$filter"
 }
 
+full_suite() {
+    set -euo pipefail
+    export AMBIT_FULL_SUITE=1
+    echo "AMBIT_FULL_SUITE=1"
+    echo "==> dotnet test tests/Server.Tests"
+    dotnet test tests/Server.Tests -nodeReuse:false -p:AMBIT_FULL_SUITE=1
+    echo "==> dotnet test tests/Shared.Tests"
+    dotnet test tests/Shared.Tests -nodeReuse:false -p:AMBIT_FULL_SUITE=1
+    echo "==> full suite finished"
+}
+
 run_full() {
     local ts log
     ts="$(date +%Y%m%d-%H%M%S)"
     log="/tmp/ambit-full-suite-${ts}.log"
-    # Background so this script returns while the suite runs.
-    nohup bash -c '
-        set -euo pipefail
-        export AMBIT_FULL_SUITE=1
-        echo "AMBIT_FULL_SUITE=1"
-        echo "==> dotnet test tests/Server.Tests"
-        dotnet test tests/Server.Tests -nodeReuse:false -p:AMBIT_FULL_SUITE=1
-        echo "==> dotnet test tests/Shared.Tests"
-        dotnet test tests/Shared.Tests -nodeReuse:false -p:AMBIT_FULL_SUITE=1
-        echo "==> full suite finished"
-    ' >"$log" 2>&1 </dev/null &
-    echo "log: $log"
-    echo "pid: $!"
+    if [[ "$(uname -s)" == Linux ]]; then
+        # Cloud agent: return while the suite runs.
+        export -f full_suite
+        nohup bash -c 'full_suite' >"$log" 2>&1 </dev/null &
+        echo "log: $log"
+        echo "pid: $!"
+    elif [[ "${CURSOR_EXTENSION_HOST_ROLE:-}" == agent-exec ]]; then
+        # Desktop agent shell is Git Bash. Background and disown so this script can exit.
+        export -f full_suite
+        bash -c 'full_suite' >"$log" 2>&1 </dev/null &
+        disown
+        echo "log: $log"
+        echo "pid: $!"
+    else
+        full_suite
+        echo "log: $log"
+    fi
 }
 
 project_for() {
