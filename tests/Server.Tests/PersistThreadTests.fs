@@ -114,10 +114,10 @@ let ``persist thread writes from the live graph`` () =
     let stamped =
         notices
         |> Seq.exists (function
-            | Notice.NodeStamped _ -> true
+            | Notice.NodeStamped ([], None) -> true
             | _ -> false)
     Assert.Equal(Some fileId, persisted)
-    Assert.True(stamped, "expected NodeStamped after the write")
+    Assert.True(stamped, "expected an empty NodeStamped after the write")
 
 [<Fact>]
 let ``repeated pushes write once`` () =
@@ -184,7 +184,7 @@ let ``persist thread posts NodePersisted on success only`` () =
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
     match okNotices with
-    | [ Notice.NodePersisted (id, time); Notice.NodeStamped (_, None) ] ->
+    | [ Notice.NodePersisted (id, time); Notice.NodeStamped ([], None) ] ->
         Assert.Equal(okId, id)
         Assert.Equal(written, time)
     | other ->

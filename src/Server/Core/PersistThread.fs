@@ -50,20 +50,6 @@ module PersistThread =
         |> List.choose (ownerOf graph)
         |> List.distinct
 
-    /// Stamp ops for the written file time. Empty when the time is unchanged.
-    let private stampOps
-        (graph: Graph)
-        (nodeId: NodeId)
-        (updateTime: DateTime)
-        : Op list =
-        match Map.tryFind nodeId graph.nodes with
-        | None -> []
-        | Some node ->
-            let oldTime = NodeUpdateTime.toDbPrecision node.updateTime
-            let newTime = NodeUpdateTime.toDbPrecision updateTime
-            if oldTime = newTime then []
-            else [ Op.SetUpdateTime(nodeId, oldTime, newTime) ]
-
     let private persistedNode (state: State) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId state.graph.nodes with
         | Some node when
@@ -83,10 +69,7 @@ module PersistThread =
             | Ok updateTime ->
                 deps.postNotice (
                     Notice.NodePersisted(request.nodeId, updateTime))
-                deps.postNotice (
-                    Notice.NodeStamped(
-                        stampOps state.graph request.nodeId updateTime,
-                        None))
+                deps.postNotice (Notice.NodeStamped([], None))
             | Error message ->
                 deps.postNotice (
                     Notice.PersistFailed(request.nodeId, message))
