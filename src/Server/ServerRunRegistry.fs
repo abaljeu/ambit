@@ -19,6 +19,17 @@ module internal ServerRunRegistry =
     let private gate = obj ()
     let private stops = ref ([] : ServerRunStop list)
     let private tasks = ref ([] : Task list)
+    let private persistQueued = ref 0
+
+    /// A persist request was pushed.
+    let notePersistQueued () =
+        System.Threading.Interlocked.Increment persistQueued |> ignore
+
+    /// That request has left the persist thread.
+    let notePersistFinished () =
+        System.Threading.Interlocked.Decrement persistQueued |> ignore
+
+    let persistPendingCount () = persistQueued.Value
 
     let register (stop: ServerRunStop) =
         lock gate (fun () -> stops.Value <- stop :: stops.Value)
@@ -70,24 +81,59 @@ module internal ServerRunRegistry =
         =
         items
         |> List.choose choose
-        |> List.iter (fun stop -> stop ())
-
-    let private waitTasks () =
-        takeTasks ()
-        |> List.iter (fun task ->
+        |> List.iter (fun stop ->
             try
-                task.Wait()
+                stop ()
             with _ -> ())
 
-    /// Stop hosts, actors, and parse. Shut the mailbox while persist can still
-    /// answer it, then stop persist. Actor bodies are cancelled, not awaited.
+    /// Abandoned appends can track a follower after the first wait starts.
+    let private waitOutstanding () =
+        let rec wait () =
+            let pending =
+                takeTasks ()
+                |> List.filter (fun task -> not task.IsCompleted)
+            if List.isEmpty pending then
+                ()
+            else
+                pending
+                |> List.iter (fun task ->
+                    try
+                        task.Wait()
+                    with _ -> ())
+                wait ()
+        wait ()
+
+    let private restoreHosts (hosts: ServerRunStop list) =
+        lock gate (fun () -> stops.Value <- hosts @ stops.Value)
+
+    /// Mailbox first, while persist can still log. Then join persist so a
+    /// late notice cannot be written after this returns.
+    let private finishWorkers (items: ServerRunStop list) =
+        run (function ServerRunStop.Pool stop -> Some stop | _ -> None) items
+        run (function
+            | ServerRunStop.ParseUnblock stop -> Some stop
+            | _ -> None) items
+        run (function ServerRunStop.ParseJoin stop -> Some stop | _ -> None) items
+        run (function ServerRunStop.Mailbox stop -> Some stop | _ -> None) items
+        run (function
+            | ServerRunStop.PersistUnblock stop -> Some stop
+            | _ -> None) items
+        run (function ServerRunStop.PersistJoin stop -> Some stop | _ -> None) items
+        waitOutstanding ()
+
+    /// Finish parse, mailbox, and persist. Host stops stay registered.
+    let drainBackground () =
+        let hosts, workers =
+            takeStops ()
+            |> List.partition (function
+                | ServerRunStop.Host _ -> true
+                | _ -> false)
+        finishWorkers workers
+        restoreHosts hosts
+
+    /// Stop background work, then the host. Actor bodies are cancelled.
     let stopAll () =
+        drainBackground ()
         let items = takeStops ()
         run (function ServerRunStop.Host stop -> Some stop | _ -> None) items
-        run (function ServerRunStop.Pool stop -> Some stop | _ -> None) items
-        run (function ServerRunStop.ParseUnblock s -> Some s | _ -> None) items
-        run (function ServerRunStop.ParseJoin stop -> Some stop | _ -> None) items
-        run (function ServerRunStop.Mailbox s -> Some s | _ -> None) items
-        run (function ServerRunStop.PersistUnblock s -> Some s | _ -> None) items
-        run (function ServerRunStop.PersistJoin s -> Some s | _ -> None) items
-        waitTasks ()
+        waitOutstanding ()

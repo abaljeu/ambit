@@ -6,8 +6,8 @@ open System.Threading.Tasks
 [<RequireQualifiedAccess>]
 module ServerTestReset =
 
-    /// Stop the previous server and its background threads, wait until they
-    /// finish, then clear the database and process-wide caches.
+    /// Stop the previous server, wait until its persist thread has logged,
+    /// then clear the database and process-wide caches.
     let resetBetweenTests (connectionString: string) : Task<unit> =
         task {
             ServerRunRegistry.stopAll ()

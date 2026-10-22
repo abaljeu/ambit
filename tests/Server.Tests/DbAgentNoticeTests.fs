@@ -49,11 +49,28 @@ let private readNode (connStr: string) (id: NodeId) = task {
         | Some node -> return node
 }
 
+/// The file row is written on the mailbox. Persist notices land later.
+let private waitUntilPersistLogged (mailbox: MailboxHost) = task {
+    let! _ =
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince mailbox EventId.zero
+                |> Async.StartAsTask)
+            (fun events ->
+                events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisted _) -> true
+                    | _ -> false))
+    return ()
+}
+
 let private freshFile () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
     let! mailbox, id = postFile agent
+    do! waitUntilPersistLogged mailbox
     let! node = readNode connStr id
     return connStr, mailbox, id, node
 }

@@ -473,10 +473,11 @@ module internal CoreMailboxLoad =
                         stopped.Value <- true
                         true)
             if run then
-                mailbox.TryPostAndReply(
-                    (fun reply -> CoreQueue.Shutdown reply),
-                    2000)
-                |> ignore
+                try
+                    mailbox.PostAndReply(fun reply ->
+                        CoreQueue.Shutdown reply)
+                    |> ignore
+                with _ -> ()
         ServerRunRegistry.registerMailbox shutdown
         shutdown
 
