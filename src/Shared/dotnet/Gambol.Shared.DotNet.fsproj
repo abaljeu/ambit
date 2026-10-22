@@ -36,6 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
     <PackageReference Include="DiffPlex" Version="1.7.2" />
     <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
   </ItemGroup>
