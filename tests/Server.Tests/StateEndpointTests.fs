@@ -98,6 +98,81 @@ let private postPoll (client: HttpClient) eventId = task {
     return! client.PostAsync("/ambit/poll", content)
 }
 
+let private countPersistProgress (events: Ev list) =
+    events
+    |> List.fold
+        (fun (changes, persisted, stamped) event ->
+            match event.body with
+            | EventBody.Change _ ->
+                changes + 1, persisted, stamped
+            | EventBody.Notice (Notice.NodePersisted _) ->
+                changes, persisted + 1, stamped
+            | EventBody.Notice (Notice.NodeStamped _) ->
+                changes, persisted, stamped + 1
+            | _ -> changes, persisted, stamped)
+        (0, 0, 0)
+
+/// Each Change enqueues a persist that logs both notices. Equal counts
+/// mean those writes have been logged.
+let private persistCaughtUp (events: Ev list) =
+    let changes, persisted, stamped = countPersistProgress events
+    persisted = stamped && persisted >= changes
+
+let private readPoll (client: HttpClient) = task {
+    let! response = postPoll client EventId.zero
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    let! json = response.Content.ReadAsStringAsync()
+    return
+        decode
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+}
+
+/// Wait until the persist thread has logged the earlier writes and the tip is still.
+let private waitUntilPersistSettled (client: HttpClient) = task {
+    let readEvents () = task {
+        let! poll = readPoll client
+        return poll.events
+    }
+    let deadline = DateTime.UtcNow.AddSeconds 2.0
+    let rec confirm () = task {
+        let! events = waitForNotices readEvents persistCaughtUp
+        let! first = readPoll client
+        if not (persistCaughtUp events && persistCaughtUp first.events) then
+            let changes, persisted, stamped =
+                countPersistProgress first.events
+            return
+                failwith
+                    $"persist did not settle: changes {changes}, persisted {persisted}, stamped {stamped}"
+        else
+            do! Task.Delay 40
+            let! second = readPoll client
+            let stable =
+                second.eventId = first.eventId
+                && persistCaughtUp second.events
+            if stable || DateTime.UtcNow >= deadline then
+                if persistCaughtUp second.events then
+                    return second.eventId
+                else
+                    return failwith "persist did not settle before timeout"
+            else
+                return! confirm ()
+    }
+    return! confirm ()
+}
+
+let private assertAckWithinSettled
+    (baseline: EventId)
+    (returned: EventId)
+    (settled: EventId)
+    =
+    Assert.True(
+        EventId.value returned > EventId.value baseline,
+        $"ack revision {EventId.value returned} baseline {EventId.value baseline}")
+    Assert.True(
+        EventId.value returned <= EventId.value settled,
+        $"ack revision {EventId.value returned} settled {EventId.value settled}")
+
 /// POST /ambit/events with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Ev) = task {
     let body = encodeChangeRequestBody [ change ]
@@ -248,11 +323,14 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         let change, childId = changeAddChild rootId 0 "history-action"
         let undo = inverseEvent EventId.zero (Guid.NewGuid()) change
         let redo = inverseEvent EventId.zero (Guid.NewGuid()) undo
+        let! baseline = waitUntilPersistSettled client
         let! response = postChanges client testFile [ change; undo; redo ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ackJson = response.Content.ReadAsStringAsync()
         let post = decodeSuccess ackJson
-        Assert.Equal(EventId.fromJson 9, post.eventId)
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 9, settled)
+        assertAckWithinSettled baseline post.eventId settled
         Assert.True(post.buildEpochSec > 0)
         Assert.True(post.pageBuildEpochSec > 0)
         Assert.True(post.isReady)
@@ -270,7 +348,7 @@ let ``POST Change and inverse Changes return complete confirmations in request o
             decode
                 ApiResponseSerialization.decodeChangeSuccessResponseDecoder
                 pollJson
-        Assert.Equal(EventId.fromJson 9, poll.eventId)
+        Assert.Equal(settled, poll.eventId)
         Assert.True(poll.buildEpochSec > 0)
         Assert.True(poll.pageBuildEpochSec > 0)
         Assert.True(poll.isReady)
@@ -405,6 +483,7 @@ let ``POST changes SetText changes child text and bumps revision`` () =
         let change0, childId = changeAddChild rootId 0 ""
         let! r0 = postChange client testFile change0
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let change =
             { id = EventId.zero
@@ -416,7 +495,10 @@ let ``POST changes SetText changes child text and bumps revision`` () =
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 6, decodeSuccessRevision postBody)
+        let returned = decodeSuccessRevision postBody
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 6, settled)
+        assertAckWithinSettled baseline returned settled
         Assert.Equal<Guid list>([ change.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
@@ -489,6 +571,7 @@ let ``POST changes twice bumps revision to 2`` () =
         let change1, childId = changeAddChild rootId 0 "first"
         let! resp1 = postChange client testFile change1
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let change2 =
             { id = EventId.zero
@@ -500,7 +583,10 @@ let ``POST changes twice bumps revision to 2`` () =
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
         let! postBody2 = resp2.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 6, decodeSuccessRevision postBody2)
+        let returned = decodeSuccessRevision postBody2
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 6, settled)
+        assertAckWithinSettled baseline returned settled
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
@@ -520,11 +606,15 @@ let ``POST changes batch with two changes bumps revision to 2`` () =
               commandName = ""
               body = EventBody.Change [ Op.SetText(childId, "first", "second") ] }
 
+        let! baseline = waitUntilPersistSettled client
         let! resp = postChanges client testFile [ change1; change2 ]
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 6, decodeSuccessRevision postBody)
+        let returned = decodeSuccessRevision postBody
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 6, settled)
+        assertAckWithinSettled baseline returned settled
         Assert.Equal<Guid list>(
             [ change1.submissionId; change2.submissionId ],
             decodeAckChangeIds postBody)
@@ -635,6 +725,7 @@ let ``POST with stale base revision and valid SetText succeeds`` () =
         let setup, childId = changeAddChild rootId 0 ""
         let! r0 = postChange client testFile setup
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let stale =
             { id = EventId.zero
@@ -646,11 +737,14 @@ let ``POST with stale base revision and valid SetText succeeds`` () =
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 6, decodeSuccessRevision postBody)
+        let returned = decodeSuccessRevision postBody
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 6, settled)
+        assertAckWithinSettled baseline returned settled
         Assert.Equal<Guid list>([ stale.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
-        Assert.Equal(EventId.fromJson 6, decodeEventId json)
+        Assert.Equal(settled, decodeEventId json)
         Assert.Equal("x", (decodeGraph json).nodes.[childId].text)
     })
 
@@ -691,6 +785,7 @@ let ``POST unrelated attribute edits with stale revision both succeed``
               body = EventBody.Change [ Op.SetText(nodeY, "y0", "yA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let changeB =
             { id = EventId.zero
@@ -702,12 +797,15 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 12, decodeSuccessRevision postBody)
+        let returned = decodeSuccessRevision postBody
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 12, settled)
+        assertAckWithinSettled baseline returned settled
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(EventId.fromJson 12, decodeEventId json)
+        Assert.Equal(settled, decodeEventId json)
         Assert.Equal("xB", g.nodes.[nodeX].text)
         Assert.Equal("yA", g.nodes.[nodeY].text)
     })
@@ -730,6 +828,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
               body = EventBody.Change [ Op.SetText(nodeX, "x0", "xA") ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let changeB =
             { id = EventId.zero
@@ -743,13 +842,15 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child``
 
         let postBody = rBText
         let revision = decodeSuccessRevision postBody
-        Assert.True(EventId.value revision >= 9)
+        let! settled = waitUntilPersistSettled client
+        Assert.True(EventId.value settled >= 9)
+        assertAckWithinSettled baseline revision settled
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
         Assert.True(decodeSuccessExternalChanges postBody)
 
         let! json = getStateJsonFull client testFile
         let g = decodeGraph json
-        Assert.True(EventId.value (decodeEventId json) >= 9)
+        Assert.Equal(settled, decodeEventId json)
         Assert.Equal("xA", g.nodes.[nodeX].text)
         assertAmbConflictFirstChild g nodeX "xB"
     })
@@ -879,6 +980,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
                   Op.Replace(parentP1, [], ownedChild childA) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+        let! baseline = waitUntilPersistSettled client
 
         let childB = NodeId.New()
         let changeB =
@@ -893,12 +995,15 @@ let ``POST unrelated structural edits with stale revision both succeed``
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
         let! postBody = rB.Content.ReadAsStringAsync()
-        Assert.Equal(EventId.fromJson 9, decodeSuccessRevision postBody)
+        let returned = decodeSuccessRevision postBody
+        let! settled = waitUntilPersistSettled client
+        Assert.Equal(EventId.fromJson 9, settled)
+        assertAckWithinSettled baseline returned settled
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds postBody)
 
         let! json = getStateJsonFull client testFile
         let g = decodeGraph json
-        Assert.Equal(EventId.fromJson 9, decodeEventId json)
+        Assert.Equal(settled, decodeEventId json)
         Assert.Equal<ChildNode list>(
             ownedChild childA,
             (Graph.children g parentP1))
