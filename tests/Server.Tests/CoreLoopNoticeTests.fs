@@ -38,7 +38,7 @@ let private handlers
             state.Value <- { state.Value with graph = graph }
       noteDiffDone = snaps.Add
       noteParsed = ignore
-      noteStamped = fun _ _ -> ()
+      noteStamped = ignore
       noteWriteFailed = ignore }
 
 let private filling state snaps : PersistFilling =
@@ -200,41 +200,19 @@ let ``NodePersisting matches the Unpersisted Set`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``NodeStamped applies stamp ops and leaves persist state`` () =
-    let id, initial =
-        fileState PersistState.Unpersisted ParseState.Parsed
-    let state = ref initial
-    let snaps = ResizeArray<NodeId>()
-    let before = state.Value.graph.nodes.[id].updateTime
-    let afterTime = before.AddMinutes(3.0)
-    let ops = [ Op.SetUpdateTime(id, before, afterTime) ]
-    apply (handlers state snaps) (Notice.NodeStamped(ops, Some "saved"))
-    let node = state.Value.graph.nodes.[id]
-    Assert.Equal(afterTime, node.updateTime)
-    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
-    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
-    Assert.Empty(snaps)
-
-[<Fact>]
 let ``Posted NodeStamped is on the log`` () =
     task {
         let id, initial =
             fileState PersistState.Unpersisted ParseState.Parsed
         let state = ref initial
         let snaps = ResizeArray<NodeId>()
-        let before = state.Value.graph.nodes.[id].updateTime
-        let afterTime = before.AddMinutes(4.0)
-        let notice =
-            Notice.NodeStamped(
-                [ Op.SetUpdateTime(id, before, afterTime) ],
-                None)
+        let notice = Notice.NodeStamped
         let host = hostFor state snaps
         try
             CoreMailboxApi.postNotice host notice
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got
-            Assert.Equal(afterTime, got.graph.nodes.[id].updateTime)
             Assert.Equal(
                 PersistState.Unpersisted,
                 got.graph.nodes.[id].documentState.persistState)

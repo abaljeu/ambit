@@ -507,18 +507,11 @@ module DbAgent =
                 List.distinct (pending @ loaded.diffWorkspaces.Value)
         loaded.diffNeeded.Value <- true
 
-    let private noteStamped
-        (loaded: LoadedPersist)
-        (_ops: Op list)
-        (message: string option)
-        =
+    let private noteStamped (loaded: LoadedPersist) () =
         let pending = takePendingNotify loaded
-        match message with
-        | None ->
-            loaded.opsNotifiedIds.Value <-
-                pending @ loaded.opsNotifiedIds.Value
-                |> List.distinct
-        | Some _ -> ()
+        loaded.opsNotifiedIds.Value <-
+            pending @ loaded.opsNotifiedIds.Value
+            |> List.distinct
         loaded.baselineGraph.Value <- loaded.state.Value.graph
         if List.isEmpty loaded.diffWorkspaces.Value then
             ()

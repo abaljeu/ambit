@@ -72,7 +72,7 @@ type Notice =
     | NodeParsing of nodeId: NodeId
     | NodePersisting of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
-    | NodeStamped of ops: Op list * message: string option
+    | NodeStamped
 
 [<RequireQualifiedAccess>]
 type EventBody =

@@ -1346,40 +1346,26 @@ let ``applyServerTail with changes preserves History`` () =
     | Ok result -> Assert.Equal(st.history, result.history)
 
 [<Fact>]
-let ``NodeStamped applies the stamp and PersistFailed leaves the graph`` () =
+let ``PersistFailed leaves the graph`` () =
     let st, nodeId = stateWithNode "before"
     let before = st.graph.nodes.[nodeId].updateTime
-    let afterTime = before.AddMinutes(2.0)
     let persist = st.graph.nodes.[nodeId].documentState.persistState
-    let stamp =
-        { id = EventIdFixtures.storedId 3
+    let failed =
+        { id = EventIdFixtures.storedId 4
           submissionId = System.Guid.NewGuid()
           authority = Authority ""
           commandName = ""
           body =
             EventBody.Notice(
-                Notice.NodeStamped(
-                    [ Op.SetUpdateTime(nodeId, before, afterTime) ],
-                    None)) }
-    match applyTail [ stamp ] st with
+                Notice.PersistFailed(nodeId, "disk full")) }
+    match applyTail [ failed ] st with
     | Error msg -> failwith msg
-    | Ok stamped ->
-        Assert.Equal(afterTime, stamped.graph.nodes.[nodeId].updateTime)
-        Assert.Equal(persist, stamped.graph.nodes.[nodeId].documentState.persistState)
-        let failed =
-            { stamp with
-                id = EventIdFixtures.storedId 4
-                body =
-                    EventBody.Notice(
-                        Notice.PersistFailed(nodeId, "disk full")) }
-        match applyTail [ failed ] stamped with
-        | Error msg -> failwith msg
-        | Ok afterFail ->
-            Assert.Equal(afterTime, afterFail.graph.nodes.[nodeId].updateTime)
-            Assert.Equal(
-                persist,
-                afterFail.graph.nodes.[nodeId].documentState.persistState)
-            Assert.Equal(Some "disk full", SyncLogic.persistFailedMessage [ failed ])
+    | Ok afterFail ->
+        Assert.Equal(before, afterFail.graph.nodes.[nodeId].updateTime)
+        Assert.Equal(
+            persist,
+            afterFail.graph.nodes.[nodeId].documentState.persistState)
+        Assert.Equal(Some "disk full", SyncLogic.persistFailedMessage [ failed ])
 
 [<Fact>]
 let ``NodePersisted applies the written file time`` () =

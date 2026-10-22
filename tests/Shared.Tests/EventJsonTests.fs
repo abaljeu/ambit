@@ -146,9 +146,7 @@ let ``Notice JSON round trip`` () =
           Notice.NodeParsing nodeId
           Notice.NodePersisting nodeId
           Notice.PersistFailed(nodeId, "disk full")
-          Notice.NodeStamped(
-              [ Op.SetUpdateTime(nodeId, stamp, stamp.AddMinutes 1.0) ],
-              Some "saved") ]
+          Notice.NodeStamped ]
     notices
     |> List.iter (fun notice ->
         let event =

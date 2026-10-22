@@ -129,25 +129,6 @@ let ``NodePersisted writes persist state to the database`` () = task {
 }
 
 [<Fact>]
-let ``NodeStamped writes the stamped time to the database`` () = task {
-    let! connStr, mailbox, id, before = freshFile ()
-    let stamp = before.updateTime.AddHours(2.0)
-    let notice =
-        Notice.NodeStamped(
-            [ Op.SetUpdateTime(id, before.updateTime, stamp) ],
-            Some "saved")
-    do! apply mailbox notice
-    let! after = readNode connStr id
-    Assert.Equal(NodeUpdateTime.toDbPrecision stamp, after.updateTime)
-    Assert.Equal(
-        before.documentState.parseState,
-        after.documentState.parseState)
-    Assert.Equal(
-        before.documentState.persistState,
-        after.documentState.persistState)
-}
-
-[<Fact>]
 let ``NodeReceived writes the received node to the database`` () = task {
     let! connStr, mailbox, id, _ = freshFile ()
     do! apply mailbox (Notice.NodeParsed id)
