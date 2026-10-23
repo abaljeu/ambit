@@ -117,7 +117,7 @@ let ``persist thread writes from the live graph`` () =
             | Notice.NodeStamped -> true
             | _ -> false)
     Assert.Equal(Some fileId, persisted)
-    Assert.True(stamped, "expected an empty NodeStamped after the write")
+    Assert.False(stamped, "a write posts NodePersisted only")
 
 [<Fact>]
 let ``repeated pushes write once`` () =
@@ -184,11 +184,11 @@ let ``persist thread posts NodePersisted on success only`` () =
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
     match okNotices with
-    | [ Notice.NodePersisted (id, time); Notice.NodeStamped ] ->
+    | [ Notice.NodePersisted (id, time) ] ->
         Assert.Equal(okId, id)
         Assert.Equal(written, time)
     | other ->
-        Assert.Fail($"expected persisted then stamped, got {other}")
+        Assert.Fail($"expected NodePersisted, got {other}")
 
     let badId, badNotices = run (fun _ _ -> Error "disk full")
     Assert.Equal<Notice list>(

@@ -1,6 +1,6 @@
 # 83 — NodePersisted takes over NodeStamped's work
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding

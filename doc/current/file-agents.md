@@ -17,4 +17,4 @@ See Also:
 
 [x] File agent: not an Actor.
 
-[x] Edit checkpoint: [File agent](../../src/Server/Core/FileAgent.fs) `persistCollected` appends the accepted event id to `pendingCheckpoint`. When [Document op impact](../../src/Shared/DocumentOpImpact.fs) `owningSpecials` is empty, it posts `Notice.NodeStamped`.
+[x] File agent: an Edit posts no Notice. `noteStamped` is `ignore`. The persist thread posts `Notice.NodePersisted` after a write. [Mailbox](mailbox.md)

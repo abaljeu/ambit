@@ -47,19 +47,6 @@ module FileAgent =
             externalChanges
             message
 
-    let private persistCollected
-        (loaded: LoadedFile)
-        (postGraph: Graph)
-        (ops: Op list)
-        =
-        let ids =
-            DocumentOpImpact.owningSpecials postGraph ops
-        if List.isEmpty ids then
-            PersistThread.postWhenBound
-                loaded.persistFinished
-                Notice.NodeStamped
-        Ok ()
-
     let private applyOne
         loaded
         (graphOnly: bool)
@@ -119,16 +106,6 @@ module FileAgent =
                     preGraph
                     postGraph)
 
-    let private persistPostChange loaded graphOnly changed newState fresh =
-        if changed && not graphOnly then
-            let ops =
-                fresh
-                |> List.collect (fun event ->
-                    Ev.ops event |> Option.defaultValue [])
-            persistCollected loaded newState.graph ops
-        else
-            Ok ()
-
     let private preparePostChange
         (newState: State)
         (confirmations: Ev list)
@@ -157,7 +134,7 @@ module FileAgent =
         else
             match applyBatch loaded graphOnly events with
             | Error err -> Error err
-            | Ok (newState, confirmations, fresh, changed, externalChanges) ->
+            | Ok (newState, confirmations, _fresh, _changed, externalChanges) ->
                 let preGraph = loaded.state.Value.graph
                 match validatePostChange loaded graphOnly preGraph newState.graph with
                 | Error err -> Error err
@@ -165,21 +142,11 @@ module FileAgent =
                     let finalState, ackEvents, persistMessage =
                         preparePostChange newState confirmations
                     loaded.state.Value <- finalState
-                    match
-                        persistPostChange
-                            loaded
-                            graphOnly
-                            changed
-                            newState
-                            fresh
-                    with
-                    | Error err -> Error err
-                    | Ok () ->
-                        Ok(accepted
-                            loaded
-                            ackEvents
-                            externalChanges
-                            persistMessage)
+                    Ok(accepted
+                        loaded
+                        ackEvents
+                        externalChanges
+                        persistMessage)
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value

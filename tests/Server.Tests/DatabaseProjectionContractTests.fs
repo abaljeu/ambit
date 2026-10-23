@@ -91,8 +91,8 @@ let private readStoredEvents connStr = task {
             | Error error -> failwith error)
 }
 
-/// One label per stored event. The mailbox ROOT push adds
-/// NodePersisted ROOT and NodeStamped beside the earlier rows.
+/// One label per stored event. One Edit of ROOT adds one
+/// NodePersisted ROOT beside the Change.
 let private eventLabel (event: Ev) =
     match event.body with
     | EventBody.Change _ -> "Change"
@@ -344,10 +344,7 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let labels = stored |> List.map eventLabel |> List.sort
     Assert.Equal<string list>(
         [ "Change"
-          "NodePersisted ROOT"
-          "NodePersisted ROOT"
-          "NodeStamped"
-          "NodeStamped" ]
+          "NodePersisted ROOT" ]
         |> List.sort,
         labels)
     let change =
