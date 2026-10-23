@@ -235,12 +235,6 @@ module DbAgent =
         loaded.diffWorkspaces.Value <-
             loaded.diffWorkspaces.Value @ more |> List.distinct
 
-    let private pushPersist (loaded: LoadedPersist) (nodeId: NodeId) =
-        match loaded.stack.Value with
-        | None -> ()
-        | Some stack ->
-            PersistRequestStack.push stack { nodeId = nodeId }
-
     let private pushIds (loaded: LoadedPersist) (ids: NodeId list) =
         match loaded.stack.Value with
         | None -> ()
@@ -550,7 +544,7 @@ module DbAgent =
             persistNoticeRow loaded notice graph
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
-        pushPersist = pushPersist loaded
+        pushPersist = PersistRequestStack.pushBoundNode loaded.stack
         noteStamped = noteStamped loaded
         noteWriteFailed = noteWriteFailed loaded
     }

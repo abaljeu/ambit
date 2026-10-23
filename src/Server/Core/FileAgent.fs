@@ -50,12 +50,6 @@ module FileAgent =
             externalChanges
             message
 
-    let private pushPersist (loaded: LoadedFile) (nodeId: NodeId) =
-        match loaded.stack.Value with
-        | None -> ()
-        | Some stack ->
-            PersistRequestStack.push stack { nodeId = nodeId }
-
     let private pushIds (loaded: LoadedFile) (ids: NodeId list) =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
@@ -289,7 +283,7 @@ module FileAgent =
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = ignore
-        pushPersist = pushPersist loaded
+        pushPersist = PersistRequestStack.pushBoundNode loaded.stack
         noteStamped = noteStamped loaded
         noteWriteFailed = ignore
     }

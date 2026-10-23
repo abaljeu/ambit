@@ -11,6 +11,17 @@ let private request () : PersistRequest =
     { nodeId = NodeId.New() }
 
 [<Fact>]
+let ``pushBoundNode pushes a bound node and skips a missing stack`` () =
+    let missing = ref None
+    PersistRequestStack.pushBoundNode missing (NodeId.New())
+    Assert.True(Option.isNone missing.Value)
+    let holder = ref (Some(PersistRequestStack.create ()))
+    let nodeId = NodeId.New()
+    PersistRequestStack.pushBoundNode holder nodeId
+    let got = PersistRequestStack.take holder.Value.Value
+    Assert.Equal(nodeId, got.nodeId)
+
+[<Fact>]
 let ``persist stack takes the newest request`` () =
     let stack = PersistRequestStack.create ()
     let first = request ()
