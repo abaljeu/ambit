@@ -21,12 +21,6 @@ Remove `ParseThread.markUnparsed` as a producer of Unparsed marks.
 
 1. [ ] **Unparsed test** — `parse thread does not mark Unparsed`. `ParseThread.markUnparsed` is gone. Directory reconcile does not mark an existing member Unparsed. The mailbox sets Unparsed and pushes before the node is on the parse thread.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [Graph change remove markUnparsed](../arch.md#graph-change-remove-markunparsed)

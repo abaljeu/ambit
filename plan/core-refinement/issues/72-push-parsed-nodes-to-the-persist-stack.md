@@ -23,10 +23,6 @@ Do these steps in order. Finish each step before starting the next.
 1. [ ] **Test** — `NodeParsed pushes a persist request`. A Parsed and Unpersisted node is pushed. Any other node is not pushed.
 2. [ ] **Test** — after the loop writes the node, it is Persisted.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-
 ## See also
 
 - [51 — Stand the persist stack](51-stand-the-persist-stack.md)

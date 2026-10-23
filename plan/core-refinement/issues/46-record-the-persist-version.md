@@ -26,10 +26,6 @@ Do these steps in order. Finish each step before starting the next.
 1. [ ] **Version test** — `NodePersisted for an older version leaves the node Unpersisted`. Every NodePersisted sets `persistedVersion` to the written version. A written version not older than `changedVersion` sets Persisted, including for a node decoded at `EventId.zero`. The persist thread does not edit the graph. An Undo or Redo that set Unpersisted stays Unpersisted when an older persist finishes.
 2. [ ] **Graph-change test** — `graph change sets Unpersisted with the newer version`. The nearest owning special node is Unpersisted.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-
 ## See also
 
 - [Graph change persist version](../arch.md#graph-change-persist-version)

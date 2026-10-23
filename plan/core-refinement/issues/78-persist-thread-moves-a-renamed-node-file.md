@@ -30,12 +30,6 @@ The persist thread is the only writer of document files, so it knows the path of
 4. [ ] **Test** — `failed move posts PersistFailed`. The destination is taken: the thread posts `PersistFailed` and the file stays at the old path.
 5. [ ] **Still working** — Upload, import, parse, Load, undo and persist still complete.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket.
-
 ## See also
 
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)

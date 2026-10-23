@@ -39,10 +39,6 @@ Do these steps in order. Finish each step before starting the next.
 6. [ ] **Every order logs** — `each accepted Actor order appends an Ev`. A start that runs no Actor logs its start and its stop.
 7. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-
 ## See also
 
 - [Message shape](../cqrs-messages.md)

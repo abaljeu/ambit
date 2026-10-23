@@ -29,12 +29,6 @@ Upload and import still plan `Op.SetDocumentState`. [§10 Module map](plan/core-
 2. [ ] **Writer test** — `upload and import write through setParseState` shows Upload and import call `GraphMutate.setParseState` for Parsed, Unparsed, and PullingFile.
 3. [ ] **Round-trip test** — `Op.SetDocumentState round-trip` still passes. The payload is Parsed, Unparsed, or PullingFile.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [§3 Expand-contract sequence](plan/core-refinement/arch.md#3-expand-contract-sequence)

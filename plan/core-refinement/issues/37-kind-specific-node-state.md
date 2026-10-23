@@ -25,12 +25,6 @@ Node state is kind-specific. A Normal Node does not hold parse state or persist 
 1. [ ] **Workspace graph** — [Workspace graph](doc/current/graph.md) says a Normal Node has no parse state and no persist state, and PullingFile is only on a File Node.
 2. [ ] **Kind test** — A test shows a Normal Node stores neither state and its JSON omits both keys. A test shows a File Node can be PullingFile. A test shows a Directory Node and a Workspace Node have parse state and persist state and have no PullingFile.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [§1 Special-node Parse and Persist axes](plan/core-refinement/arch.md#1-special-node-parse-and-persist-axes)
