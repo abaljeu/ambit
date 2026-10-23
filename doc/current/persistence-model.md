@@ -179,7 +179,7 @@ Startup reads: the mailbox stays available while startup maintenance runs. In th
 
 [x] Unchanged documents: incremental writes skip unchanged documents.
 
-[x] Persist thread: an accepted change calls the collectors. The persist thread calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange`. `FileAgent` and `DbAgent` do not call those functions on the post path.
+[x] Persist thread: the post path pushes a node id onto the persist stack and returns. The thread calls [Document persist change](../../src/Server/DocumentPersistChange.fs) `persistNode`. [Parse and persist](parse-persist.md)
 
 [ ] Browser residency: want-driven.
 
