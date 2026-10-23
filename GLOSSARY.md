@@ -67,7 +67,7 @@ The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The va
 _Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active, blocked (as Stage tokens)
 
 **staging**:
-Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
 _Avoid_: PR (as the drop), cloud branch (as the drop)
 
 **Status**:
