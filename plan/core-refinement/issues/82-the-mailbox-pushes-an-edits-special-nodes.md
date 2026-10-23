@@ -55,7 +55,8 @@ An accepted Edit reaches the persist stack through a collector inside each agent
   - set each Persisted one Unpersisted with `GraphMutate.setPersistState` and `context.persist.replaceGraph (Notice.NodePersisting nodeId)`, so `DbAgent` writes its `persist_state` row
   - call `context.persist.pushPersist` for each owning special node, Parsed or Unparsed
 - A graph-only Change pushes nothing.
-- `FileAgent.persistCollected` keeps the checkpoint append and the `Notice.NodeStamped` post when there are no owning special nodes. It stops marking and pushing. Delete `FileAgent.openForWrite`, `FileAgent.markUnpersisted`, `FileAgent.persistedNode` and `FileAgent.pushIds`.
+- The Edit path sets no node Persisted. Only the persist thread's `Notice.NodePersisted` sets Persisted.
+- `FileAgent.persistCollected` keeps the `pendingCheckpoint` append and the `Notice.NodeStamped` post when there are no owning special nodes. It stops marking and pushing. Delete `FileAgent.openForWrite`, `FileAgent.markUnpersisted`, `FileAgent.persistedNode` and `FileAgent.pushIds`. [86 — FileAgent stops writing the event-id checkpoint](86-fileagent-stops-writing-the-event-id-checkpoint.md) removes the append.
 - Delete the `DbAgent` push for an Edit:
   - `submitLiveOps` stops setting `pendingNotify`
   - `commitPostChange` stops reading and pushing `pendingNotify`

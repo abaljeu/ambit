@@ -30,7 +30,7 @@ coding
   - `EventJson.encodeNodeStamped`, `EventJson.encodeNotice`, `EventJson.decodeNodeStamped`, `EventJson.decodeNoticeBody`
   - `Database.writeNoticeRow`
   - `CoreMailboxLoad.applyNotice`, `CoreMailboxLoad.failedPersist`
-  - `FileAgent.persistHandlers`, `FileAgent.noteStamped`
+  - `FileAgent.persistHandlers`
   - `DbAgent.persistHandlers`, `DbAgent.noteStamped`
   - `EventLogFile.readAllEvents`, `DbAgent.loadReconciled`
 
@@ -46,7 +46,7 @@ After [83 — NodePersisted takes over NodeStamped's work](83-nodepersisted-take
 - An old `nodeStamped` row fails to decode. `EventLogFile.readAllEvents` and `DbAgent.loadReconciled` skip a row that fails to decode.
 - Rename `PersistHandlers.noteStamped` to `notePersisted`. Each record that sets it changes:
   - `CoreMailboxLoad.failedPersist` and the `NodePersisted` arm of `applyNotice`
-  - `FileAgent.persistHandlers` (`FileAgent.noteStamped` becomes `notePersisted`)
+  - `FileAgent.persistHandlers` (`noteStamped = ignore` becomes `notePersisted = ignore`)
   - `DbAgent.persistHandlers` (`DbAgent.noteStamped` becomes `notePersisted`)
   - `tests/Server.Tests/TestBackend.fs` `cannedHandlers` and its other handler records
   - `tests/Server.Tests/CoreLoopNoticeTests.fs` `handlers`
