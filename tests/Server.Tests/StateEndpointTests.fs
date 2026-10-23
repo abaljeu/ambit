@@ -1172,10 +1172,6 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
         Assert.True(File.Exists ambPath, ".amb snapshot should exist")
         let content = File.ReadAllText ambPath
         Assert.Contains("snapped", content)
-        let metaPath = Bookkeeping.metaPath tempDir
-        Assert.True(File.Exists metaPath, "Meta file should exist")
-        let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
-        Assert.Equal(1, rev)
     finally
         CoreMailboxApi.dispose host
 }

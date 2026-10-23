@@ -26,9 +26,6 @@ module FileAgent =
         eventOffsets: int64 ResizeArray
         persistedEventLog: EventLog ref
         state: State ref
-        persistClean: bool ref
-        lastPersisted: Graph ref
-        pendingCheckpoint: EventId list ref
         stack: PersistRequest BlockingCollection option ref
         persistFinished: (Notice -> unit) option ref
     }
@@ -52,12 +49,9 @@ module FileAgent =
 
     let private persistCollected
         (loaded: LoadedFile)
-        (eventId: EventId)
         (postGraph: Graph)
         (ops: Op list)
         =
-        loaded.pendingCheckpoint.Value <-
-            loaded.pendingCheckpoint.Value @ [ eventId ]
         let ids =
             DocumentOpImpact.owningSpecials postGraph ops
         if List.isEmpty ids then
@@ -131,11 +125,7 @@ module FileAgent =
                 fresh
                 |> List.collect (fun event ->
                     Ev.ops event |> Option.defaultValue [])
-            persistCollected
-                loaded
-                newState.eventId
-                newState.graph
-                ops
+            persistCollected loaded newState.graph ops
         else
             Ok ()
 
@@ -191,27 +181,6 @@ module FileAgent =
                             externalChanges
                             persistMessage)
 
-    /// A clean Edit write checkpoints the event id. A soft-fail keeps the
-    /// meta behind the log for the rest of this process. A second stamp
-    /// with an empty queue leaves that checkpoint where it is.
-    let private takeCheckpoint (loaded: LoadedFile) =
-        match loaded.pendingCheckpoint.Value with
-        | [] -> None
-        | head :: rest ->
-            loaded.pendingCheckpoint.Value <- rest
-            Some head
-
-    let private noteStamped (loaded: LoadedFile) () =
-        match takeCheckpoint loaded with
-        | None -> ()
-        | Some _ when not loaded.persistClean.Value -> ()
-        | Some eventId ->
-            match Bookkeeping.writeEventId loaded.dataDir eventId with
-            | Error _ -> loaded.persistClean.Value <- false
-            | Ok () ->
-                loaded.lastPersisted.Value <-
-                    loaded.state.Value.graph
-
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
@@ -242,7 +211,7 @@ module FileAgent =
         noteDiffDone = ignore
         noteParsed = ignore
         pushPersist = PersistRequestStack.pushBoundNode loaded.stack
-        noteStamped = noteStamped loaded
+        noteStamped = ignore
         noteWriteFailed = ignore
     }
 
@@ -251,20 +220,23 @@ module FileAgent =
         | Ok state -> state
         | Error msg -> failwith msg
 
+    let private checkpointAhead (state: State) (log: EventLog) =
+        EventId.value state.eventId > EventId.value (EventLog.tip log)
+
+    // A checkpoint past the log tip drops the log. Otherwise the graph
+    // stays as loaded and the event id becomes the log tip.
     let private reconcileLoaded loaded =
-        let recovered =
-            EventLog.recover
-                loaded.state.Value
-                loaded.persistedEventLog.Value
-        if
-            not (List.isEmpty loaded.persistedEventLog.Value.events)
-            && List.isEmpty (snd recovered).events
-        then
+        let state = loaded.state.Value
+        let log = loaded.persistedEventLog.Value
+        if checkpointAhead state log then
             EventLogFile.truncate
                 loaded.eventStream
                 loaded.eventOffsets
-        loaded.state.Value <- fst recovered
-        loaded.persistedEventLog.Value <- snd recovered
+            loaded.persistedEventLog.Value <-
+                EventLog.afterCheckpoint state.eventId
+        else
+            loaded.state.Value <-
+                { state with eventId = EventLog.tip log }
 
     let private openLoaded
         (dependencies: FileAgentDependencies)
@@ -282,9 +254,6 @@ module FileAgent =
                 EventLogFile.readAllEvents eventStream eventOffsets
                 |> EventLog.restorePersisted)
           state = ref loadedState
-          persistClean = ref true
-          lastPersisted = ref loadedState.graph
-          pendingCheckpoint = ref []
           stack = ref None
           persistFinished = ref None }
 
@@ -292,7 +261,6 @@ module FileAgent =
         (loaded: LoadedFile)
         (dependencies: FileAgentDependencies)
         =
-        loaded.lastPersisted.Value <- loaded.state.Value.graph
         let stack = PersistRequestStack.create ()
         loaded.stack.Value <- Some stack
         let join =
