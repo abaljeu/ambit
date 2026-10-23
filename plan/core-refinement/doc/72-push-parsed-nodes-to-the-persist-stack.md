@@ -13,3 +13,7 @@
 Parse and Persist stay background work. [File mapping](../../../doc/user/guide/file-mapping.md)
 
 ## 3. Found elsewhere
+
+[[plan/core-refinement/arch.md]]
+
+[[plan/core-refinement/cqrs-messages.md]]
