@@ -1,12 +1,12 @@
 # 82 — The mailbox pushes an Edit's special nodes
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding
 
 ## 2. Blockers
-- [72 — Push parsed nodes to the persist stack](72-push-parsed-nodes-to-the-persist-stack.md). It adds `PersistHandlers.pushPersist` and `PersistRequestStack.pushBoundNode`.
+- [x] [72 — Push parsed nodes to the persist stack](72-push-parsed-nodes-to-the-persist-stack.md). It adds `PersistHandlers.pushPersist` and `PersistRequestStack.pushBoundNode`.
 
 ## 3. Look at
 - Files:
@@ -75,7 +75,7 @@ An accepted Edit reaches the persist stack through a collector inside each agent
   - `scripts/agent-test.sh --filter "PersistThreadTests"`
 
 ## 7. Done
-- The three named tests pass.
-- `PersistThread.fs` defines no `owningSpecials` or `opAnchor`.
-- No file under `src/` names `openForWrite`, `pendingNotify` or `takePendingNotify`.
-- Upload, import, parse, Load, undo and persist complete.
+- [x] The three named tests pass.
+- [x] `PersistThread.fs` defines no `owningSpecials` or `opAnchor`.
+- [x] No file under `src/` names `openForWrite`, `pendingNotify` or `takePendingNotify`.
+- [x] Upload, import, parse, Load, undo and persist complete.

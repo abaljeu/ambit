@@ -27,16 +27,11 @@ module PersistThread =
             true
         | _ -> false
 
-    let private persistedNode (state: State) (nodeId: NodeId) : bool =
-        match Map.tryFind nodeId state.graph.nodes with
-        | Some node when
-            node.documentState.persistState = PersistState.Persisted ->
-            true
-        | _ -> false
-
     let private runRequest (deps: PersistThreadDeps) (request: PersistRequest) =
         let state = deps.currentState ()
-        if not (persistedNode state request.nodeId) then
+        let stillPersisted =
+            CoreEventDispatch.persistedNode state.graph request.nodeId
+        if not stillPersisted then
             let written =
                 try
                     deps.persistNode state.graph request.nodeId
