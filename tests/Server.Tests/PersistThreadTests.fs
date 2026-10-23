@@ -201,7 +201,11 @@ let ``persist thread posts NodePersisted on success only`` () =
             | _ -> false)
     Assert.False(persistedBad)
 
-let private applyPersisted (state: State ref) (notice: Notice) =
+let private applyPersisted
+    (state: State ref)
+    (pushPersist: NodeId -> unit)
+    (notice: Notice)
+    =
     let handlers : PersistHandlers = {
         getState = fun () -> Ok state.Value
         getEventId = fun () -> Ok state.Value.eventId
@@ -214,6 +218,7 @@ let private applyPersisted (state: State ref) (notice: Notice) =
                 state.Value <- { state.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = ignore
+        pushPersist = pushPersist
         noteStamped = ignore
         noteWriteFailed = ignore
     }
@@ -237,7 +242,7 @@ let ``NodePersisted carries the written file time`` () =
                 DocumentPersistChange.persistNode dataDir graph nodeId)
             (fun notice ->
                 notices.Add notice
-                applyPersisted state notice)
+                applyPersisted state ignore notice)
     waitUntil "NodePersisted" (fun () -> notices.Count > 0)
     PersistRequestStack.stop stack
     join ()
@@ -260,3 +265,39 @@ let ``NodePersisted carries the written file time`` () =
         Assert.Equal(fileTime, updateTime)
         Assert.Equal(fileTime, state.Value.graph.nodes.[fileId].updateTime)
     | other -> Assert.Fail($"expected NodePersisted, got {other}")
+
+[<Fact>]
+let ``NodeParsed leaves the written node Persisted`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, _ = fileGraph "saved-body"
+    let state = ref { graph = graph; eventId = EventId.zero }
+    let stack = PersistRequestStack.create ()
+    let apply notice =
+        applyPersisted
+            state
+            (fun nodeId ->
+                PersistRequestStack.push stack { nodeId = nodeId })
+            notice
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
+            (fun graph nodeId ->
+                DocumentPersistChange.persistNode dataDir graph nodeId)
+            apply
+    apply (Notice.NodeParsed fileId)
+    let persisted () =
+        state.Value.graph.nodes.[fileId].persistState = PersistState.Persisted
+    waitUntil "Persisted" persisted
+    PersistRequestStack.stop stack
+    join ()
+    let node = state.Value.graph.nodes.[fileId]
+    Assert.Equal(PersistState.Persisted, node.persistState)
+    Assert.Equal(ParseState.Parsed, node.parseState)
+    let path =
+        DocumentPersistPath.resolveArtifactPath
+            dataDir
+            state.Value.graph
+            fileId
+        |> requireOk "path"
+    Assert.Contains("saved-body", File.ReadAllText path)

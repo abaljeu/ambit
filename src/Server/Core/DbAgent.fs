@@ -470,18 +470,12 @@ module DbAgent =
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> writePersistedEvent loaded persisted)
 
-    let private catchUpParsed (loaded: LoadedPersist) (nodeId: NodeId) =
-        match loaded.liveSaveDataDir with
-        | None -> ()
-        | Some _ ->
-            pushIds loaded [ nodeId ]
-
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
         match Map.tryFind nodeId loaded.state.Value.graph.nodes with
         | Some node when
             node.documentState.parseState = ParseState.Parsed
-            && node.documentState.persistState = PersistState.Unpersisted ->
-            catchUpParsed loaded nodeId
+            && node.documentState.persistState =
+                PersistState.Unpersisted ->
             if
                 loaded.diffNeeded.Value
                 && not loaded.diffInProgress.Value
@@ -550,6 +544,7 @@ module DbAgent =
             persistNoticeRow loaded notice graph
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
+        pushPersist = PersistRequestStack.pushBoundNode loaded.stack
         noteStamped = noteStamped loaded
         noteWriteFailed = noteWriteFailed loaded
     }
