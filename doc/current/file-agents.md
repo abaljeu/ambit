@@ -16,5 +16,8 @@ See Also:
 [x] When the database is offline, [File agent](../../src/Server/Core/FileAgent.fs) reads file data into a partial graph.
 
 [x] File agent: not an Actor.
-
-[x] Edit checkpoint: [File agent](../../src/Server/Core/FileAgent.fs) `persistCollected` appends the accepted event id to `pendingCheckpoint`. When [Document op impact](../../src/Shared/DocumentOpImpact.fs) `owningSpecials` is empty, it posts `Notice.NodeStamped`.
+[x] [File agent](../../src/Server/Core/FileAgent.fs) reads the graph from the `.amb` files.
+[x] A meta checkpoint past the log tip truncates the log.
+[x] In every other case the event id becomes the log tip.
+[x] [File agent](../../src/Server/Core/FileAgent.fs) does not write `SYSTEM/gambol.meta`.
+[x] When [Document op impact](../../src/Shared/DocumentOpImpact.fs) `owningSpecials` is empty, [File agent](../../src/Server/Core/FileAgent.fs) `persistCollected` posts `Notice.NodeStamped`.
