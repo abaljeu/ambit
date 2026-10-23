@@ -15,12 +15,15 @@ Ticket: [[../issues/NN-<ticket-name>.md]]
 
 ## 1. Score
 
-## 2. Miss
+## 2. Tests
+
+## 3. Miss
 ```
 
 ## 3. Fill
 
 1. **Score.** Score the report against each story the ticket named.
-2. **Miss.** Name what failed. A miss returns that ticket to build.
+2. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record the filtered result and the full-suite result from its log.
+3. **Miss.** Name what failed. A missing test, a failing test, or a test that does not check the ticket's done is a miss. A miss returns that ticket to build.
 
-Done: the report scores the stories that ticket named. A miss names what failed, and that ticket returns to build.
+Done: the report scores the stories that ticket named and records the test results. A miss names what failed, and that ticket returns to build.
