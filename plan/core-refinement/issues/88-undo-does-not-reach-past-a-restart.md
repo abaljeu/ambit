@@ -1,6 +1,6 @@
 # 88 — Undo does not reach past a restart
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding
