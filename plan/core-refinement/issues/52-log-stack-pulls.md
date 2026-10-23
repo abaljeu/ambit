@@ -23,12 +23,6 @@ The parse thread and the persist thread post the stack-pull messages as `Notice`
 1. [ ] **Parse pull test** — `parse pull posts NodeParsing`. The parse thread posts `Notice.NodeParsing` when it pulls the node. The node is not pushed again. The thread does not edit the graph.
 2. [ ] **Persist pull test** — `persist pull posts NodePersisting`. The persist thread posts `Notice.NodePersisting` when it pulls the node. It does not call `GraphMutate.setPersistState`.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [Graph change stack pull](../arch.md#graph-change-stack-pull)

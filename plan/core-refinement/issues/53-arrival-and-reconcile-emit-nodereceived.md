@@ -22,12 +22,6 @@ Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeReceived` for 
 1. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and clears PullingFile.
 2. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and clears PullingFile.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [Graph change arrival](../arch.md#graph-change-arrival)

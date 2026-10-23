@@ -23,12 +23,6 @@ Change the server and Browser Undo and Redo appliers. They apply the inverse Ops
 1. [ ] **Undo test** — `undo sets Unpersisted and does not apply Node events`. The graph changes. NodeUploading, NodeReceived, NodeParsing, NodeParsed, NodePersisting, and NodePersisted from the stream are not applied.
 2. [ ] **Redo test** — `redo sets Unpersisted and does not apply Node events`. Redo gets the same Unpersisted mark as Undo. It does not write a version.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [Graph change undo](../arch.md#graph-change-undo)

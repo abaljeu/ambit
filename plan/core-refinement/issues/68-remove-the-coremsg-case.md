@@ -27,12 +27,6 @@ Remove `CoreMsg`. Make the `MailboxLog` event the `History` event. Read the orde
 3. [ ] **Notice event** — A stored `Notice.NodeUnpersisted` has `id` and that notice. The JSON has no `authority`, `orderId`, or `commandName`.
 4. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [Message shape](../cqrs-messages.md)

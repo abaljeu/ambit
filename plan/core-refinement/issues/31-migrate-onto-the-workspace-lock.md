@@ -25,12 +25,6 @@ Persist, parse-thread file use, and git Load and git Save follow the workspace l
 1. [ ] **Parse and persist claim** — The Parse and persist claim says Persist, parse-thread file use, and git Load and git Save follow the workspace lock, and `withWorkTreeGate` still runs.
 2. [ ] **Caller test** — A test shows Persist takes a per-member persist lock, a parse read waits while the workspace lock is pending, and git Load and git Save take the workspace lock. The test shows `withWorkTreeGate` still runs.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [core-refinement architecture](plan/core-refinement/arch.md)
