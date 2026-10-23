@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 
-> **Open question for Alan.** Should the handler set `persistedVersion` on every `NodePersisted`, or only when the written version is current? Alan's rewrite of [46 — Record the persist version](46-record-the-persist-version.md) says it always sets it. [Graph change persist version](../arch.md#graph-change-persist-version) says the handler "sets the Persisted version only when the written version is current." This ticket follows the rewrite until Alan decides. Settle it before building.
+> **Decided (Alan, 2026-10-23).** "persistedVersion is the version of the graph that was written to file." Every `NodePersisted` sets `persistedVersion` to the written version. `persistState` becomes `Persisted` only when `persistedVersion >= changedVersion`. Otherwise it stays `Unpersisted` and `changedVersion` does not change.
 
 ## 1. Type
 bug-fixing
