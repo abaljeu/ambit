@@ -26,7 +26,10 @@ Describe the state before this work is done.
 ## 5. Changes
 Name the changes to make.
 
-## 6. Done
+## 6. Tests
+Name each test to add or change, its file, and what it checks. Name the `--filter` names that run them.
+
+## 7. Done
 How we can validate the ticket is accomplished.
 
 ```
@@ -41,6 +44,7 @@ The ticket names
 - the functions to look at
 - the context
 - the changes
+- the tests, with their files and filter names
 - what done looks like
 
 The implementer uses the ticket and the code.

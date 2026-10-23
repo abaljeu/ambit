@@ -1,8 +1,8 @@
 Core API for this increment:
 
-- [[plan/core-creation/project.md]] Agent instruction
-- [[doc/Decisions/0003-core-is-a-container-of-subobjects.md]]
-- [[GLOSSARY.md]] Core API
+- [[../../plan/core-creation/project.md]] Agent instruction
+- [[../../doc/Decisions/0003-core-is-a-container-of-subobjects.md]]
+- [[../../GLOSSARY.md]] Core API
 
 ## EventId serial
 
