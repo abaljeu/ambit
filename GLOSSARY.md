@@ -67,7 +67,7 @@ The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The va
 _Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active, blocked (as Stage tokens)
 
 **staging**:
-Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: PR (as the drop), cloud branch (as the drop)
 
 **Status**:
@@ -241,8 +241,8 @@ The machine and the setup the Server needs.
 _Avoid_: Server (for this machine)
 
 **Load**:
-A user-facing Command whose subject is one Workspace Node, Directory Node, or File Node. Nodes inside one File Node share that File Node as the single subject. Load places Order.Load. The mailbox logs EventBody.Load of that subject.
-_Avoid_: Upload (for the command), a sent command, a Node that sends
+A user-facing Command whose subject is one Workspace Node, Directory Node, or File Node. Nodes inside one File Node share that File Node as the single subject. Load sends a core message to the server, not a Command or an Event.
+_Avoid_: Upload (for the command), a sent command, a sent event, a Node that sends
 
 **Loaded**:
 A Node whose Children are present.
@@ -427,4 +427,4 @@ The standards scan reads this table. The match is case-insensitive.
 | posts nodes | The mailbox posts Events. |
 | node sends | A Node does not send a message, a Command, or an Event. |
 | nodes send | A Node does not send a message, a Command, or an Event. |
-| Load sends an event | Load places Order.Load. The mailbox logs EventBody.Load. |
+| Load sends an event | Load sends a core message, not a Command or an Event. |

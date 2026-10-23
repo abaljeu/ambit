@@ -1,6 +1,6 @@
 # 67 — Log Load as Order.Load
 
-**Status:** `done`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** 60 — Add Mailbox beside CoreMsg
 **Trackers:** architecture
@@ -35,7 +35,6 @@ Do these steps in order. Finish each step before starting the next.
 
 1. **Actor result** — `GithubTransportActor.finishLoadPull` maps the `EventId` reply to `unit`. git Load still returns `Ok ()`.
 2. **Undo** — `Ev.ops` and `Ev.target` return `None` for `EventBody.Load`, beside `ActorStart` and `Cancel`. Undo skips that body. A client `PostEvent` of `EventBody.Load` is rejected as mailbox-generated.
-3. **Terms** — [GLOSSARY](../../../GLOSSARY.md) **Load**, [architecture](../arch.md) item 9 **Load on File**, and [Document-state events](../spec.md) item 3 **Special nodes** name `Order.Load` and `EventBody.Load`. The problem inventory in [Message shape](../cqrs-messages.md) still lists `LoadNode` as the pre-move case.
 
 ## See also
 
