@@ -7,7 +7,7 @@ coding
 
 ## 2. Blockers
 - [82 — The mailbox pushes an Edit's special nodes](82-the-mailbox-pushes-an-edits-special-nodes.md)
-- [87 — Remove the event-id checkpoint](87-remove-the-event-id-checkpoint.md)
+- [85 — File startup does not replay the event log](85-file-startup-does-not-replay-the-event-log.md)
 
 ## 3. Look at
 - Files:
@@ -29,7 +29,7 @@ coding
   - `DbAgent.noteStamped`, `DbAgent.requestFileDiff`, `DbAgent.trimDeletedIds`, `DbAgent.applyMaintenance`, `DbAgent.commitPostChange`
 
 ## 4. Context
-After [82 — The mailbox pushes an Edit's special nodes](82-the-mailbox-pushes-an-edits-special-nodes.md) and [87 — Remove the event-id checkpoint](87-remove-the-event-id-checkpoint.md), `Notice.NodeStamped` has two posts and one handler that does work.
+After [82 — The mailbox pushes an Edit's special nodes](82-the-mailbox-pushes-an-edits-special-nodes.md) and [85 — File startup does not replay the event log](85-file-startup-does-not-replay-the-event-log.md), `Notice.NodeStamped` has two posts and one handler that does work.
 
 - Posts:
   - `PersistThread.runRequest` posts `Notice.NodePersisted`, then `Notice.NodeStamped`, after each successful write.

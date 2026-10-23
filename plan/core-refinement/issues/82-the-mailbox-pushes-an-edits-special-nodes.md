@@ -41,6 +41,7 @@ An accepted Edit reaches the persist stack through a collector inside each agent
   - posts `Notice.NodeStamped` when there are no owning special nodes
   - pushes each owning special node with `pushIds`
 - `DbAgent.submitLiveOps` stores the owning special nodes in `pendingNotify` when live save has a data directory. `DbAgent.commitPostChange` pushes them after the projection write. `DbAgent` does not set a new special node Unpersisted, so its first write is skipped. In database-only mode `DbAgent` pushes nothing for an Edit.
+- In production only `DbAgent` takes an Edit. A File-mode server makes its browser door read-only (`RouteRegistration.isWritable`). Tests post Edits to a `FileAgent` host.
 - `CoreEventDispatch` is compiled before `PersistThread`, so it cannot call `PersistThread.owningSpecials`.
 
 ## 5. Changes
@@ -56,7 +57,7 @@ An accepted Edit reaches the persist stack through a collector inside each agent
   - call `context.persist.pushPersist` for each owning special node, Parsed or Unparsed
 - A graph-only Change pushes nothing.
 - The Edit path sets no node Persisted. Only the persist thread's `Notice.NodePersisted` sets Persisted.
-- `FileAgent.persistCollected` keeps the `pendingCheckpoint` append and the `Notice.NodeStamped` post when there are no owning special nodes. It stops marking and pushing. Delete `FileAgent.openForWrite`, `FileAgent.markUnpersisted`, `FileAgent.persistedNode` and `FileAgent.pushIds`. [86 — FileAgent stops writing the event-id checkpoint](86-fileagent-stops-writing-the-event-id-checkpoint.md) removes the append.
+- `FileAgent.persistCollected` keeps the `pendingCheckpoint` append and the `Notice.NodeStamped` post when there are no owning special nodes. It stops marking and pushing. Delete `FileAgent.openForWrite`, `FileAgent.markUnpersisted`, `FileAgent.persistedNode` and `FileAgent.pushIds`. [85 — File startup does not replay the event log](85-file-startup-does-not-replay-the-event-log.md) removes the append.
 - Delete the `DbAgent` push for an Edit:
   - `submitLiveOps` stops setting `pendingNotify`
   - `commitPostChange` stops reading and pushing `pendingNotify`
