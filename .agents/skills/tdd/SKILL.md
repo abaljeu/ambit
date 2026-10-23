@@ -49,5 +49,4 @@ Repeat until the ticket's Tests section is covered. Refactoring belongs to revie
 
 ## Finish
 
-1. Commit and push only when the filtered tests pass.
-2. Run `scripts/agent-test.sh --full`. It runs in the background. Keep working, and report its result from the log.
+Commit and push only when the focused tests pass. The full run belongs to review.

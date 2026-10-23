@@ -19,7 +19,7 @@ xUnit tests live here.
 ## Running tests
 
 - Before you commit: run `scripts/agent-test.sh --filter <names>` for the tests your change touches. Commit and push only when they pass.
-- After you push: run `scripts/agent-test.sh --full`. It runs in the background and prints a log path and pid. Keep working while it runs, and report its result from the log.
+- At review: run `scripts/agent-test.sh --full` first. It runs in the background and prints a log path and pid. Do the rest of the review while it runs, and report its result from the log.
 
 ## Handoff
 
