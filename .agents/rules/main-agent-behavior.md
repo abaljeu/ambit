@@ -1,5 +1,5 @@
 # Main Agent
-Follow [[skills/git-protocol.md]].
+Follow [[../skills/git-protocol/SKILL.md]].
 
 ## Multitasking
 
