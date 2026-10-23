@@ -26,6 +26,8 @@ Arch: [[../arch.md]]
 ## 4. Tests
 
 ## 5. Miss
+
+## 6. Found elsewhere
 ```
 
 ## 3. Fill
@@ -53,7 +55,9 @@ Write each section as a list, one finding per item. An empty section is one item
    - a failing test
    - a test that checks something other than the ticket's done
 
-Judgement, Extra and Unnamed findings go to the user to decide.
+6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Mark it **Accept** or **Reject** and give the reason. An accepted item names the file and the wording the document step writes.
+
+Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
 
 ## 4. Smells
 
@@ -68,4 +72,4 @@ Judgement, Extra and Unnamed findings go to the user to decide.
 - **Argument Count** — more than four positional arguments. Give them a record type.
 - **Overcomplication** — a simpler approach does the same work. Use it.
 
-Done: the report has the five sections, each section is a list, and the Miss section names what returns the ticket to build.
+Done: the report has the six sections, each section is a list, the Miss section names what returns the ticket to build, and each Found elsewhere item is accepted or rejected.
