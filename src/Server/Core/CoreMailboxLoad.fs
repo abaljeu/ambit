@@ -181,9 +181,10 @@ module internal CoreMailboxLoad =
         |> Result.map (fun () -> rawPush nodeId)
 
     /// Core loop apply. NodeParsed writes Parsed only when pullingFile
-    /// is clear, then noteParsed so a blocked edit can catch up. When
-    /// pullingFile is set, that File Node stays Unparsed. It does not
-    /// set Persisted. NodeParsed is the renamed ParseFinished.
+    /// is clear, then pushes when the node is Parsed and Unpersisted.
+    /// The push does not wait. noteParsed still runs. When pullingFile
+    /// is set, that File Node stays Unparsed. It does not set Persisted.
+    /// NodeParsed is the renamed ParseFinished.
     /// NodeUploading sets PullingFile in memory and Unpersisted. It does
     /// not insert the node. The column word stays Parsed or Unparsed.
     /// NodeReceived sets Unparsed and Persisted. withParseState clears
@@ -241,6 +242,36 @@ module internal CoreMailboxLoad =
             let stamped = NodeUpdateTime.withStamp updateTime node
             Ok { graph with nodes = Map.add nodeId stamped graph.nodes }
 
+    let private parsedAndUnpersisted (node: Node) =
+        node.parseState = ParseState.Parsed
+        && node.persistState = PersistState.Unpersisted
+
+    /// Read the node after Parsed is written. Push only that case.
+    let private pushParsedUnpersisted
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        =
+        match persist.getState () with
+        | Error _ -> ()
+        | Ok state ->
+            match Map.tryFind nodeId state.graph.nodes with
+            | Some node when parsedAndUnpersisted node ->
+                persist.pushPersist nodeId
+            | _ -> ()
+
+    let private applyNodeParsed
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        =
+        writeParseState
+            persist
+            (Notice.NodeParsed nodeId)
+            nodeId
+            ParseState.Parsed
+        |> Result.map (fun () ->
+            pushParsedUnpersisted persist nodeId
+            persist.noteParsed nodeId)
+
     let private writePersisted persist nodeId updateTime =
         writeAxis
             persist
@@ -258,8 +289,7 @@ module internal CoreMailboxLoad =
         : Result<unit, string> =
         match msg with
         | Notice.NodeParsed nodeId ->
-            writeParseState persist msg nodeId ParseState.Parsed
-            |> Result.map (fun () -> persist.noteParsed nodeId)
+            applyNodeParsed persist nodeId
         | Notice.NodeUploading nodeId ->
             writePullingFileUnpersisted persist nodeId
         | Notice.NodeReceived nodeId ->
@@ -417,6 +447,7 @@ module internal CoreMailboxLoad =
         replaceGraph = persist.replaceGraph
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
+        pushPersist = persist.pushPersist
         noteStamped = persist.noteStamped
         noteWriteFailed = persist.noteWriteFailed
     }

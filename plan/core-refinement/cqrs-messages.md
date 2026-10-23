@@ -183,7 +183,7 @@ The server writes individual document files. It does not write a whole-graph sna
 6. **startFileDiff** — Live. Misnamed. It queues `PersistKind.Change` for workspace ids the ops write did not already notify and that are not Unparsed. That job calls `persistGraphChange`. It does not write a snapshot blob.
 7. **Batch fields** — Live. Misnamed. `diffIds`, `diffMarksLeft`, `diffWorkspaces`, `diffNeeded`, and `diffInProgress` are that follow-up file diff. `opsNotifiedIds` is the same batch, and that name already says what it holds.
 8. **baselineGraph** — Live. Misnamed. It is the baseline graph for the next file diff. Ops commit, a graph-only post, and projection reload update it. It is not a snapshot file.
-9. **enqueueFileDiff** — Live. Misnamed. `startFileDiff` uses it for the workspace diff. `catchUpParsed` uses it for one node that is Parsed and Unpersisted.
+9. **enqueueFileDiff** — Live. Misnamed. `startFileDiff` uses it for the workspace diff. `CoreMailboxLoad.applyNotice` pushes one node that is Parsed and Unpersisted through `PersistHandlers.pushPersist`.
 10. **FileAgent noteDiffDone** — Dead. The filling sets `noteDiffDone` to `fun _ _ -> ()`.
 11. **flushSnapshot** — Dead. `DbAgent` and `FileAgent` return `Ok ()`. `SavePrep.syncDataDir` calls it only when `DbStatus` is not `Ok`. When the database is `Ok`, save reads the state event id and does not call it. `RouteRegistration.prepareGitSave` and `RouteRegistration.flushForGit` only pass the function in.
 12. **bindPersistFinished** — Live. Misnamed. `CoreMailbox.hostPublishing` passes `CoreMailboxApi.postNotice`. Each agent stores that poster in `persistFinished`. `finishWhenBound` posts only when the slot is filled.

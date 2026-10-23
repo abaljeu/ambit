@@ -50,6 +50,12 @@ module FileAgent =
             externalChanges
             message
 
+    let private pushPersist (loaded: LoadedFile) (nodeId: NodeId) =
+        match loaded.stack.Value with
+        | None -> ()
+        | Some stack ->
+            PersistRequestStack.push stack { nodeId = nodeId }
+
     let private pushIds (loaded: LoadedFile) (ids: NodeId list) =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
@@ -233,15 +239,6 @@ module FileAgent =
                             externalChanges
                             persistMessage)
 
-    let private scheduleCatchUp (loaded: LoadedFile) (nodeId: NodeId) =
-        let post = loaded.state.Value.graph
-        match Map.tryFind nodeId post.nodes with
-        | Some node when
-            node.parseState = ParseState.Parsed
-            && node.persistState = PersistState.Unpersisted ->
-            pushIds loaded [ nodeId ] |> ignore
-        | _ -> ()
-
     /// A clean Edit write checkpoints the event id. A soft-fail keeps the
     /// meta behind the log for the rest of this process. A second stamp
     /// with an empty queue leaves that checkpoint where it is.
@@ -291,7 +288,8 @@ module FileAgent =
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
         noteDiffDone = ignore
-        noteParsed = scheduleCatchUp loaded
+        noteParsed = ignore
+        pushPersist = pushPersist loaded
         noteStamped = noteStamped loaded
         noteWriteFailed = ignore
     }

@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-21
+Updated: 2026-10-23
 Started: 2026-09-29
 Actual: 38.5h
 
@@ -90,6 +90,7 @@ Actual: 38.5h
 - 2026-10-21 — Alan verified 75, 76 and 77 (file load and save work). All three are `done`.
 - 2026-10-21 — Alan: the persist stack holds node ids. On take, the persist thread reads the live state through a read function over `LoadedFile.state`, skips a node already Persisted, and writes from that graph, so repeated pushes write once. [46 — Record the persist version](issues/46-record-the-persist-version.md) follows [71 — Persist thread takes from the stack](issues/71-persist-thread-takes-from-the-stack.md) and records the version of the graph actually written.
 - 2026-10-21 — Alan: cancel [66 — Move Actor orders onto Order and Notice](issues/66-move-actor-orders-onto-order-and-notice.md). It splits into [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md), then [80 — Place Actor orders through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md), then [81 — Log Actor and search stops as Notices](issues/81-log-actor-and-search-stops-as-notices.md). Each code change stays under 20 files including tests. Stage stays `build`.
+- 2026-10-23 — [72 — Push parsed nodes to the persist stack](issues/72-push-parsed-nodes-to-the-persist-stack.md) is coded. `Notice.NodeParsed` pushes a Parsed and Unpersisted node through `PersistHandlers.pushPersist`. `FileAgent` `noteParsed` is ignore. `DbAgent.noteParsed` still requests a file diff. `DbAgent` pushes with or without a live-save data directory. Stage stays `build`.
 
 ## Issues
 

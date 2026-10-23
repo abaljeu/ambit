@@ -1,6 +1,6 @@
 # 72 — Push parsed nodes to the persist stack
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
 **Trackers:** architecture
@@ -15,13 +15,17 @@ This ticket moves the Parsed and Unpersisted check into the mailbox. Each agent 
 
 Do these steps in order. Finish each step before starting the next.
 
-1. [ ] **Push** — Add `pushPersist: NodeId -> unit` to `PersistHandlers`. In the `Notice.NodeParsed` arm of `CoreMailboxLoad.applyNotice`, after Parsed is written, read the node from `persist.getState ()` and call `persist.pushPersist nodeId` when it is Parsed and Unpersisted; the mailbox does not wait. `FileAgent` and `DbAgent` build `pushPersist` as `PersistRequestStack.push` of `{ nodeId = nodeId }` onto the stack their persist thread takes from, and `DbAgent` pushes whether or not live save has a data directory; the test handlers set it to `ignore` or a recording list. Files: `src/Server/Core/CoreMsg.fs` (where `PersistHandlers` is defined), `src/Server/Core/CoreMailboxLoad.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/TestBackend.fs`, `tests/Server.Tests/CoreLoopNoticeTests.fs` (add `NodeParsed pushes a persist request`). Done when `NodeParsed pushes a persist request` passes.
-2. [ ] **Remove** — Delete `FileAgent.scheduleCatchUp` and set the `FileAgent` `noteParsed` handler to `ignore`. Delete `DbAgent.catchUpParsed` and its call in `DbAgent.noteParsed`; `DbAgent.noteParsed` keeps its file-diff request. Add the second acceptance test, which runs a NodeParsed through the persist thread and checks the node is Persisted. Files: `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/PersistThreadTests.fs`. Done when the second acceptance test passes and no file under `src/` or `tests/` names `scheduleCatchUp` or `catchUpParsed`.
+1. [x] **Push** — Add `pushPersist: NodeId -> unit` to `PersistHandlers`. In the `Notice.NodeParsed` arm of `CoreMailboxLoad.applyNotice`, after Parsed is written, read the node from `persist.getState ()` and call `persist.pushPersist nodeId` when it is Parsed and Unpersisted; the mailbox does not wait. `FileAgent` and `DbAgent` build `pushPersist` as `PersistRequestStack.push` of `{ nodeId = nodeId }` onto the stack their persist thread takes from, and `DbAgent` pushes whether or not live save has a data directory; the test handlers set it to `ignore` or a recording list. Files: `src/Server/Core/CoreMsg.fs` (where `PersistHandlers` is defined), `src/Server/Core/CoreMailboxLoad.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/TestBackend.fs`, `tests/Server.Tests/CoreLoopNoticeTests.fs` (add `NodeParsed pushes a persist request`). Done when `NodeParsed pushes a persist request` passes.
+2. [x] **Remove** — Delete `FileAgent.scheduleCatchUp` and set the `FileAgent` `noteParsed` handler to `ignore`. Delete `DbAgent.catchUpParsed` and its call in `DbAgent.noteParsed`; `DbAgent.noteParsed` keeps its file-diff request. Add the second acceptance test, which runs a NodeParsed through the persist thread and checks the node is Persisted. Files: `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/PersistThreadTests.fs`. Done when the second acceptance test passes and no file under `src/` or `tests/` names `scheduleCatchUp` or `catchUpParsed`.
 
 ### Acceptance Criteria
 
-1. [ ] **Test** — `NodeParsed pushes a persist request`. A Parsed and Unpersisted node is pushed. Any other node is not pushed.
-2. [ ] **Test** — after the loop writes the node, it is Persisted.
+1. [x] **Test** — `NodeParsed pushes a persist request`. A Parsed and Unpersisted node is pushed. Any other node is not pushed.
+2. [x] **Test** — `NodeParsed leaves the written node Persisted`. After the loop writes the node, it is Persisted.
+
+## History
+
+- 2026-10-23 — `Notice.NodeParsed` pushes a Parsed and Unpersisted node through `PersistHandlers.pushPersist`. `FileAgent.scheduleCatchUp` and `DbAgent.catchUpParsed` are gone. `DbAgent.noteParsed` still requests a file diff. `DbAgent` pushes with or without a live-save data directory.
 
 ## See also
 

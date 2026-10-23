@@ -178,6 +178,7 @@ let private cannedHandlers
       replaceGraph = fun _ _ -> ()
       noteDiffDone = ignore
       noteParsed = ignore
+      pushPersist = ignore
       noteStamped = ignore
       noteWriteFailed = ignore }
 

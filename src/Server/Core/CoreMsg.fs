@@ -90,6 +90,7 @@ type PersistHandlers = {
     replaceGraph: Notice -> Graph -> unit
     noteDiffDone: NodeId -> unit
     noteParsed: NodeId -> unit
+    pushPersist: NodeId -> unit
     noteStamped: unit -> unit
     noteWriteFailed: unit -> unit
 }
