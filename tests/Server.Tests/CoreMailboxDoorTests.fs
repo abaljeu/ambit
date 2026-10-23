@@ -739,3 +739,83 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+let private fileWithText () =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let state =
+        { graph = Graph.addDetachedNode node (Graph.create ())
+          eventId = EventId.zero }
+    fileId, state
+
+let private editFileText (fileId: NodeId) : Ev =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Edit"
+      body = EventBody.Change [ Op.SetText(fileId, "hello", "edited") ] }
+
+let private hostRecordingPush
+    (state: State)
+    (pushed: ResizeArray<NodeId>)
+    =
+    let accept (event: Ev) (_graphOnly: bool) =
+        Ok(CoreChanges.accepted event.id true [ event ] false None)
+    let handlers =
+        { cannedHandlers (fun () -> Ok state) (fun _ -> []) accept with
+            pushPersist = pushed.Add }
+    let filling =
+        { handlers = handlers
+          onError = fun _ _ _ -> ()
+          formatError = id
+          isReady = fun () -> true
+          dispose = ignore
+          until = None
+          bindPersistFinished = ignore }
+    CoreMailbox.host
+        (CoreActorPool.create ())
+        filling
+        admittedCredentials
+
+[<Fact>]
+let ``An Edit pushes its owning special node`` () =
+    task {
+        let fileId, state = fileWithText ()
+        let pushed = ResizeArray<NodeId>()
+        let host = hostRecordingPush state pushed
+        try
+            let! posted =
+                CoreMailboxApi.postEvents
+                    host
+                    testCaller
+                    [ editFileText fileId ]
+                |> Async.StartAsTask
+            requireOk "edit" posted |> ignore
+            Assert.Equal<NodeId list>([ fileId ], List.ofSeq pushed)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``A graph-only change pushes nothing`` () =
+    task {
+        let fileId, state = fileWithText ()
+        let pushed = ResizeArray<NodeId>()
+        let host = hostRecordingPush state pushed
+        try
+            let! posted =
+                CoreMailboxApi.postGraphOnly
+                    host
+                    testCaller
+                    (editFileText fileId)
+                |> Async.StartAsTask
+            requireOk "graph-only edit" posted |> ignore
+            Assert.Empty(pushed)
+        finally
+            CoreMailboxApi.dispose host
+    }

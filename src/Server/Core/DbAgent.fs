@@ -24,7 +24,6 @@ module DbAgent =
         diffWorkspaces: NodeId list ref
         diffIds: NodeId list ref
         opsNotifiedIds: NodeId list ref
-        pendingNotify: NodeId list ref
         diffMarksLeft: int ref
         ready: TaskCompletionSource<unit>
         persistFinished: (Notice -> unit) option ref
@@ -101,7 +100,6 @@ module DbAgent =
           diffWorkspaces = ref []
           diffIds = ref []
           opsNotifiedIds = ref []
-          pendingNotify = ref []
           diffMarksLeft = ref 0
           ready =
             TaskCompletionSource<unit>(
@@ -226,7 +224,7 @@ module DbAgent =
         events
         |> List.collect (fun event ->
             Ev.ops event |> Option.defaultValue [])
-        |> List.choose PersistThread.opAnchor
+        |> List.choose DocumentOpImpact.opAnchor
         |> List.choose (GraphQuery.enclosingWorkspace graph)
         |> List.distinct
 
@@ -300,22 +298,14 @@ module DbAgent =
         notifiedIds = []
     }
 
-    let private submitLiveOps loaded postGraph ops =
+    let private submitLiveOps loaded =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
-        | Some _ ->
-            loaded.pendingNotify.Value <-
-                PersistThread.owningSpecials postGraph ops
-            Ok(liveOf None false)
+        | Some _ -> Ok(liveOf None false)
 
-    let private persistLiveChange loaded graphOnly _preGraph newState fresh =
+    let private persistLiveChange loaded graphOnly _preGraph _newState fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
-        | false, Some _, _::_ ->
-            let ops =
-                fresh
-                |> List.collect (fun event ->
-                    Ev.ops event |> Option.defaultValue [])
-            submitLiveOps loaded newState.graph ops
+        | false, Some _, _::_ -> submitLiveOps loaded
         | _ -> Ok(liveOf None true)
 
     let private preparePostChange newState confirmations =
@@ -336,14 +326,9 @@ module DbAgent =
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> persistGraphProjection loaded stateToStore ackEvents)
         with
-        | Error err ->
-            loaded.pendingNotify.Value <- []
-            Error err
+        | Error err -> Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
-            let ids = loaded.pendingNotify.Value
-            loaded.pendingNotify.Value <- []
-            pushIds loaded ids
             if graphOnly then
                 loaded.baselineGraph.Value <- stateToStore.graph
             elif not (List.isEmpty fresh) && live.allowFileDiff then
@@ -483,15 +468,9 @@ module DbAgent =
                 requestFileDiff loaded
         | _ -> ()
 
-    let private takePendingNotify (loaded: LoadedPersist) =
-        let pending = loaded.pendingNotify.Value
-        loaded.pendingNotify.Value <- []
-        pending
-
     /// A failed write leaves the node Unpersisted. Drop an in-progress
     /// file diff so a later post can try again.
     let private noteWriteFailed (loaded: LoadedPersist) () =
-        loaded.pendingNotify.Value <- []
         if loaded.diffInProgress.Value then
             let pending = loaded.diffIds.Value
             loaded.diffIds.Value <- []
@@ -502,10 +481,6 @@ module DbAgent =
         loaded.diffNeeded.Value <- true
 
     let private noteStamped (loaded: LoadedPersist) () =
-        let pending = takePendingNotify loaded
-        loaded.opsNotifiedIds.Value <-
-            pending @ loaded.opsNotifiedIds.Value
-            |> List.distinct
         loaded.baselineGraph.Value <- loaded.state.Value.graph
         if List.isEmpty loaded.diffWorkspaces.Value then
             ()

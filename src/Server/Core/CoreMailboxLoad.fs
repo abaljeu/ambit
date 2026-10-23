@@ -143,27 +143,13 @@ module internal CoreMailboxLoad =
         else
             rejectDropped msg
 
-    let private writeAxis
-        (persist: PersistHandlers)
-        (notice: Notice)
-        (mutate: Graph -> Result<Graph, string>)
-        : Result<unit, string> =
-        match persist.getState () with
-        | Error err -> Error err
-        | Ok state ->
-            match mutate state.graph with
-            | Error err -> Error err
-            | Ok graph ->
-                persist.replaceGraph notice graph
-                Ok ()
-
     let private writeParseState
         (persist: PersistHandlers)
         (notice: Notice)
         (nodeId: NodeId)
         (parseState: ParseState)
         : Result<unit, string> =
-        writeAxis persist notice (fun graph ->
+        CoreEventDispatch.writeAxis persist notice (fun graph ->
             GraphMutate.setParseState nodeId parseState graph)
 
     /// Marks the node Unparsed, then pushes. The mark writes the axis
@@ -208,7 +194,10 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (Notice.NodeUploading nodeId) (fun live ->
+        CoreEventDispatch.writeAxis
+            persist
+            (Notice.NodeUploading nodeId)
+            (fun live ->
             match
                 GraphMutate.setPersistState
                     nodeId
@@ -222,7 +211,10 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (Notice.NodeReceived nodeId) (fun live ->
+        CoreEventDispatch.writeAxis
+            persist
+            (Notice.NodeReceived nodeId)
+            (fun live ->
             match GraphMutate.setParseState nodeId ParseState.Unparsed live with
             | Error err -> Error err
             | Ok graph ->
@@ -273,7 +265,7 @@ module internal CoreMailboxLoad =
             persist.noteParsed nodeId)
 
     let private writePersisted persist nodeId updateTime =
-        writeAxis
+        CoreEventDispatch.writeAxis
             persist
             (Notice.NodePersisted(nodeId, updateTime))
             (fun live ->
@@ -296,7 +288,7 @@ module internal CoreMailboxLoad =
             writeReceived persist nodeId
         | Notice.NodeParsing _ -> Ok ()
         | Notice.NodePersisting nodeId ->
-            writeAxis persist msg (fun live ->
+            CoreEventDispatch.writeAxis persist msg (fun live ->
                 GraphMutate.setPersistState
                     nodeId
                     PersistState.Unpersisted
@@ -305,7 +297,12 @@ module internal CoreMailboxLoad =
             persist.noteWriteFailed ()
             Ok ()
         | Notice.NodeStamped ->
-            match writeAxis persist msg (fun graph -> Ok graph) with
+            match
+                CoreEventDispatch.writeAxis
+                    persist
+                    msg
+                    (fun graph -> Ok graph)
+            with
             | Error err -> Error err
             | Ok () ->
                 persist.noteStamped ()
