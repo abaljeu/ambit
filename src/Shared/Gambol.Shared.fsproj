@@ -13,6 +13,7 @@
     <Compile Include="FileText.fs" />
     <Compile Include="DocumentParseLimits.fs" />
     <Compile Include="SystemDirectoryPersist.fs" />
+    <Compile Include="EventId.fs" />
     <Compile Include="Model.fs" />
 
     <Compile Include="GraphBuild.fs" />
@@ -44,7 +45,6 @@
     <Compile Include="WorkspaceSyncScope.fs" />
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
-    <Compile Include="EventId.fs" />
     <Compile Include="History.fs" />
     <Compile Include="PersistStamp.fs" />
     <Compile Include="CssClassToggle.fs" />
