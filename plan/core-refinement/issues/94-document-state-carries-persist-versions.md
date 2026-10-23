@@ -2,8 +2,6 @@
 
 **Status:** `defined`
 
-> **Size: stop and ask Alan before building.** This step touches about 7 source files and about 14 test files, which is over 20 files. Changing `PersistState.Unpersisted` from a case with no fields to `Unpersisted of changedVersion: EventId` breaks every construction of it, and every `= PersistState.Unpersisted` comparison, in tests (14 files; `SpecialNodeStateAxesTests.fs` alone has 21 sites). The alternative is to keep `Unpersisted` with no fields and add `changedVersion: EventId` as a field of `DocumentState`, next to `persistedVersion`. That needs almost no test edits. The design in this ticket is Alan's, from his rewrite of [46 — Record the persist version](46-record-the-persist-version.md). Build it only after Alan picks.
-
 ## 1. Type
 coding
 
@@ -13,66 +11,36 @@ coding
 ## 3. Look at
 - Files:
   - `src/Shared/Model.fs`
-  - `src/Shared/GraphMutate.fs`
-  - `src/Shared/GraphProjection.fs`
-  - `src/Shared/Serialization.fs`
-  - `src/Server/Core/CoreEventDispatch.fs`
-  - `src/Server/Core/CoreMailboxLoad.fs`
-  - `src/Server/Core/DbAgent.fs`
-  - `src/Server/Core/PersistThread.fs`
-  - `src/Server/DocumentPersistPath.fs`
+  - `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`
 - Types:
   - `PersistState`, `DocumentState`, `Node`, `EventId`
-- Functions, each a construction or match of `PersistState`:
-  - `DocumentState.fromParts`, `Node.Create`, `Node.withPersistState` in `Model.fs`
-  - `GraphMutate.markOwningSpecialUnpersisted`
-  - `GraphProjection.storedPersistWord`, `GraphProjection.persistFromStoredWord`, `GraphProjection.nodeEquals`
-  - `Serialization.encodePersistState`, `Serialization.decodePersistState`, `Serialization.nodeFromFields`
-  - `CoreEventDispatch.markForPersist` (builds `Unpersisted`)
-  - `CoreEventDispatch.persistedNode` (matches `Persisted` only; unchanged)
-  - `PersistThread.runRequest` `stillPersisted` skip, through `persistedNode` (unchanged)
-  - `CoreMailboxLoad.writePullingFileUnpersisted`, `CoreMailboxLoad.parsedAndUnpersisted`, and the `Notice.NodePersisting` arm of `CoreMailboxLoad.applyNotice`
-  - `DbAgent.noteParsed` (compares with `PersistState.Unpersisted`)
-  - `DocumentPersistPath.stampNode` (writes `Persisted`; unchanged)
-- Tests that build or compare `PersistState.Unpersisted`, by file and count:
-  - `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`, 23
-  - `tests/Server.Tests/CoreLoopNoticeTests.fs`, 19
-  - `tests/Server.Tests/DocumentOpPersistenceTests.fs`, 7
-  - `tests/Server.Tests/DocumentPersistenceTests.fs`, 5
-  - `tests/Server.Tests/PersistThreadTests.fs`, 3
-  - `tests/Shared.Tests/HistoryTests.fs`, 2
-  - `tests/Shared.Tests/LargeChangeApplyTests.fs`, 2
-  - `tests/Shared.Tests/GraphProjectionTests.fs`, 2
-  - `tests/Server.Tests/DbAgentFailureTests.fs`, 1
-  - `tests/Server.Tests/DbAgentNoticeTests.fs`, 1
-  - `tests/Shared.Tests/DocumentOpImpactTests.fs`, 1
-  - `tests/Server.Tests/DatabaseProjectionTests.fs`, 1
-  - `tests/Server.Tests/FileAgentFailureTests.fs`, 1
-  - `tests/Shared.Tests/LazyLoadReconciliationTests.fs`, 1
+- Functions:
+  - `DocumentState.fromParts`, the only record literal of `DocumentState` in `src` and `tests`
+  - `Node.Create`, which builds the record through `DocumentState.fromParts`
+  - `Node.withPersistState`
+  - `EventId.zero`, `EventId.max`
+- Every other writer changes the record with `{ ... with ... }` or through `Node.withPersistState`, `Node.withParseState` and `Node.withDocumentState`. No test builds a `DocumentState` record literal. Tests build nodes through `Node.Create`.
 
 ## 4. Context
-`PersistState` is `Persisted | Unpersisted`. `DocumentState` holds `parseState`, `persistState` and `pullingFile`. No persist version is recorded anywhere. This is the expand step for [Graph change persist version](../arch.md#graph-change-persist-version): the shapes exist, every writer passes `EventId.zero`, and nothing reads the versions yet.
+`PersistState` is `Persisted | Unpersisted`. `DocumentState` holds `parseState`, `persistState` and `pullingFile`. No persist version is recorded. This is the expand step for [Graph change persist version](../arch.md#graph-change-persist-version). The two fields exist at `EventId.zero`, and nothing reads them yet.
 
 ## 5. Changes
-- Add `persistedVersion: EventId` to `DocumentState`. `DocumentState.fromParts`, and so `Node.Create`, set it to `EventId.zero`.
-- Make `PersistState` this:
-  - `Persisted`
-  - `Unpersisted of changedVersion: EventId`
-- Every construction listed in Look at writes `Unpersisted EventId.zero`. Every match uses `Unpersisted _`. Equality checks against `PersistState.Unpersisted` become a match on `Unpersisted _`.
-- `GraphMutate.markOwningSpecialUnpersisted` keeps its current rule and writes `Unpersisted EventId.zero`.
-- `GraphProjection.persistFromStoredWord` and `Serialization.decodePersistState` read `"unpersisted"` as `Unpersisted EventId.zero`. The stored word stays `"unpersisted"`.
-- `GraphProjection.nodeEquals` compares `persistedVersion` too. Its `persistState` comparison includes the `Unpersisted` version.
-- Each test site in Look at passes `EventId.zero`.
+- `PersistState` stays `Persisted | Unpersisted`.
+- `DocumentState` gains two fields:
+  - `changedVersion: EventId`, the version of the newest graph change that marked the node Unpersisted
+  - `persistedVersion: EventId`, the version the node's file was last written at
+- `DocumentState.fromParts`, and so `Node.Create`, set both to `EventId.zero`.
+- Add `Node.withUnpersistedAt (version: EventId) (node: Node) : Node`. It sets `persistState` to `Unpersisted` and `changedVersion` to `EventId.max node.documentState.changedVersion version`. A newer mark overwrites an older `changedVersion`, including when the node is already Unpersisted. An older or equal mark keeps the newer one.
+- Nothing calls `Node.withUnpersistedAt` yet. [97 — Graph change records changedVersion](97-graph-change-records-changedversion.md) and [98 — Core marks carry the Edit's id](98-core-marks-carry-the-edits-id.md) use it.
 
 ## 6. Tests
-- No test is added. The test sites in Look at change mechanically to `Unpersisted EventId.zero` or `Unpersisted _`.
+- Add `unpersisted mark keeps the newer changedVersion` in `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`. `Node.withUnpersistedAt` on a Persisted node at N gives `Unpersisted` and `changedVersion` N. At N+1 it gives N+1. At N again after N+1 it keeps N+1. A new node has both versions at `EventId.zero`.
 - Filters:
+  - `scripts/agent-test.sh --filter "unpersisted mark keeps the newer changedVersion"`
   - `scripts/agent-test.sh --filter "SpecialNodeStateAxesTests"`
-  - `scripts/agent-test.sh --filter "CoreLoopNoticeTests"`
-  - `scripts/agent-test.sh --filter "PersistThreadTests"`
   - `scripts/agent-test.sh --full`
 
 ## 7. Done
 - Shared, Server and Client compile.
-- The full suite passes with no expectation change other than the added `EventId.zero`.
+- The named tests pass, and the full suite passes with no other test change.
 - Upload, import, parse, Load, undo and persist complete.
