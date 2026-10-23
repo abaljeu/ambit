@@ -27,10 +27,6 @@ Do these steps in order. Finish each step before starting the next.
 4. [x] **Rejected** — `loadNode of a plain Node replies Error`. The log has no new entry.
 5. [x] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
-## Finish-up
-
-[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-
 ## Amendments
 
 1. **Actor result** — `GithubTransportActor.finishLoadPull` maps the `EventId` reply to `unit`. git Load still returns `Ok ()`.
