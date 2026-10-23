@@ -24,6 +24,12 @@ Ticket: [[../issues/NN-<ticket-name>.md]]
 
 1. **Score.** Score the report against each story the ticket named.
 2. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record the filtered result and the full-suite result from its log.
-3. **Miss.** Name what failed. A missing test, a failing test, or a test that does not check the ticket's done is a miss. A miss returns that ticket to build.
+3. **Miss.** Name what failed. These are misses:
+
+   - a named test that is missing
+   - a failing test
+   - a test that checks something other than the ticket's done
+
+   A miss returns that ticket to build.
 
 Done: the report scores the stories that ticket named and records the test results. A miss names what failed, and that ticket returns to build.
