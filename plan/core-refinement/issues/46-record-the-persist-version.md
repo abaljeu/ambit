@@ -1,12 +1,16 @@
 # 46 — Record the persist version
 
-**Status:** `defined`
+**Status:** `cancelled`
 
 ## 1. Type
 
 `coding`
 
 ## 2. Blockers
+
+None — split into [93 — Compile EventId before Model](93-compile-eventid-before-model.md), [94 — Document state carries persist versions](94-document-state-carries-persist-versions.md), [95 — Node JSON stores the persist versions](95-node-json-stores-the-persist-versions.md), [96 — Node row stores the persist versions](96-node-row-stores-the-persist-versions.md), [97 — Graph change records changedVersion](97-graph-change-records-changedversion.md), [98 — Core marks carry the Edit's id](98-core-marks-carry-the-edits-id.md), [99 — NodePersisted carries the written version](99-nodepersisted-carries-the-written-version.md), [100 — Core loop gates Persisted on the written version](100-core-loop-gates-persisted-on-the-written-version.md), [101 — Client sync applies the persist version rule](101-client-sync-applies-the-persist-version-rule.md).
+
+The blockers below were this ticket's before the split.
 
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
@@ -211,3 +215,7 @@ Shared and Server compile. The four filters pass. `EventJsonTests` and `PersistT
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
 - [GLOSSARY](../../GLOSSARY.md)
+
+## History
+
+- 2026-10-23 — Alan: cancelled. Split into [93 — Compile EventId before Model](93-compile-eventid-before-model.md), [94 — Document state carries persist versions](94-document-state-carries-persist-versions.md), [95 — Node JSON stores the persist versions](95-node-json-stores-the-persist-versions.md), [96 — Node row stores the persist versions](96-node-row-stores-the-persist-versions.md), [97 — Graph change records changedVersion](97-graph-change-records-changedversion.md), [98 — Core marks carry the Edit's id](98-core-marks-carry-the-edits-id.md), [99 — NodePersisted carries the written version](99-nodepersisted-carries-the-written-version.md), [100 — Core loop gates Persisted on the written version](100-core-loop-gates-persisted-on-the-written-version.md), [101 — Client sync applies the persist version rule](101-client-sync-applies-the-persist-version-rule.md). Alan's commit `cd873b0b` already moved `EventId` into `src/Shared/EventId.fs`; 93 — Compile EventId before Model lists it before `Model.fs`. The split drops `FileAgent.markUnpersisted` and `FileAgent.scheduleCatchUp`, which no longer exist, and adds the mailbox marks from 82 — The mailbox pushes an Edit's special nodes (`CoreEventDispatch.markForPersist`, `pushChangeSpecials`).
