@@ -19,23 +19,6 @@ type internal PersistThreadDeps = {
 [<RequireQualifiedAccess>]
 module PersistThread =
 
-    /// Node id an op names, when the op names one.
-    let internal opAnchor (op: Op) : NodeId option =
-        match op with
-        | Op.NewNode(id, _)
-        | Op.SetText(id, _, _)
-        | Op.SetClasses(id, _, _)
-        | Op.NewSpecialNode(id, _, _)
-        | Op.SetName(id, _, _)
-        | Op.SetDocumentState(id, _, _)
-        | Op.Replace(id, _, _) -> Some id
-        | Op.SetUpdateTime _ -> None
-
-    let private ownerOf (graph: Graph) (op: Op) : NodeId option =
-        opAnchor op
-        |> Option.bind (
-            GraphQuery.enclosing graph Node.carriesStateAxes)
-
     /// True when that node is Unparsed.
     let internal unparsedNode (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
@@ -43,12 +26,6 @@ module PersistThread =
             node.documentState.parseState = ParseState.Unparsed ->
             true
         | _ -> false
-
-    /// Owning special nodes for these ops, nearest axis carrier first.
-    let internal owningSpecials (graph: Graph) (ops: Op list) : NodeId list =
-        ops
-        |> List.choose (ownerOf graph)
-        |> List.distinct
 
     let private persistedNode (state: State) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId state.graph.nodes with

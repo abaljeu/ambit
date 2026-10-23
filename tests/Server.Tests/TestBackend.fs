@@ -159,7 +159,7 @@ let createAdmittedFileWithCredentials (dataDir: string) =
 let admittedChanges (host: MailboxHost) =
     CoreDoor.create true host testCaller
 
-let private cannedHandlers
+let cannedHandlers
     (readState: unit -> Result<State, string>)
     (eventsSince: EventId -> Ev list)
     (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)

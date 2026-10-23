@@ -169,12 +169,66 @@ module internal CoreEventDispatch =
                 authority = eventAuthority caller.authority }
         completeAction context.eventLog.Value withCallerAuthority
 
+    let private persistedNode (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when
+            node.documentState.persistState = PersistState.Persisted ->
+            true
+        | _ -> false
+
+    let private markForPersist
+        (context: Context)
+        (graph: Graph)
+        (nodeId: NodeId)
+        =
+        if not (persistedNode graph nodeId) then
+            graph
+        else
+            match
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    graph
+            with
+            | Error _ -> graph
+            | Ok next ->
+                context.persist.replaceGraph
+                    (Gambol.Shared.Notice.NodePersisting nodeId)
+                    next
+                next
+
+    let private pushChangeSpecials
+        (context: Context)
+        (completed: Ev)
+        (accepted: CoreChangesAccepted)
+        =
+        match completed.body with
+        | Gambol.Shared.EventBody.Change _ ->
+            match context.persist.getState () with
+            | Error _ -> ()
+            | Ok state ->
+                let ops =
+                    withConfirmedOps completed accepted
+                    |> Ev.ops
+                    |> Option.defaultValue []
+                let ids =
+                    DocumentOpImpact.owningSpecials state.graph ops
+                ids
+                |> List.fold (markForPersist context) state.graph
+                |> ignore
+                List.iter context.persist.pushPersist ids
+        | _ -> ()
+
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
         | None -> Ok None
         | Some _ ->
-            context.persist.applyEvent completed graphOnly
-            |> Result.map Some
+            match context.persist.applyEvent completed graphOnly with
+            | Error error -> Error error
+            | Ok accepted ->
+                if not graphOnly then
+                    pushChangeSpecials context completed accepted
+                Ok(Some accepted)
 
     let private store context accepted completed =
         let confirmed =

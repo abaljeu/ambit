@@ -50,61 +50,21 @@ module FileAgent =
             externalChanges
             message
 
-    let private pushIds (loaded: LoadedFile) (ids: NodeId list) =
-        match loaded.stack.Value with
-        | None -> Error "persist stack is not bound"
-        | Some stack ->
-            ids
-            |> List.iter (fun nodeId ->
-                PersistRequestStack.push stack { nodeId = nodeId })
-            Ok ()
-
-    let private persistedNode (graph: Graph) (nodeId: NodeId) =
-        match Map.tryFind nodeId graph.nodes with
-        | Some node when
-            node.persistState = PersistState.Persisted -> true
-        | _ -> false
-
-    /// A new special node is created Persisted, so the thread would skip
-    /// its first file write. Mark it Unpersisted before the stack push.
-    let private markUnpersisted (graph: Graph) (nodeId: NodeId) =
-        if not (persistedNode graph nodeId) then
-            graph
-        else
-            match
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Unpersisted
-                    graph
-            with
-            | Ok next -> next
-            | Error _ -> graph
-
-    let private openForWrite (loaded: LoadedFile) (ids: NodeId list) =
-        let graph =
-            ids
-            |> List.fold markUnpersisted loaded.state.Value.graph
-        loaded.state.Value <-
-            { loaded.state.Value with graph = graph }
-
     let private persistCollected
         (loaded: LoadedFile)
         (eventId: EventId)
-        (_preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
         =
         loaded.pendingCheckpoint.Value <-
             loaded.pendingCheckpoint.Value @ [ eventId ]
-        let ids = PersistThread.owningSpecials postGraph ops
-        openForWrite loaded ids
+        let ids =
+            DocumentOpImpact.owningSpecials postGraph ops
         if List.isEmpty ids then
             PersistThread.postWhenBound
                 loaded.persistFinished
                 Notice.NodeStamped
-            Ok ()
-        else
-            pushIds loaded ids
+        Ok ()
 
     let private applyOne
         loaded
@@ -165,7 +125,7 @@ module FileAgent =
                     preGraph
                     postGraph)
 
-    let private persistPostChange loaded graphOnly changed preGraph newState fresh =
+    let private persistPostChange loaded graphOnly changed newState fresh =
         if changed && not graphOnly then
             let ops =
                 fresh
@@ -174,7 +134,6 @@ module FileAgent =
             persistCollected
                 loaded
                 newState.eventId
-                preGraph
                 newState.graph
                 ops
         else
@@ -221,7 +180,6 @@ module FileAgent =
                             loaded
                             graphOnly
                             changed
-                            preGraph
                             newState
                             fresh
                     with
