@@ -81,7 +81,9 @@ type EventBody =
     | Redo of target: EventId * ops: Op list
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
-    | Cancel of focusId: NodeId | Notice of Notice
+    | Load of nodeId: NodeId
+    | Cancel of focusId: NodeId
+    | Notice of Notice
 
 type Ev =
     { id: EventId
@@ -423,6 +425,7 @@ module Ev =
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
@@ -433,6 +436,7 @@ module Ev =
         | EventBody.Redo(target, _) -> Some target
         | EventBody.Change _
         | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let inverseOps (event: Ev) : Op list option =

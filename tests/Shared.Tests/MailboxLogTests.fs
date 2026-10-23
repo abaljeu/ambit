@@ -69,6 +69,33 @@ let ``Undo and Redo keep the target and drop the ops`` () =
     Assert.Equal(EventBody.Redo(target, []), (restored (logged redo)).body)
 
 [<Fact>]
+let ``Load keeps its node through EventJson and MailboxLog`` () =
+    let nodeId = NodeId.New()
+    let event =
+        { source "" (EventBody.Load nodeId) with
+            id = EventId.fromJson 3 }
+    let json =
+        Thoth.Json.Newtonsoft.Encode.toString 0 (EventJson.encode event)
+    match Thoth.Json.Newtonsoft.Decode.fromString EventJson.decode json with
+    | Error err -> Assert.Fail(err)
+    | Ok decoded -> Assert.Equal(event, decoded)
+    Assert.Equal(Order.Load nodeId, (placed event).order)
+    Assert.Equal(EventBody.Load nodeId, (restored (logged event)).body)
+    let change =
+        { source "Edit" (EventBody.Change [ childOp () ]) with
+            id = EventId.fromJson 2 }
+    let recorded =
+        ClientHistory.clear ()
+        |> ClientHistory.recordEvent "Edit" change
+        |> ClientHistory.recordEvent "" event
+    match ClientHistory.undoEvent recorded with
+    | None -> Assert.Fail("expected Undo of the edit")
+    | Some (undo, _) ->
+        match undo.body with
+        | EventBody.Undo(target, _) -> Assert.Equal(change.id, target)
+        | _ -> Assert.Fail("expected Undo")
+
+[<Fact>]
 let ``StartPeerActor carries Shared PeerActorName`` () =
     let name = PeerActorName "github-load"
     Assert.Equal("Gambol.Shared", typeof<PeerActorName>.Namespace)

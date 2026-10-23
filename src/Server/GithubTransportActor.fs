@@ -140,7 +140,9 @@ module GithubTransportActor =
             with
             | Error err -> return Error err
             | Ok _ ->
-                return! CoreDoor.loadNode workspace.handle workspaceId
+                let! loaded =
+                    CoreDoor.loadNode workspace.handle workspaceId
+                return loaded |> Result.map (fun _ -> ())
         }
 
     /// A successful pull marks received files, then posts that Workspace.
