@@ -100,12 +100,9 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Auto-download
 
-[o] A persisted Edit posts `SetUpdateTime` stamp ops on `Notice.NodeStamped`.
 [x] A persisted Edit posts `Notice.NodePersisted` with the written file time. The Browser applies that time. [Mailbox](mailbox.md)
-[x] The Browser reuses that time to refresh a mapped App folder.
-[o] An own edit's ack has no stamp ops. A later poll applies `Notice.NodeStamped`.
+[x] Auto-download targets: `Op.SetUpdateTime` on a polled Change. [Workspace upload structure](../../src/Shared/WorkspaceUploadStructure.fs) `autoDownloadFileTargets`.
 [x] An own edit's ack has no file time. A later poll applies `Notice.NodePersisted`.
-[o] A remote edit uses the same stamp ops on that polled Notice.
 [x] A remote edit uses that same polled `Notice.NodePersisted`.
 [x] Shared coalesce keeps at most one job per label, for a File, the nearest Directory, or the whole Workspace, so the manager cap holds.
 [x] The Browser sends `POST /_desktop/workspace-download` and does not wait. There is no folder picker. A label with no mapping is dropped.

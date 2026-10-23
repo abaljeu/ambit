@@ -18,7 +18,6 @@ Parse and persist move text between disk and the graph.
 [x] `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
 [x] Persist thread: adds `Notice.NodePersisted` of `nodeId` through the mailbox private function when that work finishes. It does not edit the graph.
 [x] A failed document write posts one `Notice.PersistFailed` per submitted node through the notice function. The edit stays in the graph. The order reply is success. The handler does not change the persist state. A poll of that Notice sets the browser command error.
-[o] An Edit document write returns before the persist thread finishes. A finished Edit write posts `Notice.NodeStamped` with the stamp ops and the persist message. The handler applies those ops. The ack has no stamp ops and no persist message.
 [x] An Edit document write returns before the persist thread finishes. A successful write posts one `Notice.NodePersisted`. The ack has no file time. [Mailbox](mailbox.md)
 [ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 ## Parse
