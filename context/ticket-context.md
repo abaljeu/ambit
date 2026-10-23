@@ -42,6 +42,29 @@ For a wide mechanical change, such as renaming a column or retyping a shared sym
 
 When a batch can only be green together with others, the batches share an integration branch, and a final integrate-and-verify ticket is blocked by all of them. Green is promised at that ticket.
 
+### Size
+
+- A ticket is one step: one expand, one change, or one contract.
+- A ticket with numbered steps is split into one ticket per step.
+- A ticket changes 8 source files or fewer.
+- A ticket adds or changes 4 tests or fewer.
+
+### Ripple
+
+When a ticket adds a union case or changes a public signature, Look at names every site that changes:
+
+- each match on that union, with its file and function
+- each caller of that signature, with its file and function
+- each test that calls it, with its file and count
+
+Look at also names the helper that does the same job today, such as the append function or the post function.
+
+### Scope
+
+- A ticket changes source and tests.
+- GLOSSARY, arch and spec change in their own steps.
+- Each name in Tests is a test that exists or that the ticket adds.
+
 ## 3. Ticket template
 
 Copy these headings into the ticket. Leave each pointer line as written. A pointer line names its target file.
@@ -84,5 +107,7 @@ The ticket names
 - the changes
 - the tests, with their files and filter names
 - what done looks like
+- one step of expand, change, or contract
+- every match site and caller it ripples to
 
 The implementer uses the ticket and the code.
