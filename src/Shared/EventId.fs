@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+[<RequireQualifiedAccess>]
 type EventId =
     private
     | Zero // the Ev is a draft
@@ -13,11 +14,11 @@ type EventId =
 
 [<RequireQualifiedAccess>]
 module EventId =
-    let zero = Zero
+    let zero = EventId.Zero
     let next (id: EventId) =
         match id with
-        | Int n -> Int(n + 1)
-        | Zero -> Zero
+        | EventId.Int n -> EventId.Int(n + 1)
+        | EventId.Zero -> EventId.Zero
     let max (a: EventId) (b: EventId) =
         if a.Value >= b.Value then a else b
     let value (id: EventId) = id.Value
@@ -25,6 +26,6 @@ module EventId =
     let isAccepted id =
         id <> EventId.Zero
     let fromJson n =
-        if n > 0 then Int n
-        else Zero
+        if n > 0 then EventId.Int n
+        else EventId.Zero
     let toJson (id: EventId) = id.Value

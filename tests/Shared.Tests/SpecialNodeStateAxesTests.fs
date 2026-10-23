@@ -390,3 +390,25 @@ let ``JSON round-trip keeps an explicit Unpersisted axis`` () =
         Assert.Equal(ParseState.Unparsed, decoded.documentState.parseState)
         Assert.Equal(PersistState.Unpersisted, decoded.documentState.persistState)
         Assert.Equal(Unparsed, decoded.documentState.AsEnum)
+
+[<Fact>]
+let ``unpersisted mark keeps the newer changedVersion`` () =
+    let created = Node.Create(NodeId.New())
+    Assert.Equal(EventId.zero, created.documentState.persistedVersion)
+    Assert.Equal(EventId.zero, created.documentState.changedVersion)
+    Assert.Equal(PersistState.Persisted, created.documentState.persistState)
+
+    let version = EventId.fromJson 4
+    let atVersion = Node.withUnpersistedAt version created
+    Assert.Equal(PersistState.Unpersisted, atVersion.documentState.persistState)
+    Assert.Equal(version, atVersion.documentState.changedVersion)
+    Assert.Equal(EventId.zero, atVersion.documentState.persistedVersion)
+
+    let newer = EventId.next version
+    let atNewer = Node.withUnpersistedAt newer atVersion
+    Assert.Equal(PersistState.Unpersisted, atNewer.documentState.persistState)
+    Assert.Equal(newer, atNewer.documentState.changedVersion)
+
+    let again = Node.withUnpersistedAt version atNewer
+    Assert.Equal(PersistState.Unpersisted, again.documentState.persistState)
+    Assert.Equal(newer, again.documentState.changedVersion)

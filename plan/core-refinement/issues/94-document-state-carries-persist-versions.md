@@ -25,12 +25,13 @@ coding
 `PersistState` is `Persisted | Unpersisted`. `DocumentState` holds `parseState`, `persistState` and `pullingFile`. No persist version is recorded. This is the expand step for [Graph change persist version](../arch.md#graph-change-persist-version). The two fields exist at `EventId.zero`, and nothing reads them yet.
 
 ## 5. Changes
-- `PersistState` stays `Persisted | Unpersisted`.
-- `DocumentState` gains two fields:
-  - `changedVersion: EventId`, the version of the newest graph change that marked the node Unpersisted
-  - `persistedVersion: EventId`, the version the node's file was last written at
-- `DocumentState.fromParts`, and so `Node.Create`, set both to `EventId.zero`.
-- Add `Node.withUnpersistedAt (version: EventId) (node: Node) : Node`. It sets `persistState` to `Unpersisted` and `changedVersion` to `EventId.max node.documentState.changedVersion version`. A newer mark overwrites an older `changedVersion`, including when the node is already Unpersisted. An older or equal mark keeps the newer one.
++ `PersistState` stays `Persisted | Unpersisted`.
++ `DocumentState` gains two fields:
+  + `changedVersion: EventId`, the version of the newest graph change that marked the node Unpersisted
+  + `persistedVersion: EventId`, the version the node's file was last written at
++ `DocumentState.fromParts`, and so `Node.Create`, set both to `EventId.zero`.
+- Add `Node.withUnpersistedAt (version: EventId) (node: Node) : Node`. 
+    It sets `persistState` to `Unpersisted` and `changedVersion` to `EventId.max node.documentState.changedVersion version`. A newer mark overwrites an older `changedVersion`, including when the node is already Unpersisted. An older or equal mark keeps the newer one.
 - Nothing calls `Node.withUnpersistedAt` yet. [97 — Graph change records changedVersion](97-graph-change-records-changedversion.md) and [98 — Core marks carry the Edit's id](98-core-marks-carry-the-edits-id.md) use it.
 
 ## 6. Tests
