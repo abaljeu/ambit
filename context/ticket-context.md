@@ -13,7 +13,7 @@ The arch sets the direction of the cuts. This step cuts the slices and orders th
 3. **Order.** Give each ticket its blockers. A ticket's blockers are the tickets that come before it.
    - The first ticket has no blockers.
    - The last ticket is the one no other ticket is blocked by.
-4. **Number and name.** Number and name each ticket per [[../.agents/rules/refer-by-name.md]].
+4. **Number and name.** Number and name each ticket per [[.agents/rules/refer-by-name.md]].
 
 ### Tracer cut (`tracer-cut`)
 

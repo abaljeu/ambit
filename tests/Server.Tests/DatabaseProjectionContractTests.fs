@@ -81,6 +81,26 @@ let private scalar<'a> connStr sql = task {
 
 let private encodeBatch (changes: Ev list) = changes
 
+let private readStoredEvents connStr = task {
+    let! rows = Database.getEvents connStr |> Async.AwaitTask
+    return
+        rows
+        |> List.map (fun row ->
+            match EventLogFile.decodeEvent row.payload with
+            | Ok event -> event
+            | Error error -> failwith error)
+}
+
+/// One label per stored event. One Edit of ROOT adds one
+/// NodePersisted ROOT beside the Change.
+let private eventLabel (event: Ev) =
+    match event.body with
+    | EventBody.Change _ -> "Change"
+    | EventBody.Notice (Notice.NodePersisted (id, _))
+        when id = Graph.rootId ->
+        "NodePersisted ROOT"
+    | other -> sprintf "%A" other
+
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
@@ -317,10 +337,22 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
 
     let! xminAfterNoWrites =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
-    let! eventCount = scalar<int64> connStr "SELECT count(*) FROM events"
+    let! stored = readStoredEvents connStr
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    Assert.Equal(3L, eventCount)
+    let labels = stored |> List.map eventLabel |> List.sort
+    Assert.Equal<string list>(
+        [ "Change"
+          "NodePersisted ROOT" ]
+        |> List.sort,
+        labels)
+    let change =
+        stored
+        |> List.filter (fun event -> event.submissionId = accepted.submissionId)
+        |> Assert.Single
+    match change.body with
+    | EventBody.Change _ -> ()
+    | other -> Assert.Fail($"stored Change missing, got {other}")
     Assert.Equal(EventId.toJson (EventIdFixtures.storedId 1), revision)
 }
 

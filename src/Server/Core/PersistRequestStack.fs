@@ -39,6 +39,16 @@ module PersistRequestStack =
             ServerRunRegistry.notePersistFinished ()
             reraise ()
 
+    /// Push this node when a stack is bound. No stack is a no-op.
+    let pushBoundNode
+        (holder: PersistRequest BlockingCollection option ref)
+        (nodeId: NodeId)
+        =
+        match holder.Value with
+        | None -> ()
+        | Some stack ->
+            push stack { nodeId = nodeId }
+
     /// Block until a request is present, then return the newest.
     let take (stack: BlockingCollection<PersistRequest>) : PersistRequest =
         stack.Take ()

@@ -99,6 +99,7 @@ module internal CoreMailboxEvents =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventLog: EventLog ref
+        restartTip: EventId
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         session: Session
@@ -116,7 +117,8 @@ module internal CoreMailboxEvents =
 
     let eventDispatchContext context : CoreEventDispatch.Context =
         { persist = context.persist
-          eventLog = context.eventLog }
+          eventLog = context.eventLog
+          restartTip = context.restartTip }
 
     let graphNow context =
         match context.persist.getState () with

@@ -5,7 +5,7 @@ description: Red-green loop for building a ticket. Use when writing or changing 
 
 # Test-Driven Development
 
-Read [[../../../GLOSSARY.md]] so test names use the project's terms.
+Read [[GLOSSARY.md]] so test names use the project's terms.
 
 ## A good test
 

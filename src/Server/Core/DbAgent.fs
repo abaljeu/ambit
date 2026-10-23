@@ -17,14 +17,12 @@ module DbAgent =
 
     type private LoadedPersist = {
         state: State ref
-        baselineGraph: Graph ref
         eventLog: EventLog ref
         diffInProgress: bool ref
         diffNeeded: bool ref
         diffWorkspaces: NodeId list ref
         diffIds: NodeId list ref
         opsNotifiedIds: NodeId list ref
-        pendingNotify: NodeId list ref
         diffMarksLeft: int ref
         ready: TaskCompletionSource<unit>
         persistFinished: (Notice -> unit) option ref
@@ -33,12 +31,6 @@ module DbAgent =
         liveSaveDataDir: string option
         persistNode: string -> Graph -> NodeId -> Result<DateTime, string>
         stack: PersistRequest BlockingCollection option ref
-    }
-
-    type private LivePersist = {
-        stamped: PersistGraphOk option
-        allowFileDiff: bool
-        notifiedIds: NodeId list
     }
 
     let private overlayRowId (row: Database.EventRow) (event: Ev) : Ev =
@@ -94,14 +86,12 @@ module DbAgent =
         persistNode
         : LoadedPersist =
         { state = ref initialState
-          baselineGraph = ref initialState.graph
           eventLog = ref EventLog.empty
           diffInProgress = ref false
           diffNeeded = ref false
           diffWorkspaces = ref []
           diffIds = ref []
           opsNotifiedIds = ref []
-          pendingNotify = ref []
           diffMarksLeft = ref 0
           ready =
             TaskCompletionSource<unit>(
@@ -118,7 +108,6 @@ module DbAgent =
         let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
         loaded.state.Value <-
             { loaded.state.Value with graph = trim loaded.state.Value.graph }
-        loaded.baselineGraph.Value <- trim loaded.baselineGraph.Value
 
     let private applyMaintenance loaded
         (result: DatabaseProjection.ProjectionMaintenanceResult)
@@ -131,7 +120,6 @@ module DbAgent =
             with
             | Ok (graph, _) ->
                 loaded.state.Value <- { loaded.state.Value with graph = graph }
-                loaded.baselineGraph.Value <- graph
                 Ok ()
             | Error e -> Error $"Startup projection sweep failed: {e}"
         else
@@ -226,7 +214,7 @@ module DbAgent =
         events
         |> List.collect (fun event ->
             Ev.ops event |> Option.defaultValue [])
-        |> List.choose PersistThread.opAnchor
+        |> List.choose DocumentOpImpact.opAnchor
         |> List.choose (GraphQuery.enclosingWorkspace graph)
         |> List.distinct
 
@@ -294,32 +282,15 @@ module DbAgent =
                     preGraph
                     postGraph)
 
-    let private liveOf stamped allowFileDiff : LivePersist = {
-        stamped = stamped
-        allowFileDiff = allowFileDiff
-        notifiedIds = []
-    }
-
-    let private submitLiveOps loaded postGraph ops =
+    let private submitLiveOps loaded =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
-        | Some _ ->
-            loaded.pendingNotify.Value <-
-                PersistThread.owningSpecials postGraph ops
-            Ok(liveOf None false)
+        | Some _ -> Ok ()
 
-    let private persistLiveChange loaded graphOnly _preGraph newState fresh =
+    let private persistLiveChange loaded graphOnly fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
-        | false, Some _, _::_ ->
-            let ops =
-                fresh
-                |> List.collect (fun event ->
-                    Ev.ops event |> Option.defaultValue [])
-            submitLiveOps loaded newState.graph ops
-        | _ -> Ok(liveOf None true)
-
-    let private preparePostChange newState confirmations =
-        newState, confirmations, None
+        | false, Some _, _::_ -> submitLiveOps loaded
+        | _ -> Ok ()
 
     let private commitPostChange
         loaded
@@ -328,37 +299,18 @@ module DbAgent =
         stateToStore
         ackEvents
         externalChanges
-        persistMessage
-        (live: LivePersist)
         =
         match
             CoreMailboxEvents.runBounded
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> persistGraphProjection loaded stateToStore ackEvents)
         with
-        | Error err ->
-            loaded.pendingNotify.Value <- []
-            Error err
+        | Error err -> Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
-            let ids = loaded.pendingNotify.Value
-            loaded.pendingNotify.Value <- []
-            pushIds loaded ids
-            if graphOnly then
-                loaded.baselineGraph.Value <- stateToStore.graph
-            elif not (List.isEmpty fresh) && live.allowFileDiff then
-                loaded.baselineGraph.Value <- stateToStore.graph
+            if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-                loaded.opsNotifiedIds.Value <-
-                    live.notifiedIds @ loaded.opsNotifiedIds.Value
-                    |> List.distinct
-                if loaded.diffInProgress.Value then
-                    loaded.diffNeeded.Value <- true
-                else
-                    requestFileDiff loaded
-            elif not (List.isEmpty fresh) then
-                rememberWorkspaces loaded stateToStore.graph fresh
-            Ok(accepted loaded ackEvents externalChanges persistMessage)
+            Ok(accepted loaded ackEvents externalChanges None)
 
     let private finishAppliedPostChange
         loaded
@@ -372,22 +324,16 @@ module DbAgent =
         match validatePostChange loaded graphOnly preGraph newState.graph with
         | Error err -> Error err
         | Ok () ->
-            match
-                persistLiveChange loaded graphOnly preGraph newState fresh
-            with
+            match persistLiveChange loaded graphOnly fresh with
             | Error err -> Error err
-            | Ok live ->
-                let stateToStore, ackEvents, persistMessage =
-                    preparePostChange newState confirmations
+            | Ok () ->
                 commitPostChange
                     loaded
                     graphOnly
                     fresh
-                    stateToStore
-                    ackEvents
+                    newState
+                    confirmations
                     externalChanges
-                    persistMessage
-                    live
 
     let private processPostEvents loaded (events: Ev list) graphOnly =
         if events.IsEmpty then
@@ -470,18 +416,12 @@ module DbAgent =
                 CoreMailboxEvents.ChangeProcessingTimeoutMs
                 (fun () -> writePersistedEvent loaded persisted)
 
-    let private catchUpParsed (loaded: LoadedPersist) (nodeId: NodeId) =
-        match loaded.liveSaveDataDir with
-        | None -> ()
-        | Some _ ->
-            pushIds loaded [ nodeId ]
-
     let private noteParsed (loaded: LoadedPersist) (nodeId: NodeId) =
         match Map.tryFind nodeId loaded.state.Value.graph.nodes with
         | Some node when
             node.documentState.parseState = ParseState.Parsed
-            && node.documentState.persistState = PersistState.Unpersisted ->
-            catchUpParsed loaded nodeId
+            && node.documentState.persistState =
+                PersistState.Unpersisted ->
             if
                 loaded.diffNeeded.Value
                 && not loaded.diffInProgress.Value
@@ -489,15 +429,9 @@ module DbAgent =
                 requestFileDiff loaded
         | _ -> ()
 
-    let private takePendingNotify (loaded: LoadedPersist) =
-        let pending = loaded.pendingNotify.Value
-        loaded.pendingNotify.Value <- []
-        pending
-
     /// A failed write leaves the node Unpersisted. Drop an in-progress
     /// file diff so a later post can try again.
     let private noteWriteFailed (loaded: LoadedPersist) () =
-        loaded.pendingNotify.Value <- []
         if loaded.diffInProgress.Value then
             let pending = loaded.diffIds.Value
             loaded.diffIds.Value <- []
@@ -507,18 +441,19 @@ module DbAgent =
                 List.distinct (pending @ loaded.diffWorkspaces.Value)
         loaded.diffNeeded.Value <- true
 
-    let private noteStamped (loaded: LoadedPersist) () =
-        let pending = takePendingNotify loaded
-        loaded.opsNotifiedIds.Value <-
-            pending @ loaded.opsNotifiedIds.Value
-            |> List.distinct
-        loaded.baselineGraph.Value <- loaded.state.Value.graph
+    let private notePersisted (loaded: LoadedPersist) () =
         if List.isEmpty loaded.diffWorkspaces.Value then
             ()
         elif loaded.diffInProgress.Value then
             loaded.diffNeeded.Value <- true
         else
             requestFileDiff loaded
+
+    /// The mailbox push already queued this node. A later file diff skips it.
+    let private rememberPushed (loaded: LoadedPersist) (nodeId: NodeId) =
+        loaded.opsNotifiedIds.Value <-
+            nodeId :: loaded.opsNotifiedIds.Value |> List.distinct
+        PersistRequestStack.pushBoundNode loaded.stack nodeId
 
     let private persistNoticeRow loaded notice graph =
         if String.IsNullOrWhiteSpace loaded.connectionString then
@@ -550,7 +485,8 @@ module DbAgent =
             persistNoticeRow loaded notice graph
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
-        noteStamped = noteStamped loaded
+        pushPersist = rememberPushed loaded
+        notePersisted = notePersisted loaded
         noteWriteFailed = noteWriteFailed loaded
     }
 

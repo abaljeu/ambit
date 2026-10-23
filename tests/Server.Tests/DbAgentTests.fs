@@ -330,11 +330,42 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
         let body = encodeChangeBatch [ change ]
-        let! postR = CoreDoor.postEvents (admittedChanges (host agent)) (body) |> Async.StartAsTask
+        let mailbox = host agent
+        let! postR =
+            CoreDoor.postEvents (admittedChanges mailbox) body
+            |> Async.StartAsTask
 
         match postR with
         | Error e -> Assert.Fail($"postChange: {e}")
         | Ok _ -> ()
+
+        (DbAgent.persist agent).dispose ()
+        let readLog () =
+            CoreMailboxApi.getEventsSince mailbox EventId.zero
+            |> Async.StartAsTask
+        let rec settle (previous: int) (started: DateTime) = task {
+            let! events = readLog ()
+            do! Task.Delay(30)
+            let! again = readLog ()
+            let rootPersisted =
+                again
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisted (id, _)) ->
+                        id = Graph.rootId
+                    | _ -> false)
+            let quiet =
+                rootPersisted
+                && again.Length = events.Length
+                && again.Length = previous
+            if quiet then
+                return ()
+            elif DateTime.UtcNow - started > TimeSpan.FromSeconds(2.0) then
+                Assert.Fail("ROOT persist notices did not settle")
+            else
+                return! settle again.Length started
+        }
+        do! settle -1 DateTime.UtcNow
 
         let fileSt = DocumentLoader.loadState tempRoot
         let! dbBefore = Database.loadPersistedState connStr |> Async.AwaitTask

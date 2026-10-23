@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-10-21
+Updated: 2026-10-23
 Started: 2026-09-29
 Actual: 38.5h
 
@@ -90,6 +90,7 @@ Actual: 38.5h
 - 2026-10-21 — Alan verified 75, 76 and 77 (file load and save work). All three are `done`.
 - 2026-10-21 — Alan: the persist stack holds node ids. On take, the persist thread reads the live state through a read function over `LoadedFile.state`, skips a node already Persisted, and writes from that graph, so repeated pushes write once. [46 — Record the persist version](issues/46-record-the-persist-version.md) follows [71 — Persist thread takes from the stack](issues/71-persist-thread-takes-from-the-stack.md) and records the version of the graph actually written.
 - 2026-10-21 — Alan: cancel [66 — Move Actor orders onto Order and Notice](issues/66-move-actor-orders-onto-order-and-notice.md). It splits into [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md), then [80 — Place Actor orders through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md), then [81 — Log Actor and search stops as Notices](issues/81-log-actor-and-search-stops-as-notices.md). Each code change stays under 20 files including tests. Stage stays `build`.
+- 2026-10-23 — [83 — NodePersisted takes over NodeStamped's work](issues/83-nodepersisted-takes-over-nodestamped-work.md) is coded. `Notice.NodePersisted` calls `noteStamped` after the write returns Ok. The persist thread posts that Notice only. `FileAgent.persistCollected` and `DbAgent.baselineGraph` are gone. One Edit of ROOT stores one `Notice.NodePersisted`. Stage stays `build`.
 
 ## Issues
 
@@ -172,3 +173,8 @@ Actual: 38.5h
 - [75 — A failed write does not fail the edit](issues/75-a-failed-write-does-not-fail-the-edit.md) — one `Notice.PersistFailed` per submitted node; the edit stands; the handler does not change the persist state. Blocked by 76.
 - [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md) — `Notice.SnapshotDone` becomes `Notice.NodePersisted`; a Notice sets no `externalChanges` and starts no browser catch-up. Blocked by 76.
 - [69 — Persist an Edit without waiting](issues/69-persist-an-edit-without-waiting.md) — An Edit document write returns before the persist thread finishes. Stamp ops and the persist message arrive on `Notice.NodeStamped`. The ack has no stamp ops and no persist message. A polled `Notice.PersistFailed` sets the browser command error. Meant to come before [64 — Merge PostEvent and PostGraphOnly into Change](issues/64-merge-postevent-and-postgraphonly-into-change.md).
+- [82 — The mailbox pushes an Edit's special nodes](issues/82-the-mailbox-pushes-an-edits-special-nodes.md) — Change. `CoreEventDispatch` marks and pushes an Edit's owning special nodes; the agent collectors stop pushing. Blocked by [72 — Push parsed nodes to the persist stack](issues/72-push-parsed-nodes-to-the-persist-stack.md).
+- [88 — Undo does not reach past a restart](issues/88-undo-does-not-reach-past-a-restart.md) — Change. After a restart, Undo history begins at the startup tip: an Undo or Redo whose target is from before the restart is refused. Blocked by [82 — The mailbox pushes an Edit's special nodes](issues/82-the-mailbox-pushes-an-edits-special-nodes.md).
+- [85 — File startup does not replay the event log](issues/85-file-startup-does-not-replay-the-event-log.md) — Change. `FileAgent` startup takes the graph from the files and the event id from the event log tip, and applies no logged event; `FileAgent` stops writing `SYSTEM/gambol.meta`. Blocked by [88 — Undo does not reach past a restart](issues/88-undo-does-not-reach-past-a-restart.md).
+- [83 — NodePersisted takes over NodeStamped's work](issues/83-nodepersisted-takes-over-nodestamped-work.md) — Change. The file-diff request runs on `Notice.NodePersisted`; nothing posts `Notice.NodeStamped`; `FileAgent.persistCollected` leaves. Blocked by [82 — The mailbox pushes an Edit's special nodes](issues/82-the-mailbox-pushes-an-edits-special-nodes.md) and [85 — File startup does not replay the event log](issues/85-file-startup-does-not-replay-the-event-log.md).
+- [84 — Remove the NodeStamped case](issues/84-remove-the-nodestamped-case.md) — Contract. `Notice.NodeStamped` leaves; an old `nodeStamped` row is skipped on read. Blocked by [83 — NodePersisted takes over NodeStamped's work](issues/83-nodepersisted-takes-over-nodestamped-work.md).

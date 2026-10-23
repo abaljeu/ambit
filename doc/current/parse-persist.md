@@ -12,13 +12,13 @@ Parse and persist move text between disk and the graph.
 
 [x] Server: one long-lived Parse stack and one parse thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
 [x] Nobody starts an Actor after pull.
-[x] Persist thread: runs when a node is Unpersisted and Parsed. A node is blocked when its parseState is Unparsed. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
+[x] Persist thread: a thread. It takes node ids from the persist stack and writes a node that is Unpersisted. The write body is [Document persist change](../../src/Server/DocumentPersistChange.fs). Setup lives in [Core](../../src/Server/Core). The push onto that stack is [Mailbox](mailbox.md).
 [o] Parse thread: adds `Notice` `NodeParsed` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md)
 [ ] Parse thread: adds `Notice.NodeParsed` through the notice function when that File parse finishes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
 [x] `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
 [x] Persist thread: adds `Notice.NodePersisted` of `nodeId` through the mailbox private function when that work finishes. It does not edit the graph.
 [x] A failed document write posts one `Notice.PersistFailed` per submitted node through the notice function. The edit stays in the graph. The order reply is success. The handler does not change the persist state. A poll of that Notice sets the browser command error.
-[x] An Edit document write returns before the persist thread finishes. A finished Edit write posts `Notice.NodeStamped` with the stamp ops and the persist message. The handler applies those ops. The ack has no stamp ops and no persist message.
+[x] An Edit document write returns before the persist thread finishes. A successful write posts one `Notice.NodePersisted`. The ack has no file time. [Mailbox](mailbox.md)
 [ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 ## Parse
 
