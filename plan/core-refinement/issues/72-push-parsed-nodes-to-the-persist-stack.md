@@ -21,11 +21,7 @@ Do these steps in order. Finish each step before starting the next.
 ### Acceptance Criteria
 
 1. [x] **Test** — `NodeParsed pushes a persist request`. A Parsed and Unpersisted node is pushed. Any other node is not pushed.
-2. [x] **Test** — `NodeParsed leaves the written node Persisted`. After the loop writes the node, it is Persisted.
-
-## History
-
-- 2026-10-23 — `Notice.NodeParsed` pushes a Parsed and Unpersisted node through `PersistHandlers.pushPersist`. `FileAgent.scheduleCatchUp` and `DbAgent.catchUpParsed` are gone. `DbAgent.noteParsed` still requests a file diff. `DbAgent` pushes with or without a live-save data directory.
+2. [x] **Test** — after the loop writes the node, it is Persisted.
 
 ## See also
 
