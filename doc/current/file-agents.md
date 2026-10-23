@@ -20,4 +20,4 @@ See Also:
 [x] A meta checkpoint past the log tip truncates the log.
 [x] In every other case the event id becomes the log tip.
 [x] [File agent](../../src/Server/Core/FileAgent.fs) does not write `SYSTEM/gambol.meta`.
-[x] File agent: an Edit posts no Notice. `noteStamped` is `ignore`. The persist thread posts `Notice.NodePersisted` after a write. [Mailbox](mailbox.md)
+[x] File agent: an Edit posts no Notice. `notePersisted` is `ignore`. The persist thread posts `Notice.NodePersisted` after a write. [Mailbox](mailbox.md)
