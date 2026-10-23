@@ -33,10 +33,6 @@ module DbAgent =
         stack: PersistRequest BlockingCollection option ref
     }
 
-    type private LivePersist = {
-        stamped: PersistGraphOk option
-    }
-
     let private overlayRowId (row: Database.EventRow) (event: Ev) : Ev =
         { event with id = EventId.fromJson row.event_id }
 
@@ -286,22 +282,15 @@ module DbAgent =
                     preGraph
                     postGraph)
 
-    let private liveOf stamped : LivePersist = {
-        stamped = stamped
-    }
-
     let private submitLiveOps loaded =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
-        | Some _ -> Ok(liveOf None)
+        | Some _ -> Ok ()
 
-    let private persistLiveChange loaded graphOnly _preGraph _newState fresh =
+    let private persistLiveChange loaded graphOnly fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
         | false, Some _, _::_ -> submitLiveOps loaded
-        | _ -> Ok(liveOf None)
-
-    let private preparePostChange newState confirmations =
-        newState, confirmations, None
+        | _ -> Ok ()
 
     let private commitPostChange
         loaded
@@ -310,7 +299,6 @@ module DbAgent =
         stateToStore
         ackEvents
         externalChanges
-        persistMessage
         =
         match
             CoreMailboxEvents.runBounded
@@ -322,7 +310,7 @@ module DbAgent =
             loaded.state.Value <- stateToStore
             if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-            Ok(accepted loaded ackEvents externalChanges persistMessage)
+            Ok(accepted loaded ackEvents externalChanges None)
 
     let private finishAppliedPostChange
         loaded
@@ -336,21 +324,16 @@ module DbAgent =
         match validatePostChange loaded graphOnly preGraph newState.graph with
         | Error err -> Error err
         | Ok () ->
-            match
-                persistLiveChange loaded graphOnly preGraph newState fresh
-            with
+            match persistLiveChange loaded graphOnly fresh with
             | Error err -> Error err
-            | Ok _ ->
-                let stateToStore, ackEvents, persistMessage =
-                    preparePostChange newState confirmations
+            | Ok () ->
                 commitPostChange
                     loaded
                     graphOnly
                     fresh
-                    stateToStore
-                    ackEvents
+                    newState
+                    confirmations
                     externalChanges
-                    persistMessage
 
     let private processPostEvents loaded (events: Ev list) graphOnly =
         if events.IsEmpty then
