@@ -223,9 +223,14 @@ module CoreMailboxApi =
         (host: MailboxHost)
         (caller: Caller)
         (subject: NodeId)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            LoadNode(caller, subject, channel))
+        : Async<Result<EventId, string>> =
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.PlaceOrder(
+                caller,
+                System.Guid.NewGuid(),
+                None,
+                Order.Load subject,
+                channel))
 
     let actorStop
         (host: MailboxHost)

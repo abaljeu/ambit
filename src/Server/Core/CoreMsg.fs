@@ -33,11 +33,6 @@ type internal CoreMsg =
         caller: Caller *
         rootId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
-    /// Parse-stack Load: subject is a Workspace, Directory, or File. Fast push only.
-    | LoadNode of
-        caller: Caller *
-        subject: NodeId *
-        AsyncReplyChannel<Result<unit, string>>
     | ActorStop of
         caller: Caller *
         result: ActorResult *

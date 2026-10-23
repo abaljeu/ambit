@@ -257,6 +257,10 @@ module EventJson =
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
         | EventBody.ActorStart start -> encodeActorStart start
+        | EventBody.Load nodeId ->
+            Encode.object
+                [ "kind", Encode.string "load"
+                  "nodeId", Serialization.encodeNodeId nodeId ]
         | EventBody.Cancel focusId ->
             Encode.object
                 [ "kind", Encode.string "cancel"
@@ -301,6 +305,12 @@ module EventJson =
             | "redo" -> decodeRedoBody
             | "actorStart" ->
                 decodeStartRequest |> Decode.map EventBody.ActorStart
+            | "load" ->
+                Decode.object (fun get ->
+                    EventBody.Load(
+                        get.Required.Field
+                            "nodeId"
+                            Serialization.decodeNodeId))
             | "cancel" ->
                 Decode.object (fun get ->
                     EventBody.Cancel(
