@@ -1,5 +1,5 @@
 #!/bin/bash
-# One test command for agents. See .agents/rules/core-agent-behavior.md
+# One test command for agents. See .agents/skills/tdd/SKILL.md
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
