@@ -179,12 +179,10 @@ module internal CoreMailboxLoad =
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
-    /// NodeStamped leaves persist state alone. It does not call
-    /// noteStamped.
     /// MarkUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, then sets Persisted
     /// and the node's updateTime in one write. On Ok it calls
-    /// noteStamped, which requests the file diff.
+    /// notePersisted, which requests the file diff.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
         match Map.tryFind nodeId graph.nodes with
         | None -> Error "node not found"
@@ -298,11 +296,6 @@ module internal CoreMailboxLoad =
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()
-        | Notice.NodeStamped ->
-            CoreEventDispatch.writeAxis
-                persist
-                msg
-                (fun graph -> Ok graph)
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist msg nodeId ParseState.Unparsed
         | Notice.NodePersisted (nodeId, updateTime) ->
@@ -310,7 +303,7 @@ module internal CoreMailboxLoad =
             match writePersisted persist nodeId updateTime with
             | Error err -> Error err
             | Ok () ->
-                persist.noteStamped ()
+                persist.notePersisted ()
                 Ok ()
 
     let private reportNotice (context: MailboxContext) (err: string) =
@@ -445,7 +438,7 @@ module internal CoreMailboxLoad =
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
         pushPersist = persist.pushPersist
-        noteStamped = persist.noteStamped
+        notePersisted = persist.notePersisted
         noteWriteFailed = persist.noteWriteFailed
     }
 

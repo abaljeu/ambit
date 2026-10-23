@@ -1,6 +1,6 @@
 # 84 — Remove the NodeStamped case
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding

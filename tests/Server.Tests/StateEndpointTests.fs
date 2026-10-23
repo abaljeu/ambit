@@ -102,16 +102,13 @@ let private postPoll (client: HttpClient) eventId = task {
 let private countPersistProgress (events: Ev list) =
     events
     |> List.fold
-        (fun (changes, persisted, stamped) event ->
+        (fun (changes, persisted) event ->
             match event.body with
-            | EventBody.Change _ ->
-                changes + 1, persisted, stamped
+            | EventBody.Change _ -> changes + 1, persisted
             | EventBody.Notice (Notice.NodePersisted _) ->
-                changes, persisted + 1, stamped
-            | EventBody.Notice (Notice.NodeStamped) ->
-                changes, persisted, stamped + 1
-            | _ -> changes, persisted, stamped)
-        (0, 0, 0)
+                changes, persisted + 1
+            | _ -> changes, persisted)
+        (0, 0)
 
 let private readPoll (client: HttpClient) = task {
     let! response = postPoll client EventId.zero
@@ -130,7 +127,7 @@ let private persistTipSettled
     (first: ChangeSuccessResponse)
     (second: ChangeSuccessResponse)
     =
-    let changes, persisted, _stamped = countPersistProgress second.events
+    let changes, persisted = countPersistProgress second.events
     let enough =
         if requireEach then persisted >= changes
         else changes = 0 || persisted >= 1
@@ -145,10 +142,10 @@ let private waitForPersist requireEach (client: HttpClient) = task {
         if persistTipSettled requireEach first second then
             return second.eventId
         elif DateTime.UtcNow >= deadline then
-            let changes, persisted, stamped = countPersistProgress second.events
+            let changes, persisted = countPersistProgress second.events
             let message =
                 $"persist did not settle: changes {changes}, "
-                + $"persisted {persisted}, stamped {stamped}"
+                + $"persisted {persisted}"
             return failwith message
         else
             do! Task.Delay 20

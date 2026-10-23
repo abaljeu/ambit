@@ -91,7 +91,7 @@ type PersistHandlers = {
     noteDiffDone: NodeId -> unit
     noteParsed: NodeId -> unit
     pushPersist: NodeId -> unit
-    noteStamped: unit -> unit
+    notePersisted: unit -> unit
     noteWriteFailed: unit -> unit
 }
 

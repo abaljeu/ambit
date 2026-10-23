@@ -111,13 +111,7 @@ let ``persist thread writes from the live graph`` () =
         |> Seq.tryPick (function
             | Notice.NodePersisted (id, _) -> Some id
             | _ -> None)
-    let stamped =
-        notices
-        |> Seq.exists (function
-            | Notice.NodeStamped -> true
-            | _ -> false)
     Assert.Equal(Some fileId, persisted)
-    Assert.False(stamped, "a write posts NodePersisted only")
 
 [<Fact>]
 let ``repeated pushes write once`` () =
@@ -219,7 +213,7 @@ let private applyPersisted
         noteDiffDone = ignore
         noteParsed = ignore
         pushPersist = pushPersist
-        noteStamped = ignore
+        notePersisted = ignore
         noteWriteFailed = ignore
     }
     match CoreMailboxLoad.applyNotice handlers notice with

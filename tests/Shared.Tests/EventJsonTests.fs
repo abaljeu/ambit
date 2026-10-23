@@ -134,6 +134,21 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
         Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
+let ``An old nodeStamped row is skipped on read`` () =
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"\","
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"nodeStamped\"}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
 let ``Notice JSON round trip`` () =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
     let stamp = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
@@ -145,8 +160,7 @@ let ``Notice JSON round trip`` () =
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId
           Notice.NodePersisting nodeId
-          Notice.PersistFailed(nodeId, "disk full")
-          Notice.NodeStamped ]
+          Notice.PersistFailed(nodeId, "disk full") ]
     notices
     |> List.iter (fun notice ->
         let event =

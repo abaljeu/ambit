@@ -50,13 +50,13 @@ module FileAgent =
     let private applyOne
         loaded
         (graphOnly: bool)
-        (s, confirmations, fresh, changed, externalChanges)
+        (s, confirmations, externalChanges)
         (event: Ev)
         =
         match loaded.persistedEventLog.Value.events
               |> List.tryFind (fun e -> e.submissionId = event.submissionId) with
         | Some storedEvent ->
-            Ok(s, storedEvent :: confirmations, fresh, changed, externalChanges)
+            Ok(s, storedEvent :: confirmations, externalChanges)
         | None ->
             match Ev.ops event with
             | None -> Error "Event has no Ops"
@@ -77,8 +77,6 @@ module FileAgent =
                     Ok(
                         nextState,
                         applied :: confirmations,
-                        applied :: fresh,
-                        true,
                         externalChanges || amended)
 
     let private applyBatch loaded (graphOnly: bool) (events: Ev list) =
@@ -88,9 +86,9 @@ module FileAgent =
                 match acc with
                 | Error err -> Error err
                 | Ok stateAndLog -> applyOne loaded graphOnly stateAndLog event)
-            (Ok(loaded.state.Value, [], [], false, false))
-        |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
-            newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
+            (Ok(loaded.state.Value, [], false))
+        |> Result.map (fun (newState, confirmations, externalChanges) ->
+            newState, List.rev confirmations, externalChanges)
 
     let private validatePostChange loaded graphOnly preGraph postGraph =
         if graphOnly then
@@ -106,24 +104,6 @@ module FileAgent =
                     preGraph
                     postGraph)
 
-    let private preparePostChange
-        (newState: State)
-        (confirmations: Ev list)
-        =
-        newState, confirmations, None
-
-    let private commitPostChange
-        loaded
-        finalState
-        ackEvents
-        externalChanges
-        persistMessage
-        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-        =
-        loaded.state.Value <- finalState
-        reply.Reply(
-            Ok(accepted loaded ackEvents externalChanges persistMessage))
-
     let private processPostEvents
         loaded
         (events: Ev list)
@@ -134,19 +114,17 @@ module FileAgent =
         else
             match applyBatch loaded graphOnly events with
             | Error err -> Error err
-            | Ok (newState, confirmations, _fresh, _changed, externalChanges) ->
+            | Ok (newState, confirmations, externalChanges) ->
                 let preGraph = loaded.state.Value.graph
                 match validatePostChange loaded graphOnly preGraph newState.graph with
                 | Error err -> Error err
                 | Ok () ->
-                    let finalState, ackEvents, persistMessage =
-                        preparePostChange newState confirmations
-                    loaded.state.Value <- finalState
+                    loaded.state.Value <- newState
                     Ok(accepted
                         loaded
-                        ackEvents
+                        confirmations
                         externalChanges
-                        persistMessage)
+                        None)
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value
@@ -178,7 +156,7 @@ module FileAgent =
         noteDiffDone = ignore
         noteParsed = ignore
         pushPersist = PersistRequestStack.pushBoundNode loaded.stack
-        noteStamped = ignore
+        notePersisted = ignore
         noteWriteFailed = ignore
     }
 
