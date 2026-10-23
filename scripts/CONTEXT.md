@@ -13,7 +13,7 @@ Scripts for git, build, run, and deploy live here.
 - You want branch status: [[gitstatus.sh]]
 - You want the desktop shell: [[desktop.sh]]
 - You want the server: [[server.sh]]
-- You want tests: [[test.sh]]
+- You want tests: [[agent-test.sh]]
 - You want a full build: [[fullstack-build.sh]]
 - You want git procedure: [[../.agents/skills/git-protocol/SKILL.md]]
 
