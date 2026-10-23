@@ -47,7 +47,7 @@ A File-mode server takes no Edit in production: `RouteRegistration.isWritable` m
   - `noteStamped` and `takeCheckpoint`
   - the `pendingCheckpoint` append in `persistCollected`
   - the `LoadedFile` fields `persistClean`, `lastPersisted` and `pendingCheckpoint`, with their values in `openLoaded` and the `lastPersisted` write in `startPersist`
-- `src/` has no caller of `Bookkeeping.writeEventId` after this ticket. [87 — Remove the event-id checkpoint](87-remove-the-event-id-checkpoint.md) deletes it.
+- `Bookkeeping.readEventId`, `Bookkeeping.writeEventId` and `DocumentLoader` do not change. Startup still reads the meta file for the truncate rule above.
 - `DbAgent` keeps `EventLog.recover`.
 
 ## 6. Tests
@@ -64,4 +64,5 @@ A File-mode server takes no Edit in production: `RouteRegistration.isWritable` m
 ## 7. Done
 - The named tests pass.
 - `FileAgent.fs` does not name `EventLog.recover`, `pendingCheckpoint`, `takeCheckpoint`, `persistClean`, `lastPersisted` or `Bookkeeping.writeEventId`.
+- The checkpoint tests in `MailboxHistoryDurabilityTests.fs` that set the meta file with `Bookkeeping.writeEventId` pass unchanged.
 - Upload, import, parse, Load, undo and persist complete.
