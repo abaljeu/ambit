@@ -279,19 +279,31 @@ let ``TestActor hello drops live row after successful stop`` () =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
-        
+
         let request = sampleRequest Graph.rootId commandId [ Graph.rootId; commandId ]
-        
+
         let! result =
             CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
-        
-        Assert.True(Set.contains request.focusId (pool.liveFocusIds ()))
-        
-        let! dropped = waitForLiveRowDrop pool request.focusId 1000
-        Assert.True(dropped, "Live row not dropped within timeout")
-        
+
+        // startActor replies after schedule. A fast hello can finish and
+        // drop the row before this continuation runs, so presence here is a race.
+        let! finished = waitForActorFinished host request.focusId 1000
+        Assert.True(finished, "ActorFinished not received within timeout")
+
+        let! events =
+            eventPast host
+            |> Async.StartAsTask
+        let stopResult =
+            events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.ActorStop(fid, result)
+                    when fid = request.focusId ->
+                    Some result
+                | _ -> None)
+        Assert.Equal(Some ActorSucceeded, stopResult)
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
     })
 
