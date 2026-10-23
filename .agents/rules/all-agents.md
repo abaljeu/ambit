@@ -17,19 +17,10 @@ In source, this usually means refactoring out the duplication.  There are many w
 ## Other notes
 Refer to [[GLOSSARY.md]] for terms.
 
-<<<<<<< HEAD
 
-Read [[../../CONTEXT.md]]. Once you are inside a top-level folder, that folder's CONTEXT.md takes over.
-=======
-Obligatory.  To know where you must read or write: [[.agents/skills/git-protocol/SKILL.md]].
-
->>>>>>> staging
 Follow [[.agents/rules/writing-markdown.md]].
 Follow [[.agents/rules/refer-by-name.md]].
 In F# source, follow [[.agents/rules/fsharp-source.md]] and [[.agents/rules/core-api.md]].
 
-<<<<<<< HEAD
-=======
 Read [[CONTEXT.md]]. Once you are inside a top-level folder, that folder's CONTEXT.md takes over.
->>>>>>> staging
 

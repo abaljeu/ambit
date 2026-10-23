@@ -1,10 +1,6 @@
 # 93 — Compile EventId before Model
 
-<<<<<<< HEAD
-**Status:** `coded`
-=======
 **Status:** `defined`
->>>>>>> staging
 
 ## 1. Type
 coding
