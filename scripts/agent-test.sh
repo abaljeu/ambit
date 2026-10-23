@@ -36,15 +36,13 @@ run_full() {
         # Cloud agent: return while the suite runs.
         export -f full_suite
         nohup bash -c 'full_suite' >"$log" 2>&1 </dev/null &
-        echo "log: $log"
-        echo "pid: $!"
+        echo "$!"
     elif [[ "${CURSOR_EXTENSION_HOST_ROLE:-}" == agent-exec ]]; then
         # Desktop agent shell is Git Bash. Background and disown so this script can exit.
         export -f full_suite
         bash -c 'full_suite' >"$log" 2>&1 </dev/null &
         disown
-        echo "log: $log"
-        echo "pid: $!"
+        echo "$!"
     else
         full_suite
         echo "log: $log"

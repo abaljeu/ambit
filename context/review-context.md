@@ -32,7 +32,7 @@ Arch: [[../arch.md]]
 
 ## 3. Fill
 
-Start by running `scripts/agent-test.sh --full`. It runs in the background and prints a log path and pid. Do the rest of the review while it runs.
+Follow the full suite in [[.agents/skills/tdd/SKILL.md]]. Do the rest of the review while it runs.
 
 Write each section as a list, one finding per item. An empty section is one item: `No findings.`
 
@@ -46,7 +46,7 @@ Write each section as a list, one finding per item. An empty section is one item
    - **Extra** — behavior the ticket and spec leave out.
    - **Unnamed** — a global type or interface the diff adds or changes that the ticket and spec leave unnamed.
 3. **Arch.** Check the diff against the story paths and the module map in `arch.md`. Each break is a **Blocker** and names the arch section and the code location.
-4. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record the full-suite result from its log.
+4. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record what `scripts/check-test.sh <pid>` prints.
 5. **Miss.** Name what returns the ticket to build:
    - each Hard finding
    - each Missing, Partial or Wrong finding
