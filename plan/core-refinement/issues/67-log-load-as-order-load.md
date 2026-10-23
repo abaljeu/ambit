@@ -27,6 +27,10 @@ Do these steps in order. Finish each step before starting the next.
 4. [ ] **Rejected** — `loadNode of a plain Node replies Error`. The log has no new entry.
 5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
+## Finish-up
+
+[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+
 ## See also
 
 - [Message shape](../cqrs-messages.md)
