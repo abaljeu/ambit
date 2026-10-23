@@ -35,7 +35,6 @@ module DbAgent =
 
     type private LivePersist = {
         stamped: PersistGraphOk option
-        notifiedIds: NodeId list
     }
 
     let private overlayRowId (row: Database.EventRow) (event: Ev) : Ev =
@@ -289,7 +288,6 @@ module DbAgent =
 
     let private liveOf stamped : LivePersist = {
         stamped = stamped
-        notifiedIds = []
     }
 
     let private submitLiveOps loaded =
@@ -313,7 +311,6 @@ module DbAgent =
         ackEvents
         externalChanges
         persistMessage
-        (live: LivePersist)
         =
         match
             CoreMailboxEvents.runBounded
@@ -325,9 +322,6 @@ module DbAgent =
             loaded.state.Value <- stateToStore
             if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-                loaded.opsNotifiedIds.Value <-
-                    live.notifiedIds @ loaded.opsNotifiedIds.Value
-                    |> List.distinct
             Ok(accepted loaded ackEvents externalChanges persistMessage)
 
     let private finishAppliedPostChange
@@ -346,7 +340,7 @@ module DbAgent =
                 persistLiveChange loaded graphOnly preGraph newState fresh
             with
             | Error err -> Error err
-            | Ok live ->
+            | Ok _ ->
                 let stateToStore, ackEvents, persistMessage =
                     preparePostChange newState confirmations
                 commitPostChange
@@ -357,7 +351,6 @@ module DbAgent =
                     ackEvents
                     externalChanges
                     persistMessage
-                    live
 
     let private processPostEvents loaded (events: Ev list) graphOnly =
         if events.IsEmpty then
