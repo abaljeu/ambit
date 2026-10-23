@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Mechanical Standards-axis scan. Not smells.
 
-  python .agents/skills/code-review/scripts/standards-scan.py
-  python .agents/skills/code-review/scripts/standards-scan.py --diff HEAD
-  python .agents/skills/code-review/scripts/standards-scan.py --diff origin/ready
-  python .agents/skills/code-review/scripts/standards-scan.py --glossary-tree
+  python scripts/standards-scan.py
+  python scripts/standards-scan.py --diff HEAD
+  python scripts/standards-scan.py --diff origin/ready
+  python scripts/standards-scan.py --glossary-tree
 
 Default: git diff HEAD plus untracked. Named ref: git diff REF...HEAD.
 --glossary-tree scans doc/, plan/, and GLOSSARY.md (not reports/) for
@@ -24,15 +24,12 @@ SRC = FS | {".fsx", ".cs", ".js", ".ts", ".tsx", ".jsx", ".py", ".sh"}
 SKIP = ("/bin/", "/obj/", "/node_modules/", "/.git/", "/packages/")
 FSHARP = ".agents/rules/fsharp-source.md"
 REFER = ".agents/rules/refer-by-name.md"
-MARK = ".agents/rules/markdown-writing.md"
+MARK = ".agents/rules/writing-markdown.md"
 GLOSSARY = "GLOSSARY.md"
 BARE = re.compile(r"(?i)\b(?:keep|ticket|issue)\s+#?(\d+)\b")
 HASH = re.compile(r"(?<![#\w])#(\d+)\b")
 ITEMS = re.compile(r"(?i)\b(?:user\s+)?items?\s+\d+(?:\s*[–—-]\s*\d+)?\b")
-FS_SIZE = (
-    Path(__file__).resolve().parents[2]
-    / "code-review-fsharp" / "scripts" / "measure-fs-size.py"
-)
+FS_SIZE = Path(__file__).resolve().parent / "measure-fs-size.py"
 
 
 def git(*args):
