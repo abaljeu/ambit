@@ -392,6 +392,47 @@ let ``JSON round-trip keeps an explicit Unpersisted axis`` () =
         Assert.Equal(Unparsed, decoded.documentState.AsEnum)
 
 [<Fact>]
+let ``document state versions survive a JSON round trip`` () =
+    let id = NodeId.New()
+    let persistedVersion = EventId.fromJson 3
+    let changedVersion = EventId.fromJson 4
+    let created =
+        Node.Create(
+            id,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            kind = Special File,
+            persistState = PersistState.Unpersisted)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    persistedVersion = persistedVersion
+                    changedVersion = changedVersion } }
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    match Dec.fromString Serialization.decodeNode json with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(persistedVersion, decoded.documentState.persistedVersion)
+        Assert.Equal(changedVersion, decoded.documentState.changedVersion)
+
+    let legacyJson =
+        "{\"id\":\""
+        + string id.Value
+        + "\",\"text\":\"file\",\"persistState\":\"unpersisted\"}"
+    match Dec.fromString Serialization.decodeNode legacyJson with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(EventId.zero, decoded.documentState.persistedVersion)
+        Assert.Equal(EventId.zero, decoded.documentState.changedVersion)
+
+[<Fact>]
 let ``unpersisted mark keeps the newer changedVersion`` () =
     let created = Node.Create(NodeId.New())
     Assert.Equal(EventId.zero, created.documentState.persistedVersion)

@@ -146,11 +146,29 @@ module Serialization =
                 encodeParseState node.documentState.parseState
               "persistState",
                 encodePersistState node.documentState.persistState
+              "persistedVersion",
+                Encode.int (EventId.toJson node.documentState.persistedVersion)
+              "changedVersion",
+                Encode.int (EventId.toJson node.documentState.changedVersion)
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
-    let private nodeFromFields
+    let private decodeEventIdField field (get: Decode.IGetters) : EventId =
+        get.Optional.Field field Decode.int
+        |> Option.map EventId.fromJson
+        |> Option.defaultValue EventId.zero
+
+    let private withDecodedPersistVersions
         (get: Decode.IGetters)
+        (node: Node)
         : Node =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistedVersion =
+                        decodeEventIdField "persistedVersion" get
+                    changedVersion = decodeEventIdField "changedVersion" get } }
+
+    let private nodeFromFields (get: Decode.IGetters) : Node =
         let kind =
             get.Optional.Field "kind" decodeNodeKind
             |> Option.defaultValue Normal
@@ -185,6 +203,7 @@ module Serialization =
             parseState = parseState,
             persistState = persistState,
             updateTime = updateTime)
+        |> withDecodedPersistVersions get
 
     let decodeNode: Decoder<Node> =
         Decode.object nodeFromFields
