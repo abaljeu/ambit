@@ -18,3 +18,5 @@ See Also:
 [x] Startup load, projection repair, change apply, and maintenance failure: the store procedure.
 
 [x] Db agent: not an Actor.
+
+[x] `Notice.NodePersisting`: [Db agent](../../src/Server/Core/DbAgent.fs) `replaceGraph` stores that graph. [Database](../../src/Server/Database.fs) `writeNoticeRow` writes that node's `persist_state`.

@@ -16,3 +16,5 @@ See Also:
 [x] When the database is offline, [File agent](../../src/Server/Core/FileAgent.fs) reads file data into a partial graph.
 
 [x] File agent: not an Actor.
+
+[x] Edit checkpoint: [File agent](../../src/Server/Core/FileAgent.fs) `persistCollected` appends the accepted event id to `pendingCheckpoint`. When [Document op impact](../../src/Shared/DocumentOpImpact.fs) `owningSpecials` is empty, it posts `Notice.NodeStamped`.
