@@ -19,8 +19,10 @@ coding
   - `src/Shared/BootCache.fs`
   - `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`
 - Types:
-  - `PersistState`, `EventId`, `Ev`, `ApplyResult`
+  - `PersistState`, `DocumentState`, `EventId`, `Ev`, `ApplyResult`
 - The mark this ticket versions: `GraphMutate.markOwningSpecialUnpersisted`, called from `GraphMutate.finishPersist`.
+- The helper from [94 — Document state carries persist versions](94-document-state-carries-persist-versions.md): `Node.withUnpersistedAt`.
+- `GraphMutate.setPersistState`, the writer the mailbox marks use today.
 - Each function that takes `markUnpersisted: bool` today, which takes `changedVersion: EventId option` in its place:
   - `GraphMutate.finishPersist`, `GraphMutate.setText`, `GraphMutate.setClasses`, `GraphMutate.setName`, `GraphMutate.replace`
   - `Op.applyAllowed`, `Op.applyAllowing`, `Op.applyAllAllowing` in `History.fs`
@@ -38,11 +40,12 @@ coding
 - Helper that decides the mark today: `Op.marksOwningPersist` (false only for `"Parse"`).
 
 ## 4. Context
-After [94 — Document state carries persist versions](94-document-state-carries-persist-versions.md), `GraphMutate.markOwningSpecialUnpersisted` writes `Unpersisted EventId.zero` on the nearest owning special node. It writes only when that node is not already Unpersisted. So a second graph change to a node that is already Unpersisted records nothing. The apply chain carries a `markUnpersisted: bool` and no version.
+After [94 — Document state carries persist versions](94-document-state-carries-persist-versions.md), `DocumentState` has `changedVersion` and `persistedVersion`, both `EventId.zero`. `GraphMutate.markOwningSpecialUnpersisted` sets `Unpersisted` on the nearest owning special node. It writes only when that node is not already Unpersisted, and it does not touch `changedVersion`. So a second graph change to a node that is already Unpersisted records nothing. The apply chain carries a `markUnpersisted: bool` and no version.
 
 ## 5. Changes
 - Replace `markUnpersisted: bool` with `changedVersion: EventId option` on each function in Look at. `None` leaves the persist axis as it is. `Some version` asks `markOwningSpecialUnpersisted` to mark at `version`.
-- `markOwningSpecialUnpersisted` writes `Unpersisted version` when the owning node is `Persisted`, or `Unpersisted older` with `EventId.value older < EventId.value version`. A newer mark overwrites an older `changedVersion`. An equal or older mark leaves the node as it is.
+- `markOwningSpecialUnpersisted` drops its `persistState <> Unpersisted` guard and calls `Node.withUnpersistedAt version` on the owning node. It sets `Unpersisted` and sets `changedVersion` to the newer of the old value and `version`. A newer mark overwrites an older `changedVersion`, including when the node is already Unpersisted.
+- Add `GraphMutate.setUnpersistedAt (nodeId: NodeId) (version: EventId) (graph: Graph)`, the same write on one node by id. [98 — Core marks carry the Edit's id](98-core-marks-carry-the-edits-id.md) uses it.
 - These callers pass the event's own id, `Some event.id`, when `Op.marksOwningPersist event.commandName` is true, and `None` when it is false:
   - `Ev.apply`
   - `SyncLogic.foldProjectedEvents`
@@ -56,7 +59,7 @@ After [94 — Document state carries persist versions](94-document-state-carries
 - Do not use the pre-change `state.eventId` as a `changedVersion`. A persist that read that earlier state would then pass the version gate.
 
 ## 6. Tests
-- Add `graph change sets Unpersisted with the newer version` in `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`. `Ev.apply` of an accepted Edit with id N on a Persisted File Node's child leaves the File Node `Unpersisted N`. A second Edit with id N+1 leaves it `Unpersisted (N+1)`. A `"Parse"` event leaves it as it was.
+- Add `graph change sets Unpersisted with the newer version` in `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`. `Ev.apply` of an accepted Edit with id N on a Persisted File Node's child leaves the File Node `Unpersisted` with `changedVersion` N. A second Edit with id N+1 leaves it `Unpersisted` with `changedVersion` N+1. A `"Parse"` event leaves it as it was.
 - Filters:
   - `scripts/agent-test.sh --filter "graph change sets Unpersisted with the newer version"`
   - `scripts/agent-test.sh --filter "SpecialNodeStateAxesTests"`

@@ -28,9 +28,9 @@ bug-fixing
 ## 4. Context
 A persist write can finish after a later graph change:
 
-1. Edit N marks the File Node `Unpersisted N`, and `pushChangeSpecials` pushes it.
+1. Edit N marks the File Node `Unpersisted` with `changedVersion` N, and `pushChangeSpecials` pushes it.
 2. The persist thread takes the request, reads the State at N, and writes it.
-3. Edit N+1 marks the node `Unpersisted (N+1)` and pushes it again.
+3. Edit N+1 sets `changedVersion` to N+1 and pushes the node again.
 4. `NodePersisted(node, N, time)` arrives. `CoreMailboxLoad.writePersisted` sets `Persisted` for every such notice.
 5. The thread takes the second request. `stillPersisted` is true, so it skips the write. Edit N+1 never reaches the file.
 
@@ -41,13 +41,13 @@ The `Notice.NodePersisted` arm of `CoreMailboxLoad.applyNotice`, through `writeP
 
 - sets that node's `persistedVersion` to the written version
 - applies `updateTime`
-- sets `Persisted` when the node is `Persisted`, or when it is `Unpersisted changedVersion` and `EventId.value persistedVersion >= EventId.value changedVersion`
-- otherwise leaves `Unpersisted changedVersion`
+- sets `Persisted` when the node is `Persisted`, or when it is `Unpersisted` and `EventId.value persistedVersion >= EventId.value node.documentState.changedVersion`
+- otherwise leaves the node `Unpersisted`, with `changedVersion` unchanged
 
 `persist.noteDiffDone` and `persist.notePersisted` run as today. `PersistThread.runRequest` and `persistedNode` do not change. Because the node stays Unpersisted, the second request in the Context is written.
 
 ## 6. Tests
-- Add `NodePersisted for an older version leaves the node Unpersisted` in `tests/Server.Tests/CoreLoopNoticeTests.fs`. The handler sets `persistedVersion` to the written version. A written version equal to `changedVersion` sets `Persisted`, including at `EventId.zero`. A written version older than `changedVersion` leaves `Unpersisted` at that newer `changedVersion`.
+- Add `NodePersisted for an older version leaves the node Unpersisted` in `tests/Server.Tests/CoreLoopNoticeTests.fs`. The handler sets `persistedVersion` to the written version. A written version equal to `changedVersion` sets `Persisted`, including at `EventId.zero`. A written version older than `changedVersion` leaves `Unpersisted`, with `changedVersion` unchanged.
 - Keep `NodePersisted sets Persisted and calls the diff hook` passing.
 - Filters:
   - `scripts/agent-test.sh --filter "NodePersisted for an older version leaves the node Unpersisted"`
