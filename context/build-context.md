@@ -18,3 +18,4 @@ Done:
 
 - those changes exist in that source
 - the named tests pass in a focused run
+- the ticket status is `coded`
