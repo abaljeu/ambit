@@ -1,6 +1,6 @@
 # 85 — File startup does not replay the event log
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding

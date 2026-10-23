@@ -187,7 +187,7 @@ let ``Db mixed hello survives dispose create`` () = task {
 }
 
 [<Fact>]
-let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
+let ``File startup does not replay the event log`` () = task {
     let dir = newTempDir ()
     let childId, change = addRootChildEvent "file-recover"
     let agent = FileAgent.create dir
@@ -206,7 +206,8 @@ let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
     try
         let! state = CoreMailboxApi.getState host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        assertChild (requireOk "getState" state) childId "file-recover"
+        let restarted = requireOk "getState" state
+        Assert.False(restarted.graph.nodes.ContainsKey childId)
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
         CoreMailboxApi.dispose host
