@@ -1,6 +1,10 @@
 # 94 — Document state carries persist versions
 
+<<<<<<< HEAD
 **Status:** `coded`
+=======
+**Status:** `defined`
+>>>>>>> staging
 
 ## 1. Type
 coding

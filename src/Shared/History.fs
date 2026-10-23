@@ -18,34 +18,6 @@ type Op =
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
-type EventId =
-    private
-    | Zero // the Ev is a draft
-    | Int of int // The Ev is an event; accepted, uniquely numbered, 
-        // and has been stored, and applied in the system
-
-    member this.Value =
-        match this with
-        | Zero -> 0
-        | Int n -> n
-
-[<RequireQualifiedAccess>]
-module EventId =
-    let zero = Zero
-    let next (id: EventId) =
-        match id with
-        | Int n -> Int(n + 1)
-        | Zero -> Zero
-    let max (a: EventId) (b: EventId) =
-        if a.Value >= b.Value then a else b
-    let value (id: EventId) = id.Value
-    let display (id: EventId) = string id.Value
-    let isAccepted id =
-        id <> EventId.Zero
-    let fromJson n =
-        if n > 0 then Int n
-        else Zero
-    let toJson (id: EventId) = id.Value
 
 type Authority = Authority of string
 
@@ -72,7 +44,6 @@ type Notice =
     | NodeParsing of nodeId: NodeId
     | NodePersisting of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
-    | NodeStamped
 
 [<RequireQualifiedAccess>]
 type EventBody =
@@ -81,7 +52,9 @@ type EventBody =
     | Redo of target: EventId * ops: Op list
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
-    | Cancel of focusId: NodeId | Notice of Notice
+    | Load of nodeId: NodeId
+    | Cancel of focusId: NodeId
+    | Notice of Notice
 
 type Ev =
     { id: EventId
@@ -423,6 +396,7 @@ module Ev =
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
@@ -433,6 +407,7 @@ module Ev =
         | EventBody.Redo(target, _) -> Some target
         | EventBody.Change _
         | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
     let inverseOps (event: Ev) : Op list option =

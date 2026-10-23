@@ -12,7 +12,8 @@ module internal CoreEventDispatch =
 
     type Context =
         { persist: PersistHandlers
-          eventLog: EventLog ref }
+          eventLog: EventLog ref
+          restartTip: EventId }
 
     let private eventAuthority (Authority name) =
         Gambol.Shared.Authority name
@@ -106,11 +107,19 @@ module internal CoreEventDispatch =
             submissionId = submissionId }
         |> appendNew context
 
-    let private completeAction (eventLog: EventLog) (event: Ev) =
+    let private targetBeforeRestart (context: Context) (target: EventId) =
+        target <> EventId.zero
+        && EventId.value target <= EventId.value context.restartTip
+
+    let private completeAction (context: Context) (event: Ev) =
         match event.body with
+        | Gambol.Shared.EventBody.Undo(target, _)
+        | Gambol.Shared.EventBody.Redo(target, _) when
+            targetBeforeRestart context target ->
+            Error "target Event is from before the restart"
         | Gambol.Shared.EventBody.Undo(target, [])
         | Gambol.Shared.EventBody.Redo(target, []) ->
-            match EventLog.tryFind target eventLog with
+            match EventLog.tryFind target context.eventLog.Value with
             | None -> Error "target Event not found"
             | Some targetEvent ->
                 match Ev.inverseOps targetEvent with
@@ -128,6 +137,8 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.Notice _ ->
             Error "Notice is not a client event type"
+        | Gambol.Shared.EventBody.Load _ ->
+            Error "Load Events are mailbox-generated"
         | Gambol.Shared.EventBody.ActorStart _
         | Gambol.Shared.EventBody.ActorStop _
         | Gambol.Shared.EventBody.Cancel _ ->
@@ -165,14 +176,86 @@ module internal CoreEventDispatch =
             { event with
                 id = EventLog.nextId context.eventLog.Value
                 authority = eventAuthority caller.authority }
-        completeAction context.eventLog.Value withCallerAuthority
+        completeAction context withCallerAuthority
+
+    let internal persistedNode (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when
+            node.documentState.persistState = PersistState.Persisted ->
+            true
+        | _ -> false
+
+    let internal writeAxis
+        (persist: PersistHandlers)
+        (notice: Gambol.Shared.Notice)
+        (mutate: Graph -> Result<Graph, string>)
+        : Result<unit, string> =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            match mutate state.graph with
+            | Error err -> Error err
+            | Ok graph ->
+                persist.replaceGraph notice graph
+                Ok ()
+
+    let private markForPersist
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        : Result<unit, string> =
+        match persist.getState () with
+        | Error err -> Error err
+        | Ok state when not (persistedNode state.graph nodeId) ->
+            Ok ()
+        | Ok _ ->
+            writeAxis persist (Gambol.Shared.Notice.NodePersisting nodeId) (
+                fun graph ->
+                    GraphMutate.setPersistState
+                        nodeId
+                        PersistState.Unpersisted
+                        graph)
+
+    let private pushChangeSpecials
+        (context: Context)
+        (completed: Ev)
+        (accepted: CoreChangesAccepted)
+        : Result<unit, string> =
+        match completed.body with
+        | Gambol.Shared.EventBody.Change _ ->
+            match context.persist.getState () with
+            | Error err -> Error err
+            | Ok state ->
+                let ops =
+                    withConfirmedOps completed accepted
+                    |> Ev.ops
+                    |> Option.defaultValue []
+                let ids =
+                    DocumentOpImpact.owningSpecials state.graph ops
+                let marked =
+                    ids
+                    |> List.fold
+                        (fun acc nodeId ->
+                            acc
+                            |> Result.bind (fun () ->
+                                markForPersist context.persist nodeId))
+                        (Ok ())
+                marked
+                |> Result.map (fun () ->
+                    List.iter context.persist.pushPersist ids)
+        | _ -> Ok ()
 
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
         | None -> Ok None
         | Some _ ->
-            context.persist.applyEvent completed graphOnly
-            |> Result.map Some
+            match context.persist.applyEvent completed graphOnly with
+            | Error error -> Error error
+            | Ok accepted ->
+                if graphOnly then
+                    Ok(Some accepted)
+                else
+                    pushChangeSpecials context completed accepted
+                    |> Result.map (fun () -> Some accepted)
 
     let private store context accepted completed =
         let confirmed =

@@ -30,10 +30,6 @@ Do these steps in order. Finish each step before starting the next.
 5. [ ] **Stored** — `SearchCancelled is stored in the events table`. Each `Notice.SearchCancelled` has an `events` row and reads back unchanged. No graph node row changes.
 6. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-
 ## See also
 
 - [Message shape](../cqrs-messages.md)

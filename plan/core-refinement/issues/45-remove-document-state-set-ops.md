@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 50 — Upload emits NodeUploading; 53 — Arrival and reconcile emit NodeReceived; 54 — Parse and import stop the Parsed Set; 56 — Remove ParseThread markUnparsed; 46 — Record the persist version; 47 — Undo and redo set Unpersisted; 55 — Stored replay sets Unpersisted; 48 — Browser applies Node events; 57 — Upload Actor posts Node notices
+**Blocked by:** 50 — Upload emits NodeUploading; 53 — Arrival and reconcile emit NodeReceived; 54 — Parse and import stop the Parsed Set; 56 — Remove ParseThread markUnparsed; 100 — Core loop gates Persisted on the written version; 101 — Client sync applies the persist version rule; 47 — Undo and redo set Unpersisted; 55 — Stored replay sets Unpersisted; 48 — Browser applies Node events; 57 — Upload Actor posts Node notices
 **Trackers:** architecture, project spec
 
 ## Context
@@ -27,12 +27,6 @@
 3. [ ] **Ordinary edit test** — `ordinary edit posts NodeUnpersisted`. `CoreEventDispatch.postEvent` applies an ordinary edit and posts `Notice.NodeUnpersisted` of the edited node id through `CoreMailboxApi.postNotice`. `CoreMailboxLoad.applyNotice` marks that node Unpersisted.
 4. [ ] **Parsed test** — `parsed comes from NodeParsed`. `CoreMailboxLoad.applyNotice` sets Parsed from `Notice.NodeParsed`.
 5. [ ] **MarkUnparsed test** — `MarkUnparsed leaves Notice`. `Notice` has no `MarkUnparsed`. `CoreMailboxLoad.applyNotice` has no `MarkUnparsed` case.
-
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
 
 ## See also
 

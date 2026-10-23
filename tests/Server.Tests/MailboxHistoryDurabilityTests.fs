@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.MailboxHistoryDurabilityTests
 
 open System
-open System.IO
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -104,6 +103,7 @@ let private bodyKind (event: Ev) =
     | EventBody.Change _ -> "change"
     | EventBody.ActorStop _ -> "stop"
     | EventBody.Cancel _ -> "cancel"
+    | EventBody.Load _ -> "load"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
     | EventBody.Notice _ -> "notice"
@@ -187,7 +187,7 @@ let ``Db mixed hello survives dispose create`` () = task {
 }
 
 [<Fact>]
-let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
+let ``File startup does not replay the event log`` () = task {
     let dir = newTempDir ()
     let childId, change = addRootChildEvent "file-recover"
     let agent = FileAgent.create dir
@@ -206,7 +206,8 @@ let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
     try
         let! state = CoreMailboxApi.getState host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        assertChild (requireOk "getState" state) childId "file-recover"
+        let restarted = requireOk "getState" state
+        Assert.False(restarted.graph.nodes.ContainsKey childId)
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
         CoreMailboxApi.dispose host
@@ -239,47 +240,84 @@ let ``Db recover applies Ops Ev ahead of projection revision`` () = task {
         CoreMailboxApi.dispose host
 }
 
+let private redoWithOps target ops : Ev =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Wire"
+      commandName = "test"
+      body = EventBody.Redo(target, ops) }
+
+let private assertBeforeRestart label result =
+    match result with
+    | Ok _ -> Assert.Fail($"{label} reached a target from before the restart")
+    | Error error -> Assert.Contains("before the restart", error)
+
 [<Fact>]
-let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
-    let dir = newTempDir ()
-    let secret = Credential "mailbox-history-undo"
-    let first = hostFile dir secret
+let ``Undo after restart refuses a target from before the restart`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let secret = Credential "mailbox-history-undo-refuse"
+    let first = hostDb connStr secret
     try
-        let! _ = runMixedHello first secret "undo-hello"
-        let meta = Bookkeeping.metaPath dir
-        let persisted =
-            System.Threading.SpinWait.SpinUntil(
-                (fun () ->
-                    File.Exists meta
-                    && File.ReadAllText(meta).Trim() <> "0"),
-                2000)
-        Assert.True(persisted, "hello edit was not persisted")
+        let! _ = runMixedHello first secret "undo-refuse"
+        ()
     finally
         CoreMailboxApi.dispose first
-    File.WriteAllText(Bookkeeping.metaPath dir, "0")
-    let second = CoreMailbox.createFile dir admittedCredentials
+    let second =
+        hostDb connStr (Credential "mailbox-history-undo-refuse-2")
     try
         let! history = CoreMailboxApi.eventHistory second |> Async.StartAsTask
-        let stopId, changeId, startId = mixedIds history
-        Assert.NotEqual(stopId, changeId)
+        let _, changeId, _ = mixedIds history
+        let change =
+            history.events
+            |> List.find (fun event -> event.id = changeId)
+        let ops = Ev.ops change |> Option.defaultValue []
+        Assert.NotEmpty(ops)
         let! undone =
             CoreMailboxApi.postEvent
                 second
                 testCaller
                 (nameOnlyUndo changeId)
             |> Async.StartAsTask
-        let stored = requireOk "undo Change" undone
-        Assert.NotEmpty(Ev.ops stored |> Option.defaultValue [])
-        let! rejected =
+        assertBeforeRestart "name-only Undo" undone
+        let! redone =
             CoreMailboxApi.postEvent
                 second
                 testCaller
-                (nameOnlyUndo startId)
+                (redoWithOps changeId ops)
             |> Async.StartAsTask
-        match rejected with
-        | Ok _ -> Assert.Fail("expected ActorStart Undo error")
-        | Error error ->
-            Assert.Contains("no inverse Ops", error)
+        assertBeforeRestart "Redo with ops" redone
+    finally
+        CoreMailboxApi.dispose second
+}
+
+[<Fact>]
+let ``Undo after restart accepts a target after the restart`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let secret = Credential "mailbox-history-undo-after"
+    let first = hostDb connStr secret
+    try
+        let! _ = runMixedHello first secret "undo-after"
+        ()
+    finally
+        CoreMailboxApi.dispose first
+    let second =
+        hostDb connStr (Credential "mailbox-history-undo-after-2")
+    try
+        let _, event = addRootChildEvent "after-restart"
+        let! posted =
+            CoreMailboxApi.postEvent second testCaller event
+            |> Async.StartAsTask
+        let stored = requireOk "change after restart" posted
+        let! undone =
+            CoreMailboxApi.postEvent
+                second
+                testCaller
+                (nameOnlyUndo stored.id)
+            |> Async.StartAsTask
+        let storedUndo = requireOk "undo after restart" undone
+        Assert.NotEmpty(Ev.ops storedUndo |> Option.defaultValue [])
     finally
         CoreMailboxApi.dispose second
 }

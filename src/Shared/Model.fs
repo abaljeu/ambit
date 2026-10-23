@@ -87,7 +87,9 @@ type PersistState =
 type DocumentState =
     { parseState: ParseState
       persistState: PersistState
-      pullingFile: bool }
+      pullingFile: bool 
+      persistedVersion: EventId
+      changedVersion: EventId }
 
 [<RequireQualifiedAccess>]
 module DocumentState =
@@ -98,7 +100,9 @@ module DocumentState =
         : DocumentState =
         { parseState = parseState
           persistState = persistState
-          pullingFile = legacy = PullingFile }
+          pullingFile = legacy = PullingFile 
+          persistedVersion = EventId.zero
+          changedVersion = EventId.zero }
 
     let toLegacy (state: DocumentState) : DocumentStateEnum =
         if state.pullingFile then PullingFile
@@ -285,6 +289,15 @@ module Node =
         { node with
             documentState =
                 { node.documentState with persistState = state } }
+
+    /// Mark Unpersisted and keep the newer changedVersion.
+    let withUnpersistedAt (version: EventId) (node: Node) : Node =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistState = PersistState.Unpersisted
+                    changedVersion =
+                        EventId.max node.documentState.changedVersion version } }
 
     /// Owner vs Ref for the parent→child edge.
     /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)

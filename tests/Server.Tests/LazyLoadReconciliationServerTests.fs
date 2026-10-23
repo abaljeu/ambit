@@ -137,17 +137,12 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> requireOk "workspace"
     |> ignore
     let amb = Path.Combine(tempDir, "home", ".amb")
-    let meta = Bookkeeping.metaPath tempDir
     let wrote =
         System.Threading.SpinWait.SpinUntil(
-            (fun () ->
-                File.Exists amb
-                && File.Exists meta
-                && File.ReadAllText(meta).Trim() = "1"),
+            (fun () -> File.Exists amb),
             2000)
     Assert.True(wrote, "workspace file was not persisted")
     Assert.True(File.Exists amb)
-    Assert.Equal("1", File.ReadAllText(meta))
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")

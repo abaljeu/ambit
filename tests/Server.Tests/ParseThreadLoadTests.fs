@@ -117,7 +117,7 @@ let ``mailbox Load of File node pushes onto Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal(Some fileId, consumer ())
         finally
             CoreMailboxApi.dispose host
@@ -140,7 +140,7 @@ let ``mailbox Load of a Workspace pushes onto the Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal<NodeId list>([ workspaceId ], pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
@@ -186,7 +186,7 @@ let ``mailbox Load of a Directory pushes onto the Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal<NodeId list>([ dirId ], pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
@@ -450,7 +450,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! parsed =
                 waitUntil
                     (fun () ->
@@ -1008,7 +1008,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
-            requireOk "load" loaded
+            requireOk "load" loaded |> ignore
             let! found =
                 waitUntil
                     (fun () ->
@@ -1037,7 +1037,7 @@ let ``directory Load reconcile walks one level`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "load" loaded
+            requireOk "load" loaded |> ignore
             let! found =
                 waitUntil
                     (fun () ->
@@ -1071,7 +1071,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
             let! parentLoad =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "parent" parentLoad
+            requireOk "parent" parentLoad |> ignore
             let! childReady =
                 waitUntil
                     (fun () ->
@@ -1090,7 +1090,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
             let! childLoad =
                 CoreMailboxApi.mbLoadNode host testCaller side.id
                 |> Async.StartAsTask
-            requireOk "child" childLoad
+            requireOk "child" childLoad |> ignore
             let! memberReady =
                 waitUntil
                     (fun () ->
@@ -1182,7 +1182,7 @@ let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
                     2000
             Assert.True(parsed, "directory should be Parsed before Load")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal(
                 Some ParseState.Unparsed,
                 parseStateOf rig.host dirId)
@@ -1230,7 +1230,7 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                     2000
             Assert.True(held, "existing members should be Parsed before reconcile")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! reconciled =
                 waitUntil
                     (fun () ->
@@ -1276,7 +1276,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
                     2000
             Assert.True(wasParsed, "file should be Parsed before Load")
             let! first = userLoad rig.host fileId
-            requireOk "first" first
+            requireOk "first" first |> ignore
             Assert.Equal(Some ParseState.Unparsed, parseStateOf rig.host fileId)
             Assert.Equal<NodeId list>([ fileId ], pushedIds rig.pushed)
             rig.startThread ()
@@ -1291,7 +1291,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             File.WriteAllText(diskPath, "NEW\n")
             File.SetLastWriteTimeUtc(diskPath, old)
             let! second = userLoad rig.host fileId
-            requireOk "second" second
+            requireOk "second" second |> ignore
             let! again =
                 waitUntil
                     (fun () -> graphHasText rig.host fileId "NEW")
@@ -1316,7 +1316,7 @@ let ``Directory reconcile pushes nothing onto the parse stack`` () =
             Directory.CreateDirectory(Path.Combine(docs, "side")) |> ignore
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! reconciled =
                 waitUntil
                     (fun () ->

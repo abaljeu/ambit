@@ -56,6 +56,11 @@ Keys: Ctrl+Y and `y`. Any Mode.
 
 What it does: Applies the last undone change again. When nothing can be redone, Ambit reports that.
 
+## After a restart
+
+[x] After a restart, Undo and Redo reach a change made after that restart.
+[x] A change from before that restart: Ambit reports `target Event is from before the restart`.
+
 ## Edit classes
 
 Keys: `.` and Alt+`.`. Any Mode.

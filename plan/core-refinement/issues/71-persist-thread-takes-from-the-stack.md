@@ -1,6 +1,6 @@
 # 71 — Persist thread takes from the stack
 
-**Status:** `coded`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** [70 — Add the persist request stack](70-add-the-persist-request-stack.md); [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md); [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md)
 **Trackers:** architecture

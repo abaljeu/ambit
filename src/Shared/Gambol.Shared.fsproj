@@ -13,6 +13,8 @@
     <Compile Include="FileText.fs" />
     <Compile Include="DocumentParseLimits.fs" />
     <Compile Include="SystemDirectoryPersist.fs" />
+    
+    <Compile Include="EventId.fs" />
     <Compile Include="Model.fs" />
 
     <Compile Include="GraphBuild.fs" />

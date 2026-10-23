@@ -26,12 +26,6 @@ The workspace lock and the per-member persist locks stand beside `withWorkTreeGa
 1. [ ] **Parse and persist claim** — The Parse and persist claim says the workspace lock and the per-member persist locks stand beside `withWorkTreeGate`.
 2. [ ] **Lock test** — A test takes the workspace lock beside `withWorkTreeGate`, shows that a pending lock blocks a new per-member persist lock, and shows that the lock waits for an in-flight member write and an in-flight parse read to drain.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [core-refinement architecture](plan/core-refinement/arch.md)

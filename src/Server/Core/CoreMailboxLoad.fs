@@ -57,6 +57,7 @@ module internal CoreMailboxLoad =
                     request
                     path
                 |> Result.mapError StartError.Rejected)
+
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | PostGraphOnly (caller, event, reply) ->
@@ -77,8 +78,6 @@ module internal CoreMailboxLoad =
             reply.Reply(
                 CoreEventDispatch.actorStop
                     dispatch caller rootId ActorSucceeded)
-        | LoadNode (caller, subject, reply) ->
-            reply.Reply(dispatchLoad context caller subject)
         | ActorStop (caller, result, reply) ->
             CoreMailboxActors.dispatchActorStop context caller result reply
         | CancelActor (caller, focusId, reply) ->
@@ -121,7 +120,6 @@ module internal CoreMailboxLoad =
         | StartLoadSaveCommand (caller, _, _, _, _)
         | RecordSearchStart (caller, _, _)
         | RecordSearchStop (caller, _, _)
-        | LoadNode (caller, _, _)
         | ActorStop (caller, _, _)
         | CancelActor (caller, _, _)
         | PostEvent (caller, _, _) -> caller
@@ -145,27 +143,13 @@ module internal CoreMailboxLoad =
         else
             rejectDropped msg
 
-    let private writeAxis
-        (persist: PersistHandlers)
-        (notice: Notice)
-        (mutate: Graph -> Result<Graph, string>)
-        : Result<unit, string> =
-        match persist.getState () with
-        | Error err -> Error err
-        | Ok state ->
-            match mutate state.graph with
-            | Error err -> Error err
-            | Ok graph ->
-                persist.replaceGraph notice graph
-                Ok ()
-
     let private writeParseState
         (persist: PersistHandlers)
         (notice: Notice)
         (nodeId: NodeId)
         (parseState: ParseState)
         : Result<unit, string> =
-        writeAxis persist notice (fun graph ->
+        CoreEventDispatch.writeAxis persist notice (fun graph ->
             GraphMutate.setParseState nodeId parseState graph)
 
     /// Marks the node Unparsed, then pushes. The mark writes the axis
@@ -183,9 +167,10 @@ module internal CoreMailboxLoad =
         |> Result.map (fun () -> rawPush nodeId)
 
     /// Core loop apply. NodeParsed writes Parsed only when pullingFile
-    /// is clear, then noteParsed so a blocked edit can catch up. When
-    /// pullingFile is set, that File Node stays Unparsed. It does not
-    /// set Persisted. NodeParsed is the renamed ParseFinished.
+    /// is clear, then pushes when the node is Parsed and Unpersisted.
+    /// The push does not wait. noteParsed still runs. When pullingFile
+    /// is set, that File Node stays Unparsed. It does not set Persisted.
+    /// NodeParsed is the renamed ParseFinished.
     /// NodeUploading sets PullingFile in memory and Unpersisted. It does
     /// not insert the node. The column word stays Parsed or Unparsed.
     /// NodeReceived sets Unparsed and Persisted. withParseState clears
@@ -194,10 +179,10 @@ module internal CoreMailboxLoad =
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
-    /// NodeStamped leaves persist state alone.
     /// MarkUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, then sets Persisted
-    /// and the node's updateTime in one write.
+    /// and the node's updateTime in one write. On Ok it calls
+    /// notePersisted, which requests the file diff.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
         match Map.tryFind nodeId graph.nodes with
         | None -> Error "node not found"
@@ -209,7 +194,10 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (Notice.NodeUploading nodeId) (fun live ->
+        CoreEventDispatch.writeAxis
+            persist
+            (Notice.NodeUploading nodeId)
+            (fun live ->
             match
                 GraphMutate.setPersistState
                     nodeId
@@ -223,7 +211,10 @@ module internal CoreMailboxLoad =
         (persist: PersistHandlers)
         (nodeId: NodeId)
         : Result<unit, string> =
-        writeAxis persist (Notice.NodeReceived nodeId) (fun live ->
+        CoreEventDispatch.writeAxis
+            persist
+            (Notice.NodeReceived nodeId)
+            (fun live ->
             match GraphMutate.setParseState nodeId ParseState.Unparsed live with
             | Error err -> Error err
             | Ok graph ->
@@ -243,8 +234,38 @@ module internal CoreMailboxLoad =
             let stamped = NodeUpdateTime.withStamp updateTime node
             Ok { graph with nodes = Map.add nodeId stamped graph.nodes }
 
+    let private parsedAndUnpersisted (node: Node) =
+        node.parseState = ParseState.Parsed
+        && node.persistState = PersistState.Unpersisted
+
+    /// Read the node after Parsed is written. Push only that case.
+    let private pushParsedUnpersisted
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        =
+        match persist.getState () with
+        | Error _ -> ()
+        | Ok state ->
+            match Map.tryFind nodeId state.graph.nodes with
+            | Some node when parsedAndUnpersisted node ->
+                persist.pushPersist nodeId
+            | _ -> ()
+
+    let private applyNodeParsed
+        (persist: PersistHandlers)
+        (nodeId: NodeId)
+        =
+        writeParseState
+            persist
+            (Notice.NodeParsed nodeId)
+            nodeId
+            ParseState.Parsed
+        |> Result.map (fun () ->
+            pushParsedUnpersisted persist nodeId
+            persist.noteParsed nodeId)
+
     let private writePersisted persist nodeId updateTime =
-        writeAxis
+        CoreEventDispatch.writeAxis
             persist
             (Notice.NodePersisted(nodeId, updateTime))
             (fun live ->
@@ -260,15 +281,14 @@ module internal CoreMailboxLoad =
         : Result<unit, string> =
         match msg with
         | Notice.NodeParsed nodeId ->
-            writeParseState persist msg nodeId ParseState.Parsed
-            |> Result.map (fun () -> persist.noteParsed nodeId)
+            applyNodeParsed persist nodeId
         | Notice.NodeUploading nodeId ->
             writePullingFileUnpersisted persist nodeId
         | Notice.NodeReceived nodeId ->
             writeReceived persist nodeId
         | Notice.NodeParsing _ -> Ok ()
         | Notice.NodePersisting nodeId ->
-            writeAxis persist msg (fun live ->
+            CoreEventDispatch.writeAxis persist msg (fun live ->
                 GraphMutate.setPersistState
                     nodeId
                     PersistState.Unpersisted
@@ -276,17 +296,15 @@ module internal CoreMailboxLoad =
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()
-        | Notice.NodeStamped ->
-            match writeAxis persist msg (fun graph -> Ok graph) with
-            | Error err -> Error err
-            | Ok () ->
-                persist.noteStamped ()
-                Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist msg nodeId ParseState.Unparsed
         | Notice.NodePersisted (nodeId, updateTime) ->
             persist.noteDiffDone nodeId
-            writePersisted persist nodeId updateTime
+            match writePersisted persist nodeId updateTime with
+            | Error err -> Error err
+            | Ok () ->
+                persist.notePersisted ()
+                Ok ()
 
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)
@@ -295,6 +313,38 @@ module internal CoreMailboxLoad =
         (reply: AsyncReplyChannel<Result<'a, string>>)
         =
         reply.Reply(Error "unsupported")
+
+    let private replyLoad
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: Guid)
+        (subject: NodeId)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match dispatchLoad context caller subject with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            match
+                CoreEventDispatch.appendLifecycle
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    caller
+                    orderId
+                    (EventBody.Load subject)
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok stored -> reply.Reply(Ok stored.id)
+
+    let private placeOrder context caller orderId order reply =
+        match order with
+        | Order.Load subject ->
+            replyLoad context caller orderId subject reply
+        | Order.Change _
+        | Order.Undo _
+        | Order.Redo _
+        | Order.StartActor _
+        | Order.StartPeerActor _
+        | Order.LoadSave _
+        | Order.Cancel _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
@@ -348,9 +398,9 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (caller, _, _, _, reply) ->
+        | Mailbox.PlaceOrder (caller, orderId, _, order, reply) ->
             if authorityHeld context caller then
-                replyUnsupported reply
+                placeOrder context caller orderId order reply
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
@@ -387,7 +437,8 @@ module internal CoreMailboxLoad =
         replaceGraph = persist.replaceGraph
         noteDiffDone = ignore
         noteParsed = persist.noteParsed
-        noteStamped = persist.noteStamped
+        pushPersist = persist.pushPersist
+        notePersisted = persist.notePersisted
         noteWriteFailed = persist.noteWriteFailed
     }
 
@@ -425,11 +476,14 @@ module internal CoreMailboxLoad =
         (session: Session)
         : MailboxContext * (NodeId -> unit) =
         let seeded = persist.handlers
-        let eventLog, seedError, handlers =
+        let eventLog, seedError, handlers, restartTip =
             match seedEventLog seeded with
-            | Ok log -> log, None, seeded
+            | Ok log -> log, None, seeded, EventLog.tip log
             | Error error ->
-                EventLog.empty, Some error, failedSeed seeded error
+                EventLog.empty,
+                Some error,
+                failedSeed seeded error,
+                EventId.zero
         let front = markUnparsedThenPush handlers rawPush
         let reported = pushReporting persist handlers rawPush
         { persist = handlers
@@ -438,6 +492,7 @@ module internal CoreMailboxLoad =
           onError = persist.onError
           formatError = persist.formatError
           eventLog = ref eventLog
+          restartTip = restartTip
           eventLogSeedError = seedError
           coreChanges = ref None
           session = session },

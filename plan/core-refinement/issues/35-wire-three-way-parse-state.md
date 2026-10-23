@@ -25,12 +25,6 @@ The node wire sends the three-way parse state once, plus persist state. The deri
 2. [ ] **Workspace graph** — [Workspace graph](doc/current/graph.md) shows the node wire as one three-way parse state plus persist state.
 3. [ ] **Round-trip test** — A test encodes and decodes a node for each of Parsed, Unparsed, and PullingFile, with Persisted and with Unpersisted. The decoded node matches. The JSON object has no `documentState` key.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [§4 Step 1 Commitment](plan/core-refinement/arch.md#4-step-1-commitment)

@@ -46,6 +46,7 @@ module internal CoreMailboxEvents =
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
         | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.ActorStop _
         | EventBody.Notice _ -> event
 
@@ -61,8 +62,6 @@ module internal CoreMailboxEvents =
             "StartLoadSaveCommand", $"{path}:{name}"
         | RecordSearchStart _ -> "RecordSearchStart", ""
         | RecordSearchStop _ -> "RecordSearchStop", ""
-        | LoadNode (_, subject, _) ->
-            "Load", $"{subject}"
         | ActorStop (_, result, _) ->
             match result with
             | ActorSucceeded -> "ActorStop", "ActorSucceeded"
@@ -83,7 +82,6 @@ module internal CoreMailboxEvents =
             reply.Reply(Error error)
         | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
-        | LoadNode (_, _, reply) -> reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
@@ -101,6 +99,7 @@ module internal CoreMailboxEvents =
         onError: string -> string -> exn -> unit
         formatError: string -> string
         eventLog: EventLog ref
+        restartTip: EventId
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         session: Session
@@ -118,7 +117,8 @@ module internal CoreMailboxEvents =
 
     let eventDispatchContext context : CoreEventDispatch.Context =
         { persist = context.persist
-          eventLog = context.eventLog }
+          eventLog = context.eventLog
+          restartTip = context.restartTip }
 
     let graphNow context =
         match context.persist.getState () with

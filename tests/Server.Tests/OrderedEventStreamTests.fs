@@ -87,7 +87,7 @@ let ``direct core list does not repeat entry admission`` () = task {
         requireOk "direct list" result |> ignore
         let! after =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Equal(before.events.Length + 6, after.events.Length)
+        Assert.Equal(before.events.Length + 3, after.events.Length)
     finally
         CoreMailboxApi.dispose host
 }

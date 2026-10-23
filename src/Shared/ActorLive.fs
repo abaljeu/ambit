@@ -47,6 +47,7 @@ module ActorLive =
         | EventBody.Undo _
         | EventBody.Redo _
         | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.Notice _ -> live
 
     let applyEvents (events: Ev list) (live: Set<NodeId>) : Set<NodeId> =
@@ -156,6 +157,7 @@ module ActorLive =
         | EventBody.Undo _
         | EventBody.Redo _
         | EventBody.Cancel _
+        | EventBody.Load _
         | EventBody.Notice _ -> None
 
     let lastCmdResult

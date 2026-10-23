@@ -38,7 +38,8 @@ let private handlers
             state.Value <- { state.Value with graph = graph }
       noteDiffDone = snaps.Add
       noteParsed = ignore
-      noteStamped = ignore
+      pushPersist = ignore
+      notePersisted = ignore
       noteWriteFailed = ignore }
 
 let private filling state snaps : PersistFilling =
@@ -67,6 +68,62 @@ let private apply persist msg =
     match CoreMailboxLoad.applyNotice persist msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``NodeParsed pushes a persist request`` () =
+    let pushed = ResizeArray<NodeId>()
+
+    let run persist parse pulling =
+        let id = NodeId.New()
+        let legacy =
+            if pulling then PullingFile
+            else ParseState.toDocumentState parse
+        let node =
+            Node.Create(
+                id,
+                text = "note.txt",
+                name = Filename.create "note.txt",
+                kind = Special File,
+                documentState = legacy,
+                parseState = parse,
+                persistState = persist)
+        let state =
+            ref {
+                graph = Graph.addDetachedNode node (Graph.create ())
+                eventId = EventId.zero }
+        let snaps = ResizeArray<NodeId>()
+        let record =
+            { handlers state snaps with
+                pushPersist = pushed.Add }
+        apply record (Notice.NodeParsed id)
+        id
+
+    let fresh =
+        run PersistState.Unpersisted ParseState.Unparsed false
+    let already =
+        run PersistState.Unpersisted ParseState.Parsed false
+    let persisted =
+        run PersistState.Persisted ParseState.Parsed false
+    let pulling =
+        run PersistState.Unpersisted ParseState.Unparsed true
+    let missing = NodeId.New()
+    let empty =
+        ref { graph = Graph.create (); eventId = EventId.zero }
+    let snaps = ResizeArray<NodeId>()
+    let missingHandlers =
+        { handlers empty snaps with pushPersist = pushed.Add }
+    match
+        CoreMailboxLoad.applyNotice
+            missingHandlers
+            (Notice.NodeParsed missing)
+    with
+    | Error _ -> ()
+    | Ok () -> Assert.Fail("missing node should not apply")
+
+    Assert.Equal<NodeId list>([ fresh; already ], List.ofSeq pushed)
+    Assert.DoesNotContain(persisted, pushed)
+    Assert.DoesNotContain(pulling, pushed)
+    Assert.DoesNotContain(missing, pushed)
 
 [<Fact>]
 let ``ParseFinished sets Parsed and leaves PersistState`` () =
@@ -198,32 +255,6 @@ let ``NodePersisting matches the Unpersisted Set`` () =
     Assert.Equal(PersistState.Unpersisted, viaNotice.documentState.persistState)
     Assert.False(viaNotice.documentState.pullingFile)
     Assert.Empty(snaps)
-
-[<Fact>]
-let ``Posted NodeStamped is on the log`` () =
-    task {
-        let id, initial =
-            fileState PersistState.Unpersisted ParseState.Parsed
-        let state = ref initial
-        let snaps = ResizeArray<NodeId>()
-        let notice = Notice.NodeStamped
-        let host = hostFor state snaps
-        try
-            CoreMailboxApi.postNotice host notice
-            let! got =
-                CoreMailboxApi.getState host |> Async.StartAsTask
-            let got = requireState "state" got
-            Assert.Equal(
-                PersistState.Unpersisted,
-                got.graph.nodes.[id].documentState.persistState)
-            let! log =
-                CoreMailboxApi.eventsSince host EventId.zero
-                |> Async.StartAsTask
-            let stored = Assert.Single(log.events)
-            Assert.Equal(EventBody.Notice notice, stored.body)
-        finally
-            CoreMailboxApi.dispose host
-    }
 
 [<Fact>]
 let ``PersistFailed does not change persist state`` () =

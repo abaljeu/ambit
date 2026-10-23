@@ -29,6 +29,29 @@ module DocumentOpImpact =
         (removedChildren oldChildren newChildren)
         @ (introducedChildren oldChildren newChildren)
 
+    /// Node id an op names, when the op names one.
+    let opAnchor (op: Op) : NodeId option =
+        match op with
+        | Op.NewNode(id, _)
+        | Op.SetText(id, _, _)
+        | Op.SetClasses(id, _, _)
+        | Op.NewSpecialNode(id, _, _)
+        | Op.SetName(id, _, _)
+        | Op.SetDocumentState(id, _, _)
+        | Op.Replace(id, _, _) -> Some id
+        | Op.SetUpdateTime _ -> None
+
+    let private ownerOf (graph: Graph) (op: Op) : NodeId option =
+        opAnchor op
+        |> Option.bind (
+            GraphQuery.enclosing graph Node.carriesStateAxes)
+
+    /// Owning special nodes for these ops, nearest axis carrier first.
+    let owningSpecials (graph: Graph) (ops: Op list) : NodeId list =
+        ops
+        |> List.choose (ownerOf graph)
+        |> List.distinct
+
     let private touchedNodeIds (graph: Graph) op =
         match op with
         | Op.NewNode(nodeId, _)
