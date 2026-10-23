@@ -17,7 +17,6 @@ module DbAgent =
 
     type private LoadedPersist = {
         state: State ref
-        baselineGraph: Graph ref
         eventLog: EventLog ref
         diffInProgress: bool ref
         diffNeeded: bool ref
@@ -36,8 +35,6 @@ module DbAgent =
 
     type private LivePersist = {
         stamped: PersistGraphOk option
-        allowFileDiff: bool
-        notifiedIds: NodeId list
     }
 
     let private overlayRowId (row: Database.EventRow) (event: Ev) : Ev =
@@ -93,7 +90,6 @@ module DbAgent =
         persistNode
         : LoadedPersist =
         { state = ref initialState
-          baselineGraph = ref initialState.graph
           eventLog = ref EventLog.empty
           diffInProgress = ref false
           diffNeeded = ref false
@@ -116,7 +112,6 @@ module DbAgent =
         let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
         loaded.state.Value <-
             { loaded.state.Value with graph = trim loaded.state.Value.graph }
-        loaded.baselineGraph.Value <- trim loaded.baselineGraph.Value
 
     let private applyMaintenance loaded
         (result: DatabaseProjection.ProjectionMaintenanceResult)
@@ -129,7 +124,6 @@ module DbAgent =
             with
             | Ok (graph, _) ->
                 loaded.state.Value <- { loaded.state.Value with graph = graph }
-                loaded.baselineGraph.Value <- graph
                 Ok ()
             | Error e -> Error $"Startup projection sweep failed: {e}"
         else
@@ -292,21 +286,19 @@ module DbAgent =
                     preGraph
                     postGraph)
 
-    let private liveOf stamped allowFileDiff : LivePersist = {
+    let private liveOf stamped : LivePersist = {
         stamped = stamped
-        allowFileDiff = allowFileDiff
-        notifiedIds = []
     }
 
     let private submitLiveOps loaded =
         match loaded.stack.Value with
         | None -> Error "persist stack is not bound"
-        | Some _ -> Ok(liveOf None false)
+        | Some _ -> Ok(liveOf None)
 
     let private persistLiveChange loaded graphOnly _preGraph _newState fresh =
         match graphOnly, loaded.liveSaveDataDir, fresh with
         | false, Some _, _::_ -> submitLiveOps loaded
-        | _ -> Ok(liveOf None true)
+        | _ -> Ok(liveOf None)
 
     let private preparePostChange newState confirmations =
         newState, confirmations, None
@@ -319,7 +311,6 @@ module DbAgent =
         ackEvents
         externalChanges
         persistMessage
-        (live: LivePersist)
         =
         match
             CoreMailboxEvents.runBounded
@@ -329,19 +320,7 @@ module DbAgent =
         | Error err -> Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
-            if graphOnly then
-                loaded.baselineGraph.Value <- stateToStore.graph
-            elif not (List.isEmpty fresh) && live.allowFileDiff then
-                loaded.baselineGraph.Value <- stateToStore.graph
-                rememberWorkspaces loaded stateToStore.graph fresh
-                loaded.opsNotifiedIds.Value <-
-                    live.notifiedIds @ loaded.opsNotifiedIds.Value
-                    |> List.distinct
-                if loaded.diffInProgress.Value then
-                    loaded.diffNeeded.Value <- true
-                else
-                    requestFileDiff loaded
-            elif not (List.isEmpty fresh) then
+            if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
             Ok(accepted loaded ackEvents externalChanges persistMessage)
 
@@ -361,7 +340,7 @@ module DbAgent =
                 persistLiveChange loaded graphOnly preGraph newState fresh
             with
             | Error err -> Error err
-            | Ok live ->
+            | Ok _ ->
                 let stateToStore, ackEvents, persistMessage =
                     preparePostChange newState confirmations
                 commitPostChange
@@ -372,7 +351,6 @@ module DbAgent =
                     ackEvents
                     externalChanges
                     persistMessage
-                    live
 
     let private processPostEvents loaded (events: Ev list) graphOnly =
         if events.IsEmpty then
@@ -481,13 +459,18 @@ module DbAgent =
         loaded.diffNeeded.Value <- true
 
     let private noteStamped (loaded: LoadedPersist) () =
-        loaded.baselineGraph.Value <- loaded.state.Value.graph
         if List.isEmpty loaded.diffWorkspaces.Value then
             ()
         elif loaded.diffInProgress.Value then
             loaded.diffNeeded.Value <- true
         else
             requestFileDiff loaded
+
+    /// The mailbox push already queued this node. A later file diff skips it.
+    let private rememberPushed (loaded: LoadedPersist) (nodeId: NodeId) =
+        loaded.opsNotifiedIds.Value <-
+            nodeId :: loaded.opsNotifiedIds.Value |> List.distinct
+        PersistRequestStack.pushBoundNode loaded.stack nodeId
 
     let private persistNoticeRow loaded notice graph =
         if String.IsNullOrWhiteSpace loaded.connectionString then
@@ -519,7 +502,7 @@ module DbAgent =
             persistNoticeRow loaded notice graph
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
-        pushPersist = PersistRequestStack.pushBoundNode loaded.stack
+        pushPersist = rememberPushed loaded
         noteStamped = noteStamped loaded
         noteWriteFailed = noteWriteFailed loaded
     }
