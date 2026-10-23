@@ -458,7 +458,7 @@ module DbAgent =
                 List.distinct (pending @ loaded.diffWorkspaces.Value)
         loaded.diffNeeded.Value <- true
 
-    let private noteStamped (loaded: LoadedPersist) () =
+    let private notePersisted (loaded: LoadedPersist) () =
         if List.isEmpty loaded.diffWorkspaces.Value then
             ()
         elif loaded.diffInProgress.Value then
@@ -503,7 +503,7 @@ module DbAgent =
         noteDiffDone = countDiffMark loaded
         noteParsed = noteParsed loaded
         pushPersist = rememberPushed loaded
-        noteStamped = noteStamped loaded
+        notePersisted = notePersisted loaded
         noteWriteFailed = noteWriteFailed loaded
     }
 

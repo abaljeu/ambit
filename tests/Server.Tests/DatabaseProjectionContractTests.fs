@@ -99,7 +99,6 @@ let private eventLabel (event: Ev) =
     | EventBody.Notice (Notice.NodePersisted (id, _))
         when id = Graph.rootId ->
         "NodePersisted ROOT"
-    | EventBody.Notice Notice.NodeStamped -> "NodeStamped"
     | other -> sprintf "%A" other
 
 let private exec connStr sql (parameters: (string * obj) list) = task {

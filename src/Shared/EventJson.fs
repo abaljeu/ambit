@@ -164,11 +164,6 @@ module EventJson =
               "nodeId", Serialization.encodeNodeId nodeId
               "message", Encode.string message ]
 
-    let private encodeNodeStamped =
-        Encode.object
-            [ "kind", Encode.string "notice"
-              "notice", Encode.string "nodeStamped" ]
-
     let private encodeNotice (notice: Notice) =
         match notice with
         | Notice.NodeParsed nodeId ->
@@ -187,7 +182,6 @@ module EventJson =
             encodeSingleNotice "nodePersisting" nodeId
         | Notice.PersistFailed (nodeId, message) ->
             encodePersistFailed nodeId message
-        | Notice.NodeStamped -> encodeNodeStamped
 
     let private noticeFrom tag nodeId =
         match tag with
@@ -222,10 +216,6 @@ module EventJson =
                 get.Required.Field "nodeId" Serialization.decodeNodeId,
                 get.Required.Field "message" Decode.string))
 
-    /// Logged rows may still carry ops and message. Both are ignored.
-    let private decodeNodeStamped: Decoder<Notice> =
-        Decode.succeed Notice.NodeStamped
-
     let private decodeNoticeBody: Decoder<EventBody> =
         Decode.field "notice" Decode.string
         |> Decode.andThen (fun tag ->
@@ -235,8 +225,6 @@ module EventJson =
                 decodeNodePersisted |> Decode.map EventBody.Notice
             | "persistFailed" ->
                 decodePersistFailed |> Decode.map EventBody.Notice
-            | "nodeStamped" ->
-                decodeNodeStamped |> Decode.map EventBody.Notice
             | _ ->
                 decodeSingleNotice |> Decode.map EventBody.Notice)
 

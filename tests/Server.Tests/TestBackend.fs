@@ -179,7 +179,7 @@ let cannedHandlers
       noteDiffDone = ignore
       noteParsed = ignore
       pushPersist = ignore
-      noteStamped = ignore
+      notePersisted = ignore
       noteWriteFailed = ignore }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =

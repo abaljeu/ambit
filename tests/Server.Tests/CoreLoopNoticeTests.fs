@@ -39,7 +39,7 @@ let private handlers
       noteDiffDone = snaps.Add
       noteParsed = ignore
       pushPersist = ignore
-      noteStamped = ignore
+      notePersisted = ignore
       noteWriteFailed = ignore }
 
 let private filling state snaps : PersistFilling =
@@ -255,32 +255,6 @@ let ``NodePersisting matches the Unpersisted Set`` () =
     Assert.Equal(PersistState.Unpersisted, viaNotice.documentState.persistState)
     Assert.False(viaNotice.documentState.pullingFile)
     Assert.Empty(snaps)
-
-[<Fact>]
-let ``Posted NodeStamped is on the log`` () =
-    task {
-        let id, initial =
-            fileState PersistState.Unpersisted ParseState.Parsed
-        let state = ref initial
-        let snaps = ResizeArray<NodeId>()
-        let notice = Notice.NodeStamped
-        let host = hostFor state snaps
-        try
-            CoreMailboxApi.postNotice host notice
-            let! got =
-                CoreMailboxApi.getState host |> Async.StartAsTask
-            let got = requireState "state" got
-            Assert.Equal(
-                PersistState.Unpersisted,
-                got.graph.nodes.[id].documentState.persistState)
-            let! log =
-                CoreMailboxApi.eventsSince host EventId.zero
-                |> Async.StartAsTask
-            let stored = Assert.Single(log.events)
-            Assert.Equal(EventBody.Notice notice, stored.body)
-        finally
-            CoreMailboxApi.dispose host
-    }
 
 [<Fact>]
 let ``PersistFailed does not change persist state`` () =

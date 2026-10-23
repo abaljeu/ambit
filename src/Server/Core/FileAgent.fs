@@ -178,7 +178,7 @@ module FileAgent =
         noteDiffDone = ignore
         noteParsed = ignore
         pushPersist = PersistRequestStack.pushBoundNode loaded.stack
-        noteStamped = ignore
+        notePersisted = ignore
         noteWriteFailed = ignore
     }
 
