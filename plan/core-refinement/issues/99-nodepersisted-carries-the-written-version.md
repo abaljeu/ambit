@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 
-> **Size: ask Alan before building.** This step changes 6 source files and 10 test files (16 files, under 20). The test edits are mechanical: each `Notice.NodePersisted (id, time)` pair gains `persistedVersion`. That is more than 4 changed tests. A `Notice.NodePersisted _` pattern still compiles and needs no edit.
+> **Size: accepted by Alan (2026-10-23).** This step changes 6 source files and 10 test files (16 files, under 20). That is over the 4-test limit, but the extra test edits are mechanical: each `Notice.NodePersisted (id, time)` pair gains `persistedVersion`, and a `Notice.NodePersisted _` pattern needs no edit. Alan: "not happy about size but i don't see an option. ok"
 
 ## 1. Type
 coding
