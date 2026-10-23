@@ -36,7 +36,7 @@ Start by running `scripts/agent-test.sh --full`. It runs in the background and p
 
 Write each section as a list, one finding per item. An empty section is one item: `No findings.`
 
-1. **Standards.** Run `python scripts/standards-scan.py --diff origin/staging` from the repo root. A printed line is a finding when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. Then check the diff against each file in [[../.agents/rules/]] and against the smells below. Label each finding:
+1. **Standards.** Run `python scripts/standards-scan.py --diff origin/staging` from the repo root. A printed line is a finding when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. Then check the diff against each file in [[.agents/rules/]] and against the smells below. Label each finding:
    - **Hard** — breaks a rule. Cite the rule file and the rule.
    - **Judgement** — a smell. Name the smell and quote the hunk.
 2. **Spec.** Score the diff against each story the ticket names, using `spec.md` and the ticket. Label each finding:
