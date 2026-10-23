@@ -483,11 +483,14 @@ module internal CoreMailboxLoad =
         (session: Session)
         : MailboxContext * (NodeId -> unit) =
         let seeded = persist.handlers
-        let eventLog, seedError, handlers =
+        let eventLog, seedError, handlers, restartTip =
             match seedEventLog seeded with
-            | Ok log -> log, None, seeded
+            | Ok log -> log, None, seeded, EventLog.tip log
             | Error error ->
-                EventLog.empty, Some error, failedSeed seeded error
+                EventLog.empty,
+                Some error,
+                failedSeed seeded error,
+                EventId.zero
         let front = markUnparsedThenPush handlers rawPush
         let reported = pushReporting persist handlers rawPush
         { persist = handlers
@@ -496,6 +499,7 @@ module internal CoreMailboxLoad =
           onError = persist.onError
           formatError = persist.formatError
           eventLog = ref eventLog
+          restartTip = restartTip
           eventLogSeedError = seedError
           coreChanges = ref None
           session = session },

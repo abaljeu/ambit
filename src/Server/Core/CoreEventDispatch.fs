@@ -12,7 +12,8 @@ module internal CoreEventDispatch =
 
     type Context =
         { persist: PersistHandlers
-          eventLog: EventLog ref }
+          eventLog: EventLog ref
+          restartTip: EventId }
 
     let private eventAuthority (Authority name) =
         Gambol.Shared.Authority name
@@ -106,11 +107,19 @@ module internal CoreEventDispatch =
             submissionId = submissionId }
         |> appendNew context
 
-    let private completeAction (eventLog: EventLog) (event: Ev) =
+    let private targetBeforeRestart (context: Context) (target: EventId) =
+        target <> EventId.zero
+        && EventId.value target <= EventId.value context.restartTip
+
+    let private completeAction (context: Context) (event: Ev) =
         match event.body with
+        | Gambol.Shared.EventBody.Undo(target, _)
+        | Gambol.Shared.EventBody.Redo(target, _) when
+            targetBeforeRestart context target ->
+            Error "target Event is from before the restart"
         | Gambol.Shared.EventBody.Undo(target, [])
         | Gambol.Shared.EventBody.Redo(target, []) ->
-            match EventLog.tryFind target eventLog with
+            match EventLog.tryFind target context.eventLog.Value with
             | None -> Error "target Event not found"
             | Some targetEvent ->
                 match Ev.inverseOps targetEvent with
@@ -167,7 +176,7 @@ module internal CoreEventDispatch =
             { event with
                 id = EventLog.nextId context.eventLog.Value
                 authority = eventAuthority caller.authority }
-        completeAction context.eventLog.Value withCallerAuthority
+        completeAction context withCallerAuthority
 
     let internal persistedNode (graph: Graph) (nodeId: NodeId) =
         match Map.tryFind nodeId graph.nodes with
