@@ -1,41 +1,20 @@
 # Ambit Roadmap
-Labels: wayfinder:map
-
-Ambit's Key Value Proposition: Rapid understanding via dynamic organization. Every development aims to leverage this.
 
 ## Destination
 
-A standing Roadmap that answers “what should I work on next.” Completing it means completing the application. It groups **Epics** by Stage. An Epic is a marketable user end-goal, larger than a feature or interaction. Each Epic is a standing file under [[epics/]] until that goal is met. Feature-set Projects implement focused features that enable Epics. This map points at those Projects and does not copy their specs. Sessions invoke those Projects, implement them, and promote committed facts into `doc/`. `doc/` describes the current program.
+Rapid understanding via dynamic organization.
+
+The program, told through Epics. Epic shape: [[epic-context.md]]. Chapter shape: [[epics/chapter-template.md]]. Feature-set Project shape: [[../../context/project-context.md]].
+
+Completing this Roadmap means completing the application. [[doc/index.md]] is the Feature index of the current program.
 
 ## Current strategy
 
-(Mutable section. Replace this section when the near-term aim changes; do not append.)
+(Mutable section. Replace this section when the near-term aim changes.)
 
 Solid product core via [[epics/robust-outliner.md]]: **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met). **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); leftovers continue as pointers 08–17. Epic current Chapter: [[epics/chapters/actors-supported.md]]. Grow by pull in / organize / send out. First inbound Agent path [[plan/llm-connector/project.md]] is Stage done. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later. Present Find / Search work: [[plan/online-search/project.md]] (Ambot implement; Chapter home [[epics/chapters/find-what-i-wrote.md]]).
 
-## Notes
-
-- Two Project kinds only: this Roadmap, and feature-set Projects (`plan/<slug>/`). No Epic Project folders. Standing Epic files live in [[epics/]] (`epics/<slug>.md`), one file per Epic. Epics list Chapter files under [[epics/chapters/]] (`epics/chapters/<slug>.md`), one file per Chapter. Chapters are not issues. [[issues/]] holds wayfinder tickets only (this map’s decisions and tasks). The frontier does not scan `epics/`.
-- Open Epics are listed under **Epics** below, grouped by Stage (override of “do not list open tickets”). Order inside a Stage does not matter.
-- Standing Epic files stay open until the end-goal is met. An Epic has a Stage. An Epic may have an ordered list of **Chapters** (named beats: Visit Troy, see Circe). The Epic file names the current Chapter and links the Chapter files. Each Chapter file follows [[epics/chapter-template.md]]: Context, Goal, Required for done. The checklist is wikilinks to Projects or issues. The Chapter does not own those items. Most often a Chapter focuses in one Project; several pointers are allowed when the end-goal needs them. Advancing a Chapter means charting those pieces on the Projects that own them. Charting / spec / tickets / active / blocked / done / dead stay on those Projects. This Roadmap is not a coding Project. `/to-tickets` subdivides a feature-set Project, not the Epic or Chapter list.
-- Every classified feature-set Project (or a named part) sits on at least one Epic. **Chapter** checklists hold items that belong to a beat. **Required for done** holds the rest. No overlap. The Epic is not done until every Chapter item and every Required item is done (or the named part). [[epics/organize-huge-outlines.md]], [[epics/robust-outliner.md]], and [[epics/process-improvement.md]] exist to place Projects; a Developer Epic may chart Chapters (Robust outliner has). User Epics reference Organize Huge Outlines for scaling; first use does not wait on it. Wiki portions about this Epic are Required on that Epic; the whole wiki Project is not.
-- [[plan/childnode-drop-ref/project.md]] is dead (retired without delivery). The parse-load-demote stub was deleted (2026-09-26). [[plan/work-board-cleanup/project.md]] is done (accomplished). Process work sits on [[epics/process-improvement.md]]. Debug reload sits on [[epics/robust-outliner.md]] as architecture documentation.
-- `plan` is steering. `doc/` is committed facts (target). `doc/roadmap` is subsumed by references from this and other `plan` Projects — not a second project home. [[doc/roadmap/postgres-roadmap.md]] is accomplished inventory.
-- The live work board [[WORK.md]] is retired. Start from an Epic. An Epic may have a current Chapter; that Chapter points at Projects or issues, and those carry Stage/Status. If a Developer Epic has no Chapters yet, start from its live Required for done. Stage of record is each Project's `project.md`. This map does not copy project specs.
-- Feature-set agent-done promotes spec into `doc/` (current or history as fit). This Roadmap groups Epics; it does not copy specs.
-- [[doc/index.md]] is the Feature index of the current program. This map is the goto for what to work on next.
-- This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A User Epic has Stage, Chapters, and Required for done. A Developer Epic has Stage and Required for done, and may have Chapters. A Chapter file has Context, Goal, and Required for done (pointer checklist).
-- Skills: wayfinder, grilling, domain-modeling, project-work, maintain-doc-currency. Implementation skills run on feature-set Projects.
-- Work on **dev**; promote finished work to **ready**. Plan by default on this map except when invoking a named feature-set Project. Do not write per-project git notes.
-- Epics are parallel (order inside a Stage does not rank them). Continue from recent work: that Epic, its current Chapter (or live Required for done when no Chapter is charted), then pointed Project/issue status. Present that path as choices. Do not auto-pick. Offer a Developer Epic Chapter when that Epic has one.
-- Documentation wikis: [[plan/end-user-wiki/map.md]], [[plan/marketing-wiki/map.md]], [[plan/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
-- [[epics/robust-outliner.md]] sequences the Solid core bar. [[plan/core-creation/project.md]] is v1 built (Stage `done`; Initial Core Chapter met). [[plan/core-refinement/project.md]] is v2 live Core-seam (pointers 08–17 for leftovers). [[plan/parse-thread/project.md]] owns continuous Parse/Persist product threads. [[plan/event-sourced-ops/project.md]] owns merge semantics, Parse File tracer, and advisory soft-lock. Current Chapter: [[epics/chapters/actors-supported.md]].
-
 ## Epics
-
-Grouped by Stage. Order inside a Stage does not matter.
-
-### charting
 
 - [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]]; vision: [[epics/chapters/two-panel-view.md]])
 - [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki (current: [[epics/chapters/markdown-codec.md]])
@@ -44,53 +23,51 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [[epics/operate-a-pkm.md]] — Operate a PKM (current: [[epics/chapters/find-what-i-wrote.md]])
 - [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: [[epics/chapters/ask-from-what-i-see.md]])
 - [[epics/operate-connected-channels.md]] — Operate connected channels (current: [[epics/chapters/ambit-as-bot-dm-channel.md]])
-- [[epics/organize-huge-outlines.md]] — Organize Huge Outlines (Developer Epic; no Chapter to chart)
-- [[epics/robust-outliner.md]] — Robust outliner (Developer Epic; current: [[epics/chapters/actors-supported.md]])
-- [[epics/process-improvement.md]] — Process improvement (Developer Epic; no Chapter to chart)
+- [[epics/organize-huge-outlines.md]] — Organize Huge Outlines (current: [[epics/chapters/huge-outline.md]])
+- [[epics/robust-outliner.md]] — Robust outliner (current: [[epics/chapters/actors-supported.md]])
+- [[epics/process-improvement.md]] — Process improvement (current: [[epics/chapters/improve-how-we-work.md]])
 
 ## Decisions so far
 
-- 2026-10-07: Alan lock (Ambot2): [[plan/browser-residency/project.md]] is Stage done (migrate slice). Server Find is parked on [[plan/online-search/project.md]] (Chapter [[epics/chapters/find-what-i-wrote.md]]). [[plan/parse-thread/project.md]] stays Required on [[epics/chapters/automatic-parse.md]] and on [[epics/chapters/incremental-operations.md]]. Recorded here; no Roadmap issue file.
-- 2026-10-07: Alan lock (Ambot2): [[plan/skills-review/project.md]] is Required on [[epics/process-improvement.md]], beside [[plan/planning-skills/project.md]]. [[plan/linux-server/project.md]] homes on that Epic as optional chart work and is **not committed**. It stays outside Required for done until Alan commits. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan lock (Ambot2): [[plan/browser-residency/project.md]] is Stage done (migrate slice). Server Find is parked on [[plan/online-search/project.md]] (Chapter [[epics/chapters/find-what-i-wrote.md]]). [[plan/parse-thread/project.md]] stays on [[epics/chapters/automatic-parse.md]] and on [[epics/chapters/incremental-operations.md]]. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan lock (Ambot2): [[plan/skills-review/project.md]] is on [[epics/process-improvement.md]], beside [[plan/planning-skills/project.md]]. [[plan/linux-server/project.md]] homes on that Epic as optional chart work and stays outside the committed list until Alan commits. Recorded here; no Roadmap issue file.
 - 2026-10-07: Auto-upload as a sibling Project is withdrawn (Alan). Keep-files-current outbound is UPDATE = Persist (Graph → text) then push. [transport-layer](plan/transport-layer/project.md) owns that UPDATE chart as Desktop App sync (App folder ↔ Server DataDir; Upload and Download). GitHub stays the separate external remote. Chapter [Automatic upload and download](epics/chapters/automatic-upload-and-download.md). [07 — Chart Automatic upload and download onto Projects](issues/07-chart-automatic-upload-and-download.md) is done. It does not chart a new auto-upload Project. Recorded here; no new Roadmap issue.
 - 2026-09-26: GitHub sourcing is Chapter [[epics/chapters/send-to-and-from-github.md]] on [[epics/work-with-text-files-from-anywhere.md]]; detail [[plan/github-transport/project.md]]. Keep-files-current stays [[epics/chapters/automatic-upload-and-download.md]]. [[epics/agent-chat-managed-context.md]] depends on Send to and from GitHub. It does not own that Chapter. Supersedes the 2026-09-01 home of desktop-repo consistency on Agent chat. Recorded here; no Roadmap issue file.
 - 2026-09-19: Desktop App sync redesign (FETCH → ORGANIZE → UPDATE) folds into Chapter [[epics/chapters/automatic-upload-and-download.md]] on [[epics/work-with-text-files-from-anywhere.md]]; [[plan/transport-layer/project.md]] owns the redesign chart. GitHub stays a separate Chapter. Recorded here; no Roadmap issue file.
 - 2026-09-26: Folded want-driven Browser residency, file-shaped reconcile, and search hydration from leftover on-demand residency into [[epics/chapters/incremental-operations.md]]. Deleted [[doc/roadmap/on-demand-graph-residency.md]] and the parse-load-demote stub. Other `doc/roadmap` files stay. Project homes: [[plan/browser-residency/project.md]], [[plan/parse-thread/project.md]], file transit remains [[plan/transport-layer/project.md]]. [[plan/selective-client-loading/project.md]] is done. Recorded here; no Roadmap issue file.
 - [Inventory live Projects and roadmap remainder](plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md) — [[plan/roadmap/reports/live-projects-and-roadmap-remainder.md]]: 16 non-done feature-set Projects (includes End-user wiki, Architecture, Marketing wiki); postgres-roadmap §0–2 done, §3–7 still open.
-- [Name and order the first Epics](plan/roadmap/issues/01-name-and-order-first-epics.md) — five User Epics grouped by Stage (all charting); outline capture already met; wiki folders stay Projects.
+- [Name and order the first Epics](plan/roadmap/issues/01-name-and-order-first-epics.md) — five User Epics; outline capture already met; wiki folders stay Projects.
 - [Retire index Development Sequence](plan/roadmap/issues/03-retire-index-development-sequence.md) — [[doc/index.md]] is the Feature index; leftovers went to existing Projects plus [[plan/document-formats/map.md]]; desktop mapping is Current.
 - [Chart chapters for Agent chat with managed context](plan/roadmap/issues/04-chart-agent-chat-managed-context.md) — five Chapters; current Ask from what I see; llm-connector plus `?` on expression-language and the Core Actor spine.
 - [Create Ask from what I see Project](plan/roadmap/issues/05-create-ask-from-what-i-see-project.md) — [[plan/llm-connector/project.md]]; `?` recognition is [[plan/expression-language/issues/33-recognize-ask-run-statement.md]].
-- [Chart chapters for Work with my text files from anywhere](plan/roadmap/issues/06-chart-work-with-text-files-from-anywhere.md) — title Work with my documents from anywhere; five Chapters; current Automatic upload and download; wiki issues plus [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]].
-- [Chart chapters for Create and publish web pages](plan/roadmap/issues/08-chart-create-and-publish-web-pages.md) — four Chapters; current HTML codec; codec on document-formats; In-app styling, Public URL, and Published-page CSS have no Project yet.
-- [Chart chapters for Build or explore a wiki](plan/roadmap/issues/09-chart-build-or-explore-a-wiki.md) — two Chapters; current Markdown codec; `.md` on document-formats; Public URL (md as HTML) has no Project yet.
-- [Chart chapters for Manage a project](plan/roadmap/issues/10-chart-manage-a-project.md) — two Chapters; current Status; Date is set/find/compare with no forced meaning; no owning Project yet.
-- 2026-09-05: Chart Chapters on [[epics/robust-outliner.md]]. Current [[epics/chapters/initial-core.md]], then [[epics/chapters/actors-supported.md]]. Developer Epics may have Chapters. Core detail belongs to [[plan/core-creation/project.md]]. Recorded here; no Roadmap issue file.
-- [Home every Project on an Epic](plan/roadmap/issues/11-home-every-project-on-an-epic.md) — coverage via Required for done; new Developer Epics Organize Huge Outlines and Robust outliner; ChildNode drop ref tabled; work-board-cleanup on this Roadmap.
-- 2026-09-04: Stage `dead` added (retired without delivery). ChildNode drop ref is dead. Work board cleanup is done. New Developer Epic [[epics/process-improvement.md]] places [[plan/git-protocol/project.md]] (done). [[plan/debug-reload/project.md]] sits on Robust outliner as architecture documentation.
-- [Required for Epic done vs Chapter, no overlap](plan/roadmap/issues/12-required-for-epic-done.md) — Chapter vs Required for done; wiki portions about this Epic gate this Epic.
-- [Grill Cursor-repo to Ambit LLM use onto Epics](plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md) — one Chapter **Ambit keeps consistency with desktop repo for Agentic work** on [[epics/agent-chat-managed-context.md]]; depends on **Ask from what I see** and documents auto-upload/download; **Agent** in .
-- Work board retired 2026-09-02. No live [[WORK.md]]. Discovery is each Project's `project.md` plus issue Status plus wayfinder frontier. Recorded here; no Roadmap issue file. Cleanup Project: [[plan/work-board-cleanup/project.md]] (rename of work-board-audit).
-- Operate connected channels User Epic from locked definition (2026-09-03). Connect plus operate; mail is first channel in framing, not the title. No Chapter file yet. Recorded here; no Roadmap issue file.
-- 2026-10-07: Alan approved: home [[plan/online-search/project.md]] on Chapter [[epics/chapters/find-what-i-wrote.md]] Required (Ambot keeps implement / server Search Want-fulfillment). Incremental-operations note cross-refs that Chapter; search hydration stays Browser residency. Do not edit `plan/online-search/` from roadmap sessions. Recorded here; no Roadmap issue file.
+- [Chart chapters for Work with my text files from anywhere](plan/roadmap/issues/06-chart-work-with-text-files-from-anywhere.md) — title Work with my documents from anywhere; current Automatic upload and download.
+- [Chart chapters for Create and publish web pages](plan/roadmap/issues/08-chart-create-and-publish-web-pages.md) — four Chapters; current HTML codec; codec on document-formats.
+- [Chart chapters for Build or explore a wiki](plan/roadmap/issues/09-chart-build-or-explore-a-wiki.md) — two Chapters; current Markdown codec; `.md` on document-formats.
+- [Chart chapters for Manage a project](plan/roadmap/issues/10-chart-manage-a-project.md) — two Chapters; current Status; Date is set/find/compare.
+- 2026-09-05: Chart Chapters on [[epics/robust-outliner.md]]. Current moved from [[epics/chapters/initial-core.md]] to [[epics/chapters/actors-supported.md]]. Core detail belongs to [[plan/core-creation/project.md]]. Recorded here; no Roadmap issue file.
+- [Home every Project on an Epic](plan/roadmap/issues/11-home-every-project-on-an-epic.md) — coverage by Chapter Project lists; Organize Huge Outlines and Robust outliner added; ChildNode drop ref tabled; work-board-cleanup on this Roadmap.
+- 2026-09-04: Stage `dead` added (retired without delivery). ChildNode drop ref is dead. Work board cleanup is done. [[epics/process-improvement.md]] places [[plan/git-protocol/project.md]] (done). [[plan/debug-reload/project.md]] sits on Robust outliner as architecture documentation.
+- [Required for Epic done vs Chapter, no overlap](plan/roadmap/issues/12-required-for-epic-done.md) — Chapter Project lists hold the linkage. Wiki portions about an Epic sit on that Epic's Chapters.
+- [Grill Cursor-repo to Ambit LLM use onto Epics](plan/roadmap/issues/13-grill-cursor-repo-to-ambit-llm-use.md) — home on [[epics/agent-chat-managed-context.md]]; depends on Ask from what I see and on automatic upload and download.
+- Work board retired 2026-09-02. No live [[WORK.md]]. Cleanup Project: [[plan/work-board-cleanup/project.md]] (rename of work-board-audit).
+- Operate connected channels from the locked definition (2026-09-03). Connect plus operate. Mail stays later. Chapter: [[epics/chapters/ambit-as-bot-dm-channel.md]].
+- 2026-10-07: Alan approved: home [[plan/online-search/project.md]] on Chapter [[epics/chapters/find-what-i-wrote.md]] (Ambot keeps implement / server Search Want-fulfillment). Search hydration stays Browser residency. Leave `plan/online-search/` for its own sessions. Recorded here; no Roadmap issue file.
 - 2026-10-07: Alan approved: [[plan/workspace-git/project.md]] Stage dead; prior home superseded by [[plan/github-transport/project.md]] / Chapter [[epics/chapters/send-to-and-from-github.md]]. Recorded here; no Roadmap issue file.
-- 2026-10-07: Alan lock: solid core built via [[plan/core-creation/project.md]] (v1 implemented, Stage `done`); [[plan/core-refinement/project.md]] is v2. Chapter [[epics/chapters/initial-core.md]] Required met; Epic current Chapter [[epics/chapters/actors-supported.md]]. Leftover core-creation issues continue as pointer tickets [[plan/core-refinement/issues/08-pointer-core-actor-pool.md]]–[[plan/core-refinement/issues/17-pointer-prove-testactor-hello.md]]. Recorded here; no Roadmap issue file.
+- 2026-10-07: Alan lock: solid core built via [[plan/core-creation/project.md]] (v1 implemented, Stage `done`); [[plan/core-refinement/project.md]] is v2. Chapter [[epics/chapters/initial-core.md]] met; current Chapter [[epics/chapters/actors-supported.md]]. Leftover core-creation issues continue as pointer tickets [[plan/core-refinement/issues/08-pointer-core-actor-pool.md]]–[[plan/core-refinement/issues/17-pointer-prove-testactor-hello.md]]. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 
-- Further Chapters for [[epics/operate-connected-channels.md]] after [[epics/chapters/ambit-as-bot-dm-channel.md]] (mail still later in framing). [[plan/transport-layer/project.md]] stays the Project pattern; PKM still lists it as a dependency.
-- Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
-- Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
+- Further Chapters for [[epics/operate-connected-channels.md]] after [[epics/chapters/ambit-as-bot-dm-channel.md]] (mail still later). [[plan/transport-layer/project.md]] stays the Project pattern.
+- A Project for Public URL, Published-page CSS, and In-app styling, and for wiki Public URL.
+- A Project for Status and Date on [[epics/manage-a-project.md]].
 - Cherry-pick Undo (invert a chosen ChangeEvent; skip Actor Events).
 - Restore older file versions via actual git (from the commits already made on edits).
 - Later Epics beyond the standing list.
-- Which remaining Required-until-done items belong on a Chapter. Named parts of a Project still unspecified.
-- How leftover `doc/roadmap` files become references vs history vs current.
-- When the application is complete (User Epics plus any later).
+- How leftover `doc/roadmap` files become references, history, or current.
+- When the application is complete.
 
 ## Out of scope
 
-- A third Project kind (Epic Projects).
-- Rewriting every `doc/` file in this charting session.
-- Implementing feature slices on this map (those belong on feature-set Projects).
-- Agent-instruction overhaul as the Roadmap sequence (except the steering stage added while charting).
+- Epic Project folders.
+- Rewriting every `doc/` file in the charting session.
+- Implementing feature slices on this map. Those belong on feature-set Projects.

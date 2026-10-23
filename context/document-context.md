@@ -1,0 +1,29 @@
+# Document context
+
+## 1. Work
+
+Update `doc/current` and `doc/user` for each ticket whose stories were met. Write `plan/<slug>/doc/NN-<ticket-name>.md` when the document step is about to be worked. That file links the pages updated.
+
+## 2. Document template
+
+Copy these headings into the link file. Leave each pointer line as written. A pointer line names its target file.
+
+```
+# <NN> — <ticket name>
+
+## 1. Current
+
+[[doc/current/<page>.md]]
+
+## 2. User
+
+[[doc/user/<page>.md]]
+```
+
+## 3. Fill
+
+1. **Pages.** Update the `doc/current` page and the `doc/user` page so they match the tickets whose stories were met.
+2. **Current.** Point at each `doc/current` page this ticket updated.
+3. **User.** Point at each `doc/user` page this ticket updated.
+
+Done: `doc/current` and `doc/user` match the tickets whose stories were met, and `plan/<slug>/doc/NN-<ticket-name>.md` links the pages updated.

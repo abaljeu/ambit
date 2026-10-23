@@ -1,10 +1,6 @@
 # Work with my documents from anywhere
 
-Stage: charting
-
-A person explores and works with their documents from any connected device, not only at one desk. The Browser or the App talks to the same Server. In the App a document on disk is a File Node. Graphic editing is out of scope.
-
-Current chapter: [[chapters/automatic-upload-and-download.md]]
+A person explores and works with their documents from any connected device. The Browser or the App talks to the same Server. In the App a document on disk is a File Node.
 
 ## Chapters
 
@@ -14,41 +10,4 @@ Current chapter: [[chapters/automatic-upload-and-download.md]]
 - [[chapters/markdown-styling.md]]
 - [[chapters/embed-an-image.md]]
 - [[chapters/tables.md]]
-- [[chapters/two-panel-view.md]] — vision. Not the current Chapter. Not planned work.
-
-## Required for done
-
-The Epic is not done until each item is done (or the named part).
-
-Live:
-
-- [ ] [[plan/client-start-time/project.md]] — primarily mobile; this Epic is a key component for [[manage-a-project.md]] and [[operate-a-pkm.md]]
-- [ ] [[plan/daily-git-save/project.md]]
-- [ ] [[plan/download-no-parse-fix/project.md]]
-- [ ] [[plan/bullet-tip-times/project.md]]
-- [ ] [[plan/document-formats/map.md]] — remainder (XML and other draft codecs); `.md` and HTML are on other Epics
-- [ ] [[plan/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — end-user wiki portion for this Epic
-- [ ] [[plan/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — marketing wiki portion for this Epic
-
-Done:
-
-- [x] [[plan/selective-client-loading/project.md]] — prior whole-Workspace slice; successor [[plan/browser-residency/project.md]]
-- [x] [[plan/load-status-phases/project.md]]
-- [x] [[plan/login-context-restore/project.md]]
-- [x] [[plan/node-bullet-tooltip/project.md]]
-- [x] [[plan/relaxed-concurrency/project.md]]
-
-## Notes
-
-- 2026-09-19 — Chapter [[chapters/automatic-upload-and-download.md]] folds Workspace sync redesign (FETCH/UPDATE Actors) into that beat; [[plan/transport-layer/project.md]] owns the chart.
-- [[plan/transport-layer/project.md]] cross-cutting pattern — disk Upload/Download is one transport instance (Parse/Persist); Google (Drive/Docs, example) is another inbound and likely later round-trip channel on the same contract (plan from Local Graph, Parse/Persist, emit Changes via ESO Actor). See [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
-- Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
-- Outline capture (“get it out of my head”) is already met; this Epic is documents from anywhere.
-- Chapters stay open-ended: add one when a specific document class or usability is named.
-- Wiki write-up is not a Chapter. Portions are Required for done.
-- A Google Doc (a document that is not a File) is potentially IN scope.
-- Graphic editing is out of scope. A graphic file is not a document.
-- English **document** vs **Document** (project) vs File Node: .
-- 2026-09-26 — This Epic owns two file-source Chapters: keep-files-current [[chapters/automatic-upload-and-download.md]] and [[chapters/send-to-and-from-github.md]]. [[agent-chat-managed-context.md]] depends on Send to and from GitHub. It does not own that Chapter. Mapping is Current ([[doc/current/workspace-local-mapping.md]]). Tree sync is Current ([[doc/current/workspace-file-sync.md]]).
-- 2026-09-28 — Directory-reconcile worker / Reconciling cascade withdrawn. Git Load is Unparsed on Workspace → pull → push Parse ([02 — Git Load: Unparsed then Parse stack](plan/core-refinement/issues/02-git-load-unparsed-then-parse-stack.md)). Chapter note: [[chapters/send-to-and-from-github.md]].
-- 2026-09-29 — Core revision after files land split to [[plan/core-refinement/project.md]]; github-transport remainder is lock / receive / inform Core.
+- [[chapters/two-panel-view.md]]

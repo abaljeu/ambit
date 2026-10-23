@@ -8,7 +8,7 @@ description: "How agents should use git"
 Rule 1: Do no work on staging or ready or master, unless explicitly told to use that branch.
 
 Run `scripts/gitstatus.sh` to determine where things are.
-
+Do not run `bash scripts/gitstatus.sh`.  Just the script.
 
 ## Cloud
 Cloud agents get their files from staging.

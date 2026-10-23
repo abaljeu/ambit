@@ -8,6 +8,7 @@ description: "How agents should use git"
 Rule 1: Do no work on staging or ready or master, unless explicitly told to use that branch.
 
 Run `scripts/gitstatus.sh` to determine where things are.
+Do NOT run `bash scripts/gitstatus.sh`.  Always just call the bash script.
 
 
 ## Cloud

@@ -1,24 +1,7 @@
 # Organize Huge Outlines
 
-Stage: charting
+A person works with outlines too large for a naive load and edit. First use of the other Epics proceeds while this one is open.
 
-A person works with outlines too large for naive load and edit. First use of the User Epics does not wait on this. Those Epics reference this one when scaling.
+## Chapters
 
-This Epic homes Projects. There are no Chapters to chart.
-
-## Required for done
-
-The Epic is not done until each item is done (or the named part).
-
-Live:
-
-- [ ] [[plan/large-node-cursor-perf/project.md]] — selection DOM patch; delete-among-large-siblings still open
-- [ ] [[plan/expression-language/project.md]] — remainder beyond Find / `?` (filters, combinators, paging)
-- [ ] [[plan/webview2-azure-origin/project.md]]
-- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
-
-Done:
-
-- [x] [[plan/fix-large-change-apply-budget/project.md]]
-- [x] [[plan/relaxed-concurrency/project.md]]
+- [[chapters/huge-outline.md]]

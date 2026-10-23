@@ -1,37 +1,15 @@
 # Chapter: Incremental operations
 
-**Part of:** [[plan/roadmap/epics/robust-outliner.md]]
 **Blocked by:** [[actors-supported.md]].
 
-## Context
+The Browser starts small. It holds visible-closure: the Included context and the path that frames it.
 
-A person opens the Browser on a Graph that is already large on the Server. Load of a Workspace into the Browser is one shot. A hang then forces a full redo.
+The Browser grows by auto wants. One Want lists visible Nodes that miss Children, then their Children, then the grandchildren. An Unloaded Node shows a hollow-circle Bullet until that fill. Auto wants need no click and no command.
 
-File on disk becomes Graph on the Server. Workspace Download and Workspace Upload move file bytes. They must stay file operations. The Browser must not Parse from those operations.
+When Find picks a hit that is not Resident, the Browser Fetches those Nodes before navigate. Post-Event and Poll carry Changes plus the Nodes the Browser wants.
 
-## Goal
+## Projects
 
-The Browser starts small. It holds visible-closure: the Included context and the path that frames it, not the whole Server Graph.
-
-The Browser grows by auto wants. One Want lists visible Nodes that miss Children, then their Children, then the grandchildren. An Unloaded Node shows a hollow-circle Bullet until that fill. Auto wants need no click and no command. Commands come later.
-
-When Find picks a hit that is not Resident, the Browser Fetches those Nodes before navigate.
-
-Post-Event and Poll carry Changes plus the Nodes the Browser wants.
-
-## Required for done
-
-- [x] [[plan/browser-residency/project.md]] — visible-closure; auto wants (visible Nodes that miss Children, then their Children, then the grandchildren); hollow until fill; search hydration; post-Event and Poll carry Changes plus wanted Nodes (Stage done 2026-10-07)
-- [ ] [[plan/parse-thread/project.md]] — continuous Server Parse thread; file-shaped disk→Graph; priority from Browser wants; emits Changes
-- [ ] [[plan/transport-layer/project.md]] — file transit stays here; no new transit Project
-
-## Notes
-
-- File transit remains [[plan/transport-layer/project.md]]. That Project will evolve an Actor linked to file transport. Do not create a new transit Project.
-- Search hydration is in Browser residency: when Find picks a hit that is not yet Resident, Fetch those Nodes before navigate.
-- Server Search / Find Want-fulfillment lives on PKM Chapter [[find-what-i-wrote.md]] ([[plan/online-search/project.md]], Ambot). Claims: [[doc/current/search-actor.md]] and [[doc/current/query-actor.md]]. This Chapter keeps search hydration only (Browser residency). It does not own online-search.
-- Conflict resolution is already implemented. Do not re-plan it. Strike it as a todo wherever a leftover plan still lists it.
-- Do not plan: document partition / membership partition; cache leases; coalesce; LRU / pinning; IndexedDB; per-document versions or patches as delivery; server eviction; partial-residency live-save; parent-index rebuild; client or App stub creation as the Upload structure; client Parse from Upload or Download.
-- Full Workspace Upload/Load redesign stays parked relative to the Solid core bar until the Core and Actors Chapters are met. That redesign is not this Chapter. Desktop App sync (Upload and Download between the App folder and Server DataDir) lives on [[automatic-upload-and-download.md]]. GitHub stays a separate Chapter.
-- [[plan/selective-client-loading/project.md]] is done (prior whole-Workspace slice). Successor [[plan/browser-residency/project.md]] is Stage done (2026-10-07). Server Find is parked on [[plan/online-search/project.md]].
-- 2026-09-26 grill folded the useful remainder of leftover on-demand residency into this Chapter. Project homes locked the same day.
+- [[plan/browser-residency/project.md]] — visible-closure and auto wants. Done 2026-10-07.
+- [[plan/parse-thread/project.md]] — continuous Server Parse thread; file-shaped disk→Graph; priority from Browser wants; emits Changes
+- [[plan/transport-layer/project.md]] — file transit
