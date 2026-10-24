@@ -15,9 +15,9 @@ The ticket is the template. Read the ticket and the source it names.
 
 ## 3. Fill
 
-1. **Tests.** Follow [[.agents/skills/tdd/SKILL.md]]. Write or change the tests the ticket names. Run `scripts/agent-test.sh --filter <names>` and see the new tests fail.
+1. **Tests.** Follow [[.agents/skills/tdd/SKILL.md]]. Write or change the tests the ticket names. 
 2. **Changes.** Make the changes the ticket names, in the files, types, and functions the ticket names.
-3. **Focused tests.** Run `scripts/agent-test.sh --filter <names>` again. Commit and push only when those tests pass.
+3. **Focused tests.** Run focused tests related to the edits. Commit and push only when those tests pass.
 
 Done:
 

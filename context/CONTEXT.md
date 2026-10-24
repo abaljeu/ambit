@@ -14,8 +14,16 @@ Step context for a Project lives here.
 - [[document-context.md]] — document
 
 ## Routing
+When working on a ticket, first set the state to your task
 
-- You want which elements apply, and in what sequence: [[project-context.md]]
+| Task   | Instruction |
+|------  |-------------|
+| code   | build-context.md |
+| review | review-context.md|
+| document | document-context.md|
+
+- You want to review a ticket: [[review-context.md]]
+- You want to understand the sequence of steps for this project:  [[project-context.md]]
 - You want one step's work file and template: that step's context file
 
 ## Handoff

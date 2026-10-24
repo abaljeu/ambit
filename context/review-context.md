@@ -4,7 +4,8 @@
 
 Write one report per ticket to `plan/<slug>/review/NN-<ticket-name>.md`. Write that report when the review step is about to be worked.
 
-The range is the ticket's PR diff against staging.
+On cloud, the range is the ticket's PR diff against staging.
+On Windows, the range is the current diff, or whatever diff is related to the ticket.
 
 ## 2. Review template
 
