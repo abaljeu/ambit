@@ -453,3 +453,71 @@ let ``unpersisted mark keeps the newer changedVersion`` () =
     let again = Node.withUnpersistedAt version atNewer
     Assert.Equal(PersistState.Unpersisted, again.documentState.persistState)
     Assert.Equal(newer, again.documentState.changedVersion)
+
+let private editEvent id commandName ops : Ev =
+    { id = id
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let private applyEvent (event: Ev) (graph: Graph) : Graph =
+    match Ev.apply event (freshState graph) with
+    | ApplyResult.Changed state -> state.graph
+    | ApplyResult.Unchanged state -> state.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
+[<Fact>]
+let ``graph change sets Unpersisted with the newer version`` () =
+    let fileId = NodeId.New()
+    let childId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode (
+            Node.Create(
+                fileId,
+                text = "notes.txt",
+                name = Filename.create "notes.txt",
+                kind = Special File))
+        |> Graph.addDetachedNode (Node.Create(childId, text = "alpha"))
+        |> place fileId childId
+        |> fun g ->
+            Graph.setPersistState fileId PersistState.Persisted g |> requireOk
+    Assert.Equal(
+        PersistState.Persisted,
+        graph.nodes.[fileId].documentState.persistState)
+    Assert.Equal(EventId.zero, graph.nodes.[fileId].documentState.changedVersion)
+
+    let version = EventId.fromJson 4
+    let first =
+        applyEvent
+            (editEvent version "Edit" [ Op.SetText(childId, "alpha", "beta") ])
+            graph
+    Assert.Equal(
+        PersistState.Unpersisted,
+        first.nodes.[fileId].documentState.persistState)
+    Assert.Equal(version, first.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("beta", first.nodes.[childId].text)
+
+    let newer = EventId.next version
+    let second =
+        applyEvent
+            (editEvent newer "Edit" [ Op.SetText(childId, "beta", "gamma") ])
+            first
+    Assert.Equal(
+        PersistState.Unpersisted,
+        second.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, second.nodes.[fileId].documentState.changedVersion)
+
+    let afterParse =
+        applyEvent
+            (editEvent
+                (EventId.next newer)
+                "Parse"
+                [ Op.SetText(childId, "gamma", "parsed") ])
+            second
+    Assert.Equal(
+        PersistState.Unpersisted,
+        afterParse.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, afterParse.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("parsed", afterParse.nodes.[childId].text)

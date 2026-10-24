@@ -163,14 +163,14 @@ module ChangeAmendment =
 
     let private applyMarked
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
         match
             ChangeValidation.applyOpsAllowing
-                guardUnparsed markUnpersisted ops state
+                guardUnparsed changedVersion ops state
         with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, ops
@@ -182,7 +182,7 @@ module ChangeAmendment =
             | Ok amended ->
                 match
                     ChangeValidation.applyOpsAllowing
-                        guardUnparsed markUnpersisted amended state
+                        guardUnparsed changedVersion amended state
                 with
                 | ApplyResult.Invalid _ as err -> err, false, ops
                 | ApplyResult.Unchanged _ as unchanged ->
@@ -193,7 +193,7 @@ module ChangeAmendment =
 
     /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
     let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
-        applyMarked true true ops state
+        applyMarked true (Some EventId.zero) ops state
 
     /// Disk parse (`commandName` Parse) applies without writing PersistState.
     /// The normal-change unparsed gate still applies. Mailbox postGraphOnly
@@ -204,7 +204,8 @@ module ChangeAmendment =
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked true (Op.marksOwningPersist commandName) ops state
+        applyMarked
+            true (Op.persistMarkVersion commandName EventId.zero) ops state
 
     /// Mailbox postGraphOnly. A document-root suffix attach may land on an
     /// Unparsed shell. Other unparsed content edits stay blocked.
@@ -214,4 +215,5 @@ module ChangeAmendment =
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked false (Op.marksOwningPersist commandName) ops state
+        applyMarked
+            false (Op.persistMarkVersion commandName EventId.zero) ops state

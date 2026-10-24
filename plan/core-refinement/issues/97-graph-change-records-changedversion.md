@@ -1,6 +1,6 @@
 # 97 — Graph change records changedVersion
 
-**Status:** `defined`
+**Status:** `done`
 
 ## 1. Type
 coding

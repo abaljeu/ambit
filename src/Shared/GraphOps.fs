@@ -54,11 +54,12 @@ module GraphOps =
             GraphQuery.makeNodeRangeForInsertingUnder nodeId graph
 
         static member setText nodeId oldText newText graph =
-            GraphMutate.setText true nodeId oldText newText graph
+            GraphMutate.setText (Some EventId.zero) nodeId oldText newText graph
         static member setClasses nodeId oldClasses newClasses graph =
-            GraphMutate.setClasses true nodeId oldClasses newClasses graph
+            GraphMutate.setClasses
+                (Some EventId.zero) nodeId oldClasses newClasses graph
         static member setName nodeId oldName newName graph =
-            GraphMutate.setName true nodeId oldName newName graph
+            GraphMutate.setName (Some EventId.zero) nodeId oldName newName graph
         static member setDocumentState nodeId oldState newState graph =
             GraphMutate.setDocumentState nodeId oldState newState graph
         static member setParseState nodeId parseState graph =
@@ -66,4 +67,5 @@ module GraphOps =
         static member setPersistState nodeId persistState graph =
             GraphMutate.setPersistState nodeId persistState graph
         static member replace parentId index oldChildren newChildren graph =
-            GraphMutate.replace true parentId index oldChildren newChildren graph
+            GraphMutate.replace
+                (Some EventId.zero) parentId index oldChildren newChildren graph
