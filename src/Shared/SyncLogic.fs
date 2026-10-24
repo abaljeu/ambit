@@ -340,7 +340,15 @@ module SyncLogic =
         | None -> None
         | Some (inverse, history) ->
             let ops = Ev.ops inverse |> Option.defaultValue []
-            match ResidentProjection.applyOps ops (asProjectionState state) with
+            let version =
+                Op.persistMarkVersion inverse.commandName inverse.id
+            match
+                ResidentProjection.applyOpsAllowing
+                    true
+                    version
+                    ops
+                    (asProjectionState state)
+            with
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
@@ -517,6 +525,28 @@ module SyncLogic =
             let nextSync = nextSync |> SyncInfo.withCatchUp (Some catchUp)
             AckReconcile.Applied(state, nextSync, effects, [])
 
+    /// Confirmed Undo and Redo raise changedVersion to their stored id.
+    let private markUndoRedoVersion (event: Ev) (graph: Graph) : Graph =
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _ ->
+            match Op.persistMarkVersion event.commandName event.id with
+            | None -> graph
+            | Some version ->
+                let ops = Ev.ops event |> Option.defaultValue []
+                DocumentOpImpact.owningSpecials graph ops
+                |> List.fold
+                    (fun graph nodeId ->
+                        GraphMutate.setUnpersistedAt nodeId version graph)
+                    graph
+        | _ -> graph
+
+    let private markUndoRedoVersions (events: Ev list) (graph: Graph) =
+        List.fold
+            (fun graph event -> markUndoRedoVersion event graph)
+            graph
+            events
+
     let reconcileAck
         (submitted: Ev list)
         (confirmed: Ev list)
@@ -548,7 +578,7 @@ module SyncLogic =
                         | Ok graph ->
                             let nextState =
                                 { state with
-                                    graph = graph
+                                    graph = markUndoRedoVersions confirmed graph
                                     eventId = serverEventId
                                     history =
                                         ClientHistory.approve

@@ -434,3 +434,52 @@ let ``Notice in the reply keeps the confirmation echo`` () =
     | AckReconcile.Applied (_, caught, _, _) ->
         Assert.True(caught.catchUp.IsSome)
     | other -> failwithf "expected catch-up Applied, got %A" other
+
+[<Fact>]
+let ``Undo ACK sets changedVersion to the Undo event id`` () =
+    let fileId = NodeId.New()
+    let persisted = EventIdFixtures.storedId 2
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let seeded =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistedVersion = persisted
+                    persistState = PersistState.Persisted } }
+    let graph = Graph.addDetachedNode seeded (Graph.create ())
+    let change =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change [ Op.SetText(fileId, "hello", "edited") ] }
+    let start =
+        clientState graph EventId.zero (ClientHistory.clear ())
+    match SyncLogic.applyLocalEvent change start with
+    | Error msg -> failwith msg
+    | Ok (afterEdit, _) ->
+        match SyncLogic.applyLocalUndo (Guid.NewGuid()) afterEdit with
+        | Some (Ok (afterUndo, pending)) ->
+            let undoId = EventIdFixtures.storedId 9
+            let confirmed = { pending with id = undoId }
+            let result =
+                SyncLogic.reconcileAck
+                    [ pending ]
+                    [ confirmed ]
+                    undoId
+                    afterUndo
+                    (sending [ pending ])
+            let next, _, _, _ = expectApplied result
+            let live = next.graph.nodes.[fileId]
+            Assert.Equal("hello", live.text)
+            Assert.Equal(
+                PersistState.Unpersisted,
+                live.documentState.persistState)
+            Assert.Equal(undoId, live.documentState.changedVersion)
+            Assert.Equal(persisted, live.documentState.persistedVersion)
+        | other -> failwithf "expected Undo, got %A" other

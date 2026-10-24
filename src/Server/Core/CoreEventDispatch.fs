@@ -229,7 +229,9 @@ module internal CoreEventDispatch =
         (accepted: CoreChangesAccepted)
         : Result<unit, string> =
         match completed.body with
-        | Gambol.Shared.EventBody.Change _ ->
+        | Gambol.Shared.EventBody.Change _
+        | Gambol.Shared.EventBody.Undo _
+        | Gambol.Shared.EventBody.Redo _ ->
             match context.persist.getState () with
             | Error err -> Error err
             | Ok state ->
