@@ -267,10 +267,10 @@ module internal CoreMailboxLoad =
             pushParsedUnpersisted persist nodeId
             persist.noteParsed nodeId)
 
-    let private writePersisted persist nodeId updateTime =
+    let private writePersisted persist nodeId persistedVersion updateTime =
         CoreEventDispatch.writeAxis
             persist
-            (Notice.NodePersisted(nodeId, updateTime))
+            (Notice.NodePersisted(nodeId, persistedVersion, updateTime))
             (fun live ->
                 GraphMutate.setPersistState
                     nodeId
@@ -298,9 +298,11 @@ module internal CoreMailboxLoad =
             Ok ()
         | Notice.MarkUnparsed nodeId ->
             writeParseState persist msg nodeId ParseState.Unparsed
-        | Notice.NodePersisted (nodeId, updateTime) ->
+        | Notice.NodePersisted (nodeId, persistedVersion, updateTime) ->
             persist.noteDiffDone nodeId
-            match writePersisted persist nodeId updateTime with
+            match
+                writePersisted persist nodeId persistedVersion updateTime
+            with
             | Error err -> Error err
             | Ok () ->
                 persist.notePersisted ()

@@ -150,11 +150,16 @@ module EventJson =
               "notice", Encode.string tag
               "nodeId", Serialization.encodeNodeId nodeId ]
 
-    let private encodeNodePersisted nodeId (updateTime: System.DateTime) =
+    let private encodeNodePersisted
+        nodeId
+        (persistedVersion: EventId)
+        (updateTime: System.DateTime)
+        =
         Encode.object
             [ "kind", Encode.string "notice"
               "notice", Encode.string "nodePersisted"
               "nodeId", Serialization.encodeNodeId nodeId
+              "persistedVersion", Encode.int (EventId.toJson persistedVersion)
               "updateTime", Encode.int64 updateTime.Ticks ]
 
     let private encodePersistFailed nodeId message =
@@ -168,8 +173,8 @@ module EventJson =
         match notice with
         | Notice.NodeParsed nodeId ->
             encodeSingleNotice "nodeParsed" nodeId
-        | Notice.NodePersisted (nodeId, updateTime) ->
-            encodeNodePersisted nodeId updateTime
+        | Notice.NodePersisted (nodeId, persistedVersion, updateTime) ->
+            encodeNodePersisted nodeId persistedVersion updateTime
         | Notice.MarkUnparsed nodeId ->
             encodeSingleNotice "markUnparsed" nodeId
         | Notice.NodeUploading nodeId ->
@@ -202,10 +207,16 @@ module EventJson =
             | Ok notice -> Decode.succeed notice
             | Error message -> Decode.fail message)
 
+    let private decodePersistedVersion (get: Decode.IGetters) =
+        get.Optional.Field "persistedVersion" Decode.int
+        |> Option.map EventId.fromJson
+        |> Option.defaultValue EventId.zero
+
     let private decodeNodePersisted: Decoder<Notice> =
         Decode.object (fun get ->
             Notice.NodePersisted(
                 get.Required.Field "nodeId" Serialization.decodeNodeId,
+                decodePersistedVersion get,
                 System.DateTime(
                     get.Required.Field "updateTime" Decode.int64,
                     System.DateTimeKind.Utc)))

@@ -152,9 +152,10 @@ let ``An old nodeStamped row is skipped on read`` () =
 let ``Notice JSON round trip`` () =
     let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
     let stamp = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
+    let version = EventIdFixtures.storedId 4
     let notices =
         [ Notice.NodeParsed nodeId
-          Notice.NodePersisted(nodeId, stamp)
+          Notice.NodePersisted(nodeId, version, stamp)
           Notice.MarkUnparsed nodeId
           Notice.NodeUploading nodeId
           Notice.NodeReceived nodeId
@@ -190,17 +191,46 @@ let ``Stored snapshotDone decodes as NodePersisted`` () =
     | Error err -> failwith err
     | Ok decoded ->
         match decoded.body with
-        | EventBody.Notice (Notice.NodePersisted (id, time)) ->
+        | EventBody.Notice (Notice.NodePersisted (id, _, time)) ->
             Assert.Equal(nodeId, id)
             Assert.Equal(stamp, time)
         | other -> failwith $"expected NodePersisted, {other}"
     let current =
         { changeEvent with
             commandName = "Edit node"
-            body = EventBody.Notice (Notice.NodePersisted(nodeId, stamp)) }
+            body =
+                EventBody.Notice(
+                    Notice.NodePersisted(nodeId, EventId.zero, stamp)) }
     let json = Enc.toString 0 (EventJson.encode current)
     Assert.Contains("\"notice\":\"nodePersisted\"", json)
     Assert.DoesNotContain("snapshotDone", json)
+
+[<Fact>]
+let ``An old nodePersisted row decodes at version zero`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 10, 21, 18, 0, 0, DateTimeKind.Utc)
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Edit node\","
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"nodePersisted\","
+              "\"nodeId\":\""
+              nodeId.Value.ToString()
+              "\",\"updateTime\":"
+              string stamp.Ticks
+              "}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error err -> failwith err
+    | Ok decoded ->
+        match decoded.body with
+        | EventBody.Notice (Notice.NodePersisted (id, version, time)) ->
+            Assert.Equal(nodeId, id)
+            Assert.Equal(EventId.zero, version)
+            Assert.Equal(stamp, time)
+        | other -> failwith $"expected NodePersisted, {other}"
 
 [<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =
