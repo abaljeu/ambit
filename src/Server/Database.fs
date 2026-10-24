@@ -93,6 +93,14 @@ module Database =
                 ALTER TABLE nodes
                     ADD COLUMN IF NOT EXISTS persist_state TEXT NOT NULL DEFAULT 'persisted';
 
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS persisted_version
+                    INTEGER NOT NULL DEFAULT 0;
+
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS changed_version
+                    INTEGER NOT NULL DEFAULT 0;
+
                 UPDATE nodes
                 SET kind = 'workspace'
                 WHERE id = '00000000-0000-0000-0000-000000000000';
@@ -133,7 +141,9 @@ module Database =
           update_time: DateTime
           kind: string
           document_state: string
-          persist_state: string }
+          persist_state: string
+          persisted_version: int
+          changed_version: int }
 
     type NodeChildDbRow =
         { parent_id: Guid
@@ -255,7 +265,8 @@ module Database =
                 conn.QueryAsync<NodeDbRow>(
                     """
                     SELECT id, text, name, css_classes::text, update_time, kind,
-                           document_state, persist_state
+                           document_state, persist_state,
+                           persisted_version, changed_version
                     FROM nodes
                     """)
             return rows |> Seq.toList
@@ -311,6 +322,8 @@ module Database =
                            kind = r.kind
                            documentState = r.document_state
                            persistState = r.persist_state
+                           persistedVersion = r.persisted_version
+                           changedVersion = r.changed_version
                            cssClassNames = CssClass.toList (decodeCss r.css_classes)
                            updateTime = NodeUpdateTime.toDbPrecision r.update_time }
                         : GraphProjection.NodePersistenceRow))
@@ -363,11 +376,13 @@ module Database =
                         """
                         INSERT INTO nodes (
                             id, text, name, css_classes, update_time, kind,
-                            document_state, persist_state
+                            document_state, persist_state,
+                            persisted_version, changed_version
                         )
                         VALUES (
                             @id, @text, @name, CAST(@css AS jsonb), @update_time, @kind,
-                            @document_state, @persist_state
+                            @document_state, @persist_state,
+                            @persisted_version, @changed_version
                         )
                         """,
                         {| id = r.id
@@ -377,7 +392,9 @@ module Database =
                            update_time = NodeUpdateTime.toDbPrecision r.updateTime
                            kind = r.kind
                            document_state = r.documentState
-                           persist_state = r.persistState |},
+                           persist_state = r.persistState
+                           persisted_version = r.persistedVersion
+                           changed_version = r.changedVersion |},
                         tx)
                     :> Task
 
@@ -453,7 +470,9 @@ module Database =
     let private updatePersistStateSql =
         """
         UPDATE nodes
-        SET persist_state = @persist_state
+        SET persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version
         WHERE id = @id
         """
 
@@ -461,6 +480,8 @@ module Database =
         """
         UPDATE nodes
         SET persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version,
             update_time = @update_time
         WHERE id = @id
         """
@@ -474,7 +495,9 @@ module Database =
             update_time = @update_time,
             kind = @kind,
             document_state = @document_state,
-            persist_state = @persist_state
+            persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version
         WHERE id = @id
         """
 
@@ -512,7 +535,9 @@ module Database =
                 connectionString
                 updatePersistStateSql
                 {| id = row.id
-                   persist_state = row.persistState |}
+                   persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion |}
 
     let private writePersistedNode connectionString graph nodeId =
         match rowOf graph nodeId with
@@ -523,6 +548,8 @@ module Database =
                 updatePersistedSql
                 {| id = row.id
                    persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion
                    update_time = row.updateTime |}
 
     let private writeReceivedNode connectionString graph nodeId =
@@ -543,7 +570,9 @@ module Database =
                    update_time = row.updateTime
                    kind = row.kind
                    document_state = row.documentState
-                   persist_state = row.persistState |}
+                   persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion |}
 
     /// One node row for a Notice. Other Notices do not write.
     let writeNoticeRow

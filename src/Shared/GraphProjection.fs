@@ -12,6 +12,8 @@ module GraphProjection =
           kind: string
           documentState: string
           persistState: string
+          persistedVersion: int
+          changedVersion: int
           cssClassNames: string list
           updateTime: System.DateTime }
 
@@ -31,6 +33,8 @@ module GraphProjection =
         && a.kind = b.kind
         && Node.documentStateEnum a = Node.documentStateEnum b
         && a.documentState.persistState = b.documentState.persistState
+        && a.documentState.persistedVersion = b.documentState.persistedVersion
+        && a.documentState.changedVersion = b.documentState.changedVersion
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
 
@@ -87,6 +91,9 @@ module GraphProjection =
           kind = NodeKindPersistence.toPersistString node.kind
           documentState = storedDocumentWord node.documentState
           persistState = storedPersistWord node.documentState.persistState
+          persistedVersion =
+            EventId.toJson node.documentState.persistedVersion
+          changedVersion = EventId.toJson node.documentState.changedVersion
           cssClassNames = CssClass.toList node.cssClasses
           updateTime = node.updateTime }
 
@@ -147,16 +154,27 @@ module GraphProjection =
                     r.name
                     |> Option.map Filename.create
                     |> Option.defaultValue Filename.Empty
+                let created =
+                    Node.Create(
+                        nid,
+                        text = r.text,
+                        name = name,
+                        cssClasses = CssClass.ofList r.cssClassNames,
+                        kind =
+                            NodeKindPersistence.legacyKindForCanonical
+                                nid
+                                parsedKind,
+                        documentState = documentEnumFromStoredWord r.documentState,
+                        persistState = persistFromStoredWord r.persistState,
+                        updateTime = r.updateTime)
                 nid,
-                Node.Create(
-                    nid,
-                    text = r.text,
-                    name = name,
-                    cssClasses = CssClass.ofList r.cssClassNames,
-                    kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind,
-                    documentState = documentEnumFromStoredWord r.documentState,
-                    persistState = persistFromStoredWord r.persistState,
-                    updateTime = r.updateTime))
+                { created with
+                    documentState =
+                        { created.documentState with
+                            persistedVersion =
+                                EventId.fromJson r.persistedVersion
+                            changedVersion =
+                                EventId.fromJson r.changedVersion } })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

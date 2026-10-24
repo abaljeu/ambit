@@ -3,6 +3,7 @@
 # BEFORE YOU DO ANYTHING ELSE
 You must write on the correct branch. [[.agents/skills/git-protocol/SKILL.md]].
 
+Don't use hard_reset_fsi_session.  It's won't 
 
 ## Concept
 This repo builds Ambit.  Never called Gambol.
