@@ -21,10 +21,11 @@
 
 ## What to build
 
-1. [ ] **Amended check** — Before the reply change, confirm that every case where `applyPosted` returns `amended` true gives stored ops that differ from the posted ops. Also confirm the resubmission case: a post whose `submissionId` is already stored replies with that stored Ev's id. If either fails, stop and report; the reply then needs an amended flag beside the id.
-2. [ ] **Core reply** — `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly` reply `Result<EventId, string>`. `CoreMailboxEvents` and `CoreMailboxActors` reply the stored Ev's id.
-3. [ ] **Rebuild at the API** — `CoreMailboxApi` reads the stored Ev for each replied id through `Query.EventsSince`, and builds `CoreChangesAccepted` from the id, the stored Evs, and the ops comparison. `isReady` comes from `MailboxHost.isReady`.
-4. [ ] **Message leaves** — `message` leaves `CoreChangesAccepted` and `CoreChanges.accepted`. The HTTP ack writes `None` for its message field.
+1. [x] **Amended ops** — Before the reply change, confirm that every case where `applyPosted` returns `amended` true gives stored ops that differ from the posted ops. If this fails, stop and report; the reply then needs an amended flag beside the id.
+2. [ ] **Resubmission id** — Confirm the resubmission case: a post whose `submissionId` is already stored replies with that stored Ev's id. If this fails, stop and report; the reply then needs an amended flag beside the id. Report: [103 — Resubmission id](../reports/103-resubmission-id.md).
+3. [ ] **Core reply** — `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly` reply `Result<EventId, string>`. `CoreMailboxEvents` and `CoreMailboxActors` reply the stored Ev's id.
+4. [ ] **Rebuild at the API** — `CoreMailboxApi` reads the stored Ev for each replied id through `Query.EventsSince`, and builds `CoreChangesAccepted` from the id, the stored Evs, and the ops comparison. `isReady` comes from `MailboxHost.isReady`.
+5. [ ] **Message leaves** — `message` leaves `CoreChangesAccepted` and `CoreChanges.accepted`. The HTTP ack writes `None` for its message field.
 
 ### Acceptance Criteria
 
