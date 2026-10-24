@@ -1384,3 +1384,65 @@ let ``NodePersisted applies the written file time`` () =
     | Error msg -> failwith msg
     | Ok next ->
         Assert.Equal(fileTime, next.graph.nodes.[nodeId].updateTime)
+
+[<Fact>]
+let ``logged NodePersisted for an older version leaves the client node Unpersisted`` () =
+    let written = EventIdFixtures.storedId 4
+    let changed = EventIdFixtures.storedId 5
+    let fileId = NodeId.New()
+    let fileTime = System.DateTime(2026, 10, 23, 4, 5, 6, System.DateTimeKind.Utc)
+    let laterTime = System.DateTime(2026, 10, 23, 5, 6, 7, System.DateTimeKind.Utc)
+    let file =
+        Node.Create(
+            fileId,
+            text = "before",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            updateTime = System.DateTime(2026, 10, 23, 1, 0, 0, System.DateTimeKind.Utc))
+    let state : ClientSyncState =
+        { emptyState() with
+            graph = Graph.addDetachedNode file (Graph.create ())
+            eventId = written }
+    let edit =
+        SpecialNodeTestHelpers.changeEvent
+            ""
+            changed
+            (System.Guid.NewGuid())
+            [ Op.SetText(fileId, "before", "after") ]
+    let notice version id time =
+        { id = id
+          submissionId = System.Guid.NewGuid()
+          authority = Authority ""
+          commandName = ""
+          body =
+            EventBody.Notice(
+                Notice.NodePersisted(fileId, version, time)) }
+    match applyTail [ edit ] state with
+    | Error msg -> failwith msg
+    | Ok afterEdit ->
+        let edited = afterEdit.graph.nodes.[fileId]
+        Assert.Equal(PersistState.Unpersisted, edited.documentState.persistState)
+        Assert.Equal(changed, edited.documentState.changedVersion)
+        match
+            applyTail
+                [ notice written (EventIdFixtures.storedId 6) fileTime ]
+                afterEdit
+        with
+        | Error msg -> failwith msg
+        | Ok afterOlder ->
+            let late = afterOlder.graph.nodes.[fileId]
+            Assert.Equal(written, late.documentState.persistedVersion)
+            Assert.Equal(PersistState.Unpersisted, late.documentState.persistState)
+            Assert.Equal(changed, late.documentState.changedVersion)
+            Assert.Equal(fileTime, late.updateTime)
+            match
+                applyTail
+                    [ notice changed (EventIdFixtures.storedId 7) laterTime ]
+                    afterOlder
+            with
+            | Error msg -> failwith msg
+            | Ok afterEqual ->
+                let caught = afterEqual.graph.nodes.[fileId]
+                Assert.Equal(changed, caught.documentState.persistedVersion)
+                Assert.Equal(PersistState.Persisted, caught.documentState.persistState)
+                Assert.Equal(changed, caught.documentState.changedVersion)

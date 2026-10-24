@@ -73,19 +73,37 @@ module SyncLogic =
     let opsForDownload (event: Ev) : Op list =
         Ev.ops event |> Option.defaultValue []
 
-    let private withNodeUpdateTime
+    /// Same written-version rule as CoreMailboxLoad.writePersisted.
+    let private nodeAfterPersisted
+        (written: EventId)
+        (updateTime: System.DateTime)
+        (node: Node)
+        : Node =
+        let stamped = NodeUpdateTime.withStamp updateTime node
+        let nextState =
+            DocumentState.persistStateForWritten
+                node.documentState
+                written
+        { stamped with
+            documentState =
+                { node.documentState with
+                    persistState = nextState
+                    persistedVersion = written } }
+
+    let private applyNodePersisted
         (nodeId: NodeId)
+        (written: EventId)
         (updateTime: System.DateTime)
         (st: ClientSyncState)
         =
         match Map.tryFind nodeId st.graph.nodes with
         | None -> st
         | Some node ->
-            let stamped = NodeUpdateTime.withStamp updateTime node
+            let updated = nodeAfterPersisted written updateTime node
             { st with
                 graph =
                     { st.graph with
-                        nodes = Map.add nodeId stamped st.graph.nodes } }
+                        nodes = Map.add nodeId updated st.graph.nodes } }
 
     let private applyLoggedNotice
         (event: Ev)
@@ -93,8 +111,8 @@ module SyncLogic =
         (undid: bool)
         =
         match event.body with
-        | EventBody.Notice (Notice.NodePersisted (nodeId, _, updateTime)) ->
-            let next = withNodeUpdateTime nodeId updateTime st
+        | EventBody.Notice (Notice.NodePersisted (nodeId, written, time)) ->
+            let next = applyNodePersisted nodeId written time st
             Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
