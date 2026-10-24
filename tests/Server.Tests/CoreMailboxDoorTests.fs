@@ -756,16 +756,9 @@ let private editFileText (fileId: NodeId) : Ev =
       commandName = "Edit"
       body = EventBody.Change [ Op.SetText(fileId, "hello", "edited") ] }
 
-let private hostRecordingPush
-    (state: State)
-    (pushed: ResizeArray<NodeId>)
-    =
-    let accept (event: Ev) (_graphOnly: bool) =
-        Ok(CoreChanges.accepted event.id true [ event ] false None)
-    let handlers =
-        { cannedHandlers (fun () -> Ok state) (fun _ -> []) accept with
-            pushPersist = pushed.Add }
-    let filling =
+let private hostWithHandlers (handlers: PersistHandlers) =
+    CoreMailbox.host
+        (CoreActorPool.create ())
         { handlers = handlers
           onError = fun _ _ _ -> ()
           formatError = id
@@ -773,10 +766,30 @@ let private hostRecordingPush
           dispose = ignore
           until = None
           bindPersistFinished = ignore }
-    CoreMailbox.host
-        (CoreActorPool.create ())
-        filling
         admittedCredentials
+
+let private acceptPosted (event: Ev) (_graphOnly: bool) =
+    Ok(CoreChanges.accepted event.id true [ event ] false None)
+
+let private hostRecordingPush
+    (state: State)
+    (pushed: ResizeArray<NodeId>)
+    =
+    let handlers =
+        { cannedHandlers (fun () -> Ok state) (fun _ -> []) acceptPosted with
+            pushPersist = pushed.Add }
+    hostWithHandlers handlers
+
+let private hostRecordingGraph (state: State ref) =
+    let handlers =
+        { cannedHandlers
+            (fun () -> Ok state.Value)
+            (fun _ -> [])
+            acceptPosted with
+            replaceGraph =
+                fun _notice graph ->
+                    state.Value <- { state.Value with graph = graph } }
+    hostWithHandlers handlers
 
 [<Fact>]
 let ``An Edit pushes its owning special node`` () =
@@ -793,6 +806,41 @@ let ``An Edit pushes its owning special node`` () =
                 |> Async.StartAsTask
             requireOk "edit" posted |> ignore
             Assert.Equal<NodeId list>([ fileId ], List.ofSeq pushed)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``An Edit marks its owning special node at the Edit's id`` () =
+    task {
+        let fileId, initial = fileWithText ()
+        let state = ref initial
+        let host = hostRecordingGraph state
+        try
+            let! first =
+                CoreMailboxApi.postEvents
+                    host
+                    testCaller
+                    [ editFileText fileId ]
+                |> Async.StartAsTask
+            requireOk "first edit" first |> ignore
+            let! second =
+                CoreMailboxApi.postEvents
+                    host
+                    testCaller
+                    [ editFileText fileId ]
+                |> Async.StartAsTask
+            let accepted = requireOk "second edit" second
+            let! live =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let live = requireOk "state" live
+            let node = live.graph.nodes.[fileId]
+            Assert.Equal(
+                PersistState.Unpersisted,
+                node.documentState.persistState)
+            Assert.Equal(
+                accepted.eventId,
+                node.documentState.changedVersion)
         finally
             CoreMailboxApi.dispose host
     }

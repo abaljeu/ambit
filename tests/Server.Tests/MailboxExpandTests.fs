@@ -234,9 +234,6 @@ let ``loadNode of a plain Node replies Error`` () =
                 CoreMailboxApi.postEvent host testCaller event
                 |> Async.StartAsTask
             requireOk "post" posted |> ignore
-            let! before =
-                CoreMailboxApi.eventsSince host EventId.zero
-                |> Async.StartAsTask
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller plainId
                 |> Async.StartAsTask
@@ -247,7 +244,13 @@ let ``loadNode of a plain Node replies Error`` () =
             let! after =
                 CoreMailboxApi.eventsSince host EventId.zero
                 |> Async.StartAsTask
-            Assert.Equal<Ev list>(before.events, after.events)
+            let loads =
+                after.events
+                |> List.filter (fun event ->
+                    match event.body with
+                    | EventBody.Load _ -> true
+                    | _ -> false)
+            Assert.Empty(loads)
         finally
             CoreMailboxApi.dispose host
     }

@@ -152,10 +152,12 @@ module DbAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    if graphOnly then
-                        ChangeAmendment.applyForGraphOnly event.commandName ops s
-                    else
-                        ChangeAmendment.applyForCommand event.commandName ops s
+                    ChangeAmendment.applyPosted
+                        graphOnly
+                        event.id
+                        event
+                        ops
+                        s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                 | ApplyResult.Unchanged _ ->

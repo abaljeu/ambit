@@ -190,6 +190,15 @@ module internal CoreMailboxLoad =
             let updated = Node.withDocumentState PullingFile node
             Ok { graph with nodes = Map.add nodeId updated graph.nodes }
 
+    let private writeUnpersisted
+        (nodeId: NodeId)
+        (live: Graph)
+        : Result<Graph, string> =
+        GraphMutate.setPersistState
+            nodeId
+            PersistState.Unpersisted
+            live
+
     let private writePullingFileUnpersisted
         (persist: PersistHandlers)
         (nodeId: NodeId)
@@ -198,14 +207,8 @@ module internal CoreMailboxLoad =
             persist
             (Notice.NodeUploading nodeId)
             (fun live ->
-            match
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Unpersisted
-                    live
-            with
-            | Error err -> Error err
-            | Ok graph -> withPullingFile nodeId graph)
+                writeUnpersisted nodeId live
+                |> Result.bind (withPullingFile nodeId))
 
     let private writeReceived
         (persist: PersistHandlers)
@@ -289,10 +292,7 @@ module internal CoreMailboxLoad =
         | Notice.NodeParsing _ -> Ok ()
         | Notice.NodePersisting nodeId ->
             CoreEventDispatch.writeAxis persist msg (fun live ->
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Unpersisted
-                    live)
+                writeUnpersisted nodeId live)
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()

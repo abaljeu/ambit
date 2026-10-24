@@ -189,7 +189,8 @@ let private requirePersist nodeId persistState graph =
 
 let private applyDiskParse (graph: Graph) (ops: Op list) : Graph =
     let state = { graph = graph; eventId = EventId.zero }
-    let result, _, _ = ChangeAmendment.applyForCommand "Parse" ops state
+    let result, _, _ =
+        ChangeAmendment.applyForCommand EventId.zero "Parse" ops state
     match result with
     | ApplyResult.Changed next
     | ApplyResult.Unchanged next -> next.graph
