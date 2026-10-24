@@ -29,6 +29,7 @@ Arch: [[../arch.md]]
 ## 5. Miss
 
 ## 6. Found elsewhere
+"The following issues were found beyond the ticket scope.  The fixes are suggested."
 ```
 
 ## 3. Fill
@@ -56,7 +57,9 @@ Write each section as a list, one finding per item. An empty section is one item
    - a failing test
    - a test that checks something other than the ticket's done
 
-6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Mark it **Accept** or **Reject** and give the reason. An accepted item names the file and the wording the document step writes.
+6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Write it as:
+   - **Problem.** The perceived flaw.
+   - **Fix.** What to do.
 
 Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
 

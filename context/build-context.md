@@ -7,7 +7,10 @@ The work is the source the ticket names. Change that source when the build step 
 Scope:
 
 - Build edits source and tests, plus the ticket's status and checkboxes.
-- A flaw found in any other file (GLOSSARY, spec, arch, `doc/`, `project.md`, another ticket) goes in the PR body under **Found elsewhere**: the file, the line, the flaw, and the proposed wording. Review assesses each one.
+- A flaw found in any other file (GLOSSARY, spec, arch, `doc/`, `project.md`, another ticket) goes in the PR body under **Found elsewhere**. Each item is:
+  - **Problem.** The file, the line, and the perceived flaw.
+  - **Fix.** What to do.
+  Review assesses each one.
 
 ## 2. Build template
 
