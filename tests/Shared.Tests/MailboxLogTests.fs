@@ -30,8 +30,8 @@ let private restored event =
 
 let private placed event =
     match (logged event).body with
-    | MailboxLog.EventBody.Order value -> value
-    | MailboxLog.EventBody.Notice _ ->
+    | MailboxLog.MailboxEventBody.Order value -> value
+    | MailboxLog.MailboxEventBody.Notice _ ->
         Assert.Fail("expected Order")
         Unchecked.defaultof<_>
 

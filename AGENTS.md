@@ -16,6 +16,10 @@ Rather than central skills, how to work on files is mostly located with those fi
 
 Read [[CONTEXT.md]]. Once you are inside a top-level folder, that folder's CONTEXT.md takes over.
 
+## Communication
+A question is a question, not a request to change.  Research and answer the question.
+Long output over 50 lines is hard to follow in chat. Refer the user to a file.  report/ within a project folder is good place.  Never edit reports made by another.
+
 ## Duplication
 We aim to reduce this repo's size by 50%, without removing content.  If you spot opportunities outside your scope, report them.  If you spot opportunties within scope, reduce.
 

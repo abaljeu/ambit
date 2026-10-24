@@ -11,7 +11,7 @@ Change-over step after [74 — Add the Notice event body](74-put-notices-on-the-
 
 ## What to build
 
-1. [x] **Log** — `CoreMailboxLoad.dispatchItem` appends each Notice to the event log as an `EventBody.Notice` event, then applies it as today.
+1. [x] **Log** — `CoreMailboxLoad.dispatchItem` appends each Notice to the event log as a History `EventBody.Notice` event, then applies it as today.
 2. [x] **Remove** — Delete `context.noticeLog` and `MailboxHost.noticeLog`. Tests that read it read the event log.
 
 ### Acceptance Criteria

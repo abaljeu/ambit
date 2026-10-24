@@ -362,7 +362,7 @@ module internal CoreMailboxLoad =
         MailboxLog.toEv {
             id = EventId.zero
             body =
-                MailboxLog.EventBody.Order {
+                MailboxLog.MailboxEventBody.Order {
                     orderId = tracked.tracking.orderId
                     authority = tracked.tracking.caller.authority
                     commandName = tracked.tracking.commandName

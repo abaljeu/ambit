@@ -326,11 +326,7 @@ _Avoid_: root node, graph root
 
 **Run**:
 A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
-_Avoid_: treating Run as only Run AI, a third EventBody kind
-
-**Run AI**:
-The Run command that starts the AI Actor. The person types `?ai` (optional keyname and options) on Focus, then Run. `?ai` is the statement spelling.
-_Avoid_: Ask, Run Ask, Run Agent (as the spoken name — prefer Run AI), `?` alone (as this command name)
+_Avoid_: treating Run as only Run AI
 
 **section**:
 A named Normal Node. Unnamed Normal Nodes are not sections.

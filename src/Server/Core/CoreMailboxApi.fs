@@ -198,7 +198,7 @@ module CoreMailboxApi =
         match event.body with
         | EventBody.Change _ when event.id = EventId.zero ->
             match MailboxLog.ofEv event with
-            | Ok { body = MailboxLog.EventBody.Order placed } ->
+            | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
                 Mailbox.PlaceOrder {
                     tracking = {
                         orderId = placed.orderId

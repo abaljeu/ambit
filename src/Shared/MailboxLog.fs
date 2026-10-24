@@ -36,13 +36,13 @@ module MailboxLog =
     type private HistoryBody = Gambol.Shared.EventBody
 
     [<RequireQualifiedAccess>]
-    type EventBody =
+    type MailboxEventBody =
         | Order of PlacedOrder
         | Notice of Notice
 
     type Ev = {
         id: EventId
-        body: EventBody }
+        body: MailboxEventBody }
 
     let private commandFromText (name: string) =
         if name = "" then None else Some name
@@ -88,12 +88,12 @@ module MailboxLog =
         | Ok order ->
             Ok {
                 id = event.id
-                body = EventBody.Order (placedOrder event order) }
+                body = MailboxEventBody.Order (placedOrder event order) }
 
     let toEv (event: Ev) : Result<HistoryEv, string> =
         match event.body with
-        | EventBody.Notice _ -> Error "unsupported"
-        | EventBody.Order placed ->
+        | MailboxEventBody.Notice _ -> Error "unsupported"
+        | MailboxEventBody.Order placed ->
             match historyBody placed.order with
             | Error err -> Error err
             | Ok body ->
