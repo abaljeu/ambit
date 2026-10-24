@@ -405,7 +405,9 @@ let ``Notice in the reply keeps the confirmation echo`` () =
             submissionId = Guid.NewGuid()
             authority = Authority "Browser"
             commandName = "Edit node"
-            body = EventBody.Notice (Notice.NodePersisted(nodeId, DateTime.UtcNow)) }
+            body =
+                EventBody.Notice(
+                    Notice.NodePersisted(nodeId, EventId.zero, DateTime.UtcNow)) }
     let confirmed = [ confirm pending []; notice ]
     Assert.True(SyncLogic.isConfirmationEcho [ pending ] confirmed)
     let applied =

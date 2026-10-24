@@ -124,7 +124,8 @@ let ``applyLoadResponse ignores a Notice when guarding a raced Load answer`` () 
             commandName = "Edit node"
             body =
                 EventBody.Notice(
-                    Notice.NodePersisted(helloId, System.DateTime.UtcNow)) }
+                    Notice.NodePersisted(
+                        helloId, EventId.zero, System.DateTime.UtcNow)) }
     let response: SyncResponse =
         { events = [ notice ]
           nodes = [ split.graph.nodes.[helloId] ]

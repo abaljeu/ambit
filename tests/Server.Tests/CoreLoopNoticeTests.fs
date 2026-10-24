@@ -194,7 +194,7 @@ let ``NodePersisted sets Persisted and calls the diff hook`` () =
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
     let stamp = DateTime(2026, 10, 21, 1, 2, 3, DateTimeKind.Utc)
-    apply (handlers state snaps) (Notice.NodePersisted(id, stamp))
+    apply (handlers state snaps) (Notice.NodePersisted(id, EventId.zero, stamp))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
     Assert.Equal(stamp, node.updateTime)
@@ -369,7 +369,8 @@ let ``axis write failure is returned`` () =
     let rejected =
         CoreMailboxLoad.applyNotice
             (handlers state snaps)
-            (Notice.NodePersisted(Graph.workspacesId, DateTime.UtcNow))
+            (Notice.NodePersisted(
+                Graph.workspacesId, EventId.zero, DateTime.UtcNow))
     Assert.Equal(
         Error "workspaces is not a graph document",
         rejected)
@@ -426,7 +427,9 @@ let ``mailbox queue applies NodePersisted off CoreMsg`` () =
         let snaps = ResizeArray<NodeId>()
         let host = hostFor state snaps
         try
-            CoreMailboxApi.postNotice host (Notice.NodePersisted(id, DateTime.UtcNow))
+            CoreMailboxApi.postNotice
+                host
+                (Notice.NodePersisted(id, EventId.zero, DateTime.UtcNow))
             let! got =
                 CoreMailboxApi.getState host |> Async.StartAsTask
             let got = requireState "state" got

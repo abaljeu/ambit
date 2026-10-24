@@ -119,7 +119,7 @@ let ``NodePersisted writes persist state to the database`` () = task {
     do! apply mailbox (Notice.NodePersisting id)
     let! mid = readNode connStr id
     let stamp = mid.updateTime.AddHours(3.0)
-    do! apply mailbox (Notice.NodePersisted(id, stamp))
+    do! apply mailbox (Notice.NodePersisted(id, EventId.zero, stamp))
     let! after = readNode connStr id
     Assert.Equal(PersistState.Persisted, after.documentState.persistState)
     Assert.Equal(
