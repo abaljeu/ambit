@@ -1378,7 +1378,8 @@ let ``NodePersisted applies the written file time`` () =
           authority = Authority ""
           commandName = ""
           body =
-            EventBody.Notice(Notice.NodePersisted(nodeId, fileTime)) }
+            EventBody.Notice(
+                Notice.NodePersisted(nodeId, EventId.zero, fileTime)) }
     match applyTail [ persisted ] st with
     | Error msg -> failwith msg
     | Ok next ->

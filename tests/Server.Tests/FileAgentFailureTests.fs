@@ -457,7 +457,7 @@ let ``new special node writes its file without NodePersisting`` () = task {
                     events
                     |> List.exists (fun event ->
                         match event.body with
-                        | EventBody.Notice (Notice.NodePersisted (id, _)) ->
+                        | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
                             id = wsId
                         | _ -> false))
         let hasNotice pred =
@@ -473,7 +473,7 @@ let ``new special node writes its file without NodePersisting`` () = task {
             $"NodePersisting was posted, got {events}")
         Assert.True(
             hasNotice (function
-                | Notice.NodePersisted (id, _) -> id = wsId
+                | Notice.NodePersisted (id, _, _) -> id = wsId
                 | _ -> false),
             $"NodePersisted missing, got {events}")
         let! after =

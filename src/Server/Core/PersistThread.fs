@@ -40,7 +40,10 @@ module PersistThread =
             match written with
             | Ok updateTime ->
                 deps.postNotice (
-                    Notice.NodePersisted(request.nodeId, updateTime))
+                    Notice.NodePersisted(
+                        request.nodeId,
+                        state.eventId,
+                        updateTime))
             | Error message ->
                 deps.postNotice (
                     Notice.PersistFailed(request.nodeId, message))

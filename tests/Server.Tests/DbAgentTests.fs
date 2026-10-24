@@ -351,7 +351,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                 again
                 |> List.exists (fun event ->
                     match event.body with
-                    | EventBody.Notice (Notice.NodePersisted (id, _)) ->
+                    | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
                         id = Graph.rootId
                     | _ -> false)
             let quiet =

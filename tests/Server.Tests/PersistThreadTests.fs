@@ -109,7 +109,7 @@ let ``persist thread writes from the live graph`` () =
     let persisted =
         notices
         |> Seq.tryPick (function
-            | Notice.NodePersisted (id, _) -> Some id
+            | Notice.NodePersisted (id, _, _) -> Some id
             | _ -> None)
     Assert.Equal(Some fileId, persisted)
 
@@ -141,7 +141,7 @@ let ``repeated pushes write once`` () =
                     Ok DateTime.UtcNow
             postNotice =
                 function
-                | Notice.NodePersisted (nodeId, _) ->
+                | Notice.NodePersisted (nodeId, _, _) ->
                     state.Value <- markPersisted state.Value nodeId
                 | _ -> ()
         }
@@ -178,7 +178,7 @@ let ``persist thread posts NodePersisted on success only`` () =
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
     match okNotices with
-    | [ Notice.NodePersisted (id, time) ] ->
+    | [ Notice.NodePersisted (id, _, time) ] ->
         Assert.Equal(okId, id)
         Assert.Equal(written, time)
     | other ->
@@ -191,7 +191,7 @@ let ``persist thread posts NodePersisted on success only`` () =
     let persistedBad =
         badNotices
         |> List.exists (function
-            | Notice.NodePersisted (id, _) -> id = badId
+            | Notice.NodePersisted (id, _, _) -> id = badId
             | _ -> false)
     Assert.False(persistedBad)
 
@@ -219,6 +219,39 @@ let private applyPersisted
     match CoreMailboxLoad.applyNotice handlers notice with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``persist thread posts the version it read`` () =
+    let id = NodeId.New()
+    let version = EventIdFixtures.storedId 4
+    let later = EventIdFixtures.storedId 9
+    let node =
+        special id File "note.txt" Graph.rootId PersistState.Unpersisted
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = version
+        }
+    let stack = PersistRequestStack.create ()
+    let notices = ResizeArray<Notice>()
+    PersistRequestStack.push stack { nodeId = id }
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
+            (fun _ _ ->
+                state.Value <- { state.Value with eventId = later }
+                Ok DateTime.UtcNow)
+            notices.Add
+    waitUntil "notice" (fun () -> notices.Count > 0)
+    PersistRequestStack.stop stack
+    join ()
+    match List.ofSeq notices with
+    | [ Notice.NodePersisted (postedId, persistedVersion, _) ] ->
+        Assert.Equal(id, postedId)
+        Assert.Equal(version, persistedVersion)
+    | other ->
+        Assert.Fail($"expected NodePersisted, got {other}")
 
 [<Fact>]
 let ``NodePersisted carries the written file time`` () =
@@ -254,7 +287,7 @@ let ``NodePersisted carries the written file time`` () =
             | Notice.NodePersisted _ -> true
             | _ -> false)
     with
-    | Some (Notice.NodePersisted (id, updateTime)) ->
+    | Some (Notice.NodePersisted (id, _, updateTime)) ->
         Assert.Equal(fileId, id)
         Assert.Equal(fileTime, updateTime)
         Assert.Equal(fileTime, state.Value.graph.nodes.[fileId].updateTime)
