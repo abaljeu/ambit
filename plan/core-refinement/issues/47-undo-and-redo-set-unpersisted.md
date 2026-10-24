@@ -1,27 +1,29 @@
 # 47 — Undo and redo set Unpersisted
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
 
 ## Context
 
-Graph change apply has the Core-loop Node handlers. Undo and redo change a Graph without reading files. Graph change undo makes their appliers mark the nearest owning special node Unpersisted and skip Node messages.
+Graph change apply has the Core-loop Node handlers. Undo and redo change a Graph without reading files. Graph change undo makes them mark the nearest owning special node Unpersisted, the same way a Change does.
 
-## What to build
+## What was built
 
-Change the server and Browser Undo and Redo appliers. They apply the inverse Ops and mark the nearest owning special node Unpersisted. Redo gets the same Unpersisted mark as Undo. They set `changedVersion` to their own event id and leave `persistedVersion`. The mailbox handler pushes a persist request for those owning special nodes the same way a Change does. They do not apply NodeUploading, NodeReceived, NodeParsing, NodeParsed, NodePersisting, or NodePersisted.
+Undo and Redo apply their inverse Ops and mark the nearest owning special node Unpersisted. Redo gets the same mark as Undo. They set `changedVersion` to their own event id and leave `persistedVersion` as it was. The mailbox handler pushes a persist request for those owning special nodes through the same code path as a Change. Built in PR #383 (staging `8f038a6f`).
 
-### 1. Undo
+### 1. Undo and Redo
 
-1. [ ] **Server Undo and Redo applier** — `CoreEventDispatch.completeAction` already fills inverse Ops onto an empty Undo body and an empty Redo body. Change the Core change applier behind `PersistHandlers.applyEvent` so that, after those Ops apply, it marks the nearest owning special node Unpersisted with `changedVersion` set to the Undo or Redo event id and leaves `persistedVersion`. Redo gets that same mark. `CoreEventDispatch.pushChangeSpecials` pushes a persist request for those nodes the same way a Change does. It does not apply NodeUploading, NodeReceived, NodeParsing, NodeParsed, NodePersisting, or NodePersisted. [46 — Record the persist version](46-record-the-persist-version.md) leaves that Unpersisted when an in-flight persist finishes with an older version.
-2. [ ] **Browser Undo and Redo applier** — Change `SyncLogic.applyLocalUndo` and `SyncLogic.applyLocalRedo`, and the `applyInverse` path, to receive the planned Undo or Redo, apply its inverse Ops through `ResidentProjection`, and mark the nearest owning special node Unpersisted at that event id, leaving `persistedVersion`. A draft id is `EventId.zero`. The ack raises `changedVersion` to the stored id. The logged fold already marks at the stored id. They do not apply a document-state message from `ClientHistory`.
+1. [x] **Server Undo and Redo applier** — `CoreEventDispatch.completeAction` fills inverse Ops onto an empty Undo body and an empty Redo body. `ChangeAmendment.applyPosted` applies those Ops and marks the nearest owning special node Unpersisted at the posted Undo or Redo event id, the same way it marks a Change. `persistedVersion` stays. `CoreEventDispatch.pushChangeSpecials` matches Change, Undo and Redo in one arm, so all three push a persist request the same way. The persist gate from [100 — Core loop gates Persisted on the written version](100-core-loop-gates-persisted-on-the-written-version.md) leaves the node Unpersisted when an in-flight persist finishes with an older version.
+2. [x] **Browser Undo and Redo applier** — `SyncLogic.applyLocalUndo` and `SyncLogic.applyLocalRedo` go through `applyInverse`, which applies the inverse Ops through `ResidentProjection` and marks the nearest owning special node Unpersisted at the event id, leaving `persistedVersion`. The local draft id is `EventId.zero`. The ack raises `changedVersion` to the stored id. The logged fold marks at the stored id.
 
 ### Acceptance Criteria
 
-1. [ ] **Undo test** — `undo sets Unpersisted and does not apply Node events`. The graph changes. `changedVersion` is the Undo event id and `persistedVersion` stays. NodeUploading, NodeReceived, NodeParsing, NodeParsed, NodePersisting, and NodePersisted from the stream are not applied.
-2. [ ] **Redo test** — `redo sets Unpersisted and does not apply Node events`. Redo gets the same Unpersisted mark as Undo. It sets `changedVersion` to the Redo event id and leaves `persistedVersion`.
+1. [x] **Undo test** — `Undo sets changedVersion to the Undo event and leaves persistedVersion` (`PersistApplyTests`). The graph changes, the node is Unpersisted, `changedVersion` is the Undo event id and `persistedVersion` stays.
+2. [x] **Redo test** — `Redo sets changedVersion to the Redo event and leaves persistedVersion` (`PersistApplyTests`). Redo gets the same mark as Undo at the Redo event id.
+3. [x] **Undo persist test** — `Undo pushes the document root and the persist thread writes the undone graph` (`PersistApplyTests`). The persist thread writes the file after Undo.
+4. [x] **Browser ack test** — `Undo ACK sets changedVersion to the Undo event id` (`AckReconcileTests`).
 
 ## See also
 
@@ -30,4 +32,5 @@ Change the server and Browser Undo and Redo appliers. They apply the inverse Ops
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
 - [46 — Record the persist version](46-record-the-persist-version.md)
+- [100 — Core loop gates Persisted on the written version](100-core-loop-gates-persisted-on-the-written-version.md)
 - [GLOSSARY](../../GLOSSARY.md)
