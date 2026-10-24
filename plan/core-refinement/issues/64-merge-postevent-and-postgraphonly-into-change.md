@@ -1,4 +1,4 @@
-# 64 — Merge PostEvent and PostGraphOnly into Change
+# 64 — Place Edit changes as Order.Change
 
 **Status:** `defined`
 **Type:** coding
@@ -12,36 +12,31 @@
 - **Change** — `CoreMailboxActors.dispatchPostEvent` calls that function with `graphOnly` false.
 - **Graph only** — `CoreMailboxEvents.dispatchPostGraphOnly` calls that function with `graphOnly` true.
 
-The parse posters place origin `Parse`:
+Decision 4 **One Change** and decision 18 **ChangeOrigin** in [Message shape](../cqrs-messages.md): the two doors become `Order.Change` of `ops: Op list * origin: ChangeOrigin`. This ticket adds the origin and moves the origin `Edit` door, `CoreMailboxApi.postEvents`. [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md) moves the origin `Parse` callers and removes `CoreMsg.PostGraphOnly`.
 
-- **Parse ops** — `ParseThread.postParseOps`
-- **Parse file** — `Api.applyParseFile`
-- **Load** — `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks`
-
-Decision 4 **One Change**, decision 12 **NodeUnpersisted**, and decision 18 **ChangeOrigin** in [Message shape](../cqrs-messages.md): the two doors become `Order.Change` of `ops: Op list * origin: ChangeOrigin`. Every other `Change` poster places origin `Edit`. `origin` exists only on the placed order. `CoreEventDispatch` reads that `origin`, writes document files, and posts `Notice.NodeUnpersisted` for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. The logged Change holds the op list.
+Today, after a Change, Undo or Redo, `CoreEventDispatch.pushChangeSpecials` marks each owning special node Unpersisted at the event id, logs `Notice.NodePersisting` for it, and pushes a persist request. This ticket keeps that path. It does not add `Notice.NodeUnpersisted`.
 
 `CoreMsg.PostEvent` also carries `Undo`, `Redo`, `ActorStart`, and `Cancel`. [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md) and [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md) take those bodies. Upload, import, parse, Load, undo, and persist stay working.
 
 ## What to build
 
-1. [ ] **Door** — Decision 4 **One Change** and decision 18 **ChangeOrigin**. `ChangeOrigin` is `Edit | Parse` in `src/Shared/MailboxLog.fs` beside `Order`. `Order.Change` is `ops: Op list * origin: ChangeOrigin`. `origin` exists only on the placed order. `CoreEventDispatch` reads that `origin`. The logged Change holds the op list. `CoreMailboxApi.postEvents` and `postGraphOnly` place `Mailbox.PlaceOrder` of that `Order.Change`. `Api.postEvents`, `RunAgentActor`, and `TestActor` use `postEvents`. The Parse callers in Context use `postGraphOnly` and place origin `Parse`. Every other `Change` poster places origin `Edit`. Remove `CoreMsg.PostGraphOnly`. `CoreMsg.PostEvent` stays for the four bodies Context names.
-2. [ ] **Reply** — The `PlaceOrder` reply is `Result<EventId, string>`. `Ok` carries the assigned `EventId`. `Api.postEvents` builds the HTTP change response from that id and from the state read it already does. The mailbox reply is not `CoreChangesAccepted`.
-3. [ ] **Files** — `CoreEventDispatch` writes document files for a placed `Order.Change` of origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today.
-4. [ ] **NodeUnpersisted** — Decision 12 **NodeUnpersisted**. Add `Notice.NodeUnpersisted of nodeId: NodeId`. After a successful placed `Change` of origin `Edit`, `CoreEventDispatch` posts one `Notice.NodeUnpersisted` for each document root of the ops, using `DocumentPartition.documentRootForNode`. `CoreMailboxLoad.applyNotice` sets that node `PersistState.Unpersisted` and appends one `Ev` whose body is that notice. For origin `Parse`, `CoreEventDispatch` keeps the file skip `PostGraphOnly` uses today, and that post's log entry is the `Change`.
+1. [ ] **Origin** — Decision 18 **ChangeOrigin**. `ChangeOrigin` is `Edit | Parse` in `src/Shared/MailboxLog.fs` beside `Order`. `Order.Change` becomes `ops: Op list * origin: ChangeOrigin`. `origin` exists only on the placed order. `MailboxLog.ofEv` maps a logged Change to origin `Edit`. The logged Change holds the op list.
+2. [ ] **Edit door** — `CoreMailboxApi.postEvents` places `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit` for a `Change` body. `Api.postEvents`, `RunAgentActor`, and `TestActor` keep calling `postEvents`. `CoreEventDispatch` reads `origin` and writes document files for origin `Edit` the way `PostEvent` does today. `CoreMsg.PostEvent` stays for the four bodies Context names. `CoreMsg.PostGraphOnly` stays until 102.
+3. [ ] **Reply** — The `PlaceOrder` reply is `Result<EventId, string>`. `Ok` carries the assigned `EventId`. `Api.postEvents` builds the HTTP change response from that id and from the state read it already does. The mailbox reply is not `CoreChangesAccepted`.
 
 ### Acceptance Criteria
 
-1. [ ] **One order** — `postEvents and postGraphOnly place Order.Change`. An origin `Edit` change through `postEvents` and an origin `Parse` change through `postGraphOnly` both place `Order.Change` with that origin. Each reply is `Ok` of the new `EventId`. `CoreMsg.PostGraphOnly` leaves.
-2. [ ] **Parse** — `postParseOps skips the document file`. `ParseThread.postParseOps` places `Order.Change` with origin `Parse` and completes. `CoreEventDispatch` keeps the file skip `PostGraphOnly` uses today. The logged Change holds the op list.
-3. [ ] **Edit** — `an ordinary Change writes the document file`. A placed `Change` of origin `Edit` writes the document file the way `PostEvent` does today. The log then has `Notice.NodeUnpersisted` of the document root, and that node is `PersistState.Unpersisted`.
-4. [ ] **Other bodies** — `the four bodies Context names stay on PostEvent`. A post of each of those bodies still uses `CoreMsg.PostEvent`.
-5. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
+1. [ ] **Edit order** — `postEvents places Order.Change with origin Edit`. A Change through `postEvents` places `Order.Change` with origin `Edit`. The reply is `Ok` of the new `EventId`.
+2. [ ] **Edit** — `an ordinary Change writes the document file`. A placed `Change` of origin `Edit` writes the document file the way `PostEvent` does today. The owning special node is Unpersisted at the Change's event id and a persist request is pushed.
+3. [ ] **Other bodies** — `the four bodies Context names stay on PostEvent`. A post of each of those bodies still uses `CoreMsg.PostEvent`.
+4. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
 
 ## See also
 
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
+- [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
 - [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 - [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md)
 - [62 — Admit at the entry](62-admit-at-the-entry.md)
