@@ -1,6 +1,6 @@
 # 44 — Apply document state from Node events
 
-**Status:** `coded`
+**Status:** `done`
 **Actual:** 1h
 **Type:** coding
 **Blocked by:** 43 — Expand Node events beside the Set output; 36 — Add the persist column
