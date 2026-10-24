@@ -180,9 +180,12 @@ module internal CoreMailboxLoad =
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
     /// MarkUnparsed writes Unparsed only.
-    /// NodePersisted runs the diff-count hook, then sets Persisted
-    /// and the node's updateTime in one write. On Ok it calls
-    /// notePersisted, which requests the file diff.
+    /// NodePersisted runs the diff-count hook, sets persistedVersion
+    /// to the written version, and applies updateTime. Persisted is
+    /// set when the node is already Persisted, or when it is
+    /// Unpersisted and the written version is at least changedVersion.
+    /// An older write stays Unpersisted and changedVersion stays.
+    /// On Ok it calls notePersisted, which requests the file diff.
     let private withPullingFile (nodeId: NodeId) (graph: Graph) =
         match Map.tryFind nodeId graph.nodes with
         | None -> Error "node not found"
@@ -267,16 +270,48 @@ module internal CoreMailboxLoad =
             pushParsedUnpersisted persist nodeId
             persist.noteParsed nodeId)
 
+    /// Persisted when already Persisted, or when the written version
+    /// has reached changedVersion. An older write stays Unpersisted.
+    let private persistStateForWritten (node: Node) (written: EventId) =
+        let document = node.documentState
+        let caughtUp =
+            EventId.value written
+            >= EventId.value document.changedVersion
+        match document.persistState with
+        | PersistState.Persisted -> PersistState.Persisted
+        | PersistState.Unpersisted when caughtUp ->
+            PersistState.Persisted
+        | PersistState.Unpersisted -> PersistState.Unpersisted
+
+    let private withPersistedVersion
+        (nodeId: NodeId)
+        (persistedVersion: EventId)
+        (graph: Graph)
+        : Result<Graph, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node ->
+            let updated =
+                { node with
+                    documentState =
+                        { node.documentState with
+                            persistedVersion = persistedVersion } }
+            Ok { graph with nodes = Map.add nodeId updated graph.nodes }
+
     let private writePersisted persist nodeId persistedVersion updateTime =
         CoreEventDispatch.writeAxis
             persist
             (Notice.NodePersisted(nodeId, persistedVersion, updateTime))
             (fun live ->
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Persisted
-                    live
-                |> Result.bind (stampUpdateTime nodeId updateTime))
+                match Map.tryFind nodeId live.nodes with
+                | None -> Error "node not found"
+                | Some node ->
+                    let next =
+                        persistStateForWritten node persistedVersion
+                    GraphMutate.setPersistState nodeId next live
+                    |> Result.bind (
+                        withPersistedVersion nodeId persistedVersion)
+                    |> Result.bind (stampUpdateTime nodeId updateTime))
 
     let internal applyNotice
         (persist: PersistHandlers)
