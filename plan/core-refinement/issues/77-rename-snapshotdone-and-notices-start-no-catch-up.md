@@ -33,7 +33,7 @@ After [76](76-log-notices-on-the-event-log.md), each Notice is on the event log.
 ## Amendments
 
 1. **Poll flag** — `Api.postPoll` and `SyncLogic.loadResponseToPoll` use the same Notice rule as `Api.acceptedChangeResult`. A poll whose events are only Notices does not set `externalChanges`.
-2. **Ack path** — `SyncLogic.identityError` and `SyncLogic.collectSuffixes` ignore Notice events, so `SyncLogic.reconcileAck` accepts a reply that also carries a Notice. The choice uses `EventBody.Notice`, not `commandName` or `Authority`.
+2. **Ack path** — `SyncLogic.identityError` and `SyncLogic.collectSuffixes` ignore Notice events, so `SyncLogic.reconcileAck` accepts a reply that also carries a Notice. The choice uses History `EventBody.Notice`, not `commandName` or `Authority`.
 3. **Poll apply** — `SyncLogic.foldProjectedEvents` advances the event id for a Notice and does not apply ops. A Notice does not rewind or replay.
 4. **User docs** — [doc/user](../../../doc/user) has no page for this reply flag. No user page changed.
 

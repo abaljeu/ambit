@@ -30,8 +30,8 @@ let private restored event =
 
 let private placed event =
     match (logged event).body with
-    | MailboxLog.EventBody.Order value -> value
-    | MailboxLog.EventBody.Notice _ ->
+    | MailboxLog.MailboxEventBody.Order value -> value
+    | MailboxLog.MailboxEventBody.Notice _ ->
         Assert.Fail("expected Order")
         Unchecked.defaultof<_>
 
@@ -41,10 +41,10 @@ let ``ofEv then toEv keeps a Change`` () =
     let event = source "Set text" (EventBody.Change ops)
     let order = placed event
     Assert.Equal(event.id, (logged event).id)
-    Assert.Equal(event.submissionId, order.orderId)
+    Assert.Equal(OrderId event.submissionId, order.orderId)
     Assert.Equal(event.authority, order.authority)
     Assert.Equal(Some "Set text", order.commandName)
-    Assert.Equal(Order.Change ops, order.order)
+    Assert.Equal(Order.Change(ops, ChangeOrigin.Edit), order.order)
     Assert.Equal(event, restored (logged event))
 
 [<Fact>]

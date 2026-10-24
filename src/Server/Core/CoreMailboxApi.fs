@@ -129,6 +129,30 @@ module CoreMailboxApi =
                     take acc rest
         take [] ids
 
+    /// A duplicate submissionId replies the stored id. The catch-up cursor
+    /// stays at the log tip when a later Change is already stored, so the
+    /// ack list does not gain that Change.
+    let private cursorAfterDuplicateChange
+        (log: EventLog)
+        (accepted: CoreChangesAccepted)
+        =
+        let laterChange =
+            log.events
+            |> List.exists (fun event ->
+                event.id > accepted.eventId
+                && match event.body with
+                   | EventBody.Change _ -> true
+                   | _ -> false)
+        if EventId.isAccepted accepted.eventId && laterChange then
+            let tip =
+                log.events
+                |> List.fold
+                    (fun tip event -> EventId.max tip event.id)
+                    accepted.eventId
+            { accepted with eventId = tip }
+        else
+            accepted
+
     let private acceptedFromIds host posted ids =
         async {
             let! log = eventsSince host (afterId ids)
@@ -140,7 +164,8 @@ module CoreMailboxApi =
                         CoreChanges.fromPosted
                             (MailboxHost.isReady host ())
                             posted
-                            stored)
+                            stored
+                        |> cursorAfterDuplicateChange log)
         }
 
     let private mergeIdReplies host posted results =
@@ -165,6 +190,27 @@ module CoreMailboxApi =
                 | Ok _ -> return Error "stored Event not found"
         }
 
+    let private postedMailbox
+        (caller: Caller)
+        (event: Ev)
+        (channel: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match event.body with
+        | EventBody.Change _ when event.id = EventId.zero ->
+            match MailboxLog.ofEv event with
+            | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
+                Mailbox.PlaceOrder {
+                    tracking = {
+                        orderId = placed.orderId
+                        caller = caller
+                        commandName = placed.commandName }
+                    order = placed.order
+                    reply = channel }
+            | _ ->
+                Mailbox.CoreMsg(PostEvent(caller, event, channel))
+        | _ ->
+            Mailbox.CoreMsg(PostEvent(caller, event, channel))
+
     /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
@@ -180,7 +226,7 @@ module CoreMailboxApi =
             let builds =
                 events
                 |> List.map (fun (event: Ev) ->
-                    fun channel -> PostEvent(caller, event, channel))
+                    fun channel -> postedMailbox caller event channel)
             let waiting = MailboxHost.postForReplies host builds
             async {
                 let! results = waiting
@@ -260,12 +306,13 @@ module CoreMailboxApi =
         (subject: NodeId)
         : Async<Result<EventId, string>> =
         MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-            Mailbox.PlaceOrder(
-                caller,
-                System.Guid.NewGuid(),
-                None,
-                Order.Load subject,
-                channel))
+            Mailbox.PlaceOrder {
+                tracking = {
+                    orderId = OrderId.New()
+                    caller = caller
+                    commandName = None }
+                order = Order.Load subject
+                reply = channel })
 
     let actorStop
         (host: MailboxHost)

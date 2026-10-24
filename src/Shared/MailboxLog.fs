@@ -3,8 +3,13 @@ namespace Gambol.Shared
 type PeerActorName = PeerActorName of string
 
 [<RequireQualifiedAccess>]
+type ChangeOrigin =
+    | Edit
+    | Parse
+
+[<RequireQualifiedAccess>]
 type Order =
-    | Change of ops: Op list
+    | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId
     | Redo of target: EventId
     | StartActor of ActorStart
@@ -19,7 +24,7 @@ type Order =
     | Cancel of focusId: NodeId
 
 type PlacedOrder = {
-    orderId: System.Guid
+    orderId: OrderId
     authority: Authority
     commandName: string option
     order: Order }
@@ -31,13 +36,13 @@ module MailboxLog =
     type private HistoryBody = Gambol.Shared.EventBody
 
     [<RequireQualifiedAccess>]
-    type EventBody =
+    type MailboxEventBody =
         | Order of PlacedOrder
         | Notice of Notice
 
     type Ev = {
         id: EventId
-        body: EventBody }
+        body: MailboxEventBody }
 
     let private commandFromText (name: string) =
         if name = "" then None else Some name
@@ -48,14 +53,15 @@ module MailboxLog =
         | Some text -> text
 
     let private placedOrder (event: HistoryEv) (order: Order) = {
-        orderId = event.submissionId
+        orderId = OrderId event.submissionId
         authority = event.authority
         commandName = commandFromText event.commandName
         order = order }
 
     let private orderOfBody (body: HistoryBody) =
         match body with
-        | HistoryBody.Change ops -> Ok (Order.Change ops)
+        | HistoryBody.Change ops ->
+            Ok (Order.Change(ops, ChangeOrigin.Edit))
         | HistoryBody.Undo (target, _) -> Ok (Order.Undo target)
         | HistoryBody.Redo (target, _) -> Ok (Order.Redo target)
         | HistoryBody.ActorStart start ->
@@ -67,7 +73,7 @@ module MailboxLog =
 
     let private historyBody (order: Order) =
         match order with
-        | Order.Change ops -> Ok (HistoryBody.Change ops)
+        | Order.Change (ops, _) -> Ok (HistoryBody.Change ops)
         | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
@@ -82,18 +88,18 @@ module MailboxLog =
         | Ok order ->
             Ok {
                 id = event.id
-                body = EventBody.Order (placedOrder event order) }
+                body = MailboxEventBody.Order (placedOrder event order) }
 
     let toEv (event: Ev) : Result<HistoryEv, string> =
         match event.body with
-        | EventBody.Notice _ -> Error "unsupported"
-        | EventBody.Order placed ->
+        | MailboxEventBody.Notice _ -> Error "unsupported"
+        | MailboxEventBody.Order placed ->
             match historyBody placed.order with
             | Error err -> Error err
             | Ok body ->
                 Ok {
                     id = event.id
-                    submissionId = placed.orderId
+                    submissionId = placed.orderId.Value
                     authority = placed.authority
                     commandName = commandToText placed.commandName
                     body = body }

@@ -40,7 +40,7 @@ Write each section as a list, one finding per item. An empty section is one item
 
 1. **Standards.** Run `python scripts/standards-scan.py --diff origin/staging` from the repo root. A printed line is a finding when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. Then check the diff against each file in [[.agents/rules/]] and against the smells below. Label each finding:
    - **Hard** — breaks a rule. Cite the rule file and the rule.
-   - **Judgement** — a smell. Name the smell and quote the hunk.
+   - **Judgement** — a smell. Name the smell and quote the hunk. Source: [[SMELLS.md]]
 2. **Spec.** Score the diff against each story the ticket names, using `spec.md` and the ticket. Label each finding:
    - **Missing** — a requirement with no code.
    - **Partial** — a requirement with incomplete code.
@@ -63,17 +63,6 @@ Write each section as a list, one finding per item. An empty section is one item
 
 Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
 
-## 4. Smells
-
-- **Mysterious Name** — the name hides what it does or holds. Rename it.
-- **Duplicated Code** — the same logic in two hunks or files. Extract it.
-- **Feature Envy** — a function reaches into another type's data more than its own. Move it to that data.
-- **Data Clumps** — the same fields or parameters travel together. Give them one type.
-- **Primitive Obsession** — a primitive stands in for a domain concept. Give the concept its own type.
-- **Shotgun Surgery** — one change edits many files. Gather what changes together.
-- **Speculative Generality** — parameters or hooks the spec has no need for. Inline them.
-- **Middle Man** — a function that only forwards. Call the target.
-- **Argument Count** — more than four positional arguments. Give them a record type.
-- **Overcomplication** — a simpler approach does the same work. Use it.
+## 4. Finish
 
 Done: the report has the six sections, each section is a list, the Miss section names what returns the ticket to build, and each Found elsewhere item is accepted or rejected.
