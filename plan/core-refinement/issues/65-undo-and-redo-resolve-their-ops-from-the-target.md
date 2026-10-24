@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg; 64 — Merge PostEvent and PostGraphOnly into Change
+**Blocked by:** 60 — Add Mailbox beside CoreMsg; 64 — Place Edit changes as Order.Change
 **Trackers:** architecture
 
 ## Context
@@ -28,7 +28,7 @@
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
-- [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
+- [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md)
 - [47 — Undo and redo set Unpersisted](47-undo-and-redo-set-unpersisted.md)
 - [GLOSSARY](../../../GLOSSARY.md)

@@ -20,7 +20,7 @@ Rules:
 2. The mailbox does not wait on a document write.
 3. A failed write does not fail the edit. `PersistThread.afterWrite` posts `Notice.PersistFailed` for each node, and the handler leaves the persist field unchanged. The browser shows the write error in `CmdLastResult`.
 
-This ticket does not change `Notice.NodePersisted`. It comes before [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md).
+This ticket does not change `Notice.NodePersisted`. It comes before [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md).
 
 ## What to build
 
@@ -72,6 +72,6 @@ An Edit document write returns before the persist thread finishes. Stamp ops and
 - [46 — Record the persist version](46-record-the-persist-version.md)
 - [70 — Add the persist request stack](70-add-the-persist-request-stack.md)
 - [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
-- [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
+- [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [Core mailbox messages clear fast](../../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md)
 - [GLOSSARY](../../../GLOSSARY.md)

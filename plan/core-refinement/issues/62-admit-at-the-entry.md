@@ -23,7 +23,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 
 ### 2. Change
 
-1. [x] **Route** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. Keep this check in front of today's `PostEvent` and `PostGraphOnly` throughout [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md), then keep the same check in front of `PlaceOrder`.
+1. [x] **Route** — `RouteRegistration.withBrowserChanges` checks that the cookie caller is logged in before the route body places an order. A missing cookie gets 401. A caller who is not logged in gets 401. Keep this check in front of today's `PostEvent` and `PostGraphOnly` throughout [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md), then keep the same check in front of `PlaceOrder`.
 2. [x] **Actor** — `CoreMailboxActors.prepareActorStart` admits `Authority "Actor"` when the start runs, using the pool live check `admitCaller` uses today. Establish this permission before removing any repeated core check. A later post from that Actor reads the established authority and does not admit again.
 3. [x] **Core** — After the matching route or Actor-start check is active, remove `admitCaller` from `CoreEventDispatch.postEvent`. `prepare` still copies `caller.authority` onto the stored event. Remove `admitCaller` from `dispatchActorStop`, `runCancel`, `dispatchRecordSearchStart`, `dispatchRecordSearchStop`, and `dispatchLoad` only after each path has an established entry permission. Those handlers read the caller on the message.
 4. [x] **Safe migration** — Keep the old inner admission check while its replacement entry check is being added. At no intermediate step may a user route or Actor reach `PostEvent`, `PostGraphOnly`, `PlaceOrder`, or a successor order door without established permission. Duplicate checks are allowed during the handoff; an unchecked order door is not.
@@ -33,7 +33,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 1. [x] **Route** — `withBrowserChanges` returns 401 for a missing cookie and for a caller who is not logged in. It does not call `postEvent` on that path.
 2. [x] **postEvent** — `CoreEventDispatch.postEvent` has no `admitCaller` call. A direct post stores the event and the stored `authority` is the caller's `authority`.
 3. [x] **Actor start** — `prepareActorStart` rejects an Actor whose secret is not live. After a live start, `postEvent` from that Actor stores the event and does not call `admitCaller`.
-4. [x] **Door switch** — Route admission remains in force while [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md) changes the route post to `PlaceOrder`. Actor start admission is in force before [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) changes the Actor post. No test step exposes an order door without one of those entry checks.
+4. [x] **Door switch** — Route admission remains in force while [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md) changes the route post to `PlaceOrder`. Actor start admission is in force before [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) changes the Actor post. No test step exposes an order door without one of those entry checks.
 5. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
 
 ## Finish-up
@@ -60,7 +60,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 - [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
 - [63 — Move queries to Ask](63-move-queries-to-ask.md)
-- [64 — Merge PostEvent and PostGraphOnly into Change](64-merge-postevent-and-postgraphonly-into-change.md)
+- [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)
 - [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md)
 - [GLOSSARY](../../../GLOSSARY.md)
