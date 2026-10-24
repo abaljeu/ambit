@@ -26,42 +26,65 @@ Copy these headings into the ticket. Leave each pointer line as written. A point
 # <NN> — <ticket name>
 
 ## 1. Type
-Set `coding` or `bug-fixing`. `coding` adds behavior. `bug-fixing` corrects behavior.
 
 ## 2. Blockers
-Name the earlier tickets by number and name. Blockers are the order. Name none when this ticket can start.
 
 ## 3. Look at
-Name the files, the types, and the functions to read.
 
 ## 4. Context
-Describe the state before this work is done.
 
 ## 5. Changes
-Name the changes to make.
 
 ## 6. Tests
-Name each test to add or change, its file, and what it checks. Name the `--filter` names that run them.
 
 ## 7. Done
-How we can validate the ticket is accomplished.
+[ ] Run `scripts/agent-test.sh` with no arguments.
+[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] All executed tests pass.
 
 ```
 
-## 3. Done
+## 3. Fill
+
+These sections are a technical spec. Write each one in the Technical writing form in [Writing markdown](.agents/rules/writing-markdown.md):
+
+- Look at
+- Context
+- Changes
+- Tests
+- Done
+
+1. **Type.** Set `coding` or `bug-fixing`. `coding` adds behavior. `bug-fixing` corrects behavior.
+2. **Blockers.** Name the earlier tickets by number and name. Blockers are the order. Write `none` when this ticket can start.
+3. **Look at.** One reading list. It names
+   - the owner module
+   - the files, types, and functions this ticket changes
+   - the named tests
+   - the match sites and callers
+4. **Context.** State the current types, replies, and helpers this change uses. Write those facts here.
+5. **Changes.** Name the one expand, change, or contract. Name each edit in a file Look at already named.
+6. **Tests.** Name each test to add or change, its file, what it checks, and the `--filter` names that run them.
+7. **Done.** Leave the template pointer lines under **7. Done**:
+   - [ ] Run `scripts/agent-test.sh` with no arguments.
+   - [ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+   - [ ] All executed tests pass.
+
+## 4. Done
 
 The ticket names
 
 - its type
 - its blockers
-- the files to look at
-- the types to look at
-- the functions to look at
-- the context
+- the Look at reading list
+  - the owner module
+  - the files, types, and functions this ticket changes
+  - the named tests
+  - the match sites and callers
+- the current types, replies, and helpers
 - the changes
 - the tests, with their files and filter names
 - what done looks like
 - one step of expand, change, or contract
-- every match site and caller it ripples to
+- the Technical writing form in [Writing markdown](.agents/rules/writing-markdown.md)
 
-The implementer uses the ticket and the code.
+The implementer reads the ticket and the files Look at names.

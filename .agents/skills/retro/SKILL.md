@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 **Friction** is a turn that cost a redo, a search or tool call past a result the log already held, a question whose answer the repo already held, or an edit a later turn undid. The work log is the session transcript and every subagent transcript that session dispatched. A session the human names is the work log. No name means the current session.
 
+Report your results in /wait-what style.
+
 ## 1. Read the work log
 
 Read the work log through its last turn. Done: the session has a name, the last user turn and the last assistant turn can be quoted, and every dispatched subagent transcript has been read.

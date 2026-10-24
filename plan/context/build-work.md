@@ -20,10 +20,12 @@ The ticket is the template. Read the ticket and the source it names.
 
 1. **Tests.** Follow [[.agents/skills/tdd/SKILL.md]]. Write or change the tests the ticket names. 
 2. **Changes.** Make the changes the ticket names, in the files, types, and functions the ticket names.
-3. **Focused tests.** Run focused tests related to the edits. Commit and push only when those tests pass.
+3. **Done checks.** Run the Done checks below. Commit and push only when those checks pass.
 
 Done:
 
 - those changes exist in that source
-- the named tests pass in a focused run
+- Run `scripts/agent-test.sh` with no arguments.
+- If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+- All executed tests pass.
 - the ticket status is `coded`
