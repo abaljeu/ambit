@@ -1,6 +1,6 @@
 # 64 — Place Edit changes as Order.Change
 
-**Status:** `coded`
+**Status:** `done`
 **Trackers:** architecture
 
 ## 1. Type

@@ -1,6 +1,6 @@
 # 101 — Client sync applies the persist version rule
 
-**Status:** `coded`
+**Status:** `done`
 
 ## 1. Type
 bug-fixing
