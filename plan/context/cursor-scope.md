@@ -26,6 +26,8 @@ The prompt names
 
 Cursor writes only that report. The report uses the Technical writing form in [Writing markdown](.agents/rules/writing-markdown.md).
 
+The report obeys numbers get names in [Refer by name](.agents/rules/refer-by-name.md) before it is done.
+
 ### Signatures
 
 [ ] Current type and function signatures this change uses
@@ -65,3 +67,4 @@ Grok's Fill context is that report, the slice or the ticket, and the files those
 - the report exists at that path
 - each item is one fact
 - Grok wrote the ticket or the source from that report
+- a bare ticket id fails the report: `ticket 102` fails, and `102 — Place Parse changes as Order.Change` is the named form

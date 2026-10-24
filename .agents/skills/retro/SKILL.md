@@ -1,23 +1,45 @@
 ---
 name: retro
-description: Examine the agent's work log, surface problems, and propose improvements.
-disable-model-invocation: true
+description: "Retrospective after a coding session. Propose agent-environment changes. Change nothing until the human picks."
+disable-model-invocation: false
 ---
 
-# Retro
+Suggest changes to the agent environment. Product code stays out of this skill. The human picks before any edit.
 
-**Friction** is a turn that cost a redo, a search or tool call past a result the log already held, a question whose answer the repo already held, or an edit a later turn undid. The work log is the session transcript and every subagent transcript that session dispatched. A session the human names is the work log. No name means the current session.
+## Process
 
-Report your results in /wait-what style.
+### 1. Load the writing rules
 
-## 1. Read the work log
+Follow [[.agents/skills/writing-for-agents/SKILL.md]] for a later instruction edit. Do not edit in this step. Done: those skills are in hand, and no file has changed.
 
-Read the work log through its last turn. Done: the session has a name, the last user turn and the last assistant turn can be quoted, and every dispatched subagent transcript has been read.
+### 2. Read the session
 
-## 2. Surface problems
+Read the session the human names. When the human names none, read the current session. Read the diff and the skills that session used. Done: you can name the session and the friction in it.
 
-List each friction as one problem. Cite the turn. Only turns that match the friction definition appear. An empty list is complete. Done: every friction in the work log is one problem, and each problem cites its turn.
+### 3. Find candidates
 
-## 3. Propose improvements
+Look in these seven places. Put each candidate in one place.
 
-Give each problem one improvement. The improvement names the change and the path that would hold it. Order by how many turns show the problem, highest first. The reply is that list. Done: the human has the ordered list, and every file matches its contents at the start of this skill.
+1. **Navigation** — the agent was slow to find a file, or a dependency was hidden. A navigation pointer is the usual fix.
+2. **Automated checks** — a mistake a check could catch, or the repo has no guardrail.  A check that exists but did not run is the finding. Do not invent a second checker for the same rule.
+3. **Coding standards** — the reviewer missed a mistake. A mechanical miss (a fixed pattern, a banned call, an import shape, a file location) becomes a deterministic check.  The reviewer holds that standard. The implementer does not receive a new prose rule for the same miss.
+4. **Global instructions** — a steering line belongs in a narrower rule or in a check. Find the responsible file relative to [[AGENTS.md]].  Put the normative rule in that role file.
+5. **Tool economy** — an expensive tool call has a cheaper path.
+6. **No-ops** — a steering sentence does not change behaviour. Contradicting constructions forced a poor choice.  Delete that sentence when the human picks it.
+7. **Information access** — a fact the agent needed was not available.
+8. **Context overload** - too many tokens were produced. For amounts over 50K identify the source.  Report possible remedies.
+
+Send other findings to their owner.  See [[CONTEXT.md]].
+
+- Git procedure stays [[.agents/skills/git-protocol/SKILL.md]].
+- Read domain words from [[GLOSSARY.md]].
+
+Done: each candidate has one place, a severity, and the file that would change. Each out-of-scope item names its owner.
+
+### 4. Present the list
+
+Give the human the candidates, most serious first. Each item says the change and the home. Change nothing in this step. Done: the human has the ranked list, and no skill, rule, doc, or product file was edited.
+
+### 5. Apply only a picked item
+
+Edit only the items the human picks. Follow [[.agents/rules/no-retrofit.md]]. A process edit does not rewrite old tickets, specs, or reports. A picked product defect becomes a ticket through [[plan/context/ticket-work.md]]. It is not a silent product edit. When the human picks nothing, leave the tree unchanged. Done: the tree matches the picks, or the tree is unchanged.
