@@ -4,6 +4,8 @@
 
 The work is the source the ticket names. Change that source when the build step is about to be worked.
 
+Start with [Cursor scope](cursor-scope.md) in `implement` mode. Fill from the ticket and that report.
+
 Scope:
 
 - Build edits source and tests, plus the ticket's status and checkboxes.

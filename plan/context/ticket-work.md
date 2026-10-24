@@ -4,6 +4,8 @@
 
 The input is one ticket's scope from [[slicing-work.md]].
 
+Start with [Cursor scope](cursor-scope.md) in `write-ticket` mode. Fill this ticket from that report.
+
 Define the details:
 
 - type

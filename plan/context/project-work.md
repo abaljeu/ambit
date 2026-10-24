@@ -9,15 +9,15 @@ This file is the router.
 ## Elements
 These are possible steps that may apply to a project.
 
-map: [[map-work.md]]
-spec: [[spec-work.md]]
-arch: [[arch-work.md]]
-slicing: [[slicing-work.md]]
-ticket: [[ticket-work.md]]
-build: [[build-work.md]]
-review: [[review-work.md]]
-document: [[document-work.md]]
- refactor: [[refactor-work.md]]
+map out the objective and scope: [[map-work.md]]
+storyboard the user's specification: [[spec-work.md]]
+plan the architecture: [[arch-work.md]]
+split the work into tickets, aka slicing: [[slicing-work.md]]
+write a ticket: [[ticket-work.md]]
+build or code: [[build-work.md]]
+review the code: [[review-work.md]]
+document the program per the change: [[document-work.md]]
+refactor the code: [[refactor-work.md]]
 
 ## Sequence
 project.md within a project defines the actual steps of any given project.  If it does not, then this is the default sequence:
