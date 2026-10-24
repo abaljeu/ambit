@@ -1,6 +1,6 @@
 # 95 — Node JSON stores the persist versions
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding

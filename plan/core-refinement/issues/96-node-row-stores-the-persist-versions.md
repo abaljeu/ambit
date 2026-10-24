@@ -1,6 +1,6 @@
 # 96 — Node row stores the persist versions
 
-**Status:** `defined`
+**Status:** `coded`
 
 ## 1. Type
 coding
