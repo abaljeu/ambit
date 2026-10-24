@@ -1,6 +1,8 @@
 module Gambol.Server.Tests.PersistApplyTests
 
 open System
+open System.IO
+open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -139,9 +141,15 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
     finally
         CoreMailboxApi.dispose host
 
-/// Spec §2.6: Undo and Redo set Unpersisted and do not write a version.
-/// commandName stays the original Edit so a command-name check would still stamp.
-let private persistedAt version text =
+let private withPersistedVersions changed persisted node =
+    { node with
+        documentState =
+            { node.documentState with
+                persistState = PersistState.Persisted
+                changedVersion = changed
+                persistedVersion = persisted } }
+
+let private fileAt text persisted =
     let fileId = NodeId.New()
     let node =
         Node.Create(
@@ -149,8 +157,7 @@ let private persistedAt version text =
             text = text,
             name = Filename.create "note.txt",
             kind = Special File)
-        |> Node.withUnpersistedAt version
-        |> Node.withPersistState PersistState.Persisted
+        |> withPersistedVersions EventId.zero persisted
     fileId, node
 
 let private seedPersisted handlers fileId node =
@@ -166,46 +173,180 @@ let private editAction id body : Ev =
       commandName = "Edit"
       body = body }
 
-let private assertKeptVersion state fileId text version =
-    let live = state.graph.nodes.[fileId]
-    Assert.Equal(text, live.text)
-    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
-    Assert.Equal(version, live.documentState.changedVersion)
-
-let private applyKept handlers graphOnly event fileId text version =
-    requireOk "applyEvent" (handlers.applyEvent event graphOnly) |> ignore
-    let state = requireOk "getState" (handlers.getState ())
-    assertKeptVersion state fileId text version
-
 let private fileHandlers () =
     let agent = FileAgent.create (newTempDir ())
     (FileAgent.persist agent).handlers
 
-let private dbHandlers () =
-    let initial =
-        { graph = Graph.create (); eventId = EventId.zero }
-    let agent = DbAgent.createForTest initial (fun _ -> Ok [])
-    (DbAgent.persist agent).handlers
+let private applyAction handlers event =
+    requireOk "applyEvent" (handlers.applyEvent event false) |> ignore
+    requireOk "getState" (handlers.getState ())
 
-/// Apply one Undo or Redo whose commandName is still the original Edit.
-let private runAction handlers graphOnly before after bodyFor =
+let private assertVersions state fileId text changed persisted =
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(text, live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+
+/// Edit at V, then Undo or Redo at a later id. persistedVersion stays.
+let private editThenAction handlers actionId bodyFor =
     let version = EventIdFixtures.storedId 4
-    let fileId, node = persistedAt version before
+    let persisted = EventIdFixtures.storedId 2
+    let fileId, node = fileAt "hello" persisted
     seedPersisted handlers fileId node
-    let event = editAction 9 (bodyFor version fileId)
-    applyKept handlers graphOnly event fileId after version
+    let edit =
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ])
+    applyAction handlers edit |> ignore
+    let action = editAction actionId (bodyFor version fileId)
+    let state = applyAction handlers action
+    fileId, persisted, state
 
 [<Fact>]
-let ``Undo and Redo leave Unpersisted and keep changedVersion`` () =
+let ``Undo sets changedVersion to the Undo event and leaves persistedVersion`` () =
     let undo version fileId =
-        EventBody.Undo(
-            version,
-            [ Op.SetText(fileId, "edited", "hello") ])
-    let redo version fileId =
-        EventBody.Redo(
-            version,
-            [ Op.SetText(fileId, "hello", "edited") ])
-    runAction (fileHandlers ()) false "edited" "hello" undo
-    runAction (fileHandlers ()) true "hello" "edited" redo
-    runAction (dbHandlers ()) false "edited" "hello" undo
-    runAction (dbHandlers ()) true "hello" "edited" redo
+        EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])
+    let fileId, persisted, state =
+        editThenAction (fileHandlers ()) 9 undo
+    assertVersions
+        state fileId "hello" (EventIdFixtures.storedId 9) persisted
+
+[<Fact>]
+let ``Redo sets changedVersion to the Redo event and leaves persistedVersion`` () =
+    let handlers = fileHandlers ()
+    let version = EventIdFixtures.storedId 4
+    let persisted = EventIdFixtures.storedId 2
+    let fileId, node = fileAt "hello" persisted
+    seedPersisted handlers fileId node
+    applyAction handlers (
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ]))
+    |> ignore
+    applyAction handlers (
+        editAction 9 (
+            EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])))
+    |> ignore
+    let state =
+        applyAction handlers (
+            editAction 12 (
+                EventBody.Redo(
+                    EventIdFixtures.storedId 9,
+                    [ Op.SetText(fileId, "hello", "edited") ])))
+    assertVersions
+        state fileId "edited" (EventIdFixtures.storedId 12) persisted
+
+let private postBody host commandName body =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = commandName
+          body = body }
+    CoreMailboxApi.postEvent host testCaller event |> Async.StartAsTask
+
+let private stateOf host = task {
+    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+    return requireOk "getState" state
+}
+
+let private artifactText dataDir graph fileId =
+    let path =
+        DocumentPersistPath.resolveArtifactPath dataDir graph fileId
+        |> requireOk "path"
+    if File.Exists path then File.ReadAllText path else ""
+
+let private waitUntil label ready = task {
+    let start = DateTime.UtcNow
+    let rec poll () = task {
+        let! ok = ready ()
+        if ok || (DateTime.UtcNow - start).TotalSeconds >= 4.0 then
+            Assert.True(ok, label)
+        else
+            do! Task.Delay 20
+            return! poll ()
+    }
+    do! poll ()
+}
+
+[<Fact>]
+let ``Undo pushes the document root and the persist thread writes the undone graph`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = admittedHostFile (FileAgent.create dataDir)
+        try
+            let! initial = stateOf host
+            let workspaceId, workspaceOps =
+                FileNodeOps.planCreateWorkspace initial.graph "home"
+            let! workspace =
+                postBody host "Create workspace" (EventBody.Change workspaceOps)
+            requireOk "workspace" workspace |> ignore
+            let! afterWorkspace = stateOf host
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    afterWorkspace.graph workspaceId "note.txt"
+            let! file =
+                postBody host "Create file" (EventBody.Change fileOps)
+            requireOk "file" file |> ignore
+            CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
+            do!
+                waitUntil "parsed file" (fun () -> task {
+                    let! state = stateOf host
+                    return
+                        state.graph.nodes.[fileId].parseState
+                        = ParseState.Parsed
+                })
+            let! afterFile = stateOf host
+            let childId = NodeId.New()
+            let oldChildren = GraphChildren.get afterFile.graph fileId
+            let addChild =
+                EventBody.Change [
+                    Op.NewNode(childId, "edited")
+                    Op.Replace(
+                        fileId,
+                        oldChildren,
+                        oldChildren @ [ ChildNode.owner childId ])
+                ]
+            let! edited = postBody host "Edit" addChild
+            let storedEdit = requireOk "edit" edited
+            do!
+                waitUntil "edited file" (fun () -> task {
+                    let! state = stateOf host
+                    let text = artifactText dataDir state.graph fileId
+                    return text.Contains "edited"
+                })
+            let! undone =
+                postBody
+                    host
+                    "Edit"
+                    (EventBody.Undo(storedEdit.id, []))
+            let storedUndo = requireOk "undo" undone
+            do!
+                waitUntil "undone file" (fun () -> task {
+                    let! state = stateOf host
+                    let text = artifactText dataDir state.graph fileId
+                    let unlinked =
+                        GraphChildren.get state.graph fileId
+                        |> List.forall (fun child -> child.id <> childId)
+                    return unlinked && not (text.Contains "edited")
+                })
+            let! final = stateOf host
+            let! events =
+                CoreMailboxApi.getEventsSince host EventId.zero
+                |> Async.StartAsTask
+            let undoAt =
+                events
+                |> List.findIndex (fun event ->
+                    event.submissionId = storedUndo.submissionId)
+            let wroteFile =
+                events
+                |> List.skip (undoAt + 1)
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
+                        id = fileId
+                    | _ -> false)
+            Assert.True(wroteFile, "persist thread wrote the file after Undo")
+            Assert.Equal(
+                storedUndo.id,
+                final.graph.nodes.[fileId].documentState.changedVersion)
+        finally
+            CoreMailboxApi.dispose host
+    }
