@@ -270,19 +270,6 @@ module internal CoreMailboxLoad =
             pushParsedUnpersisted persist nodeId
             persist.noteParsed nodeId)
 
-    /// Persisted when already Persisted, or when the written version
-    /// has reached changedVersion. An older write stays Unpersisted.
-    let private persistStateForWritten (node: Node) (written: EventId) =
-        let document = node.documentState
-        let caughtUp =
-            EventId.value written
-            >= EventId.value document.changedVersion
-        match document.persistState with
-        | PersistState.Persisted -> PersistState.Persisted
-        | PersistState.Unpersisted when caughtUp ->
-            PersistState.Persisted
-        | PersistState.Unpersisted -> PersistState.Unpersisted
-
     let private withPersistedVersion
         (nodeId: NodeId)
         (persistedVersion: EventId)
@@ -307,7 +294,9 @@ module internal CoreMailboxLoad =
                 | None -> Error "node not found"
                 | Some node ->
                     let next =
-                        persistStateForWritten node persistedVersion
+                        DocumentState.persistStateForWritten
+                            node.documentState
+                            persistedVersion
                     GraphMutate.setPersistState nodeId next live
                     |> Result.bind (
                         withPersistedVersion nodeId persistedVersion)

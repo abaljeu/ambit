@@ -109,6 +109,21 @@ module DocumentState =
         elif state.parseState = ParseState.Unparsed then Unparsed
         else Current
 
+    /// Persisted when already Persisted, or when the written version
+    /// has reached changedVersion. An older write stays Unpersisted.
+    let persistStateForWritten
+        (document: DocumentState)
+        (written: EventId)
+        : PersistState =
+        let caughtUp =
+            EventId.value written
+            >= EventId.value document.changedVersion
+        match document.persistState with
+        | PersistState.Persisted -> PersistState.Persisted
+        | PersistState.Unpersisted when caughtUp ->
+            PersistState.Persisted
+        | PersistState.Unpersisted -> PersistState.Unpersisted
+
 type DocumentState with
     member this.AsEnum = DocumentState.toLegacy this
 
