@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [113 — Actors post Notice.ActorStopped](113-actors-post-notice-actorstopped.md)
+[ ] [118 — Test Actors return their result](118-test-actors-return-their-result.md)
 
 ## 3. Look at
 
@@ -19,7 +19,8 @@
 
 ### Source
 
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `actorStop`, `actorStopped`
+[ ] [CoreDoor.fs](src/Server/Core/CoreDoor.fs) `actorStop`
+[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `actorStop`, `postNotice`
 [ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `runMsg`, `messageCaller`
 [ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `operationContext`, `replyFailure`
 [ ] [CoreMailboxActors.fs](src/Server/Core/CoreMailboxActors.fs) `dispatchActorStop`
@@ -28,7 +29,8 @@
 
 [ ] `CoreMsg.ActorStop` is built only in `CoreMailboxApi.actorStop`
 [ ] It is matched in `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`
-[ ] `CoreMailboxApi.actorStop` is called from 4 test files and no source file
+[ ] `CoreDoor.actorStop` has no caller after 118
+[ ] `CoreMailboxApi.actorStop` is called from `CoreDoor.actorStop` and from 4 test files
 
 ### Tests this ticket names
 
@@ -41,36 +43,41 @@
 
 ### Today
 
-[ ] After 113, no Actor calls `CoreMailboxApi.actorStop`
-[ ] `ActorStop with Test credentials is refused`, `ActorStop with Browser credentials is refused`, and `ActorStop with Parse credentials is refused` check the caller's authority
-[ ] A Notice carries no caller, so `actorStopped` has no authority check
-[ ] `actorStopped` returns before the mailbox applies the Notice
+[ ] After 117 and 118, no Actor and no other test sends a stop; the pool posts `Notice.ActorStopped` when an Actor ends
+[ ] `ActorStop with Test credentials is refused`, `ActorStop with Browser credentials is refused`, and `ActorStop with Parse credentials is refused` check the caller's authority on a sent stop
+[ ] A Notice has no caller; with no sent stop there is no credential to check
+[ ] `postNotice` returns before the mailbox applies the Notice
+
+### Decisions
+
+[ ] Alan, 2026-10-24: an Actor does not send a stop; it just stops
 
 ## 5. Changes
 
 ### Change
 
-[ ] One contract: `CoreMailboxApi.actorStop` and `CoreMsg.ActorStop` leave
+[ ] One contract: the sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.actorStop`, and `CoreMsg.ActorStop` leave
 
 ### Server
 
+[ ] Remove `CoreDoor.actorStop`
 [ ] Remove `CoreMailboxApi.actorStop`
 [ ] Remove `ActorStop` from `CoreMsg` and its arms from `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`
 [ ] Remove `CoreMailboxActors.dispatchActorStop`
 
 ### Size
 
-[ ] 5 source files: `CoreMsg.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMailboxActors.fs`
+[ ] 6 source files: `CoreMsg.fs`, `CoreDoor.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMailboxActors.fs`
 [ ] 4 test files: `CoreMsgActorCasesTests.fs`, `Issue41CoreMailboxTests.fs`, `MailboxHistoryDurabilityTests.fs`, `CancelByFocusTests.fs`
 
 ## 6. Tests
 
 ### Callers
 
-[ ] `postActorStop` in `CoreMsgActorCasesTests.fs` calls `actorStopped` with the focus, then reads the log so the Notice has been applied
-[ ] `mailbox appends ActorStart and ActorStop in lifecycle order` calls `actorStopped`
-[ ] `runMixedHello` calls `actorStopped`
-[ ] `actorStop after cancel does not emit a root Focus ActorStop` calls `actorStopped`
+[ ] `postActorStop` in `CoreMsgActorCasesTests.fs` posts `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`, then reads the log so the Notice has been applied
+[ ] `mailbox appends ActorStart and ActorStop in lifecycle order` posts `Notice.ActorStopped` the same way
+[ ] `runMixedHello` posts `Notice.ActorStopped` of the start's focus with `CoreMailboxApi.postNotice`, then reads the log
+[ ] `actorStop after cancel does not emit a root Focus ActorStop` posts `Notice.ActorStopped` after the Cancel; the log still holds one stop
 [ ] Filter: `CoreMsgActorCasesTests`
 [ ] Filter: `mailbox appends ActorStart and ActorStop in lifecycle order`
 [ ] Filter: `MailboxHistoryDurabilityTests`
@@ -81,6 +88,7 @@
 [ ] Remove `ActorStop with Test credentials is refused`
 [ ] Remove `ActorStop with Browser credentials is refused`
 [ ] Remove `ActorStop with Parse credentials is refused`
+[ ] No stop is sent, so there is no caller to refuse
 
 ## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.

@@ -24,8 +24,9 @@
 [ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `applyNotice`, `runMsg` arm `RecordSearchStop`
 [ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `completeAction`, `actorStop`, `appendLifecycle`
 [ ] [ActorLive.fs](src/Shared/ActorLive.fs) `applyEvent`, `resultOf`
-[ ] [SyncLogic.fs](src/Shared/SyncLogic.fs) `isNoticeEvent`
-[ ] [Api.fs](src/Server/Api.fs) `countsAsExternal`
+[ ] [SyncLogic.fs](src/Shared/SyncLogic.fs) `applyLoggedNotice`, `foldProjectedEvents`, `withProjectedGraph`; `isNoticeEvent` and `loadResponseToPoll`, read only
+[ ] [Api.fs](src/Server/Api.fs) `countsAsExternal`, read only
+[ ] [UpdateActorLive.fs](src/Client/UpdateActorLive.fs) `withActorCmdResult`, read only
 
 ### Match sites and constructors
 
@@ -33,7 +34,9 @@
 [ ] `EventBody.ActorStop` appears in 8 source files and 20 test files
 [ ] Constructors: `CoreEventDispatch.actorStop`, `CoreMailboxActors.runCancel`, `CoreMailboxActors.recordFailedStart`, `EventJson.decodeActorStopBody`
 [ ] Patterns: `Ev.ops`, `Ev.target`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch.completeAction`, `CoreMailboxActors.dispatchPostEvent`, `CoreMailboxApi.isClientActorStop`, `CoreMailboxApi.expandStored`, `EventJson.encodeBody`, `MailboxLog.orderOfBody`
-[ ] `EventBody.Notice _` arms that would now catch a stop: `SyncLogic.isNoticeEvent`, `Api.countsAsExternal`, `CoreEventDispatch.completeAction`
+[ ] `EventBody.Notice _` arms that now catch a stop: `SyncLogic.isNoticeEvent`, `Api.countsAsExternal`, `CoreEventDispatch.completeAction`
+[ ] `SyncLogic.isNoticeEvent` and `Api.countsAsExternal` catch a stop on purpose and stay as written
+[ ] `ActorLive.applyEvent` is called only from `SyncLogic.withProjectedGraph` on the poll path; `foldProjectedEvents` sends a Notice to `applyLoggedNotice`, which does not call it
 [ ] The `EventBody` module function and pattern keep the other sites as written
 
 ### Tests this ticket names
@@ -53,6 +56,8 @@
 [ ] `SyncLogic.isNoticeEvent` is true for every `EventBody.Notice`
 [ ] A Notice event applies no ops on the client and does not count as substantive
 [ ] `Api.countsAsExternal` is false for every `EventBody.Notice`
+[ ] `SyncLogic.applyLoggedNotice` advances the event id and applies `Notice.NodePersisted`; it leaves `actorLiveFocusIds` alone
+[ ] `UpdateActorLive.withActorCmdResult` reads the event list directly
 [ ] `CoreEventDispatch.completeAction` has its `EventBody.Notice` arm before its `EventBody.ActorStop` arm
 [ ] `EventJsonTests.fs` `ActorStop failed without message decodes as empty` decodes a JSON string of `kind` `actorStop`
 
@@ -63,13 +68,15 @@
 [ ] The search stop is logged as `Notice.SearchStopped`
 [ ] Existing `EventBody` member names stay
 [ ] Old-form logs are dropped
+[ ] Alan, 2026-10-24: the rule of [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md) covers stops: a stop Notice starts no catch-up
+[ ] A stop Notice tells the client it can drop its hold on the Actor; the client acts on it like any other Notice
 
 ## 5. Changes
 
 ### Change
 
 [ ] One contract: `EventBody.ActorStop` leaves; a stop is logged as `Notice.ActorStopped`, and a search stop as `Notice.SearchStopped`
-[ ] Client behavior does not change
+[ ] One client behavior changes: a poll that holds only a stop Notice starts no catch-up
 
 ### History.fs
 
@@ -93,16 +100,19 @@
 [ ] The `RecordSearchStop` arm of `runMsg` appends `EventBody.Notice (Notice.SearchStopped rootId)` with the caller, the way `CoreEventDispatch.actorStop` appends today
 [ ] `CoreEventDispatch.completeAction` puts the `EventBody.ActorStop` arm before the `EventBody.Notice` arm
 
-### Same client behavior
+### Client
 
-[ ] `SyncLogic.isNoticeEvent` is false for `EventBody.ActorStop _` and for `Notice.SearchStopped`
-[ ] `Api.countsAsExternal` is true for `EventBody.ActorStop _` and for `Notice.SearchStopped`
+[ ] `SyncLogic.isNoticeEvent` and `Api.countsAsExternal` do not change; a stop is a Notice to both
+[ ] `SyncLogic.applyLoggedNotice` sets `actorLiveFocusIds` to `ActorLive.applyEvent event st.actorLiveFocusIds` for every Notice
+[ ] `ActorLive.applyEvent` removes the focus on `Notice.ActorStopped`, through the `EventBody.(|ActorStop|_|)` pattern
 [ ] `ActorLive.applyEvent` removes the root on `Notice.SearchStopped`
+[ ] `ActorLive.applyEvent` leaves the live set alone for every other Notice
 [ ] `ActorLive.resultOf` gives the same result for `Notice.SearchStopped root` as for an `ActorStop` of `root` and `ActorSucceeded`
+[ ] `UpdateActorLive.withActorCmdResult` does not change
 
 ### Size
 
-[ ] 8 source files: `History.fs`, `EventJson.fs`, `Database.fs`, `CoreMailboxLoad.fs`, `CoreEventDispatch.fs`, `ActorLive.fs`, `SyncLogic.fs`, `Api.fs`
+[ ] 7 source files: `History.fs`, `EventJson.fs`, `Database.fs`, `CoreMailboxLoad.fs`, `CoreEventDispatch.fs`, `ActorLive.fs`, `SyncLogic.fs`
 [ ] 4 test files: `EventJsonTests.fs`, `ActorLiveTests.fs`, `SearchActorTests.fs`, `SyncLogicTests.fs`
 
 ## 6. Tests
@@ -126,9 +136,11 @@
 
 [ ] Add `SearchStopped removes the root` in `ActorLiveTests.fs`
 [ ] Filter: `SearchStopped removes the root`
-[ ] Add `an ActorStopped tail counts as substantive` in `SyncLogicTests.fs`
-[ ] A poll with only a stop is substantive, as today
-[ ] Filter: `an ActorStopped tail counts as substantive`
+[ ] Add `a stop-only poll removes the live focus and starts no catch-up` in `SyncLogicTests.fs`
+[ ] The state has a live focus; the poll holds only `Notice.ActorStopped` of that focus
+[ ] `applyServerTail` removes the focus from `actorLiveFocusIds`
+[ ] `loadResponseToPoll` gives `externalChanges` false, so no catch-up starts
+[ ] Filter: `a stop-only poll removes the live focus and starts no catch-up`
 
 ### Kept
 

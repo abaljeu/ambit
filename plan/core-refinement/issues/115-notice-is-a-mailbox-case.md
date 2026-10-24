@@ -76,7 +76,7 @@
 
 ### Kept
 
-[ ] Keep `ActorStopped for an idle focus logs nothing`
+[ ] Keep `ActorStopped for an idle focus logs nothing` from [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md)
 [ ] Filter: `ActorStopped for an idle focus logs nothing`
 
 ## 7. Done
