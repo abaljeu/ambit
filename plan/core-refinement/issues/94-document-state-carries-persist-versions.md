@@ -1,6 +1,6 @@
 # 94 — Document state carries persist versions
 
-**Status:** `defined`
+**Status:** `done`
 
 ## 1. Type
 coding

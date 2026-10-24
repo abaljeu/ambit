@@ -1,6 +1,6 @@
 # 93 — Compile EventId before Model
 
-**Status:** `defined`
+**Status:** `done`
 
 ## 1. Type
 coding
