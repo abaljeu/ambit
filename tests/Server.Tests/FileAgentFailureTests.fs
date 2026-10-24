@@ -41,9 +41,6 @@ let private softFailPersist
 let private decodeAck (accepted: CoreChangesAccepted) =
     accepted
 
-let private decodeAckMessage (accepted: CoreChangesAccepted) =
-    accepted.message
-
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
     let childId = NodeId.New()
@@ -169,8 +166,7 @@ let ``Failed write keeps the edit`` () = task {
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
         | Error error -> Assert.Fail($"expected success, got {error}")
-        | Ok accepted ->
-            Assert.Equal(None, accepted.message)
+        | Ok _ -> ()
         let! state =
             getState agent
             |> Async.StartAsTask
@@ -256,7 +252,7 @@ let ``Edit reply returns while the persist thread still holds the write`` () = t
         let! postResult = pending.WaitAsync(TimeSpan.FromSeconds(2.0))
         match postResult with
         | Error error -> Assert.Fail($"expected success while the write is held: {error}")
-        | Ok accepted -> Assert.Equal(None, accepted.message)
+        | Ok _ -> ()
         Assert.True(persistAttempted.Task.Wait(2000))
         Assert.Empty(writes)
         releaseHolder.SetResult()
@@ -310,8 +306,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
             |> Async.StartAsTask
         match postResult with
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
-        | Ok ackJson ->
-            Assert.Equal(None, decodeAckMessage ackJson)
+        | Ok _ ->
             let! message = waitForPersistFailure agent
             Assert.Equal(
                 DocumentPersistWrite.fileCouldNotSave "SYSTEM/secret.txt",
@@ -403,7 +398,6 @@ let ``ACK keeps the Edit events and NodePersisted follows the write`` () = task 
         | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
         | Ok ackJson ->
             let ack = decodeAck ackJson
-            Assert.Equal(None, ack.message)
             let confirmed = Assert.Single(ack.events)
             Assert.Equal(change.submissionId, confirmed.submissionId)
             Assert.Equal<Op list>((eventOps change), (eventOps confirmed))

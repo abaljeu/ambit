@@ -128,58 +128,26 @@ module internal CoreMailboxEvents =
         (context: MailboxContext)
         (caller: Caller)
         (event: Ev)
-        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
         : unit =
-        match CoreEventDispatch.postEvent (eventDispatchContext context) caller event true with
+        match
+            CoreEventDispatch.postEvent
+                (eventDispatchContext context)
+                caller
+                event
+                true
+        with
         | Error err -> reply.Reply(Error err)
-        | Ok (_, Some accepted) -> reply.Reply(Ok accepted)
-        | Ok (_, None) ->
-            match context.persist.getEventId () with
-            | Error err -> reply.Reply(Error err)
-            | Ok eventId ->
-                reply.Reply(
-                    Ok(
-                        CoreChanges.accepted
-                            eventId
-                            true
-                            []
-                            false
-                            None))
+        | Ok (stored, _) -> reply.Reply(Ok stored.id)
 
     type PostedReply =
-        AsyncReplyChannel<
-            Result<Ev * CoreChangesAccepted option, string>>
+        AsyncReplyChannel<Result<EventId, string>>
 
     let storedBySubmission context submissionId =
         context.eventLog.Value.events
         |> List.tryFind (fun (event: Ev) ->
             event.submissionId = submissionId)
 
-    let acceptEvents (context: MailboxContext) (events: Ev list) =
-        match context.persist.getEventId () with
-        | Error err -> Error err
-        | Ok eventId ->
-            Ok(CoreChanges.accepted eventId true events false None)
-
-    let replyList
-        (reply: PostedReply) context tail (events: Ev list) =
-        match acceptEvents context events with
-        | Error err -> reply.Reply(Error err)
-        | Ok accepted -> reply.Reply(Ok(tail, Some accepted))
-
-    let eventsForStored context (stored: Ev) =
-        match stored.body with
-        | EventBody.ActorStart request ->
-            let nextId = EventId.next stored.id
-            match
-                context.eventLog.Value.events
-                |> List.tryFind (fun (event: Ev) -> event.id = nextId)
-            with
-            | Some stopped ->
-                match stopped.body with
-                | EventBody.ActorStop(id, _) when id = request.focusId ->
-                    [ stored; stopped ]
-                | _ -> [ stored ]
-            | None -> [ stored ]
-        | _ -> [ stored ]
+    let replyStored (reply: PostedReply) (stored: Ev) =
+        reply.Reply(Ok stored.id)
 

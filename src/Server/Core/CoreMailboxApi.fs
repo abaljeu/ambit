@@ -74,6 +74,80 @@ module CoreMailboxApi =
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
+    let private isClientActorStop (event: Ev) =
+        match event.body with
+        | EventBody.ActorStop _ -> true
+        | _ -> false
+
+    let private firstError results =
+        results
+        |> List.tryPick (function
+            | Error err -> Some err
+            | Ok _ -> None)
+
+    let private idsOf results =
+        results
+        |> List.choose (function
+            | Ok eventId -> Some eventId
+            | Error _ -> None)
+
+    let private afterId ids =
+        ids
+        |> List.map EventId.value
+        |> List.min
+        |> fun n -> EventId.fromJson (n - 1)
+
+    let private expandStored log (stored: Ev) =
+        match stored.body with
+        | EventBody.ActorStart request ->
+            match EventLog.tryFind (EventId.next stored.id) log with
+            | Some stopped ->
+                match stopped.body with
+                | EventBody.ActorStop(id, _) when id = request.focusId ->
+                    [ stored; stopped ]
+                | _ -> [ stored ]
+            | None -> [ stored ]
+        | _ -> [ stored ]
+
+    let private storedEvents log ids =
+        let rec take acc remaining =
+            match remaining with
+            | [] -> Ok(List.rev acc)
+            | id :: rest when not (EventId.isAccepted id) ->
+                take acc rest
+            | id :: rest ->
+                match EventLog.tryFind id log with
+                | None ->
+                    Error
+                        $"stored Event {EventId.display id} not found"
+                | Some event ->
+                    let acc =
+                        expandStored log event
+                        |> List.fold
+                            (fun collected item -> item :: collected)
+                            acc
+                    take acc rest
+        take [] ids
+
+    let private acceptedFromIds host posted ids =
+        async {
+            let! log = eventsSince host (afterId ids)
+            match storedEvents log ids with
+            | Error err -> return Error err
+            | Ok stored ->
+                return
+                    Ok(
+                        CoreChanges.fromPosted
+                            (MailboxHost.isReady host ())
+                            posted
+                            stored)
+        }
+
+    let private mergeIdReplies host posted results =
+        match firstError results with
+        | Some err -> async.Return(Error err)
+        | None -> acceptedFromIds host posted (idsOf results)
+
     let postEvent
         (host: MailboxHost)
         (caller: Caller)
@@ -81,63 +155,17 @@ module CoreMailboxApi =
         : Async<Result<Ev, string>> =
         async {
             let! result = postEventAccepted host caller event
-            return result |> Result.map fst
+            match result with
+            | Error err -> return Error err
+            | Ok eventId ->
+                let! log = eventsSince host (afterId [ eventId ])
+                match storedEvents log [ eventId ] with
+                | Error err -> return Error err
+                | Ok [ stored ] -> return Ok stored
+                | Ok _ -> return Error "stored Event not found"
         }
 
-    let private isClientActorStop (event: Ev) =
-        match event.body with
-        | EventBody.ActorStop _ -> true
-        | _ -> false
-
-    let private replyOf host (stored: Ev, accepted) =
-        match accepted with
-        | Some value -> value
-        | None ->
-            CoreChanges.accepted
-                stored.id
-                (MailboxHost.isReady host ())
-                [ stored ]
-                false
-                None
-
-    let private consEvents reversed events =
-        List.fold (fun acc event -> event :: acc) reversed events
-
-    let private mergeReplies host results =
-        let step
-            (state: Result<CoreChangesAccepted, string>, reversed)
-            result
-            =
-            match state, result with
-            | Error err, _ -> Error err, reversed
-            | _, Error err -> Error err, reversed
-            | Ok prior, Ok pair ->
-                let next = replyOf host pair
-                let merged =
-                    CoreChanges.accepted
-                        next.eventId
-                        next.isReady
-                        []
-                        (prior.externalChanges || next.externalChanges)
-                        (next.message |> Option.orElse prior.message)
-                Ok merged, consEvents reversed next.events
-        match results with
-        | [] -> Error "events must not be empty"
-        | Error err :: _ -> Error err
-        | Ok pair :: rest ->
-            let first = replyOf host pair
-            match List.fold step (Ok first, consEvents [] first.events) rest with
-            | Error err, _ -> Error err
-            | Ok last, reversed ->
-                Ok(
-                    CoreChanges.accepted
-                        last.eventId
-                        (MailboxHost.isReady host ())
-                        (List.rev reversed)
-                        last.externalChanges
-                        last.message)
-
-    /// Push the list back to back, then merge the replies.
+    /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
         (host: MailboxHost)
@@ -156,7 +184,7 @@ module CoreMailboxApi =
             let waiting = MailboxHost.postForReplies host builds
             async {
                 let! results = waiting
-                return mergeReplies host results
+                return! mergeIdReplies host events results
             }
 
     /// Graph-only Ev: same flow as postEvents, skips file persist only.
@@ -165,8 +193,15 @@ module CoreMailboxApi =
         (caller: Caller)
         (event: Ev)
         : Async<Result<CoreChangesAccepted, string>> =
-        reply host (fun channel ->
-            PostGraphOnly(caller, event, channel))
+        async {
+            let! result =
+                reply host (fun channel ->
+                    PostGraphOnly(caller, event, channel))
+            match result with
+            | Error err -> return Error err
+            | Ok eventId ->
+                return! acceptedFromIds host [ event ] [ eventId ]
+        }
 
     let startActor
         (host: MailboxHost)

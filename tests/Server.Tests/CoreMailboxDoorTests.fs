@@ -769,7 +769,7 @@ let private hostWithHandlers (handlers: PersistHandlers) =
         admittedCredentials
 
 let private acceptPosted (event: Ev) (_graphOnly: bool) =
-    Ok(CoreChanges.accepted event.id true [ event ] false None)
+    Ok(CoreChanges.accepted event.id true [ event ] false)
 
 let private hostRecordingPush
     (state: State)
@@ -863,3 +863,131 @@ let ``A graph-only change pushes nothing`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+let private storedChange host submissionId =
+    async {
+        let! history = CoreMailboxApi.eventHistory host
+        return
+            history.events
+            |> List.find (fun event ->
+                event.submissionId = submissionId)
+    }
+
+let rec private storedForPosted host posted =
+    match posted with
+    | [] -> async.Return []
+    | event :: rest ->
+        async {
+            let! stored = storedChange host event.submissionId
+            let! more = storedForPosted host rest
+            return stored :: more
+        }
+
+let private assertAckFromLog
+    host
+    posted
+    (accepted: CoreChangesAccepted)
+    =
+    async {
+        let! stored = storedForPosted host posted
+        let lastId = (List.last stored).id
+        Assert.Equal(lastId, accepted.eventId)
+        Assert.Equal<Ev list>(stored, accepted.events)
+        let expectedExt =
+            List.zip posted stored
+            |> List.exists (fun (p, s) -> Ev.ops p <> Ev.ops s)
+        Assert.Equal(expectedExt, accepted.externalChanges)
+    }
+
+[<Fact>]
+let ``postEvents returns the same CoreChangesAccepted from the event id`` () =
+    task {
+        do! withHost (fun host _ ->
+            task {
+                let plain = postedEvent ()
+                let! plainAck =
+                    CoreMailboxApi.postEvents host testCaller [ plain ]
+                    |> Async.StartAsTask
+                let plainAck = requireOk "plain" plainAck
+                do!
+                    assertAckFromLog host [ plain ] plainAck
+                    |> Async.StartAsTask
+                Assert.False(plainAck.externalChanges)
+            })
+        do! withHost (fun host _ ->
+            task {
+                let childId, create = addRootChildEvent "x0"
+                let! created =
+                    CoreMailboxApi.postEvents host testCaller [ create ]
+                    |> Async.StartAsTask
+                requireOk "create" created |> ignore
+                let firstEdit =
+                    changeEvent
+                        "Edit"
+                        EventId.zero
+                        (Guid.NewGuid())
+                        [ Op.SetText(childId, "x0", "xA") ]
+                let! edited =
+                    CoreMailboxApi.postEvents host testCaller [ firstEdit ]
+                    |> Async.StartAsTask
+                requireOk "first edit" edited |> ignore
+                let stale =
+                    changeEvent
+                        "Edit"
+                        EventId.zero
+                        (Guid.NewGuid())
+                        [ Op.SetText(childId, "x0", "xB") ]
+                let! amendedAck =
+                    CoreMailboxApi.postEvents host testCaller [ stale ]
+                    |> Async.StartAsTask
+                let amendedAck = requireOk "amended" amendedAck
+                do!
+                    assertAckFromLog host [ stale ] amendedAck
+                    |> Async.StartAsTask
+                Assert.True(amendedAck.externalChanges)
+            })
+        do! withHost (fun host _ ->
+            task {
+                let childA, eventA = addRootChildEvent "one"
+                let childB = NodeId.New()
+                let eventB =
+                    changeEvent
+                        ""
+                        EventId.zero
+                        (Guid.NewGuid())
+                        [ Op.NewNode(childB, "two")
+                          Op.Replace(
+                              Graph.rootId,
+                              [ ChildNode.owner childA ],
+                              [ ChildNode.owner childA
+                                ChildNode.owner childB ]) ]
+                let batch = [ eventA; eventB ]
+                let! batchAck =
+                    CoreMailboxApi.postEvents host testCaller batch
+                    |> Async.StartAsTask
+                let batchAck = requireOk "batch" batchAck
+                do!
+                    assertAckFromLog host batch batchAck
+                    |> Async.StartAsTask
+                Assert.Equal(2, batchAck.events.Length)
+                Assert.False(batchAck.externalChanges)
+            })
+    }
+
+[<Fact>]
+let ``a resubmitted Change replies the stored id`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! first =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        let first = requireOk "first" first
+        let! second =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        let second = requireOk "resubmit" second
+        Assert.Equal(first.eventId, second.eventId)
+        Assert.Equal<Ev list>(first.events, second.events)
+        Assert.False(second.externalChanges)
+        do! assertAckFromLog host [ event ] second |> Async.StartAsTask
+    })

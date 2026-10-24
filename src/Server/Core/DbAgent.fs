@@ -126,13 +126,12 @@ module DbAgent =
             trimDeletedIds loaded result.deletedIds
             Ok ()
 
-    let private accepted loaded confirmed externalChanges message =
+    let private accepted loaded confirmed externalChanges =
         CoreChanges.accepted
             loaded.state.Value.eventId
             loaded.ready.Task.IsCompletedSuccessfully
             confirmed
             externalChanges
-            message
 
     let private tryPersistedEvent loaded submissionId =
         loaded.eventLog.Value.events
@@ -312,7 +311,7 @@ module DbAgent =
             loaded.state.Value <- stateToStore
             if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
-            Ok(accepted loaded ackEvents externalChanges None)
+            Ok(accepted loaded ackEvents externalChanges)
 
     let private finishAppliedPostChange
         loaded
@@ -349,7 +348,7 @@ module DbAgent =
             | Error err -> Error err
             | Ok (newState, confirmations, externalChanges) ->
                 if newState.eventId = loaded.state.Value.eventId then
-                    Ok(accepted loaded confirmations externalChanges None)
+                    Ok(accepted loaded confirmations externalChanges)
                 else
                     let submittedIds =
                         events |> List.map (fun e -> e.submissionId) |> Set.ofList

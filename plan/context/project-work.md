@@ -6,17 +6,20 @@ This file names the step elements.
 
 This file is the router.
 
+## Elements
+These are possible steps that may apply to a project.
+
+map: [[map-work.md]]
+spec: [[spec-work.md]]
+arch: [[arch-work.md]]
+slicing: [[slicing-work.md]]
+ticket: [[ticket-work.md]]
+build: [[build-work.md]]
+review: [[review-work.md]]
+document: [[document-work.md]]
+ refactor: [[refactor-work.md]]
+
 ## Sequence
+project.md within a project defines the actual steps of any given project.  If it does not, then this is the default sequence:
 
-1. map: [[map-work.md]]
-2. spec: [[spec-work.md]]
-3. arch: [[arch-work.md]]
-4. slicing: [[slicing-work.md]]
-5. ticket: [[ticket-work.md]]
-6. build: [[build-work.md]]
-7. review: [[review-work.md]]
-8. document: [[document-work.md]]
-
-- refactor: [[refactor-work.md]]
-
-Which of these elements apply, and in what sequence: [[../CONTEXT.md]].
+map, spec, arch, slicing, ticket, build, refactor, review, document.

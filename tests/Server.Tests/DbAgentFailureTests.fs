@@ -100,8 +100,7 @@ let ``Failed write keeps the edit`` () = task {
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
     match postResult with
     | Error error -> Assert.Fail($"expected success, got {error}")
-    | Ok accepted ->
-        Assert.Equal(None, accepted.message)
+    | Ok _ -> ()
     let! state =
         getState agent
         |> Async.StartAsTask

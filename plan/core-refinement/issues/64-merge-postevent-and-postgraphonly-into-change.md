@@ -1,43 +1,173 @@
 # 64 — Place Edit changes as Order.Change
 
 **Status:** `defined`
-**Type:** coding
-**Blocked by:** 103 — Change reply is the event id; 60 — Add Mailbox beside CoreMsg; 44 — Apply document state from Node events; 71 — Persist thread takes from the stack
 **Trackers:** architecture
 
-## Context
+## 1. Type
 
-`CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly` both carry a caller, an `Ev`, and a reply. Both send `EventBody.Change` through `CoreEventDispatch.postEvent`.
+[ ] `coding`
 
-- **Change** — `CoreMailboxActors.dispatchPostEvent` calls that function with `graphOnly` false.
-- **Graph only** — `CoreMailboxEvents.dispatchPostGraphOnly` calls that function with `graphOnly` true.
+## 2. Blockers
 
-Decision 4 **One Change** and decision 18 **ChangeOrigin** in [Message shape](../cqrs-messages.md): the two doors become `Order.Change` of `ops: Op list * origin: ChangeOrigin`. This ticket adds the origin and moves the origin `Edit` door, `CoreMailboxApi.postEvents`. [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md) moves the origin `Parse` callers and removes `CoreMsg.PostGraphOnly`.
+[ ] [103 — Change reply is the event id](103-change-reply-is-the-event-id.md)
+[ ] [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
+[ ] [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
+[ ] [71 — Persist thread takes from the stack](71-persist-thread-takes-from-the-stack.md)
 
-Today, after a Change, Undo or Redo, `CoreEventDispatch.pushChangeSpecials` marks each owning special node Unpersisted at the event id, logs `Notice.NodePersisting` for it, and pushes a persist request. This ticket keeps that path. It does not add `Notice.NodeUnpersisted`.
+## 3. Look at
 
-`CoreMsg.PostEvent` also carries `Undo`, `Redo`, `ActorStart`, and `Cancel`. [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md) and [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md) take those bodies. Upload, import, parse, Load, undo, and persist stay working.
+### Owner
 
-## What to build
+[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) owns `postEvents`; `mbLoadNode`
 
-1. [ ] **Origin** — Decision 18 **ChangeOrigin**. `ChangeOrigin` is `Edit | Parse` in `src/Shared/MailboxLog.fs` beside `Order`. `Order.Change` becomes `ops: Op list * origin: ChangeOrigin`. `origin` exists only on the placed order. `MailboxLog.ofEv` maps a logged Change to origin `Edit`. The logged Change holds the op list.
-2. [ ] **Edit door** — `CoreMailboxApi.postEvents` places `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit` for a `Change` body. `Api.postEvents`, `RunAgentActor`, and `TestActor` keep calling `postEvents`. `CoreEventDispatch` reads `origin` and writes document files for origin `Edit` the way `PostEvent` does today. `CoreMsg.PostEvent` stays for the four bodies Context names. `CoreMsg.PostGraphOnly` stays until 102. The `PlaceOrder` reply is the `EventId`; [103 — Change reply is the event id](103-change-reply-is-the-event-id.md) already rebuilds `CoreChangesAccepted` from it, so callers of `postEvents` do not change.
+### Source
 
-### Acceptance Criteria
+[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `Order`, `orderOfBody` — `Order.Change ops`, `historyBody` — `Order.Change ops`, `ofEv`, `toEv`
+[ ] [MailboxHost.fs](src/Server/Core/MailboxHost.fs) `postForReplies`, `postMailboxAndAsyncReply`
+[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder` — `Order.Change _`, `dispatchMailbox`
+[ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `postEvent`, `persist`, `persistNew`, `pushChangeSpecials`
+[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `Mailbox.PlaceOrder`, `CoreMsg.PostEvent`
+[ ] [CoreMailboxActors.fs](src/Server/Core/CoreMailboxActors.fs) `dispatchPostEvent`
+[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `ofEv then toEv keeps a Change` — `Order.Change ops`
+[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order` — `Order.Change [ ops ]`
+[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `logout returns while the reconciliation route is open` — `Order.Change [ ops ]`
 
-1. [ ] **Edit order** — `postEvents places Order.Change with origin Edit`. A Change through `postEvents` places `Order.Change` with origin `Edit`. The reply is `Ok` of the new `EventId`.
-2. [ ] **Edit** — `an ordinary Change writes the document file`. A placed `Change` of origin `Edit` writes the document file the way `PostEvent` does today. The owning special node is Unpersisted at the Change's event id and a persist request is pushed.
-3. [ ] **Other bodies** — `the four bodies Context names stay on PostEvent`. A post of each of those bodies still uses `CoreMsg.PostEvent`.
-4. [ ] **Still working** — `upload, import, parse, Load, undo, and persist complete`.
+### Tests this ticket names
 
-## See also
+[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs)
 
-- [Message shape](../cqrs-messages.md)
-- [core-refinement](../project.md)
-- [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
-- [103 — Change reply is the event id](103-change-reply-is-the-event-id.md)
-- [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
-- [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
-- [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md)
-- [62 — Admit at the entry](62-admit-at-the-entry.md)
-- [GLOSSARY](../../../GLOSSARY.md)
+## 4. Context
+
+### Order
+
+[ ] `Order.Change` is `ops: Op list`
+
+### PlaceOrder
+
+[ ] `Mailbox.PlaceOrder` is `caller * orderId * commandName * order * reply`
+[ ] The reply is `Result<EventId, string>`
+[ ] `placeOrder` replies `Error "unsupported"` on `Order.Change`
+[ ] `mbLoadNode` posts `Mailbox.PlaceOrder` of `Order.Load`
+
+### postEvents
+
+[ ] `postEvents` posts `CoreMsg.PostEvent` for every `Ev`
+[ ] It posts through `MailboxHost.postForReplies`
+[ ] It rebuilds `CoreChangesAccepted` from the replied ids
+[ ] `postForReplies` builds `Mailbox.CoreMsg`
+
+### PostEvent bodies
+
+[ ] Change is `PostEvent`
+[ ] Undo is `PostEvent`
+[ ] Redo is `PostEvent`
+[ ] ActorStart is `PostEvent`
+[ ] Cancel is `PostEvent`
+
+### dispatchPostEvent
+
+[ ] Change goes to `postEvent` with `graphOnly` false
+[ ] Undo goes to `postEvent` with `graphOnly` false
+[ ] Redo goes to `postEvent` with `graphOnly` false
+
+### persist
+
+[ ] `postEvent` takes `graphOnly: bool`
+[ ] `graphOnly` false writes the document file
+[ ] `pushChangeSpecials` marks each owning special Unpersisted at the event id
+[ ] `pushChangeSpecials` logs `Notice.NodePersisting`
+[ ] `pushChangeSpecials` pushes a persist request
+[ ] `graphOnly` true is `dispatchPostGraphOnly`
+[ ] `origin` exists only on the placed order
+[ ] The logged Change holds the op list
+
+### Callers of `postEvents`
+
+[ ] `Api.postEvents`
+[ ] `RunAgentActor`
+[ ] `TestActor`
+
+### Parse door
+
+[ ] `CoreMsg.PostGraphOnly`
+[ ] `postGraphOnly`
+
+## 5. Changes
+
+### MailboxLog
+
+[ ] `ChangeOrigin` is `Edit | Parse` beside `Order`
+[ ] `Order.Change` is `ops: Op list * origin: ChangeOrigin`
+[ ] `orderOfBody` maps a logged Change to origin `Edit`
+[ ] `ofEv` maps a logged Change to origin `Edit`
+[ ] `historyBody` writes the op list
+[ ] `toEv` writes the op list
+
+### postEvents
+
+[ ] `EventBody.Change` posts `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`
+[ ] Undo in the list posts `CoreMsg.PostEvent`
+[ ] Redo in the list posts `CoreMsg.PostEvent`
+[ ] ActorStart in the list posts `CoreMsg.PostEvent`
+[ ] Cancel in the list posts `CoreMsg.PostEvent`
+[ ] `postForReplies` posts those `Mailbox` items back to back
+[ ] The `PlaceOrder` reply is the `EventId`
+[ ] `postEvents` rebuilds `CoreChangesAccepted` from that id
+
+### placeOrder
+
+[ ] Origin `Edit` calls `CoreEventDispatch`
+[ ] The document file is written
+[ ] `pushChangeSpecials` runs
+
+### CoreEventDispatch
+
+[ ] Reads `origin`
+[ ] Origin `Edit` uses today's `graphOnly` false persist path
+
+## 6. Tests
+
+### Edit order
+
+[ ] Add `postEvents places Order.Change with origin Edit` in [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs)
+[ ] A Change through `postEvents` is `Order.Change` with origin `Edit`
+[ ] The reply is `Ok` of the new `EventId`
+[ ] Filter: `postEvents places Order.Change with origin Edit`
+
+### Mapped origin
+
+[ ] Change `ofEv then toEv keeps a Change` in [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs)
+[ ] The mapped order is origin `Edit`
+[ ] The round trip keeps the ops
+[ ] Filter: `ofEv then toEv keeps a Change`
+
+### Ripple constructors
+
+[ ] In [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order`, `Order.Change [ ops ]` becomes `Order.Change(ops, ChangeOrigin.Edit)`
+[ ] In [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `logout returns while the reconciliation route is open`, `Order.Change [ ops ]` becomes `Order.Change(ops, ChangeOrigin.Edit)`
+[ ] Filter: `login during a pending logout runs and a dropped generation rejects a late order`
+[ ] Filter: `logout returns while the reconciliation route is open`
+
+### Edit persist
+
+[ ] `An Edit pushes its owning special node` in [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs)
+[ ] The document file is written
+[ ] A persist request is pushed
+[ ] Filter: `An Edit pushes its owning special node`
+[ ] `An Edit marks its owning special node at the Edit's id` in [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs)
+[ ] The owning special is Unpersisted at the Change's event id
+[ ] Filter: `An Edit marks its owning special node at the Edit's id`
+
+### Other bodies
+
+[ ] Add `Undo, Redo, ActorStart, and Cancel still post as PostEvent` in [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs)
+[ ] Undo through `postEvents` is `CoreMsg.PostEvent`
+[ ] Redo through `postEvents` is `CoreMsg.PostEvent`
+[ ] ActorStart through `postEvents` is `CoreMsg.PostEvent`
+[ ] Cancel through `postEvents` is `CoreMsg.PostEvent`
+[ ] Filter: `Undo, Redo, ActorStart, and Cancel still post as PostEvent`
+
+## 7. Done
+[ ] Run `scripts/agent-test.sh` with no arguments.
+[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] All executed tests pass.

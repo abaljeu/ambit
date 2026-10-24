@@ -237,7 +237,7 @@ module Api =
                 accepted.externalChanges
                 || List.exists countsAsExternal laterEvents
               events = accepted.events @ laterEvents
-              message = accepted.message
+              message = None
               bootstrapHash = None
               nodes = answer.nodes
               childMap = answer.childMap }

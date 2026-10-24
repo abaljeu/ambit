@@ -39,13 +39,12 @@ module FileAgent =
                     "FileAgent"
         }
 
-    let private accepted loaded confirmed externalChanges message =
+    let private accepted loaded confirmed externalChanges =
         CoreChanges.accepted
             loaded.state.Value.eventId
             true
             confirmed
             externalChanges
-            message
 
     let private applyOne
         loaded
@@ -122,11 +121,7 @@ module FileAgent =
                 | Error err -> Error err
                 | Ok () ->
                     loaded.state.Value <- newState
-                    Ok(accepted
-                        loaded
-                        confirmations
-                        externalChanges
-                        None)
+                    Ok(accepted loaded confirmations externalChanges)
 
     let private persistHandlers loaded : PersistHandlers = {
         getState = fun () -> Ok loaded.state.Value

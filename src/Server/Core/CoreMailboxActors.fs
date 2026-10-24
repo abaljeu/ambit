@@ -194,13 +194,12 @@ module internal CoreMailboxActors =
             with
             | Error err -> reply.Reply(Error err)
             | Ok stopped ->
-                CoreMailboxEvents.replyList reply context stopped [ started; stopped ]
+                CoreMailboxEvents.replyStored reply started
 
     let private postActorStart context caller event request reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with
         | Some stored ->
-            let events = CoreMailboxEvents.eventsForStored context stored
-            CoreMailboxEvents.replyList reply context (List.last events) events
+            CoreMailboxEvents.replyStored reply stored
         | None ->
             let start req getState =
                 startChosen context req getState
@@ -209,7 +208,7 @@ module internal CoreMailboxActors =
                 recordFailedStart
                     context caller request event.submissionId
                     (failedMessage error) reply
-            | Ok (None, _) -> CoreMailboxEvents.replyList reply context event []
+            | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
             | Ok (Some secret, make) ->
                 match
                     finishReadyStart
@@ -218,11 +217,11 @@ module internal CoreMailboxActors =
                 with
                 | Error err -> reply.Reply(Error err)
                 | Ok stored ->
-                    CoreMailboxEvents.replyList reply context stored [ stored ]
+                    CoreMailboxEvents.replyStored reply stored
 
     let private postCancel context caller event focusId reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored -> CoreMailboxEvents.replyList reply context stored [ stored ]
+        | Some stored -> CoreMailboxEvents.replyStored reply stored
         | None ->
             match
                 runCancel
@@ -230,8 +229,8 @@ module internal CoreMailboxActors =
             with
             | Error err -> reply.Reply(Error err)
             | Ok (Some stored) ->
-                CoreMailboxEvents.replyList reply context stored [ stored ]
-            | Ok None -> CoreMailboxEvents.replyList reply context event []
+                CoreMailboxEvents.replyStored reply stored
+            | Ok None -> CoreMailboxEvents.replyStored reply event
 
     let dispatchPostEvent
         (context: MailboxContext)
@@ -254,6 +253,6 @@ module internal CoreMailboxActors =
                     event
                     false
             with
-            | Ok (stored, None) ->
-                CoreMailboxEvents.replyList reply context stored [ stored ]
-            | other -> reply.Reply other
+            | Error err -> reply.Reply(Error err)
+            | Ok (stored, _) ->
+                CoreMailboxEvents.replyStored reply stored

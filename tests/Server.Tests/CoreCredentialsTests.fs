@@ -51,7 +51,6 @@ let ``live credential is enqueued`` () = task {
         { eventId = EventIdFixtures.storedId 1
           events = events
           externalChanges = false
-          message = None
           isReady = true }
     let enqueue events =
         posts.Add(events)

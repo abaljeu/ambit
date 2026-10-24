@@ -6,7 +6,7 @@ type internal CoreMsg =
     | PostGraphOnly of
         caller: Caller *
         event: Ev *
-        AsyncReplyChannel<Result<CoreChangesAccepted, string>>
+        AsyncReplyChannel<Result<EventId, string>>
     | StartActor of
         caller: Caller *
         request: Gambol.Shared.ActorStart *
@@ -44,11 +44,7 @@ type internal CoreMsg =
     | PostEvent of
         caller: Caller *
         event: Ev *
-        AsyncReplyChannel<
-            Result<
-                Ev *
-                CoreChangesAccepted option,
-                string>>
+        AsyncReplyChannel<Result<EventId, string>>
 [<RequireQualifiedAccess>]
 type internal Query =
     | State of AsyncReplyChannel<Result<State, string>>

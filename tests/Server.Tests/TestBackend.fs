@@ -238,7 +238,7 @@ let acceptingHost (pool: CoreActorPool) : MailboxHost =
         (fun () -> Ok state)
         (fun _ -> [])
         (fun event _ ->
-            Ok(CoreChanges.accepted event.id true [ event ] false None))
+            Ok(CoreChanges.accepted event.id true [ event ] false))
 
 /// Keeps the host alive until the client is disposed, then waits until
 /// that server's persist thread has finished.
