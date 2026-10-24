@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 60 — Add Mailbox beside CoreMsg; 44 — Apply document state from Node events; 71 — Persist thread takes from the stack
+**Blocked by:** 103 — Change reply is the event id; 60 — Add Mailbox beside CoreMsg; 44 — Apply document state from Node events; 71 — Persist thread takes from the stack
 **Trackers:** architecture
 
 ## Context
@@ -21,8 +21,7 @@ Today, after a Change, Undo or Redo, `CoreEventDispatch.pushChangeSpecials` mark
 ## What to build
 
 1. [ ] **Origin** — Decision 18 **ChangeOrigin**. `ChangeOrigin` is `Edit | Parse` in `src/Shared/MailboxLog.fs` beside `Order`. `Order.Change` becomes `ops: Op list * origin: ChangeOrigin`. `origin` exists only on the placed order. `MailboxLog.ofEv` maps a logged Change to origin `Edit`. The logged Change holds the op list.
-2. [ ] **Edit door** — `CoreMailboxApi.postEvents` places `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit` for a `Change` body. `Api.postEvents`, `RunAgentActor`, and `TestActor` keep calling `postEvents`. `CoreEventDispatch` reads `origin` and writes document files for origin `Edit` the way `PostEvent` does today. `CoreMsg.PostEvent` stays for the four bodies Context names. `CoreMsg.PostGraphOnly` stays until 102.
-3. [ ] **Reply** — The `PlaceOrder` reply is `Result<EventId, string>`. `Ok` carries the assigned `EventId`. `Api.postEvents` builds the HTTP change response from that id and from the state read it already does. The mailbox reply is not `CoreChangesAccepted`.
+2. [ ] **Edit door** — `CoreMailboxApi.postEvents` places `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit` for a `Change` body. `Api.postEvents`, `RunAgentActor`, and `TestActor` keep calling `postEvents`. `CoreEventDispatch` reads `origin` and writes document files for origin `Edit` the way `PostEvent` does today. `CoreMsg.PostEvent` stays for the four bodies Context names. `CoreMsg.PostGraphOnly` stays until 102. The `PlaceOrder` reply is the `EventId`; [103 — Change reply is the event id](103-change-reply-is-the-event-id.md) already rebuilds `CoreChangesAccepted` from it, so callers of `postEvents` do not change.
 
 ### Acceptance Criteria
 
@@ -36,6 +35,7 @@ Today, after a Change, Undo or Redo, `CoreEventDispatch.pushChangeSpecials` mark
 - [Message shape](../cqrs-messages.md)
 - [core-refinement](../project.md)
 - [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md)
+- [103 — Change reply is the event id](103-change-reply-is-the-event-id.md)
 - [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
 - [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 - [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md)
