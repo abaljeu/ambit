@@ -84,7 +84,11 @@ let private commitFailingSetTextCas (model: VM) : VM * Effect list =
             ViewModelSelection.focusedNodeId model.graph sel
         match
             GraphMutate.setText
-                true editingId originalText "?test hello X" model.graph with
+                (Some EventId.zero)
+                editingId
+                originalText
+                "?test hello X"
+                model.graph with
         | Ok _ -> failwith "expected old text does not match"
         | Error msg ->
             ViewModelMoveOps.withMoveError

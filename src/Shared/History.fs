@@ -18,34 +18,6 @@ type Op =
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
-type EventId =
-    private
-    | Zero // the Ev is a draft
-    | Int of int // The Ev is an event; accepted, uniquely numbered, 
-        // and has been stored, and applied in the system
-
-    member this.Value =
-        match this with
-        | Zero -> 0
-        | Int n -> n
-
-[<RequireQualifiedAccess>]
-module EventId =
-    let zero = Zero
-    let next (id: EventId) =
-        match id with
-        | Int n -> Int(n + 1)
-        | Zero -> Zero
-    let max (a: EventId) (b: EventId) =
-        if a.Value >= b.Value then a else b
-    let value (id: EventId) = id.Value
-    let display (id: EventId) = string id.Value
-    let isAccepted id =
-        id <> EventId.Zero
-    let fromJson n =
-        if n > 0 then Int n
-        else Zero
-    let toJson (id: EventId) = id.Value
 
 type Authority = Authority of string
 
@@ -206,7 +178,7 @@ module Op =
                 DocumentPartition.isMemberOfInaccessibleDocument graph id)
 
     let private applyAllowed
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (op: Op)
         (state: State)
         : ApplyResult
@@ -223,16 +195,16 @@ module Op =
                     { state with
                           graph = Graph.addDetachedNode node state.graph }
         | Op.SetText(nodeId, oldText, newText) ->
-            GraphMutate.setText markUnpersisted nodeId oldText newText state.graph
+            GraphMutate.setText changedVersion nodeId oldText newText state.graph
             |> fromGraphResult state
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             GraphMutate.setClasses
-                markUnpersisted nodeId oldClasses newClasses state.graph
+                changedVersion nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, oldChildren, newChildren) ->
             match
                 GraphMutate.replace
-                    markUnpersisted parentId 0 oldChildren newChildren state.graph
+                    changedVersion parentId 0 oldChildren newChildren state.graph
             with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok graph ->
@@ -268,7 +240,7 @@ module Op =
                         { state with
                               graph = Graph.addDetachedNode node state.graph }
         | Op.SetName(nodeId, oldName, newName) ->
-            GraphMutate.setName markUnpersisted nodeId oldName newName state.graph
+            GraphMutate.setName changedVersion nodeId oldName newName state.graph
             |> fromGraphResult state
         | Op.SetDocumentState(nodeId, oldState, newState) ->
             Graph.setDocumentState nodeId oldState newState state.graph
@@ -290,6 +262,11 @@ module Op =
     /// Disk parse posts commandName "Parse" and must not write PersistState.
     let internal marksOwningPersist (commandName: string) =
         commandName <> "Parse"
+    let internal persistMarkVersion
+        (commandName: string)
+        (eventId: EventId)
+        : EventId option =
+        if marksOwningPersist commandName then Some eventId else None
     let internal guardsUnparsedDocument (commandName: string) =
         commandName <> "Parse"
 
@@ -305,18 +282,18 @@ module Op =
                  (List.skip n newChildren)) -> false
         | _ -> isBlockedByInaccessibleDocument op graph
 
-    let internal applyAllowing guardUnparsed markUnpersisted op state =
+    let internal applyAllowing guardUnparsed changedVersion op state =
         if blockedForApply guardUnparsed op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
-            applyAllowed markUnpersisted op state
+            applyAllowed changedVersion op state
 
     let apply (op: Op) (state: State) : ApplyResult =
-        applyAllowing true true op state
+        applyAllowing true (Some EventId.zero) op state
 
-    let internal applyAllAllowing guardUnparsed markUnpersisted ops state =
+    let internal applyAllAllowing guardUnparsed changedVersion ops state =
         let step (accState, hasChanged) op =
-            match applyAllowing guardUnparsed markUnpersisted op accState with
+            match applyAllowing guardUnparsed changedVersion op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -338,7 +315,7 @@ module Op =
         | Ok(s, true) -> ApplyResult.Changed s
 
     let applyAll (ops: Op list) (state: State) : ApplyResult =
-        applyAllAllowing true true ops state
+        applyAllAllowing true (Some EventId.zero) ops state
 
     let invert (op: Op) : Op =
         match op with
@@ -467,7 +444,7 @@ module Ev =
         | Some opList ->
             Op.applyAllAllowing
                 (Op.guardsUnparsedDocument event.commandName)
-                (Op.marksOwningPersist event.commandName)
+                (Op.persistMarkVersion event.commandName event.id)
                 opList
                 state
 
@@ -741,8 +718,8 @@ module ChangeValidation =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let internal applyOpsAllowing guardUnparsed markUnpersisted ops state =
-        match Op.applyAllAllowing guardUnparsed markUnpersisted ops state with
+    let internal applyOpsAllowing guardUnparsed changedVersion ops state =
+        match Op.applyAllAllowing guardUnparsed changedVersion ops state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
@@ -754,5 +731,5 @@ module ChangeValidation =
         Op.applyAll ops state
 
     let applyOps (ops: Op list) (state: State) : ApplyResult =
-        applyOpsAllowing true true ops state
+        applyOpsAllowing true (Some EventId.zero) ops state
 

@@ -49,4 +49,11 @@ Repeat until the ticket's Tests section is covered. Refactoring belongs to revie
 
 ## Finish
 
-Commit and push only when the focused tests pass. The full run belongs to review.
+Commit and push only when the focused tests pass.
+
+## Full suite
+
+Review runs the full suite in the background. The command is the script path from the repo root. One Shell command. The working directory is the repo root.
+
+- `scripts/agent-test.sh --full` prints the pid, then the log path.
+- `scripts/check-test.sh <pid>` prints `STILL_RUNNING` while that pid is alive, and `DONE` when it is gone, then the log path.

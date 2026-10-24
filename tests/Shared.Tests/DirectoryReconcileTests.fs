@@ -17,7 +17,7 @@ let private applyOps (graph: Graph) (ops: Op list) : Graph =
 
 let private applyGraphOnly (graph: Graph) (ops: Op list) : Graph =
     let state = { graph = graph; eventId = EventId.zero }
-    match ChangeAmendment.applyForGraphOnly "Parse" ops state with
+    match ChangeAmendment.applyForGraphOnly EventId.zero "Parse" ops state with
     | ApplyResult.Changed next, _, _
     | ApplyResult.Unchanged next, _, _ -> next.graph
     | ApplyResult.Invalid(_, msg), _, _ -> failwith msg

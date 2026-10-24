@@ -202,6 +202,8 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             kind = "normal"
             documentState = "current"
             persistState = "persisted"
+            persistedVersion = 0
+            changedVersion = 0
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = cid
@@ -210,6 +212,8 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             kind = "normal"
             documentState = "current"
             persistState = "persisted"
+            persistedVersion = 0
+            changedVersion = 0
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 
@@ -344,6 +348,8 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             kind = "workspace"
             documentState = "current"
             persistState = "persisted"
+            persistedVersion = 0
+            changedVersion = 0
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = Graph.workspacesId.Value
@@ -352,6 +358,8 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             kind = "workspaces"
             documentState = "current"
             persistState = "persisted"
+            persistedVersion = 0
+            changedVersion = 0
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = trash.Value
@@ -360,6 +368,8 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             kind = "normal"
             documentState = "current"
             persistState = "persisted"
+            persistedVersion = 0
+            changedVersion = 0
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 

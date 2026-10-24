@@ -4,7 +4,8 @@
 
 Write one report per ticket to `plan/<slug>/review/NN-<ticket-name>.md`. Write that report when the review step is about to be worked.
 
-The range is the ticket's PR diff against staging.
+On cloud, the range is the ticket's PR diff against staging.
+On Windows, the range is the current diff, or whatever diff is related to the ticket.
 
 ## 2. Review template
 
@@ -28,11 +29,12 @@ Arch: [[../arch.md]]
 ## 5. Miss
 
 ## 6. Found elsewhere
+"The following issues were found beyond the ticket scope.  The fixes are suggested."
 ```
 
 ## 3. Fill
 
-Start by running `scripts/agent-test.sh --full`. It runs in the background and prints a log path and pid. Do the rest of the review while it runs.
+Follow the full suite in [[.agents/skills/tdd/SKILL.md]]. Do the rest of the review while it runs.
 
 Write each section as a list, one finding per item. An empty section is one item: `No findings.`
 
@@ -46,7 +48,7 @@ Write each section as a list, one finding per item. An empty section is one item
    - **Extra** — behavior the ticket and spec leave out.
    - **Unnamed** — a global type or interface the diff adds or changes that the ticket and spec leave unnamed.
 3. **Arch.** Check the diff against the story paths and the module map in `arch.md`. Each break is a **Blocker** and names the arch section and the code location.
-4. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record the full-suite result from its log.
+4. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record what `scripts/check-test.sh <pid>` prints.
 5. **Miss.** Name what returns the ticket to build:
    - each Hard finding
    - each Missing, Partial or Wrong finding
@@ -55,7 +57,9 @@ Write each section as a list, one finding per item. An empty section is one item
    - a failing test
    - a test that checks something other than the ticket's done
 
-6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Mark it **Accept** or **Reject** and give the reason. An accepted item names the file and the wording the document step writes.
+6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Write it as:
+   - **Problem.** The perceived flaw.
+   - **Fix.** What to do.
 
 Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
 

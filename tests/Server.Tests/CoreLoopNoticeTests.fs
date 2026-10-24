@@ -23,6 +23,16 @@ let private fileState persist parse =
           eventId = EventId.zero }
     id, state
 
+let private fileStateAtEdit persist parse editId noticeId =
+    let id, state = fileState persist parse
+    let stamped =
+        Node.withUnpersistedAt editId state.graph.nodes.[id]
+        |> Node.withPersistState persist
+    let graph =
+        { state.graph with
+            nodes = Map.add id stamped state.graph.nodes }
+    id, { graph = graph; eventId = noticeId }
+
 let private handlers
     (state: State ref)
     (snaps: ResizeArray<NodeId>)
@@ -236,6 +246,44 @@ let ``NodeReceived applies Unparsed`` () =
     Assert.Equal(PersistState.Persisted, after.documentState.persistState)
     Assert.Equal("unparsed", row.documentState)
     Assert.Equal("persisted", row.persistState)
+    Assert.Empty(snaps)
+
+[<Fact>]
+let ``NodePersisting leaves the Edit's changedVersion`` () =
+    let editId = EventId.fromJson 5
+    let noticeId = EventId.fromJson 12
+    let id, initial =
+        fileStateAtEdit
+            PersistState.Unpersisted
+            ParseState.Parsed
+            editId
+            noticeId
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodePersisting id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+    Assert.Equal(editId, node.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Empty(snaps)
+
+[<Fact>]
+let ``NodeUploading leaves the Edit's changedVersion`` () =
+    let editId = EventId.fromJson 5
+    let noticeId = EventId.fromJson 12
+    let id, initial =
+        fileStateAtEdit
+            PersistState.Persisted
+            ParseState.Parsed
+            editId
+            noticeId
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeUploading id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.True(node.documentState.pullingFile)
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+    Assert.Equal(editId, node.documentState.changedVersion)
     Assert.Empty(snaps)
 
 [<Fact>]

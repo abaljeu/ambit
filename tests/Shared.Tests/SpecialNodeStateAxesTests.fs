@@ -332,7 +332,8 @@ let ``directory file amb node is excluded from state axes`` () =
 
 let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
     let state = { graph = graph; eventId = EventId.zero }
-    let result, _, _ = ChangeAmendment.applyForCommand "Parse" ops state
+    let result, _, _ =
+        ChangeAmendment.applyForCommand EventId.zero "Parse" ops state
     match result with
     | ApplyResult.Changed next
     | ApplyResult.Unchanged next -> next.graph
@@ -390,3 +391,134 @@ let ``JSON round-trip keeps an explicit Unpersisted axis`` () =
         Assert.Equal(ParseState.Unparsed, decoded.documentState.parseState)
         Assert.Equal(PersistState.Unpersisted, decoded.documentState.persistState)
         Assert.Equal(Unparsed, decoded.documentState.AsEnum)
+
+[<Fact>]
+let ``document state versions survive a JSON round trip`` () =
+    let id = NodeId.New()
+    let persistedVersion = EventId.fromJson 3
+    let changedVersion = EventId.fromJson 4
+    let created =
+        Node.Create(
+            id,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            kind = Special File,
+            persistState = PersistState.Unpersisted)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    persistedVersion = persistedVersion
+                    changedVersion = changedVersion } }
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    match Dec.fromString Serialization.decodeNode json with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(persistedVersion, decoded.documentState.persistedVersion)
+        Assert.Equal(changedVersion, decoded.documentState.changedVersion)
+
+    let legacyJson =
+        "{\"id\":\""
+        + string id.Value
+        + "\",\"text\":\"file\",\"persistState\":\"unpersisted\"}"
+    match Dec.fromString Serialization.decodeNode legacyJson with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(EventId.zero, decoded.documentState.persistedVersion)
+        Assert.Equal(EventId.zero, decoded.documentState.changedVersion)
+
+[<Fact>]
+let ``unpersisted mark keeps the newer changedVersion`` () =
+    let created = Node.Create(NodeId.New())
+    Assert.Equal(EventId.zero, created.documentState.persistedVersion)
+    Assert.Equal(EventId.zero, created.documentState.changedVersion)
+    Assert.Equal(PersistState.Persisted, created.documentState.persistState)
+
+    let version = EventId.fromJson 4
+    let atVersion = Node.withUnpersistedAt version created
+    Assert.Equal(PersistState.Unpersisted, atVersion.documentState.persistState)
+    Assert.Equal(version, atVersion.documentState.changedVersion)
+    Assert.Equal(EventId.zero, atVersion.documentState.persistedVersion)
+
+    let newer = EventId.next version
+    let atNewer = Node.withUnpersistedAt newer atVersion
+    Assert.Equal(PersistState.Unpersisted, atNewer.documentState.persistState)
+    Assert.Equal(newer, atNewer.documentState.changedVersion)
+
+    let again = Node.withUnpersistedAt version atNewer
+    Assert.Equal(PersistState.Unpersisted, again.documentState.persistState)
+    Assert.Equal(newer, again.documentState.changedVersion)
+
+let private editEvent id commandName ops : Ev =
+    { id = id
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let private applyEvent (event: Ev) (graph: Graph) : Graph =
+    match Ev.apply event (freshState graph) with
+    | ApplyResult.Changed state -> state.graph
+    | ApplyResult.Unchanged state -> state.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
+[<Fact>]
+let ``graph change sets Unpersisted with the newer version`` () =
+    let fileId = NodeId.New()
+    let childId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode (
+            Node.Create(
+                fileId,
+                text = "notes.txt",
+                name = Filename.create "notes.txt",
+                kind = Special File))
+        |> Graph.addDetachedNode (Node.Create(childId, text = "alpha"))
+        |> place fileId childId
+        |> fun g ->
+            Graph.setPersistState fileId PersistState.Persisted g |> requireOk
+    Assert.Equal(
+        PersistState.Persisted,
+        graph.nodes.[fileId].documentState.persistState)
+    Assert.Equal(EventId.zero, graph.nodes.[fileId].documentState.changedVersion)
+
+    let version = EventId.fromJson 4
+    let first =
+        applyEvent
+            (editEvent version "Edit" [ Op.SetText(childId, "alpha", "beta") ])
+            graph
+    Assert.Equal(
+        PersistState.Unpersisted,
+        first.nodes.[fileId].documentState.persistState)
+    Assert.Equal(version, first.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("beta", first.nodes.[childId].text)
+
+    let newer = EventId.next version
+    let second =
+        applyEvent
+            (editEvent newer "Edit" [ Op.SetText(childId, "beta", "gamma") ])
+            first
+    Assert.Equal(
+        PersistState.Unpersisted,
+        second.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, second.nodes.[fileId].documentState.changedVersion)
+
+    let afterParse =
+        applyEvent
+            (editEvent
+                (EventId.next newer)
+                "Parse"
+                [ Op.SetText(childId, "gamma", "parsed") ])
+            second
+    Assert.Equal(
+        PersistState.Unpersisted,
+        afterParse.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, afterParse.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("parsed", afterParse.nodes.[childId].text)

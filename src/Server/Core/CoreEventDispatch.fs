@@ -199,21 +199,29 @@ module internal CoreEventDispatch =
                 persist.replaceGraph notice graph
                 Ok ()
 
+    let private needsUnpersistedMark (node: Node) (version: EventId) =
+        node.documentState.persistState = PersistState.Persisted
+        || EventId.value node.documentState.changedVersion
+            < EventId.value version
+
     let private markForPersist
         (persist: PersistHandlers)
+        (version: EventId)
         (nodeId: NodeId)
         : Result<unit, string> =
         match persist.getState () with
         | Error err -> Error err
-        | Ok state when not (persistedNode state.graph nodeId) ->
-            Ok ()
-        | Ok _ ->
-            writeAxis persist (Gambol.Shared.Notice.NodePersisting nodeId) (
-                fun graph ->
-                    GraphMutate.setPersistState
-                        nodeId
-                        PersistState.Unpersisted
-                        graph)
+        | Ok state ->
+            match Map.tryFind nodeId state.graph.nodes with
+            | Some node when needsUnpersistedMark node version ->
+                writeAxis
+                    persist
+                    (Gambol.Shared.Notice.NodePersisting nodeId)
+                    (fun graph ->
+                        Ok (
+                            GraphMutate.setUnpersistedAt
+                                nodeId version graph))
+            | _ -> Ok ()
 
     let private pushChangeSpecials
         (context: Context)
@@ -237,7 +245,10 @@ module internal CoreEventDispatch =
                         (fun acc nodeId ->
                             acc
                             |> Result.bind (fun () ->
-                                markForPersist context.persist nodeId))
+                                markForPersist
+                                    context.persist
+                                    completed.id
+                                    nodeId))
                         (Ok ())
                 marked
                 |> Result.map (fun () ->

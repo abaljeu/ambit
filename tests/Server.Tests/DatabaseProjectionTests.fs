@@ -51,6 +51,8 @@ let private expectedRow node =
         match node.documentState.persistState with
         | PersistState.Persisted -> "persisted"
         | PersistState.Unpersisted -> "unpersisted"
+      persistedVersion = 0
+      changedVersion = 0
       cssClassNames = CssClass.toList node.cssClasses
       updateTime = node.updateTime }
     : GraphProjection.NodePersistenceRow
@@ -231,7 +233,8 @@ let ``commands expose deterministic SQL and bind values`` () =
 
     Assert.Equal<string list>(
         [ "ids"; "texts"; "names"; "css_classes"; "update_times"; "kinds";
-          "document_states"; "persist_states" ],
+          "document_states"; "persist_states"; "persisted_versions";
+          "changed_versions" ],
         bindings.[0] |> List.map _.name)
 
     match bindings.[0].Head.value with

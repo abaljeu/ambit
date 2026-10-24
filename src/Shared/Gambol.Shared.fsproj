@@ -13,6 +13,8 @@
     <Compile Include="FileText.fs" />
     <Compile Include="DocumentParseLimits.fs" />
     <Compile Include="SystemDirectoryPersist.fs" />
+    
+    <Compile Include="EventId.fs" />
     <Compile Include="Model.fs" />
 
     <Compile Include="GraphBuild.fs" />
@@ -50,9 +52,9 @@
     <Compile Include="ExprRun.fs" />
     <Compile Include="ChildListWire.fs" />
     <Compile Include="ChildListMerge.fs" />
+    <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ChangeAmendment.fs" />
     <Compile Include="ClientHistory.fs" />
-    <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ApiResponses.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="ClientIdentity.fs" />

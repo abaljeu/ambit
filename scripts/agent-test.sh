@@ -28,23 +28,30 @@ full_suite() {
     echo "==> full suite finished"
 }
 
+announce_background() {
+    local pid="$1" log="$2"
+    echo "$log" > "/tmp/ambit-full-suite.${pid}.path"
+    echo "$pid"
+    echo "$log"
+}
+
 run_full() {
-    local ts log
+    local ts log pid
     ts="$(date +%Y%m%d-%H%M%S)"
     log="/tmp/ambit-full-suite-${ts}.log"
     if [[ "$(uname -s)" == Linux ]]; then
         # Cloud agent: return while the suite runs.
         export -f full_suite
         nohup bash -c 'full_suite' >"$log" 2>&1 </dev/null &
-        echo "log: $log"
-        echo "pid: $!"
+        pid=$!
+        announce_background "$pid" "$log"
     elif [[ "${CURSOR_EXTENSION_HOST_ROLE:-}" == agent-exec ]]; then
         # Desktop agent shell is Git Bash. Background and disown so this script can exit.
         export -f full_suite
         bash -c 'full_suite' >"$log" 2>&1 </dev/null &
+        pid=$!
         disown
-        echo "log: $log"
-        echo "pid: $!"
+        announce_background "$pid" "$log"
     else
         full_suite
         echo "log: $log"

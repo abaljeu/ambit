@@ -7,6 +7,7 @@ Scripts for git, build, run, and deploy live here.
 - git scripts
 - build and run scripts
 - deploy scripts
+- SageFS unattended-route scripts
 
 ## Routing
 
@@ -14,10 +15,12 @@ Scripts for git, build, run, and deploy live here.
 - You want the desktop shell: [[desktop.sh]]
 - You want the server: [[server.sh]]
 - You want tests: [[agent-test.sh]]
+- You want a background full-suite status: [[check-test.sh]]
 - You want the standards scan for a review: [[standards-scan.py]]
 - You want F# function and line sizes: [[measure-fs-size.py]]
 - You want a full build: [[fullstack-build.sh]]
 - You want git procedure: [[../.agents/skills/git-protocol/SKILL.md]]
+- You want a SageFS unattended route: [[../.agents/skills/sage-scripts/SKILL.md]]
 
 ## Handoff
 

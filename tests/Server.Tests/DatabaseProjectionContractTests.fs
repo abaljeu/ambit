@@ -650,3 +650,37 @@ let ``ownership repair shifts root with owner-and-ref sibling without pkey clash
         Assert.Equal(Graph.trashId.Value, kids.[4] |> fun (id, _, _) -> id)
     }
 
+[<Fact>]
+let ``document state versions survive a database round trip`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let fileId = id 96
+    let persistedVersion = EventId.fromJson 3
+    let changedVersion = EventId.fromJson 4
+    let created =
+        Node.Create(
+            fileId,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            kind = Special File,
+            persistState = PersistState.Unpersisted)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    persistedVersion = persistedVersion
+                    changedVersion = changedVersion } }
+    let graph = graphWithCustomNodes [ node ]
+    do! replaceProjection connStr graph EventId.zero
+    let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
+    match loaded with
+    | Error error -> Assert.Fail(error)
+    | Ok (loadedGraph, _) ->
+        let back = loadedGraph.nodes.[fileId]
+        Assert.Equal(
+            PersistState.Unpersisted,
+            back.documentState.persistState)
+        Assert.Equal(persistedVersion, back.documentState.persistedVersion)
+        Assert.Equal(changedVersion, back.documentState.changedVersion)
+}
+

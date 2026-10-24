@@ -131,7 +131,8 @@ module BootCache =
                 | Error _ -> acc
                 | Ok st ->
                     let ops = Ev.ops event |> Option.defaultValue []
-                    let mark = Op.marksOwningPersist event.commandName
+                    let mark =
+                        Op.persistMarkVersion event.commandName event.id
                     let guard = Op.guardsUnparsedDocument event.commandName
                     match
                         ResidentProjection.applyOpsAllowing guard mark ops st

@@ -37,6 +37,50 @@ let private applyThenAppend (handlers: PersistHandlers) event =
     Assert.Equal(event.submissionId, stored.submissionId)
     accepted
 
+let private fileNodeWithText () =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    fileId, node
+
+let private editFileText eventId fileId oldText newText : Ev =
+    { id = EventIdFixtures.storedId eventId
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Edit"
+      body = EventBody.Change [ Op.SetText(fileId, oldText, newText) ] }
+
+[<Fact>]
+let ``FileAgent applyEvent marks a File Node at the later Edit id`` () =
+    let fileId, node = fileNodeWithText ()
+    let agent = FileAgent.create (newTempDir ())
+    let handlers = (FileAgent.persist agent).handlers
+    let seeded =
+        match handlers.getState () with
+        | Error error ->
+            Assert.Fail($"getState: {error}")
+            Unchecked.defaultof<_>
+        | Ok state ->
+            Graph.addDetachedNode node state.graph
+    handlers.replaceGraph (Notice.NodePersisting fileId) seeded
+    requireOk
+        "first edit"
+        (handlers.applyEvent (editFileText 4 fileId "hello" "first") false)
+    |> ignore
+    requireOk
+        "second edit"
+        (handlers.applyEvent (editFileText 5 fileId "first" "second") false)
+    |> ignore
+    let state = requireOk "getState" (handlers.getState ())
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(EventIdFixtures.storedId 5, live.documentState.changedVersion)
+    Assert.Equal("second", live.text)
+
 [<Fact>]
 let ``FileAgent applyEvent applies Ev Ops without leftover Change`` () =
     let childId, ops = addRootChild "persist-apply-file"
@@ -94,3 +138,74 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             Assert.Single(changesOnly logged).submissionId)
     finally
         CoreMailboxApi.dispose host
+
+/// Spec §2.6: Undo and Redo set Unpersisted and do not write a version.
+/// commandName stays the original Edit so a command-name check would still stamp.
+let private persistedAt version text =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = text,
+            name = Filename.create "note.txt",
+            kind = Special File)
+        |> Node.withUnpersistedAt version
+        |> Node.withPersistState PersistState.Persisted
+    fileId, node
+
+let private seedPersisted handlers fileId node =
+    let state = requireOk "seed getState" (handlers.getState ())
+    handlers.replaceGraph
+        (Notice.NodePersisting fileId)
+        (Graph.addDetachedNode node state.graph)
+
+let private editAction id body : Ev =
+    { id = EventIdFixtures.storedId id
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Edit"
+      body = body }
+
+let private assertKeptVersion state fileId text version =
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(text, live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(version, live.documentState.changedVersion)
+
+let private applyKept handlers graphOnly event fileId text version =
+    requireOk "applyEvent" (handlers.applyEvent event graphOnly) |> ignore
+    let state = requireOk "getState" (handlers.getState ())
+    assertKeptVersion state fileId text version
+
+let private fileHandlers () =
+    let agent = FileAgent.create (newTempDir ())
+    (FileAgent.persist agent).handlers
+
+let private dbHandlers () =
+    let initial =
+        { graph = Graph.create (); eventId = EventId.zero }
+    let agent = DbAgent.createForTest initial (fun _ -> Ok [])
+    (DbAgent.persist agent).handlers
+
+/// Apply one Undo or Redo whose commandName is still the original Edit.
+let private runAction handlers graphOnly before after bodyFor =
+    let version = EventIdFixtures.storedId 4
+    let fileId, node = persistedAt version before
+    seedPersisted handlers fileId node
+    let event = editAction 9 (bodyFor version fileId)
+    applyKept handlers graphOnly event fileId after version
+
+[<Fact>]
+let ``Undo and Redo leave Unpersisted and keep changedVersion`` () =
+    let undo version fileId =
+        EventBody.Undo(
+            version,
+            [ Op.SetText(fileId, "edited", "hello") ])
+    let redo version fileId =
+        EventBody.Redo(
+            version,
+            [ Op.SetText(fileId, "hello", "edited") ])
+    runAction (fileHandlers ()) false "edited" "hello" undo
+    runAction (fileHandlers ()) true "hello" "edited" redo
+    runAction (dbHandlers ()) false "edited" "hello" undo
+    runAction (dbHandlers ()) true "hello" "edited" redo

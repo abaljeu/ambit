@@ -163,14 +163,14 @@ module ChangeAmendment =
 
     let private applyMarked
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
         match
             ChangeValidation.applyOpsAllowing
-                guardUnparsed markUnpersisted ops state
+                guardUnparsed changedVersion ops state
         with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, ops
@@ -182,7 +182,7 @@ module ChangeAmendment =
             | Ok amended ->
                 match
                     ChangeValidation.applyOpsAllowing
-                        guardUnparsed markUnpersisted amended state
+                        guardUnparsed changedVersion amended state
                 with
                 | ApplyResult.Invalid _ as err -> err, false, ops
                 | ApplyResult.Unchanged _ as unchanged ->
@@ -193,25 +193,104 @@ module ChangeAmendment =
 
     /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
     let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
-        applyMarked true true ops state
+        applyMarked true (Some EventId.zero) ops state
 
     /// Disk parse (`commandName` Parse) applies without writing PersistState.
     /// The normal-change unparsed gate still applies. Mailbox postGraphOnly
     /// uses applyForGraphOnly.
     let applyForCommand
+        (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked true (Op.marksOwningPersist commandName) ops state
+        applyMarked
+            true
+            (Op.persistMarkVersion commandName changedVersion)
+            ops
+            state
 
     /// Mailbox postGraphOnly. A document-root suffix attach may land on an
     /// Unparsed shell. Other unparsed content edits stay blocked.
     let applyForGraphOnly
+        (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked false (Op.marksOwningPersist commandName) ops state
+        applyMarked
+            false
+            (Op.persistMarkVersion commandName changedVersion)
+            ops
+            state
+
+    /// Undo and Redo mark Unpersisted and do not write changedVersion.
+    let private changedVersionForBody
+        (body: EventBody)
+        (commandName: string)
+        (eventId: EventId)
+        : EventId option =
+        match body with
+        | EventBody.Undo _
+        | EventBody.Redo _ -> None
+        | EventBody.Change _
+        | EventBody.ActorStart _
+        | EventBody.ActorStop _
+        | EventBody.Cancel _
+        | EventBody.Load _
+        | EventBody.Notice _ ->
+            Op.persistMarkVersion commandName eventId
+
+    let private markUnpersistedKeepingVersion
+        (ops: Op list)
+        (state: State)
+        : State =
+        let graph =
+            DocumentOpImpact.owningSpecials state.graph ops
+            |> List.fold
+                (fun graph nodeId ->
+                    match
+                        GraphMutate.setPersistState
+                            nodeId
+                            PersistState.Unpersisted
+                            graph
+                    with
+                    | Ok next -> next
+                    | Error _ -> graph)
+                state.graph
+        { state with graph = graph }
+
+    let private finishUndoRedo
+        (body: EventBody)
+        (ops: Op list)
+        (result: ApplyResult)
+        : ApplyResult =
+        match body, result with
+        | EventBody.Undo _, ApplyResult.Changed state
+        | EventBody.Redo _, ApplyResult.Changed state ->
+            ApplyResult.Changed (
+                markUnpersistedKeepingVersion ops state)
+        | _ -> result
+
+    /// One apply for FileAgent and DbAgent. Pass the posted event id.
+    let applyPosted
+        (graphOnly: bool)
+        (eventId: EventId)
+        (event: Ev)
+        (ops: Op list)
+        (state: State)
+        : ApplyResult * bool * Op list =
+        let result, amended, appliedOps =
+            applyMarked
+                (not graphOnly)
+                (changedVersionForBody
+                    event.body
+                    event.commandName
+                    eventId)
+                ops
+                state
+        finishUndoRedo event.body appliedOps result,
+        amended,
+        appliedOps

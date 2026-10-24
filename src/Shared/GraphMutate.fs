@@ -37,32 +37,42 @@ module GraphMutate =
             if Node.childOwnership graph parentId c <> Ownership.Owner then None
             else nodeDisplayName graph c.id)
 
+    /// Write Unpersisted at `version` on one node by id.
+    let setUnpersistedAt
+        (nodeId: NodeId)
+        (version: EventId)
+        (graph: Graph)
+        : Graph =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node ->
+            { graph with
+                nodes =
+                    graph.nodes
+                    |> Map.add nodeId (Node.withUnpersistedAt version node) }
+        | None -> graph
+
     /// Nearest content special on the owner chain, inclusive.
     /// Directory File nodes (exact `.amb` name) are not axis carriers.
-    let private markOwningSpecialUnpersisted (nodeId: NodeId) (graph: Graph) : Graph =
+    let private markOwningSpecialUnpersisted
+        (version: EventId)
+        (nodeId: NodeId)
+        (graph: Graph)
+        : Graph =
         match GraphQuery.enclosing graph Node.carriesStateAxes nodeId with
         | None -> graph
-        | Some ownerId ->
-            match Map.tryFind ownerId graph.nodes with
-            | Some node when
-                node.documentState.persistState <> PersistState.Unpersisted ->
-                let updated =
-                    Node.withPersistState PersistState.Unpersisted node
-                { graph with nodes = graph.nodes |> Map.add ownerId updated }
-            | _ -> graph
+        | Some ownerId -> setUnpersistedAt ownerId version graph
 
     let private finishPersist
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (nodeId: NodeId)
         (graph: Graph)
         =
-        if markUnpersisted then
-            markOwningSpecialUnpersisted nodeId graph
-        else
-            graph
+        match changedVersion with
+        | Some version -> markOwningSpecialUnpersisted version nodeId graph
+        | None -> graph
 
     let setText
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (nodeId: NodeId)
         (oldText: string)
         (newText: string)
@@ -83,10 +93,10 @@ module GraphMutate =
                     let updatedNode = NodeUpdateTime.touch { node with text = newText }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
                     let edited = { graph with nodes = nodes }
-                    Ok (finishPersist markUnpersisted nodeId edited)
+                    Ok (finishPersist changedVersion nodeId edited)
 
     let setClasses
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (nodeId: NodeId)
         (oldClasses: CssClasses)
         (newClasses: CssClasses)
@@ -107,10 +117,10 @@ module GraphMutate =
                     let updatedNode = NodeUpdateTime.touch { node with cssClasses = newClasses }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
                     let edited = { graph with nodes = nodes }
-                    Ok (finishPersist markUnpersisted nodeId edited)
+                    Ok (finishPersist changedVersion nodeId edited)
 
     let setName
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (nodeId: NodeId)
         (oldName: string)
         (newName: string)
@@ -176,7 +186,7 @@ module GraphMutate =
                                         { node with name = Filename.Ok validName; text = validName }
                             let nodes = graph.nodes |> Map.add nodeId updatedNode
                             let edited = { graph with nodes = nodes }
-                            Ok (finishPersist markUnpersisted nodeId edited)
+                            Ok (finishPersist changedVersion nodeId edited)
 
     /// `oldState` stays on the op for undo. Apply writes `newState`
     /// even when the node already holds a different document state.
@@ -247,7 +257,7 @@ module GraphMutate =
             Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (parentId: NodeId)
         (index: int)
         (oldChildren: ChildNode list)
@@ -333,7 +343,7 @@ module GraphMutate =
                                 graph.root
                                 (graph.nodes |> Map.add parentId updatedParent)
                                 (Map.add parentId updatedChildren graph.childMap)
-                    finishPersist markUnpersisted parentId committed
+                    finishPersist changedVersion parentId committed
 
                 match placementError with
                 | Some msg -> Error msg
