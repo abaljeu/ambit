@@ -93,7 +93,7 @@ module SyncLogic =
         (undid: bool)
         =
         match event.body with
-        | EventBody.Notice (Notice.NodePersisted (nodeId, updateTime)) ->
+        | EventBody.Notice (Notice.NodePersisted (nodeId, _, updateTime)) ->
             let next = withNodeUpdateTime nodeId updateTime st
             Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)

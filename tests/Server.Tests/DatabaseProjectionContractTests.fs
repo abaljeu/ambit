@@ -96,7 +96,7 @@ let private readStoredEvents connStr = task {
 let private eventLabel (event: Ev) =
     match event.body with
     | EventBody.Change _ -> "Change"
-    | EventBody.Notice (Notice.NodePersisted (id, _))
+    | EventBody.Notice (Notice.NodePersisted (id, _, _))
         when id = Graph.rootId ->
         "NodePersisted ROOT"
     | other -> sprintf "%A" other

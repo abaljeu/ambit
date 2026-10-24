@@ -1,6 +1,6 @@
 # 99 — NodePersisted carries the written version
 
-**Status:** `defined`
+**Status:** `coded`
 
 > **Size: accepted by Alan (2026-10-23).** This step changes 6 source files and 10 test files (16 files, under 20). That is over the 4-test limit, but the extra test edits are mechanical: each `Notice.NodePersisted (id, time)` pair gains `persistedVersion`, and a `Notice.NodePersisted _` pattern needs no edit. Alan: "not happy about size but i don't see an option. ok"
 
