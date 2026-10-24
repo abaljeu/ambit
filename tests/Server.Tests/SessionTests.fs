@@ -356,14 +356,16 @@ let ``login during a pending logout runs and a dropped generation rejects a late
             MailboxHost.postMailboxAndAsyncReply
                 host
                 (fun channel ->
-                    Mailbox.PlaceOrder(
-                        testCaller,
-                        Guid.NewGuid(),
-                        Some "late",
-                        Order.Change(
-                            [ Op.NewNode(NodeId.New(), "late") ],
-                            ChangeOrigin.Edit),
-                        channel))
+                    Mailbox.PlaceOrder {
+                        tracking = {
+                            orderId = OrderId.New()
+                            caller = testCaller
+                            commandName = Some "late" }
+                        order =
+                            Order.Change(
+                                [ Op.NewNode(NodeId.New(), "late") ],
+                                ChangeOrigin.Edit)
+                        reply = channel })
         Assert.Equal(Error "authority dropped", late)
         let! last =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
@@ -490,14 +492,16 @@ let ``admitted route order after DropAuthority is rejected`` () = task {
                         MailboxHost.postMailboxAndAsyncReply
                             runtime.host
                             (fun channel ->
-                                Mailbox.PlaceOrder(
-                                    caller,
-                                    Guid.NewGuid(),
-                                    Some "late",
-                                    Order.Change(
-                                        [ Op.NewNode(NodeId.New(), "late") ],
-                                        ChangeOrigin.Edit),
-                                    channel))
+                                Mailbox.PlaceOrder {
+                                    tracking = {
+                                        orderId = OrderId.New()
+                                        caller = caller
+                                        commandName = Some "late" }
+                                    order =
+                                        Order.Change(
+                                            [ Op.NewNode(NodeId.New(), "late") ],
+                                            ChangeOrigin.Edit)
+                                    reply = channel })
                     Assert.Equal(Error "authority dropped", posted)
                     return Results.Ok()
                 })

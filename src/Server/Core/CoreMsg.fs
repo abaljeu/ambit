@@ -53,15 +53,20 @@ type internal Query =
         after: EventId *
         AsyncReplyChannel<Result<EventLog, string>>
 
+type internal TrackingDetails = {
+    orderId: OrderId
+    caller: Caller
+    commandName: string option }
+
+type internal TrackingOrder = {
+    tracking: TrackingDetails
+    order: Order
+    reply: AsyncReplyChannel<Result<EventId, string>> }
+
 [<RequireQualifiedAccess>]
 type internal Mailbox =
     | CoreMsg of CoreMsg
-    | PlaceOrder of
-        caller: Caller *
-        orderId: System.Guid *
-        commandName: string option *
-        order: Order *
-        reply: AsyncReplyChannel<Result<EventId, string>>
+    | PlaceOrder of TrackingOrder
     | Ask of Query
 
 [<RequireQualifiedAccess>]

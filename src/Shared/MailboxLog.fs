@@ -24,7 +24,7 @@ type Order =
     | Cancel of focusId: NodeId
 
 type PlacedOrder = {
-    orderId: System.Guid
+    orderId: OrderId
     authority: Authority
     commandName: string option
     order: Order }
@@ -53,7 +53,7 @@ module MailboxLog =
         | Some text -> text
 
     let private placedOrder (event: HistoryEv) (order: Order) = {
-        orderId = event.submissionId
+        orderId = OrderId event.submissionId
         authority = event.authority
         commandName = commandFromText event.commandName
         order = order }
@@ -99,7 +99,7 @@ module MailboxLog =
             | Ok body ->
                 Ok {
                     id = event.id
-                    submissionId = placed.orderId
+                    submissionId = placed.orderId.Value
                     authority = placed.authority
                     commandName = commandToText placed.commandName
                     body = body }

@@ -22,16 +22,20 @@
 
 ### Source
 
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `Order`, `orderOfBody` — `Order.Change ops`, `historyBody` — `Order.Change ops`, `ofEv`, `toEv`
+[ ] [OrderId.fs](src/Shared/OrderId.fs) `OrderId`
+[ ] [Gambol.Shared.fsproj](src/Shared/Gambol.Shared.fsproj) compiles `OrderId.fs` after `EventId.fs`
+[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `Order`, `orderOfBody` — `Order.Change(ops, ChangeOrigin.Edit)`, `historyBody` — op list, `ofEv`, `toEv`, `placedOrder`
 [ ] [MailboxHost.fs](src/Server/Core/MailboxHost.fs) `postForReplies`, `postMailboxAndAsyncReply`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder` — `Order.Change _`, `dispatchMailbox` — `PlaceOrder (caller, orderId, _, order, reply)`, `replyLoad`
+[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder`, `dispatchMailbox` — `PlaceOrder of TrackingOrder`, `replyEdit`, `editEvent`, `replyLoad`
 [ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `postEvent`, `tryStored`, `prepare`
 [ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `eventDispatchContext`, `replyStored`
-[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `Mailbox.PlaceOrder`, `CoreMsg.PostEvent`
+[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `TrackingDetails`, `TrackingOrder`, `Mailbox.PlaceOrder of TrackingOrder`, `CoreMsg.PostEvent`
 [ ] [CoreMailboxActors.fs](src/Server/Core/CoreMailboxActors.fs) `dispatchPostEvent` — Change arm `postEvent` `false`
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `ofEv then toEv keeps a Change` — `Order.Change ops`
-[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order` — `Order.Change [ ops ]`
-[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `logout returns while the reconciliation route is open` — `Order.Change [ ops ]`
+[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `ofEv then toEv keeps a Change` — `Order.Change(ops, ChangeOrigin.Edit)`
+[ ] [MailboxExpandTests.fs](tests/Server.Tests/MailboxExpandTests.fs) `Mailbox is CoreMsg, PlaceOrder, and Ask` — `PlaceOrder of TrackingOrder`
+[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order` — `PlaceOrder of TrackingOrder`, `Order.Change(ops, ChangeOrigin.Edit)`
+[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `admitted route order after DropAuthority is rejected` — `PlaceOrder of TrackingOrder`, `Order.Change(ops, ChangeOrigin.Edit)`
+[ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `logout returns while the reconciliation route is open` — `CoreMailboxApi.postEvent` of `orderEvent "reconcile"`
 
 ### Tests this ticket names
 
@@ -41,16 +45,36 @@
 
 ### Order
 
-[ ] `Order.Change` is `ops: Op list`
+[ ] `Order.Change` is `ops: Op list * origin: ChangeOrigin`
+
+### OrderId
+
+[ ] `OrderId` wraps the order Guid
+[ ] `OrderId` is a copy of `NodeId`
+[ ] `Ev.submissionId` stays `System.Guid`
+[ ] `OrderId event.submissionId` converts the Guid to `OrderId`
+[ ] `orderId.Value` converts `OrderId` to `System.Guid`
+
+### TrackingOrder
+
+[ ] `TrackingDetails` is the envelope
+[ ] `TrackingDetails` holds `orderId`, `caller`, and `commandName`
+[ ] `TrackingOrder` holds `tracking`, `order`, and `reply`
+[ ] `tracking` is `TrackingDetails`
+[ ] `order` is an `Order`
+[ ] `reply` is the mailbox reply channel
 
 ### PlaceOrder
 
-[ ] `Mailbox.PlaceOrder` is `caller * orderId * commandName: string option * order * reply`
+[ ] `Mailbox.PlaceOrder` is `PlaceOrder of TrackingOrder`
 [ ] The reply is `Result<EventId, string>`
-[ ] `dispatchMailbox` passes `caller`, `orderId`, `order`, and `reply` to `placeOrder`
-[ ] `placeOrder` replies `Error "unsupported"` on `Order.Change`
+[ ] `dispatchMailbox` passes `TrackingOrder` to `placeOrder`
+[ ] `placeOrder` on `ChangeOrigin.Edit` calls `replyEdit`
+[ ] `placeOrder` replies `Error "unsupported"` on `ChangeOrigin.Parse`
 [ ] `replyLoad` replies `Ok` of the stored Ev's `id`
+[ ] `replyLoad` passes `tracked.tracking.orderId.Value` to `appendLifecycle`
 [ ] `mbLoadNode` posts `Mailbox.PlaceOrder` of `Order.Load`
+[ ] `mbLoadNode` sets `orderId` to `OrderId.New()`
 
 ### postEvent Ev
 
@@ -64,17 +88,19 @@
 
 ### postEvents
 
-[ ] `postEvents` posts `CoreMsg.PostEvent` for every `Ev`
+[ ] A zero-id `EventBody.Change` posts `Mailbox.PlaceOrder` of `TrackingOrder`
+[ ] A Change at `EventId.Int` posts `CoreMsg.PostEvent`
+[ ] Undo, Redo, ActorStart, and Cancel post `Mailbox.CoreMsg` of `CoreMsg.PostEvent`
 [ ] It posts through `MailboxHost.postForReplies`
 [ ] It rebuilds `CoreChangesAccepted` from the replied ids
-[ ] `postForReplies` takes `(AsyncReplyChannel<'Reply> -> CoreMsg) list`
-[ ] It wraps each with `coreMsgItem`
+[ ] `postForReplies` takes `(AsyncReplyChannel<'Reply> -> Mailbox) list`
+[ ] `postForReplies` posts `CoreQueue.Public` of each item
 [ ] `postMailboxAndAsyncReply` posts `CoreQueue.Public` of a `Mailbox`
 [ ] `CoreMsg.PostEvent` replies `Result<EventId, string>`
 
 ### PostEvent bodies
 
-[ ] Change is `PostEvent`
+[ ] A Change at `EventId.Int` is `PostEvent`
 [ ] Undo is `PostEvent`
 [ ] Redo is `PostEvent`
 [ ] ActorStart is `PostEvent`
@@ -110,6 +136,24 @@
 
 ## 5. Changes
 
+### OrderId
+
+[x] `OrderId` wraps the order Guid
+[x] `OrderId` is a copy of `NodeId`
+[x] `Gambol.Shared.fsproj` compiles `OrderId.fs` after `EventId.fs`
+[x] `Ev.submissionId` stays `System.Guid`
+[x] `placedOrder` sets `orderId` to `OrderId event.submissionId`
+[x] `toEv` sets `submissionId` to `placed.orderId.Value`
+
+### TrackingOrder
+
+[x] `TrackingDetails` holds `orderId`, `caller`, and `commandName`
+[x] `TrackingOrder` holds `tracking`, `order`, and `reply`
+[x] `Mailbox.PlaceOrder` is `PlaceOrder of TrackingOrder`
+[x] `postedMailbox` builds `TrackingOrder` from `MailboxLog.ofEv` for `EventBody.Change` at `EventId.zero`
+[x] `placeOrder`, `replyEdit`, `replyLoad`, and `editEvent` take `TrackingOrder`
+[x] `mbLoadNode` posts `PlaceOrder of TrackingOrder` with `OrderId.New()`
+
 ### MailboxLog
 
 [x] `ChangeOrigin` is `Edit | Parse` beside `Order`
@@ -126,9 +170,9 @@
 
 ### postEvents
 
-[x] `EventBody.Change` posts `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`
-[x] The PlaceOrder `orderId` is the Ev `submissionId`
-[x] The PlaceOrder `commandName` is the same empty-string map `ofEv` already uses
+[x] `EventBody.Change` at `EventId.zero` posts `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`
+[x] The `TrackingOrder` `orderId` is `OrderId` of the Ev `submissionId`
+[x] The `TrackingDetails` `commandName` is the same empty-string map `ofEv` already uses
 [x] Undo in the list posts `Mailbox.CoreMsg` of `CoreMsg.PostEvent`
 [x] Redo in the list posts `Mailbox.CoreMsg` of `CoreMsg.PostEvent`
 [x] ActorStart in the list posts `Mailbox.CoreMsg` of `CoreMsg.PostEvent`
@@ -139,12 +183,12 @@
 
 ### placeOrder
 
-[x] `dispatchMailbox` passes `commandName` to `placeOrder`
+[x] `dispatchMailbox` passes `TrackingOrder` to `placeOrder`
 [x] Origin `Edit` matches `Order.Change` with `ChangeOrigin.Edit`
 [x] Origin `Edit` builds an `Ev`
 [x] Origin `Edit` calls `CoreEventDispatch.postEvent` with that Ev and `graphOnly` false, through `eventDispatchContext`
 [x] The Ev `id` is `EventId.zero`
-[x] The Ev `submissionId` is the `orderId`
+[x] The Ev `submissionId` is `tracked.tracking.orderId.Value`
 [x] The Ev `commandName` is the same unwrap `toEv` already uses
 [x] The Ev `body` is `EventBody.Change ops`
 [x] `prepare` fills the authority
@@ -177,10 +221,11 @@
 
 ### Ripple constructors
 
-[x] In [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order`, `Order.Change [ ops ]` becomes `Order.Change(ops, ChangeOrigin.Edit)`
-[ ] In [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `logout returns while the reconciliation route is open`, `Order.Change [ ops ]` becomes `Order.Change(ops, ChangeOrigin.Edit)`
-[ ] Those two constructors and `ofEv then toEv keeps a Change` are every `Order.Change` site
+[x] In [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order`, `Order.Change(ops, ChangeOrigin.Edit)`
+[x] In the same file, `admitted route order after DropAuthority is rejected`, `Order.Change(ops, ChangeOrigin.Edit)`
+[x] The posted-order constructors of `Order.Change` in tests are `login during a pending logout runs and a dropped generation rejects a late order` and `admitted route order after DropAuthority is rejected`
 [x] Filter: `login during a pending logout runs and a dropped generation rejects a late order`
+[x] Filter: `admitted route order after DropAuthority is rejected`
 [x] Filter: `logout returns while the reconciliation route is open`
 
 ### Edit persist
@@ -199,7 +244,8 @@
 [x] Undo through `postEvents` replies `Ok` and stores `EventBody.Undo`
 [x] Redo through `postEvents` replies `Ok` and stores `EventBody.Redo`
 [x] ActorStart through `postEvents` replies `Ok` and stores `EventBody.ActorStart`
-[ ] Cancel through `postEvents` replies `Ok` and stores `EventBody.Cancel`
+[x] Cancel through `postEvents` stays on `CoreMsg.PostEvent`
+[x] An idle Cancel acks `EventId.zero` with no row
 [x] Filter: `Undo, Redo, ActorStart, and Cancel still post as PostEvent`
 
 ## 7. Done

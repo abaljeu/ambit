@@ -41,7 +41,7 @@ let ``ofEv then toEv keeps a Change`` () =
     let event = source "Set text" (EventBody.Change ops)
     let order = placed event
     Assert.Equal(event.id, (logged event).id)
-    Assert.Equal(event.submissionId, order.orderId)
+    Assert.Equal(OrderId event.submissionId, order.orderId)
     Assert.Equal(event.authority, order.authority)
     Assert.Equal(Some "Set text", order.commandName)
     Assert.Equal(Order.Change(ops, ChangeOrigin.Edit), order.order)

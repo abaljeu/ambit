@@ -81,7 +81,7 @@ Scope for [64 — Place Edit changes as Order.Change](../issues/64-merge-posteve
 [ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``a resubmitted Change replies the stored id`` — two `CoreMailboxApi.postEvents` calls with the same `postedEvent()` share `eventId` and stored events.
 [ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``An Edit pushes its owning special node`` — `CoreMailboxApi.postEvents` with `editFileText` records `pushPersist` for the file node.
 [ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``An Edit marks its owning special node at the Edit's id`` — after two edits via `postEvents`, the file node is `Unpersisted` and `changedVersion` equals the second ack `eventId`.
-[ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``A graph-only change pushes nothing`` — `CoreMailboxApi.postGraphOnly` with `editFileText` leaves `pushPersist` empty (Parse door behavior today; ticket 102 moves Parse).
+[ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``A graph-only change pushes nothing`` — `CoreMailboxApi.postGraphOnly` with `editFileText` leaves `pushPersist` empty (Parse door behavior today; 102 — Place Parse changes as Order.Change moves Parse).
 [ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) ``postEvents returns the same CoreChangesAccepted from the event id`` — several `postEvents` scenarios rebuild acks from the log via stored submission ids.
 [ ] [SessionTests.fs](../../tests/Server.Tests/SessionTests.fs) ``login during a pending logout runs and a dropped generation rejects a late order`` — late `Mailbox.PlaceOrder` with `Order.Change` returns `Error "authority dropped"`.
 [ ] [CoreMailboxDoorTests.fs](../../tests/Server.Tests/CoreMailboxDoorTests.fs) private `postedEvent` — builds a Change `Ev` with `commandName` `"Set text"` and a fresh `submissionId`.
@@ -93,7 +93,7 @@ Scope for [64 — Place Edit changes as Order.Change](../issues/64-merge-posteve
 [ ] [CoreMailboxApi.fs](../../src/Server/Core/CoreMailboxApi.fs) `mbLoadNode` — posts `Mailbox.PlaceOrder` through `MailboxHost.postMailboxAndAsyncReply`.
 [ ] [CoreMailboxLoad.fs](../../src/Server/Core/CoreMailboxLoad.fs) `replyLoad` — PlaceOrder handler that appends a lifecycle `Ev` and replies `Ok stored.id`.
 [ ] [CoreMailboxActors.fs](../../src/Server/Core/CoreMailboxActors.fs) `dispatchPostEvent` default arm — runs `CoreEventDispatch.postEvent` with `graphOnly` `false` through `eventDispatchContext`.
-[ ] [CoreMailboxEvents.fs](../../src/Server/Core/CoreMailboxEvents.fs) `dispatchPostGraphOnly` — same `postEvent` path with `graphOnly` `true` (reference for origin `Parse` in ticket 102, not this ticket).
+[ ] [CoreMailboxEvents.fs](../../src/Server/Core/CoreMailboxEvents.fs) `dispatchPostGraphOnly` — same `postEvent` path with `graphOnly` `true` (reference for origin `Parse` in 102 — Place Parse changes as Order.Change, not this ticket).
 [ ] [CoreMailboxApi.fs](../../src/Server/Core/CoreMailboxApi.fs) `postEvents` — batch `postForReplies` then `mergeIdReplies` / `acceptedFromIds` pattern to rebuild `CoreChangesAccepted`.
 [ ] [MailboxHost.fs](../../src/Server/Core/MailboxHost.fs) `postMailboxAndAsyncReply` — wraps `CoreQueue.Public (build channel)` for a `Mailbox` item (target shape for `postForReplies` after the ticket change).
 

@@ -15,6 +15,7 @@
     <Compile Include="SystemDirectoryPersist.fs" />
     
     <Compile Include="EventId.fs" />
+    <Compile Include="OrderId.fs" />
     <Compile Include="Model.fs" />
 
     <Compile Include="GraphBuild.fs" />
