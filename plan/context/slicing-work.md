@@ -1,19 +1,34 @@
-# Ticket work
+# Slicing work
 
 ## 1. Work
 
-Each ticket is one file, `plan/<slug>/issues/NN-<ticket-name>.md`. Write each ticket when the ticket step is about to be worked.
+Examine the requirements. Decide the scope of one ticket. Kick off one ticket-creator agent. Receive the handback. Take the next ticket. Stop when every slice has a ticket.
+
+Requirements:
+
+- `plan/<slug>/arch.md`
+  - slicing strategy
+  - story paths
+  - module map
+- `plan/<slug>/spec.md`
+  - stories
+
+The ticket-creator agent follows [[ticket-work.md]].
+
+The handback is the ticket file that agent wrote.
 
 ## 2. Cut and order
 
-The arch sets the direction of the cuts. This step cuts the slices and orders them.
+The arch sets the direction of the cuts. This step cuts the next slice and orders it.
 
-1. **Read the strategy.** Read the slicing strategy at the end of `plan/<slug>/arch.md`. It is one of `tracer-cut`, `module-build` or `expand-contract`. When it is absent, stop and ask.
-2. **Cut.** Cut the slices that strategy names, using the rules below. Size each slice to fit one fresh context window.
-3. **Order.** Give each ticket its blockers. A ticket's blockers are the tickets that come before it.
-   - The first ticket has no blockers.
-   - The last ticket is the one no other ticket is blocked by.
-4. **Number and name.** Number and name each ticket per [[.agents/rules/refer-by-name.md]].
+1. **Read the strategy.** Read the slicing strategy at the end of `plan/<slug>/arch.md`. It is one of `tracer-cut`, `module-build` or `expand-contract`. Ask when that strategy is unnamed.
+2. **Cut.** Cut the next slice that strategy names, using the rules below. Size that slice to fit one fresh context window.
+3. **Order.** Give that ticket its blockers. A ticket's blockers are the tickets that come before it.
+   - The first ticket lists its blockers as none.
+   - The last ticket is the one later tickets leave off their blockers.
+4. **Number and name.** Number and name that ticket per [[.agents/rules/refer-by-name.md]].
+
+Pass that scope to the ticket-creator agent.
 
 ### Tracer cut (`tracer-cut`)
 
@@ -51,63 +66,29 @@ When a batch can only be green together with others, the batches share an integr
 
 ### Ripple
 
-When a ticket adds a union case or changes a public signature, Look at names every site that changes:
+When a ticket adds a union case or changes a public signature, the scope names every site that changes:
 
 - each match on that union, with its file and function
 - each caller of that signature, with its file and function
 - each test that calls it, with its file and count
 
-Look at also names the helper that does the same job today, such as the append function or the post function.
+The scope also names the helper that does the same job today, such as the append function or the post function.
 
 ### Scope
 
-- A ticket changes source and tests.
-- GLOSSARY, arch and spec change in their own steps.
-- Each name in Tests is a test that exists or that the ticket adds.
+A ticket's scope is source and tests.
 
-## 3. Ticket template
+These change in their own steps:
 
-Copy these headings into the ticket. Leave each pointer line as written. A pointer line names its target file.
+- GLOSSARY
+- arch
+- spec
 
-```
-# <NN> — <ticket name>
+Each name in Tests is a test that exists or that the ticket adds.
 
-## 1. Type
-Set `coding` or `bug-fixing`. `coding` adds behavior. `bug-fixing` corrects behavior.
+## 3. Done
 
-## 2. Blockers
-Name the earlier tickets by number and name. Blockers are the order. Name none when this ticket can start.
-
-## 3. Look at
-Name the files, the types, and the functions to read.
-
-## 4. Context
-Describe the state before this work is done.
-
-## 5. Changes
-Name the changes to make.
-
-## 6. Tests
-Name each test to add or change, its file, and what it checks. Name the `--filter` names that run them.
-
-## 7. Done
-How we can validate the ticket is accomplished.
-
-```
-
-## 4. Done
-The ticket names
-
-- its type
-- its blockers
-- the files to look at
-- the types to look at
-- the functions to look at
-- the context
-- the changes
-- the tests, with their files and filter names
-- what done looks like
-- one step of expand, change, or contract
-- every match site and caller it ripples to
-
-The implementer uses the ticket and the code.
+- the scope is one ticket
+- the scope names its cut, its blockers, and its size
+- the ticket-creator agent has handed back the ticket file
+- the next ticket starts, or every slice the strategy names has a ticket

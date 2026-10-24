@@ -24,7 +24,7 @@ State the artifact you are working on. Open that work file.
 - You want a Chapter: [[chapter-work.md]]
 - You want an issue: [[issue-work.md]]
 - You want this folder's project file: [[project.md]]
-- You want a feature-set Project's shape: [[../../context/project-work.md]]
+- You want a feature-set Project's shape: [[../context/project-work.md]]
 
 ## Handoff
 

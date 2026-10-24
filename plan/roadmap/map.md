@@ -4,7 +4,7 @@
 
 Rapid understanding via dynamic organization.
 
-The program, told through Epics. Epic shape: [[epic-work.md]]. Chapter shape: [[epics/chapter-template.md]]. Feature-set Project shape: [[../../context/project-work.md]].
+The program, told through Epics. Epic shape: [[epic-work.md]]. Chapter shape: [[epics/chapter-template.md]]. Feature-set Project shape: [[../context/project-work.md]].
 
 Completing this Roadmap means completing the application. [[doc/index.md]] is the Feature index of the current program.
 

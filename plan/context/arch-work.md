@@ -24,7 +24,7 @@ Spec: [[spec.md]]
 
 1. **Story paths.** Write one numbered path for each named user story.
 2. **Module map.** Name each module and the file that holds it.
-3. **Slicing strategy.** Name the direction of the cuts. The ticket step cuts the slices and orders them. Use one of these:
+3. **Slicing strategy.** Name the direction of the cuts. [[slicing-work.md]] cuts the slices and orders them. Use one of these:
    - `tracer-cut`
    - `module-build`
    - `expand-contract`
