@@ -360,11 +360,50 @@ module internal CoreMailboxLoad =
             | Error err -> reply.Reply(Error err)
             | Ok stored -> reply.Reply(Ok stored.id)
 
-    let private placeOrder context caller orderId order reply =
+    let private editEvent
+        (caller: Caller)
+        (orderId: Guid)
+        (commandName: string option)
+        (ops: Op list)
+        : Result<Ev, string> =
+        MailboxLog.toEv {
+            id = EventId.zero
+            body =
+                MailboxLog.EventBody.Order {
+                    orderId = orderId
+                    authority = caller.authority
+                    commandName = commandName
+                    order = Order.Change(ops, ChangeOrigin.Edit) } }
+
+    let private replyEdit
+        (context: MailboxContext)
+        (caller: Caller)
+        (orderId: Guid)
+        (commandName: string option)
+        (ops: Op list)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match editEvent caller orderId commandName ops with
+        | Error err -> reply.Reply(Error err)
+        | Ok event ->
+            match
+                CoreEventDispatch.postEvent
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    caller
+                    event
+                    false
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok (stored, _) -> reply.Reply(Ok stored.id)
+
+    let private placeOrder
+        context caller orderId commandName order reply =
         match order with
         | Order.Load subject ->
             replyLoad context caller orderId subject reply
-        | Order.Change _
+        | Order.Change (ops, ChangeOrigin.Edit) ->
+            replyEdit context caller orderId commandName ops reply
+        | Order.Change (_, ChangeOrigin.Parse)
         | Order.Undo _
         | Order.Redo _
         | Order.StartActor _
@@ -424,9 +463,9 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder (caller, orderId, _, order, reply) ->
+        | Mailbox.PlaceOrder (caller, orderId, commandName, order, reply) ->
             if authorityHeld context caller then
-                placeOrder context caller orderId order reply
+                placeOrder context caller orderId commandName order reply
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query

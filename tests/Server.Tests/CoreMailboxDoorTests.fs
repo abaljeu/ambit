@@ -974,6 +974,104 @@ let ``postEvents returns the same CoreChangesAccepted from the event id`` () =
             })
     }
 
+let private postedBody commandName body : Ev = {
+    id = EventId.zero
+    submissionId = Guid.NewGuid()
+    authority = Authority "Browser"
+    commandName = commandName
+    body = body }
+
+let private storedBody host submissionId = async {
+    let! since = CoreMailboxApi.getEventsSince host EventId.zero
+    return
+        since
+        |> List.tryFind (fun event -> event.submissionId = submissionId)
+        |> Option.map (fun event -> event.body) }
+
+[<Fact>]
+let ``postEvents places Order.Change with origin Edit`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! posted =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        let accepted = requireOk "place edit" posted
+        let! since =
+            CoreMailboxApi.getEventsSince host EventId.zero
+            |> Async.StartAsTask
+        let stored =
+            since
+            |> List.find (fun item ->
+                item.submissionId = event.submissionId)
+        Assert.Equal(stored.id, accepted.eventId)
+        Assert.True(EventId.isAccepted accepted.eventId)
+        match MailboxLog.ofEv stored with
+        | Error err -> Assert.Fail(err)
+        | Ok logged ->
+            match logged.body with
+            | MailboxLog.EventBody.Order placed ->
+                match stored.body with
+                | EventBody.Change ops ->
+                    Assert.Equal(
+                        Order.Change(ops, ChangeOrigin.Edit),
+                        placed.order)
+                | _ -> Assert.Fail("stored body is a Change")
+            | MailboxLog.EventBody.Notice _ ->
+                Assert.Fail("stored body is an Order")
+    })
+
+[<Fact>]
+let ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` () =
+    withHost (fun host _ -> task {
+        let start =
+            postedBody "Run" (EventBody.ActorStart sampleRequest)
+        let! started =
+            CoreMailboxApi.postEvents host testCaller [ start ]
+            |> Async.StartAsTask
+        requireOk "actor start" started |> ignore
+        let! startedBody = storedBody host start.submissionId
+        Assert.Equal(
+            Some (EventBody.ActorStart sampleRequest),
+            startedBody)
+        let _, create = addRootChildEvent "undo-target"
+        let! created =
+            CoreMailboxApi.postEvents host testCaller [ create ]
+            |> Async.StartAsTask
+        let createdAck = requireOk "create" created
+        let undo =
+            postedBody "Undo" (EventBody.Undo(createdAck.eventId, []))
+        let! undone =
+            CoreMailboxApi.postEvents host testCaller [ undo ]
+            |> Async.StartAsTask
+        let undoneAck = requireOk "undo" undone
+        let! undoBody = storedBody host undo.submissionId
+        match undoBody with
+        | Some (EventBody.Undo (target, _)) ->
+            Assert.Equal(createdAck.eventId, target)
+        | other -> Assert.Fail($"stored body is Undo, got {other}")
+        let redo =
+            postedBody "Redo" (EventBody.Redo(undoneAck.eventId, []))
+        let! redone =
+            CoreMailboxApi.postEvents host testCaller [ redo ]
+            |> Async.StartAsTask
+        requireOk "redo" redone |> ignore
+        let! redoBody = storedBody host redo.submissionId
+        match redoBody with
+        | Some (EventBody.Redo (target, _)) ->
+            Assert.Equal(undoneAck.eventId, target)
+        | other -> Assert.Fail($"stored body is Redo, got {other}")
+        let cancel =
+            postedBody "Cancel" (EventBody.Cancel (NodeId.New()))
+        let! cancelled =
+            CoreMailboxApi.postEvents host testCaller [ cancel ]
+            |> Async.StartAsTask
+        let cancelAck = requireOk "cancel" cancelled
+        Assert.Equal(EventId.zero, cancelAck.eventId)
+        Assert.Empty(cancelAck.events)
+        let! cancelBody = storedBody host cancel.submissionId
+        Assert.Equal(None, cancelBody)
+    })
+
 [<Fact>]
 let ``a resubmitted Change replies the stored id`` () =
     withHost (fun host _ -> task {

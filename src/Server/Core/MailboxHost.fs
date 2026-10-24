@@ -39,7 +39,7 @@ module MailboxHost =
     /// Post each message back to back. The gate keeps another caller out.
     let internal postForReplies
         (host: MailboxHost)
-        (builds: (AsyncReplyChannel<'Reply> -> CoreMsg) list)
+        (builds: (AsyncReplyChannel<'Reply> -> Mailbox) list)
         : Async<'Reply list> =
         let tasks =
             lock host.gate (fun () ->
@@ -49,7 +49,7 @@ module MailboxHost =
                         System.Threading.Tasks.TaskCompletionSource<_>()
                     let post =
                         host.mailbox.PostAndAsyncReply(fun channel ->
-                            coreMsgItem (build channel))
+                            CoreQueue.Public (build channel))
                     Async.StartWithContinuations(
                         post,
                         (fun reply -> source.TrySetResult reply |> ignore),

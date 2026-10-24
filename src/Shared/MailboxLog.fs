@@ -3,8 +3,13 @@ namespace Gambol.Shared
 type PeerActorName = PeerActorName of string
 
 [<RequireQualifiedAccess>]
+type ChangeOrigin =
+    | Edit
+    | Parse
+
+[<RequireQualifiedAccess>]
 type Order =
-    | Change of ops: Op list
+    | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId
     | Redo of target: EventId
     | StartActor of ActorStart
@@ -55,7 +60,8 @@ module MailboxLog =
 
     let private orderOfBody (body: HistoryBody) =
         match body with
-        | HistoryBody.Change ops -> Ok (Order.Change ops)
+        | HistoryBody.Change ops ->
+            Ok (Order.Change(ops, ChangeOrigin.Edit))
         | HistoryBody.Undo (target, _) -> Ok (Order.Undo target)
         | HistoryBody.Redo (target, _) -> Ok (Order.Redo target)
         | HistoryBody.ActorStart start ->
@@ -67,7 +73,7 @@ module MailboxLog =
 
     let private historyBody (order: Order) =
         match order with
-        | Order.Change ops -> Ok (HistoryBody.Change ops)
+        | Order.Change (ops, _) -> Ok (HistoryBody.Change ops)
         | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)

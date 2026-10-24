@@ -165,6 +165,26 @@ module CoreMailboxApi =
                 | Ok _ -> return Error "stored Event not found"
         }
 
+    let private postedMailbox
+        (caller: Caller)
+        (event: Ev)
+        (channel: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match event.body with
+        | EventBody.Change _ ->
+            match MailboxLog.ofEv event with
+            | Ok { body = MailboxLog.EventBody.Order placed } ->
+                Mailbox.PlaceOrder(
+                    caller,
+                    placed.orderId,
+                    placed.commandName,
+                    placed.order,
+                    channel)
+            | _ ->
+                Mailbox.CoreMsg(PostEvent(caller, event, channel))
+        | _ ->
+            Mailbox.CoreMsg(PostEvent(caller, event, channel))
+
     /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
@@ -180,7 +200,7 @@ module CoreMailboxApi =
             let builds =
                 events
                 |> List.map (fun (event: Ev) ->
-                    fun channel -> PostEvent(caller, event, channel))
+                    fun channel -> postedMailbox caller event channel)
             let waiting = MailboxHost.postForReplies host builds
             async {
                 let! results = waiting
