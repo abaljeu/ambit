@@ -1,13 +1,13 @@
-# Chapter context
+# Chapter work
 
 ## Input
 
-- [[../../context/project-context.md]] when the Chapter names a Project
+- [[../../context/project-work.md]] when the Chapter names a Project
 - The predecessor Chapter, when **Blocked by** names one
 
 ## Process
 
-1. Read [[../../context/project-context.md]] when the Chapter names a Project.
+1. Read [[../../context/project-work.md]] when the Chapter names a Project.
 2. Read the predecessor Chapter when **Blocked by** names one.
 3. Write the aspect of use.
 4. Set **Blocked by** to that predecessor, or to None.

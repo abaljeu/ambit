@@ -1,4 +1,4 @@
-# Document context
+# Document work
 
 ## 1. Work
 

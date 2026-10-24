@@ -9,13 +9,13 @@ Projects live in `plan/<slug>/`.
 
 ## Routing
 
-- You want the step elements: [[../context/project-context.md]]
+- You want the step elements: [[context/project-work.md]]
 - You want the stage of a Project: `plan/<slug>/project.md`
 - You want the Roadmap: [[roadmap/]]
 
 ## Project CONTEXT.md
 
-A Project folder's CONTEXT.md names the elements of [[../context/project-context.md]] that apply, in that Project's sequence.
+A Project folder's CONTEXT.md names the elements of [[context/project-work.md]] that apply, in that Project's sequence.
 
 Write that file when that Project is about to be worked.
 

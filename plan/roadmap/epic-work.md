@@ -1,12 +1,12 @@
-# Epic context
+# Epic work
 
 ## Input
 
-- [[chapter-context.md]]
+- [[chapter-work.md]]
 
 ## Process
 
-1. Read [[chapter-context.md]].
+1. Read [[chapter-work.md]].
 2. Write the user narrative.
 3. List each Chapter of this Epic.
 

@@ -1,12 +1,12 @@
-# Map context
+# Map work
 
 ## Input
 
-- [[epic-context.md]]
+- [[epic-work.md]]
 
 ## Process
 
-1. Read [[epic-context.md]].
+1. Read [[epic-work.md]].
 2. Write the program as Epics on [[map.md]].
 
 ## Output

@@ -14,4 +14,4 @@
 10. Build — As an implementer, I want the build to change the source the ticket names, so that the ticket's changes exist in the code.
 11. Review — As a person directing an effort, I want one review per ticket scored against the stories that ticket named, so that a miss sends that ticket back to build.
 12. Docs — As a later reader, I want `doc/current` and `doc/user` updated for the tickets whose stories were met, so that the docs match what was achieved.
-13. Step context — As a person directing an effort, I want each step's context to decide what gets built, so that the agent loads that step's files and not the whole effort.
+13. Step work — As a person directing an effort, I want each step's work file to decide what gets built, so that the agent loads that step's files and not the whole effort.
