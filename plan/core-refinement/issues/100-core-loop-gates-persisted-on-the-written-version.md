@@ -1,6 +1,6 @@
 # 100 — Core loop gates Persisted on the written version
 
-**Status:** `defined`
+**Status:** `coded`
 
 > **Decided (Alan, 2026-10-23).** "persistedVersion is the version of the graph that was written to file." Every `NodePersisted` sets `persistedVersion` to the written version. `persistState` becomes `Persisted` only when `persistedVersion >= changedVersion`. Otherwise it stays `Unpersisted` and `changedVersion` does not change.
 

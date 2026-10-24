@@ -203,6 +203,52 @@ let ``NodePersisted sets Persisted and calls the diff hook`` () =
     Assert.Equal(id, Assert.Single(snaps))
 
 [<Fact>]
+let ``NodePersisted for an older version leaves the node Unpersisted`` () =
+    let changed = EventId.fromJson 4
+    let older = EventId.fromJson 3
+    let stamp = DateTime(2026, 10, 23, 4, 5, 6, DateTimeKind.Utc)
+    let id, initial =
+        fileStateAtEdit
+            PersistState.Unpersisted
+            ParseState.Parsed
+            changed
+            (EventId.fromJson 9)
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodePersisted(id, older, stamp))
+    let late = state.Value.graph.nodes.[id]
+    Assert.Equal(older, late.documentState.persistedVersion)
+    Assert.Equal(PersistState.Unpersisted, late.documentState.persistState)
+    Assert.Equal(changed, late.documentState.changedVersion)
+    Assert.Equal(stamp, late.updateTime)
+
+    let equalId, equalInitial =
+        fileStateAtEdit
+            PersistState.Unpersisted
+            ParseState.Parsed
+            changed
+            changed
+    let equalState = ref equalInitial
+    apply
+        (handlers equalState (ResizeArray<NodeId>()))
+        (Notice.NodePersisted(equalId, changed, stamp))
+    let caught = equalState.Value.graph.nodes.[equalId]
+    Assert.Equal(changed, caught.documentState.persistedVersion)
+    Assert.Equal(PersistState.Persisted, caught.documentState.persistState)
+    Assert.Equal(changed, caught.documentState.changedVersion)
+
+    let zeroId, zeroInitial =
+        fileState PersistState.Unpersisted ParseState.Parsed
+    let zeroState = ref zeroInitial
+    apply
+        (handlers zeroState (ResizeArray<NodeId>()))
+        (Notice.NodePersisted(zeroId, EventId.zero, stamp))
+    let atZero = zeroState.Value.graph.nodes.[zeroId]
+    Assert.Equal(EventId.zero, atZero.documentState.persistedVersion)
+    Assert.Equal(PersistState.Persisted, atZero.documentState.persistState)
+    Assert.Equal(EventId.zero, atZero.documentState.changedVersion)
+
+[<Fact>]
 let ``NodeUploading applies PullingFile`` () =
     let id, initial =
         fileState PersistState.Persisted ParseState.Parsed
