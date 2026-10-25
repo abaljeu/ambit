@@ -1,4 +1,4 @@
-# 116 — One EventBody type
+# 116 — One EventBody type, and MailboxLog.Ev leaves
 
 **Status:** `defined`
 **Trackers:** architecture
@@ -28,6 +28,8 @@
 [ ] `MailboxLog.ofEv` is called in `postedMailbox` and in `CoreMailboxDoorTests.fs`
 [ ] `MailboxLog.toEv` is called in `orderEvent`
 [ ] `MailboxEventBody` is named in `MailboxLog.fs`, `MailboxLogTests.fs`, and the two callers above
+[ ] `MailboxLog.Ev` is built only by `ofEv` and in `orderEvent` (the record passed to `toEv`); it is read only in `postedMailbox`, `MailboxLogTests.fs`, and `CoreMailboxDoorTests.fs`
+[ ] No file opens `MailboxLog`; every use is qualified
 
 ### Tests this ticket names
 
@@ -42,10 +44,12 @@
 [ ] `MailboxEventBody` is `Order of Order | Notice of Notice`
 [ ] `MailboxLog.Ev` has the fields of `Ev` with a `MailboxEventBody` body
 [ ] `ofEv` and `toEv` copy one to the other
+[ ] After 104, `MailboxLog.Ev` has the same fields as the History `Ev`; after this rename its body is `EventBody`, so it is the History `Ev` under a second name, and `ofEv` and `toEv` are the identity
 
 ### Decisions
 
 [ ] Alan, 2026-10-24: the last ticket is a pure rename that makes `MailboxEventBody` and `EventBody` one type
+[ ] Alan, 2026-10-24: this ticket also removes `MailboxLog.Ev`; its users take the History `Ev`, and `ofEv` and `toEv` leave rather than stay as the identity
 
 ## 5. Changes
 
@@ -61,25 +65,28 @@
 
 ### Callers
 
-[ ] `postedMailbox` matches `event.body` as `EventBody.Order` or `EventBody.Notice`
-[ ] `orderEvent` builds an `Ev` with body `EventBody.Order placed.order`
+[ ] `postedMailbox` takes the History `Ev` and matches `event.body` as `EventBody.Order` or `EventBody.Notice`, with no `ofEv` call
+[ ] `orderEvent` builds the History `Ev` directly, with body `EventBody.Order placed.order`, with no `toEv` call
+[ ] No `Result` from `ofEv` or `toEv` is left to handle; remove the `Error` arms that handled it
 
 ### Size
 
 [ ] 3 source files: `MailboxLog.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`
 [ ] 2 test files: `MailboxLogTests.fs`, `CoreMailboxDoorTests.fs`
+[ ] Within the limits; no follow-on ticket
 
 ## 6. Tests
 
 ### Removed
 
-[ ] Remove each `MailboxLogTests.fs` test that maps through `ofEv` or `toEv`
+[ ] Remove each `MailboxLogTests.fs` test that maps through `ofEv` or `toEv`, and its `ofEv`, `toEv`, and `MailboxEventBody` helpers
+[ ] A test that read the `PlacedOrder` through `placed` reads `EventBody.Order` from the History `Ev` instead, when it still checks something `EventJsonTests.fs` does not
 [ ] Keep each `MailboxLogTests.fs` test of `commandName` and `commandText`
 [ ] Filter: `MailboxLogTests`
 
 ### Callers
 
-[ ] The `CoreMailboxDoorTests.fs` test that calls `ofEv` matches `stored.body` instead
+[ ] The `CoreMailboxDoorTests.fs` test that calls `ofEv` matches `stored.body` as `EventBody.Order` instead of `MailboxLog.MailboxEventBody.Order`
 [ ] Filter: `CoreMailboxDoorTests`
 
 ## 7. Done
