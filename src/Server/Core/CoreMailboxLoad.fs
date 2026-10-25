@@ -342,62 +342,70 @@ module internal CoreMailboxLoad =
 
     let private replyLoad
         (context: MailboxContext)
-        (tracked: TrackingOrder)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
         (subject: NodeId)
         =
-        match dispatchLoad context tracked.tracking.caller subject with
-        | Error err -> tracked.reply.Reply(Error err)
+        match dispatchLoad context caller subject with
+        | Error err -> reply.Reply(Error err)
         | Ok () ->
             match
                 CoreEventDispatch.appendLifecycle
                     (CoreMailboxEvents.eventDispatchContext context)
-                    tracked.tracking.caller
-                    tracked.tracking.orderId.Value
+                    caller
+                    placed.orderId.Value
                     (EventBody.Load subject)
             with
-            | Error err -> tracked.reply.Reply(Error err)
-            | Ok stored -> tracked.reply.Reply(Ok stored.id)
+            | Error err -> reply.Reply(Error err)
+            | Ok stored -> reply.Reply(Ok stored.id)
 
-    let private editEvent (tracked: TrackingOrder) (ops: Op list) =
+    let private editEvent (placed: PlacedOrder) (ops: Op list) =
+        let edited =
+            { placed with
+                order = Order.Change(ops, ChangeOrigin.Edit) }
         MailboxLog.toEv {
             id = EventId.zero
-            body =
-                MailboxLog.MailboxEventBody.Order {
-                    orderId = tracked.tracking.orderId
-                    authority = tracked.tracking.caller.authority
-                    commandName = tracked.tracking.commandName
-                    order = Order.Change(ops, ChangeOrigin.Edit) } }
+            body = MailboxLog.MailboxEventBody.Order edited }
 
     let private replyEdit
         (context: MailboxContext)
-        (tracked: TrackingOrder)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
         (ops: Op list)
         =
-        match editEvent tracked ops with
-        | Error err -> tracked.reply.Reply(Error err)
+        match editEvent placed ops with
+        | Error err -> reply.Reply(Error err)
         | Ok event ->
             match
                 CoreEventDispatch.postEvent
                     (CoreMailboxEvents.eventDispatchContext context)
-                    tracked.tracking.caller
+                    caller
                     event
                     false
             with
-            | Error err -> tracked.reply.Reply(Error err)
-            | Ok (stored, _) -> tracked.reply.Reply(Ok stored.id)
+            | Error err -> reply.Reply(Error err)
+            | Ok (stored, _) -> reply.Reply(Ok stored.id)
 
-    let private placeOrder (context: MailboxContext) (tracked: TrackingOrder) =
-        match tracked.order with
-        | Order.Load subject -> replyLoad context tracked subject
+    let private placeOrder
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match placed.order with
+        | Order.Load subject ->
+            replyLoad context placed caller reply subject
         | Order.Change (ops, ChangeOrigin.Edit) ->
-            replyEdit context tracked ops
+            replyEdit context placed caller reply ops
         | Order.Change (_, ChangeOrigin.Parse)
         | Order.Undo _
         | Order.Redo _
         | Order.StartActor _
         | Order.StartPeerActor _
         | Order.LoadSave _
-        | Order.Cancel _ -> replyUnsupported tracked.reply
+        | Order.Cancel _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
@@ -451,11 +459,11 @@ module internal CoreMailboxLoad =
         =
         match message with
         | Mailbox.CoreMsg msg -> dispatch context msg
-        | Mailbox.PlaceOrder tracked ->
-            if authorityHeld context tracked.tracking.caller then
-                placeOrder context tracked
+        | Mailbox.PlaceOrder (placed, caller, reply) ->
+            if authorityHeld context caller then
+                placeOrder context placed caller reply
             else
-                tracked.reply.Reply(Error droppedAuthority)
+                reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
 
     let private dispatchItem

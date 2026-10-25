@@ -1,6 +1,6 @@
 # 104 — PlacedOrder is the mailbox envelope
 
-**Status:** `defined`
+**Status:** `coded`
 **Trackers:** architecture
 
 ## 1. Type
