@@ -10,6 +10,7 @@
 ## 2. Blockers
 
 [ ] [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-redo-and-load-as-eventbody-order.md)
+[ ] Out of the type chain, 2026-10-25. It adds `Order.Save` and removes no extra type. No ticket waits on it.
 
 ## 3. Look at
 

@@ -10,6 +10,7 @@
 ## 2. Blockers
 
 [ ] [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md)
+[ ] Lands after [45 — SetDocumentState leaves; NodeUnpersisted replaces it](45-remove-document-state-set-ops.md), 2026-10-25. Both change `History.fs`, `EventJson.fs`, `Database.fs`, `CoreMailboxLoad.fs`, and `CoreEventDispatch.fs`.
 
 ## 3. Look at
 

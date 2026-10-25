@@ -9,7 +9,14 @@
 
 ## 2. Blockers
 
+[ ] [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
+[ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
+[ ] [80 — Place Actor starts through PlaceOrder](80-place-actor-orders-through-placeorder.md)
+[ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
+[ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
+[ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
 [ ] [115 — Notice is a Mailbox case](115-notice-is-a-mailbox-case.md)
+[ ] [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md)
 
 ## 3. Look at
 
@@ -27,9 +34,9 @@
 
 ### Match sites and constructors
 
-[ ] After 114, `CoreMsg` has one case, `PostEvent`
+[ ] After 102, 65, 80, 111, 112, and 114, `CoreMsg` has one case, `PostEvent`
 [ ] `PostEvent` is built in `postEventAccepted` and in `postedMailbox`
-[ ] `postedMailbox` sends a client `ActorStart`, a client `Cancel`, and a `Change` with a non-zero id to `PostEvent`
+[ ] `postedMailbox` sends a client `ActorStart`, a client `Cancel`, and a posted `Ev` with a non-zero id to `PostEvent`
 [ ] `Mailbox.CoreMsg` is matched in `dispatchMailbox`, `isStartupRead`, and `MailboxExpandTests.mailboxKind`
 
 ### Tests this ticket names
@@ -54,11 +61,11 @@
 
 ### Change
 
-[ ] One contract: `CoreMsg` and `Mailbox.CoreMsg` leave, and every posted `Ev` is placed as an order
+[ ] One contract: the client `ActorStart` and `Cancel` are placed through `Mailbox.PlaceOrder`; then `CoreMsg`, `Mailbox.CoreMsg`, and `MailboxHost.coreMsgItem` leave
 
 ### CoreMailboxApi.fs
 
-[ ] `postedMailbox` places every order body through `Mailbox.PlaceOrder`
+[ ] `postedMailbox` places the client `ActorStart` and `Cancel` through `Mailbox.PlaceOrder`, as it already places every other order body
 [ ] `postedMailbox` replies `Error "posted EventId must be zero"` for a non-zero id, before it places
 [ ] `postEventAccepted` uses `postedMailbox`
 [ ] Remove `reply`

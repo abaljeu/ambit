@@ -10,6 +10,7 @@
 ## 2. Blockers
 
 [ ] [106 — Move Order beside EventBody](106-move-order-beside-eventbody.md)
+[ ] [105 — One Ev.withOps in History](105-one-ev-withops-in-history.md) is optional (2026-10-25). If it is not done, 107, 108, 65, 109, and 110 change each of the three op rebuilds (`PersistStamp.appendToEvent`, `CoreMailboxEvents.withAppliedOps`, `CoreEventDispatch.withConfirmedOps`) where they name `Ev.withOps`. 107 then has 7 source files.
 
 ## 3. Look at
 
