@@ -25,7 +25,7 @@
 
 ### Docs
 
-[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 8 **Notice**
+[ ] [cqrs-messages.md](../cqrs-messages.md) §2 target shape block (`Order`, `Notice`), §2 item 3 **StartActor**, §2 item 8 **Notice**, §7 item 8
 
 ### Match sites and constructors
 
@@ -57,6 +57,11 @@
 [ ] The Notice tells the client it can drop its hold on the Actor; it does not tell the pool
 [ ] The stop has no caller, so no secret check is needed for it
 [ ] Exactly one stop is logged per run: the first of the Actor's end and a Cancel
+[ ] Alan, 2026-10-24: a search just stops too; [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md) posts `Notice.SearchStopped` when a search ends
+
+### Known limit
+
+[ ] Alan, 2026-10-24: accepted for now. `dispatchItem` finds the run by focus. If a new run starts on the same focus after an Actor ends and before its `Notice.ActorStopped` is handled, that Notice finishes the new run
 
 ## 5. Changes
 
@@ -84,6 +89,10 @@
 ### Docs
 
 [ ] In `cqrs-messages.md` §2 item 8 **Notice**, "an Actor that is done and a Cancel both post it" becomes "the pool posts it when an Actor ends, and a Cancel logs it"
+[ ] In §2 item 8, "`Notice.SearchCancelled` of the root `NodeId` replaces `CoreMsg.RecordSearchStop`. It records the search stop as `ActorSucceeded` for that root." becomes "`Notice.SearchStopped` of the root `NodeId` replaces `CoreMsg.RecordSearchStop`. The server posts it when a search ends. `Order.CancelSearch` is the client's cancel order."
+[ ] In the §2 target shape block, `Notice.SearchCancelled` becomes `SearchStopped`, and `Order.RecordSearchStart` becomes `StartSearch`
+[ ] In §2 item 3 **StartActor**, `Order.RecordSearchStart` becomes `Order.StartSearch`
+[ ] In §7 item 8, `Order.RecordSearchStart` becomes `Order.StartSearch`; "`ActorStop` becomes `Notice.ActorStopped`, which a Cancel also posts" becomes "`ActorStop` becomes `Notice.ActorStopped`, which the pool posts when an Actor ends and a Cancel logs"; "`RecordSearchStop` becomes `Notice.SearchCancelled`" becomes "`RecordSearchStop` leaves; the server posts `Notice.SearchStopped` when a search ends"
 
 ### Size
 

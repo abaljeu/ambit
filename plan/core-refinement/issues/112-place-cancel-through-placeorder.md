@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [111 — Place search start and stop as orders](111-place-search-start-and-stop-as-orders.md)
+[ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
 
 ## 3. Look at
 
