@@ -19,8 +19,8 @@ Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeReceived` for 
 
 ### Acceptance Criteria
 
-1. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and clears PullingFile.
-2. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and clears PullingFile.
+1. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
+2. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
 
 ## See also
 

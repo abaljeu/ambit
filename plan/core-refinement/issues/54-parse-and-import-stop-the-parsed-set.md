@@ -7,25 +7,21 @@
 
 ## Context
 
-`ParseThread.finishParse` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` when the parse thread finishes a node. The handler sets Parsed. Import, file parse, and directory reconcile still emit `Op.SetDocumentState` for that mark.
+`ParseThread.finishParse` posts `Notice.NodeParsed` through `CoreMailboxApi.postNotice` when the parse thread finishes a node. When PullingFile is clear, `Notice.NodeParsed` sets parse state Parsed. When PullingFile is set, parse state stays Unparsed. Persist state stays unchanged. When the node is Parsed and Unpersisted, the handler pushes.
 
 ## What to build
 
-Those three stop that op. The Parsed mark is `ParseThread.finishParse`.
+Import, file parse, and directory reconcile put the Parsed mark on `ParseThread.finishParse`.
 
 ### 1. Parsed mark
 
-1. [ ] **Import** — `ImportText.markDocumentCurrentBeforeParse` stops `Op.SetDocumentState(focusId, Unparsed, Current)`. 
-`ImportText.buildImportChange` and `ImportText.buildDirectoryMergeChange` do not run on the parse thread. 
-Route that import through the parse thread. 
-`ParseThread.finishParse` posts `Notice.NodeParsed` for the focus node.
-
-2. [ ] **File parse** — `ImportDocument.planParseFile` stops `Op.SetDocumentState(fileId, Unparsed, Current)`. `ParseThread.parseFile` runs it through `DocumentPersistWrite.planParseFile`. `ParseThread.finishParse` posts `Notice.NodeParsed`. `Api.postParseFile` also calls `DocumentPersistWrite.planParseFile` and posts with `CoreDoor.postGraphOnly`. Route that command through the parse thread so `ParseThread.finishParse` posts `Notice.NodeParsed`.
-3. [ ] **Directory reconcile** — `DirectoryReconcile.planDirectoryReconcile` stops `DirectoryReconcile.markCurrent`'s `Op.SetDocumentState(directoryId, Unparsed, Current)`. `ParseThread.parseDirectory` runs it. `ParseThread.finishParse` posts `Notice.NodeParsed`.
+1. [ ] **Import** — `ImportText.markDocumentCurrentBeforeParse` is the import mark. `ImportText.buildImportChange` and `ImportText.buildDirectoryMergeChange` do not run on the parse thread. Route that import through the parse thread. `ParseThread.finishParse` posts `Notice.NodeParsed` for the focus node.
+2. [ ] **File parse** — `ParseThread.parseFile` runs `ImportDocument.planParseFile` through `DocumentPersistWrite.planParseFile`. `ParseThread.finishParse` posts `Notice.NodeParsed`. `Api.postParseFile` also calls `DocumentPersistWrite.planParseFile` and posts with `CoreDoor.postGraphOnly`. Route that command through the parse thread so `ParseThread.finishParse` posts `Notice.NodeParsed`.
+3. [ ] **Directory reconcile** — `DirectoryReconcile.planDirectoryReconcile` runs `DirectoryReconcile.markCurrent`. `ParseThread.parseDirectory` runs that plan. `ParseThread.finishParse` posts `Notice.NodeParsed`.
 
 ### Acceptance Criteria
 
-1. [ ] **Parsed test** — `parsed producers stop SetDocumentState`. `ImportText.markDocumentCurrentBeforeParse`, `ImportDocument.planParseFile`, and `DirectoryReconcile.planDirectoryReconcile` do not emit `Op.SetDocumentState` for the Parsed mark. `ParseThread.finishParse` posts `Notice.NodeParsed`. The handler sets Parsed.
+1. [ ] **Parsed test** — import, file parse, and directory reconcile set document state through `ParseThread.finishParse` posting `Notice.NodeParsed`. When PullingFile is clear, the handler sets Parsed. When PullingFile is set, parse state stays Unparsed. Persist state stays unchanged.
 
 ## See also
 
