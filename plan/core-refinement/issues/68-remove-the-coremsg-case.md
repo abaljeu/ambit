@@ -1,44 +1,102 @@
 # 68 — Remove the CoreMsg case
 
 **Status:** `defined`
-**Type:** coding
-**Blocked by:** 61 — Move Session off the core mailbox; 62 — Admit at the entry; 63 — Move queries to Ask; 64 — Place Edit changes as Order.Change; 102 — Place Parse changes as Order.Change; 65 — Place Undo and Redo as orders; 79 — Place git Save as Order.Save; 80 — Place Actor orders through PlaceOrder; 81 — Log Actor and search stops as Notices; 67 — Log Load as Order.Load
 **Trackers:** architecture
 
-## Context
+## 1. Type
 
-After the move tickets, every order is a `PlaceOrder` and every query is an `Ask`. `Mailbox` still has `CoreMsg of CoreMsg`, and `History.Ev` still has `id`, `submissionId`, `authority`, `commandName`, and `body`. Today's History `EventBody` is the flat union `Change`, `Undo`, `Redo`, `ActorStart`, `ActorStop`, `Load`, `Cancel`, and `Notice`. `MailboxEventBody` is `Order of PlacedOrder | Notice of Notice`. [Message shape](../cqrs-messages.md) §4 **Collapse** removes the `CoreMsg` case and the `CoreMsg` type. `Ev` becomes `{ id; body }`. `submissionId` leaves `Ev`. `authority`, `orderId`, and `commandName` stay on `PlacedOrder`. A `Notice` has none of them. Upload, import, parse, Load, undo, and persist stay working.
+[ ] `coding`
 
-## What to build
+## 2. Blockers
 
-Remove `CoreMsg`. Make `MailboxEventBody` the History `EventBody`. Read the order envelope from `PlacedOrder`.
+[ ] [115 — Notice is a Mailbox case](115-notice-is-a-mailbox-case.md)
 
-### 1. Collapse
+## 3. Look at
 
-1. [ ] **CoreMsg** — Remove the `Mailbox.CoreMsg` case and the `CoreMsg` type. `Mailbox` is `PlaceOrder` and `Ask`. `CoreQueue` stays `Public of Mailbox | Notice of Notice`. Dispatch and the startup scan have no `CoreMsg` arm.
-2. [ ] **Ev** — `History.Ev` becomes `{ id: EventId; body: EventBody }`. Remove `submissionId`, `authority`, and `commandName` from `Ev`. History `EventBody` becomes `Order of PlacedOrder | Notice of Notice`, the shape `MailboxEventBody` has. Remove `Change`, `Undo`, `Redo`, `ActorStart`, `ActorStop`, `Load`, and `Cancel` from `EventBody`. Move the `MailboxLog` definitions into `History.fs` and delete `MailboxLog`, including `MailboxEventBody`, together with `ofEv` and `toEv`.
-3. [ ] **Envelope** — `EventJson` writes `authority`, `orderId`, and `commandName` from `PlacedOrder` when the body is History `EventBody.Order`. A `Notice` body has none of those fields. `EventLog` dedupes an order by `PlacedOrder.orderId`. `ClientHistory.tryPeekUndoName` reads `commandName` from the undo `PlacedOrder`.
-4. [ ] **Callers** — `CoreEventDispatch`, `CoreMailboxActors`, `DbAgent`, `FileAgent`, `SyncLogic`, `BootCache`, `ResidentProjection`, `ClientHistory`, `Controller`, and `App` read `authority`, the order id, and `commandName` from `PlacedOrder` when the body is an order.
+### Owner
 
-### Acceptance Criteria
+[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) owns `CoreMsg` and `Mailbox.CoreMsg`
 
-1. [ ] **Types** — The server has no `CoreMsg` type and `Mailbox` has no `CoreMsg` case. `Ev` has `id` and `body` only. History `EventBody` is `Order` or `Notice`.
-2. [ ] **Order event** — A stored `Change` has `authority`, `orderId`, and `commandName` on its `PlacedOrder`. `EventJson` round-trips those three fields.
-3. [ ] **Notice event** — A stored `Notice.NodeUnpersisted` has `id` and that notice. The JSON has no `authority`, `orderId`, or `commandName`.
-4. [ ] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+### Source
 
-## See also
+[ ] [MailboxHost.fs](src/Server/Core/MailboxHost.fs) `coreMsgItem`
+[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `reply`, `postEventAccepted`, `postedMailbox`
+[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `runMsg`, `messageCaller`, `rejectDropped`, `dispatchMailbox`, `isStartupRead`, `placeOrder`
+[ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `operationContext`, `replyFailure`
+[ ] [CoreMailboxActors.fs](src/Server/Core/CoreMailboxActors.fs) `dispatchPostEvent`, `postActorStart`, `postCancel`
 
-- [Message shape](../cqrs-messages.md)
-- [core-refinement](../project.md)
-- [59 — Rename InMsg to Notice](59-rename-inmsg-to-notice.md)
-- [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md)
-- [62 — Admit at the entry](62-admit-at-the-entry.md)
-- [63 — Move queries to Ask](63-move-queries-to-ask.md)
-- [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
-- [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
-- [79 — Place git Save as Order.Save](79-place-git-save-as-order-save.md)
-- [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md)
-- [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
-- [67 — Log Load as Order.Load](67-log-load-as-order-load.md)
-- [GLOSSARY](../../../GLOSSARY.md)
+### Match sites and constructors
+
+[ ] After 114, `CoreMsg` has one case, `PostEvent`
+[ ] `PostEvent` is built in `postEventAccepted` and in `postedMailbox`
+[ ] `postedMailbox` sends a client `ActorStart`, a client `Cancel`, and a `Change` with a non-zero id to `PostEvent`
+[ ] `Mailbox.CoreMsg` is matched in `dispatchMailbox`, `isStartupRead`, and `MailboxExpandTests.mailboxKind`
+
+### Tests this ticket names
+
+[ ] [MailboxExpandTests.fs](tests/Server.Tests/MailboxExpandTests.fs) `Mailbox is CoreMsg, PlaceOrder, Ask, and Notice`, `postEvent runs through Mailbox CoreMsg`
+[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs) `CoreMsg is not a public type`, `ActorStart and Cancel still post as PostEvent`
+[ ] [Issue41CoreMailboxTests.fs](tests/Server.Tests/Issue41CoreMailboxTests.fs) `postEvent rejects a non-zero EventId on a new client Event`
+
+## 4. Context
+
+### Today
+
+[ ] `dispatchPostEvent` sends a client `ActorStart` to `postActorStart` and a client `Cancel` to `postCancel`
+[ ] Since 80 and 112, `placeOrder` runs the same start and cancel logic, keyed by `orderId`
+[ ] A posted `Ev` with a non-zero id gets `Error "posted EventId must be zero"`
+
+### Decisions
+
+[ ] Alan, 2026-10-24: 68 keeps only the `CoreMsg` removal
+
+## 5. Changes
+
+### Change
+
+[ ] One contract: `CoreMsg` and `Mailbox.CoreMsg` leave, and every posted `Ev` is placed as an order
+
+### CoreMailboxApi.fs
+
+[ ] `postedMailbox` places every order body through `Mailbox.PlaceOrder`
+[ ] `postedMailbox` replies `Error "posted EventId must be zero"` for a non-zero id, before it places
+[ ] `postEventAccepted` uses `postedMailbox`
+[ ] Remove `reply`
+
+### Server
+
+[ ] Remove `CoreMsg` and `Mailbox.CoreMsg`
+[ ] Remove `MailboxHost.coreMsgItem`
+[ ] Remove `runMsg`, `messageCaller`, and `rejectDropped`, and the `Mailbox.CoreMsg` arms of `dispatchMailbox` and `isStartupRead`
+[ ] Remove `operationContext` and `replyFailure` arms for `CoreMsg`, and the functions if nothing else calls them
+[ ] Remove `dispatchPostEvent`, `postActorStart`, and `postCancel`
+
+### Size
+
+[ ] 6 source files: `CoreMsg.fs`, `MailboxHost.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMailboxActors.fs`
+[ ] 3 test files: `MailboxExpandTests.fs`, `CoreMailboxDoorTests.fs`, `Issue41CoreMailboxTests.fs`
+
+## 6. Tests
+
+### Shape
+
+[ ] Rename `Mailbox is CoreMsg, PlaceOrder, Ask, and Notice` to `Mailbox is PlaceOrder, Ask, and Notice`
+[ ] Filter: `Mailbox is PlaceOrder, Ask, and Notice`
+[ ] Rename `postEvent runs through Mailbox CoreMsg` to `postEvent runs through Mailbox PlaceOrder`
+[ ] Filter: `postEvent runs through Mailbox PlaceOrder`
+[ ] Rename `CoreMsg is not a public type` to `CoreMsg is gone`; no type named `CoreMsg` is in the server assembly
+[ ] Filter: `CoreMsg is gone`
+[ ] Rename `ActorStart and Cancel still post as PostEvent` to `ActorStart and Cancel are placed as orders`
+[ ] Filter: `ActorStart and Cancel are placed as orders`
+
+### Kept
+
+[ ] Keep `postEvent rejects a non-zero EventId on a new client Event`
+[ ] Filter: `postEvent rejects a non-zero EventId on a new client Event`
+[ ] Keep every test in `CancelByFocusTests.fs`
+[ ] Filter: `CancelByFocusTests`
+
+## 7. Done
+[ ] Run `scripts/agent-test.sh` with no arguments.
+[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] All executed tests pass.
