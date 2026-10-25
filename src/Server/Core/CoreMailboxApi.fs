@@ -199,13 +199,10 @@ module CoreMailboxApi =
         | EventBody.Change _ when event.id = EventId.zero ->
             match MailboxLog.ofEv event with
             | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-                Mailbox.PlaceOrder {
-                    tracking = {
-                        orderId = placed.orderId
-                        caller = caller
-                        commandName = placed.commandName }
-                    order = placed.order
-                    reply = channel }
+                Mailbox.PlaceOrder (
+                    { placed with authority = caller.authority },
+                    caller,
+                    channel)
             | _ ->
                 Mailbox.CoreMsg(PostEvent(caller, event, channel))
         | _ ->
@@ -306,13 +303,13 @@ module CoreMailboxApi =
         (subject: NodeId)
         : Async<Result<EventId, string>> =
         MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-            Mailbox.PlaceOrder {
-                tracking = {
-                    orderId = OrderId.New()
-                    caller = caller
-                    commandName = None }
-                order = Order.Load subject
-                reply = channel })
+            Mailbox.PlaceOrder (
+                { orderId = OrderId.New()
+                  authority = caller.authority
+                  commandName = None
+                  order = Order.Load subject },
+                caller,
+                channel))
 
     let actorStop
         (host: MailboxHost)
