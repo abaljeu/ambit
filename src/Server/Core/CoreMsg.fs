@@ -57,17 +57,36 @@ type internal Query =
 type internal Mailbox =
     | CoreMsg of CoreMsg
     | PlaceOrder of
-        PlacedOrder *
-        Caller *
-        AsyncReplyChannel<Result<EventId, string>>
+        placed: PlacedOrder *
+        caller: Caller *
+        reply: AsyncReplyChannel<Result<EventId, string>>
     | Ask of Query
+
+[<RequireQualifiedAccess>]
+module internal Mailbox =
+
+    /// Mailbox.PlaceOrder. The PlacedOrder authority is the caller's.
+    let internal placeForCaller
+        (caller: Caller)
+        (orderId: OrderId)
+        (commandName: string option)
+        (order: Order)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        Mailbox.PlaceOrder (
+            { orderId = orderId
+              authority = caller.authority
+              commandName = commandName
+              order = order },
+            caller,
+            reply)
 
 [<RequireQualifiedAccess>]
 type internal CoreQueue =
     | Public of Mailbox
     | Notice of Notice
     | DropAuthority of stopped: StoppedAdmission
-    /// Reset asks the loop to exit after this item. The reply means it exited.
+    /// Shutdown asks the loop to exit after this item. The reply means it exited.
     | Shutdown of AsyncReplyChannel<unit>
 
 type PersistHandlers = {
