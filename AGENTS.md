@@ -8,7 +8,7 @@ You must write on the correct branch. [[.agents/skills/git-protocol/SKILL.md]].
 Don't use SageFs.
 
 ## Concept
-This repo builds Ambit.  Never called Gambol.
+This repo builds Ambit.  The repo is called Ambit.
 
 
 ## Interpretable Context Methodology

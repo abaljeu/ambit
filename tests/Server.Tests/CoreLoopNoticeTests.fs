@@ -75,7 +75,7 @@ let private hostFor state snaps =
         admittedCredentials
 
 let private apply persist msg =
-    match CoreMailboxLoad.applyNotice persist msg with
+    match CoreMailboxLoop.applyNotice persist msg with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 
@@ -123,7 +123,7 @@ let ``NodeParsed pushes a persist request`` () =
     let missingHandlers =
         { handlers empty snaps with pushPersist = pushed.Add }
     match
-        CoreMailboxLoad.applyNotice
+        CoreMailboxLoop.applyNotice
             missingHandlers
             (Notice.NodeParsed missing)
     with
@@ -407,13 +407,13 @@ let ``axis write failure is returned`` () =
     let snaps = ResizeArray<NodeId>()
     let missing = NodeId.New()
     let missingResult =
-        CoreMailboxLoad.applyNotice
+        CoreMailboxLoop.applyNotice
             (handlers state snaps)
             (Notice.NodeParsed missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
-        CoreMailboxLoad.applyNotice
+        CoreMailboxLoop.applyNotice
             (handlers state snaps)
             (Notice.NodePersisted(
                 Graph.workspacesId,

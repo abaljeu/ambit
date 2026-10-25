@@ -66,6 +66,8 @@
     <Compile Include="Core\CoreMailboxEvents.fs" />
     <Compile Include="Core\CoreMailboxActors.fs" />
     <Compile Include="Core\CoreMailboxLoad.fs" />
+    <Compile Include="Core\CoreMailboxFilesAxis.fs" />
+    <Compile Include="Core\CoreMailboxLoop.fs" />
     <Compile Include="Core\PersistRequestStack.fs" />
     <Compile Include="Core\PersistThread.fs" />
     <Compile Include="Core\FileAgent.fs" />

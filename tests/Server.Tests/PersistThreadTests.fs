@@ -216,7 +216,7 @@ let private applyPersisted
         notePersisted = ignore
         noteWriteFailed = ignore
     }
-    match CoreMailboxLoad.applyNotice handlers notice with
+    match CoreMailboxLoop.applyNotice handlers notice with
     | Ok () -> ()
     | Error err -> Assert.Fail(err)
 

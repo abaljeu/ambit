@@ -73,7 +73,7 @@ module SyncLogic =
     let opsForDownload (event: Ev) : Op list =
         Ev.ops event |> Option.defaultValue []
 
-    /// Same written-version rule as CoreMailboxLoad.writePersisted.
+    /// Same written-version rule as CoreMailboxFilesAxis.writePersisted.
     let private nodeAfterPersisted
         (written: EventId)
         (updateTime: System.DateTime)

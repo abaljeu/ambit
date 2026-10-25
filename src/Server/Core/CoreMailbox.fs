@@ -14,12 +14,12 @@ module CoreMailbox =
         : MailboxHost * (NodeId -> unit) =
         let session = Session.create credentials
         let context, push =
-            CoreMailboxLoad.makeMailBox
+            CoreMailboxLoop.makeMailBox
                 persist
                 pool
                 parsePush
                 session
-        let started = CoreMailboxLoad.start context persist
+        let started = CoreMailboxLoop.start context persist
         let created =
             MailboxHost.create
                 started.processor
