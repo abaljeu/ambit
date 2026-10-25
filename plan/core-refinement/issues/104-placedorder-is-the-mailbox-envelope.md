@@ -19,26 +19,23 @@
 
 ### Source
 
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `PlacedOrder`, `MailboxLog.MailboxEventBody`, `MailboxLog.Ev`, `placedOrder`, `commandFromText`, `commandToText`, `ofEv`, `toEv`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `replyLoad`, `editEvent`, `replyEdit`, `placeOrder`, `dispatchMailbox`
+[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `PlacedOrder`, `MailboxLog.MailboxEventBody`, `ofEv`, `toEv`, read only
+[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `replyLoad`, `editEvent`, `replyEdit`, `placeOrder`, `dispatchMailbox`, `isStartupRead`
 [ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `postedMailbox`, `mbLoadNode`
 [ ] [CoreChanges.fs](src/Server/Core/CoreChanges.fs) `Caller`, read only
 
 ### Match sites and constructors
 
-[ ] `TrackingOrder` is built in `CoreMailboxApi.postedMailbox` and `CoreMailboxApi.mbLoadNode`
+[ ] `Mailbox.PlaceOrder` is built in `CoreMailboxApi.postedMailbox` and `CoreMailboxApi.mbLoadNode`
+[ ] It is built in tests in `MailboxExpandTests.fs` (1) and `SessionTests.fs` (2)
+[ ] It is matched in `CoreMailboxLoad.dispatchMailbox` and in the `Mailbox.PlaceOrder _ -> false` arm of `CoreMailboxLoad.isStartupRead`, and in `MailboxExpandTests.mailboxKind`
 [ ] `tracked.tracking` is read in `replyLoad`, `editEvent`, `replyEdit`, and `dispatchMailbox`
-[ ] `MailboxLog.MailboxEventBody.Order` is built in `MailboxLog.ofEv` and `CoreMailboxLoad.editEvent`
-[ ] `MailboxLog.MailboxEventBody.Order` is matched in `MailboxLog.toEv` and `CoreMailboxApi.postedMailbox`
 
 ### Tests this ticket names
 
 [ ] [MailboxExpandTests.fs](tests/Server.Tests/MailboxExpandTests.fs) `Mailbox is CoreMsg, PlaceOrder, and Ask` builds a `TrackingOrder`
 [ ] [SessionTests.fs](tests/Server.Tests/SessionTests.fs) `login during a pending logout runs and a dropped generation rejects a late order` builds a `TrackingOrder`
 [ ] `SessionTests.fs` `admitted route order after DropAuthority is rejected` builds a `TrackingOrder`
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `placed` returns a `PlacedOrder`
-[ ] `MailboxLogTests.fs` `ofEv then toEv keeps a Change`, `empty command name maps to None and returns as empty`, `Undo and Redo keep the target and drop the ops`, and `Load keeps its node through EventJson and MailboxLog` read `placed`
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs) `postEvents places Order.Change with origin Edit` matches `MailboxEventBody.Order placed`
 
 ## 4. Context
 
@@ -47,102 +44,78 @@
 [ ] `TrackingDetails` is `{ orderId: OrderId; caller: Caller; commandName: string option }`
 [ ] `TrackingOrder` is `{ tracking: TrackingDetails; order: Order; reply: AsyncReplyChannel<Result<EventId, string>> }`
 [ ] `Mailbox.PlaceOrder` is `PlaceOrder of TrackingOrder`
-[ ] `TrackingOrder` collects the parameters that `placeOrder` passes on
 
 ### Shared PlacedOrder
 
-[ ] The shared `PlacedOrder` is `{ orderId: OrderId; authority: Authority; commandName: string option; order: Order }`
+[ ] The shared `PlacedOrder` in `MailboxLog.fs` is `{ orderId: OrderId; authority: Authority; commandName: string option; order: Order }`
 [ ] `MailboxLog.MailboxEventBody` is `Order of PlacedOrder | Notice of Notice`
 [ ] `MailboxLog.Ev` is `{ id: EventId; body: MailboxEventBody }`
-[ ] `ofEv` copies `submissionId`, `authority`, and `commandName` from the History `Ev` into the shared `PlacedOrder`
-[ ] `toEv` copies them back into the History `Ev`
-[ ] `commandFromText` maps `""` to `None`
-[ ] `commandToText` maps `None` to `""`
-[ ] `CoreMailboxLoad.editEvent` builds the stored Ev through `toEv`
-[ ] `CoreMailboxApi.postedMailbox` reads the order through `ofEv`
+[ ] `ofEv` copies `submissionId`, `authority`, and `commandName` from the History `Ev` into the shared `PlacedOrder`; `toEv` copies them back
+[ ] `CoreMailboxApi.postedMailbox` reads the shared `PlacedOrder` through `ofEv`
+[ ] `CoreMailboxLoad.editEvent` builds `MailboxEventBody.Order` of a shared `PlacedOrder`, with `authority = caller.authority`, and stores it through `toEv`
 
 ### Caller
 
-[ ] `Caller` is a server type in `CoreChanges.fs`
+[ ] `Caller` is a server type in `CoreChanges.fs`, with `authority`, `name`, and `secret`
 [ ] `dispatchMailbox` checks `authorityHeld` of the caller before `placeOrder`
-[ ] The History `Ev` keeps `submissionId`, `authority`, and `commandName`
+
+### Decisions
+
+[ ] Alan, 2026-10-24: the shared `PlacedOrder` stays in `MailboxLog.fs` as written; it is not moved or reshaped
+[ ] Alan, 2026-10-24: `Mailbox.PlaceOrder` is `PlaceOrder of PlacedOrder * Caller * AsyncReplyChannel<Result<EventId, string>>`, a tuple with no wrapper record
+[ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, `commandFromText`, and `commandToText` do not change here
 
 ## 5. Changes
 
 ### Change
 
-[ ] One change: the server `PlacedOrder` replaces `TrackingOrder` and the shared `PlacedOrder`
+[ ] One change: `Mailbox.PlaceOrder` carries the shared `PlacedOrder`, the `Caller`, and the reply; `TrackingOrder` and `TrackingDetails` leave
 
 ### CoreMsg.fs
 
-[ ] Add `type internal PlacedOrder = { orderId: OrderId; caller: Caller; commandName: string option; order: Order; reply: AsyncReplyChannel<Result<EventId, string>> }`
-[ ] `Mailbox.PlaceOrder` is `PlaceOrder of PlacedOrder`
+[ ] `Mailbox.PlaceOrder` is `PlaceOrder of PlacedOrder * Caller * AsyncReplyChannel<Result<EventId, string>>`
 [ ] Remove `TrackingDetails`
 [ ] Remove `TrackingOrder`
 
-### MailboxLog.fs
-
-[ ] Remove the shared `PlacedOrder`
-[ ] `MailboxEventBody.Order` is `Order of Order`
-[ ] `MailboxLog.Ev` is `{ id: EventId; submissionId: System.Guid; authority: Authority; commandName: string; body: MailboxEventBody }`
-[ ] `MailboxLog.Ev` has the same fields as the History `Ev`
-[ ] `ofEv` copies `id`, `submissionId`, `authority`, and `commandName` onto `MailboxLog.Ev`
-[ ] `toEv` copies them back
-[ ] `commandFromText` becomes public as `MailboxLog.commandName`
-[ ] `commandToText` becomes public as `MailboxLog.commandText`
-[ ] Remove `placedOrder`
-
 ### CoreMailboxLoad.fs
 
-[ ] `replyLoad`, `editEvent`, `replyEdit`, and `placeOrder` take `PlacedOrder`
-[ ] They read `placed.caller`, `placed.orderId`, `placed.commandName`, `placed.order`, and `placed.reply`
-[ ] `editEvent` builds `MailboxLog.Ev` with `submissionId = placed.orderId.Value`
-[ ] `editEvent` sets `authority = placed.caller.authority`
-[ ] `editEvent` sets `commandName = MailboxLog.commandText placed.commandName`
-[ ] `editEvent` sets `body = MailboxEventBody.Order placed.order`
-[ ] `dispatchMailbox` checks `authorityHeld context placed.caller`
+[ ] `replyLoad`, `editEvent`, `replyEdit`, and `placeOrder` take `placed`, `caller`, and `reply` in place of `tracked`
+[ ] They read `caller` for `tracked.tracking.caller`, `placed.orderId` for `tracked.tracking.orderId`, `placed.order` for `tracked.order`, and `reply` for `tracked.reply`
+[ ] `editEvent` builds `MailboxEventBody.Order { placed with order = Order.Change(ops, ChangeOrigin.Edit) }` and stores it through `toEv`, as today
+[ ] `dispatchMailbox` matches `Mailbox.PlaceOrder(placed, caller, reply)` and checks `authorityHeld context caller`
+[ ] `isStartupRead` keeps `Mailbox.PlaceOrder _ -> false`
 
 ### CoreMailboxApi.fs
 
-[ ] `postedMailbox` builds `PlacedOrder` with `orderId = OrderId event.submissionId`
-[ ] `postedMailbox` sets `caller`, `commandName = MailboxLog.commandName event.commandName`, `order` from `MailboxEventBody.Order`, and `reply = channel`
-[ ] `mbLoadNode` builds `PlacedOrder` with `orderId = OrderId.New()` and `commandName = None`
+[ ] `postedMailbox` reads `placed` through `ofEv`, as today, and posts `Mailbox.PlaceOrder({ placed with authority = caller.authority }, caller, channel)`
+[ ] The `authority` copy keeps the stored authority the caller's, as `editEvent` sets it today
+[ ] `mbLoadNode` posts `Mailbox.PlaceOrder({ orderId = OrderId.New(); authority = caller.authority; commandName = None; order = Order.Load subject }, caller, channel)`
 
 ### Size
 
-[ ] 4 source files: `CoreMsg.fs`, `MailboxLog.fs`, `CoreMailboxLoad.fs`, `CoreMailboxApi.fs`
-[ ] 4 test files: `MailboxExpandTests.fs`, `SessionTests.fs`, `MailboxLogTests.fs`, `CoreMailboxDoorTests.fs`
+[ ] 3 source files: `CoreMsg.fs`, `CoreMailboxLoad.fs`, `CoreMailboxApi.fs`
+[ ] 2 test files: `MailboxExpandTests.fs`, `SessionTests.fs`
 
 ## 6. Tests
 
 ### Mailbox shape
 
 [ ] Change `Mailbox is CoreMsg, PlaceOrder, and Ask` in `MailboxExpandTests.fs`
-[ ] It builds `Mailbox.PlaceOrder` of a `PlacedOrder`
+[ ] It builds `Mailbox.PlaceOrder` of a shared `PlacedOrder`, `testCaller`, and the reply
 [ ] Filter: `Mailbox is CoreMsg, PlaceOrder, and Ask`
 
 ### Session constructors
 
-[ ] In `SessionTests.fs`, `login during a pending logout runs and a dropped generation rejects a late order` builds a `PlacedOrder`
-[ ] In the same file, `admitted route order after DropAuthority is rejected` builds a `PlacedOrder`
+[ ] In `SessionTests.fs`, `login during a pending logout runs and a dropped generation rejects a late order` builds `Mailbox.PlaceOrder` of a shared `PlacedOrder`, `testCaller`, and the channel
+[ ] In the same file, `admitted route order after DropAuthority is rejected` builds it the same way
 [ ] Filter: `login during a pending logout runs and a dropped generation rejects a late order`
 [ ] Filter: `admitted route order after DropAuthority is rejected`
 
-### MailboxLog
+### Kept
 
-[ ] In `MailboxLogTests.fs`, `placed` returns the `Order`
-[ ] `ofEv then toEv keeps a Change` reads `orderId`, `authority`, and `commandName` from `MailboxLog.Ev`
-[ ] `empty command name maps to None and returns as empty` checks `MailboxLog.commandName ""` is `None`
-[ ] `Undo and Redo keep the target and drop the ops` and `Load keeps its node through EventJson and MailboxLog` compare the `Order`
-[ ] Filter: `ofEv then toEv keeps a Change`
-[ ] Filter: `empty command name maps to None and returns as empty`
-[ ] Filter: `Undo and Redo keep the target and drop the ops`
-[ ] Filter: `Load keeps its node through EventJson and MailboxLog`
-
-### Edit order
-
-[ ] In `CoreMailboxDoorTests.fs`, `postEvents places Order.Change with origin Edit` matches `MailboxEventBody.Order order`
+[ ] Keep `postEvents places Order.Change with origin Edit` in `CoreMailboxDoorTests.fs` and every `MailboxLogTests.fs` test
 [ ] Filter: `postEvents places Order.Change with origin Edit`
+[ ] Filter: `MailboxLogTests`
 
 ## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.

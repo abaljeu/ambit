@@ -19,7 +19,8 @@
 
 ### Source
 
-[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `CoreMsg.PostGraphOnly`, `PlacedOrder`
+[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `CoreMsg.PostGraphOnly`, `Mailbox.PlaceOrder`
+[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `PlacedOrder`, `ofEv`, read only
 [ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder`, `editEvent`, `replyEdit`, `runMsg`, `messageCaller`
 [ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `dispatchPostGraphOnly`, `operationContext`, `replyFailure`
 [ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `postEvent`, read only
@@ -51,10 +52,10 @@
 
 ### placeOrder
 
-[ ] `placeOrder` takes `PlacedOrder`
+[ ] `placeOrder` takes the shared `PlacedOrder`, the `Caller`, and the reply, as `Mailbox.PlaceOrder` carries them
 [ ] `Order.Change` with `ChangeOrigin.Edit` calls `replyEdit`
 [ ] `replyEdit` builds the Ev through `editEvent`, calls `postEvent` with `graphOnly` false, and replies `Ok` of the stored id
-[ ] `postedMailbox` builds `PlacedOrder` from an Ev with `OrderId event.submissionId` and `MailboxLog.commandName`
+[ ] `postedMailbox` reads the shared `PlacedOrder` from an Ev through `MailboxLog.ofEv` and sets `authority = caller.authority`
 
 ## 5. Changes
 
@@ -67,15 +68,14 @@
 [ ] `postGraphOnly` keeps its signature
 [ ] It reads the ops with `Ev.ops event`
 [ ] An Ev with no ops returns `Error "graph-only post needs a Change"`
-[ ] It posts `Mailbox.PlaceOrder` of a `PlacedOrder` through `MailboxHost.postMailboxAndAsyncReply`
-[ ] The order is `Order.Change(ops, ChangeOrigin.Parse)`
-[ ] `orderId` is `OrderId event.submissionId`
-[ ] `commandName` is `MailboxLog.commandName event.commandName`
+[ ] It reads `placed` through `MailboxLog.ofEv event`, the way `postedMailbox` does
+[ ] It posts `Mailbox.PlaceOrder({ placed with authority = caller.authority; order = Order.Change(ops, ChangeOrigin.Parse) }, caller, channel)` through `MailboxHost.postMailboxAndAsyncReply`
+[ ] `orderId` and `commandName` come from `ofEv`: `OrderId event.submissionId` and the event's command name
 [ ] It rebuilds `CoreChangesAccepted` through `acceptedFromIds`, as today
 
 ### CoreMailboxLoad.fs
 
-[ ] `replyEdit` becomes `replyChange context placed ops graphOnly`
+[ ] `replyEdit` becomes `replyChange context placed caller reply ops graphOnly`
 [ ] `Order.Change` with `ChangeOrigin.Edit` calls `replyChange` with `graphOnly` false
 [ ] `Order.Change` with `ChangeOrigin.Parse` calls `replyChange` with `graphOnly` true
 [ ] Remove the `PostGraphOnly` arm from `runMsg`

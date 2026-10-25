@@ -15,20 +15,20 @@
 
 ### Owner
 
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) owns `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`
+[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) owns `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, `placedOrder`, `commandFromText`, `commandToText`, and the shared `PlacedOrder`
 
 ### Source
 
 [ ] [History.fs](src/Shared/History.fs) `EventBody`, `Ev`
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `postedMailbox`
+[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `postedMailbox`, `postGraphOnly`
 [ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `orderEvent`
 
 ### Match sites and constructors
 
-[ ] `MailboxLog.ofEv` is called in `postedMailbox` and in `CoreMailboxDoorTests.fs`
+[ ] `MailboxLog.ofEv` is called in `postedMailbox`, in `postGraphOnly` after 102, and in `CoreMailboxDoorTests.fs`
 [ ] `MailboxLog.toEv` is called in `orderEvent`
 [ ] `MailboxEventBody` is named in `MailboxLog.fs`, `MailboxLogTests.fs`, and the two callers above
-[ ] `MailboxLog.Ev` is built only by `ofEv` and in `orderEvent` (the record passed to `toEv`); it is read only in `postedMailbox`, `MailboxLogTests.fs`, and `CoreMailboxDoorTests.fs`
+[ ] `MailboxLog.Ev` is built only by `ofEv` and in `orderEvent` (the record passed to `toEv`); it is read only in `postedMailbox`, `postGraphOnly`, `MailboxLogTests.fs`, and `CoreMailboxDoorTests.fs`
 [ ] No file opens `MailboxLog`; every use is qualified
 
 ### Tests this ticket names
@@ -41,32 +41,38 @@
 ### Today
 
 [ ] After 110 and 81, `EventBody` is `Order of Order | Notice of Notice`
-[ ] `MailboxEventBody` is `Order of Order | Notice of Notice`
-[ ] `MailboxLog.Ev` has the fields of `Ev` with a `MailboxEventBody` body
-[ ] `ofEv` and `toEv` copy one to the other
-[ ] After 104, `MailboxLog.Ev` has the same fields as the History `Ev`; after this rename its body is `EventBody`, so it is the History `Ev` under a second name, and `ofEv` and `toEv` are the identity
+[ ] The History `Ev` keeps `submissionId`, `authority`, and `commandName` (choice (c))
+[ ] `MailboxEventBody` is `Order of PlacedOrder | Notice of Notice`; the shared `PlacedOrder` is `{ orderId; authority; commandName; order }` and stays (104)
+[ ] `MailboxLog.Ev` is `{ id: EventId; body: MailboxEventBody }`
+[ ] `ofEv` moves `submissionId`, `authority`, and `commandName` from the History `Ev` into the shared `PlacedOrder`; `toEv` moves them back
+[ ] So `MailboxLog.Ev` is the History `Ev` with the envelope fields moved into the body; it carries nothing the History `Ev` lacks
+[ ] `Mailbox.PlaceOrder` is `PlacedOrder * Caller * reply` (104); `postedMailbox` and `postGraphOnly` need a shared `PlacedOrder` from a History `Ev`, and `orderEvent` needs a History `Ev` from a shared `PlacedOrder`
 
 ### Decisions
 
 [ ] Alan, 2026-10-24: the last ticket is a pure rename that makes `MailboxEventBody` and `EventBody` one type
-[ ] Alan, 2026-10-24: this ticket also removes `MailboxLog.Ev`; its users take the History `Ev`, and `ofEv` and `toEv` leave rather than stay as the identity
+[ ] Alan, 2026-10-24: this ticket also removes `MailboxLog.Ev`; its users take the History `Ev`, and `ofEv` and `toEv` leave
 
 ## 5. Changes
 
 ### Change
 
 [ ] One rename: `MailboxEventBody` and `MailboxLog.Ev` leave; their users use `EventBody` and `Ev`
+[ ] The shared `PlacedOrder` stays, as the `Mailbox.PlaceOrder` payload
 [ ] No behavior changes
 
 ### MailboxLog.fs
 
-[ ] Remove `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, and `historyBody`
-[ ] `MailboxLog.commandName` and `MailboxLog.commandText` stay
+[ ] Remove `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, `orderOfBody`, and `historyBody`
+[ ] `placedOrder` becomes public as `MailboxLog.placedOrder (event: Ev) (order: Order) : PlacedOrder`
+[ ] `commandToText` becomes public as `MailboxLog.commandText`
+[ ] `commandFromText` stays private; `placedOrder` uses it
 
 ### Callers
 
-[ ] `postedMailbox` takes the History `Ev` and matches `event.body` as `EventBody.Order` or `EventBody.Notice`, with no `ofEv` call
-[ ] `orderEvent` builds the History `Ev` directly, with body `EventBody.Order placed.order`, with no `toEv` call
+[ ] `postedMailbox` matches `event.body` as `EventBody.Order order` and builds `MailboxLog.placedOrder event order` with `authority = caller.authority`, with no `ofEv` call
+[ ] `postGraphOnly` builds its shared `PlacedOrder` the same way, with no `ofEv` call
+[ ] `orderEvent` builds the History `Ev` directly: `submissionId = placed.orderId.Value`, `authority = placed.authority`, `commandName = MailboxLog.commandText placed.commandName`, `body = EventBody.Order placed.order`, with no `toEv` call
 [ ] No `Result` from `ofEv` or `toEv` is left to handle; remove the `Error` arms that handled it
 
 ### Size
@@ -81,7 +87,7 @@
 
 [ ] Remove each `MailboxLogTests.fs` test that maps through `ofEv` or `toEv`, and its `ofEv`, `toEv`, and `MailboxEventBody` helpers
 [ ] A test that read the `PlacedOrder` through `placed` reads `EventBody.Order` from the History `Ev` instead, when it still checks something `EventJsonTests.fs` does not
-[ ] Keep each `MailboxLogTests.fs` test of `commandName` and `commandText`
+[ ] `empty command name maps to None and returns as empty` checks `MailboxLog.placedOrder` gives `commandName = None` for `""` and `MailboxLog.commandText None` is `""`
 [ ] Filter: `MailboxLogTests`
 
 ### Callers

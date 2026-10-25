@@ -63,13 +63,13 @@
 [ ] `startActor` places `Order.StartActor request` through `Mailbox.PlaceOrder`
 [ ] `startPeerActor` places `Order.StartPeerActor(peerName, request)`
 [ ] `startLoadSaveCommand` places `Order.LoadSave(path, peerName, request)`
-[ ] Each `PlacedOrder` has a new `orderId`, the caller, and no `commandName`
+[ ] Each posts `Mailbox.PlaceOrder(placed, caller, channel)`; the shared `PlacedOrder` has a new `orderId`, `authority = caller.authority`, and no `commandName`
 [ ] Each function keeps its return type and maps the `EventId` reply to `()`
 
 ### Handlers
 
 [ ] `placeOrder` sends each of the three orders to the handler its `CoreMsg` case uses today
-[ ] Each handler takes the `PlacedOrder`
+[ ] Each handler takes `placed`, `caller`, and `reply`
 [ ] Each handler uses `placed.orderId` as the submission id and replies the stored `Ev` for a resubmission, as `postActorStart` does
 [ ] Each handler logs `EventBody.Order placed.order`
 [ ] A start that runs no Actor appends the start, then `EventBody.ActorStop` of its focus and `ActorSucceeded`
