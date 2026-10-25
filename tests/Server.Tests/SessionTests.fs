@@ -59,7 +59,7 @@ let private orderEvent text = {
     body = EventBody.Change [ Op.NewNode(NodeId.New(), text) ]
 }
 
-let private latePlace caller channel =
+let private latePlace (caller: Caller) channel =
     Mailbox.placeForCaller
         { orderId = OrderId.New()
           authority = caller.authority
