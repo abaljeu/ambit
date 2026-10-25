@@ -25,7 +25,7 @@
 
 ### Docs
 
-[ ] [cqrs-messages.md](../cqrs-messages.md) §2 target shape block (`Order`, `Notice`), §2 item 3 **StartActor**, §2 item 8 **Notice**, §7 item 8
+[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 8 **Notice**, read only; it already says the pool posts `Notice.ActorStopped` when an Actor ends
 
 ### Match sites and constructors
 
@@ -86,19 +86,10 @@
 [ ] Each of the four Actors returns its result and does not call `CoreDoor.actorStop`
 [ ] `RunAgentActor.stop` leaves
 
-### Docs
-
-[ ] In `cqrs-messages.md` §2 item 8 **Notice**, "an Actor that is done and a Cancel both post it" becomes "the pool posts it when an Actor ends, and a Cancel logs it"
-[ ] In §2 item 8, "`Notice.SearchCancelled` of the root `NodeId` replaces `CoreMsg.RecordSearchStop`. It records the search stop as `ActorSucceeded` for that root." becomes "`Notice.SearchStopped` of the root `NodeId` replaces `CoreMsg.RecordSearchStop`. The server posts it when a search ends. `Order.CancelSearch` is the client's cancel order."
-[ ] In the §2 target shape block, `Notice.SearchCancelled` becomes `SearchStopped`, and `Order.RecordSearchStart` becomes `StartSearch`
-[ ] In §2 item 3 **StartActor**, `Order.RecordSearchStart` becomes `Order.StartSearch`
-[ ] In §7 item 8, `Order.RecordSearchStart` becomes `Order.StartSearch`; "`ActorStop` becomes `Notice.ActorStopped`, which a Cancel also posts" becomes "`ActorStop` becomes `Notice.ActorStopped`, which the pool posts when an Actor ends and a Cancel logs"; "`RecordSearchStop` becomes `Notice.SearchCancelled`" becomes "`RecordSearchStop` leaves; the server posts `Notice.SearchStopped` when a search ends"
-
 ### Size
 
 [ ] 6 source files: `CoreActorPool.fs`, `CoreMailboxLoad.fs`, `GithubTransportActor.fs`, `RunAgentActor.fs`, `SearchActor.fs`, `TestActor.fs`
 [ ] 1 test file: `CoreMailboxDoorTests.fs`
-[ ] 1 doc file: `cqrs-messages.md`
 
 ## 6. Tests
 
