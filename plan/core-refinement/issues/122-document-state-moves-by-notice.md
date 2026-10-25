@@ -6,36 +6,32 @@ coding
 
 ## 2. Blockers
 
-[ ] none
-
 ## 3. Look at
-
-[ ] `CoreMailboxLoop.applyNotice` dispatches each Notice in [CoreMailboxLoop.fs](../../../src/Server/Core/CoreMailboxLoop.fs)
-[ ] `CoreMailboxFilesAxis.writePullingFileUnpersisted`, `writeReceived`, `applyNodeParsed`, `writeUnpersisted`, and `writePersisted` write the axis in [CoreMailboxFilesAxis.fs](../../../src/Server/Core/CoreMailboxFilesAxis.fs)
+[ ] src\Server\Api.fs  253
+[ ] src\Server\DatabaseProjection.fs  95
+[ ] src\Server\LazyLoadReconciliationServer.fs  360
+[ ] src\Shared\DocumentOpImpact.fs  40  62
+[ ] src\Shared\History.fs  119  248  332  333  372  657
+[ ] src\Shared\ImportText.fs  47
+[ ] src\Shared\ResidentProjection.fs  20
+[ ] src\Shared\Serialization.fs  358  412
+[ ] src\Shared\WorkspaceUploadStructure.fs  143  145  151  153  160  319
+[ ] src\Shared\documents\DocumentColdParse.fs  294
+[ ] src\Shared\dotnet\DirectoryReconcile.fs  226
+[ ] src\Shared\dotnet\ImportDocument.fs  130
+[ ] src\Shared\dotnet\LazyLoadReconciliation.fs  370
+[ ] src\Shared\dotnet\LazyLoadReconciliationApply.fs   23   25   32  145  147
 
 ## 4. Context
-
-These send the Notice:
-
-- Load
-- Parse
-- Persist
-
-Document state changes by that pushed Notice. The effect is idempotent and matches `Op.SetDocumentState` for that same change.
-
+Document state changes by sending Notice from things like Load, Parse, and Persist. Make sure each notice is idempotent and identical to what would happen if SetDocumentState was called.
 ## 5. Changes
 
-[ ] [50 — Upload emits NodeUploading](50-upload-emits-nodeuploading.md) establishes the `Notice.NodeUploading` effect.
-[ ] [53 — Arrival and reconcile emit NodeReceived](53-arrival-and-reconcile-emit-nodereceived.md) establishes the `Notice.NodeReceived` effect.
-[ ] [54 — Parse and import stop the Parsed Set](54-parse-and-import-stop-the-parsed-set.md) establishes the `Notice.NodeParsed` effect.
-[ ] [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) posts `Notice.NodeUploading` and `Notice.NodeReceived`.
-[ ] [73 — Add the NodeParsing and NodePersisting Notices](73-add-the-nodeparsing-and-nodepersisting-notices.md) establishes the `Notice.NodePersisting` effect.
-[ ] [100 — Core loop gates Persisted on the written version](100-core-loop-gates-persisted-on-the-written-version.md) establishes the `Notice.NodePersisted` effect.
+[ ] For each of the above files where SetDocumentState is happening, locate where the appropriate notice could be inserted, and send that.  Don't remove SetDocumentState.
 
 ## 6. Tests
 
 [ ] No new test is required.
-[ ] The old tests should still work.
+[ ] For each edited file, the default test set is run and passes.
 
 ## 7. Done
 

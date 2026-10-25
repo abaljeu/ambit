@@ -234,6 +234,30 @@ let ``upload posts NodeUploading beside SetDocumentState`` () = task {
 }
 
 [<Fact>]
+let ``upload emits NodeUploading`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let planned =
+            WorkspaceUploadStructure.planStubOps
+                (stateOf host).graph
+                "home"
+                [ { relative = "note.txt"; isDirectory = false } ]
+            |> requireOk "stubs"
+        do! postChange handle planned
+        let noteId = fileNamed host wsId "note.txt"
+        let node = (stateOf host).graph.nodes.[noteId]
+        Assert.True(uploading host noteId)
+        Assert.True(node.documentState.pullingFile)
+        Assert.Equal(PullingFile, documentState host noteId)
+        Assert.Equal(
+            PersistState.Unpersisted,
+            node.documentState.persistState)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
 let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
@@ -253,6 +277,33 @@ let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
         requireOk "pull" pulled |> ignore
         Assert.True(wroteSet host fileId Unparsed)
         assertLogged host fileId Unparsed (received host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``reconcile emits NodeReceived`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        setState host fileId Unparsed PullingFile
+        let home = Path.Combine(dataDir, "home")
+        Directory.CreateDirectory(home) |> ignore
+        File.WriteAllText(Path.Combine(home, "note.txt"), "body")
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Modified "note.txt" ]
+        let node = (stateOf host).graph.nodes.[fileId]
+        Assert.True(received host fileId)
+        Assert.Equal(Unparsed, documentState host fileId)
+        Assert.False(node.documentState.pullingFile)
+        Assert.Equal(
+            PersistState.Persisted,
+            node.documentState.persistState)
     finally
         CoreMailboxApi.dispose host
 }
@@ -354,6 +405,30 @@ let ``incoming file posts NodeReceived beside SetDocumentState`` () = task {
         Assert.True(received host presentId)
         Assert.Equal(PullingFile, documentState host otherId)
         Assert.False(received host otherId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``incoming file emits NodeReceived`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let presentId = addFile host wsId "present.txt"
+        setState host presentId Unparsed PullingFile
+        let ops =
+            WorkspaceUploadStructure.planServerFilePresentOps
+                (stateOf host).graph
+                "home"
+                [ "present.txt" ]
+        do! postChange handle ops
+        let node = (stateOf host).graph.nodes.[presentId]
+        Assert.True(received host presentId)
+        Assert.Equal(Unparsed, documentState host presentId)
+        Assert.False(node.documentState.pullingFile)
+        Assert.Equal(
+            PersistState.Persisted,
+            node.documentState.persistState)
     finally
         CoreMailboxApi.dispose host
 }

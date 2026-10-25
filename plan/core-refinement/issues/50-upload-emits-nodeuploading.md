@@ -1,6 +1,6 @@
 # 50 — Upload emits NodeUploading
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
@@ -15,11 +15,11 @@ Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeUploading` for
 
 ### 1. Upload
 
-1. [ ] **Upload post** — `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice` when it runs the upload Change.
+1. [x] **Upload post** — `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice` when it runs the upload Change.
 
 ### Acceptance Criteria
 
-1. [ ] **Upload test** — `upload emits NodeUploading`. The test calls `Api.postEvents` for the upload Change. `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice`. The `Notice.NodeUploading` handler sets PullingFile and Unpersisted.
+1. [x] **Upload test** — `upload emits NodeUploading`. The test calls `Api.postEvents` for the upload Change. `Api.postEvents` posts `Notice.NodeUploading` through `CoreMailboxApi.postNotice`. The `Notice.NodeUploading` handler sets PullingFile and Unpersisted.
 
 ## See also
 

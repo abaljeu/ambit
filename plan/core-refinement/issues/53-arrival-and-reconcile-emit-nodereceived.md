@@ -1,6 +1,6 @@
 # 53 — Arrival and reconcile emit NodeReceived
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
@@ -15,12 +15,12 @@ Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeReceived` for 
 
 ### 1. Arrival
 
-1. [ ] **Arrival post** — `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for an incoming file.
+1. [x] **Arrival post** — `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for an incoming file.
 
 ### Acceptance Criteria
 
-1. [ ] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
-2. [ ] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
+1. [x] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
+2. [x] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
 
 ## See also
 
