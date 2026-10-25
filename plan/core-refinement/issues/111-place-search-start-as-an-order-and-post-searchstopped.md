@@ -54,6 +54,7 @@
 [ ] Alan, 2026-10-24: `Order.StartSearch` and `Order.CancelSearch`
 [ ] Alan, 2026-10-24: a search just stops when done, like an Actor. The server sees the search end and posts `Notice.SearchStopped`. The search route sends no stop
 [ ] `Order.CancelSearch` is only the client's cancel order. This ticket does not add it, because no client cancels a search yet
+[ ] Alan, 2026-10-24: the future consumers of `Order.CancelSearch` are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet
 
 ## 5. Changes
 
