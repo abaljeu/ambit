@@ -29,13 +29,14 @@ let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
                 testCaller,
                 Graph.rootId,
                 Unchecked.defaultof<_>))
-    let place =
-        Mailbox.placeForCaller
-            testCaller
-            (OrderId Guid.Empty)
-            None
-            (Order.Load Graph.rootId)
-            (Unchecked.defaultof<_>)
+    let placed = {
+        orderId = OrderId Guid.Empty
+        authority = testCaller.authority
+        commandName = None
+        order = Order.Load Graph.rootId }
+    let caller = testCaller
+    let reply = Unchecked.defaultof<_>
+    let place = Mailbox.PlaceOrder(placed, caller, reply)
     let ask =
         Mailbox.Ask (Query.LastEventId (Unchecked.defaultof<_>))
     Assert.Equal("CoreMsg", mailboxKind core)

@@ -61,12 +61,14 @@ let private orderEvent text = {
 
 let private latePlace caller channel =
     Mailbox.placeForCaller
+        { orderId = OrderId.New()
+          authority = caller.authority
+          commandName = Some "late"
+          order =
+              Order.Change(
+                  [ Op.NewNode(NodeId.New(), "late") ],
+                  ChangeOrigin.Edit) }
         caller
-        (OrderId.New())
-        (Some "late")
-        (Order.Change(
-            [ Op.NewNode(NodeId.New(), "late") ],
-            ChangeOrigin.Edit))
         channel
 
 let private sessionOf host = MailboxHost.session host

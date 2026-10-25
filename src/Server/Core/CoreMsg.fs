@@ -67,17 +67,12 @@ module internal Mailbox =
 
     /// Mailbox.PlaceOrder. The PlacedOrder authority is the caller's.
     let internal placeForCaller
+        (placed: PlacedOrder)
         (caller: Caller)
-        (orderId: OrderId)
-        (commandName: string option)
-        (order: Order)
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         =
         Mailbox.PlaceOrder (
-            { orderId = orderId
-              authority = caller.authority
-              commandName = commandName
-              order = order },
+            { placed with authority = caller.authority },
             caller,
             reply)
 

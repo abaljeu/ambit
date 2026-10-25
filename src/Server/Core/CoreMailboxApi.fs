@@ -199,12 +199,7 @@ module CoreMailboxApi =
         | EventBody.Change _ when event.id = EventId.zero ->
             match MailboxLog.ofEv event with
             | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-                Mailbox.placeForCaller
-                    caller
-                    placed.orderId
-                    placed.commandName
-                    placed.order
-                    channel
+                Mailbox.placeForCaller placed caller channel
             | _ ->
                 Mailbox.CoreMsg(PostEvent(caller, event, channel))
         | _ ->
@@ -306,10 +301,11 @@ module CoreMailboxApi =
         : Async<Result<EventId, string>> =
         MailboxHost.postMailboxAndAsyncReply host (fun channel ->
             Mailbox.placeForCaller
+                { orderId = OrderId.New()
+                  authority = caller.authority
+                  commandName = None
+                  order = Order.Load subject }
                 caller
-                (OrderId.New())
-                None
-                (Order.Load subject)
                 channel)
 
     let actorStop
