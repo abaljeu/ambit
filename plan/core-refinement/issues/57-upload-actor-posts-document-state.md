@@ -31,7 +31,7 @@ Client upload runs as an Actor. The core gives the Actor the notice function. Th
 - [core-refinement](../project.md)
 - [44 — Apply document state from Node events](44-apply-document-state-from-file-events.md)
 - [54 — Parse and import stop the Parsed Set](54-parse-and-import-stop-the-parsed-set.md)
-- [45 — SetDocumentState leaves; NodeUnpersisted replaces it](45-remove-document-state-set-ops.md)
+- [121 — SetDocumentState and MarkUnparsed leave](121-remove-document-state-set-ops-and-markunparsed.md)
 - [50 — Upload emits NodeUploading](50-upload-emits-nodeuploading.md)
 - [53 — Arrival and reconcile emit NodeReceived](53-arrival-and-reconcile-emit-nodereceived.md)
 - [GLOSSARY](../../../GLOSSARY.md)
