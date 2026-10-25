@@ -25,7 +25,7 @@
 
 ### Docs
 
-[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 1 **Change**, §3 decision 4 **One Change**, §3 decision 18 **ChangeOrigin**, §3 decision 1 **Logged as placed**
+[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 1 **Change** and decisions 1, 4, and 18, read only; they already say the logged Change holds `origin`
 
 ### Match sites and constructors
 
@@ -55,7 +55,7 @@
 
 [ ] Alan, 2026-10-24: `origin` is logged; the log is not stripped of `origin`
 [ ] This matches [cqrs-messages.md](../cqrs-messages.md) decision 1 **Logged as placed** and choice (c): `EventBody.Order` holds the `Order`
-[ ] §2 item 1, decision 4, and decision 18 still say "`origin` exists only on the placed order"
+[ ] [cqrs-messages.md](../cqrs-messages.md) already says the logged Change holds the op list and the `origin`
 
 ### Old logs
 
@@ -99,17 +99,10 @@
 [ ] `historyBody` maps `Order.Change _` to `HistoryBody.Order order`
 [ ] `editEvent` then stores `EventBody.Order placed.order` with its `origin`
 
-### Docs
-
-[ ] In `cqrs-messages.md` §2 item 1 **Change**, decision 4 **One Change**, and decision 18 **ChangeOrigin**, remove the sentence "`origin` exists only on the placed order."
-[ ] In the same three places, "The logged Change holds the op list." becomes "The logged Change holds the op list and the `origin`."
-[ ] Decision 1 **Logged as placed** stays as written
-
 ### Size
 
 [ ] 3 source files: `History.fs`, `EventJson.fs`, `MailboxLog.fs`
 [ ] 2 test files: `EventJsonTests.fs`, `CoreMailboxDoorTests.fs`
-[ ] 1 doc file: `cqrs-messages.md`
 
 ## 6. Tests
 
