@@ -89,7 +89,7 @@
 ### CoreMailboxLoad.fs
 
 [ ] `editEvent` becomes `orderEvent placed`; it builds the Ev from `placed.order`
-[ ] `replyChange` takes `placed` and `graphOnly`
+[ ] `replyChange` takes `placed`, `caller`, `reply`, and `graphOnly`
 [ ] `placeOrder` sends `Order.Undo` and `Order.Redo` to `replyChange` with `graphOnly` false
 [ ] `completeAction` fills an empty Op list, as today
 [ ] The stored Undo or Redo holds the target and the filled Op list
