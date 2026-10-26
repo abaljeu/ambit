@@ -66,29 +66,6 @@ let ``applySetCookieHeaders captures gambol_auth and clears on empty`` () =
             [ "gambol_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT" ]
     Assert.Equal(None, cleared)
 
-[<Fact>]
-let ``deriveGitToken is stable and distinct from cookie token`` () =
-    let cookie = AuthToken.deriveToken "alice" "secret"
-    let git = AuthToken.deriveGitToken "alice" "secret"
-    let git2 = AuthToken.deriveGitToken "alice" "secret"
-    Assert.Equal(git, git2)
-    Assert.NotEqual<string>(cookie, git)
-
-[<Fact>]
-let ``basicAuthHeaderValue round-trips via tryParseBasicAuth`` () =
-    let token = AuthToken.deriveGitToken "alice" "secret"
-    let header = AuthToken.basicAuthHeaderValue "alice" token
-    match AuthToken.tryParseBasicAuth header with
-    | None -> Assert.Fail("expected parse")
-    | Some(user, pass) ->
-        Assert.Equal("alice", user)
-        Assert.Equal(token, pass)
-
-[<Fact>]
-let ``tryParseBasicAuth rejects non-Basic`` () =
-    Assert.Equal(None, AuthToken.tryParseBasicAuth "Bearer abc")
-    Assert.Equal(None, AuthToken.tryParseBasicAuth null)
-
 let private uploadClaim expires : UploadCapability.Claim =
     { user = "alice"
       label = "home"

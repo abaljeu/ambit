@@ -21,7 +21,7 @@ This page records how the Browser and the App present authorization to the Serve
 ## 3. Browser
 
 1. **Login issues the cookie** — `POST /ambit/login` checks username and password. On success the Server sets `gambol_auth` to the derived token and adds that token to CoreCredentials. Empty Auth matches empty username and password. The Browser then loads `/ambit`.
-2. **Development credential** — When Auth username and password are empty ([[src/Server/appsettings.Development.json]]), the token is still `deriveToken("", "")`. Boot seeds CoreCredentials with that value. `IsAuthenticated` requires the cookie. GET `/ambit` auto-issues that cookie so a Development Browser does not type a password. Later Browser APIs must send the cookie. There is no `auth.Disabled` skip. Git PAT `GitAuthDisabled` is a separate empty-Auth git-gateway path.
+2. **Development credential** — When Auth username and password are empty ([[src/Server/appsettings.Development.json]]), the token is still `deriveToken("", "")`. Boot seeds CoreCredentials with that value. `IsAuthenticated` requires the cookie. GET `/ambit` auto-issues that cookie so a Development Browser does not type a password. Later Browser APIs must send the cookie. There is no `auth.Disabled` skip.
 3. **Production login** — When Auth is set ([[src/Server/appsettings.json]]), `/ambit` redirects to [[src/Server/wwwroot/login.html|Login.html]] until the cookie equals the derived token.
 4. **Browser APIs carry the cookie** — State, Poll, Load, and Change posts use fetch with `credentials: 'same-origin'`. The Browser sends `gambol_auth` as a cookie. Browser JavaScript does not rebuild the token.
 5. **HTTP Adapter encodes the request** — [[src/Server/BrowserRequestCreds.fs]] reads the cookie. [[src/Server/RouteRegistration.fs]] `withBrowserChanges` returns HTTP 401 for a missing cookie and for a cookie that is not in the CoreCredentials set. It does not call CoreMailbox in those cases. A live cookie is passed into CoreRuntime `browserChanges`. Authority is `Browser`.
@@ -59,6 +59,5 @@ This page records how the Browser and the App present authorization to the Serve
 
 ## 8. Out of scope
 
-1. **Git PAT** — Basic username plus `deriveGitToken` for smart HTTP. Not the Browser cookie. Empty Auth still reports `GitAuthDisabled` and leaves the git gateway open.
-2. **Actor live-table admit** — Actor secrets on the CoreActorPool live table. Not this page.
-3. **Wiki home** — Whether this page later moves under [[doc/current/arch.md]] or another tree is [[issues/01-choose-wiki-home.md|Choose the architecture wiki home]].
+1. **Actor live-table admit** — Actor secrets on the CoreActorPool live table. Not this page.
+2. **Wiki home** — Whether this page later moves under [[doc/current/arch.md]] or another tree is [[issues/01-choose-wiki-home.md|Choose the architecture wiki home]].
