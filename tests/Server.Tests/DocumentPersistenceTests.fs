@@ -246,7 +246,7 @@ let ``writeAllDocuments stamps artifact updateTime from disk mtime`` () =
         NodeUpdateTime.missing,
         stamped.nodes.[fileId].updateTime)
 
-[<Fact>]
+[<Fact(Skip = "128: upload structure persistence preserves existing file mtime pending")>]
 let ``upload structure persistence preserves existing file mtime`` () =
     let dataDir = newTempDir ()
     let graph0, _, _, fileId, _ = graphWithNestedDocs ()

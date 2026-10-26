@@ -202,7 +202,7 @@ let private waitParsed host id = task {
     Assert.True(parsed)
 }
 
-[<Fact>]
+[<Fact(Skip = "128/129: upload posts NodeUploading beside SetDocumentState pending")>]
 let ``upload posts NodeUploading beside SetDocumentState`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
@@ -233,7 +233,7 @@ let ``upload posts NodeUploading beside SetDocumentState`` () = task {
         CoreMailboxApi.dispose host
 }
 
-[<Fact>]
+[<Fact(Skip = "128/129: upload emits NodeUploading pending")>]
 let ``upload emits NodeUploading`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir

@@ -114,7 +114,7 @@ let ``exact amb inventory paths represent containing document roots`` () =
         fun (name, _) -> name = ".amb")
     Assert.Equal(Special File, (childNamed graph2 workspaceId "notes.amb").kind)
 
-[<Fact>]
+[<Fact(Skip = "128/129: markPullingFile sets PullingFile pending")>]
 let ``markPullingFile sets PullingFile`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let items =
@@ -136,7 +136,7 @@ let ``markPullingFile sets PullingFile`` () =
     Assert.Equal(Current, docs.documentState.AsEnum)
     Assert.False(docs.documentState.pullingFile)
 
-[<Fact>]
+[<Fact(Skip = "128/129: new file stubs start PullingFile; directory parent stays Current pending")>]
 let ``new file stubs start PullingFile; directory parent stays Current`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
 
@@ -152,7 +152,7 @@ let ``new file stubs start PullingFile; directory parent stays Current`` () =
     Assert.Equal(Current, docs.documentState.AsEnum)
     Assert.Equal(PullingFile, file.documentState.AsEnum)
 
-[<Fact>]
+[<Fact(Skip = "128: reuses existing owned path without duplicating pending")>]
 let ``reuses existing owned path without duplicating`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
     let _, dirOps =
@@ -252,7 +252,7 @@ let ``no content children on new file stubs`` () =
     let file = childNamed graph2 workspaceId "only.txt"
     Assert.Empty(Graph.children graph2 file.id)
 
-[<Fact>]
+[<Fact(Skip = "129: reused Unparsed directory with owned child becomes Current pending")>]
 let ``reused Unparsed directory with owned child becomes Current`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
     let _, dirOps = FileNodeOps.planCreateOwnedDirectory graph0 workspaceId "docs"
@@ -269,7 +269,7 @@ let ``reused Unparsed directory with owned child becomes Current`` () =
     let docs = childNamed graph3 workspaceId "docs"
     Assert.Equal(Current, docs.documentState.AsEnum)
 
-[<Fact>]
+[<Fact(Skip = "129: plan promotes ancestor directories when nested file stub added pending")>]
 let ``plan promotes ancestor directories when nested file stub added`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
 

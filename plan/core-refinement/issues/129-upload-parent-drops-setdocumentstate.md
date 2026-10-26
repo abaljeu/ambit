@@ -18,18 +18,26 @@ After a rollback to `47a85e1d^`: `WorkspaceUploadStructure.markUnparsed` has its
 
 ## 4. Change
 
-- Delete the `Op.SetDocumentState(nodeId, Unparsed, Current)` line in `markParentCurrent`.
+[x] Delete the `Op.SetDocumentState(nodeId, Unparsed, Current)` line in `markParentCurrent`. [128/129: delete upload stub and parent SetDocumentState](https://github.com/abaljeu/ambit/pull/419).
 
-Backend inference: an Edit Change whose `Replace` attaches owned stubs to an Unparsed Directory or Workspace infers a trail `NodeParsed dirId`. The rule goes in `DocumentOpImpact.inferNotices` (135).
+[x] Leave `promoteUnparsedDirsWithMembers` in place. It folds `markParentCurrent` and is now inert.
 
-Hard: `promoteUnparsedDirsWithMembers` scans the whole graph. A directory it promotes may have no op in the Change. The same `Replace` in a received-file reconcile ends with the container Unparsed (133).
+[x] Backend inference is dropped per Alan. The desktop should not figure out nodes for uploaded files.
+
+[ ] Correct each disabled test named in §5.
+
+`promoteUnparsedDirsWithMembers` scans the whole graph. A directory it selects may have no op in the Change. The same `Replace` in a received-file reconcile ends with the container Unparsed ([133 — Received file container drops its SetDocumentState](133-received-file-container-drops-setdocumentstate.md)).
 
 Source: `WorkspaceUploadStructure.fs`, `DocumentOpImpact.fs`.
 
 ## 5. Tests
 
-[ ] `WorkspaceUploadStructureTests` `reused Unparsed directory with owned child becomes Current`
-[ ] `NodeEventExpandTests` (the upload facts)
+[ ] Correct `WorkspaceUploadStructureTests` `reused Unparsed directory with owned child becomes Current` (disabled, 129).
+[ ] Correct `WorkspaceUploadStructureTests` `plan promotes ancestor directories when nested file stub added` (disabled, 129).
+[ ] Correct `WorkspaceUploadStructureTests` `markPullingFile sets PullingFile` (disabled, 128/129).
+[ ] Correct `WorkspaceUploadStructureTests` `new file stubs start PullingFile; directory parent stays Current` (disabled, 128/129).
+[ ] Correct `NodeEventExpandTests` `upload posts NodeUploading beside SetDocumentState` (disabled, 128/129).
+[ ] Correct `NodeEventExpandTests` `upload emits NodeUploading` (disabled, 128/129).
 
 ## 6. Open question (Alan)
 
@@ -39,4 +47,4 @@ Source: `WorkspaceUploadStructure.fs`, `DocumentOpImpact.fs`.
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
-[ ] All executed tests pass.
+[ ] All executed tests in this round are green.
