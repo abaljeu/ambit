@@ -140,6 +140,11 @@ let private received host id =
         | Notice.NodeReceived found -> found = id
         | _ -> false)
 
+let private nodeUnparsed host id =
+    hasCase host (function
+        | Notice.NodeUnparsed found -> found = id
+        | _ -> false)
+
 let private placeFile (dataDir: string) (rel: string) (text: string) =
     let full =
         Path.Combine(
@@ -313,6 +318,30 @@ let ``git load reconcile posts NodeParsed for an Unparsed parent`` () = task {
         let direct = parsedNotices host docsId
         Assert.NotEmpty(direct)
         Assert.Equal(Current, documentState host docsId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``git changed file posts NodeUnparsed beside SetDocumentState`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        setState host fileId Unparsed Current
+        let home = Path.Combine(dataDir, "home")
+        Directory.CreateDirectory(home) |> ignore
+        File.WriteAllText(Path.Combine(home, "note.txt"), "body")
+        let! pulled =
+            LazyLoadReconciliationServer.reconcileReceivedFiles
+                { handle = handle
+                  dataDir = dataDir
+                  workspaceLabel = "home" }
+                [ LazyLoadReconciliation.Modified "note.txt" ]
+            |> Async.StartAsTask
+        requireOk "pull" pulled |> ignore
+        Assert.True(wroteSet host fileId Unparsed)
+        assertLogged host fileId Unparsed (nodeUnparsed host fileId)
     finally
         CoreMailboxApi.dispose host
 }

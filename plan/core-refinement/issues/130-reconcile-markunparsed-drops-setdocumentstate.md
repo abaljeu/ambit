@@ -40,3 +40,10 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`, `Do
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `DocumentOpImpact.noticesBeside` posts `Notice.NodeUnparsed` beside `Op.SetDocumentState` from Current to Unparsed when the graph-only Change commits.
+[ ] This round leaves that enqueue in place.
+[ ] `git changed file posts NodeUnparsed beside SetDocumentState` in `NodeEventExpandTests` asserts that Notice for a modified file from `LazyLoadReconciliationServer.reconcileReceivedFiles`.
+[ ] `LazyLoadReconciliationApply.markUnparsed` still writes the `SetDocumentState` op.
