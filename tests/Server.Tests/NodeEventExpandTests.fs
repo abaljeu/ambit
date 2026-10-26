@@ -554,8 +554,61 @@ let ``planDirectoryReconcile logs NodeParsed beside SetDocumentState`` () =
             Directory.CreateDirectory(
                 Path.Combine(dataDir, "home", "docs"))
             |> ignore
+            Assert.False(parsedMsg host dirId)
+            Assert.False(wroteSet host dirId Current)
             push dirId
-            do! waitParsed host dirId
+            let! parsed =
+                waitUntil
+                    (fun () ->
+                        parsedMsg host dirId
+                        && documentState host dirId = Current)
+                    2000
+            Assert.True(parsed)
+            Assert.False(wroteSet host dirId Current)
+            CoreMailboxApi.postNotice host (Notice.NodeParsed dirId)
+            Assert.Equal(Current, documentState host dirId)
+            Assert.True(parsedMsg host dirId)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``unparsed directory with a normal child drops a missing member`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, _, wsId = admitHome dataDir
+        let push = startParse dataDir host
+        try
+            let dirId = addDirectory host wsId "docs"
+            setState host dirId Unparsed Current
+            let normalId = NodeId.New()
+            let kids = Graph.children (stateOf host).graph dirId
+            postGraph
+                host
+                [ Op.NewNode(normalId, "section")
+                  ChildListWire.append
+                      dirId
+                      kids
+                      [ ChildNode.owner normalId ] ]
+            let fileId = addFile host dirId "gone.txt"
+            setState host dirId Current Unparsed
+            Directory.CreateDirectory(
+                Path.Combine(dataDir, "home", "docs"))
+            |> ignore
+            push dirId
+            let! dropped =
+                waitUntil
+                    (fun () ->
+                        documentState host dirId = Current
+                        && Graph.children (stateOf host).graph dirId
+                           |> List.forall (fun child -> child.id <> fileId))
+                    2000
+            Assert.True(dropped)
+            Assert.True(parsedMsg host dirId)
+            Assert.Contains(
+                normalId,
+                Graph.children (stateOf host).graph dirId
+                |> List.map (fun child -> child.id))
         finally
             CoreMailboxApi.dispose host
     }

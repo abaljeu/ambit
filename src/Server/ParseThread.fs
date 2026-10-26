@@ -111,6 +111,8 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
+                if not (List.isEmpty planned.ops) then
+                    deps.finishParse directoryId
                 let! posted = postContent deps planned.ops
                 return afterPost deps directoryId planned.push posted
         }
