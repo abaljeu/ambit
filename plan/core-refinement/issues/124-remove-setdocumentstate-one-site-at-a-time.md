@@ -76,7 +76,7 @@ coding
 
 [x] Pass 1. `ImportText.markDocumentCurrentBeforeParse`. `Unparsed` to `Current` leaves. `Notice.NodeParsed` stays. Filter `build import marks unparsed file current before tree operations` and `import logs NodeParsed beside SetDocumentState`.
 [ ] Pass 2. `ImportDocument.planParseFile`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planParseFile unparsed marks Current` and `planParseFile logs NodeParsed beside SetDocumentState`.
-[ ] Pass 3. `DirectoryReconcile.markCurrent`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planDirectoryReconcile logs NodeParsed beside SetDocumentState`.
+[x] Pass 3. `DirectoryReconcile.markCurrent`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planDirectoryReconcile logs NodeParsed beside SetDocumentState`.
 [ ] Pass 4. `WorkspaceUploadStructure.planServerFilePresentOps`. `PullingFile` to `Unparsed` leaves. `Notice.NodeReceived` stays. Filter `incoming file posts NodeReceived beside SetDocumentState`.
 [ ] Pass 5. `WorkspaceUploadStructure.markPullingFile`. The move to `PullingFile` leaves. `Notice.NodeUploading` stays. Filter `markPullingFile sets PullingFile` and `upload posts NodeUploading beside SetDocumentState`.
 [ ] Pass 6. `WorkspaceUploadStructure.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays, matching the old enum.
