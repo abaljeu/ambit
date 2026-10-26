@@ -281,6 +281,42 @@ let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
         CoreMailboxApi.dispose host
 }
 
+let private parsedNotices host id =
+    let _ = stateOf host
+    let log =
+        CoreMailboxApi.eventsSince host EventId.zero
+        |> Async.RunSynchronously
+    log.events
+    |> List.choose (fun event ->
+        match event.body with
+        | EventBody.Notice (Notice.NodeParsed found) when found = id ->
+            Some event
+        | _ -> None)
+
+[<Fact>]
+let ``git load reconcile posts NodeParsed for an Unparsed parent`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let docsId = addDirectory host wsId "docs"
+        Assert.Equal(Unparsed, documentState host docsId)
+        let home = Path.Combine(dataDir, "home")
+        let docs = Path.Combine(home, "docs")
+        Directory.CreateDirectory(docs) |> ignore
+        File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+        let direct = parsedNotices host docsId
+        Assert.NotEmpty(direct)
+        Assert.Equal(Current, documentState host docsId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
 [<Fact>]
 let ``reconcile emits NodeReceived`` () = task {
     let dataDir = newTempDir ()
