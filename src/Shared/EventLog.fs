@@ -83,11 +83,12 @@ module EventLog =
         { empty with nextId = EventId.next eventId }
 
     let private applyRecover state event =
+        let seen = ImportText.stateForImportOps event state
         let next =
-            match Ev.apply event state with
+            match Ev.apply event seen with
             | ApplyResult.Changed next -> next
             | ApplyResult.Unchanged next -> next
-            | ApplyResult.Invalid (next, _) -> next
+            | ApplyResult.Invalid _ -> state
         { next with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.

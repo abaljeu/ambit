@@ -153,12 +153,14 @@ module SyncLogic =
                 let mark =
                     Op.persistMarkVersion event.commandName event.id
                 let guard = Op.guardsUnparsedDocument event.commandName
+                let seen =
+                    ImportText.stateForImportOps event (asProjectionState st)
                 match
                     ResidentProjection.applyOpsForSyncAllowing
                         guard
                         mark
                         ops
-                        (asProjectionState st)
+                        seen
                         { pending = st.pending
                           submissionId = event.submissionId }
                 with
@@ -338,7 +340,9 @@ module SyncLogic =
         (state: ClientSyncState)
         : Result<ClientSyncState * Ev, string> =
         let ops = Ev.ops event |> Option.defaultValue []
-        match ResidentProjection.applyOps ops (asProjectionState state) with
+        let seen =
+            ImportText.stateForImportOps event (asProjectionState state)
+        match ResidentProjection.applyOps ops seen with
         | ApplyResult.Invalid (_, msg) -> Error msg
         | ApplyResult.Unchanged _ -> Error "Change did not change state"
         | ApplyResult.Changed newState ->

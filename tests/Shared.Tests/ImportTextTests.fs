@@ -175,12 +175,17 @@ let ``build import marks unparsed file current before tree operations`` () =
         |> appendKids graph0.root [ ChildNode.owner focusId ]
     let change =
         ImportText.buildImportChange graph focusId [] package (System.Guid.NewGuid())
-    Assert.Equal(
-        Op.SetDocumentState(focusId, Unparsed, Current),
-        (SpecialNodeTestHelpers.eventOps change).Head)
-    Assert.Equal(
-        Op.Replace(focusId, [], owned package.topLevelIds),
-        SpecialNodeTestHelpers.eventOps change |> List.last)
+    let ops = SpecialNodeTestHelpers.eventOps change
+    Assert.Equal(ImportText.importCommand focusId, change.commandName)
+    Assert.Equal(Some focusId, ImportText.tryImportFocus change.commandName)
+    Assert.Equal<Op list>(
+        package.ops @ [ Op.Replace(focusId, [], owned package.topLevelIds) ],
+        ops)
+    Assert.False(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState _ -> true
+            | _ -> false))
 
 [<Fact>]
 let ``buildDirectoryMergeChange with empty existing adds all entries`` () =

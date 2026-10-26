@@ -128,7 +128,8 @@ module BootCache =
             let mark =
                 Op.persistMarkVersion event.commandName event.id
             let guard = Op.guardsUnparsedDocument event.commandName
-            match ResidentProjection.applyOpsAllowing guard mark ops st with
+            let seen = ImportText.stateForImportOps event st
+            match ResidentProjection.applyOpsAllowing guard mark ops seen with
             | ApplyResult.Invalid (_, msg) -> Error msg
             | ApplyResult.Changed next
             | ApplyResult.Unchanged next -> Ok next

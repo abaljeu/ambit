@@ -61,11 +61,15 @@ module FileAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    ChangeAmendment.applyPosted
-                        graphOnly
-                        event.id
+                    ImportText.commitImportApply
+                        (fun seen ->
+                            ChangeAmendment.applyPosted
+                                graphOnly
+                                event.id
+                                event
+                                ops
+                                seen)
                         event
-                        ops
                         s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
