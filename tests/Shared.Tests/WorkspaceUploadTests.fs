@@ -121,9 +121,6 @@ let ``canStartWeb allows Polling when pending is empty`` () =
                         authority = Authority "Browser"
                         commandName = ""
                         body = EventBody.Change [] } ] })
-    Assert.False(
-        WorkspaceUpload.canStartWeb
-            { SyncInfo.initial with syncState = Parsing })
 
 [<Fact>]
 let ``queueBlockedDetail distinguishes pending from poll`` () =
@@ -145,7 +142,3 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         "load queued until current upload completes",
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with syncState = Uploading })
-    Assert.Equal(
-        "load queued until parse completes",
-        WorkspaceUpload.queueBlockedDetail
-            { SyncInfo.initial with syncState = Parsing })

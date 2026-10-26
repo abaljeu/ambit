@@ -309,7 +309,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         model.syncInfo
                         |> SyncInfo.withServerReady ready }
             | None -> model
-        // While Uploading, Parsing, or Loading: keep the busy indicator. Do not apply
+        // While Uploading or Loading: keep the busy indicator. Do not apply
         // Poll tails during Loading — a stale poll would advance revision and cause
         // applyLoadResponse to reject answer-only Load payloads.
         let autoDownload model' =
@@ -329,7 +329,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         match readyModel.syncInfo.syncState with
         | Loading ->
             readyModel, []
-        | Uploading | Parsing as busy ->
+        | Uploading as busy ->
             match stateOpt with
             | Some DataOutdated
                 when not events.IsEmpty

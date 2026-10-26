@@ -53,16 +53,6 @@ let decodeReconciliationLatest (text: string) : Result<int, string> =
     | Ok failures -> Ok failures.Length
     | Error e -> Error e
 
-/// Decode POST /ambit/workspace/reconciliation/directory → failure count.
-let decodeReconciliationDirectory (text: string) : Result<int, string> =
-    decodeReconciliationLatest text
-
-let encodeReconciliationDirectoryRequest (workspace: string) (path: string) : string =
-    Encode.object
-        [ "workspace", Encode.string workspace
-          "path", Encode.string path ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
 let encodeReconciliationAddedRequest
     (workspace: string)
     (paths: string list)

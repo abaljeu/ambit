@@ -285,35 +285,6 @@ let ``tryStartSubmit returns no effects when uploading`` () =
     Assert.Empty(effects)
 
 [<Fact>]
-let ``tryStartPoll returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with syncState = Parsing }
-    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
-    Assert.Equal(Parsing, si.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
-let ``tryStartSubmit returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with
-            pending = [ mkChange 1 ]
-            syncState = Parsing }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
-    Assert.Equal(Parsing, nextInfo.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
-let ``tryStartLoad returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with syncState = Parsing }
-    let targets =
-        [ { targetId = NodeId.New(); includeWorkspace = false } ]
-    let si, effects =
-        SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets syncInfo
-    Assert.Equal(Parsing, si.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
 let ``mixed C Undo Redo wire batch keeps submissionId and EventId.zero`` () =
     let change = mkChange 99
     let undo = mkChange 99
