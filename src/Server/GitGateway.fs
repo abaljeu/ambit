@@ -22,8 +22,8 @@ module GitGateway =
     /// Path / ?service= name (stock git-*-pack).
     let urlServiceName =
         function
-        | WorkspacePull -> WorkspaceGitRemote.WorkspacePull
-        | WorkspacePush -> WorkspaceGitRemote.WorkspacePush
+        | WorkspacePull -> WorkspaceGitRemote.WorkspacePullString
+        | WorkspacePush -> WorkspaceGitRemote.WorkspacePushString
 
     /// Stock git subprocess verb.
     let private gitPackCommand =
@@ -33,8 +33,8 @@ module GitGateway =
 
     let private serviceFromQuery (raw: string) : Service option =
         match raw with
-        | WorkspaceGitRemote.WorkspacePull -> Some WorkspacePull
-        | WorkspaceGitRemote.WorkspacePush -> Some WorkspacePush
+        | WorkspaceGitRemote.WorkspacePullString -> Some WorkspacePull
+        | WorkspaceGitRemote.WorkspacePushString -> Some WorkspacePush
         | _ -> None
 
     let resolveWorkspaceRoot

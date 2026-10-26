@@ -81,11 +81,11 @@ module WorkspaceGitRemote =
 
     /// Stock smart HTTP service path / ?service= value (fetch / workspace-pull).
     [<Literal>]
-    let WorkspacePull = "git-upload-pack"
+    let WorkspacePullString = "git-upload-pack"
 
     /// Stock smart HTTP service path / ?service= value (push / workspace-push).
     [<Literal>]
-    let WorkspacePush = "git-receive-pack"
+    let WorkspacePushString = "git-receive-pack"
 
     /// Parse attached `.git/HEAD` content (`ref: refs/heads/<branch>`).
     let parseHeadRef (text: string) : Result<string, string> =

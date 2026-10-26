@@ -33,8 +33,8 @@ let ``tryLabelFromRepoName rejects missing suffix and bad names`` () =
 
 [<Fact>]
 let ``service path literals are stock git-*-pack`` () =
-    Assert.Equal("git-upload-pack", WorkspaceGitRemote.WorkspacePull)
-    Assert.Equal("git-receive-pack", WorkspaceGitRemote.WorkspacePush)
+    Assert.Equal("git-upload-pack", WorkspaceGitRemote.WorkspacePullString)
+    Assert.Equal("git-receive-pack", WorkspaceGitRemote.WorkspacePushString)
 
 [<Fact>]
 let ``parseHeadRef reads attached branch from HEAD file`` () =
