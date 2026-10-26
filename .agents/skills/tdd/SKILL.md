@@ -34,7 +34,7 @@ let ``total sums line item prices`` () =
 
 ## Seams
 
-Test at the seams the ticket's Tests section names. A test at another seam needs the user's agreement first.
+Test at the seams Outputs names. A test at another seam needs the user's agreement first.
 
 ## The loop
 
@@ -45,7 +45,7 @@ Work in vertical slices. Each cycle:
 3. Write the least code that passes it.
 4. Run the filter again and see it pass.
 
-Repeat until the ticket's Tests section is covered. Refactoring belongs to review.
+Repeat until the tests named in Outputs are covered. Refactoring belongs to review.
 
 ## Finish
 

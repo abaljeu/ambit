@@ -84,7 +84,7 @@ These change in their own steps:
 - arch
 - spec
 
-Each name in Tests is a test that exists or that the ticket adds.
+Each test name in Outputs is a test that exists or that the ticket adds.
 
 ## 3. Done
 

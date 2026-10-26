@@ -20,7 +20,7 @@ A list that starts inside a paragraph interrupts that paragraph.
 ###  Counterexample
 
 ```
-Done: the ticket names its type, its stories, its blockers, the files, types, and functions to look at, the changes, and what done looks like. The implementer uses the ticket and the code.
+Done: the ticket names its type, its blockers, its inputs, its process, its outputs, its stop line, and its check. The implementer uses the ticket and the code.
 ```
 
 Write that list as:
@@ -29,13 +29,12 @@ Write that list as:
 Done: the ticket names
 
 - its type
-- its stories
 - its blockers
-- the files to look at
-- the types to look at
-- the functions to look at
-- the changes
-- what done looks like
+- its inputs
+- its process
+- its outputs
+- its stop line
+- its check
 
 The implementer uses the ticket and the code.
 ```
