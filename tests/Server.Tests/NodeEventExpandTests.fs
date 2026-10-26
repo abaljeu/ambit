@@ -196,8 +196,7 @@ let private waitParsed host id = task {
         waitUntil
             (fun () ->
                 parsedMsg host id
-                && documentState host id = Current
-                && wroteSet host id Current)
+                && documentState host id = Current)
             2000
     Assert.True(parsed)
 }
@@ -461,7 +460,7 @@ let ``import logs NodeParsed beside SetDocumentState`` () = task {
 [<Fact>]
 let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
     let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
+    let host, _, wsId = admitHome dataDir
     let push = startParse dataDir host
     try
         let fileId = addFile host wsId "note.txt"
@@ -470,19 +469,12 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         File.WriteAllText(disk, "HELLO\n")
         push fileId
         do! waitParsed host fileId
-        let otherId = addFile host wsId "other.txt"
-        let body =
-            "{\"fileId\":\""
-            + string otherId.Value
-            + "\",\"text\":\"BODY\\n\"}"
-        let! posted =
-            Api.postParseFile handle dataDir body |> Async.StartAsTask
-        match box posted with
-        | :? ContentHttpResult -> ()
-        | other ->
-            Assert.Fail($"postParseFile failed: {other.GetType().Name}")
-        Assert.True(wroteSet host otherId Current)
-        assertLogged host otherId Current (parsedMsg host otherId)
+        Assert.False(wroteSet host fileId Current)
+        let text =
+            Graph.children (stateOf host).graph fileId
+            |> List.map (fun child ->
+                (stateOf host).graph.nodes.[child.id].text)
+        Assert.Contains("HELLO", text)
     finally
         CoreMailboxApi.dispose host
 }

@@ -1,8 +1,6 @@
 module Gambol.Server.Tests.SessionTests
 
 open System
-open System.IO
-open System.IO.Pipelines
 open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
@@ -10,32 +8,6 @@ open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
-
-type private NotifyingReadStream
-    (inner: Stream, entered: TaskCompletionSource<unit>) =
-    inherit Stream()
-
-    override _.CanRead = inner.CanRead
-    override _.CanSeek = inner.CanSeek
-    override _.CanWrite = inner.CanWrite
-    override _.Length = inner.Length
-    override _.Position
-        with get () = inner.Position
-        and set value = inner.Position <- value
-    override _.Flush () = inner.Flush()
-    override _.Read(buffer, offset, count) =
-        entered.TrySetResult() |> ignore
-        inner.Read(buffer, offset, count)
-    override _.ReadAsync(buffer, offset, count, cancellationToken) =
-        entered.TrySetResult() |> ignore
-        inner.ReadAsync(buffer, offset, count, cancellationToken)
-    override _.ReadAsync(buffer, cancellationToken) =
-        entered.TrySetResult() |> ignore
-        inner.ReadAsync(buffer, cancellationToken)
-    override _.Seek(offset, origin) = inner.Seek(offset, origin)
-    override _.SetLength(value) = inner.SetLength(value)
-    override _.Write(buffer, offset, count) =
-        inner.Write(buffer, offset, count)
 
 let private requireSome label value =
     match value with
@@ -546,42 +518,6 @@ let ``logout returns while the reconciliation route abandons`` () = task {
         let! last =
             CoreMailboxApi.getEventId runtime.host |> Async.StartAsTask
         Assert.Equal(EventId.zero, last)
-    finally
-        CoreMailboxApi.dispose runtime.host
-}
-
-[<Fact>]
-let ``parse body read holds admission until the route finishes`` () = task {
-    let dataDir = newTempDir ()
-    let runtime = devRuntime dataDir
-    let persistence = devPersistence dataDir runtime
-    let caller = browserCallerFromAuth "alice" "secret"
-    let entered = TaskCompletionSource<unit>()
-    let pipe = Pipe()
-    let context = cookieRequest ()
-    context.Request.Body <-
-        new NotifyingReadStream(pipe.Reader.AsStream(), entered)
-    try
-        let parsing =
-            RouteRegistration.postParseRequest persistence context.Request
-        do! entered.Task
-        let session = sessionOf runtime.host
-        let stopped =
-            Session.stopAdmitting session caller
-            |> requireSome "stop admitting"
-        let waiting =
-            Session.waitForAdmittedRoutes stopped |> Async.StartAsTask
-        Assert.False(waiting.IsCompleted)
-        let! _ =
-            pipe.Writer.WriteAsync(ReadOnlyMemory([| byte '{' |])).AsTask()
-        do! pipe.Writer.CompleteAsync().AsTask()
-        let! _ = parsing
-        do! waiting
-        Assert.True(Session.hasAuthority session caller)
-        do! CoreMailboxApi.logout runtime.host caller |> Async.StartAsTask
-        do!
-            waitUntilAuthorityGone 1000 runtime.host caller
-            |> Async.StartAsTask
     finally
         CoreMailboxApi.dispose runtime.host
 }

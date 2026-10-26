@@ -13,32 +13,9 @@ open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
 
 let private timeout (pending: Task<'T>) : Task<'T> =
     pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-
-let private decodeGraph json =
-    let decoder =
-        Thoth.Json.Core.Decode.object (fun get ->
-            get.Required.Field "graph" Serialization.decodeGraph)
-
-    match Decode.fromString decoder json with
-    | Ok graph -> graph
-    | Error err -> failwith err
-
-let private decodeEventIdAndGraph json =
-    let decoder =
-        Thoth.Json.Core.Decode.object (fun get ->
-            let eventId =
-                get.Required.Field "eventId" EventJson.decodeEventId
-            let graph =
-                get.Required.Field "graph" Serialization.decodeGraph
-            EventId.value eventId, graph)
-
-    match Decode.fromString decoder json with
-    | Ok pair -> pair
-    | Error err -> failwith err
 
 /// SYSTEM always exists; user.css is optional — create it when this scenario needs it.
 let private createSystemCssClient () =
@@ -58,17 +35,6 @@ let private createSystemCssClient () =
         Database.rebuildFromDocumentFiles connStr state
         |> fun t -> t.GetAwaiter().GetResult()
     dataDir, createDbClientForDir connStr dataDir
-
-let private findOwnedChildNamed (graph: Graph) (parentId: NodeId) (name: string) =
-    Graph.children graph parentId
-    |> List.choose (fun c ->
-        if c.ref <> Ownership.Owner then
-            None
-        else
-            match Map.tryFind c.id graph.nodes with
-            | Some node when Filename.tryValue node.name = Some name -> Some c.id
-            | _ -> None)
-    |> List.exactlyOne
 
 let private exactRawBatch =
     """
@@ -100,51 +66,6 @@ let ``exact raw change array is rejected and server remains responsive`` () = ta
     use! wrappedResponse =
         client.PostAsync("/ambit/changes", wrappedContent) |> timeout
     Assert.Equal(HttpStatusCode.BadRequest, wrappedResponse.StatusCode)
-    use! stateResponse = client.GetAsync("/ambit/state") |> timeout
-    Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
-}
-
-[<Fact>]
-let ``SetText persists SYSTEM user css and server remains responsive`` () = task {
-    let dataDir, client = createSystemCssClient ()
-    use client = client
-    use! initialResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
-    let! initialJson = initialResponse.Content.ReadAsStringAsync() |> timeout
-    let graph0 = decodeGraph initialJson
-    let fileId = findOwnedChildNamed graph0 Graph.systemId "user.css"
-    // Cold bootstrap is Directory File outline only; File bodies load on Parse.
-    let parseBody = sprintf """{"fileId":"%O"}""" fileId.Value
-    use parseContent = new StringContent(parseBody, Encoding.UTF8, "application/json")
-    use! parseResponse = client.PostAsync("/ambit/file/parse", parseContent) |> timeout
-    Assert.Equal(HttpStatusCode.OK, parseResponse.StatusCode)
-    use! loadedResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
-    let! loadedJson = loadedResponse.Content.ReadAsStringAsync() |> timeout
-    let _, graph = decodeEventIdAndGraph loadedJson
-    let cssNodeId =
-        Graph.children graph fileId |> List.exactlyOne |> fun c -> c.id
-    let change =
-        { id = EventId.zero
-          submissionId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
-    let event = change
-    let body =
-        Encode.toString 0 (
-            ApiResponseSerialization.encodeChangeRequest
-                { events = [ event ]; want = [] })
-    use content = new StringContent(body, Encoding.UTF8, "application/json")
-    use! response = client.PostAsync("/ambit/changes", content) |> timeout
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
-    let cssPath = Path.Combine(dataDir, "SYSTEM", "user.css")
-    let expected = "\"background\" : #fff" + Environment.NewLine
-    let saved =
-        System.Threading.SpinWait.SpinUntil(
-            (fun () ->
-                File.Exists cssPath && File.ReadAllText cssPath = expected),
-            2000)
-    Assert.True(saved, "persist did not write user.css")
-    Assert.Equal(expected, File.ReadAllText cssPath)
     use! stateResponse = client.GetAsync("/ambit/state") |> timeout
     Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode)
 }

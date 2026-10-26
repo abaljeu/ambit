@@ -226,8 +226,47 @@ module ChangeAmendment =
             ops
             state
 
+    let private leadNotice (notice: Notice) : Ev =
+        { id = EventId.zero
+          submissionId = System.Guid.Empty
+          authority = Authority "Parse"
+          commandName = "Parse"
+          body = EventBody.Notice notice }
+
+    let private applyOneLead
+        (origin: State)
+        (current: ApplyResult)
+        (notice: Notice)
+        =
+        match current with
+        | ApplyResult.Invalid _ as err -> err
+        | ApplyResult.Unchanged state
+        | ApplyResult.Changed state ->
+            match Ev.apply (leadNotice notice) state with
+            | ApplyResult.Invalid (_, msg) ->
+                ApplyResult.Invalid(origin, msg)
+            | ApplyResult.Unchanged _ -> current
+            | ApplyResult.Changed next -> ApplyResult.Changed next
+
+    let private applyLeadNotices (notices: Notice list) (state: State) =
+        List.fold (applyOneLead state) (ApplyResult.Unchanged state) notices
+
+    let private applyReady
+        (graphOnly: bool)
+        (eventId: EventId)
+        (event: Ev)
+        (ops: Op list)
+        (ready: State)
+        =
+        applyMarked
+            (not graphOnly)
+            (Op.persistMarkVersion event.commandName eventId)
+            ops
+            ready
+
     /// One apply for FileAgent and DbAgent. Pass the posted event id.
     /// Undo and Redo mark at that id the same way a Change does.
+    /// A graph-only Parse infers a lead NodeParsed before the ops.
     let applyPosted
         (graphOnly: bool)
         (eventId: EventId)
@@ -235,8 +274,24 @@ module ChangeAmendment =
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list =
-        applyMarked
-            (not graphOnly)
-            (Op.persistMarkVersion event.commandName eventId)
-            ops
-            state
+        let notices =
+            if graphOnly then
+                DocumentOpImpact.inferNotices
+                    state.graph
+                    event.commandName
+                    ops
+            else
+                []
+        match applyLeadNotices notices state with
+        | ApplyResult.Invalid (_, msg) ->
+            ApplyResult.Invalid(state, msg), false, ops
+        | ApplyResult.Unchanged ready ->
+            applyReady graphOnly eventId event ops ready
+        | ApplyResult.Changed ready ->
+            match applyReady graphOnly eventId event ops ready with
+            | ApplyResult.Invalid (_, msg), _, _ ->
+                ApplyResult.Invalid(state, msg), false, ops
+            | ApplyResult.Unchanged _, amended, applied ->
+                ApplyResult.Changed ready, amended, applied
+            | changed, amended, applied ->
+                changed, amended, applied

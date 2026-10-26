@@ -415,21 +415,6 @@ module RouteRegistration =
                 persistence.DataDir
     }
 
-    let internal postParseRequest
-        (persistence: PersistenceContext)
-        (req: HttpRequest)
-        : Task<IResult> =
-        withBrowserCaller persistence req (fun _ -> async {
-            use reader = new StreamReader(req.Body)
-            let! body = reader.ReadToEndAsync() |> Async.AwaitTask
-            return!
-                Api.postParseFile
-                    (parseBound persistence)
-                    persistence.DataDir
-                    body
-        })
-        |> Async.StartAsTask
-
     let internal postSaveRequest
         (persistence: PersistenceContext)
         (prepare: unit -> Async<Result<int, string>>)
@@ -467,10 +452,6 @@ module RouteRegistration =
                 | true, value ->
                     return Api.getImportFile persistence.DataDir (string value)
         })) |> ignore
-        this.MapPost(
-            "/ambit/file/parse",
-            Func<HttpRequest, Task<IResult>>(postParseRequest persistence))
-        |> ignore
         this.MapPost(
             "/ambit/save",
             Func<HttpRequest, Task<IResult>>(
