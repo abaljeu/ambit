@@ -508,13 +508,16 @@ let ``import NodeParsed applies the change without SetDocumentState`` () = task 
         let log =
             CoreMailboxApi.eventsSince host EventId.zero
             |> Async.RunSynchronously
-        let indexOf submissionId =
+        let storedId submissionId =
             log.events
-            |> List.findIndex (fun event ->
-                event.submissionId = submissionId)
-        let noticeAt = indexOf (List.head posted).submissionId
-        let changeAt = indexOf (List.last posted).submissionId
-        Assert.True(noticeAt < changeAt)
+            |> List.pick (fun event ->
+                if event.submissionId = submissionId then
+                    Some event.id
+                else
+                    None)
+        let noticeId = storedId (List.head posted).submissionId
+        let changeId = storedId (List.last posted).submissionId
+        Assert.True(EventId.value noticeId < EventId.value changeId)
     finally
         CoreMailboxApi.dispose host
 }
