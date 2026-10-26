@@ -687,7 +687,7 @@ let private fileLoadHost (dataDir: string) =
           postOps = ParseThread.postParseOps handle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.MarkUnparsed nodeId)
+                CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
           finishParse =
             fun nodeId ->
                 CoreMailboxApi.postNotice

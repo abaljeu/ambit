@@ -37,7 +37,7 @@ module DocumentOpImpact =
 
     /// Notice whose document-state write matches this SetDocumentState.
     /// PullingFile to Unparsed is arrival. Any other Unparsed mark is
-    /// MarkUnparsed. A parsed mark waits until the change is not an
+    /// NodeUnparsed. A parsed mark waits until the change is not an
     /// upload or an arrival.
     let noticesBeside (ops: Op list) : Notice list =
         let states = ops |> List.choose documentStateTransition
@@ -56,7 +56,7 @@ module DocumentOpImpact =
             | _ -> None)
         @ pick (function
             | id, PullingFile, _ -> None
-            | id, _, Unparsed -> Some(Notice.MarkUnparsed id)
+            | id, _, Unparsed -> Some(Notice.NodeUnparsed id)
             | _ -> None)
         @ (if uploadOrArrival then
                []

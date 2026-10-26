@@ -175,7 +175,7 @@ module EventJson =
             encodeSingleNotice "nodeParsed" nodeId
         | Notice.NodePersisted (nodeId, persistedVersion, updateTime) ->
             encodeNodePersisted nodeId persistedVersion updateTime
-        | Notice.MarkUnparsed nodeId ->
+        | Notice.NodeUnparsed nodeId ->
             encodeSingleNotice "markUnparsed" nodeId
         | Notice.NodeUploading nodeId ->
             encodeSingleNotice "nodeUploading" nodeId
@@ -191,7 +191,7 @@ module EventJson =
     let private noticeFrom tag nodeId =
         match tag with
         | "nodeParsed" -> Ok (Notice.NodeParsed nodeId)
-        | "markUnparsed" -> Ok (Notice.MarkUnparsed nodeId)
+        | "markUnparsed" -> Ok (Notice.NodeUnparsed nodeId)
         | "nodeUploading" -> Ok (Notice.NodeUploading nodeId)
         | "nodeReceived" -> Ok (Notice.NodeReceived nodeId)
         | "nodeParsing" -> Ok (Notice.NodeParsing nodeId)

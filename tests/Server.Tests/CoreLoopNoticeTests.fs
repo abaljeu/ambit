@@ -175,12 +175,12 @@ let ``ParseFinished leaves a pullingFile File Node Unparsed`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``MarkUnparsed sets Unparsed and leaves PersistState`` () =
+let ``NodeUnparsed sets Unparsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.MarkUnparsed id)
+    apply (handlers state snaps) (Notice.NodeUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
     Assert.Equal(Unparsed, node.documentState.AsEnum)

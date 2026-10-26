@@ -18,7 +18,7 @@ The template is one stage contract: Inputs, Process, and Outputs (Interpretable 
 
 ```
 # <NN> — <ticket name>
-
+**Status**: 
 One job: <plain prose>
 
 Type: <coding or bug-fixing>

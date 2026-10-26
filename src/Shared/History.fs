@@ -41,7 +41,7 @@ type Notice =
         nodeId: NodeId *
         persistedVersion: EventId *
         updateTime: System.DateTime
-    | MarkUnparsed of nodeId: NodeId
+    | NodeUnparsed of nodeId: NodeId
     | NodeUploading of nodeId: NodeId
     | NodeReceived of nodeId: NodeId
     | NodeParsing of nodeId: NodeId
@@ -446,7 +446,7 @@ module Ev =
         match notice with
         | Notice.NodeUploading nodeId -> Some(nodeId, PullingFile)
         | Notice.NodeReceived nodeId
-        | Notice.MarkUnparsed nodeId -> Some(nodeId, Unparsed)
+        | Notice.NodeUnparsed nodeId -> Some(nodeId, Unparsed)
         | Notice.NodeParsed nodeId -> Some(nodeId, Current)
         | Notice.NodeParsing _
         | Notice.NodePersisting _

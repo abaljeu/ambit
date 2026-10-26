@@ -88,11 +88,11 @@ let ``NodeParsed writes parse state to the database`` () = task {
 }
 
 [<Fact>]
-let ``MarkUnparsed writes parse state to the database`` () = task {
+let ``NodeUnparsed writes parse state to the database`` () = task {
     let! connStr, mailbox, id, _ = freshFile ()
     do! apply mailbox (Notice.NodeParsed id)
     let! mid = readNode connStr id
-    do! apply mailbox (Notice.MarkUnparsed id)
+    do! apply mailbox (Notice.NodeUnparsed id)
     let! after = readNode connStr id
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
     Assert.Equal(

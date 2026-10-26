@@ -24,7 +24,7 @@ module internal CoreMailboxFilesAxis =
         : Result<unit, string> =
         writeParseState
             persist
-            (Notice.MarkUnparsed nodeId)
+            (Notice.NodeUnparsed nodeId)
             nodeId
             ParseState.Unparsed
         |> Result.map (fun () -> rawPush nodeId)
@@ -42,7 +42,7 @@ module internal CoreMailboxFilesAxis =
     /// does not change parse or persist state, and does not push.
     /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
-    /// MarkUnparsed writes Unparsed only.
+    /// NodeUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, sets persistedVersion
     /// to the written version, and applies updateTime. Persisted is
     /// set when the node is already Persisted, or when it is

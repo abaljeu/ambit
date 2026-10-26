@@ -156,7 +156,7 @@ let ``Notice JSON round trip`` () =
     let notices =
         [ Notice.NodeParsed nodeId
           Notice.NodePersisted(nodeId, version, stamp)
-          Notice.MarkUnparsed nodeId
+          Notice.NodeUnparsed nodeId
           Notice.NodeUploading nodeId
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId

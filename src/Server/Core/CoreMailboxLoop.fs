@@ -113,7 +113,7 @@ module internal CoreMailboxLoop =
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()
-        | Notice.MarkUnparsed nodeId ->
+        | Notice.NodeUnparsed nodeId ->
             CoreMailboxFilesAxis.writeParseState
                 persist msg nodeId ParseState.Unparsed
         | Notice.NodePersisted (nodeId, persistedVersion, updateTime) ->

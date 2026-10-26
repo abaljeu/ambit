@@ -489,7 +489,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
                         host
-                        (Notice.MarkUnparsed nodeId)
+                        (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
@@ -853,7 +853,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
                         host
-                        (Notice.MarkUnparsed nodeId)
+                        (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
@@ -921,7 +921,7 @@ let private openParse (dataDir: string) =
           postOps = ParseThread.postParseOps parseHandle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.MarkUnparsed nodeId)
+                CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
           finishParse =
             fun nodeId ->
                 CoreMailboxApi.postNotice
@@ -1145,7 +1145,7 @@ let private loadRig (dataDir: string) =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
                         host
-                        (Notice.MarkUnparsed nodeId)
+                        (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice

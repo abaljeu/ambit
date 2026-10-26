@@ -193,7 +193,7 @@ module ParseThread =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
                         core.host
-                        (Notice.MarkUnparsed nodeId)
+                        (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice

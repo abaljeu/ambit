@@ -582,7 +582,7 @@ module Database =
         : Task =
         match notice with
         | Notice.NodeParsed nodeId
-        | Notice.MarkUnparsed nodeId ->
+        | Notice.NodeUnparsed nodeId ->
             writeDocumentState connectionString graph nodeId
         | Notice.NodePersisting nodeId ->
             writePersistState connectionString graph nodeId
