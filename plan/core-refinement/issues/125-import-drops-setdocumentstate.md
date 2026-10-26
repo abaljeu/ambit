@@ -10,20 +10,18 @@ coding
 
 ## 3. Problem
 
-This is round 1 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). Importing into an Unparsed document root moves that root `Unparsed → Current` before the import ops, so `History.blockedForApply` lets them through. On staging there is no op. The `Import:` command-name preview does the job instead: `ImportText.importCommand`, `tryImportFocus`, `stateForImportOps`, `commitImportApply`, and `Api.importParsedNotices`, wired through `FileAgent`, `DbAgent`, `BootCache`, `EventLog`, and `SyncLogic`.
-
-After a rollback to `47a85e1d^`: the preview is gone (8c7a1b3c), and the op is back as `ImportText.markDocumentCurrentBeforeParse`'s `Op.SetDocumentState(focusId, Unparsed, Current)`.
+This is round 1 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). Importing into an Unparsed document root moves that root `Unparsed → Current` before the import ops, so `History.blockedForApply` lets them through. Since #407 the op is back: `ImportText.markDocumentCurrentBeforeParse` puts `Op.SetDocumentState(focusId, Unparsed, Current)` first in `buildImportChange` and `buildDirectoryMergeChange`, and `DocumentOpImpact.noticesBeside` posts `NodeParsed` from it.
 
 ## 4. Change
 
-- Delete the op line in `markDocumentCurrentBeforeParse`, or on staging delete the preview functions and their calls.
+- Delete `markDocumentCurrentBeforeParse` and its use in `buildImportChange` and `buildDirectoryMergeChange`.
 - The import Change carries only the paste ops and the `Replace` on the root.
 
 Backend inference: an Edit Change whose `Replace` attaches owned children to an Unparsed document root infers a lead `NodeParsed root`. The rule goes in `DocumentOpImpact.inferNotices` and is applied by the 135 hook in `ChangeAmendment.applyPosted`.
 
-Hard: those ops are the same as an ordinary edit under an Unparsed root, which `blockedForApply` exists to refuse. The ops alone do not say "import". Only the `Import:` command name did that.
+Hard: those ops are the same as an ordinary edit under an Unparsed root, which `blockedForApply` exists to refuse. The ops alone do not say "import", and since #407 its command name is empty.
 
-Source: `ImportText.fs`, `DocumentOpImpact.fs`, plus on staging `Api.fs`, `FileAgent.fs`, `DbAgent.fs`, `BootCache.fs`, `EventLog.fs`, `SyncLogic.fs`.
+Source: `ImportText.fs`, `DocumentOpImpact.fs`.
 
 ## 5. Tests
 
