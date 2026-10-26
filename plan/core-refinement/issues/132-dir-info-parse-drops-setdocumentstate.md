@@ -14,13 +14,13 @@ None.
 
 This is round 10 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md), in the same reconcile code as [130](130-reconcile-markunparsed-drops-setdocumentstate.md) and [131](131-reconcile-parent-drops-setdocumentstate.md). In `LazyLoadReconciliationApply.parseDirInfoIfPresent`, `markCurrent` (`Unparsed → Current` or `PullingFile → Current`) leads the artifact parse ops and unlocks them. `noticesBeside` derives a Notice for `Unparsed → Current` only when there is no other Unparsed or PullingFile target. `LazyLoadReconciliationServer.parsedFromPulling` and `postParsedFromPulling` read the op for `PullingFile → Current`.
 
-The reconcile path must post the parse Notices itself, as `reconcileReceivedFiles` already posts NodeReceived, NodeUnparsed (130) and NodeParsed (131). It must not rely on `noticesBeside`, and must not read SetDocumentState ops to choose the target.
+The reconcile path must post the parse Notices itself, as `reconcileReceivedFiles` already posts NodeReceived, NodeUnparsed (130) and NodeParsed (131). It must not rely on `noticesBeside` or any inference, and must not read SetDocumentState ops.
 
 ## 4. Change
 
-- Post `Notice.NodeParsing nodeId` before `parseDirInfoIfPresent` starts on the node.
-- Post `Notice.NodeParsed nodeId` after the reconcile Change, i.e. after `parseDirInfoIfPresent` completes.
-- Choose the node by the same calculation `markCurrent` uses today to pick its target, not by reading the op.
+- The Notice node is the Directory being parsed by `parseDirInfoIfPresent`.
+- Post `Notice.NodeParsing dirId` before `parseDirInfoIfPresent` starts.
+- Post `Notice.NodeParsed dirId` after the reconcile Change, i.e. after `parseDirInfoIfPresent` completes.
 - Post on the core mailbox from `reconcileReceivedFiles` (an actor), as for NodeReceived.
 - Replace `parsedFromPulling` and `postParsedFromPulling` with the direct NodeParsed.
 - Delete both `markCurrent` arms once the tests pass without them.
