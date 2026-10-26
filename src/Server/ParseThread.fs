@@ -91,6 +91,8 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
+                if not (List.isEmpty ops) then
+                    deps.finishParse fileId
                 let! posted = postContent deps ops
                 return afterPost deps fileId [] posted
         }

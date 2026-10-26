@@ -483,6 +483,9 @@ module Api =
             | Ok [] ->
                 return jsonResult """{"ok":true}"""
             | Ok ops ->
+                CoreMailboxApi.postNotice
+                    handle.host
+                    (Notice.NodeParsed fileId)
                 let event = GraphOnlyChangePost.mint "Parse" ops
                 match! CoreDoor.postGraphOnly handle event with
                 | Ok _ ->

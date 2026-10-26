@@ -525,7 +525,16 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
         File.WriteAllText(disk, "HELLO\n")
         push fileId
-        do! waitParsed host fileId
+        let! parsed =
+            waitUntil
+                (fun () ->
+                    parsedMsg host fileId
+                    && documentState host fileId = Current
+                    && Graph.children (stateOf host).graph fileId
+                       |> List.exists (fun child ->
+                           (stateOf host).graph.nodes.[child.id].text = "HELLO"))
+                2000
+        Assert.True(parsed)
         let otherId = addFile host wsId "other.txt"
         let body =
             "{\"fileId\":\""
@@ -537,8 +546,10 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         | :? ContentHttpResult -> ()
         | other ->
             Assert.Fail($"postParseFile failed: {other.GetType().Name}")
-        Assert.True(wroteSet host otherId Current)
+        Assert.False(wroteSet host otherId Current)
         assertLogged host otherId Current (parsedMsg host otherId)
+        CoreMailboxApi.postNotice host (Notice.NodeParsed otherId)
+        Assert.Equal(Current, documentState host otherId)
     finally
         CoreMailboxApi.dispose host
 }

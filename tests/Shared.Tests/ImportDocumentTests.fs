@@ -441,13 +441,30 @@ let ``planParseFile unparsed marks Current`` () =
             ("alpha" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.True(
+    Assert.False(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId -> true
+            | Op.SetDocumentState(id, _, _) when id = fileId -> true
             | _ -> false))
 
-    let after = applyChange graph {
+    let nodeParsed () =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Notice(Notice.NodeParsed fileId) }
+
+    let marked =
+        match
+            Ev.apply
+                (nodeParsed ())
+                { graph = graph; eventId = EventId.zero }
+        with
+        | ApplyResult.Changed state -> state.graph
+        | ApplyResult.Unchanged state -> state.graph
+        | ApplyResult.Invalid(_, err) -> failwith err
+
+    let after = applyChange marked {
         id = EventId.zero
         submissionId = Guid.NewGuid()
         authority = Authority "Browser"
@@ -457,6 +474,18 @@ let ``planParseFile unparsed marks Current`` () =
 
     Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
     Assert.False(List.isEmpty (Graph.children after fileId))
+
+    let again =
+        match
+            Ev.apply
+                (nodeParsed ())
+                { graph = after; eventId = EventId.zero }
+        with
+        | ApplyResult.Changed state -> state.graph
+        | ApplyResult.Unchanged state -> state.graph
+        | ApplyResult.Invalid(_, err) -> failwith err
+
+    Assert.Equal(Current, again.nodes.[fileId].documentState.AsEnum)
 
 [<Fact>]
 let ``buildReconcilePackage rejects unparsed file`` () =
