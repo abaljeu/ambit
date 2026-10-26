@@ -245,34 +245,9 @@ module Api =
     // Known design weakness: see the postEvents Note in
     // plan/core-refinement/arch.md (inferred from Ops, not explicit commands).
     let private inferredNodeEvents (event: Ev) : Notice list =
-        let states =
-            match event.body with
-            | EventBody.Change ops ->
-                ops
-                |> List.choose (function
-                    | Op.SetDocumentState(id, oldState, newState) ->
-                        Some(id, oldState, newState)
-                    | _ -> None)
-            | _ -> []
-        let uploadOrArrival =
-            states
-            |> List.exists (function
-                | _, _, PullingFile
-                | _, _, Unparsed -> true
-                | _ -> false)
-        let pick f = states |> List.choose f
-        pick (function
-            | id, _, PullingFile -> Some(Notice.NodeUploading id)
-            | _ -> None)
-        @ pick (function
-            | id, PullingFile, Unparsed -> Some(Notice.NodeReceived id)
-            | _ -> None)
-        @ (if uploadOrArrival then
-               []
-           else
-               pick (function
-                   | id, Unparsed, Current -> Some(Notice.NodeParsed id)
-                   | _ -> None))
+        match event.body with
+        | EventBody.Change ops -> DocumentOpImpact.noticesBeside ops
+        | _ -> []
 
     let postEvents
         (handle: CoreChangesDoor)

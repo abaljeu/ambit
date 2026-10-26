@@ -309,6 +309,12 @@ module DbAgent =
         | Error err -> Error err
         | Ok () ->
             loaded.state.Value <- stateToStore
+            if graphOnly then
+                match loaded.persistFinished.Value with
+                | None -> ()
+                | Some post ->
+                    DatabaseProjection.noticesBeside fresh
+                    |> List.iter post
             if not graphOnly && not (List.isEmpty fresh) then
                 rememberWorkspaces loaded stateToStore.graph fresh
             Ok(accepted loaded ackEvents externalChanges)

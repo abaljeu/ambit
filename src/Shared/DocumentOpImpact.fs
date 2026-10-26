@@ -29,6 +29,42 @@ module DocumentOpImpact =
         (removedChildren oldChildren newChildren)
         @ (introducedChildren oldChildren newChildren)
 
+    let private documentStateTransition op =
+        match op with
+        | Op.SetDocumentState(id, oldState, newState) ->
+            Some(id, oldState, newState)
+        | _ -> None
+
+    /// Notice whose document-state write matches this SetDocumentState.
+    /// PullingFile to Unparsed is arrival. Any other Unparsed mark is
+    /// MarkUnparsed. A parsed mark waits until the change is not an
+    /// upload or an arrival.
+    let noticesBeside (ops: Op list) : Notice list =
+        let states = ops |> List.choose documentStateTransition
+        let uploadOrArrival =
+            states
+            |> List.exists (function
+                | _, _, PullingFile
+                | _, _, Unparsed -> true
+                | _ -> false)
+        let pick f = states |> List.choose f
+        pick (function
+            | id, _, PullingFile -> Some(Notice.NodeUploading id)
+            | _ -> None)
+        @ pick (function
+            | id, PullingFile, Unparsed -> Some(Notice.NodeReceived id)
+            | _ -> None)
+        @ pick (function
+            | id, PullingFile, _ -> None
+            | id, _, Unparsed -> Some(Notice.MarkUnparsed id)
+            | _ -> None)
+        @ (if uploadOrArrival then
+               []
+           else
+               pick (function
+                   | id, Unparsed, Current -> Some(Notice.NodeParsed id)
+                   | _ -> None))
+
     /// Node id an op names, when the op names one.
     let opAnchor (op: Op) : NodeId option =
         match op with

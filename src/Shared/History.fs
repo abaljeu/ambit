@@ -441,15 +441,39 @@ module Ev =
         event.commandName,
         event.body
 
-    let apply (event: Ev) (state: State) : ApplyResult =
-        match ops event with
+    /// Enum a Notice writes. Graph.setDocumentState applies it.
+    let private documentStateFromNotice (notice: Notice) =
+        match notice with
+        | Notice.NodeUploading nodeId -> Some(nodeId, PullingFile)
+        | Notice.NodeReceived nodeId
+        | Notice.MarkUnparsed nodeId -> Some(nodeId, Unparsed)
+        | Notice.NodeParsed nodeId -> Some(nodeId, Current)
+        | Notice.NodeParsing _
+        | Notice.NodePersisting _
+        | Notice.PersistFailed _
+        | Notice.NodePersisted _ -> None
+
+    let private applyNotice (notice: Notice) (state: State) : ApplyResult =
+        match documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
-        | Some opList ->
-            Op.applyAllAllowing
-                (Op.guardsUnparsedDocument event.commandName)
-                (Op.persistMarkVersion event.commandName event.id)
-                opList
-                state
+        | Some(nodeId, newState) ->
+            // First enum is unused. Apply writes newState.
+            match Graph.setDocumentState nodeId newState newState state.graph with
+            | Ok graph -> ApplyResult.Changed { state with graph = graph }
+            | Error msg -> ApplyResult.Invalid(state, msg)
+
+    let apply (event: Ev) (state: State) : ApplyResult =
+        match event.body with
+        | EventBody.Notice notice -> applyNotice notice state
+        | _ ->
+            match ops event with
+            | None -> ApplyResult.Unchanged state
+            | Some opList ->
+                Op.applyAllAllowing
+                    (Op.guardsUnparsedDocument event.commandName)
+                    (Op.persistMarkVersion event.commandName event.id)
+                    opList
+                    state
 
 /// Validation and apply functions for Change operations with ownership semantics.
 [<RequireQualifiedAccess>]

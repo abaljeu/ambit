@@ -105,6 +105,19 @@ module FileAgent =
                     preGraph
                     postGraph)
 
+    let private postGraphOnlyNotices loaded graphOnly (events: Ev list) =
+        if graphOnly then
+            match loaded.persistFinished.Value with
+            | None -> ()
+            | Some post ->
+                events
+                |> List.collect (fun event ->
+                    match event.body with
+                    | EventBody.Change ops ->
+                        DocumentOpImpact.noticesBeside ops
+                    | _ -> [])
+                |> List.iter post
+
     let private processPostEvents
         loaded
         (events: Ev list)
@@ -121,6 +134,7 @@ module FileAgent =
                 | Error err -> Error err
                 | Ok () ->
                     loaded.state.Value <- newState
+                    postGraphOnlyNotices loaded graphOnly events
                     Ok(accepted loaded confirmations externalChanges)
 
     let private persistHandlers loaded : PersistHandlers = {

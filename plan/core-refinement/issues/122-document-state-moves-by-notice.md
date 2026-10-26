@@ -7,11 +7,14 @@ coding
 ## 2. Blockers
 
 ## 3. Look at
-[ ] src\Server\Api.fs  253
-[ ] src\Server\DatabaseProjection.fs  95
-[ ] src\Server\LazyLoadReconciliationServer.fs  360
-[ ] src\Shared\DocumentOpImpact.fs  40  62
-[ ] src\Shared\History.fs  119  248  332  333  372  657
+
+Mark with a check only if it passes the requirement that in addition to sending SetDocumentState, it also sends an equivalent Notice.
+
+[x] src\Server\Api.fs  253
+[x] src\Server\DatabaseProjection.fs  95
+[x] src\Server\LazyLoadReconciliationServer.fs  360
+[x] src\Shared\DocumentOpImpact.fs  40  62
+[x] src\Shared\History.fs  119  248  332  333  372  657
 [ ] src\Shared\ImportText.fs  47
 [ ] src\Shared\ResidentProjection.fs  20
 [ ] src\Shared\Serialization.fs  358  412
