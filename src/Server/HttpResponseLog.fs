@@ -41,8 +41,6 @@ module HttpResponseLog =
             "/ambit/actors/deliver"
             "/ambit/file-status"
             "/ambit/save"
-            "/ambit/workspace/reconciliation/directory"
-            "/ambit/workspace/reconciliation/added"
         ]
 
     let private requestPath (ctx: HttpContext) =
