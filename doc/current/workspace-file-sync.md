@@ -33,7 +33,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Transport
 
-[x] Client Upload and Download do not use a remote and do not use smart-HTTP pack transport.
+[x] Client Upload and Download do not use a remote.
 [x] Server mount: `/ambit/dav/{label}/…` on `DataDir/{label}/`.
 [x] Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, and `MKCOL`.
 [x] `GET` admits the Browser auth cookie and sends no `Content-Disposition: attachment`.

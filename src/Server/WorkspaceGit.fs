@@ -366,18 +366,12 @@ module WorkspaceGit =
         with ex ->
             Error ex.Message
 
-    /// FF-only + allow push into non-bare checked-out branch.
+    /// Fast-forward-only push toward the tracked remote.
     let ensurePushConfig (workspaceRoot: string) : Result<unit, string> =
-        match GitSave.runGit
+        GitSave.runGit
             workspaceRoot
-            "config receive.denyNonFastForwards true" with
-        | Error err -> Error err
-        | Ok _ ->
-            match GitSave.runGit
-                workspaceRoot
-                "config receive.denyCurrentBranch updateInstead" with
-            | Error err -> Error err
-            | Ok _ -> Ok ()
+            "config receive.denyNonFastForwards true"
+        |> Result.map ignore
 
     /// Ensure `workspaceRoot` is a git repo with push policy.
     /// Skips init when `.git` already exists. Creates the directory if needed.
@@ -448,16 +442,6 @@ module WorkspaceGit =
         | Ok true ->
             commitAll workspaceRoot baseMsg clientHint
 
-    /// JIT commit when dirty (workspace-pull path only).
-    let jitCommitIfDirty
-        (workspaceRoot: string)
-        (clientHint: string option)
-        : Result<string, string> =
-        jitCommitIfDirtyWithBaseMsg
-            workspaceRoot
-            "gambol: autosave before workspace-pull"
-            clientHint
-
     /// JIT commit when dirty before workspace-push.
     let jitCommitBeforeWorkspacePush
         (workspaceRoot: string)
@@ -489,31 +473,6 @@ module WorkspaceGit =
                 | [ oid ] -> Ok(Some oid)
                 | _ -> Error headError
             | Error err -> Error err
-
-    /// After first receive into an unborn repo, point symbolic HEAD at the
-    /// sole refs/heads/* branch (client may push main while init used master).
-    let alignHeadAfterUnbornReceive
-        (workspaceRoot: string)
-        : Result<unit, string> =
-        match
-            GitSave.runGit
-                workspaceRoot
-                "for-each-ref --format=%(refname:short) refs/heads"
-        with
-        | Error err -> Error err
-        | Ok text ->
-            match
-                text.Split(
-                    [| '\r'; '\n' |],
-                    StringSplitOptions.RemoveEmptyEntries)
-                |> Array.toList
-            with
-            | [ branch ] ->
-                GitSave.runGit
-                    workspaceRoot
-                    $"symbolic-ref HEAD refs/heads/{branch}"
-                |> Result.map ignore
-            | _ -> Ok ()
 
     let private splitNulPaths (text: string) : string list =
         text.Split('\000', StringSplitOptions.RemoveEmptyEntries)

@@ -204,17 +204,6 @@ module RouteRegistration =
             Func<HttpContext, Task<IResult>>(
                 logoutAndRedirect this persistence))
         |> ignore
-        // Git PAT for smart HTTP (cookie session required; not the cookie itself).
-        this.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
-            if this.Auth.ExpectedUser = "" && this.Auth.ExpectedPass = "" then
-                Results.Json(
-                    {| disabled = true; message = "Auth disabled; git gateway is open" |})
-            elif not (this.Auth.IsAuthenticated req) then
-                Results.Unauthorized()
-            else
-                Results.Json(
-                    {| username = this.Auth.ExpectedUser; token = this.Auth.GitToken |})
-        )) |> ignore
 
     /// Read X-Gambol-Client, store on HttpContext.Items, log when present.
     let private bindClientHint (req: HttpRequest) : string option =
@@ -476,31 +465,7 @@ module RouteRegistration =
             registerStateRoutes routes
             registerSaveRoutes routes
             registerErrorReportRoute routes
-            let flushForGit () = async {
-                let handle = parseBound persistence
-                let! flushResult =
-                    SavePrep.syncDataDir
-                        persistence.DbStatus
-                        (fun () -> CoreDoor.getState handle)
-                        (fun () ->
-                            CoreMailboxApi.getEventId persistence.Core.host)
-                        persistence.DataDir
-                match flushResult with
-                | Ok _ -> return Ok ()
-                | Error err -> return Error err
-            }
-            let reconcileGitPush label changedPaths =
-                LazyLoadReconciliationServer.reconcileReceivedFiles
-                    { handle = parseBound persistence
-                      dataDir = persistence.DataDir
-                      workspaceLabel = label }
-                    changedPaths
-            GitGateway.registerRoutes
-                { shell = routes
-                  flush = flushForGit
-                  reconcile = reconcileGitPush }
             LazyLoadReconciliationDiagnostics.registerRoute this
-            GitGatewayDiagnostics.registerRoute this
             WorkspaceWebDav.registerRoutes this
             RouteAppShell.registerCssAndShellRoutes routes
             DailyGitSave.register this

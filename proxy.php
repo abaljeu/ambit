@@ -24,7 +24,7 @@ if (!empty($_GET)) {
 // Headers to forward (skip Host - backend needs its own)
 $forwardHeaders = [
     'Accept', 'Accept-Language', 'Accept-Encoding', 'Content-Type', 'Content-Length',
-    'Cookie', 'Authorization', 'X-Requested-With', 'User-Agent', 'Git-Protocol',
+    'Cookie', 'Authorization', 'X-Requested-With', 'User-Agent',
 ];
 $headers = [];
 foreach ($forwardHeaders as $h) {
@@ -34,15 +34,11 @@ foreach ($forwardHeaders as $h) {
     }
 }
 
-// Git pack exchanges can be large and slow; allow longer than normal API calls.
-$isGitSmartHttp =
-    preg_match('#/git-(upload|receive)-pack$#', $path)
-    || (strpos($path, '/info/refs') !== false && isset($_GET['service']));
 // Browser Load: directory reconcile + POST /ambit/load can exceed 60s.
 $isLongWorkspaceHttp =
     strpos($path, '/workspace/reconciliation/') !== false
     || preg_match('#(?:^|/)load$#', $path);
-$timeoutSec = ($isGitSmartHttp || $isLongWorkspaceHttp) ? 600 : 60;
+$timeoutSec = $isLongWorkspaceHttp ? 600 : 60;
 
 $ch = curl_init($backendUrl);
 curl_setopt_array($ch, [
