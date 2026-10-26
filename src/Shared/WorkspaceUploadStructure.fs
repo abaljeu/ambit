@@ -138,11 +138,9 @@ module WorkspaceUploadStructure =
 
     let private markUnparsed (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
-        | Unparsed -> []
-        | Current ->
-            [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | PullingFile ->
-            [ Op.SetDocumentState(nodeId, PullingFile, Unparsed) ]
+        | Unparsed
+        | Current
+        | PullingFile -> []
 
     let private markPullingFile (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with

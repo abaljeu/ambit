@@ -79,7 +79,7 @@ coding
 [x] Pass 3. `DirectoryReconcile.markCurrent`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planDirectoryReconcile logs NodeParsed beside SetDocumentState`.
 [ ] Pass 4. `WorkspaceUploadStructure.planServerFilePresentOps`. `PullingFile` to `Unparsed` leaves. `Notice.NodeReceived` stays. Filter `incoming file posts NodeReceived beside SetDocumentState`.
 [ ] Pass 5. `WorkspaceUploadStructure.markPullingFile`. The move to `PullingFile` leaves. `Notice.NodeUploading` stays. Filter `markPullingFile sets PullingFile` and `upload posts NodeUploading beside SetDocumentState`.
-[ ] Pass 6. `WorkspaceUploadStructure.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays, matching the old enum.
+[x] Pass 6. `WorkspaceUploadStructure.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays, matching the old enum.
 [ ] Pass 7. `WorkspaceUploadStructure.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same Change as `markPullingFile`. Then the op leaves.
 [ ] Pass 8. `LazyLoadReconciliationApply.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays. `reconcileReceivedFiles` still posts `Notice.NodeReceived` for a git-changed File after this op is gone.
 [ ] Pass 9. `LazyLoadReconciliationApply.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same batch as `markUnparsed`. Then the op leaves.
