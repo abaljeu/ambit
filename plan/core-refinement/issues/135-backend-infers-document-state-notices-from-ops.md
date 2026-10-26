@@ -109,3 +109,7 @@ Several Server tests build an `Unparsed → Current` workspace fixture with the 
 3. **Lead vs trail.** P1, P2 and P8 need a lead, because their op unlocks the rest. The others can trail. Round 3 is already done by a backend producer posting the lead before its ops (`ParseThread.parseDirectory`). §4 says "no producer emits one". Open: whether that precedent is allowed for P2 and P8, which are also backend (ParseThread, LazyLoadReconciliationServer), or must move to `inferNotices`.
 4. **Command-name dependence.** P3, P4, P7 and P9 are told apart from ordinary edits mainly by the command name (`Load` vs `Parse` vs Edit) and by server-side knowledge (git-received vs directory reconcile), not by the ops. Open: whether `inferNotices` may key on those, or whether the poster (`reconcileReceivedFiles`) supplies them, as it does `NodeReceived` today.
 5. **Client-built Changes.** P1, P3, P4 and P5 are built in the client (or `WorkspaceCloudUpload`) and applied locally before the post. Without the op, the client graph shows the new state only after the Notice comes back through sync (`SyncLogic` folds Notices).
+
+### Core inventory
+
+The core vs non-core dependency list and every Notice poster are in [reports/135-core-inventory.md](../reports/135-core-inventory.md).
