@@ -64,39 +64,39 @@ coding
 
 ## 5. Changes
 
-[ ] One pass removes one producer function's `Op.SetDocumentState` constructions.
-[ ] The pass runs when that function's Notice already reaches `CoreMailboxApi.postNotice`.
-[ ] The pass updates the tests that assert that function's op, in the same pass.
-[ ] The graph enum after the pass matches the enum `Ev.documentStateFromNotice` writes for that Notice.
+[ ] One round removes one producer function's `Op.SetDocumentState` constructions.
+[ ] The round runs when that function's Notice already reaches `CoreMailboxApi.postNotice`.
+[ ] The round updates the tests that assert that function's op, in the same round.
+[ ] The graph enum after the round matches the enum `Ev.documentStateFromNotice` writes for that Notice.
 [ ] A second post of that Notice leaves the node on that enum.
 [ ] The `Op.SetDocumentState` case stays until 45 — SetDocumentState leaves; NodeUnpersisted replaces it.
 [ ] Match arms that classify, apply, invert, or serialize the op stay.
 
-### Passes
+### Rounds
 
-[x] Pass 1. `ImportText.markDocumentCurrentBeforeParse`. `Unparsed` to `Current` leaves. `Notice.NodeParsed` stays. Filter `build import marks unparsed file current before tree operations` and `import logs NodeParsed beside SetDocumentState`.
-[ ] Pass 2. `ImportDocument.planParseFile`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planParseFile unparsed marks Current` and `planParseFile logs NodeParsed beside SetDocumentState`.
-[x] Pass 3. `DirectoryReconcile.markCurrent`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planDirectoryReconcile logs NodeParsed beside SetDocumentState`.
-[ ] Pass 4. `WorkspaceUploadStructure.planServerFilePresentOps`. `PullingFile` to `Unparsed` leaves. `Notice.NodeReceived` stays. Filter `incoming file posts NodeReceived beside SetDocumentState`.
-[ ] Pass 5. `WorkspaceUploadStructure.markPullingFile`. The move to `PullingFile` leaves. `Notice.NodeUploading` stays. Filter `markPullingFile sets PullingFile` and `upload posts NodeUploading beside SetDocumentState`.
-[x] Pass 6. `WorkspaceUploadStructure.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays, matching the old enum.
-[ ] Pass 7. `WorkspaceUploadStructure.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same Change as `markPullingFile`. Then the op leaves.
-[ ] Pass 8. `LazyLoadReconciliationApply.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays. `reconcileReceivedFiles` still posts `Notice.NodeReceived` for a git-changed File after this op is gone.
-[ ] Pass 9. `LazyLoadReconciliationApply.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same batch as `markUnparsed`. Then the op leaves.
-[ ] Pass 10. `LazyLoadReconciliationApply.parseDirInfoIfPresent`. `Unparsed` to `Current` and `PullingFile` to `Current` leave. `Notice.NodeParsed` still posts after `postParsedFromPulling` can no longer read that op.
-[ ] Pass 11. `LazyLoadReconciliation.unparsedStateOp`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` stays for the containing Directory or Workspace. Filter `received file add marks the containing directory Unparsed`.
+[x] Round 1. `ImportText.markDocumentCurrentBeforeParse`. `Unparsed` to `Current` leaves. `Notice.NodeParsed` stays. Filter `build import marks unparsed file current before tree operations` and `import logs NodeParsed beside SetDocumentState`.
+[ ] Round 2. `ImportDocument.planParseFile`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planParseFile unparsed marks Current` and `planParseFile logs NodeParsed beside SetDocumentState`.
+[x] Round 3. `DirectoryReconcile.markCurrent`. `Unparsed` to `Current` leaves. `ParseThread.finishParse` still posts `Notice.NodeParsed`. Filter `planDirectoryReconcile logs NodeParsed beside SetDocumentState`.
+[ ] Round 4. `WorkspaceUploadStructure.planServerFilePresentOps`. `PullingFile` to `Unparsed` leaves. `Notice.NodeReceived` stays. Filter `incoming file posts NodeReceived beside SetDocumentState`.
+[ ] Round 5. `WorkspaceUploadStructure.markPullingFile`. The move to `PullingFile` leaves. `Notice.NodeUploading` stays. Filter `markPullingFile sets PullingFile` and `upload posts NodeUploading beside SetDocumentState`.
+[x] Round 6. `WorkspaceUploadStructure.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays, matching the old enum.
+[ ] Round 7. `WorkspaceUploadStructure.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same Change as `markPullingFile`. Then the op leaves.
+[ ] Round 8. `LazyLoadReconciliationApply.markUnparsed`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` or `Notice.NodeReceived` stays. `reconcileReceivedFiles` still posts `Notice.NodeReceived` for a git-changed File after this op is gone.
+[ ] Round 9. `LazyLoadReconciliationApply.markParentCurrent`. Wait until the parent `Unparsed` to `Current` posts `Notice.NodeParsed` in the same batch as `markUnparsed`. Then the op leaves.
+[ ] Round 10. `LazyLoadReconciliationApply.parseDirInfoIfPresent`. `Unparsed` to `Current` and `PullingFile` to `Current` leave. `Notice.NodeParsed` still posts after `postParsedFromPulling` can no longer read that op.
+[ ] Round 11. `LazyLoadReconciliation.unparsedStateOp`. The move to `Unparsed` leaves. `Notice.MarkUnparsed` stays for the containing Directory or Workspace. Filter `received file add marks the containing directory Unparsed`.
 
 ## 6. Tests
 
-[ ] No pass adds a new test file.
-[ ] The pass changes the tests in Look at that assert that producer.
+[ ] No round adds a new test file.
+[ ] The round changes the tests in Look at that assert that producer.
 [ ] `SetDocumentState writes parseState and pullingFile together` stays. It applies the op case.
 [ ] `Op.SetDocumentState round-trip` stays. It covers the codec.
-[ ] The filter for a pass is the test name written on that pass.
+[ ] The filter for a round is the test name written on that round.
 
 ## 7. Done
 
-[ ] Each pass above is checked.
+[ ] Each round above is checked.
 [ ] A repo search for `Op.SetDocumentState(` under `src` finds no producer in the eleven functions.
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
