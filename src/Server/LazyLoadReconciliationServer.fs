@@ -263,6 +263,27 @@ module LazyLoadReconciliationServer =
           artifactReads: LazyLoadReconciliation.ChangedPath list
           beside: Op list -> unit }
 
+    /// Last `PullingFile` to `Current` per node. A later state op drops it.
+    /// `DocumentOpImpact.noticesBeside` has no Notice for that pair.
+    let private parsedFromPulling (ops: Op list) : NodeId list =
+        ops
+        |> List.fold
+            (fun acc op ->
+                match op with
+                | Op.SetDocumentState(id, PullingFile, Current) ->
+                    Map.add id true acc
+                | Op.SetDocumentState(id, _, _) -> Map.add id false acc
+                | _ -> acc)
+            Map.empty
+        |> Map.fold
+            (fun acc id keep -> if keep then id :: acc else acc)
+            []
+
+    let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
+        parsedFromPulling ops
+        |> List.iter (fun id ->
+            CoreMailboxApi.postNotice host (Notice.NodeParsed id))
+
     let private postReconcileReport
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
@@ -280,6 +301,7 @@ module LazyLoadReconciliationServer =
                 match result with
                 | Ok () ->
                     listed.beside ops
+                    postParsedFromPulling listed.handle.host ops
                     return Ok report.failures
                 | Error err -> return Error err
         }

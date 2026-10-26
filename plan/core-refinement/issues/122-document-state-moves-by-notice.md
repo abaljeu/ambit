@@ -18,18 +18,18 @@ Mark with a check only if it passes the requirement that in addition to sending 
 [x] src\Shared\ImportText.fs  47
 [x] src\Shared\ResidentProjection.fs  20
 [x] src\Shared\Serialization.fs  358  412
-[ ] src\Shared\WorkspaceUploadStructure.fs  143  145  151  153  160  319
-[ ] src\Shared\documents\DocumentColdParse.fs  294
-[ ] src\Shared\dotnet\DirectoryReconcile.fs  226
-[ ] src\Shared\dotnet\ImportDocument.fs  130
-[ ] src\Shared\dotnet\LazyLoadReconciliation.fs  370
-[ ] src\Shared\dotnet\LazyLoadReconciliationApply.fs   23   25   32  145  147
+[x] src\Shared\WorkspaceUploadStructure.fs  143  145  151  153  160  319
+[x] src\Shared\documents\DocumentColdParse.fs  294
+[x] src\Shared\dotnet\DirectoryReconcile.fs  226
+[x] src\Shared\dotnet\ImportDocument.fs  130
+[x] src\Shared\dotnet\LazyLoadReconciliation.fs  370
+[x] src\Shared\dotnet\LazyLoadReconciliationApply.fs   23   25   32  145  147
 
 ## 4. Context
 Document state changes by sending Notice from things like Load, Parse, and Persist. Make sure each notice is idempotent and identical to what would happen if SetDocumentState was called.
 ## 5. Changes
 
-[ ] For each of the above files where SetDocumentState is happening, locate where the appropriate notice could be inserted, and send that.  A notice must be sent to through Mailbox or it's useless. Don't remove SetDocumentState.
+[x] For each of the above files where SetDocumentState is happening, locate where the appropriate notice could be inserted, and send that.  A notice must be sent to through Mailbox or it's useless. Don't remove SetDocumentState.
 
 ## 6. Tests
 
