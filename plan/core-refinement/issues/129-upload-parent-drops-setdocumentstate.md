@@ -20,22 +20,22 @@ After a rollback to `47a85e1d^`: `WorkspaceUploadStructure.markUnparsed` has its
 
 [x] Delete the `Op.SetDocumentState(nodeId, Unparsed, Current)` line in `markParentCurrent`. [128/129: delete upload stub and parent SetDocumentState](https://github.com/abaljeu/ambit/pull/419).
 
-[x] Leave `promoteUnparsedDirsWithMembers` in place. It folds `markParentCurrent` and is now inert.
+[x] Remove the do-nothing `markParentCurrent` and `promoteUnparsedDirsWithMembers`. `hasOwnedMember` left with that scan.
 
 [x] Backend inference is dropped per Alan. The desktop should not figure out nodes for uploaded files.
 
 [ ] Correct each disabled test named in §5.
 
-`promoteUnparsedDirsWithMembers` scans the whole graph. A directory it selects may have no op in the Change. The same `Replace` in a received-file reconcile ends with the container Unparsed ([133 — Received file container drops its SetDocumentState](133-received-file-container-drops-setdocumentstate.md)).
+The same `Replace` in a received-file reconcile ends with the container Unparsed ([133 — Received file container drops its SetDocumentState](133-received-file-container-drops-setdocumentstate.md)).
 
 Source: `WorkspaceUploadStructure.fs`, `DocumentOpImpact.fs`.
 
 ## 5. Tests
 
-[ ] Correct `WorkspaceUploadStructureTests` `reused Unparsed directory with owned child becomes Current` (disabled, 129).
-[ ] Correct `WorkspaceUploadStructureTests` `plan promotes ancestor directories when nested file stub added` (disabled, 129).
-[ ] Correct `WorkspaceUploadStructureTests` `markPullingFile sets PullingFile` (disabled, 128/129).
-[ ] Correct `WorkspaceUploadStructureTests` `new file stubs start PullingFile; directory parent stays Current` (disabled, 128/129).
+[x] Delete `WorkspaceUploadStructureTests` `reused Unparsed directory with owned child becomes Current`. It only exercised the removed parent mark.
+[x] Delete `WorkspaceUploadStructureTests` `plan promotes ancestor directories when nested file stub added`. It only exercised the removed parent mark.
+[x] Delete `WorkspaceUploadStructureTests` `markPullingFile sets PullingFile`. It only exercised the removed marks.
+[x] Delete `WorkspaceUploadStructureTests` `new file stubs start PullingFile; directory parent stays Current`. It only exercised the removed marks.
 [ ] Correct `NodeEventExpandTests` `upload posts NodeUploading beside SetDocumentState` (disabled, 128/129).
 [ ] Correct `NodeEventExpandTests` `upload emits NodeUploading` (disabled, 128/129).
 
