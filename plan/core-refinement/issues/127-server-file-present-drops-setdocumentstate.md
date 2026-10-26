@@ -34,3 +34,5 @@ Source: `WorkspaceUploadStructure.fs`, `WorkspaceWebDav.fs`, `RouteRegistration.
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+See [135 — Backend infers document-state Notices from ops](135-backend-infers-document-state-notices-from-ops.md): §7 row P5 (`planServerFilePresentOps`, `PullingFile → Unparsed`).

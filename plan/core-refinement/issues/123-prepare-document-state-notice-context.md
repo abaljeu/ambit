@@ -97,3 +97,5 @@
 [x] Run `scripts/agent-test.sh` with no arguments.
 [x] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
 [x] All executed tests pass.
+
+See [135 — Backend infers document-state Notices from ops](135-backend-infers-document-state-notices-from-ops.md): §7 note 1: `Ev.apply` and the mailbox's `applyNotice` write document state differently.

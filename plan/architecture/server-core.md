@@ -38,6 +38,7 @@ Compact markers that match the master. Detail and catch-up sequence stay on [cor
 
 1. **Map** — [[map.md]]
 2. **Core seam master** — [core-refinement architecture](plan/core-refinement/arch.md) — sole authority; expand-contract (§3), axes (§1), locking model (§6).
+3. **Core inventory** — [135 core inventory](plan/core-refinement/reports/135-core-inventory.md), from [135](plan/core-refinement/issues/135-backend-infers-document-state-notices-from-ops.md) — which files are core, and which code posts Notices today.
 3. **Actor as client** — [[plan/actor-as-client/project.md]] — concept-only; this description confirms privilege-less Actors that only post to the mailbox.
 4. **Core creation** — [[plan/core-creation/project.md]] — existing Core baseline.
 5. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]]
