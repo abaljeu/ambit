@@ -313,8 +313,7 @@ module WorkspaceUploadStructure =
             tryResolveFileNode graph workspaceLabel relative
             |> Option.bind (fun fileId ->
                 match Node.documentStateEnum graph.nodes.[fileId] with
-                | PullingFile ->
-                    Some(Op.SetDocumentState(fileId, PullingFile, Unparsed))
+                | PullingFile -> None
                 | Current
                 | Unparsed -> None))
 
