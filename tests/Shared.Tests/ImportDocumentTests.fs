@@ -17,8 +17,7 @@ let private replaceOps (ops: Op list) : Op list =
         | _ -> None)
 
 let private applyChange (graph: Graph) (event: Ev) : Graph =
-    let state0 = { graph = graph; eventId = EventId.zero }
-    let state = ImportText.stateForImportOps event state0
+    let state = { graph = graph; eventId = EventId.zero }
 
     SpecialNodeTestHelpers.eventOps event
     |> List.fold
