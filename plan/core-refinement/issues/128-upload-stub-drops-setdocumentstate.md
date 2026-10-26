@@ -1,5 +1,7 @@
 # 128 — Upload stub drops its SetDocumentState
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding

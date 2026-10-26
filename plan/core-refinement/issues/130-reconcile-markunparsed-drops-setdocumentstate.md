@@ -1,5 +1,7 @@
 # 130 — Reconcile markUnparsed drops its SetDocumentState
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding

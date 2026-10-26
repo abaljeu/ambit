@@ -1,5 +1,7 @@
 # 132 — Dir info parse drops its SetDocumentState
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding
