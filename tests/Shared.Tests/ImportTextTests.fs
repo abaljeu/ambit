@@ -94,6 +94,7 @@ let ``buildImportChange single line attaches to focus`` () =
             existing
             package
             (System.Guid.NewGuid())
+        |> List.last
 
     Assert.Equal(EventId.zero, change.id)
     Assert.Equal<Op list>(
@@ -112,6 +113,7 @@ let ``buildImportChange nested package attaches top level only`` () =
             []
             package
             (System.Guid.NewGuid())
+        |> List.last
 
     Assert.Equal<Op list>(
         package.ops @ [ Op.Replace(focusId, [], owned package.topLevelIds) ],
@@ -175,17 +177,67 @@ let ``build import marks unparsed file current before tree operations`` () =
         |> appendKids graph0.root [ ChildNode.owner focusId ]
     let change =
         ImportText.buildImportChange graph focusId [] package (System.Guid.NewGuid())
-    let ops = SpecialNodeTestHelpers.eventOps change
-    Assert.Equal(ImportText.importCommand focusId, change.commandName)
-    Assert.Equal(Some focusId, ImportText.tryImportFocus change.commandName)
-    Assert.Equal<Op list>(
-        package.ops @ [ Op.Replace(focusId, [], owned package.topLevelIds) ],
-        ops)
-    Assert.False(
-        ops
-        |> List.exists (function
-            | Op.SetDocumentState _ -> true
-            | _ -> false))
+        |> List.last
+    Assert.Equal(
+        Op.SetDocumentState(focusId, Unparsed, Current),
+        (SpecialNodeTestHelpers.eventOps change).Head)
+    Assert.Equal(
+        Op.Replace(focusId, [], owned package.topLevelIds),
+        SpecialNodeTestHelpers.eventOps change |> List.last)
+
+[<Fact>]
+let ``import NodeParsed precedes the change on an unparsed file`` () =
+    let package = ImportText.buildPackage "note.txt" "alpha" |> requirePackage
+    let focusId = NodeId.New()
+    let file =
+        Node.Create(
+            focusId,
+            text = "note.txt",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            documentState = Unparsed)
+    let graph0 = Graph.create ()
+    let graph =
+        Graph.addDetachedNode file graph0
+        |> appendKids graph0.root [ ChildNode.owner focusId ]
+    let events =
+        ImportText.buildImportChange
+            graph focusId [] package (System.Guid.NewGuid())
+    match events with
+    | [ notice; change ] ->
+        match notice.body with
+        | EventBody.Notice (Notice.NodeParsed id) ->
+            Assert.Equal(focusId, id)
+        | _ -> failwith "expected Notice.NodeParsed"
+        let ops = SpecialNodeTestHelpers.eventOps change
+        Assert.Equal(Op.SetDocumentState(focusId, Unparsed, Current), ops.Head)
+        let stripped =
+            ops
+            |> List.filter (function
+                | Op.SetDocumentState _ -> false
+                | _ -> true)
+        let state0 = { graph = graph; eventId = EventId.zero }
+        let blocked =
+            { change with body = EventBody.Change stripped }
+        match Ev.apply blocked state0 with
+        | ApplyResult.Invalid _ -> ()
+        | _ -> failwith "unparsed change should be rejected"
+        let parsed =
+            match Ev.apply notice state0 with
+            | ApplyResult.Changed next -> next
+            | _ -> failwith "NodeParsed should change state"
+        let imported =
+            match Ev.apply blocked parsed with
+            | ApplyResult.Changed next -> next
+            | _ -> failwith "change should apply after NodeParsed"
+        let kids =
+            Graph.children imported.graph focusId
+            |> List.map (fun child -> child.id)
+        Assert.Equal<NodeId list>(package.topLevelIds, kids)
+        Assert.Equal(
+            Current,
+            Node.documentStateEnum imported.graph.nodes.[focusId])
+    | _ -> failwith "expected NodeParsed then the change"
 
 [<Fact>]
 let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
@@ -194,7 +246,9 @@ let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
     let graph = graphWithFocus focusId [] []
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId [] package (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange
+            graph focusId [] package (System.Guid.NewGuid())
+        |> List.last
 
     Assert.Equal(2, package.topLevelIds.Length)
 
@@ -213,7 +267,9 @@ let ``buildDirectoryMergeChange skips existing Normal child by file reference`` 
             [ normalNode existingId "[[readme.md]] ts" ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange
+            graph focusId existing package (System.Guid.NewGuid())
+        |> List.last
 
     let betaId = List.last package.topLevelIds
 
@@ -232,7 +288,9 @@ let ``buildDirectoryMergeChange skips existing Special File child by name`` () =
             [ specialFileNode existingId "script.sh" focusId ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange
+            graph focusId existing package (System.Guid.NewGuid())
+        |> List.last
 
     let betaId = List.last package.topLevelIds
 
@@ -251,7 +309,9 @@ let ``buildDirectoryMergeChange appends only new entries at end`` () =
             [ normalNode existingId "[[alpha.txt]] ts" ]
 
     let change =
-        ImportText.buildDirectoryMergeChange graph focusId existing package (System.Guid.NewGuid())
+        ImportText.buildDirectoryMergeChange
+            graph focusId existing package (System.Guid.NewGuid())
+        |> List.last
 
     let betaId = List.last package.topLevelIds
 

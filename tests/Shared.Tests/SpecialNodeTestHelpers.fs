@@ -17,9 +17,7 @@ let changeEventZero commandName ops =
     changeEvent commandName EventId.zero (Guid.NewGuid()) ops
 
 let applyChange (event: Ev) (state: State) =
-    ChangeValidation.applyOps
-        (eventOps event)
-        (ImportText.stateForImportOps event state)
+    ChangeValidation.applyOps (eventOps event) state
 
 let inverseEvent (id: EventId) submissionId (event: Ev) : Ev =
     { event with

@@ -39,59 +39,39 @@ module ImportText =
 
     let private ownedChildren = ChildNode.owners
 
-    let private importMarkPrefix = "Import:"
-
-    let importCommand (focusId: NodeId) : string =
-        importMarkPrefix + focusId.Value.ToString("N")
-
-    let tryImportFocus (commandName: string) : NodeId option =
-        if commandName.StartsWith(importMarkPrefix, StringComparison.Ordinal) then
-            let tail = commandName.Substring(importMarkPrefix.Length)
-            match Guid.TryParse tail with
-            | true, guid -> Some(NodeId guid)
-            | _ -> None
-        else
-            None
-
-    /// Graph the Change ops see. An import command applies NodeParsed here.
-    /// The Notice commits only after that Change is accepted.
-    let stateForImportOps (event: Ev) (state: State) : State =
-        match tryImportFocus event.commandName with
-        | None -> state
-        | Some nodeId ->
-            let marked =
-                { event with
-                    body = EventBody.Notice(Notice.NodeParsed nodeId) }
-            match Ev.apply marked state with
-            | ApplyResult.Changed next
-            | ApplyResult.Unchanged next -> next
-            | ApplyResult.Invalid _ -> state
-
-    let private documentEnum (state: State) (nodeId: NodeId) =
-        Map.tryFind nodeId state.graph.nodes
-        |> Option.map Node.documentStateEnum
-
-    /// Apply on the import graph. An enum change with unchanged ops still commits.
-    let commitImportApply
-        (apply: State -> ApplyResult * bool * Op list)
-        (event: Ev)
-        (state: State)
-        : ApplyResult * bool * Op list =
-        let seen = stateForImportOps event state
-        let result, amended, ops = apply seen
-        match result, tryImportFocus event.commandName with
-        | ApplyResult.Unchanged next, Some nodeId
-            when documentEnum state nodeId <> documentEnum next nodeId ->
-            ApplyResult.Changed next, amended, ops
-        | other, _ -> other, amended, ops
-
-    let private commandForUnparsedDocument (graph: Graph) (focusId: NodeId) : string =
+    let private unparsedDocumentRoot (graph: Graph) (focusId: NodeId) : bool =
         match Map.tryFind focusId graph.nodes with
-        | Some node
-            when DocumentPartition.isDocumentRootNode graph focusId
-                 && Node.documentStateEnum node = Unparsed ->
-            importCommand focusId
-        | _ -> ""
+        | Some node ->
+            DocumentPartition.isDocumentRootNode graph focusId
+            && Node.documentStateEnum node = Unparsed
+        | None -> false
+
+    let private markDocumentCurrentBeforeParse (graph: Graph) (focusId: NodeId) : Op list =
+        if unparsedDocumentRoot graph focusId then
+            [ Op.SetDocumentState(focusId, Unparsed, Current) ]
+        else
+            []
+
+    let private changeEvent (submissionId: System.Guid) (ops: Op list) : Ev =
+        { id = EventId.zero
+          submissionId = submissionId
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Change ops }
+
+    let private nodeParsedNotice (focusId: NodeId) : Ev =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body = EventBody.Notice(Notice.NodeParsed focusId) }
+
+    /// Notice.NodeParsed, then the Change, when focus is an unparsed document root.
+    let private withParsedNotice (graph: Graph) (focusId: NodeId) (change: Ev) : Ev list =
+        if unparsedDocumentRoot graph focusId then
+            [ nodeParsedNotice focusId; change ]
+        else
+            [ change ]
 
     let private normalizeEntryName (path: string) = path.TrimEnd('/')
 
@@ -112,22 +92,20 @@ module ImportText =
                 | _ -> None
             | _ -> None
 
-    /// One EventBody.Change: package paste ops plus replace-all-children.
+    /// Paste ops plus replace-all-children. Unparsed document root: NodeParsed, then that Change.
     let buildImportChange
         (graph: Graph)
         (focusId: NodeId)
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
         (submissionId: System.Guid)
-        : Ev =
+        : Ev list =
         let attach =
             ChildListWire.replace focusId existingChildren (ownedChildren package.topLevelIds)
+        let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
-        { id = EventId.zero
-          submissionId = submissionId
-          authority = Authority "Browser"
-          commandName = commandForUnparsedDocument graph focusId
-          body = EventBody.Change(package.ops @ [ attach ]) }
+        changeEvent submissionId (markCurrent @ package.ops @ [ attach ])
+        |> withParsedNotice graph focusId
 
     /// Directory import: add only top-level entries whose names are not already children.
     let buildDirectoryMergeChange
@@ -136,12 +114,12 @@ module ImportText =
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
         (submissionId: System.Guid)
-        : Ev =
+        : Ev list =
         let existingNames =
             existingChildren
             |> List.choose (existingChildName graph)
             |> Set.ofList
-        let commandName = commandForUnparsedDocument graph focusId
+        let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
         let idToText =
             package.ops
@@ -161,11 +139,8 @@ module ImportText =
                     | Some name -> not (Set.contains name existingNames))
 
         if filteredIds.IsEmpty then
-            { id = EventId.zero
-              submissionId = submissionId
-              authority = Authority "Browser"
-              commandName = commandName
-              body = EventBody.Change [] }
+            changeEvent submissionId markCurrent
+            |> withParsedNotice graph focusId
         else
             let filteredIdSet = Set.ofList filteredIds
 
@@ -179,8 +154,5 @@ module ImportText =
             let attach =
                 ChildListWire.append focusId existingChildren (ownedChildren filteredIds)
 
-            { id = EventId.zero
-              submissionId = submissionId
-              authority = Authority "Browser"
-              commandName = commandName
-              body = EventBody.Change(filteredOps @ [ attach ]) }
+            changeEvent submissionId (markCurrent @ filteredOps @ [ attach ])
+            |> withParsedNotice graph focusId

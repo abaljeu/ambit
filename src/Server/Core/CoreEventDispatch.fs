@@ -134,9 +134,8 @@ module internal CoreEventDispatch =
                     Ok { event with body = body }
         | Gambol.Shared.EventBody.Change _
         | Gambol.Shared.EventBody.Undo _
-        | Gambol.Shared.EventBody.Redo _ -> Ok event
-        | Gambol.Shared.EventBody.Notice _ ->
-            Error "Notice is not a client event type"
+        | Gambol.Shared.EventBody.Redo _
+        | Gambol.Shared.EventBody.Notice _ -> Ok event
         | Gambol.Shared.EventBody.Load _ ->
             Error "Load Events are mailbox-generated"
         | Gambol.Shared.EventBody.ActorStart _
@@ -257,18 +256,37 @@ module internal CoreEventDispatch =
                     List.iter context.persist.pushPersist ids)
         | _ -> Ok ()
 
+    let private applyPostedNotice
+        (context: Context)
+        (notice: Gambol.Shared.Notice)
+        (event: Ev)
+        =
+        match context.persist.getState () with
+        | Error err -> Error err
+        | Ok state ->
+            match Ev.apply event state with
+            | ApplyResult.Invalid (_, msg) -> Error msg
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next ->
+                context.persist.replaceGraph notice next.graph
+                Ok None
+
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
-        match Ev.ops completed with
-        | None -> Ok None
-        | Some _ ->
-            match context.persist.applyEvent completed graphOnly with
-            | Error error -> Error error
-            | Ok accepted ->
-                if graphOnly then
-                    Ok(Some accepted)
-                else
-                    pushChangeSpecials context completed accepted
-                    |> Result.map (fun () -> Some accepted)
+        match completed.body with
+        | Gambol.Shared.EventBody.Notice notice ->
+            applyPostedNotice context notice completed
+        | _ ->
+            match Ev.ops completed with
+            | None -> Ok None
+            | Some _ ->
+                match context.persist.applyEvent completed graphOnly with
+                | Error error -> Error error
+                | Ok accepted ->
+                    if graphOnly then
+                        Ok(Some accepted)
+                    else
+                        pushChangeSpecials context completed accepted
+                        |> Result.map (fun () -> Some accepted)
 
     let private store context accepted completed =
         let confirmed =

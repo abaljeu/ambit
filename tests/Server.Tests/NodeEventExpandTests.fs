@@ -442,20 +442,56 @@ let ``import logs NodeParsed beside SetDocumentState`` () = task {
         let package =
             ImportText.buildPackage "note.txt" "alpha"
             |> requireOk "package"
-        let change =
+        let ops =
             ImportText.buildImportChange
                 (stateOf host).graph
                 fileId
                 []
                 package
                 (Guid.NewGuid())
-        let ops = changeOps change
+            |> List.last
+            |> changeOps
         Assert.False(parsedMsg host fileId)
-        Assert.False(containsSet ops fileId Current)
+        do! postChange handle ops
+        assertBeside host fileId Current ops
+        Assert.True(parsedMsg host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``import NodeParsed applies the change without SetDocumentState`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        let package =
+            ImportText.buildPackage "note.txt" "alpha"
+            |> requireOk "package"
+        let events =
+            ImportText.buildImportChange
+                (stateOf host).graph
+                fileId
+                []
+                package
+                (Guid.NewGuid())
+        let posted =
+            events
+            |> List.map (fun event ->
+                match event.body with
+                | EventBody.Change ops ->
+                    { event with
+                        body =
+                            EventBody.Change (
+                                ops
+                                |> List.filter (function
+                                    | Op.SetDocumentState _ -> false
+                                    | _ -> true)) }
+                | _ -> event)
         let body =
             Encode.toString 0 (
                 ApiResponseSerialization.encodeChangeRequest
-                    { events = [ change ]
+                    { events = posted
                       want = [] })
         let! result =
             Api.postEvents handle 10 20 body |> Async.StartAsTask
@@ -469,47 +505,16 @@ let ``import logs NodeParsed beside SetDocumentState`` () = task {
             Graph.children (stateOf host).graph fileId
             |> List.map (fun child -> child.id)
         Assert.Equal<NodeId list>(package.topLevelIds, kids)
-        CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
-        Assert.Equal(Current, documentState host fileId)
-        Assert.True(parsedMsg host fileId)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<Fact>]
-let ``rejected import leaves the file Unparsed`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let fileId = addFile host wsId "note.txt"
-        let package =
-            ImportText.buildPackage "note.txt" "alpha"
-            |> requireOk "package"
-        let drafted =
-            ImportText.buildImportChange
-                (stateOf host).graph
-                fileId
-                []
-                package
-                (Guid.NewGuid())
-        let change =
-            { drafted with
-                body =
-                    EventBody.Change
-                        [ Op.SetText(NodeId.New(), "old", "new") ] }
-        let body =
-            Encode.toString 0 (
-                ApiResponseSerialization.encodeChangeRequest
-                    { events = [ change ]
-                      want = [] })
-        let! result =
-            Api.postEvents handle 10 20 body |> Async.StartAsTask
-        match box result with
-        | :? ContentHttpResult ->
-            Assert.Fail("rejected import returned success")
-        | _ -> ()
-        Assert.Equal(Unparsed, documentState host fileId)
-        Assert.False(parsedMsg host fileId)
+        let log =
+            CoreMailboxApi.eventsSince host EventId.zero
+            |> Async.RunSynchronously
+        let indexOf submissionId =
+            log.events
+            |> List.findIndex (fun event ->
+                event.submissionId = submissionId)
+        let noticeAt = indexOf (List.head posted).submissionId
+        let changeAt = indexOf (List.last posted).submissionId
+        Assert.True(noticeAt < changeAt)
     finally
         CoreMailboxApi.dispose host
 }

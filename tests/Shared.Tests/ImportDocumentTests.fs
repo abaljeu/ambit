@@ -17,8 +17,7 @@ let private replaceOps (ops: Op list) : Op list =
         | _ -> None)
 
 let private applyChange (graph: Graph) (event: Ev) : Graph =
-    let state0 = { graph = graph; eventId = EventId.zero }
-    let state = ImportText.stateForImportOps event state0
+    let state = { graph = graph; eventId = EventId.zero }
 
     SpecialNodeTestHelpers.eventOps event
     |> List.fold
@@ -117,6 +116,7 @@ let ``buildFilePackage integrates with buildImportChange for md`` () =
 
     let change =
         ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
+        |> List.last
 
     let after = applyChange graph change
     let sectionId = (Graph.children after focusId).Head.id
@@ -166,6 +166,7 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
 
     let change =
         ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
+        |> List.last
 
     let after = applyChange graph change
     let sectionId = (Graph.children after focusId).Head.id
