@@ -24,13 +24,29 @@ module internal LazyLoadReconciliationApply =
         | PullingFile ->
             [ Op.SetDocumentState(nodeId, PullingFile, Unparsed) ]
 
-    let private markParentCurrent (graph: Graph) nodeId =
+    /// Directory or Workspace whose legacy document state is Unparsed.
+    let private unparsedContainer (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special (Directory | Workspace)
                  documentState = ds } when
             DocumentState.toLegacy ds = Unparsed ->
+            true
+        | _ -> false
+
+    /// Controlling Special above an attached stub: its owner, when that
+    /// owner is an Unparsed Directory or Workspace.
+    let private parentsOfAttachedStubs (graph: Graph) stubIds =
+        stubIds
+        |> List.choose (fun id ->
+            Map.tryFind id graph.ownerParentByChild)
+        |> List.distinct
+        |> List.filter (unparsedContainer graph)
+
+    let private markParentCurrent (graph: Graph) nodeId =
+        if unparsedContainer graph nodeId then
             [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-        | _ -> []
+        else
+            []
 
     let private foldDocumentStateOps markFn graph nodeIds =
         nodeIds
@@ -71,18 +87,15 @@ module internal LazyLoadReconciliationApply =
 
     /// File/Directory stubs → Unparsed; parents that gained those members → Current.
     /// `planned` is only for stub discovery (NewSpecialNode ids); not re-emitted.
+    /// Parent ids are those containers. They do not depend on SetDocumentState.
     let markAddedDocumentsUnparsed graph workspaceId added planned =
         let stubIds = addedStubIds graph workspaceId added planned
         foldDocumentStateOps markUnparsed graph stubIds
         |> Result.bind (fun (withStubs, stubOps) ->
-            let parentIds =
-                stubIds
-                |> List.choose (fun id ->
-                    Map.tryFind id withStubs.ownerParentByChild)
-                |> List.distinct
+            let parentIds = parentsOfAttachedStubs withStubs stubIds
             foldDocumentStateOps markParentCurrent withStubs parentIds
             |> Result.map (fun (finalGraph, parentOps) ->
-                finalGraph, stubOps @ parentOps))
+                finalGraph, stubOps @ parentOps, parentIds))
 
     let tryArtifactText
         (artifacts: Map<string, string>)

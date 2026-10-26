@@ -477,7 +477,7 @@ module LazyLoadReconciliation =
                             workspaceId
                             added
                             planned
-                        |> Result.bind (fun (withFiles, stateOps) ->
+                        |> Result.bind (fun (withFiles, stateOps, _) ->
                             LazyLoadReconciliationApply.parseDirInfoInfos
                                 withFiles
                                 workspaceId

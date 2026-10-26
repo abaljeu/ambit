@@ -117,14 +117,25 @@ module LazyLoadReconciliationServer =
         |> List.iter (fun id ->
             CoreMailboxApi.postNotice host (Notice.NodeParsed id))
 
+    let private postParsedParents (host: MailboxHost) (parentIds: NodeId list) =
+        parentIds
+        |> List.iter (fun id ->
+            CoreMailboxApi.postNotice host (Notice.NodeParsed id))
+
     let private postReconcileReport
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         async {
             logFailures listed.workspaceLabel report.failures
+            let postParents () =
+                postParsedParents
+                    listed.handle.host
+                    report.parsedParentIds
             match report.ops with
-            | [] -> return Ok report.failures
+            | [] ->
+                postParents ()
+                return Ok report.failures
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
@@ -134,6 +145,7 @@ module LazyLoadReconciliationServer =
                 match result with
                 | Ok () ->
                     listed.beside ops
+                    postParents ()
                     postParsedFromPulling listed.handle.host ops
                     return Ok report.failures
                 | Error err -> return Error err

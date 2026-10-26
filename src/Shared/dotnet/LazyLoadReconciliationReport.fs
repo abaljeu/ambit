@@ -11,7 +11,8 @@ module LazyLoadReconciliationReport =
 
     type Report =
         { ops: Op list
-          failures: Failure list }
+          failures: Failure list
+          parsedParentIds: NodeId list }
 
     type private PathItem =
         { path: string
@@ -140,7 +141,7 @@ module LazyLoadReconciliationReport =
             workspaceId
             [ item.info ]
             createOps
-        |> Result.bind (fun (withFiles, fileOps) ->
+        |> Result.bind (fun (withFiles, fileOps, parentIds) ->
             if
                 LazyLoadReconciliationApply.skipParseAddedDirInfo
                     withFiles
@@ -148,7 +149,7 @@ module LazyLoadReconciliationReport =
                     createOps
                     item.info
             then
-                Ok(withFiles, fileOps)
+                Ok(withFiles, fileOps, parentIds)
             else
                 LazyLoadReconciliationApply.parseDirInfoIfPresent
                     withFiles
@@ -156,7 +157,26 @@ module LazyLoadReconciliationReport =
                     artifacts
                     item.info
                 |> Result.map (fun (finalGraph, parseOps) ->
-                    finalGraph, fileOps @ parseOps))
+                    finalGraph, fileOps @ parseOps, parentIds))
+
+    let private foldFinalizedAdds
+        artifacts
+        workspaceId
+        (graph, ops, failures)
+        items
+        =
+        items
+        |> List.fold (fun (graph, ops, failures, parents) item ->
+            match finalizeAdded artifacts workspaceId graph item with
+            | Ok(next, nextOps, parentIds) ->
+                next, ops @ nextOps, failures, parents @ parentIds
+            | Error message ->
+                let itemInfo, _ = item
+                graph,
+                ops,
+                failures
+                @ [ { path = itemInfo.path; message = message } ],
+                parents) (graph, ops, failures, [])
 
     let planChangedPathsWithArtifacts
         (graph: Graph)
@@ -235,13 +255,12 @@ module LazyLoadReconciliationReport =
                             current
                             item.info)
                     afterAdds
-            let _, ops, failures =
-                acceptedAdds
-                |> foldItems
-                    (fun (item, _) -> item.path)
-                    (finalizeAdded artifacts workspaceId)
-                    afterModified
-            Ok { ops = ops; failures = failures })
+            let _, ops, failures, parents =
+                foldFinalizedAdds artifacts workspaceId afterModified acceptedAdds
+            Ok {
+                ops = ops
+                failures = failures
+                parsedParentIds = List.distinct parents })
 
     /// A renamed File the pull actually moved. Resolve oldPath on the
     /// pre-plan graph. A failed rename is not marked.

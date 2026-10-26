@@ -29,12 +29,30 @@ Source: `LazyLoadReconciliationApply.fs`, `DocumentOpImpact.fs`.
 [ ] `LazyLoadReconciliationTests` (the facts where stubs attach under an Unparsed parent)
 [ ] `LazyLoadReconciliationServerTests`
 
-## 6. Open question (Alan)
+## 6. Answer (Alan)
 
-`applyNodeParsed` also calls `pushParsedUnpersisted` and `noteParsed`. Is that right for an upload or reconcile parent that goes `Unparsed → Current` without a parse (rounds 7 and 9)? Today `uploadOrArrival` hides it.
+Answered. Tabled.
+
+No. `applyNodeParsed`'s `pushParsedUnpersisted` and `noteParsed` is not right for an upload or reconcile parent that goes `Unparsed → Current` without a parse.
+
+Alan believes the question concerns the WebDAV-channel upload case.
+
+Fixing it is tabled.
+
+The intended direction: such uploads should go through the existing Load channel, which invokes parse at the right moments. It is unknown whether Load supports everything needed.
 
 ## 7. Done
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `LazyLoadReconciliationApply.parentsOfAttachedStubs` names the Unparsed Directory or Workspace that owns each attached stub. `markParentCurrent` uses that same container check. The ids do not come from reading `Op.SetDocumentState`.
+[ ] `LazyLoadReconciliationReport.parsedParentIds` carries those ids. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each id on the core mailbox, the same post as `Notice.NodeReceived`.
+[ ] `git load reconcile posts NodeParsed for an Unparsed parent` asserts that Notice and legacy Current. It does not require the `SetDocumentState` op.
+[ ] `DocumentOpImpact.noticesBeside` is unchanged.
+[ ] `CoreMailboxFilesAxis.applyNodeParsed` already sets legacy DocumentState to Current through `Node.withParseState` and `DocumentState.toLegacy`. `NodeParsed sets legacy DocumentState to Current` asserts that.
+[ ] `LazyLoadReconciliationApply.markParentCurrent` still writes the `SetDocumentState` op.
+[ ] [6 — Answer (Alan)](#6-answer-alan) is answered and tabled. This round leaves `pushParsedUnpersisted` and `noteParsed` unchanged.

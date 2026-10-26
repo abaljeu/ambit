@@ -136,6 +136,29 @@ let ``NodeParsed pushes a persist request`` () =
     Assert.DoesNotContain(missing, pushed)
 
 [<Fact>]
+let ``NodeParsed sets legacy DocumentState to Current`` () =
+    let id = NodeId.New()
+    let node =
+        Node.Create(
+            id,
+            text = "docs",
+            name = Filename.create "docs",
+            kind = Special Directory,
+            documentState = Unparsed,
+            parseState = ParseState.Unparsed,
+            persistState = PersistState.Persisted)
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = EventId.zero }
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeParsed id)
+    let after = state.Value.graph.nodes.[id]
+    Assert.Equal(ParseState.Parsed, after.documentState.parseState)
+    Assert.False(after.documentState.pullingFile)
+    Assert.Equal(Current, after.documentState.AsEnum)
+
+[<Fact>]
 let ``ParseFinished sets Parsed and leaves PersistState`` () =
     let id, initial =
         fileState PersistState.Unpersisted ParseState.Unparsed
