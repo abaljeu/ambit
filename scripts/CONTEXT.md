@@ -12,6 +12,8 @@ Scripts for git, build, run, and deploy live here.
 ## Routing
 
 - You want branch status: [[gitstatus.sh]]
+- You want staging pulled into dev: [[fetch.sh]]
+- You want dev merged onto staging and pushed: [[post.sh]]
 - You want the desktop shell: [[desktop.sh]]
 - You want the server: [[server.sh]]
 - You want tests: [[agent-test.sh]]
