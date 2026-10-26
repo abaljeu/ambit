@@ -105,15 +105,33 @@ module SyncLogic =
                     { st.graph with
                         nodes = Map.add nodeId updated st.graph.nodes } }
 
+    let private projectDocumentNotice (notice: Notice) (st: ClientSyncState) =
+        match
+            ResidentProjection.applyDocumentNotice
+                notice
+                (asProjectionState st)
+        with
+        | ApplyResult.Invalid (_, msg) -> Error msg
+        | ApplyResult.Changed projected
+        | ApplyResult.Unchanged projected ->
+            Ok { st with graph = projected.graph }
+
     let private applyLoggedNotice
         (event: Ev)
         (st: ClientSyncState)
         (undid: bool)
         =
         match event.body with
-        | EventBody.Notice (Notice.NodePersisted (nodeId, written, time)) ->
-            let next = applyNodePersisted nodeId written time st
-            Ok({ next with eventId = event.id }, undid)
+        | EventBody.Notice notice ->
+            match projectDocumentNotice notice st with
+            | Error msg -> Error msg
+            | Ok next ->
+                let withPersist =
+                    match notice with
+                    | Notice.NodePersisted (nodeId, written, time) ->
+                        applyNodePersisted nodeId written time next
+                    | _ -> next
+                Ok({ withPersist with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.

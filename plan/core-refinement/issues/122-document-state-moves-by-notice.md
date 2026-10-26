@@ -15,9 +15,9 @@ Mark with a check only if it passes the requirement that in addition to sending 
 [x] src\Server\LazyLoadReconciliationServer.fs  360
 [x] src\Shared\DocumentOpImpact.fs  40  62
 [x] src\Shared\History.fs  119  248  332  333  372  657
-[ ] src\Shared\ImportText.fs  47
-[ ] src\Shared\ResidentProjection.fs  20
-[ ] src\Shared\Serialization.fs  358  412
+[x] src\Shared\ImportText.fs  47
+[x] src\Shared\ResidentProjection.fs  20
+[x] src\Shared\Serialization.fs  358  412
 [ ] src\Shared\WorkspaceUploadStructure.fs  143  145  151  153  160  319
 [ ] src\Shared\documents\DocumentColdParse.fs  294
 [ ] src\Shared\dotnet\DirectoryReconcile.fs  226
@@ -29,7 +29,7 @@ Mark with a check only if it passes the requirement that in addition to sending 
 Document state changes by sending Notice from things like Load, Parse, and Persist. Make sure each notice is idempotent and identical to what would happen if SetDocumentState was called.
 ## 5. Changes
 
-[ ] For each of the above files where SetDocumentState is happening, locate where the appropriate notice could be inserted, and send that.  Don't remove SetDocumentState.
+[ ] For each of the above files where SetDocumentState is happening, locate where the appropriate notice could be inserted, and send that.  A notice must be sent to through Mailbox or it's useless. Don't remove SetDocumentState.
 
 ## 6. Tests
 

@@ -442,7 +442,7 @@ module Ev =
         event.body
 
     /// Enum a Notice writes. Graph.setDocumentState applies it.
-    let private documentStateFromNotice (notice: Notice) =
+    let internal documentStateFromNotice (notice: Notice) =
         match notice with
         | Notice.NodeUploading nodeId -> Some(nodeId, PullingFile)
         | Notice.NodeReceived nodeId

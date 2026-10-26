@@ -36,6 +36,20 @@ module ResidentProjection =
     let applyOp (op: Op) (state: State) : ApplyResult =
         applyOpAllowing true (Some EventId.zero) op state
 
+    /// Document-state Notice for a resident Node.
+    /// Same write as SetDocumentState. An absent Node stays unchanged.
+    /// Parsing and persist Notices do not write this enum.
+    let internal applyDocumentNotice (notice: Notice) (state: State) : ApplyResult =
+        match Ev.documentStateFromNotice notice with
+        | None -> ApplyResult.Unchanged state
+        | Some (nodeId, newState) ->
+            if not (Map.containsKey nodeId state.graph.nodes) then
+                ApplyResult.Unchanged state
+            else
+                match Graph.setDocumentState nodeId newState newState state.graph with
+                | Error msg -> ApplyResult.Invalid(state, msg)
+                | Ok graph -> ApplyResult.Changed { state with graph = graph }
+
     let internal applyOpsAllowing
         (guardUnparsed: bool)
         (changedVersion: EventId option)
