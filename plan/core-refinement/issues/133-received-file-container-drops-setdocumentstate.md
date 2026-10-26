@@ -29,9 +29,9 @@ Source: `LazyLoadReconciliation.fs`, `DocumentOpImpact.fs`.
 [ ] `LazyLoadReconciliationTests`: the 8 `received file …` facts #399 found
 [ ] `LazyLoadReconciliationServerTests` `git pull add marks the containing directory Unparsed`
 
-## 6. Open question (Alan)
+## 6. Decision (Alan)
 
-[121 — MarkUnparsed leaves Notice](121-markunparsed-leaves-notice.md) removes `Notice.MarkUnparsed`, which rounds 8 and 11 use. If 121 lands first, which Notice covers `Current → Unparsed`?
+`Notice.NodeUnparsed` covers `Current → Unparsed`. [121 — MarkUnparsed renamed NodeUnparsed](121-markunparsed-renamed-nodeunparsed.md) renames `Notice.MarkUnparsed` to that case. Rounds 8 and 11 use it.
 
 ## 7. Done
 
