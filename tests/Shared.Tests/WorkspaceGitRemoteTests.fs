@@ -4,20 +4,6 @@ open Gambol.Shared
 open Xunit
 
 [<Fact>]
-let ``remoteUrl joins ambit base and label`` () =
-    Assert.Equal(
-        "http://localhost:8081/ambit/git/home.git",
-        WorkspaceGitRemote.remoteUrl "http://localhost:8081/ambit" "home")
-
-[<Fact>]
-let ``remoteUrlMatches accepts case-insensitive gateway URL`` () =
-    Assert.True(
-        WorkspaceGitRemote.remoteUrlMatches
-            "http://localhost:8081/ambit"
-            "home"
-            "HTTP://LOCALHOST:8081/ambit/git/home.git")
-
-[<Fact>]
 let ``parseHeadRef reads attached branch from HEAD file`` () =
     match WorkspaceGitRemote.parseHeadRef "ref: refs/heads/master\n" with
     | Ok branch -> Assert.Equal("master", branch)

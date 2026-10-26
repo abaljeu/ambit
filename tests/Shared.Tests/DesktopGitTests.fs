@@ -12,12 +12,6 @@ let ``process launcher redirects without creating a window`` () =
     Assert.True(psi.CreateNoWindow)
 
 [<Fact>]
-let ``remoteUrl appends locked gateway path to ambit base`` () =
-    Assert.Equal(
-        "https://host/ambit/git/home.git",
-        WorkspaceGitRemote.remoteUrl "https://host/ambit/" "home")
-
-[<Fact>]
 let ``parseShortStatus reads ahead behind and dirty`` () =
     let text =
         "## main...ambit/main [ahead 2, behind 1]\n M note.txt\n"

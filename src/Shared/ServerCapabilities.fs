@@ -11,11 +11,6 @@ type GitSaveResponse =
       detail: string
       error: string option }
 
-/// `GET /ambit/git-token` after cookie login (G4).
-type GitTokenIssue =
-    | GitAuthDisabled
-    | GitToken of username: string * token: string
-
 type DesktopWorkspaceSyncResponse =
     { ok: bool
       uploaded: int
@@ -71,17 +66,6 @@ module GitSaveResponse =
             { ok = get.Required.Field "ok" Decode.bool
               detail = get.Optional.Field "detail" Decode.string |> Option.defaultValue ""
               error = get.Optional.Field "error" Decode.string })
-
-[<RequireQualifiedAccess>]
-module GitTokenIssue =
-    let decoder: Decoder<GitTokenIssue> =
-        Decode.object (fun get ->
-            match get.Optional.Field "disabled" Decode.bool with
-            | Some true -> GitAuthDisabled
-            | _ ->
-                let user = get.Required.Field "username" Decode.string
-                let token = get.Required.Field "token" Decode.string
-                GitToken(user, token))
 
 [<RequireQualifiedAccess>]
 module DesktopWorkspaceSyncResponse =

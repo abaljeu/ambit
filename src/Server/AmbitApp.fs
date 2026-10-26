@@ -10,10 +10,7 @@ type Authentication =
     {
         ExpectedUser: string
         ExpectedPass: string
-        GitToken: string
         IsAuthenticated: HttpRequest -> bool
-        /// Smart HTTP only: Basic username + git PAT (not browser cookie).
-        IsGitAuthenticated: HttpRequest -> bool
         SetCookie: HttpResponse -> unit
         ClearCookie: HttpResponse -> unit
     }

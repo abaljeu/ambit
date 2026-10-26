@@ -102,9 +102,7 @@ let ``login sets the cookie only after Session holds the authority`` () = task {
     let auth = {
         ExpectedUser = "alice"
         ExpectedPass = "secret"
-        GitToken = ""
         IsAuthenticated = fun _ -> false
-        IsGitAuthenticated = fun _ -> false
         SetCookie =
             fun _ ->
                 Assert.True(Session.hasAuthority (sessionOf host) expected)

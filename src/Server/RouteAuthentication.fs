@@ -8,17 +8,6 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module RouteAuthentication =
 
-    let private gitAuthenticated gitAuthOpen expectedUser gitToken (req: HttpRequest) =
-        if gitAuthOpen then true
-        else
-            match req.Headers.TryGetValue("Authorization") with
-            | true, values ->
-                match AuthToken.tryParseBasicAuth (string values.[0]) with
-                | Some(user, pass) ->
-                    user = expectedUser && pass = gitToken
-                | None -> false
-            | _ -> false
-
     let private setAuthCookie validToken (resp: HttpResponse) =
         let opts =
             CookieOptions(
@@ -43,14 +32,10 @@ module RouteAuthentication =
         let expectedPass =
             config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
         let validToken = AuthToken.deriveToken expectedUser expectedPass
-        let gitToken = AuthToken.deriveGitToken expectedUser expectedPass
-        let gitAuthOpen = expectedUser = "" && expectedPass = ""
         {
             ExpectedUser = expectedUser
             ExpectedPass = expectedPass
-            GitToken = gitToken
             IsAuthenticated = fun _ -> false
-            IsGitAuthenticated = gitAuthenticated gitAuthOpen expectedUser gitToken
             SetCookie = setAuthCookie validToken
             ClearCookie = clearAuthCookie
         }

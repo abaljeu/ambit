@@ -53,24 +53,8 @@ module WorkspaceRemoteTip =
     let decodeList (text: string) =
         Decode.fromString (Decode.list rowDecoder) text
 
-/// Pure helpers for workspace git status and the ambit remote URL.
+/// Pure helpers for workspace git status.
 module WorkspaceGitRemote =
-
-    /// Full remote URL. `ambitBase` is the app base ending in `/ambit`
-    /// (e.g. `https://host/ambit` or `http://localhost:8081/ambit`).
-    let remoteUrl (ambitBase: string) (label: string) : string =
-        let baseUrl =
-            if isNull ambitBase then "" else ambitBase.TrimEnd('/')
-        sprintf "%s/git/%s.git" baseUrl label
-
-    /// True when `currentUrl` is the gateway URL for `label` at `ambitBase`.
-    let remoteUrlMatches (ambitBase: string) (label: string) (currentUrl: string) : bool =
-        if isNull currentUrl then false
-        else
-            String.Equals(
-                remoteUrl ambitBase label,
-                currentUrl.Trim(),
-                StringComparison.OrdinalIgnoreCase)
 
     /// Parse attached `.git/HEAD` content (`ref: refs/heads/<branch>`).
     let parseHeadRef (text: string) : Result<string, string> =
