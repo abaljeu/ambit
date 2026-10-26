@@ -144,18 +144,15 @@ module WorkspaceUploadStructure =
 
     let private markPullingFile (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
-        | PullingFile -> []
-        | Current ->
-            [ Op.SetDocumentState(nodeId, Current, PullingFile) ]
-        | Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, PullingFile) ]
+        | PullingFile
+        | Current
+        | Unparsed -> []
 
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
         | Some { kind = Special (Directory | Workspace)
                  documentState = ds } when
-            DocumentState.toLegacy ds = Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
+            DocumentState.toLegacy ds = Unparsed -> []
         | _ -> []
 
     let private hasOwnedMember (graph: Graph) (dirId: NodeId) =
