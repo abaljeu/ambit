@@ -7,7 +7,6 @@ type SyncState =
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
     | Uploading                  // workspace file push in progress (blocks poll)
-    | Parsing                    // server disk parse/reconcile in progress (blocks poll)
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
     | WaitingToRetry of attempt: int * baseEventId: EventId * events: Ev list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
@@ -122,8 +121,6 @@ type Effect =
     | ContinueWorkspacePush of WorkspaceSyncScope * subjectId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.
     | ContinueWorkspaceDownload of jobId: string
-    /// Deferred async web reconcile (`postJson /reconciliation/directory`).
-    | ContinueDirectoryReconcile of WorkspaceSyncScope
     /// Existing desk Save POST to `/{file}/save`.
     | ContinueDeskSave
     /// Arm (or re-arm) the debounced auto-download tick after a delay.
