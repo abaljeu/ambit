@@ -91,7 +91,7 @@ Scope mode is implement for [123 — Every Notice states its document-state writ
 [ ] [73 — Add the NodeParsing and NodePersisting Notices](../issues/73-add-the-nodeparsing-and-nodepersisting-notices.md) names `CoreMailboxLoad.applyNotice`; the live handler is `CoreMailboxLoop.applyNotice` in [CoreMailboxLoop.fs](../../src/Server/Core/CoreMailboxLoop.fs).
 [ ] [100 — Core loop gates Persisted on the written version](../issues/100-core-loop-gates-persisted-on-the-written-version.md) names `CoreMailboxLoad.writePersisted`; the live function is `CoreMailboxFilesAxis.writePersisted` in [CoreMailboxFilesAxis.fs](../../src/Server/Core/CoreMailboxFilesAxis.fs).
 [ ] [54 — Parse and import stop the Parsed Set](../issues/54-parse-and-import-stop-the-parsed-set.md) **Status** is `defined`; its Context describes the `Notice.NodeParsed` handler and matches `applyNodeParsed` and `GraphMutate.setParseState` when `pullingFile` is set.
-[ ] [121 — MarkUnparsed leaves Notice](../issues/121-markunparsed-leaves-notice.md) plans removal of `Notice.MarkUnparsed`; [123 — Every Notice states its document-state write](../issues/123-prepare-document-state-notice-context.md) still documents the write while the case exists.
+[ ] [121 — MarkUnparsed renamed NodeUnparsed](../issues/121-markunparsed-renamed-nodeunparsed.md) renames `Notice.MarkUnparsed` to `Notice.NodeUnparsed`; [123 — Every Notice states its document-state write](../issues/123-prepare-document-state-notice-context.md) still documents the write while the case exists.
 
 ### Public seam for named tests (no new test)
 
@@ -167,5 +167,5 @@ Scope mode is implement for [123 — Every Notice states its document-state writ
 [ ] Axis write function: `CoreMailboxFilesAxis.writeParseState` with `ParseState.Unparsed` in [CoreMailboxFilesAxis.fs](../../src/Server/Core/CoreMailboxFilesAxis.fs), reached from `CoreMailboxLoop.applyNotice` (and from `markUnparsedThenPush` on the same helper).
 [ ] Code today sets `parseState` to `ParseState.Unparsed` and sets `pullingFile` to false through `Node.withParseState`; leaves `persistState`, `persistedVersion`, and `changedVersion` unchanged.
 [ ] Code today touches `Node.updateTime` when parse state changes through `GraphMutate.setParseState`.
-[ ] Owner ticket: [121 — MarkUnparsed leaves Notice](../issues/121-markunparsed-leaves-notice.md) documents the direct `writeParseState` write before planned removal; it does not restate unchanged `persistState` in section 5.
+[ ] Owner ticket: [121 — MarkUnparsed renamed NodeUnparsed](../issues/121-markunparsed-renamed-nodeunparsed.md) documents the direct `writeParseState` write for `Notice.NodeUnparsed`; it does not restate unchanged `persistState` in section 5.
 [ ] Named test: ``MarkUnparsed sets Unparsed and leaves PersistState`` in [CoreLoopNoticeTests.fs](../../tests/Server.Tests/CoreLoopNoticeTests.fs); checks Unparsed parse and unchanged Unpersisted persist.

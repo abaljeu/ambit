@@ -84,7 +84,7 @@
 ### MarkUnparsed
 
 [x] `writeParseState` sets `ParseState.Unparsed` and leaves `persistState` as it is.
-[x] [121 — MarkUnparsed leaves Notice](121-markunparsed-leaves-notice.md) removes this case.
+[x] [121 — MarkUnparsed renamed NodeUnparsed](121-markunparsed-renamed-nodeunparsed.md) renames this case to `Notice.NodeUnparsed`.
 [x] ``MarkUnparsed sets Unparsed and leaves PersistState`` checks the write while the case is present.
 
 ## 6. Tests

@@ -157,14 +157,6 @@ module RouteRegistration =
         withBrowserCaller persistence req (fun caller ->
             cont (boundChanges persistence caller))
 
-    let internal withBrowserReconciliation
-        (persistence: PersistenceContext)
-        (req: HttpRequest)
-        (cont: CoreChangesDoor -> Async<IResult>)
-        : Async<IResult> =
-        withBrowserCaller persistence req (fun _ ->
-            cont (parseBound persistence))
-
     let private logoutAndRedirect
         (this: AmbitApp)
         (persistence: PersistenceContext)
@@ -509,12 +501,6 @@ module RouteRegistration =
                   reconcile = reconcileGitPush }
             LazyLoadReconciliationDiagnostics.registerRoute this
             GitGatewayDiagnostics.registerRoute this
-            LazyLoadReconciliationServer.registerDirectoryRoute
-                this
-                (withBrowserReconciliation persistence)
-            LazyLoadReconciliationServer.registerAddedRoute
-                this
-                (withBrowserReconciliation persistence)
             WorkspaceWebDav.registerRoutes this
             RouteAppShell.registerCssAndShellRoutes routes
             DailyGitSave.register this
