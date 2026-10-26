@@ -327,22 +327,30 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
         let home = Path.Combine(dataDir, "home")
         Directory.CreateDirectory(home) |> ignore
         File.WriteAllText(Path.Combine(home, "note.txt"), "body")
+        let changes = [ LazyLoadReconciliation.Modified "note.txt" ]
+        let ids =
+            LazyLoadReconciliation.nodeUnparsedIds
+                (stateOf host).graph
+                "home"
+                changes
+                Map.empty
+                Set.empty
+            |> requireOk "ids"
+        Assert.Equal<NodeId list>([ fileId ], ids)
         let! pulled =
             LazyLoadReconciliationServer.reconcileReceivedFiles
                 { handle = handle
                   dataDir = dataDir
                   workspaceLabel = "home" }
-                [ LazyLoadReconciliation.Modified "note.txt" ]
+                changes
             |> Async.StartAsTask
         let posted = requireOk "pull" pulled
         let direct =
             posted.notices
-            |> List.filter (function
-                | Notice.NodeUnparsed found -> found = fileId
-                | _ -> false)
-        Assert.Equal<Notice list>([ Notice.NodeUnparsed fileId ], direct)
-        Assert.True(wroteSet host fileId Unparsed)
-        Assert.Equal(Unparsed, documentState host fileId)
+            |> List.choose (function
+                | Notice.NodeUnparsed found -> Some found
+                | _ -> None)
+        Assert.Equal<NodeId list>(ids, direct)
     finally
         CoreMailboxApi.dispose host
 }

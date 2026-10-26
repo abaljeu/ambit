@@ -283,23 +283,22 @@ module LazyLoadReconciliationReport =
         : Op list =
         let failed =
             failures |> List.map (fun failure -> failure.path) |> Set.ofList
-        let renameFailed oldPath newPath =
-            failed.Contains(oldPath + " -> " + newPath)
-            || failed.Contains(oldPath)
-            || failed.Contains(newPath)
         changes
         |> List.collect (function
             | LazyLoadReconciliation.Renamed(oldPath, newPath) when
-                not (renameFailed oldPath newPath) ->
+                not (LazyLoadReconciliation.renameFailed
+                    failed
+                    oldPath
+                    newPath) ->
                 match
-                    LazyLoadReconciliation.resolveOwnedPath
+                    LazyLoadReconciliation.renamedFileSpecial
                         graph
                         workspaceLabel
                         oldPath
                 with
-                | Ok(Some(id, File)) ->
+                | Some id ->
                     LazyLoadReconciliationApply.markUnparsed graph id
-                | _ -> []
+                | None -> []
             | _ -> [])
 
     /// Git pull plan. Each file is marked. An added, removed, or renamed file

@@ -133,17 +133,23 @@ module LazyLoadReconciliationServer =
         notices
         |> List.iter (CoreMailboxApi.postNotice host)
 
+    let private unparsedNotices (ids: NodeId list) : Notice list =
+        ids |> List.map (fun id -> Notice.NodeUnparsed id)
+
     let private postReconcileReport
         (listed: ListedReconcile)
+        (unparsedIds: NodeId list)
         (report: LazyLoadReconciliationReport.Report)
         : Async<Result<ReceivedFilesPosted, string>> =
         async {
             logFailures listed.workspaceLabel report.failures
-            let parents = parentNotices report.parsedParentIds
+            let direct =
+                unparsedNotices unparsedIds
+                @ parentNotices report.parsedParentIds
             match report.ops with
             | [] ->
-                postNotices listed.handle.host parents
-                return Ok { failures = report.failures; notices = parents }
+                postNotices listed.handle.host direct
+                return Ok { failures = report.failures; notices = direct }
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
@@ -152,7 +158,7 @@ module LazyLoadReconciliationServer =
                         (GraphOnlyChangeChunks.split ops)
                 match result with
                 | Ok () ->
-                    let notices = listed.beside ops @ parents
+                    let notices = listed.beside ops @ direct
                     postNotices listed.handle.host notices
                     postParsedFromPulling listed.handle.host ops
                     return
@@ -178,8 +184,22 @@ module LazyLoadReconciliationServer =
                     artifacts
             with
             | Error err -> return Error err
-            | Ok report ->
-                return! postReconcileReport listed report
+            | Ok (report: LazyLoadReconciliationReport.Report) ->
+                let failed =
+                    report.failures
+                    |> List.map (fun failure -> failure.path)
+                    |> Set.ofList
+                match
+                    LazyLoadReconciliation.nodeUnparsedIds
+                        listed.graph
+                        listed.workspaceLabel
+                        listed.changes
+                        artifacts
+                        failed
+                with
+                | Error err -> return Error err
+                | Ok unparsedIds ->
+                    return! postReconcileReport listed unparsedIds report
         }
 
     /// Existing File nodes the git pull marks Unparsed: a Modified file
@@ -217,25 +237,14 @@ module LazyLoadReconciliationServer =
             | _ -> None)
         |> List.distinct
 
-    /// `Current` to `Unparsed` in this plan. `markUnparsed` writes that op.
-    let private nodeUnparsedNotices (ops: Op list) : Notice list =
-        ops
-        |> List.choose (function
-            | Op.SetDocumentState(id, Current, Unparsed) -> Some id
-            | _ -> None)
-        |> List.distinct
-        |> List.map (fun id -> Notice.NodeUnparsed id)
-
     let private receivedFileNotices
         (graph: Graph)
         (workspaceLabel: string)
         (files: LazyLoadReconciliation.ChangedPath list)
         (ops: Op list)
         : Notice list =
-        let received =
-            receivedFileIds graph workspaceLabel files ops
-            |> List.map (fun id -> Notice.NodeReceived id)
-        received @ nodeUnparsedNotices ops
+        receivedFileIds graph workspaceLabel files ops
+        |> List.map (fun id -> Notice.NodeReceived id)
 
     /// Git pull. Each received file is marked. An added, removed, or renamed
     /// file marks its containing Directory. The list does not discover members.
