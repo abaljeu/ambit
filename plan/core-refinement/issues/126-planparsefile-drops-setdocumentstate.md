@@ -1,5 +1,7 @@
 # 126 — planParseFile drops its SetDocumentState
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding

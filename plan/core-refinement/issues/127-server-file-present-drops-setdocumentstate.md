@@ -1,5 +1,7 @@
 # 127 — Server file present drops its SetDocumentState
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding

@@ -1,5 +1,7 @@
 # 135 — Backend infers document-state Notices from ops
 
+**Status:** `defined`
+
 ## 1. Type
 
 coding
