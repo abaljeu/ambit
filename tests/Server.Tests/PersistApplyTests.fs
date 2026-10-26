@@ -253,11 +253,14 @@ let private artifactText dataDir graph fileId =
         |> requireOk "path"
     if File.Exists path then File.ReadAllText path else ""
 
+/// Loaded Windows runs missed a four-second poll. The bound is a backstop.
+let private persistWait = TimeSpan.FromSeconds 30.0
+
 let private waitUntil label ready = task {
     let start = DateTime.UtcNow
     let rec poll () = task {
         let! ok = ready ()
-        if ok || (DateTime.UtcNow - start).TotalSeconds >= 4.0 then
+        if ok || (DateTime.UtcNow - start) >= persistWait then
             Assert.True(ok, label)
         else
             do! Task.Delay 20
@@ -265,6 +268,22 @@ let private waitUntil label ready = task {
     }
     do! poll ()
 }
+
+/// PersistThread posts this after the write, stamped with the state it read.
+let private persistedFileAtOrAfter fileId version event =
+    match event.body with
+    | EventBody.Notice (Notice.NodePersisted (id, written, _)) ->
+        id = fileId
+        && EventId.value written >= EventId.value version
+    | _ -> false
+
+let private eventsOf host =
+    CoreMailboxApi.getEventsSince host EventId.zero
+    |> Async.StartAsTask
+
+let private childUnlinked graph fileId childId =
+    GraphChildren.get graph fileId
+    |> List.forall (fun child -> child.id <> childId)
 
 [<Fact>]
 let ``Undo pushes the document root and the persist thread writes the undone graph`` () =
@@ -321,28 +340,25 @@ let ``Undo pushes the document root and the persist thread writes the undone gra
             do!
                 waitUntil "undone file" (fun () -> task {
                     let! state = stateOf host
+                    let! events = eventsOf host
                     let text = artifactText dataDir state.graph fileId
                     let unlinked =
-                        GraphChildren.get state.graph fileId
-                        |> List.forall (fun child -> child.id <> childId)
-                    return unlinked && not (text.Contains "edited")
+                        childUnlinked state.graph fileId childId
+                    let wrote =
+                        List.exists
+                            (persistedFileAtOrAfter fileId storedUndo.id)
+                            events
+                    return
+                        unlinked
+                        && wrote
+                        && not (text.Contains "edited")
                 })
             let! final = stateOf host
-            let! events =
-                CoreMailboxApi.getEventsSince host EventId.zero
-                |> Async.StartAsTask
-            let undoAt =
-                events
-                |> List.findIndex (fun event ->
-                    event.submissionId = storedUndo.submissionId)
+            let! events = eventsOf host
             let wroteFile =
-                events
-                |> List.skip (undoAt + 1)
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
-                        id = fileId
-                    | _ -> false)
+                List.exists
+                    (persistedFileAtOrAfter fileId storedUndo.id)
+                    events
             Assert.True(wroteFile, "persist thread wrote the file after Undo")
             Assert.Equal(
                 storedUndo.id,
