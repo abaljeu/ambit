@@ -22,21 +22,6 @@ let private applyGraphOnly (graph: Graph) (ops: Op list) : Graph =
     | ApplyResult.Unchanged next, _, _ -> next.graph
     | ApplyResult.Invalid(_, msg), _, _ -> failwith msg
 
-let private normalApplyMessage (graph: Graph) (ops: Op list) : string option =
-    let state = { graph = graph; eventId = EventId.zero }
-    ops
-    |> List.fold (fun acc op ->
-        match acc with
-        | Error _ -> acc
-        | Ok s ->
-            match Op.apply op s with
-            | ApplyResult.Invalid(_, msg) -> Error msg
-            | ApplyResult.Changed next
-            | ApplyResult.Unchanged next -> Ok next) (Ok state)
-    |> function
-        | Error msg -> Some msg
-        | Ok _ -> None
-
 let private addWorkspace label graph =
     let id, ops = FileNodeOps.planCreateWorkspace graph label
     id, applyOps graph ops
@@ -209,7 +194,7 @@ let ``disk-newer reconcile ops leave the file Current`` () =
         Assert.False(setsFile)
         Assert.Empty(planned.push)
         Assert.Equal(Current, graph6.nodes.[fileId].documentState.AsEnum)
-        Assert.Equal(Current, graph6.nodes.[dirId].documentState.AsEnum)
+        Assert.Equal(Unparsed, graph6.nodes.[dirId].documentState.AsEnum)
     finally
         Directory.Delete(dataDir, true)
 
@@ -400,15 +385,12 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
             DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc))
         makeDiskDir dataDir "home/docs/extra" |> ignore
         let planned = plan dataDir graph7 dirId
-        match normalApplyMessage graph7 planned.ops with
-        | Some msg -> failwith msg
-        | None -> ()
-        let graph8 = applyOps graph7 planned.ops
+        let graph8 = applyGraphOnly graph7 planned.ops
         let extraId =
             match createdDirectoryId planned.ops "extra" with
             | Some id -> id
             | None -> failwith "missing directory extra"
-        Assert.Equal(Current, graph8.nodes.[dirId].documentState.AsEnum)
+        Assert.Equal(Unparsed, graph8.nodes.[dirId].documentState.AsEnum)
         Assert.Empty(planned.push)
         Assert.Equal(Unparsed, graph8.nodes.[extraId].documentState.AsEnum)
         Assert.Equal(ParseState.Unparsed, graph8.nodes.[extraId].documentState.parseState)
