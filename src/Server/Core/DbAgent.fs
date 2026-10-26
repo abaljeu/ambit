@@ -151,15 +151,11 @@ module DbAgent =
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    ImportText.commitImportApply
-                        (fun seen ->
-                            ChangeAmendment.applyPosted
-                                graphOnly
-                                event.id
-                                event
-                                ops
-                                seen)
+                    ChangeAmendment.applyPosted
+                        graphOnly
+                        event.id
                         event
+                        ops
                         s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg

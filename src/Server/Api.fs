@@ -249,14 +249,6 @@ module Api =
         | EventBody.Change ops -> DocumentOpImpact.noticesBeside ops
         | _ -> []
 
-    /// Import names an Unparsed document on commandName. The Change ops
-    /// see NodeParsed. This Notice commits only after that Change is accepted.
-    let private importParsedNotices (events: Ev list) : Notice list =
-        events
-        |> List.choose (fun event ->
-            ImportText.tryImportFocus event.commandName
-            |> Option.map Notice.NodeParsed)
-
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -273,9 +265,6 @@ module Api =
         | Ok request ->
             match! CoreDoor.postEvents handle request.events with
             | Ok accepted ->
-                request.events
-                |> importParsedNotices
-                |> List.iter (CoreMailboxApi.postNotice handle.host)
                 request.events
                 |> List.collect inferredNodeEvents
                 |> List.iter (CoreMailboxApi.postNotice handle.host)
