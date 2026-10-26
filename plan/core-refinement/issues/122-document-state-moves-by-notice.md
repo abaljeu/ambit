@@ -41,3 +41,5 @@ Document state changes by sending Notice from things like Load, Parse, and Persi
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
 [ ] All executed tests pass.
+
+See [135 — Backend infers document-state Notices from ops](135-backend-infers-document-state-notices-from-ops.md): §7 maps every `SetDocumentState` site to its replacing Notice. [135 core inventory](../reports/135-core-inventory.md) lists the code that posts Notices today.
