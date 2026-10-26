@@ -58,8 +58,7 @@ let private loadFocuses (effects: Effect list) =
 let private postsReconcileOrParse (effects: Effect list) =
     effects
     |> List.exists (function
-        | Effect.ContinueDirectoryReconcile _
-        | Effect.ContinueParseFile _ -> true
+        | Effect.ContinueDirectoryReconcile _ -> true
         | _ -> false)
 
 let private withDesktopMap (model: VM) =

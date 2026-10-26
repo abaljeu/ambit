@@ -39,22 +39,6 @@ let ``desktop Upload on unmapped file plans ParseServerDisk`` () =
         WorkspaceUpload.plan true false false (Some(ParseFile fileId)))
 
 [<Fact>]
-let ``ParseServerDisk never reads desktop file while DesktopPush does`` () =
-    Assert.Equal(
-        None,
-        WorkspaceUpload.desktopReadPath
-            (WorkspaceUploadAction.ParseServerDisk fileId)
-            true
-            (Some "//README"))
-    let workspacePath = Some "//home/name.ext"
-    Assert.Equal(
-        workspacePath,
-        WorkspaceUpload.desktopReadPath
-            (WorkspaceUploadAction.DesktopPush(Some fileId))
-            true
-            workspacePath)
-
-[<Fact>]
 let ``desktop Upload on mapped directory plans DesktopPush without parse`` () =
     Assert.Equal(
         WorkspaceUploadAction.DesktopPush None,
@@ -165,15 +149,3 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         "load queued until parse completes",
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with syncState = Parsing })
-
-[<Fact>]
-let ``one Upload sequences all parse phases instead of racing revision 14706`` () =
-    let request id =
-        Effect.ContinueParseFile(id, None, "parsed: ", "file.md")
-    let first = request (NodeId.New())
-    let second = request (NodeId.New())
-    match WorkspaceUpload.sequenceParseEffects [ first; second ] with
-    | [ Effect.ContinueUploadParses [ queuedFirst; queuedSecond ] ] ->
-        Assert.Equal(first, queuedFirst)
-        Assert.Equal(second, queuedSecond)
-    | other -> Assert.Fail($"expected one sequential parse queue, got {other}")

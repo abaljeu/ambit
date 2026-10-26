@@ -12,7 +12,6 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Client.UpdateWorkspaceDownload
 open Gambol.Client.UpdateWorkspaceLoad
-open Gambol.Client.UpdateImport
 open Gambol.Client.Controller
 open Gambol.Client.CommandDock
 open Gambol.Client.Overlays
@@ -190,17 +189,6 @@ let createRuntime (initialModel: VM) =
                         (jsonMutatingPostHeaders ()))
                 50
             |> ignore
-        | ContinueParseFile (fileId, path, prefix, detail) ->
-            runParseFile (fileId, path, prefix, detail) ignore
-        | ContinueUploadParses requests ->
-            let rec runNext = function
-                | [] -> ()
-                | ContinueParseFile (fileId, path, prefix, detail) :: rest ->
-                    runParseFile
-                        (fileId, path, prefix, detail)
-                        (fun () -> runNext rest)
-                | _ :: rest -> runNext rest
-            runNext requests
         | ContinueDeskSave ->
             DeskLoadSaveEffectClient.runDeskSave ()
         | ScheduleAutoDownloadTick delayMs ->
@@ -212,54 +200,6 @@ let createRuntime (initialModel: VM) =
             (fun id -> autoDownloadTimeoutId <- id)
             delayMs
             (fun () -> dispatch (SysMsg AutoDownloadTick))
-
-    and runParseFile
-        (fileId, desktopReadPath, detailPrefix, detailPath)
-        (afterSuccess: unit -> unit)
-        =
-        let runPost textOpt =
-            let body = encodeParseFileRequest fileId textOpt
-            postJson
-                "/ambit/file/parse"
-                body
-                (fun text ->
-                    dispatch (
-                        ApplyOp (
-                            completeParseFilePost detailPrefix detailPath text))
-                    afterSuccess ())
-                (fun status text ->
-                    dispatch (ApplyOp (failParseFileHttp status text)))
-                (fun () ->
-                    dispatch (ApplyOp (failParseFile "parse request failed")))
-                (jsonMutatingPostHeaders ())
-
-        let proceedAfterDesktopRead status responseText =
-            match decodeDesktopReadForParse status responseText with
-            | Error err -> dispatch (ApplyOp (failParseFile err))
-            | Ok textOpt ->
-                match validateParseTextOpt textOpt with
-                | Error err -> dispatch (ApplyOp (failParseFile err))
-                | Ok valid -> runPost valid
-
-        setTimeout
-            (fun () ->
-                match desktopReadPath with
-                | Some path ->
-                    let url =
-                        "/_desktop/file?path="
-                        + encodeUriComponent path
-                        + "&content=1"
-                    fetchGet
-                        url
-                        (fun text -> proceedAfterDesktopRead 200 text)
-                        proceedAfterDesktopRead
-                        (fun () ->
-                            dispatch (
-                                ApplyOp (
-                                    failParseFile "desktop file read failed")))
-                | None -> runPost None)
-            50
-        |> ignore
 
     and runSubmitPendingBatch (baseEventId: EventId) (events: Ev list) : unit =
         let reqId =

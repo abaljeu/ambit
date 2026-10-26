@@ -24,7 +24,6 @@
     <Compile Include="UpdateAmbleRun.fs" />
     <Compile Include="UpdateValidateGraph.fs" />
     <Compile Include="UpdatePaste.fs" />
-    <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateSave.fs" />
     <Compile Include="UpdateWorkspaceDesktop.fs" />
     <Compile Include="UpdateWorkspaceSync.fs" />
