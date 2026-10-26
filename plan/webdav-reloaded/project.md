@@ -19,6 +19,15 @@ For now, this project only stashes what we've identified as broken. The fixes ar
 3. **A parent goes Unparsed to Current without a parse.** Alan answered core-refinement 131 §6 as No: `applyNodeParsed`'s `pushParsedUnpersisted` and `noteParsed` are not right for an upload parent that becomes Current without a parse. The intended direction is to route such uploads through the existing Load channel, which invokes parse at the right moments. It is unknown whether Load supports everything that needs.
 4. **`upload emits NodeUploading` is order-dependent.** It fails when run alone, even on staging, so it stays disabled.
 
+## Tentative design (Alan, 2026-10-26)
+
+Not locked.
+
+- Upload sends files to a receiving actor. That actor constructs or updates the directory tree the same way git Load does.
+- At minimum, when the files arrive, it marks the root Workspace Unparsed and pushes it onto the parse stack.
+- It also marks received files Unparsed.
+- It marks pending files PullingFile. Open: a possible design change drops PullingFile.
+
 ## Disabled tests
 
 | Test | File | Disabled by |
@@ -34,3 +43,4 @@ For now, this project only stashes what we've identified as broken. The fixes ar
 ## Notes
 
 - 2026-10-26 — Alan opened this project to stash the identified breakage. Fixing is tabled.
+- 2026-10-26 — Alan recorded a tentative design: a receiving actor for upload, modeled on git Load (see Tentative design).
