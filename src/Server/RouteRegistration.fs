@@ -443,15 +443,6 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 return Api.postFileStatus persistence.DataDir body
         })) |> ignore
-        this.MapGet("/ambit/file", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            if not (this.Auth.IsAuthenticated req) then
-                return Results.Unauthorized()
-            else
-                match req.Query.TryGetValue("path") with
-                | false, _ -> return Results.BadRequest({| error = "path is required" |})
-                | true, value ->
-                    return Api.getImportFile persistence.DataDir (string value)
-        })) |> ignore
         this.MapPost(
             "/ambit/save",
             Func<HttpRequest, Task<IResult>>(
