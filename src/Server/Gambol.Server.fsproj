@@ -33,7 +33,6 @@
     <Compile Include="WorkspaceFileMedia.fs" />
     <Compile Include="WorkspaceWebDav.fs" />
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
-    <Compile Include="GitGatewayDiagnostics.fs" />
     <Compile Include="IgnoredDestination.fs" />
     <Compile Include="DocumentPersistPath.fs" />
     <Compile Include="DocumentPersistWrite.fs" />
@@ -88,7 +87,6 @@
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />
     <Compile Include="RouteTypes.fs" />
-    <Compile Include="GitGateway.fs" />
     <Compile Include="RouteAuthentication.fs" />
     <Compile Include="RouteAppShell.fs" />
     <Compile Include="RouteRegistration.fs" />

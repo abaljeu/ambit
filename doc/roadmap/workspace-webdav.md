@@ -8,7 +8,7 @@ Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{lab
 
 ## What it gives you
 
-- Authenticated tree browse and transfer under a workspace label without git remotes or smart-HTTP pack transport.
+- Authenticated tree browse and transfer under a workspace label.
 - `PROPFIND` as the **server-side inventory** for Pull: path list under scope, then **DataDir `.gitignore` / check-ignore** reduces that list before the client `GET`s.
 - `PROPFIND` listings that expose **datestamps** (not only paths/sizes) so Pull / freshness can compare local and server mtime.
 - `GET` / `PUT` / `MKCOL` for scoped Push and Pull.
@@ -31,7 +31,6 @@ An exact `.amb` file remains a DAV file so Upload and Download preserve its body
 
 - WebDAV Class 2, locks, DeltaV, COPY/MOVE, Windows drive mapping.
 - `DELETE` (no mirror-delete in v1).
-- Client pack transport (`/ambit/git/…` remotes) as the Upload / Download path.
 - Serving `.git/` or gitignored paths in listings or downloads.
 - A separate auth scheme; use the same `/ambit` session auth as other app routes.
 - Redefining Pull ignore from the client’s mapped tree (desktop may optionally re-filter; DataDir rules remain authoritative for Pull).
@@ -102,5 +101,4 @@ Either path must emit the required `PROPFIND` properties above and apply DataDir
 ## Success criteria
 
 - Desktop Pull can treat scoped `PROPFIND` as the ignore-reduced inventory (path, type, mtime) and `GET` from that list alone.
-- Upload / Download never require `/ambit/git/…` pack transport.
 - Server listings never leak `.git` or gitignored trees.

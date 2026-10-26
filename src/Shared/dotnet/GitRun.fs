@@ -56,42 +56,6 @@ module GitRun =
             Ok(code, stdout.Trim(), stderr.Trim())
         | Error e -> Error e
 
-    /// Binary pack exchange: stdin bytes in, stdout bytes out on exit 0.
-    let gitExchange
-        (workDir: string)
-        (arguments: string)
-        (input: byte[])
-        : Result<byte[], string> =
-        withWorkTreeGate workDir (fun () ->
-            try
-                let configure (psi: ProcessStartInfo) =
-                    ProcessExec.withWorkingDirectory workDir psi
-                    ProcessExec.withStdinRedirect psi
-                    ProcessExec.withNoWindow psi
-                use proc = ProcessExec.start "git" arguments configure
-                if isNull proc then
-                    Error "failed to start git"
-                else
-                    if input.Length > 0 then
-                        proc.StandardInput.BaseStream.Write(
-                            input, 0, input.Length)
-                    proc.StandardInput.Close()
-                    use ms = new MemoryStream()
-                    proc.StandardOutput.BaseStream.CopyTo(ms)
-                    let stderr = proc.StandardError.ReadToEnd()
-                    proc.WaitForExit()
-                    if proc.ExitCode = 0 then
-                        Ok(ms.ToArray())
-                    else
-                        let detail =
-                            if String.IsNullOrWhiteSpace stderr then
-                                "git failed"
-                            else
-                                stderr.Trim()
-                        Error detail
-            with ex ->
-                Error ex.Message)
-
     let isAvailable () : bool =
         match gitExec (Path.GetTempPath()) "--version" with
         | Ok _ -> true

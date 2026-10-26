@@ -4,7 +4,6 @@ open System
 open System.IO
 open System.Net
 open System.Net.Http
-open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -50,74 +49,6 @@ let ``addedPathsBetween handles initial push and later additions`` () =
         WorkspaceGit.addedPathsBetween root (Some firstHead) secondHead
         |> requireOk "later diff"
     Assert.Equal<string list>([ "src/lib.fs" ], later)
-
-[<SkippableFact>]
-let ``successful receive triggers reconciliation with added paths`` () =
-    Skip.IfNot(gitOnPath (), "git unavailable")
-    let root = newRepo ()
-    writeAndCommit root "existing.txt" "one" "seed"
-    let oldHead = WorkspaceGit.tryHead root
-    writeAndCommit root "new.txt" "two" "push"
-    let observed =
-        TaskCompletionSource<string * LazyLoadReconciliation.ChangedPath list>()
-    let reconcile label paths = async {
-        observed.SetResult(label, paths)
-        return Ok []
-    }
-    let response = [| 1uy; 2uy; 3uy |]
-    let result =
-        GitGateway.completeWorkspacePush root "home" oldHead (Ok response) reconcile
-        |> Async.RunSynchronously
-    Assert.Equal<byte[]>(response, requireOk "receive" result)
-    Assert.Equal(
-        ("home", [ LazyLoadReconciliation.Added "new.txt" ]),
-        observed.Task.Result)
-
-[<SkippableFact>]
-let ``successful no-op receive still triggers reconciliation`` () =
-    Skip.IfNot(gitOnPath (), "git unavailable")
-    let root = newRepo ()
-    writeAndCommit root "existing.txt" "one" "seed"
-    let head = WorkspaceGit.tryHead root
-    let observed =
-        TaskCompletionSource<string * LazyLoadReconciliation.ChangedPath list>()
-    let reconcile label paths = async {
-        observed.SetResult(label, paths)
-        return Ok []
-    }
-    let response = [| 1uy; 2uy; 3uy |]
-    let result =
-        GitGateway.completeWorkspacePush root "home" head (Ok response) reconcile
-        |> Async.RunSynchronously
-    Assert.Equal<byte[]>(response, requireOk "receive" result)
-    Assert.Equal(("home", []), observed.Task.Result)
-
-[<Fact>]
-let ``failed receive does not reconcile`` () =
-    let called = TaskCompletionSource<bool>()
-    let reconcile _ _ = async {
-        called.SetResult(true)
-        return Ok []
-    }
-    let result =
-        GitGateway.completeWorkspacePush "" "home" (Ok None) (Error "receive failed") reconcile
-        |> Async.RunSynchronously
-    Assert.Equal(Error "receive failed", result)
-    Assert.False(called.Task.IsCompleted)
-
-[<SkippableFact>]
-let ``reconciliation failure preserves successful receive response`` () =
-    Skip.IfNot(gitOnPath (), "git unavailable")
-    let root = newRepo ()
-    writeAndCommit root "existing.txt" "one" "seed"
-    let oldHead = WorkspaceGit.tryHead root
-    writeAndCommit root "new.txt" "two" "push"
-    let reconcile _ _ = async { return Error "planner conflict" }
-    let response = [| 9uy; 8uy |]
-    let result =
-        GitGateway.completeWorkspacePush root "home" oldHead (Ok response) reconcile
-        |> Async.RunSynchronously
-    Assert.Equal<byte[]>(response, requireOk "receive" result)
 
 [<Fact>]
 let ``latest diagnostics GET returns failures once then empty`` () =
