@@ -124,14 +124,6 @@ type Effect =
     | ContinueWorkspaceDownload of jobId: string
     /// Deferred async web reconcile (`postJson /reconciliation/directory`).
     | ContinueDirectoryReconcile of WorkspaceSyncScope
-    /// Deferred async file parse (`fetchGet` desktop text when needed, then `postJson`).
-    | ContinueParseFile of
-        fileId: NodeId *
-        desktopReadPath: string option *
-        detailPrefix: string *
-        detailPath: string
-    /// Same Upload may reparse several skipped files; run these requests in order.
-    | ContinueUploadParses of parseRequests: Effect list
     /// Existing desk Save POST to `/{file}/save`.
     | ContinueDeskSave
     /// Arm (or re-arm) the debounced auto-download tick after a delay.
