@@ -323,11 +323,17 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
     let host, handle, wsId = admitHome dataDir
     try
         let fileId = addFile host wsId "note.txt"
+        setState host wsId Unparsed Current
         setState host fileId Unparsed Current
+        let renamedId = addFile host wsId "old.txt"
+        setState host renamedId Unparsed Current
         let home = Path.Combine(dataDir, "home")
         Directory.CreateDirectory(home) |> ignore
         File.WriteAllText(Path.Combine(home, "note.txt"), "body")
-        let changes = [ LazyLoadReconciliation.Modified "note.txt" ]
+        let changes = [
+            LazyLoadReconciliation.Modified "note.txt"
+            LazyLoadReconciliation.Renamed("old.txt", "renamed.txt")
+        ]
         let ids =
             LazyLoadReconciliation.nodeUnparsedIds
                 (stateOf host).graph
@@ -336,7 +342,7 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
                 Map.empty
                 Set.empty
             |> requireOk "ids"
-        Assert.Equal<NodeId list>([ fileId ], ids)
+        Assert.Equal<NodeId list>([ fileId; renamedId ], ids)
         let! pulled =
             LazyLoadReconciliationServer.reconcileReceivedFiles
                 { handle = handle
@@ -354,6 +360,60 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
     finally
         CoreMailboxApi.dispose host
 }
+
+[<Fact>]
+let ``git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let _docsId = addDirectory host wsId "docs"
+            let fileId = addFile host wsId "note.txt"
+            setState host fileId Unparsed Current
+            let changes = [
+                LazyLoadReconciliation.Modified "docs"
+                LazyLoadReconciliation.Modified "note.txt"
+            ]
+            let ids =
+                LazyLoadReconciliation.nodeUnparsedIds
+                    (stateOf host).graph
+                    "home"
+                    changes
+                    Map.empty
+                    Set.empty
+                |> requireOk "ids"
+            Assert.Equal<NodeId list>([ fileId ], ids)
+            let! pulled =
+                LazyLoadReconciliationServer.reconcileReceivedFiles
+                    { handle = handle
+                      dataDir = dataDir
+                      workspaceLabel = "home" }
+                    changes
+                |> Async.StartAsTask
+            let posted = requireOk "pull" pulled
+            let direct =
+                posted.notices
+                |> List.choose (function
+                    | Notice.NodeUnparsed found -> Some found
+                    | _ -> None)
+            Assert.Equal<NodeId list>(ids, direct)
+            Assert.Contains(
+                posted.failures,
+                fun failure ->
+                    failure.path = "docs"
+                    && failure.message.Contains("kind conflict"))
+            let! loaded =
+                GithubTransportActor.finishLoadPull
+                    { handle = handle
+                      dataDir = dataDir
+                      workspaceLabel = "home" }
+                    wsId
+                    changes
+                |> Async.StartAsTask
+            requireOk "load" loaded |> ignore
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``reconcile emits NodeReceived`` () = task {

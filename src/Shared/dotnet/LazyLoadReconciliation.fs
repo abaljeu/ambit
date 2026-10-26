@@ -335,14 +335,15 @@ module LazyLoadReconciliation =
                 | Modified path ->
                     match Path.classifyValidated path with
                     | Ok(Some info) ->
-                        modifiedControllingSpecial
-                            artifacts
-                            workspaceId
-                            graph
-                            info
-                        |> Result.map (function
-                            | Some id -> id :: acc
-                            | None -> acc)
+                        match
+                            modifiedControllingSpecial
+                                artifacts
+                                workspaceId
+                                graph
+                                info
+                        with
+                        | Ok(Some id) -> Ok(id :: acc)
+                        | _ -> Ok acc
                     | _ -> Ok acc
                 | _ -> Ok acc)) (Ok [])
 
