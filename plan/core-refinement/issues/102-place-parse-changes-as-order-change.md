@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [104 — PlacedOrder is the mailbox envelope](104-placedorder-is-the-mailbox-envelope.md)
+[ ] None. [104 — PlacedOrder is the mailbox envelope](104-placedorder-is-the-mailbox-envelope.md) is on staging.
 
 ## 3. Look at
 

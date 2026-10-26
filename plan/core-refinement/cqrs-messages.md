@@ -1,6 +1,6 @@
 # Message shape
 
-This note is the end-game spec of the mailbox and the event log. §2 **Target shape** is the end state. A line that starts with "Open decision:" is not decided yet. Scope: this note, and one pointer from [core-refinement architecture](arch.md). The map, [Document-state events](spec.md), the tickets in §5 **Tickets 44–57**, and code stay. §7 **Tickets 59–68** indexes the §4 migration.
+This note is the end-game spec of the mailbox and the event log. §2 **Target shape** is the end state. A line that starts with "Open decision:" is not decided yet. Scope: this note, and one pointer from [core-refinement architecture](arch.md). The map, [Document-state events](spec.md), the tickets, and code stay. [core-refinement](project.md) indexes the §4 migration tickets.
 
 [core-refinement architecture](arch.md) §10 **Core loop** stays the record of today's queue. [core-refinement](map.md) decision 15 **InMsg on the mailbox queue**, decision 16 **SnapshotDone with Persisted**, and decision 19 **Node events replace document-state Set ops** stay that same record.
 

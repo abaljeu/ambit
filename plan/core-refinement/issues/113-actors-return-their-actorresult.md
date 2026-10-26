@@ -77,6 +77,7 @@
 
 [ ] 5 source files: `CoreActorPool.fs`, `GithubTransportActor.fs`, `RunAgentActor.fs`, `SearchActor.fs`, `TestActor.fs`
 [ ] 9 test files, each only a test Actor's body: `CoreActorPoolDeliverTests.fs`, `AskCancelHarness.fs`, `ActorCoreChangesDoorTests.fs`, `QueryActorTests.fs`, `OrderedEventStreamTests.fs`, `AgentAskTests.fs`, `CancelByFocusTests.fs`, `CoreMsgActorCasesTests.fs`, `CoreMailboxDoorTests.fs`
+[ ] Over the 4-test limit (2026-10-25). Alan accepted it over the size limit on 2026-10-24 ([core-refinement](../project.md)). A split is his call; this ticket is not split here
 [ ] 0 tests change what they check; the type change cannot build in smaller batches
 
 ## 6. Tests

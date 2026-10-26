@@ -9,7 +9,8 @@
 
 ## 2. Blockers
 
-[ ] [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
+[ ] None. It logs the start as today, so it does not wait on [107 — Add EventBody.Order](107-add-eventbody-order.md).
+[ ] Build order, 2026-10-25: after [45 — SetDocumentState leaves; NodeUnpersisted replaces it](45-remove-document-state-set-ops.md), which shares files with it.
 
 ## 3. Look at
 
@@ -71,7 +72,7 @@
 [ ] `placeOrder` sends each of the three orders to the handler its `CoreMsg` case uses today
 [ ] Each handler takes `placed`, `caller`, and `reply`
 [ ] Each handler uses `placed.orderId` as the submission id and replies the stored `Ev` for a resubmission, as `postActorStart` does
-[ ] Each handler logs `EventBody.Order placed.order`
+[ ] Each handler logs the start as today, as `EventBody.ActorStart` of its `ActorStart`; 110 changes that body
 [ ] A start that runs no Actor appends the start, then `EventBody.ActorStop` of its focus and `ActorSucceeded`
 [ ] `PlaceOrder` replies `Ok` of the `EventId` of the first appended `Ev`
 

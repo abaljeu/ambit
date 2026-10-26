@@ -1,6 +1,6 @@
 # 12 — Git pull marks each received file Unparsed
 
-**Status:** `coded`
+**Status:** `done`
 Actual: 1h 45m
 **Type:** coding
 **Blocked by:** 11 — Load reconciles walk one level

@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
+[ ] None.
 
 ## 3. Look at
 

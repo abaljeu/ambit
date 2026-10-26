@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [105 — One Ev.withOps in History](105-one-ev-withops-in-history.md)
+[ ] None.
 
 ## 3. Look at
 

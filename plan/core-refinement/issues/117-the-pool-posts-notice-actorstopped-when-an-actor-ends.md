@@ -10,6 +10,7 @@
 ## 2. Blockers
 
 [ ] [113 — Actors return their ActorResult](113-actors-return-their-actorresult.md)
+[ ] [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
 
 ## 3. Look at
 

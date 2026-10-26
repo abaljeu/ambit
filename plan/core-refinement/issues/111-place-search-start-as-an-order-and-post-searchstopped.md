@@ -9,7 +9,8 @@
 
 ## 2. Blockers
 
-[ ] [80 — Place Actor starts through PlaceOrder](80-place-actor-orders-through-placeorder.md)
+[ ] [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md)
+[ ] [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
 
 ## 3. Look at
 

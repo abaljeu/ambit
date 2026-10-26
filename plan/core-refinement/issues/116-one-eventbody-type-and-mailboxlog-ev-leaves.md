@@ -9,7 +9,9 @@
 
 ## 2. Blockers
 
-[ ] [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md)
+[ ] [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md)
+[ ] [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-redo-and-load-as-eventbody-order.md)
+[ ] [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md)
 
 ## 3. Look at
 
@@ -40,7 +42,7 @@
 
 ### Today
 
-[ ] After 110 and 81, `EventBody` is `Order of Order | Notice of Notice`
+[ ] After 108, 109, and 110, every order body is `EventBody.Order`; `EventBody.ActorStop` may stay until 81, and `ofEv` never accepted it
 [ ] The History `Ev` keeps `submissionId`, `authority`, and `commandName` (choice (c))
 [ ] `MailboxEventBody` is `Order of PlacedOrder | Notice of Notice`; the shared `PlacedOrder` is `{ orderId; authority; commandName; order }` and stays (104)
 [ ] `MailboxLog.Ev` is `{ id: EventId; body: MailboxEventBody }`
@@ -50,14 +52,14 @@
 
 ### Decisions
 
-[ ] Alan, 2026-10-24: the last ticket is a pure rename that makes `MailboxEventBody` and `EventBody` one type
+[ ] 2026-10-25: this ticket deletes `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, and `toEv`; it is not a rename
 [ ] Alan, 2026-10-24: this ticket also removes `MailboxLog.Ev`; its users take the History `Ev`, and `ofEv` and `toEv` leave
 
 ## 5. Changes
 
 ### Change
 
-[ ] One rename: `MailboxEventBody` and `MailboxLog.Ev` leave; their users use `EventBody` and `Ev`
+[ ] One deletion: `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, and `toEv` leave; their users use `EventBody` and `Ev`
 [ ] The shared `PlacedOrder` stays, as the `Mailbox.PlaceOrder` payload
 [ ] No behavior changes
 
