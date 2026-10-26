@@ -426,15 +426,6 @@ module Serialization =
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 
-    // ---- Desktop Import ----
-
-    let encodeDesktopImportPackage (package: DesktopImportPackage) : IEncodable =
-        Encode.object
-            [ "sourcePath", Encode.string package.sourcePath
-              "isDirectory", Encode.bool package.isDirectory
-              "topLevelIds", package.topLevelIds |> List.map encodeNodeId |> Encode.list
-              "ops", package.ops |> List.map encodeOp |> Encode.list ]
-
     // ---- Desktop Export ----
 
     let encodeDesktopExportRequest (request: DesktopExportRequest) : IEncodable =

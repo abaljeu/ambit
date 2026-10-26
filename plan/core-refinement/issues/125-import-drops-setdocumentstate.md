@@ -25,6 +25,8 @@ Hard: those ops are the same as an ordinary edit under an Unparsed root, which `
 
 Source: `ImportText.fs`, `DocumentOpImpact.fs`.
 
+**Resolution (Alan, 2026-10-26):** the inference above is moot. The removed code made no edit changes, so there is nothing to infer from. The deletion was done by [#415 — 125: delete dead desktop ImportText parse-before-upload path](https://github.com/abaljeu/ambit/pull/415) and [#416 — 125: delete unreachable client parse effect that posted to removed /ambit/file/parse](https://github.com/abaljeu/ambit/pull/416).
+
 ## 5. Tests
 
 [ ] `ImportTextTests` `build import marks unparsed file current before tree operations`

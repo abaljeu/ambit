@@ -2,79 +2,9 @@ namespace Gambol.Shared
 
 open System
 
-/// Build DesktopImportPackage from document codecs (Md, Plain, Amb), not paste.
+/// Server ParseFile ops from document codecs (Md, Plain, Amb).
 [<RequireQualifiedAccess>]
 module ImportDocument =
-
-    let private fileNameFromRelative (relativePath: string) =
-        relativePath.Replace('\\', '/').Trim('/').Split('/')
-        |> Array.last
-
-    let private stubGraph (documentRootId: NodeId) (relativePath: string) : Graph =
-        let graph0 = Graph.create ()
-        let name = fileNameFromRelative relativePath
-
-        let file =
-            Node.Create(
-                documentRootId,
-                text = name,
-                name = Filename.create name,
-                owner = graph0.root,
-                kind = Special File,
-                documentState = Unparsed)
-
-        Graph.addDetachedNode file graph0
-
-    let private packageFromCold
-        (sourcePath: string)
-        (relativePath: string)
-        (text: string)
-        : Result<DesktopImportPackage, string> =
-        DocumentParseLimits.refuseText text
-        |> Result.bind (fun () ->
-            if String.IsNullOrWhiteSpace text then
-                Error "cold import parser: text is empty"
-            else
-                DocumentBinary.refuseParse relativePath text
-                |> Result.bind (fun () ->
-                    let documentRootId = NodeId.New()
-                    let graph = stubGraph documentRootId relativePath
-
-                    DocumentColdParse.planApplyCold
-                        graph
-                        documentRootId
-                        relativePath
-                        text
-                    |> Result.bind (fun ops ->
-                        let topLevelIds, ops =
-                            DocumentColdParse.peelDocumentRootOps documentRootId ops
-
-                        if List.isEmpty topLevelIds && List.isEmpty ops then
-                            Error "cold import parser: produced no nodes"
-                        else
-                            Ok
-                                { sourcePath = sourcePath
-                                  isDirectory = false
-                                  topLevelIds = topLevelIds
-                                  ops = ops })))
-
-    /// Parse file text through DocumentFormat and return a paste-compatible package.
-    let buildFilePackage (sourcePath: string) (text: string) : Result<DesktopImportPackage, string> =
-        match NodeDesktopPath.artifactRelativeForReference sourcePath with
-        | Error err -> Error err
-        | Ok relativePath ->
-            packageFromCold sourcePath relativePath text
-
-    /// Non-directory text import via cold Plain (default `__paste__.txt`).
-    let buildTextPackage
-        (sourcePath: string)
-        (text: string)
-        (relativePath: string option)
-        : Result<DesktopImportPackage, string> =
-        let relativePath =
-            defaultArg relativePath DocumentColdParse.PasteRelativePath
-
-        packageFromCold sourcePath relativePath text
 
     /// Prior artifact bytes for warm reconcile (graph export, not disk).
     let private previousArtifactText
@@ -136,30 +66,3 @@ module ImportDocument =
 
                             markCurrent @ parseOps))
             | _ -> Error "file not found or not a File document")
-
-    /// Warm reconcile package (legacy shape). Prefer planParseFile for apply.
-    let buildReconcilePackage
-        (graph: Graph)
-        (fileId: NodeId)
-        (sourcePath: string)
-        (text: string)
-        : Result<DesktopImportPackage, string> =
-        match Map.tryFind fileId graph.nodes with
-        | Some { kind = Special File
-                 documentState = ds } when
-            DocumentState.toLegacy ds = PullingFile ->
-            Error "no file on server"
-        | Some { kind = Special File
-                 documentState = ds } when
-            DocumentState.toLegacy ds = Unparsed ->
-            Error "file is unparsed; use cold import"
-        | Some { kind = Special File
-                 documentState = ds } when
-            DocumentState.toLegacy ds = Current ->
-            planParseFile graph fileId text
-            |> Result.map (fun ops ->
-                { sourcePath = sourcePath
-                  isDirectory = false
-                  topLevelIds = []
-                  ops = ops })
-        | _ -> Error "file not found or not a File document"

@@ -35,7 +35,7 @@ let private applyChange (graph: Graph) (event: Ev) : Graph =
         | Error msg -> failwith msg
 
 [<Fact>]
-let ``buildFilePackage md heading produces nested replace ops`` () =
+let ``planParseFile md heading nests sections under the file`` () =
     let text =
         "# Agent Instructions"
         + Environment.NewLine
@@ -45,62 +45,40 @@ let ``buildFilePackage md heading produces nested replace ops`` () =
         + "- item"
         + Environment.NewLine
 
-    let package =
-        ImportDocument.buildFilePackage "//life/AGENTS.md" text
-        |> requireOk "build package"
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "AGENTS.md",
+            name = Filename.create "AGENTS.md",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+    let graph = Graph.addDetachedNode file graph0
 
-    Assert.Equal("//life/AGENTS.md", package.sourcePath)
-    Assert.False(package.isDirectory)
-    Assert.Equal(1, package.topLevelIds.Length)
-    Assert.NotEmpty(replaceOps package.ops)
+    let ops =
+        ImportDocument.planParseFile graph fileId text
+        |> requireOk "planParseFile"
+    Assert.NotEmpty(replaceOps ops)
 
-    let h1Id = package.topLevelIds.Head
-    let h1Children =
-        package.ops
-        |> List.tryPick (function
-            | Op.Replace(parentId, _, children) when parentId = h1Id ->
-                Some children
-            | _ -> None)
+    let after = applyChange graph {
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change ops
+    }
 
-    match h1Children with
-    | None -> failwith "expected nested children under h1"
-    | Some children ->
-        Assert.NotEmpty(children)
-        let h2Id = children.Head.id
-        let h2Children =
-            package.ops
-            |> List.tryPick (function
-                | Op.Replace(parentId, _, grandchildren) when parentId = h2Id ->
-                    Some grandchildren
-                | _ -> None)
-
-        match h2Children with
-        | None -> failwith "expected list item under h2"
-        | Some grandchildren -> Assert.NotEmpty(grandchildren)
+    let h1 = Graph.children after fileId
+    Assert.Equal(1, h1.Length)
+    let h2 = Graph.children after h1.Head.id
+    Assert.NotEmpty(h2)
+    Assert.NotEmpty(Graph.children after h2.Head.id)
 
 [<Fact>]
-let ``buildFilePackage md heading applies md-head and md-list classes`` () =
+let ``planParseFile md heading applies md-head and md-list classes`` () =
     let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
-    let package =
-        ImportDocument.buildFilePackage "//life/notes.md" text
-        |> requireOk "build package"
-
-    let hasMdHead =
-        package.ops
-        |> List.exists (function
-            | Op.SetClasses(_, _, classes) ->
-                CssClass.toList classes |> List.contains "md-head"
-            | _ -> false)
-
-    let hasMdList =
-        package.ops
-        |> List.exists (function
-            | Op.SetClasses(_, _, classes) ->
-                CssClass.toList classes |> List.contains "md-list"
-            | _ -> false)
-
-    Assert.True(hasMdHead, "expected SetClasses with md-head")
-    Assert.True(hasMdList, "expected SetClasses with md-list")
 
     let focusId = NodeId.New()
     let graph0 = Graph.create ()
@@ -147,48 +125,6 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
         + "- item"
         + Environment.NewLine,
         written)
-
-[<Fact>]
-let ``buildFilePackage rejects blank input`` () =
-    match ImportDocument.buildFilePackage "//life/empty.md" "  \n" with
-    | Ok _ -> failwith "expected blank import to fail"
-    | Error err -> Assert.Equal("cold import parser: text is empty", err)
-
-[<Fact>]
-let ``buildFilePackage rejects oversized text before graph materialization`` () =
-    let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
-    let text = String('x', actualCodeUnits)
-
-    match ImportDocument.buildFilePackage "//life/large.csv" text with
-    | Ok _ -> failwith "expected oversized import to fail"
-    | Error err ->
-        Assert.Equal(
-            DocumentParseLimits.errorForCodeUnits actualCodeUnits,
-            err)
-
-[<Fact>]
-let ``buildTextPackage Plain indent nesting under paste path`` () =
-    let text = "alpha" + Environment.NewLine + "\tbeta" + Environment.NewLine
-
-    let package =
-        ImportDocument.buildTextPackage "//paste" text None
-        |> requireOk "buildTextPackage"
-
-    Assert.False(package.isDirectory)
-    Assert.Equal(1, package.topLevelIds.Length)
-
-    let alphaId = package.topLevelIds.Head
-    let betaChildren =
-        package.ops
-        |> List.tryPick (function
-            | Op.Replace(parentId, _, children) when parentId = alphaId ->
-                Some children
-            | _ -> None)
-
-    match betaChildren with
-    | None -> failwith "expected nested child under alpha"
-    | Some children ->
-        Assert.Equal(1, children.Length)
 
 [<Fact>]
 let ``planParseFile md reorder updates child order`` () =
@@ -415,32 +351,6 @@ let ``planParseFile unparsed marks Current`` () =
 
     Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
     Assert.False(List.isEmpty (Graph.children after fileId))
-
-[<Fact>]
-let ``buildReconcilePackage rejects unparsed file`` () =
-    let graph0 = Graph.create ()
-    let fileId = NodeId.New()
-    let file =
-        Node.Create(
-            fileId,
-            text = "readme.txt",
-            name = Filename.create "readme.txt",
-            owner = graph0.root,
-            kind = Special File,
-            documentState = Unparsed)
-
-    let graph = Graph.addDetachedNode file graph0
-
-    match
-        ImportDocument.buildReconcilePackage
-            graph
-            fileId
-            "//life/readme.txt"
-            "alpha\n"
-    with
-    | Ok _ -> failwith "expected unparsed reconcile to fail"
-    | Error err ->
-        Assert.Equal("file is unparsed; use cold import", err)
 
 /// After upload/M, File is Unparsed but still owns prior children. Parse must
 /// warm-reconcile against that owner (not cold-replan Owners).

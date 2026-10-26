@@ -98,7 +98,6 @@
     <Compile Include="AmbleRun.fs" />
     <Compile Include="Amble.fs" />
     <Compile Include="Paste.fs" />
-    <Compile Include="ImportText.fs" />
     <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
