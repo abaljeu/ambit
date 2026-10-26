@@ -29,7 +29,7 @@ Source: `ImportText.fs`, `Api.fs`, `FileAgent.fs`, `DbAgent.fs`, `BootCache.fs`,
 
 ## 6. Open question (Alan)
 
-On staging, `ImportText.buildImportChange` and `buildDirectoryMergeChange` have no `src` caller. Only tests call them. Is pass 1 live code?
+On staging, `ImportText.buildImportChange` and `buildDirectoryMergeChange` have no `src` caller. Only tests call them. Is round 1 live code?
 
 ## 7. Done
 

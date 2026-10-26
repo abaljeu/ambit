@@ -27,7 +27,7 @@ Source: `WorkspaceUploadStructure.fs`, `UpdateWorkspaceSync.fs`, `WorkspaceCloud
 
 ## 6. Open question (Alan)
 
-`applyNodeParsed` also calls `pushParsedUnpersisted` and `noteParsed`. Is that right for an upload or reconcile parent that goes `Unparsed → Current` without a parse (passes 7 and 9)? Today `uploadOrArrival` hides it.
+`applyNodeParsed` also calls `pushParsedUnpersisted` and `noteParsed`. Is that right for an upload or reconcile parent that goes `Unparsed → Current` without a parse (rounds 7 and 9)? Today `uploadOrArrival` hides it.
 
 ## 7. Done
 

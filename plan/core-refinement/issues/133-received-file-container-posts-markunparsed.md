@@ -27,7 +27,7 @@ Source: `LazyLoadReconciliation.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoa
 
 ## 6. Open question (Alan)
 
-[121 — MarkUnparsed leaves Notice](121-markunparsed-leaves-notice.md) removes `Notice.MarkUnparsed`, which passes 8 and 11 use. If 121 lands first, which Notice covers `Current → Unparsed`?
+[121 — MarkUnparsed leaves Notice](121-markunparsed-leaves-notice.md) removes `Notice.MarkUnparsed`, which rounds 8 and 11 use. If 121 lands first, which Notice covers `Current → Unparsed`?
 
 ## 7. Done
 
