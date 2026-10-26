@@ -554,8 +554,20 @@ let ``planDirectoryReconcile logs NodeParsed beside SetDocumentState`` () =
             Directory.CreateDirectory(
                 Path.Combine(dataDir, "home", "docs"))
             |> ignore
+            Assert.False(parsedMsg host dirId)
+            Assert.False(wroteSet host dirId Current)
             push dirId
-            do! waitParsed host dirId
+            let! parsed =
+                waitUntil
+                    (fun () ->
+                        parsedMsg host dirId
+                        && documentState host dirId = Current)
+                    2000
+            Assert.True(parsed)
+            Assert.False(wroteSet host dirId Current)
+            CoreMailboxApi.postNotice host (Notice.NodeParsed dirId)
+            Assert.Equal(Current, documentState host dirId)
+            Assert.True(parsedMsg host dirId)
         finally
             CoreMailboxApi.dispose host
     }
