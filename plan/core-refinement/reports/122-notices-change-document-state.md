@@ -13,7 +13,7 @@ Each Notice that changes document state already has a ticket. No new ticket.
 - [73 — Add the NodeParsing and NodePersisting Notices](../issues/73-add-the-nodeparsing-and-nodepersisting-notices.md) already states `Notice.NodePersisting`: Unpersisted, parse state unchanged.
 - [100 — Core loop gates Persisted on the written version](../issues/100-core-loop-gates-persisted-on-the-written-version.md) already states `Notice.NodePersisted`: `persistedVersion`, `updateTime`, and Persisted when the written version has reached `changedVersion`.
 
-`Notice.NodeParsing` and `Notice.PersistFailed` leave document state unchanged. [121 — MarkUnparsed leaves Notice](../issues/121-markunparsed-leaves-notice.md) already covers `Notice.MarkUnparsed`.
+`Notice.NodeParsing` and `Notice.PersistFailed` leave document state unchanged. [121 — MarkUnparsed renamed NodeUnparsed](../issues/121-markunparsed-renamed-nodeunparsed.md) already covers `Notice.MarkUnparsed`.
 
 ## Index
 
