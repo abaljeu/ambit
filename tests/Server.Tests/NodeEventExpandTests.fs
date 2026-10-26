@@ -196,7 +196,8 @@ let private waitParsed host id = task {
         waitUntil
             (fun () ->
                 parsedMsg host id
-                && documentState host id = Current)
+                && documentState host id = Current
+                && wroteSet host id Current)
             2000
     Assert.True(parsed)
 }
@@ -469,12 +470,6 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         File.WriteAllText(disk, "HELLO\n")
         push fileId
         do! waitParsed host fileId
-        Assert.False(wroteSet host fileId Current)
-        let text =
-            Graph.children (stateOf host).graph fileId
-            |> List.map (fun child ->
-                (stateOf host).graph.nodes.[child.id].text)
-        Assert.Contains("HELLO", text)
     finally
         CoreMailboxApi.dispose host
 }

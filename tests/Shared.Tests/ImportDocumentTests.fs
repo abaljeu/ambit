@@ -361,10 +361,11 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
         ImportDocument.planParseFile graph fileId "  \n"
         |> requireOk "planParseFile blank"
 
-    Assert.False(
+    Assert.True(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, _, _) when id = fileId -> true
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
+                true
             | _ -> false))
 
     let after = applyChange graph {
@@ -439,10 +440,10 @@ let ``planParseFile unparsed marks Current`` () =
             ("alpha" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.False(
+    Assert.True(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, _, _) when id = fileId -> true
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId -> true
             | _ -> false))
 
     let after = applyChange graph {
@@ -514,11 +515,13 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
             ("ALPHA" + Environment.NewLine + "beta" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.False(
+    Assert.True(
         ops
         |> List.exists (function
-            | Op.SetDocumentState(id, _, _) when id = fileId -> true
-            | _ -> false))
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
+                true
+            | _ -> false),
+        "Unparsed → Current must lead the batch")
 
     let change =
         { id = EventId.zero

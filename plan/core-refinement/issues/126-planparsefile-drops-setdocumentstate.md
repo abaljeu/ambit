@@ -18,21 +18,20 @@ This is round 2 of [124 — Remove SetDocumentState one site at a time](124-remo
 
 Resolution (Alan 2026-10-26): delete the parse endpoint, `POST /ambit/file/parse`.
 
-- Delete the `/ambit/file/parse` route and `postParseRequest` in `RouteRegistration.fs`, `Api.postParseFile` and `Api.applyParseFile` in `Api.fs`, and the route's entry in `HttpResponseLog.fs`. `ParseThread` becomes the only caller of `planParseFile`.
-- Delete `Op.SetDocumentState(fileId, Unparsed, Current)` in `markCurrent`.
+- Delete the `/ambit/file/parse` route and `postParseRequest` in `RouteRegistration.fs`, `Api.postParseFile` and `Api.applyParseFile` in `Api.fs`, and the route's entry in `HttpResponseLog.fs`.
+- `planParseFile` and its `markCurrent` op stay. Load parses on the server: Load Order, then the mailbox, then ParseStack, then ParseThread, then `DocumentPersistWrite.planParseFile`, then `ImportDocument.planParseFile`. That path must not depend on `/parse`.
+
+126 deletes only the parse endpoint and its tests.
 
 Accepted breakage: web dev depends on the parse endpoint (`src/Client/App.fs` posts to `/ambit/file/parse`), so deleting it breaks web dev. That breakage is accepted; this ticket does not repair the client.
 
-126 deletes and replaces nothing. No Notice takes the place of the removed op, and nothing is inferred. If no call happens, there is nothing to do.
-
-Source: `ImportDocument.fs`, `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
+Source: `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
 
 ## 5. Tests
 
-[ ] `ImportDocumentTests`: the 8 facts #404 found, including `planParseFile blank input marks Unparsed file Current`
-[ ] `NodeEventExpandTests` `planParseFile logs NodeParsed beside SetDocumentState`
-[ ] `SpecialNodeStateAxesTests` `disk parse ops set Parsed and keep PersistState`
-[ ] `ChangeEndpointResilienceTests`: drop or rewrite the fact that posts to `/ambit/file/parse`
+[ ] `ChangeEndpointResilienceTests`: drop the fact that posts to `/ambit/file/parse`
+[ ] `SessionTests`: drop the fact that calls `postParseRequest`
+[ ] `NodeEventExpandTests` `planParseFile logs NodeParsed beside SetDocumentState`: drive the parse through ParseThread, not `Api.postParseFile`
 
 ## 6. Done
 
