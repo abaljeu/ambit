@@ -48,14 +48,14 @@ Write each section as a list, one finding per item. An empty section is one item
    - **Extra** — behavior the ticket and spec leave out.
    - **Unnamed** — a global type or interface the diff adds or changes that the ticket and spec leave unnamed.
 3. **Arch.** Check the diff against the story paths and the module map in `arch.md`. Each break is a **Blocker** and names the arch section and the code location.
-4. **Tests.** Check that each test the ticket named exists and checks what the ticket says. Record what `scripts/check-test.sh <pid>` prints.
+4. **Tests.** Check that each test Outputs names exists and checks what Outputs says. Record what `scripts/check-test.sh <pid>` prints.
 5. **Miss.** Name what returns the ticket to build:
    - each Hard finding
    - each Missing, Partial or Wrong finding
    - each Blocker
    - a named test that is missing
    - a failing test
-   - a test that checks something other than the ticket's done
+   - a test that checks something other than Outputs
 
 6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Write it as:
    - **Problem.** The perceived flaw.

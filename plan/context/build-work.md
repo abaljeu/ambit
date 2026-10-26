@@ -2,13 +2,13 @@
 
 ## 1. Work
 
-The work is the source the ticket names. Change that source when the build step is about to be worked.
+The work is the files Inputs names. Change those files when the build step is about to be worked.
 
 Start with [Cursor scope](cursor-scope.md) in `implement` mode. Fill from the ticket and that report.
 
 Scope:
 
-- Build edits source and tests, plus the ticket's status and checkboxes.
+- Build edits the files Outputs names, plus the ticket's status and checkboxes.
 - A flaw found in any other file (GLOSSARY, spec, arch, `doc/`, `project.md`, another ticket) goes in the PR body under **Found elsewhere**. Each item is:
   - **Problem.** The file, the line, and the perceived flaw.
   - **Fix.** What to do.
@@ -16,18 +16,16 @@ Scope:
 
 ## 2. Build template
 
-The ticket is the template. Read the ticket and the source it names.
+The ticket is the template. Read the ticket and the files Inputs names.
 
 ## 3. Fill
 
-1. **Tests.** Follow [[.agents/skills/tdd/SKILL.md]]. Write or change the tests the ticket names. 
-2. **Changes.** Make the changes the ticket names, in the files, types, and functions the ticket names.
-3. **Done checks.** Run the Done checks below. Commit and push only when those checks pass.
+1. **Process.** Follow [[.agents/skills/tdd/SKILL.md]]. Make the numbered edits, in the files Inputs names.
+2. **Outputs.** Leave the files and the tests Outputs names.
+3. **Check.** Run the ticket's Check. Commit and push only when that check passes.
 
 Done:
 
-- those changes exist in that source
-- Run `scripts/agent-test.sh` with no arguments.
-- If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
-- All executed tests pass.
+- those edits exist in the files Inputs names
+- the ticket's Check passes
 - the ticket status is `coded`

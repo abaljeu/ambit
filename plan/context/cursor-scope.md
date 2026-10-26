@@ -56,7 +56,7 @@ The report obeys numbers get names in [Refer by name](.agents/rules/refer-by-nam
 
 ## 4. Then
 
-`write-ticket`: Grok fills [ticket-work.md](ticket-work.md) from the report.
+`write-ticket`: Grok fills [ticket-work.md](ticket-work.md) from the report. Signatures, match sites, existing tests, and copy-from become Inputs. The write-ticket file lists become Outputs.
 
 `implement`: Grok fills [build-work.md](build-work.md) from the ticket and the report.
 
