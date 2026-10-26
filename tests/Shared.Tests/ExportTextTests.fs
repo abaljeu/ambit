@@ -15,9 +15,9 @@ let private requireOk = function
     | Ok value -> value
     | Error err -> failwith err
 
-let private requirePackage = function
-    | Ok package -> package
-    | Error err -> failwith $"Expected import package: {err}"
+/// Re-read exported text through the live paste parser.
+let private pastePackage (text: string) : NodeId list * Op list =
+    Paste.buildPasteOps (Paste.parsePasteText text)
 
 let private newNodeTexts (ops: Op list) : string list =
     ops
@@ -49,9 +49,9 @@ let ``serializeOwnedChildren single child`` () =
 
     Assert.Equal("alpha", text)
 
-    let package = ImportText.buildPackage "note.txt" text |> requirePackage
-    Assert.Equal<string list>([ "alpha" ], newNodeTexts package.ops)
-    Assert.Single(package.topLevelIds)
+    let topLevelIds, ops = pastePackage text
+    Assert.Equal<string list>([ "alpha" ], newNodeTexts ops)
+    Assert.Single(topLevelIds)
 
 [<Fact>]
 let ``serializeOwnedChildren sibling children`` () =
@@ -60,8 +60,8 @@ let ``serializeOwnedChildren sibling children`` () =
 
     Assert.Equal("alpha" + nl + "beta", text)
 
-    let package = ImportText.buildPackage "note.txt" text |> requirePackage
-    Assert.Equal<string list>([ "alpha"; "beta" ], newNodeTexts package.ops)
+    let topLevelIds, ops = pastePackage text
+    Assert.Equal<string list>([ "alpha"; "beta" ], newNodeTexts ops)
 
 [<Fact>]
 let ``serializeOwnedChildren nested owned child`` () =
@@ -70,10 +70,10 @@ let ``serializeOwnedChildren nested owned child`` () =
     let graph, grandIds = ModelBuilder.createNodes [ "nested" ] graph
     let graph = Graph.replace childId 0 [] (owned grandIds) graph |> requireOk
     let text = ExportText.serializeOwnedChildren graph parentId
-    let package = ImportText.buildPackage "note.txt" text |> requirePackage
+    let topLevelIds, ops = pastePackage text
 
     Assert.Equal("parent" + nl + "\tnested", text)
-    Assert.Equal<string list>([ "parent"; "nested" ], newNodeTexts package.ops)
+    Assert.Equal<string list>([ "parent"; "nested" ], newNodeTexts ops)
 
 [<Fact>]
 let ``serializeOwnedChildren omits ref children`` () =

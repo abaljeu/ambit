@@ -326,75 +326,6 @@ module LocalProxy =
         | Ok path -> do! writeFileStatus workspaceMap context path
     }
 
-    let private readDirectoryAsText (fullPath: string) : string =
-        let dir = DirectoryInfo fullPath
-
-        dir.EnumerateFileSystemInfos()
-        |> Seq.sortBy (fun e -> e.Name.ToLowerInvariant())
-        |> Seq.map (fun e ->
-            let name =
-                match e with
-                | :? DirectoryInfo -> e.Name + "/"
-                | _ -> e.Name
-
-            let ts = e.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
-            sprintf "[[%s]] %s" name ts)
-        |> String.concat "\n"
-
-    let private handleImport
-        (workspaceMap: Map<string, WorkspaceMapping>)
-        (context: HttpContext)
-        = task {
-        let! body = readRequestBody context
-
-        match decodePathRequest body with
-        | Error message -> do! writeBadRequest context message
-        | Ok path ->
-            match resolveLocalPath workspaceMap path with
-            | Error message -> do! writeBadRequest context message
-            | Ok fullPath ->
-                if not (File.Exists fullPath) && not (Directory.Exists fullPath) then
-                    do! writeBadRequest context "file not found"
-                else
-                    try
-                        if
-                            not (Directory.Exists fullPath)
-                            && DocumentBinary.isBinaryExtension path
-                        then
-                            do! writeBadRequest context DocumentBinary.parseError
-                        else
-                            let! text =
-                                if Directory.Exists fullPath then
-                                    Task.FromResult(readDirectoryAsText fullPath)
-                                else
-                                    File.ReadAllTextAsync(
-                                        fullPath,
-                                        context.RequestAborted)
-
-                            let packageResult =
-                                if Directory.Exists fullPath then
-                                    ImportText.buildPackage path text
-                                    |> Result.map (fun package ->
-                                        { package with isDirectory = true })
-                                else
-                                    ImportDocument.buildFilePackage path text
-
-                            match packageResult with
-                            | Error message ->
-                                do! writeBadRequest context message
-                            | Ok package ->
-                                let json =
-                                    Encode.toString
-                                        0
-                                        (Serialization.encodeDesktopImportPackage
-                                            package)
-
-                                do! writeJson context json
-                    with
-                    | :? IOException as ex ->
-                        do! writeBadRequest context ("read failed: " + ex.Message)
-    }
-
     let private handleImportGet
         (workspaceMap: Map<string, WorkspaceMapping>)
         (context: HttpContext)
@@ -447,10 +378,7 @@ module LocalProxy =
                     with
                     | :? IOException as ex ->
                         do! writeBadRequest context ("read failed: " + ex.Message)
-            | Ok validPath ->
-                let body = "{\"path\":" + quoteJson validPath + "}"
-                context.Request.Body <- new MemoryStream(Encoding.UTF8.GetBytes(body))
-                do! handleImport workspaceMap context
+            | Ok _ -> do! writeBadRequest context "content=1 is required"
     }
 
     let private handleExport

@@ -79,54 +79,6 @@ let ``buildFilePackage md heading produces nested replace ops`` () =
         | Some grandchildren -> Assert.NotEmpty(grandchildren)
 
 [<Fact>]
-let ``buildFilePackage md differs from paste flat siblings`` () =
-    let text = "# one" + Environment.NewLine + "plain" + Environment.NewLine + "## two" + Environment.NewLine
-
-    let documentPackage =
-        ImportDocument.buildFilePackage "//life/notes.md" text
-        |> requireOk "document package"
-
-    let pastePackage =
-        ImportText.buildPackage "//life/notes.md" text
-        |> requireOk "paste package"
-
-    Assert.Equal(1, documentPackage.topLevelIds.Length)
-    Assert.True(documentPackage.topLevelIds.Length < pastePackage.topLevelIds.Length)
-    Assert.True(replaceOps documentPackage.ops |> List.length > 0)
-
-[<Fact>]
-let ``buildFilePackage integrates with buildImportChange for md`` () =
-    let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
-    let package =
-        ImportDocument.buildFilePackage "//life/AGENTS.md" text
-        |> requireOk "build package"
-
-    let focusId = NodeId.New()
-    let graph0 = Graph.create ()
-    let file =
-        Node.Create(
-            focusId,
-            text = "AGENTS.md",
-            name = Filename.create "AGENTS.md",
-            owner = graph0.root,
-            kind = Special File,
-            documentState = Unparsed)
-
-    let graph = Graph.addDetachedNode file graph0
-
-    let change =
-        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
-
-    let after = applyChange graph change
-    let sectionId = (Graph.children after focusId).Head.id
-
-    Assert.Equal("section", after.nodes.[sectionId].text)
-    Assert.Equal(1, (Graph.children after sectionId).Length)
-    Assert.Equal(
-        "item",
-        after.nodes.[(Graph.children after sectionId).Head.id].text)
-
-[<Fact>]
 let ``buildFilePackage md heading applies md-head and md-list classes`` () =
     let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
     let package =
@@ -163,10 +115,17 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
 
     let graph = Graph.addDetachedNode file graph0
 
-    let change =
-        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
+    let ops =
+        ImportDocument.planParseFile graph focusId text
+        |> requireOk "planParseFile"
 
-    let after = applyChange graph change
+    let after = applyChange graph {
+        id = EventId.zero
+        submissionId = Guid.NewGuid()
+        authority = Authority "Browser"
+        commandName = ""
+        body = EventBody.Change ops
+    }
     let sectionId = (Graph.children after focusId).Head.id
     let itemId = (Graph.children after sectionId).Head.id
 

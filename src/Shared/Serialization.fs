@@ -435,15 +435,6 @@ module Serialization =
               "topLevelIds", package.topLevelIds |> List.map encodeNodeId |> Encode.list
               "ops", package.ops |> List.map encodeOp |> Encode.list ]
 
-    let decodeDesktopImportPackage: Decoder<DesktopImportPackage> =
-        Decode.object (fun get ->
-            { sourcePath = get.Required.Field "sourcePath" Decode.string
-              isDirectory =
-                get.Optional.Field "isDirectory" Decode.bool
-                |> Option.defaultValue false
-              topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
-              ops = get.Required.Field "ops" (Decode.list decodeOp) })
-
     // ---- Desktop Export ----
 
     let encodeDesktopExportRequest (request: DesktopExportRequest) : IEncodable =
