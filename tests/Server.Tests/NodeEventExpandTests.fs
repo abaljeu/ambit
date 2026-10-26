@@ -434,31 +434,6 @@ let ``incoming file emits NodeReceived`` () = task {
 }
 
 [<Fact>]
-let ``import logs NodeParsed beside SetDocumentState`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let fileId = addFile host wsId "note.txt"
-        let package =
-            ImportText.buildPackage "note.txt" "alpha"
-            |> requireOk "package"
-        let ops =
-            ImportText.buildImportChange
-                (stateOf host).graph
-                fileId
-                []
-                package
-                (Guid.NewGuid())
-            |> changeOps
-        Assert.False(parsedMsg host fileId)
-        do! postChange handle ops
-        assertBeside host fileId Current ops
-        Assert.True(parsedMsg host fileId)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<Fact>]
 let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
     let dataDir = newTempDir ()
     let host, _, wsId = admitHome dataDir

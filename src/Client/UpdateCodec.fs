@@ -247,9 +247,6 @@ let encodeDesktopFileStatusRequest (path: string) : string =
 let decodeDesktopFileStatusResponse (text: string) : Result<DesktopFileStatusResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopFileStatusResponse text
 
-let decodeDesktopImportPackage (text: string) : Result<DesktopImportPackage, string> =
-    Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopImportPackage text
-
 let decodeDesktopFileContent (text: string) : Result<string, string> =
     let decoder =
         Decode.object (fun get ->
