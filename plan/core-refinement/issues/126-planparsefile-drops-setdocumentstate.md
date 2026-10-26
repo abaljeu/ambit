@@ -23,11 +23,9 @@ Resolution (Alan 2026-10-26): delete the parse endpoint, `POST /ambit/file/parse
 
 Accepted breakage: web dev depends on the parse endpoint (`src/Client/App.fs` posts to `/ambit/file/parse`), so deleting it breaks web dev. That breakage is accepted; this ticket does not repair the client.
 
-Backend inference: a graph-only Change with command name `Parse` whose ops land inside an Unparsed File root infers a lead `NodeParsed fileId`. The rule goes in `DocumentOpImpact.inferNotices`; `ChangeAmendment.applyPosted` applies it ahead of the ops in `FileAgent` and `DbAgent`. `ParseThread.finishParse` still posts `NodeParsed` after the Change.
+126 deletes and replaces nothing. No Notice takes the place of the removed op, and nothing is inferred. If no call happens, there is nothing to do.
 
-Hard: a blank file has no parse ops left, so there is nothing to infer from. Only `finishParse` covers it. The shared facts fold `Op.apply` and never reach the backend.
-
-Source: `ImportDocument.fs`, `DocumentOpImpact.fs`, `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
+Source: `ImportDocument.fs`, `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
 
 ## 5. Tests
 

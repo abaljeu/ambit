@@ -65,17 +65,6 @@ module DocumentOpImpact =
                    | id, Unparsed, Current -> Some(Notice.NodeParsed id)
                    | _ -> None))
 
-    let private unparsedFileRoot (graph: Graph) (nodeId: NodeId) =
-        match DocumentPartition.documentRootForNode graph nodeId with
-        | None -> None
-        | Some rootId ->
-            match Map.tryFind rootId graph.nodes with
-            | Some node when
-                node.kind = Special File
-                && Node.documentStateEnum node = Unparsed ->
-                Some rootId
-            | _ -> None
-
     /// Node id an op names, when the op names one.
     let opAnchor (op: Op) : NodeId option =
         match op with
@@ -87,21 +76,6 @@ module DocumentOpImpact =
         | Op.SetDocumentState(id, _, _)
         | Op.Replace(id, _, _) -> Some id
         | Op.SetUpdateTime _ -> None
-
-    /// Parse ops inside an Unparsed File infer a lead NodeParsed for that file.
-    let inferNotices
-        (graph: Graph)
-        (commandName: string)
-        (ops: Op list)
-        : Notice list =
-        if commandName <> "Parse" then
-            []
-        else
-            ops
-            |> List.choose (fun op ->
-                opAnchor op |> Option.bind (unparsedFileRoot graph))
-            |> List.distinct
-            |> List.map Notice.NodeParsed
 
     let private ownerOf (graph: Graph) (op: Op) : NodeId option =
         opAnchor op

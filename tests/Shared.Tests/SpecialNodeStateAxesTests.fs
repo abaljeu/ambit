@@ -332,14 +332,8 @@ let ``directory file amb node is excluded from state axes`` () =
 
 let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
     let state = { graph = graph; eventId = EventId.zero }
-    let event =
-        { id = EventId.zero
-          submissionId = System.Guid.NewGuid()
-          authority = Authority "Parse"
-          commandName = "Parse"
-          body = EventBody.Change ops }
     let result, _, _ =
-        ChangeAmendment.applyPosted true event.id event ops state
+        ChangeAmendment.applyForCommand EventId.zero "Parse" ops state
     match result with
     | ApplyResult.Changed next
     | ApplyResult.Unchanged next -> next.graph
