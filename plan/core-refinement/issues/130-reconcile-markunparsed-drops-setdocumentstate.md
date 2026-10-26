@@ -43,7 +43,8 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`, `Do
 
 ## 8. Round
 
-[ ] `DocumentOpImpact.noticesBeside` posts `Notice.NodeUnparsed` beside `Op.SetDocumentState` from Current to Unparsed when the graph-only Change commits.
-[ ] This round leaves that enqueue in place.
-[ ] `git changed file posts NodeUnparsed beside SetDocumentState` in `NodeEventExpandTests` asserts that Notice for a modified file from `LazyLoadReconciliationServer.reconcileReceivedFiles`.
-[ ] `LazyLoadReconciliationApply.markUnparsed` still writes the `SetDocumentState` op.
+[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` builds `Notice.NodeUnparsed` for each plan op `SetDocumentState` from Current to Unparsed and posts that Notice on the core mailbox.
+[ ] `ReceivedFilesPosted.notices` is that post. `git load reconcile posts NodeUnparsed for a modified file` asserts one `Notice.NodeUnparsed` for the modified file.
+[ ] `DocumentOpImpact.noticesBeside` posts one further `Notice.NodeUnparsed` for the same op when the graph-only Change commits.
+[ ] For one modified Current file, the event log holds 2 `Notice.NodeUnparsed` rows: one from `reconcileReceivedFiles`, one from `noticesBeside`.
+[ ] `LazyLoadReconciliationApply.markUnparsed` writes the `SetDocumentState` op.

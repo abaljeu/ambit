@@ -15,6 +15,12 @@ module LazyLoadReconciliationServer =
           dataDir: string
           workspaceLabel: string }
 
+    /// Failures from the plan, and the Notices this reconcile posts itself.
+    type ReceivedFilesPosted = {
+        failures: LazyLoadReconciliationReport.Failure list
+        notices: Notice list
+    }
+
     /// Added Current Directory Files are skipped at finalize; do not read them.
     /// Modified / renamed / Unparsed / missing stubs still need artifact text.
     let private needsDirInfoArtifactRead
@@ -94,7 +100,7 @@ module LazyLoadReconciliationServer =
           graph: Graph
           changes: LazyLoadReconciliation.ChangedPath list
           artifactReads: LazyLoadReconciliation.ChangedPath list
-          beside: Op list -> unit }
+          beside: Op list -> Notice list }
 
     /// Last `PullingFile` to `Current` per node. A later state op drops it.
     /// `DocumentOpImpact.noticesBeside` has no Notice for that pair.
@@ -120,20 +126,24 @@ module LazyLoadReconciliationServer =
     let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
         postParsedParents host (parsedFromPulling ops)
 
+    let private parentNotices (parentIds: NodeId list) : Notice list =
+        parentIds |> List.map (fun id -> Notice.NodeParsed id)
+
+    let private postNotices (host: MailboxHost) (notices: Notice list) =
+        notices
+        |> List.iter (CoreMailboxApi.postNotice host)
+
     let private postReconcileReport
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
-        =
+        : Async<Result<ReceivedFilesPosted, string>> =
         async {
             logFailures listed.workspaceLabel report.failures
-            let postParents () =
-                postParsedParents
-                    listed.handle.host
-                    report.parsedParentIds
+            let parents = parentNotices report.parsedParentIds
             match report.ops with
             | [] ->
-                postParents ()
-                return Ok report.failures
+                postNotices listed.handle.host parents
+                return Ok { failures = report.failures; notices = parents }
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
@@ -142,10 +152,11 @@ module LazyLoadReconciliationServer =
                         (GraphOnlyChangeChunks.split ops)
                 match result with
                 | Ok () ->
-                    listed.beside ops
-                    postParents ()
+                    let notices = listed.beside ops @ parents
+                    postNotices listed.handle.host notices
                     postParsedFromPulling listed.handle.host ops
-                    return Ok report.failures
+                    return
+                        Ok { failures = report.failures; notices = notices }
                 | Error err -> return Error err
         }
 
@@ -206,12 +217,32 @@ module LazyLoadReconciliationServer =
             | _ -> None)
         |> List.distinct
 
+    /// `Current` to `Unparsed` in this plan. `markUnparsed` writes that op.
+    let private nodeUnparsedNotices (ops: Op list) : Notice list =
+        ops
+        |> List.choose (function
+            | Op.SetDocumentState(id, Current, Unparsed) -> Some id
+            | _ -> None)
+        |> List.distinct
+        |> List.map (fun id -> Notice.NodeUnparsed id)
+
+    let private receivedFileNotices
+        (graph: Graph)
+        (workspaceLabel: string)
+        (files: LazyLoadReconciliation.ChangedPath list)
+        (ops: Op list)
+        : Notice list =
+        let received =
+            receivedFileIds graph workspaceLabel files ops
+            |> List.map (fun id -> Notice.NodeReceived id)
+        received @ nodeUnparsedNotices ops
+
     /// Git pull. Each received file is marked. An added, removed, or renamed
     /// file marks its containing Directory. The list does not discover members.
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        : Async<Result<ReceivedFilesPosted, string>> =
         async {
             let! stateResult = CoreDoor.getState workspace.handle
             match stateResult with
@@ -229,15 +260,9 @@ module LazyLoadReconciliationServer =
                           changes = files
                           artifactReads = files
                           beside =
-                            fun ops ->
-                                receivedFileIds
-                                    stateResponse.graph
-                                    workspace.workspaceLabel
-                                    files
-                                    ops
-                                |> List.iter (fun id ->
-                                    CoreMailboxApi.postNotice
-                                        workspace.handle.host
-                                        (Notice.NodeReceived id)) }
+                            receivedFileNotices
+                                stateResponse.graph
+                                workspace.workspaceLabel
+                                files }
         }
 
