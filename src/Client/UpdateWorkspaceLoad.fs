@@ -152,12 +152,12 @@ let private holdFor (plan: WorkspaceUploadAction option) =
     | _ -> false
 
 let private mappingPresence (model: VM) : WorkspaceMappingPresence =
-    { githubLabels =
+    let labels =
         model.workspaceRemotes
         |> Map.toList
         |> List.map fst
         |> Set.ofList
-      localLabels = model.workspaceMappedLabels }
+    PathPick.mappingPresence labels model.workspaceMappedLabels
 
 let private loadFocusId (model: VM) : NodeId =
     match model.selectedNodes with

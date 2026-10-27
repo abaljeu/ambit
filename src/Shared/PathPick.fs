@@ -138,6 +138,13 @@ module PathPick =
         NodeDesktopPath.enclosingWorkspaceName graph nodeId
         |> Option.map normalizedLabel
 
+    let mappingPresence
+        (remoteLabels: Set<string>)
+        (localLabels: Set<string>)
+        : WorkspaceMappingPresence =
+        { githubLabels = remoteLabels
+          localLabels = localLabels }
+
     /// Plain Load chooses Git when that workspace has both mappings.
     let plainLoadPath
         (graph: Graph)
