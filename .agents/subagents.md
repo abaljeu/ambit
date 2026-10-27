@@ -4,7 +4,7 @@ Read [[CONTEXT.md]]. Once you are inside a top-level folder, that folder's CONTE
 
 ## Reporting
 Write your full result to `plan/<project-name>/reports/<subagent-title>.md`. Create `reports/` if needed. When a step's work file names another path, use that path.
-Reports are write-once.  Never edit a report.
+Reports are write-once.  Never edit a report, except to fix your own work.
 Never read a report unless following a link.
 
 ## Cheap Scope

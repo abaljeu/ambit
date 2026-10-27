@@ -159,24 +159,35 @@ module LazyLoadReconciliationReport =
                 |> Result.map (fun (finalGraph, parseOps) ->
                     finalGraph, fileOps @ parseOps, parentIds))
 
+    let private consOnto acc items =
+        List.fold (fun acc item -> item :: acc) acc items
+
     let private foldFinalizedAdds
         artifacts
         workspaceId
         (graph, ops, failures)
         items
         =
-        items
-        |> List.fold (fun (graph, ops, failures, parents) item ->
-            match finalizeAdded artifacts workspaceId graph item with
-            | Ok(next, nextOps, parentIds) ->
-                next, ops @ nextOps, failures, parents @ parentIds
-            | Error message ->
-                let itemInfo, _ = item
-                graph,
-                ops,
-                failures
-                @ [ { path = itemInfo.path; message = message } ],
-                parents) (graph, ops, failures, [])
+        let graph, revOps, revFailures, revParents =
+            items
+            |> List.fold (fun (graph, revOps, revFailures, revParents) item ->
+                match finalizeAdded artifacts workspaceId graph item with
+                | Ok(next, nextOps, parentIds) ->
+                    next,
+                    consOnto revOps nextOps,
+                    revFailures,
+                    consOnto revParents parentIds
+                | Error message ->
+                    let itemInfo, _ = item
+                    graph,
+                    revOps,
+                    { path = itemInfo.path; message = message } :: revFailures,
+                    revParents)
+                (graph, [], [], [])
+        graph,
+        ops @ List.rev revOps,
+        failures @ List.rev revFailures,
+        List.rev revParents
 
     let planChangedPathsWithArtifacts
         (graph: Graph)

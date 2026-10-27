@@ -112,15 +112,13 @@ module LazyLoadReconciliationServer =
             (fun acc id keep -> if keep then id :: acc else acc)
             []
 
-    let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
-        parsedFromPulling ops
-        |> List.iter (fun id ->
-            CoreMailboxApi.postNotice host (Notice.NodeParsed id))
-
     let private postParsedParents (host: MailboxHost) (parentIds: NodeId list) =
         parentIds
         |> List.iter (fun id ->
             CoreMailboxApi.postNotice host (Notice.NodeParsed id))
+
+    let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
+        postParsedParents host (parsedFromPulling ops)
 
     let private postReconcileReport
         (listed: ListedReconcile)
