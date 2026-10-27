@@ -60,7 +60,7 @@ type Notice =
     | PersistFailed of nodeId: NodeId * message: string
     | ActorStopped of focusId: NodeId * result: ActorResult
     | SearchStopped of rootId: NodeId
-    // Open decision: NodeUnpersisted of nodeId: NodeId.
+    | NodeUnpersisted of nodeId: NodeId
 
 type EventBody =
     | Order of Order
