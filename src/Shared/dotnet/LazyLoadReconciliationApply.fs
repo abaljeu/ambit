@@ -22,12 +22,12 @@ module internal LazyLoadReconciliationApply =
             | ApplyResult.Unchanged next, _, _ -> Ok next.graph
             | ApplyResult.Invalid(_, error), _, _ -> Error error
 
+    /// Records nothing. Callers keep the id. Notice.NodeUnparsed writes state.
     let markUnparsed (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
-        | Unparsed -> []
-        | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | PullingFile ->
-            [ Op.SetDocumentState(nodeId, PullingFile, Unparsed) ]
+        | Unparsed
+        | Current
+        | PullingFile -> []
 
     /// Directory or Workspace whose legacy document state is Unparsed.
     let private unparsedContainer (graph: Graph) nodeId =
