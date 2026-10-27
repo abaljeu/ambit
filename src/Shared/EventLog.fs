@@ -82,12 +82,30 @@ module EventLog =
     let afterCheckpoint (eventId: EventId) : EventLog =
         { empty with nextId = EventId.next eventId }
 
+    /// Persist Notices and parse Notices. Replay leaves the file and parse state.
+    let private replaySkipsNotice (notice: Notice) =
+        match notice with
+        | Notice.NodePersisting _
+        | Notice.NodePersisted _
+        | Notice.PersistFailed _
+        | Notice.NodeUnpersisted _
+        | Notice.NodeParsing _
+        | Notice.NodeParsed _
+        | Notice.NodeUnparsed _
+        | Notice.NodeReceived _
+        | Notice.NodeUploading _ -> true
+        | Notice.ParseFailed _ -> false
+
     let private applyRecover state event =
         let next =
-            match Ev.apply event state with
-            | ApplyResult.Changed next -> next
-            | ApplyResult.Unchanged next -> next
-            | ApplyResult.Invalid (next, _) -> next
+            match event.body with
+            | EventBody.Notice notice when replaySkipsNotice notice ->
+                state
+            | _ ->
+                match Ev.apply event state with
+                | ApplyResult.Changed next -> next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid (next, _) -> next
         { next with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.

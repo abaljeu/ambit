@@ -488,3 +488,66 @@ let ``commandName is on the Ev`` () =
     match ClientHistory.undoEvent recorded with
     | None -> failwith "expected Undo"
     | Some (undoEvent, _) -> Assert.Equal("Cut", undoEvent.commandName)
+
+let private fromOrder (id: EventId) (commandName: string) (order: Order) : Ev =
+    let message : MailboxLog.Ev = {
+        id = id
+        body =
+            MailboxLog.MailboxEventBody.Order {
+                orderId = OrderId.New()
+                authority = browser
+                commandName = Some commandName
+                order = order } }
+    match MailboxLog.toEv message with
+    | Ok stored -> stored
+    | Error error -> failwith error
+
+[<Fact>]
+let ``Replay sets persistState Unpersisted and ignores persist Notices`` () =
+    let fileId = NodeId.New()
+    let persisted = EventId.fromJson 2
+    let created =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    parseState = ParseState.Parsed
+                    persistState = PersistState.Persisted
+                    persistedVersion = persisted
+                    changedVersion = EventId.fromJson 1 } }
+    let graph = Graph.addDetachedNode node (Graph.create ())
+    let before = { graph = graph; eventId = EventId.fromJson 3 }
+    let changeId = EventId.fromJson 4
+    let ops = [ Op.SetText(fileId, "hello", "edited") ]
+    let change =
+        fromOrder changeId "Edit" (Order.Change(ops, ChangeOrigin.Edit))
+    let stamp = DateTime(2026, 10, 27, 0, 0, 0, DateTimeKind.Utc)
+    let written = EventId.fromJson 8
+    let notices =
+        [ EventBody.Notice (Notice.NodePersisting fileId)
+          EventBody.Notice (Notice.NodePersisted(fileId, written, stamp))
+          EventBody.Notice (Notice.PersistFailed(fileId, "disk"))
+          EventBody.Notice (Notice.NodeUnpersisted fileId)
+          EventBody.Notice (Notice.NodeParsing fileId)
+          EventBody.Notice (Notice.NodeParsed fileId)
+          EventBody.Notice (Notice.NodeUnparsed fileId)
+          EventBody.Notice (Notice.NodeReceived fileId)
+          EventBody.Notice (Notice.NodeUploading fileId) ]
+    let noticeEvents =
+        notices
+        |> List.mapi (fun index body ->
+            { event "Notice" body with id = EventId.fromJson (5 + index) })
+    let log =
+        EventLog.adoptNewestHead (List.rev (change :: noticeEvents))
+    let recovered, _ = EventLog.recover before log
+    let live = recovered.graph.nodes.[fileId]
+    Assert.Equal("edited", live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(changeId, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)
