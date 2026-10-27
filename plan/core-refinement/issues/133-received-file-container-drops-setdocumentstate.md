@@ -12,7 +12,7 @@ coding
 
 ## 3. Problem
 
-This is round 11 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). `LazyLoadReconciliation.unparsedStateOp` marks the containing Directory or Workspace Unparsed after an added, removed, or renamed file. It is appended after the file plan, so it wins over `markParentCurrent`. That is #399.
+This is round 11 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). `LazyLoadReconciliation.unparsedStateOp` marks the containing Directory or Workspace Unparsed after an added, removed, or renamed file. It is appended after the file plan, so it wins over `markParentCurrent`.
 
 ## 4. Change
 
@@ -26,7 +26,7 @@ Source: `LazyLoadReconciliation.fs`, `DocumentOpImpact.fs`.
 
 ## 5. Tests
 
-[ ] `LazyLoadReconciliationTests`: the 8 `received file …` facts #399 found
+[ ] `LazyLoadReconciliationTests`: the 8 `received file …` facts
 [ ] `LazyLoadReconciliationServerTests` `git pull add marks the containing directory Unparsed`
 
 ## 6. Decision (Alan)

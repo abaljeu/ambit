@@ -14,8 +14,8 @@ For now, this project only stashes what we've identified as broken. The fixes ar
 
 ## Broken
 
-1. **Upload no longer guarantees nodes.** Desktop-side node creation for uploaded files is gone. Parse-before-upload was deleted in #415–#417, and the upload structure markers in #419 (128/129). `planStubOps` now returns only create ops. Anything that expected upload to create or settle nodes is not guaranteed.
-2. **WebDAV file-present handler sets no document state.** `planServerFilePresentOps` dropped its `SetDocumentState` in #420 (127). Nothing replaces it yet.
+1. **Upload no longer guarantees nodes.** Desktop-side node creation for uploaded files is gone. Parse-before-upload was deleted, and the upload structure markers went with 128/129. `planStubOps` now returns only create ops. Anything that expected upload to create or settle nodes is not guaranteed.
+2. **WebDAV file-present handler sets no document state.** `planServerFilePresentOps` dropped its `SetDocumentState` (127). Nothing replaces it yet.
 3. **A parent goes Unparsed to Current without a parse.** Alan answered core-refinement 131 §6 as No: `applyNodeParsed`'s `pushParsedUnpersisted` and `noteParsed` are not right for an upload parent that becomes Current without a parse. The intended direction is to route such uploads through the existing Load channel, which invokes parse at the right moments. It is unknown whether Load supports everything that needs.
 4. **`upload emits NodeUploading` is order-dependent.** It fails when run alone, even on staging, so it stays disabled.
 
