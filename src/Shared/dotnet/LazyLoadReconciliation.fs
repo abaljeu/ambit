@@ -257,127 +257,31 @@ module LazyLoadReconciliation =
                 else
                     None))
 
-    let private parsesDirInfo
-        (artifacts: Map<string, string>)
-        (info: Path.PathInfo)
-        =
-        info.isDirInfo
-        && LazyLoadReconciliationApply.tryArtifactText artifacts info
-           |> Option.isSome
-
-    /// File, Directory, or Workspace a path names. A dir-info with
-    /// artifact text is parsed, so it has no unparsed target.
-    let internal modifiedControllingSpecial
-        (artifacts: Map<string, string>)
-        workspaceId
-        (graph: Graph)
-        (info: Path.PathInfo)
-        : Result<NodeId option, string> =
-        if parsesDirInfo artifacts info then
-            Ok None
-        else
-            Path.resolveInfo graph workspaceId info
-            |> Result.map (Option.map fst)
-
+    /// Ops for one modified path, and the node id passed to `markUnparsed`.
+    /// A resolve error is `Error` so the plan records a path failure.
     let internal invalidateOrParseModified
         (artifacts: Map<string, string>)
         workspaceId
         (current: Graph)
         (info: Path.PathInfo)
         =
-        if parsesDirInfo artifacts info then
+        if info.isDirInfo
+           && LazyLoadReconciliationApply.tryArtifactText artifacts info
+              |> Option.isSome then
             LazyLoadReconciliationApply.parseDirInfoIfPresent
                 current
                 workspaceId
                 artifacts
                 info
+            |> Result.map (fun (next, ops) -> next, ops, [])
         else
-            modifiedControllingSpecial artifacts workspaceId current info
+            Path.resolveInfo current workspaceId info
             |> Result.bind (function
-                | None -> Ok(current, [])
-                | Some nodeId ->
+                | None -> Ok(current, [], [])
+                | Some(nodeId, _) ->
                     let ops = markUnparsed current nodeId
                     applyOps current ops
-                    |> Result.map (fun next -> next, ops))
-
-    /// Renamed File on the pre-plan graph. `markUnparsed` receives this id.
-    let internal renamedFileSpecial
-        (graph: Graph)
-        (workspaceLabel: string)
-        (oldPath: string)
-        : NodeId option =
-        match resolveOwnedPath graph workspaceLabel oldPath with
-        | Ok(Some(id, File)) -> Some id
-        | _ -> None
-
-    let internal renameFailed (failed: Set<string>) oldPath newPath =
-        failed.Contains(oldPath + " -> " + newPath)
-        || failed.Contains(oldPath)
-        || failed.Contains(newPath)
-
-    let private currentSpecial (graph: Graph) (nodeId: NodeId) =
-        match Map.tryFind nodeId graph.nodes with
-        | Some node when Node.documentStateEnum node = Current ->
-            Some nodeId
-        | _ -> None
-
-    let private modifiedSpecialIds
-        (artifacts: Map<string, string>)
-        workspaceId
-        (graph: Graph)
-        (changes: ChangedPath list)
-        =
-        changes
-        |> List.fold (fun result change ->
-            result
-            |> Result.bind (fun acc ->
-                match change with
-                | Modified path ->
-                    match Path.classifyValidated path with
-                    | Ok(Some info) ->
-                        match
-                            modifiedControllingSpecial
-                                artifacts
-                                workspaceId
-                                graph
-                                info
-                        with
-                        | Ok(Some id) -> Ok(id :: acc)
-                        | _ -> Ok acc
-                    | _ -> Ok acc
-                | _ -> Ok acc)) (Ok [])
-
-    let private renamedSpecialIds
-        (graph: Graph)
-        (workspaceLabel: string)
-        (failed: Set<string>)
-        (changes: ChangedPath list)
-        =
-        changes
-        |> List.choose (function
-            | Renamed(oldPath, newPath) when
-                not (renameFailed failed oldPath newPath) ->
-                renamedFileSpecial graph workspaceLabel oldPath
-            | _ -> None)
-
-    /// Current controlling Specials `markUnparsed` receives for a git pull.
-    /// Modified paths and renamed Files. The id is the resolved node.
-    let nodeUnparsedIds
-        (graph: Graph)
-        (workspaceLabel: string)
-        (changes: ChangedPath list)
-        (artifacts: Map<string, string>)
-        (failed: Set<string>)
-        : Result<NodeId list, string> =
-        GraphQuery.trySyncRootByLabel graph workspaceLabel
-        |> Result.bind (fun workspaceId ->
-            modifiedSpecialIds artifacts workspaceId graph changes
-            |> Result.map (fun modified ->
-                let renamed =
-                    renamedSpecialIds graph workspaceLabel failed changes
-                (List.rev modified) @ renamed
-                |> List.choose (currentSpecial graph)
-                |> List.distinct))
+                    |> Result.map (fun next -> next, ops, [ nodeId ]))
 
     let private changePaths change =
         match change with
@@ -567,7 +471,14 @@ module LazyLoadReconciliation =
                             added)
                     |> Result.bind (fun afterAdds ->
                         foldPlans
-                            (invalidateOrParseModified artifacts workspaceId)
+                            (fun current info ->
+                                invalidateOrParseModified
+                                    artifacts
+                                    workspaceId
+                                    current
+                                    info
+                                |> Result.map (fun (next, ops, _) ->
+                                    next, ops))
                             afterAdds
                             modified)
                     |> Result.bind (fun (finalGraph, planned) ->

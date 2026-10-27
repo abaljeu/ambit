@@ -43,11 +43,10 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`, `Do
 
 ## 8. Round
 
-[ ] `modifiedControllingSpecial` and `renamedFileSpecial` name the File, Directory, or Workspace `markUnparsed` receives.
-[ ] `nodeUnparsedIds` keeps the Current ids from that calculation. It reads no `SetDocumentState` op.
-[ ] `reconcileReceivedFiles` posts `Notice.NodeUnparsed` for those ids.
-[ ] `git load reconcile posts NodeUnparsed for a modified file` asserts the posted ids equal `nodeUnparsedIds` for a modified Current file and a renamed Current file.
-[ ] A resolve error from `modifiedControllingSpecial` on one Modified path yields no id in `nodeUnparsedIds`.
-[ ] `foldItems` in `LazyLoadReconciliationReport` records that path failure and keeps the other ops.
-[ ] `git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file` asserts the normal file's Notice, the failure, and `GithubTransportActor.finishLoadPull` returns Ok.
+[ ] `Report.unparsedIds` lists each node id passed to `markUnparsed` while the plan is built.
+[ ] `reconcileReceivedFiles` posts `Notice.NodeUnparsed` for each Current `DocumentPartition.documentRootForNode` of those ids.
+[ ] A resolve error on a Modified path is a path failure. That path adds no id. The other paths continue.
+[ ] A failed rename adds no id.
+[ ] `git load reconcile posts NodeUnparsed for a modified file` covers a modified Current file and a renamed Current file.
+[ ] `git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file` asserts the failure, the other file's Notice, and `GithubTransportActor.finishLoadPull` returns Ok.
 [ ] `DocumentOpImpact.noticesBeside` and `LazyLoadReconciliationApply.markUnparsed` are unchanged.

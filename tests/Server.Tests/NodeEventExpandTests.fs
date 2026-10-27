@@ -140,6 +140,11 @@ let private received host id =
         | Notice.NodeReceived found -> found = id
         | _ -> false)
 
+let private loggedUnparsed host id =
+    hasCase host (function
+        | Notice.NodeUnparsed found -> found = id
+        | _ -> false)
+
 let private placeFile (dataDir: string) (rel: string) (text: string) =
     let full =
         Path.Combine(
@@ -334,15 +339,16 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
             LazyLoadReconciliation.Modified "note.txt"
             LazyLoadReconciliation.Renamed("old.txt", "renamed.txt")
         ]
-        let ids =
-            LazyLoadReconciliation.nodeUnparsedIds
+        let planned =
+            LazyLoadReconciliationReport.planReceivedFiles
                 (stateOf host).graph
                 "home"
                 changes
                 Map.empty
-                Set.empty
-            |> requireOk "ids"
-        Assert.Equal<NodeId list>([ fileId; renamedId ], ids)
+            |> requireOk "plan"
+        Assert.Equal<NodeId list>(
+            [ fileId; renamedId ],
+            planned.unparsedIds)
         let! pulled =
             LazyLoadReconciliationServer.reconcileReceivedFiles
                 { handle = handle
@@ -350,13 +356,9 @@ let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
                   workspaceLabel = "home" }
                 changes
             |> Async.StartAsTask
-        let posted = requireOk "pull" pulled
-        let direct =
-            posted.notices
-            |> List.choose (function
-                | Notice.NodeUnparsed found -> Some found
-                | _ -> None)
-        Assert.Equal<NodeId list>(ids, direct)
+        requireOk "pull" pulled |> ignore
+        Assert.True(loggedUnparsed host fileId)
+        Assert.True(loggedUnparsed host renamedId)
     finally
         CoreMailboxApi.dispose host
 }
@@ -374,15 +376,6 @@ let ``git load reconcile reports a modified kind conflict and posts NodeUnparsed
                 LazyLoadReconciliation.Modified "docs"
                 LazyLoadReconciliation.Modified "note.txt"
             ]
-            let ids =
-                LazyLoadReconciliation.nodeUnparsedIds
-                    (stateOf host).graph
-                    "home"
-                    changes
-                    Map.empty
-                    Set.empty
-                |> requireOk "ids"
-            Assert.Equal<NodeId list>([ fileId ], ids)
             let! pulled =
                 LazyLoadReconciliationServer.reconcileReceivedFiles
                     { handle = handle
@@ -390,15 +383,10 @@ let ``git load reconcile reports a modified kind conflict and posts NodeUnparsed
                       workspaceLabel = "home" }
                     changes
                 |> Async.StartAsTask
-            let posted = requireOk "pull" pulled
-            let direct =
-                posted.notices
-                |> List.choose (function
-                    | Notice.NodeUnparsed found -> Some found
-                    | _ -> None)
-            Assert.Equal<NodeId list>(ids, direct)
+            let failures = requireOk "pull" pulled
+            Assert.True(loggedUnparsed host fileId)
             Assert.Contains(
-                posted.failures,
+                failures,
                 fun failure ->
                     failure.path = "docs"
                     && failure.message.Contains("kind conflict"))
