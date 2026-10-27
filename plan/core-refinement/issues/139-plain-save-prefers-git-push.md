@@ -30,6 +30,6 @@ Source: `PathPick.fs`, and the client or server Save routing that leads to the d
 
 ## 6. Done
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
-[ ] All executed tests pass.
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
+[x] All executed tests pass.
