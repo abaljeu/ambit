@@ -95,7 +95,7 @@ module LazyLoadReconciliationServer =
           changes: LazyLoadReconciliation.ChangedPath list
           artifactReads: LazyLoadReconciliation.ChangedPath list
           renamedDirIds: NodeId list
-          beside: Op list -> unit }
+          beside: LazyLoadReconciliationReport.Report -> unit }
 
     let private postNotices
         (host: MailboxHost)
@@ -139,9 +139,11 @@ module LazyLoadReconciliationServer =
                     host
                     Notice.NodeParsed
                     (report.parsedDirIds @ listed.renamedDirIds)
+            let postReceived () = listed.beside report
             postDirParsing ()
             match report.ops with
             | [] ->
+                postReceived ()
                 postMarks ()
                 postDirParsed ()
                 return Ok report.failures
@@ -153,7 +155,7 @@ module LazyLoadReconciliationServer =
                         (GraphOnlyChangeChunks.split ops)
                 match result with
                 | Ok () ->
-                    listed.beside ops
+                    postReceived ()
                     postMarks ()
                     postDirParsed ()
                     return Ok report.failures
@@ -182,24 +184,17 @@ module LazyLoadReconciliationServer =
                 return! postReconcileReport listed report
         }
 
-    /// Existing File nodes the git pull marks Unparsed: a Modified file
-    /// not yet Unparsed, an Added path that names a PullingFile stub,
-    /// and a Renamed file whose plan marks that node Unparsed.
+    /// Modified file not yet Unparsed, or an Added PullingFile stub.
+    /// Renamed ids are Report.renamedReceivedIds, not ops.
     let private receivedFileIds
         (graph: Graph)
         (workspaceLabel: string)
         (files: LazyLoadReconciliation.ChangedPath list)
-        (ops: Op list)
         : NodeId list =
         let existingFile path =
             match LazyLoadReconciliation.resolveOwnedPath graph workspaceLabel path with
             | Ok(Some(id, File)) -> Some(id, Node.documentStateEnum graph.nodes.[id])
             | _ -> None
-        let planMarksUnparsed id =
-            ops
-            |> List.exists (function
-                | Op.SetDocumentState(found, _, Unparsed) -> found = id
-                | _ -> false)
         files
         |> List.choose (function
             | LazyLoadReconciliation.Modified path ->
@@ -209,10 +204,6 @@ module LazyLoadReconciliationServer =
             | LazyLoadReconciliation.Added path ->
                 match existingFile path with
                 | Some(id, PullingFile) -> Some id
-                | _ -> None
-            | LazyLoadReconciliation.Renamed(oldPath, _) ->
-                match existingFile oldPath with
-                | Some(id, _) when planMarksUnparsed id -> Some id
                 | _ -> None
             | _ -> None)
         |> List.distinct
@@ -284,12 +275,13 @@ module LazyLoadReconciliationServer =
                                 workspace.workspaceLabel
                                 changedPaths
                           beside =
-                            fun ops ->
+                            fun report ->
                                 receivedFileIds
                                     stateResponse.graph
                                     workspace.workspaceLabel
                                     files
-                                    ops
+                                |> List.append report.renamedReceivedIds
+                                |> List.distinct
                                 |> List.iter (fun id ->
                                     CoreMailboxApi.postNotice
                                         workspace.handle.host
