@@ -26,7 +26,7 @@ The ticket is the template. Read the ticket and the files Inputs names.
 
 1. **Process.** Follow [[.agents/skills/tdd/SKILL.md]]. Make the numbered edits, in the files Inputs names.
 2. **Outputs.** Leave the files and the tests Outputs names.
-3. **Check.** Run the ticket's Check. Commit and push only when that check passes.
+3. **Check.** Run the ticket's Check. Also name each test the build added or changed that the ticket does not name, and run `scripts/agent-test.sh --filter` for it. Commit and push only when that check passes.
 
 Done:
 
