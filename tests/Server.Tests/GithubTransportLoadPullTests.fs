@@ -32,6 +32,13 @@ let private readGraph (host: MailboxHost) =
     |> requireOk "state"
     |> fun state -> state.graph
 
+let private markCurrent (host: MailboxHost) (nodeId: NodeId) =
+    CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId)
+    let graph = readGraph host
+    match Map.tryFind nodeId graph.nodes with
+    | Some node when Node.documentStateEnum node = Current -> ()
+    | _ -> Assert.Fail("NodeParsed did not set Current")
+
 let private seedDocs (host: MailboxHost) =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
@@ -39,10 +46,8 @@ let private seedDocs (host: MailboxHost) =
     let graph = readGraph host
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph workspaceId "docs"
-    postChange
-        host
-        (docsOps
-         @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    postChange host docsOps
+    markCurrent host docsId
     workspaceId, docsId
 
 let private fileNamed (graph: Graph) parentId name =
@@ -159,9 +164,8 @@ let private seedCurrentFile (host: MailboxHost) parentId name =
     let graph = readGraph host
     let fileId, ops =
         FileNodeOps.planCreateOwnedFile graph parentId name
-    postChange
-        host
-        (ops @ [ Op.SetDocumentState(fileId, Unparsed, Current) ])
+    postChange host ops
+    markCurrent host fileId
     fileId
 
 let private cloneRemote dataDir root =

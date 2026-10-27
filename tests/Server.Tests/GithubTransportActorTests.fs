@@ -58,22 +58,37 @@ type private Seed =
       commandId: NodeId
       focusId: NodeId }
 
+let private markCurrent host nodeId =
+    CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId)
+    let state =
+        CoreMailboxApi.getState host
+        |> Async.RunSynchronously
+        |> requireOk "mark current"
+    match Map.tryFind nodeId state.graph.nodes with
+    | Some node when Node.documentStateEnum node = Current ->
+        state.graph
+    | _ ->
+        Assert.Fail("NodeParsed did not set Current")
+        Unchecked.defaultof<_>
+
 let private seedOperation host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let commandId = NodeId.New()
     let focusId = NodeId.New()
-    let ops =
-        workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
-            Op.NewNode(focusId, "subnode")
-            Op.Replace(
-                workspaceId,
-                [],
-                [ ChildNode.owner commandId
+    postGraph host workspaceOps
+    let graph = markCurrent host workspaceId
+    let children = Graph.children graph workspaceId
+    postGraph
+        host
+        [ Op.NewNode(commandId, operationName)
+          Op.NewNode(focusId, "subnode")
+          Op.Replace(
+              workspaceId,
+              children,
+              children
+              @ [ ChildNode.owner commandId
                   ChildNode.owner focusId ]) ]
-    postGraph host ops
     { workspaceId = workspaceId
       commandId = commandId
       focusId = focusId }
