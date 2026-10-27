@@ -11,20 +11,20 @@
 
 ## What to build
 
-`Op.SetDocumentState` leaves `CoreMsg` and the Op list. No `Notice.SetDocumentState` case is added. No `EventBody.SetDocumentState` case is added. The Unpersisted mark after an ordinary edit is `Notice.NodeUnpersisted of nodeId`. The server's Change handler posts it through the notice function. Parsed comes from `NodeParsed`. `Notice.MarkUnparsed` leaves `Notice` and `CoreMailboxLoad.applyNotice`.
+`Op.SetDocumentState` leaves `CoreMsg` and the Op list. No `Notice.SetDocumentState` case is added. No `EventBody.SetDocumentState` case is added. The Unpersisted mark after an ordinary edit is `Notice.NodeUnpersisted of nodeId`. The core applier logs it when it applies the Change. Parsed comes from `NodeParsed`. `Notice.MarkUnparsed` leaves `Notice` and `CoreMailboxLoad.applyNotice`.
 
 ### 1. Contract
 
 1. [ ] **Leave CoreMsg and the Op list** — Remove `Op.SetDocumentState` from the `Op` union in `src/Shared/History.fs`, from `Op.apply`, from Op undo invert, and from the JSON codec in `src/Shared/Serialization.fs`. Planners and handlers do not put `Op.SetDocumentState` on a `CoreMsg`.
-2. [ ] **NodeUnpersisted** — Add `Notice.NodeUnpersisted of nodeId` in `src/Server/Core/CoreMsg.fs`. `CoreMailboxLoad.applyNotice` accepts that case and marks that node Unpersisted. At the Expand rename the case is `Notice.NodeUnpersisted`.
-3. [ ] **Change handler** — After an ordinary edit, `CoreEventDispatch.postEvent` posts `Notice.NodeUnpersisted of nodeId` through `CoreMailboxApi.postNotice`.
+2. [ ] **NodeUnpersisted** — `Notice.NodeUnpersisted of nodeId` in `src/Shared/History.fs`. `CoreMailboxLoop.applyNotice` marks that node Unpersisted.
+3. [ ] **Change handler** — After an ordinary edit is stored, `CoreEventDispatch.markForPersist` logs `Notice.NodeUnpersisted of nodeId` for each owning special through `CoreEventDispatch.logNotice`, then marks it Unpersisted.
 4. [ ] **Remove MarkUnparsed** — Remove `Notice.MarkUnparsed` from `Notice` and from `CoreMailboxLoad.applyNotice`.
 
 ### Acceptance Criteria
 
 1. [ ] **Op test** — `SetDocumentState leaves the Op list`. `Op` has no `SetDocumentState`. The JSON codec in `src/Shared/Serialization.fs` does not encode or decode `SetDocumentState`. A `CoreMsg` Change does not carry that op.
 2. [ ] **No SetDocumentState case** — `no SetDocumentState message case`. `Notice` has no `SetDocumentState`. `EventBody` has no `SetDocumentState`.
-3. [ ] **Ordinary edit test** — `ordinary edit posts NodeUnpersisted`. `CoreEventDispatch.postEvent` applies an ordinary edit and posts `Notice.NodeUnpersisted` of the edited node id through `CoreMailboxApi.postNotice`. `CoreMailboxLoad.applyNotice` marks that node Unpersisted.
+3. [ ] **Ordinary edit test** — `ordinary edit posts NodeUnpersisted`. `CoreEventDispatch.postEvent` applies an ordinary edit. The event log shows `Notice.NodeUnpersisted` of its owning special after the Change, and that node is Unpersisted.
 4. [ ] **Parsed test** — `parsed comes from NodeParsed`. `CoreMailboxLoad.applyNotice` sets Parsed from `Notice.NodeParsed`.
 5. [ ] **MarkUnparsed test** — `MarkUnparsed leaves Notice`. `Notice` has no `MarkUnparsed`. `CoreMailboxLoad.applyNotice` has no `MarkUnparsed` case.
 
