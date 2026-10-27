@@ -51,7 +51,7 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`.
 [ ] `parsedFromPulling` and `postParsedFromPulling` are gone.
 [ ] `DocumentOpImpact.noticesBeside` is unchanged.
 [ ] `CoreMailboxFilesAxis.applyNodeParsed` still sets legacy DocumentState to Current.
-[ ] `git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse` checks that order on a Current directory. The fact holds with the `markCurrent` arms emptied.
+[ ] `git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse` checks that order on a Current directory.
 [ ] `parseDirInfoIfPresent` keeps the `Unparsed`, `PullingFile`, and `Current` branch for previous artifact text. That function emits no `Op.SetDocumentState`.
 [ ] `ChangeAmendment.applyPosted` with graph-only true, and `ChangeAmendment.applyForGraphOnly`, apply with `guardUnparsed` false. That apply allows outline ops on an Unparsed document.
 [ ] `LazyLoadReconciliationApply.applyOps` uses that same graph-only apply.
