@@ -734,16 +734,10 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let seedOps =
         ImportDocument.planParseFile seededGraph fileId seedBody
         |> requireOk "seed planParseFile"
+    assertNoSetDocumentState seedOps
     let seeded =
-        match
-            SpecialNodeTestHelpers.applyChange
-                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
-        with
-        | ApplyResult.Changed s -> s.graph
-        | ApplyResult.Unchanged s -> s.graph
-        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+        applyNodeParsed (applyParse seededGraph seedOps) fileId
+    Assert.Equal(Current, seeded.nodes.[fileId].documentState.AsEnum)
 
     let sectionId = (Graph.children seeded fileId).[0].id
     let otherId = (Graph.children seeded fileId).[1].id
@@ -828,16 +822,10 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let seedOps =
         ImportDocument.planParseFile seededGraph fileId seedBody
         |> requireOk "seed planParseFile"
+    assertNoSetDocumentState seedOps
     let seeded =
-        match
-            SpecialNodeTestHelpers.applyChange
-                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
-        with
-        | ApplyResult.Changed s -> s.graph
-        | ApplyResult.Unchanged s -> s.graph
-        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+        applyNodeParsed (applyParse seededGraph seedOps) fileId
+    Assert.Equal(Current, seeded.nodes.[fileId].documentState.AsEnum)
 
     let listingId = (Graph.children seeded fileId).[0].id
     let midId = (Graph.children seeded fileId).[1].id
