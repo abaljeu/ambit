@@ -52,7 +52,8 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`.
 [ ] `DocumentOpImpact.noticesBeside` is unchanged.
 [ ] `CoreMailboxFilesAxis.applyNodeParsed` still sets legacy DocumentState to Current.
 [ ] `git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse` checks that order on a Current directory. The fact holds with the `markCurrent` arms emptied.
-[ ] Both `markCurrent` arms in `parseDirInfoIfPresent` remain.
-[ ] Emptying both arms makes `Op.apply` fail with `operation cannot modify an unparsed document; parse it first` for `exact amb add with text parses outline immediately`, `exact amb modify with text reparses instead of leaving unparsed`, `exact amb modify warm keeps node id on text edit`, `disk parse of a directory sets Parsed and keeps PersistState`, `new Directory File Added still parses outline`, and `rediscovered Unparsed Directory File still parses on Added`.
-[ ] With the arms emptied, `rediscovered Current Directory Files skip parse on Added` fails because the outline child list is empty.
-[ ] Those failures are the outline apply. The tests do not assert that a `SetDocumentState` op is present.
+[ ] `parseDirInfoIfPresent` keeps the `Unparsed`, `PullingFile`, and `Current` branch for previous artifact text. That function emits no `Op.SetDocumentState`.
+[ ] `ChangeAmendment.applyPosted` with graph-only true, and `ChangeAmendment.applyForGraphOnly`, apply with `guardUnparsed` false. That apply allows outline ops on an Unparsed document.
+[ ] `LazyLoadReconciliationApply.applyOps` uses that same graph-only apply.
+[ ] `Notice.NodeParsing` still changes nothing. `Notice.NodeParsed` after the Change sets legacy Current.
+[ ] `git load reconcile parses an Unparsed directory file and NodeParsed sets Current` checks the outline text and legacy Current.

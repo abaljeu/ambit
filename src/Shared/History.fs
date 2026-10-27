@@ -273,17 +273,10 @@ module Op =
     let internal guardsUnparsedDocument (commandName: string) =
         commandName <> "Parse"
 
+    /// Graph-only post passes guardUnparsed false. Outline ops may edit an
+    /// Unparsed document. Every other apply keeps the strict gate.
     let private blockedForApply guardUnparsed op graph =
-        match guardUnparsed, op with
-        | false, Op.Replace(parentId, oldChildren, newChildren) when
-            (let n = List.length oldChildren
-             List.length newChildren >= n
-             && List.take n newChildren = oldChildren
-             && List.forall (fun child ->
-                 Node.childOwnership graph parentId child = Ownership.Owner
-                 && DocumentPartition.isDocumentRootNode graph child.id)
-                 (List.skip n newChildren)) -> false
-        | _ -> isBlockedByInaccessibleDocument op graph
+        guardUnparsed && isBlockedByInaccessibleDocument op graph
 
     let internal applyAllowing guardUnparsed changedVersion op state =
         if blockedForApply guardUnparsed op state.graph then

@@ -378,6 +378,58 @@ let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-i
     }
 
 [<Fact>]
+let ``git load reconcile parses an Unparsed directory file and NodeParsed sets Current`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            Assert.Equal(Unparsed, documentState host docsId)
+            placeFile
+                dataDir
+                "docs/.amb"
+                ("outline body" + Environment.NewLine)
+            do!
+                pullReceived
+                    host
+                    handle
+                    dataDir
+                    [ LazyLoadReconciliation.Modified "docs/.amb" ]
+            let ordered =
+                (stateOf host) |> ignore
+                CoreMailboxApi.eventsSince host EventId.zero
+                |> Async.RunSynchronously
+                |> fun log ->
+                    log.events
+                    |> List.sortBy (fun event -> EventId.value event.id)
+            let parsingAt =
+                ordered
+                |> List.findIndex (function
+                    | { body = EventBody.Notice (Notice.NodeParsing id) } ->
+                        id = docsId
+                    | _ -> false)
+            let after = List.skip (parsingAt + 1) ordered
+            let untilParsed =
+                after
+                |> List.takeWhile (function
+                    | { body = EventBody.Notice (Notice.NodeParsed id) } ->
+                        id <> docsId
+                    | _ -> true)
+            Assert.True(after.Length > untilParsed.Length)
+            Assert.True(
+                untilParsed
+                |> List.exists (function
+                    | { body = EventBody.Change _ } -> true
+                    | _ -> false))
+            let graph = (stateOf host).graph
+            let childId = (Graph.children graph docsId).Head.id
+            Assert.Equal("outline body", graph.nodes.[childId].text)
+            Assert.Equal(Current, documentState host docsId)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``git load reconcile notices a renamed directory file and does not rename it`` () =
     task {
         let dataDir = newTempDir ()

@@ -3,19 +3,24 @@ namespace Gambol.Shared
 [<RequireQualifiedAccess>]
 module internal LazyLoadReconciliationApply =
 
+    /// Same apply as mailbox postGraphOnly: guardUnparsed false, command Parse.
     let applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial =
-            { graph = graph
-              eventId = EventId.zero }
-        ops
-        |> List.fold (fun result op ->
-            result
-            |> Result.bind (fun state ->
-                match Op.apply op state with
-                | ApplyResult.Changed next
-                | ApplyResult.Unchanged next -> Ok next
-                | ApplyResult.Invalid(_, error) -> Error error)) (Ok initial)
-        |> Result.map (fun state -> state.graph)
+        if ops.IsEmpty then
+            Ok graph
+        else
+            let state =
+                { graph = graph
+                  eventId = EventId.zero }
+            match
+                ChangeAmendment.applyForGraphOnly
+                    EventId.zero
+                    "Parse"
+                    ops
+                    state
+            with
+            | ApplyResult.Changed next, _, _
+            | ApplyResult.Unchanged next, _, _ -> Ok next.graph
+            | ApplyResult.Invalid(_, error), _, _ -> Error error
 
     let markUnparsed (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
@@ -139,13 +144,6 @@ module internal LazyLoadReconciliationApply =
             | PullingFile -> None
             | Current ->
                 previousArtifactText graph nodeId relativePath
-        let markCurrent =
-            match docState with
-            | Unparsed ->
-                [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-            | PullingFile ->
-                [ Op.SetDocumentState(nodeId, PullingFile, Current) ]
-            | Current -> []
         DocumentParseOps.planApplyArtifact
             graph
             nodeId
@@ -153,9 +151,8 @@ module internal LazyLoadReconciliationApply =
             text
             previousText
         |> Result.bind (fun parseOps ->
-            let ops = markCurrent @ parseOps
-            applyOps graph ops
-            |> Result.map (fun next -> next, ops, Some nodeId))
+            applyOps graph parseOps
+            |> Result.map (fun next -> next, parseOps, Some nodeId))
 
     let parseDirInfoIfPresent
         graph
