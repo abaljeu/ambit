@@ -775,3 +775,105 @@ let ``git Load does not reconcile a disk file into the graph`` () = task {
     finally
         CoreMailboxApi.dispose harness.host
 }
+
+let private assertDeskResponse (result: IResult) =
+    let response = requireResponse result
+    Assert.Equal(LoadSavePath.Desk, response.path)
+    Assert.True(response.command.IsNone)
+
+let private postCommand operation prePick harness = task {
+    let command = requestFor operation prePick harness.seed
+    let! result =
+        Api.postLoadSaveCommand
+            (productionRouter harness)
+            (CoreDoor.create true harness.host testCaller)
+            (encodeRequest command)
+        |> Async.StartAsTask
+    return result
+}
+
+/// Plain Save of a file in a workspace that has a git remote pushes that work tree.
+[<SkippableFact>]
+let ``plain Save with a GitHub remote pushes from a file focus`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "save"
+    try
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                (readGraph harness.host)
+                harness.seed.workspaceId
+                "note.txt"
+        postChange harness.host fileOps
+        File.WriteAllText(
+            Path.Combine(harness.workspace, "saved.txt"),
+            "saved")
+        do!
+            postRoutedFocus
+                LoadSaveOperation.Save
+                LoadSavePrePick.Plain
+                fileId
+                harness
+        let! stopped = waitForStop harness.host fileId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let verify = Path.Combine(harness.parent, "verify-plain")
+        git harness.parent $"clone {harness.remote} verify-plain" |> ignore
+        Assert.Equal(
+            "saved",
+            File.ReadAllText(Path.Combine(verify, "saved.txt")))
+    finally
+        CoreMailboxApi.dispose harness.host
+}
+
+/// A work tree with no remote stays on the desk Save path.
+[<SkippableFact>]
+let ``plain Save with no GitHub remote takes the Desk path`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let workspace = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory(workspace) |> ignore
+    git workspace "init -b master" |> ignore
+    configureIdentity workspace
+    let host = createProductionHost dataDir
+    try
+        let seed = seedWorkspace host "save"
+        let harness =
+            { dataDir = dataDir
+              parent = dataDir
+              remote = ""
+              source = ""
+              workspace = workspace
+              host = host
+              seed = seed }
+        let! result =
+            postCommand
+                LoadSaveOperation.Save
+                LoadSavePrePick.Plain
+                harness
+        assertDeskResponse result
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.DoesNotContain(history.events, hasActorStart seed.focusId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+/// Explicit desk Save stays Desk when the work tree has a remote.
+[<SkippableFact>]
+let ``explicit Desk Save with a GitHub remote takes the Desk path`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarness "save"
+    try
+        let! result =
+            postCommand
+                LoadSaveOperation.Save
+                LoadSavePrePick.Desk
+                harness
+        assertDeskResponse result
+        let! history =
+            CoreMailboxApi.eventHistory harness.host |> Async.StartAsTask
+        Assert.DoesNotContain(
+            history.events,
+            hasActorStart harness.seed.focusId)
+    finally
+        CoreMailboxApi.dispose harness.host
+}

@@ -24,9 +24,9 @@ Source: `PathPick.fs`, and the client or server Save routing that leads to the d
 
 ## 5. Tests
 
-[ ] A plain Save in a workspace with a GitHub remote and a local mapping takes the Git path and starts no download.
-[ ] A plain Save in a workspace with no GitHub remote takes the Desk path.
-[ ] An explicit Desk Save in a workspace with a GitHub remote takes the Desk path.
+[x] A plain Save in a workspace with a GitHub remote and a local mapping takes the Git path and starts no download.
+[x] A plain Save in a workspace with no GitHub remote takes the Desk path.
+[x] An explicit Desk Save in a workspace with a GitHub remote takes the Desk path.
 
 ## 6. Done
 
