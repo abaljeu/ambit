@@ -140,6 +140,11 @@ let private received host id =
         | Notice.NodeReceived found -> found = id
         | _ -> false)
 
+let private loggedUnparsed host id =
+    hasCase host (function
+        | Notice.NodeUnparsed found -> found = id
+        | _ -> false)
+
 let private placeFile (dataDir: string) (rel: string) (text: string) =
     let full =
         Path.Combine(
@@ -316,6 +321,87 @@ let ``git load reconcile posts NodeParsed for an Unparsed parent`` () = task {
     finally
         CoreMailboxApi.dispose host
 }
+
+[<Fact>]
+let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let fileId = addFile host wsId "note.txt"
+        setState host wsId Unparsed Current
+        setState host fileId Unparsed Current
+        let renamedId = addFile host wsId "old.txt"
+        setState host renamedId Unparsed Current
+        let home = Path.Combine(dataDir, "home")
+        Directory.CreateDirectory(home) |> ignore
+        File.WriteAllText(Path.Combine(home, "note.txt"), "body")
+        let changes = [
+            LazyLoadReconciliation.Modified "note.txt"
+            LazyLoadReconciliation.Renamed("old.txt", "renamed.txt")
+        ]
+        let planned =
+            LazyLoadReconciliationReport.planReceivedFiles
+                (stateOf host).graph
+                "home"
+                changes
+                Map.empty
+            |> requireOk "plan"
+        Assert.Equal<NodeId list>(
+            [ fileId; renamedId ],
+            planned.unparsedIds)
+        let! pulled =
+            LazyLoadReconciliationServer.reconcileReceivedFiles
+                { handle = handle
+                  dataDir = dataDir
+                  workspaceLabel = "home" }
+                changes
+            |> Async.StartAsTask
+        requireOk "pull" pulled |> ignore
+        Assert.True(loggedUnparsed host fileId)
+        Assert.True(loggedUnparsed host renamedId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let _docsId = addDirectory host wsId "docs"
+            let fileId = addFile host wsId "note.txt"
+            setState host fileId Unparsed Current
+            let changes = [
+                LazyLoadReconciliation.Modified "docs"
+                LazyLoadReconciliation.Modified "note.txt"
+            ]
+            let! pulled =
+                LazyLoadReconciliationServer.reconcileReceivedFiles
+                    { handle = handle
+                      dataDir = dataDir
+                      workspaceLabel = "home" }
+                    changes
+                |> Async.StartAsTask
+            let failures = requireOk "pull" pulled
+            Assert.True(loggedUnparsed host fileId)
+            Assert.Contains(
+                failures,
+                fun failure ->
+                    failure.path = "docs"
+                    && failure.message.Contains("kind conflict"))
+            let! loaded =
+                GithubTransportActor.finishLoadPull
+                    { handle = handle
+                      dataDir = dataDir
+                      workspaceLabel = "home" }
+                    wsId
+                    changes
+                |> Async.StartAsTask
+            requireOk "load" loaded |> ignore
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``reconcile emits NodeReceived`` () = task {

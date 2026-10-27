@@ -40,3 +40,13 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`, `Do
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `Report.unparsedIds` lists each node id passed to `markUnparsed` while the plan is built.
+[ ] `reconcileReceivedFiles` posts `Notice.NodeUnparsed` for each Current `DocumentPartition.documentRootForNode` of those ids.
+[ ] A resolve error on a Modified path is a path failure. That path adds no id. The other paths continue.
+[ ] A failed rename adds no id.
+[ ] `git load reconcile posts NodeUnparsed for a modified file` covers a modified Current file and a renamed Current file.
+[ ] `git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file` asserts the failure, the other file's Notice, and `GithubTransportActor.finishLoadPull` returns Ok.
+[ ] `DocumentOpImpact.noticesBeside` and `LazyLoadReconciliationApply.markUnparsed` are unchanged.

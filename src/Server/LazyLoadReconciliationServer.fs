@@ -120,19 +120,37 @@ module LazyLoadReconciliationServer =
     let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
         postParsedParents host (parsedFromPulling ops)
 
+    /// Current controlling Special for each id `markUnparsed` received.
+    let private postCurrentUnparsed
+        (host: MailboxHost)
+        (graph: Graph)
+        (ids: NodeId list)
+        =
+        ids
+        |> List.choose (DocumentPartition.documentRootForNode graph)
+        |> List.iter (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node when Node.documentStateEnum node = Current ->
+                CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
+            | _ -> ())
+
     let private postReconcileReport
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         async {
             logFailures listed.workspaceLabel report.failures
-            let postParents () =
+            let postMarks () =
                 postParsedParents
                     listed.handle.host
                     report.parsedParentIds
+                postCurrentUnparsed
+                    listed.handle.host
+                    listed.graph
+                    report.unparsedIds
             match report.ops with
             | [] ->
-                postParents ()
+                postMarks ()
                 return Ok report.failures
             | ops ->
                 let! result =
@@ -143,7 +161,7 @@ module LazyLoadReconciliationServer =
                 match result with
                 | Ok () ->
                     listed.beside ops
-                    postParents ()
+                    postMarks ()
                     postParsedFromPulling listed.handle.host ops
                     return Ok report.failures
                 | Error err -> return Error err

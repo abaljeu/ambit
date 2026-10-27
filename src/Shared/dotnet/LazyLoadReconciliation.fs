@@ -257,6 +257,8 @@ module LazyLoadReconciliation =
                 else
                     None))
 
+    /// Ops for one modified path, and the node id passed to `markUnparsed`.
+    /// A resolve error is `Error` so the plan records a path failure.
     let internal invalidateOrParseModified
         (artifacts: Map<string, string>)
         workspaceId
@@ -271,14 +273,15 @@ module LazyLoadReconciliation =
                 workspaceId
                 artifacts
                 info
+            |> Result.map (fun (next, ops) -> next, ops, [])
         else
             Path.resolveInfo current workspaceId info
             |> Result.bind (function
-                | None -> Ok(current, [])
+                | None -> Ok(current, [], [])
                 | Some(nodeId, _) ->
                     let ops = markUnparsed current nodeId
                     applyOps current ops
-                    |> Result.map (fun next -> next, ops))
+                    |> Result.map (fun next -> next, ops, [ nodeId ]))
 
     let private changePaths change =
         match change with
@@ -468,7 +471,14 @@ module LazyLoadReconciliation =
                             added)
                     |> Result.bind (fun afterAdds ->
                         foldPlans
-                            (invalidateOrParseModified artifacts workspaceId)
+                            (fun current info ->
+                                invalidateOrParseModified
+                                    artifacts
+                                    workspaceId
+                                    current
+                                    info
+                                |> Result.map (fun (next, ops, _) ->
+                                    next, ops))
                             afterAdds
                             modified)
                     |> Result.bind (fun (finalGraph, planned) ->
