@@ -40,8 +40,7 @@ module internal CoreMailboxFilesAxis =
     /// PullingFile. The queue puller logs both messages.
     /// NodeParsing is logged by the queue puller. It does not set Unparsed,
     /// does not change parse or persist state, and does not push.
-    /// NodePersisting changes no node state. NodeUnpersisted sets
-    /// Unpersisted and leaves parse state unchanged.
+    /// NodePersisting sets Unpersisted and leaves parse state unchanged.
     /// PersistFailed does not change persist state.
     /// NodeUnparsed writes Unparsed only.
     /// NodePersisted runs the diff-count hook, sets persistedVersion

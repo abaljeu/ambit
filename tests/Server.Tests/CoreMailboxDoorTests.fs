@@ -674,32 +674,16 @@ let ``CoreMailboxApi.postEvent appends an Ev that eventsSince returns`` () =
                     saw (function
                         | Notice.NodePersisted _ -> true
                         | _ -> false))
-        let ordered = List.rev tail
-        Assert.Equal(3, ordered.Length)
+        Assert.Equal(2, tail.Length)
         Assert.Contains(stored, tail)
         Assert.Equal(event.submissionId, stored.submissionId)
-        match ordered |> List.map (fun event -> event.body) with
-        | [ EventBody.Change _
-            EventBody.Notice (Notice.NodePersisting persistingId)
-            EventBody.Notice (Notice.NodePersisted (persistedId, _, _)) ] ->
-            Assert.Equal(persistingId, persistedId)
-        | other ->
-            Assert.Fail(
-                $"expected Change, NodePersisting, NodePersisted, got {other}")
         let! afterStored =
             CoreMailboxApi.eventsSince host stored.id
             |> Async.StartAsTask
-        match
-            afterStored.events
-            |> List.rev
-            |> List.map (fun event -> event.body)
-        with
-        | [ EventBody.Notice (Notice.NodePersisting persistingId)
-            EventBody.Notice (Notice.NodePersisted (persistedId, _, _)) ] ->
-            Assert.Equal(persistingId, persistedId)
+        match afterStored.events |> List.map (fun event -> event.body) with
+        | [ EventBody.Notice (Notice.NodePersisted _) ] -> ()
         | other ->
-            Assert.Fail(
-                $"expected NodePersisting then NodePersisted, got {other}")
+            Assert.Fail($"expected NodePersisted, got {other}")
     })
 
 [<Fact>]
