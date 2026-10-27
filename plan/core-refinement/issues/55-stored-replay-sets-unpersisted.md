@@ -1,6 +1,6 @@
 # 55 — Stored replay sets Unpersisted
 
-**Status:** `defined`
+**Status:** `cancelled`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
