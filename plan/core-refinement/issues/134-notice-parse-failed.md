@@ -24,10 +24,9 @@ Sites that post `NodeParsing` and can then fail:
 - Add `Notice.ParseFailed of nodeId: NodeId * message: string`, beside `Notice.PersistFailed`, with its `EventJson` encoding.
 - Each site above posts `Notice.ParseFailed` for each node it posted `NodeParsing` for, with the failure message, when the parse fails. It posts no `NodeParsed` for that node.
 - The producer builds the Notice from the ids it already has. No Notice is inferred from ops.
+- `Notice.ParseFailed` leaves the node's document state unchanged.
 
 Source: `History.fs`, `EventJson.fs`, `ParseThread.fs`, `LazyLoadReconciliationServer.fs`, and each exhaustive `Notice` match (`CoreMailboxLoop.fs`, `Database.fs`, `History.fs`).
-
-- `Notice.ParseFailed` leaves the node's document state unchanged.
 
 ## 5. Tests
 
