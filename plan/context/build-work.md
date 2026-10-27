@@ -16,9 +16,7 @@ Scope:
 
 ## 2. Size stop
 
-The size limit is the one in [Slicing work](slicing-work.md): 8 source files or fewer, and 4 tests added or changed or fewer.
-
-When the build would go over that limit, stop before committing. Report the files and tests it would change, and why each is needed. Continue only when the human explicitly approves that size.
+When the build would go over the [Size limit](size-limit.md), stop before committing. Report the files and tests it would change, and why each is needed. Continue only when the human explicitly approves that size.
 
 ## 3. Build template
 
