@@ -1407,7 +1407,7 @@ let ``New server uses snapshot + log replay`` () = task {
     let tempDir = newTempDir ()
     let change, firstId = changeAddChild Graph.rootId 0 "first"
     let host1, handle1 = createAdmittedFile tempDir
-    let! noticed =
+    let! noticed = task {
         try
             let! first = CoreDoor.postEvents handle1 [ change ] |> Async.StartAsTask
             match first with
@@ -1451,6 +1451,7 @@ let ``New server uses snapshot + log replay`` () = task {
                         persisted.Length >= 2)
         finally
             CoreMailboxApi.dispose host1
+    }
     let host2, handle2 = createAdmittedFile tempDir
     try
         let! stateResult = CoreDoor.getState handle2 |> Async.StartAsTask
