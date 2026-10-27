@@ -80,6 +80,19 @@ let private requireReceivedReport graph label changes =
 let private requireReceivedPlan graph label changes =
     (requireReceivedReport graph label changes).ops
 
+let private requireAddedReport graph paths =
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph
+            "home"
+            (paths |> List.map LazyLoadReconciliation.Added)
+            Map.empty
+    with
+    | Ok report ->
+        Assert.Empty(report.failures)
+        report
+    | Error err -> failwith err
+
 let private setsUnparsed id = function
     | Op.SetDocumentState(found, _, Unparsed) when found = id -> true
     | _ -> false
@@ -128,7 +141,13 @@ let ``one added file creates a file stub`` () =
 [<Fact>]
 let ``nested file parse after upload tree build is accepted`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = requirePlan graph "home" [ "src/note.txt" ] |> applyOps graph
+    let report = requireAddedReport graph [ "src/note.txt" ]
+    let built = applyOps graph report.ops
+    let src = childNamed built workspaceId "src"
+    let file = childNamed built src.id "note.txt"
+    Assert.Contains(src.id, report.parsedParentIds)
+    Assert.Equal(Unparsed, src.documentState.AsEnum)
+    let graph2 = List.fold applyNodeParsed built report.parsedParentIds
     let src = childNamed graph2 workspaceId "src"
     let file = childNamed graph2 src.id "note.txt"
     Assert.Equal(Current, src.documentState.AsEnum)
@@ -189,13 +208,23 @@ let ``nested added path with spaces creates missing stubs`` () =
 [<Fact>]
 let ``upload-built directories become current when members are added`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = requirePlan graph "home" [ "src/lib/core.fs" ] |> applyOps graph
-    let src = childNamed graph2 workspaceId "src"
-    let lib = childNamed graph2 src.id "lib"
-    let file = childNamed graph2 lib.id "core.fs"
-    Assert.Equal(Current, src.documentState.AsEnum)
-    Assert.Equal(Current, lib.documentState.AsEnum)
+    let report = requireAddedReport graph [ "src/lib/core.fs" ]
+    let built = applyOps graph report.ops
+    let src = childNamed built workspaceId "src"
+    let lib = childNamed built src.id "lib"
+    let file = childNamed built lib.id "core.fs"
+    Assert.Contains(workspaceId, report.parsedParentIds)
+    Assert.Contains(src.id, report.parsedParentIds)
+    Assert.Contains(lib.id, report.parsedParentIds)
+    Assert.DoesNotContain(file.id, report.parsedParentIds)
+    Assert.Equal(Unparsed, src.documentState.AsEnum)
+    Assert.Equal(Unparsed, lib.documentState.AsEnum)
     Assert.Equal(Unparsed, file.documentState.AsEnum)
+    Assert.Equal(Unparsed, built.nodes.[workspaceId].documentState.AsEnum)
+    let graph2 = List.fold applyNodeParsed built report.parsedParentIds
+    Assert.Equal(Current, graph2.nodes.[src.id].documentState.AsEnum)
+    Assert.Equal(Current, graph2.nodes.[lib.id].documentState.AsEnum)
+    Assert.Equal(Unparsed, graph2.nodes.[file.id].documentState.AsEnum)
     Assert.Equal(Current, graph2.nodes.[workspaceId].documentState.AsEnum)
 
 [<Fact>]

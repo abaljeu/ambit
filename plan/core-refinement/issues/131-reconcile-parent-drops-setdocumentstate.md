@@ -16,13 +16,12 @@ This is round 9 of [124 — Remove SetDocumentState one site at a time](124-remo
 
 ## 4. Change
 
-- Delete the `Op.SetDocumentState(nodeId, Unparsed, Current)` line.
+- `LazyLoadReconciliationApply.markParentCurrent` returns an empty op list.
+- `LazyLoadReconciliationReport.parsedParentIds` lists each Unparsed Directory or Workspace that owns an attached stub.
+- `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each of those ids.
+- Graph-only apply uses `guardUnparsed` false.
 
-Backend inference: a `Parse` graph-only Change whose `Replace` attaches owned stubs to an Unparsed Directory or Workspace infers a trail `NodeParsed dirId`. The rule goes in `DocumentOpImpact.inferNotices` (135).
-
-Hard: every reconcile and every file parse posts with command name `Parse` (`GraphOnlyChangePost.postChunks`, `ParseThread.postParseOps`). The same `Replace` in a received-file reconcile ends with the container Unparsed (133). The ops cannot tell the two apart.
-
-Source: `LazyLoadReconciliationApply.fs`, `DocumentOpImpact.fs`.
+Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoadReconciliationServer.fs`.
 
 ## 5. Tests
 
@@ -49,10 +48,9 @@ The intended direction: such uploads should go through the existing Load channel
 
 ## 8. Round
 
-[ ] `LazyLoadReconciliationApply.parentsOfAttachedStubs` names the Unparsed Directory or Workspace that owns each attached stub. `markParentCurrent` uses that same container check. The ids do not come from reading `Op.SetDocumentState`.
-[ ] `LazyLoadReconciliationReport.parsedParentIds` carries those ids. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each id on the core mailbox, the same post as `Notice.NodeReceived`.
-[ ] `git load reconcile posts NodeParsed for an Unparsed parent` asserts that Notice and legacy Current. It does not require the `SetDocumentState` op.
-[ ] `DocumentOpImpact.noticesBeside` is unchanged.
-[ ] `CoreMailboxFilesAxis.applyNodeParsed` already sets legacy DocumentState to Current through `Node.withParseState` and `DocumentState.toLegacy`. `NodeParsed sets legacy DocumentState to Current` asserts that.
-[ ] `LazyLoadReconciliationApply.markParentCurrent` still writes the `SetDocumentState` op.
-[ ] [6 — Answer (Alan)](#6-answer-alan) is answered and tabled. This round leaves `pushParsedUnpersisted` and `noteParsed` unchanged.
+[ ] `LazyLoadReconciliationApply.markParentCurrent` returns an empty op list. The Unparsed Directory or Workspace check stays.
+[ ] `LazyLoadReconciliationApply.parentsOfAttachedStubs` names that container. `LazyLoadReconciliationReport.parsedParentIds` carries those ids.
+[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each id.
+[ ] `upload-built directories become current when members are added` asserts those ids and `Notice.NodeParsed`.
+[ ] `DocumentOpImpact.noticesBeside` stays as it is.
+[ ] Graph-only apply uses `guardUnparsed` false.

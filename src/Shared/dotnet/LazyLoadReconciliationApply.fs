@@ -52,11 +52,10 @@ module internal LazyLoadReconciliationApply =
         |> List.distinct
         |> List.filter (unparsedContainer graph)
 
+    /// No SetDocumentState. Callers record the id.
     let private markParentCurrent (graph: Graph) nodeId =
-        if unparsedContainer graph nodeId then
-            [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-        else
-            []
+        unparsedContainer graph nodeId |> ignore
+        []
 
     let private foldDocumentStateOps markFn graph nodeIds =
         nodeIds
@@ -95,7 +94,7 @@ module internal LazyLoadReconciliationApply =
         else
             String.concat "/" info.parts + "/.amb"
 
-    /// File/Directory stubs → Unparsed; parents that gained those members → Current.
+    /// File and Directory stubs stay Unparsed. Callers record parent ids.
     /// `planned` is only for stub discovery (NewSpecialNode ids); not re-emitted.
     /// Parent ids are those containers. They do not depend on SetDocumentState.
     let markAddedDocumentsUnparsed graph workspaceId added planned =
