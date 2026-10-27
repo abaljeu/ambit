@@ -151,6 +151,34 @@ let private holdFor (plan: WorkspaceUploadAction option) =
     | Some (WorkspaceUploadAction.DesktopPush _) -> true
     | _ -> false
 
+let private mappingPresence (model: VM) : WorkspaceMappingPresence =
+    let labels =
+        model.workspaceRemotes
+        |> Map.toList
+        |> List.map fst
+        |> Set.ofList
+    PathPick.mappingPresence labels model.workspaceMappedLabels
+
+let private loadFocusId (model: VM) : NodeId =
+    match model.selectedNodes with
+    | Some selection -> focusedNodeId model.graph selection
+    | None -> model.zoomRoot
+
+/// Plain Load sends Git when the focus workspace has both mappings.
+let private prePickForLoad
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : LoadSavePrePick =
+    match
+        PathPick.plainLoadPath
+            model.graph
+            (loadFocusId model)
+            prePick
+            (mappingPresence model)
+    with
+    | Some LoadSavePath.Git -> LoadSavePrePick.Git
+    | _ -> prePick
+
 let private submitLoad
     (plan: WorkspaceUploadAction option)
     (request: LoadSaveCommandRequest)
@@ -164,6 +192,7 @@ let loadOpFor
     if spansWorkspaces model then
         oneWorkspaceError model
     else
+        let prePick = prePickForLoad prePick model
         let plan = plannedUpload prePick model
         let targets = subjectsForLoad prePick plan model
         let graphIds =

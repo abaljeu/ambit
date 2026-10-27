@@ -107,3 +107,38 @@ let ``effective path forces Desk for plain File Load`` () =
                 (Some LoadSubject.File))
             LoadSavePath.Git
     Assert.Equal(LoadSavePath.Desk, path)
+
+let private mustApply (graph: Graph) (ops: Op list) =
+    let state = { graph = graph; eventId = EventId.zero }
+    let next =
+        ops
+        |> List.fold
+            (fun current op ->
+                match Op.apply op current with
+                | ApplyResult.Changed next -> next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, message) ->
+                    failwith message)
+            state
+    next.graph
+
+[<Fact>]
+let ``a node in a workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = mustApply graph0 workspaceOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "note.txt"
+    let graph = mustApply graph1 fileOps
+    let presence = {
+        githubLabels = Set.singleton "home"
+        localLabels = Set.singleton "home"
+    }
+    let path =
+        PathPick.plainLoadPath
+            graph
+            fileId
+            LoadSavePrePick.Plain
+            presence
+    Assert.Equal(Some LoadSavePath.Git, path)

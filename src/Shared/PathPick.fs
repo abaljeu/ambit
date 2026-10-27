@@ -46,6 +46,28 @@ module LoadSubject =
             | Special File -> Ok LoadSubject.File
             | _ -> Error LoadSubjectRejection.NotLoadSubject
 
+    let private isSubjectNode (node: Node) =
+        match node.kind with
+        | Special (Workspace | Directory | File) -> true
+        | _ -> false
+
+    /// Nearest Workspace, Directory, or File on the owner chain, inclusive.
+    let enclosingSubject
+        (graph: Graph)
+        (nodeId: NodeId)
+        : (NodeId * LoadSubject) option =
+        GraphQuery.enclosing graph isSubjectNode nodeId
+        |> Option.bind (fun id ->
+            match ofId graph id with
+            | Ok subject -> Some(id, subject)
+            | Error _ -> None)
+
+/// GitHub labels and local-mapping labels for one plain Load choice.
+type WorkspaceMappingPresence = {
+    githubLabels: Set<string>
+    localLabels: Set<string>
+}
+
 /// Operation, pre-pick, and subject. The chosen path stays outside this record.
 type LoadPathChoice = {
     operation: LoadSaveOperation
@@ -107,3 +129,32 @@ module PathPick =
             LoadSavePath.Desk
         else
             path
+
+    let private normalizedLabel (label: string) =
+        if isNull label then ""
+        else label.Trim().ToLowerInvariant()
+
+    let private labeledWorkspace (graph: Graph) (nodeId: NodeId) =
+        NodeDesktopPath.enclosingWorkspaceName graph nodeId
+        |> Option.map normalizedLabel
+
+    let mappingPresence
+        (remoteLabels: Set<string>)
+        (localLabels: Set<string>)
+        : WorkspaceMappingPresence =
+        { githubLabels = remoteLabels
+          localLabels = localLabels }
+
+    /// Plain Load chooses Git when that workspace has both mappings.
+    let plainLoadPath
+        (graph: Graph)
+        (nodeId: NodeId)
+        (prePick: LoadSavePrePick)
+        (presence: WorkspaceMappingPresence)
+        : LoadSavePath option =
+        match prePick, labeledWorkspace graph nodeId with
+        | LoadSavePrePick.Plain, Some label
+            when Set.contains label presence.githubLabels
+                 && Set.contains label presence.localLabels ->
+            Some LoadSavePath.Git
+        | _ -> None

@@ -45,7 +45,8 @@ Blockers: <none, or each earlier ticket by number and name>
 ## Check
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `<Project>`: ``<test name>``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/<slug>/reports/<NN>-<ticket-name>-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.

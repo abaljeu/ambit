@@ -14,15 +14,19 @@ Scope:
   - **Fix.** What to do.
   Review assesses each one.
 
-## 2. Build template
+## 2. Size stop
+
+When the build would go over the [Size limit](size-limit.md), stop before committing. Report the files and tests it would change, and why each is needed. Continue only when the human explicitly approves that size.
+
+## 3. Build template
 
 The ticket is the template. Read the ticket and the files Inputs names.
 
-## 3. Fill
+## 4. Fill
 
 1. **Process.** Follow [[.agents/skills/tdd/SKILL.md]]. Make the numbered edits, in the files Inputs names.
 2. **Outputs.** Leave the files and the tests Outputs names.
-3. **Check.** Run the ticket's Check. Commit and push only when that check passes.
+3. **Check.** Run the ticket's Check. Also name each test the build added or changed that the ticket does not name, and run `scripts/agent-test.sh --filter` for it. Commit and push only when that check passes.
 
 Done:
 

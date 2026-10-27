@@ -60,7 +60,7 @@ type Notice =
     | PersistFailed of nodeId: NodeId * message: string
     | ActorStopped of focusId: NodeId * result: ActorResult
     | SearchStopped of rootId: NodeId
-    // Open decision: NodeUnpersisted of nodeId: NodeId.
+    | NodeUnpersisted of nodeId: NodeId
 
 type EventBody =
     | Order of Order
@@ -115,7 +115,25 @@ type internal CoreQueue =
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice
 
-8. **Notice** — The six Node cases are `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, and `NodePersisted`. `NodePersisted` carries the node, the version of the graph written to file, and the update time. `PersistFailed` carries the node and the write error. `Notice.ActorStopped` of the focus `NodeId` and the `ActorResult` replaces `CoreMsg.ActorStop`. An Actor sends no stop. It just stops. The pool sees the Actor's work end and posts `Notice.ActorStopped` with the notice function. A Cancel logs it too. Exactly one stop is logged per run. `Notice.SearchStopped` of the root `NodeId` replaces `CoreMsg.RecordSearchStop`. The server posts it when a search ends. Names follow `Notice.*Stopped`. [121 — MarkUnparsed renamed NodeUnparsed](issues/121-markunparsed-renamed-nodeunparsed.md) renames `Notice.MarkUnparsed` to `Notice.NodeUnparsed`. Open decision: `Notice.NodeUnpersisted`. [119 — Add Notice.NodeUnpersisted](issues/119-add-notice-nodeunpersisted.md) adds the case. [120 — Ordinary edit posts NodeUnpersisted](issues/120-ordinary-edit-posts-nodeunpersisted.md) posts it after an ordinary Edit. [45 — SetDocumentState leaves the Op list](issues/45-remove-document-state-set-ops.md) is the Op-list contract. `CoreEventDispatch.pushChangeSpecials` already marks Unpersisted and logs `Notice.NodePersisting` for Change, Undo, and Redo.
+8. **Notice** — Each Notice, who posts it, when, and its effect on the node:
+
+| Notice | Posted by | When | Effect on the node |
+|---|---|---|---|
+| `NodeUnpersisted` | Core applier | Any node change (Change, Undo, Redo) | Unpersisted |
+| `NodePersisting` | `PersistThread` | The persist thread accepts the node for writing | None (logged) |
+| `NodePersisted` | `PersistThread` | A file write succeeds | Sets the persisted version and update time. Persisted if the written version is current, otherwise stays Unpersisted |
+| `PersistFailed` | `PersistThread` | A file write fails | None (logged) |
+| `NodeUnparsed` | Load dispatch (`markUnparsedThenPush`) | Load on a node, before its parse is queued | Unparsed |
+| `NodeUnparsed` | `ParseThread` | After a parse, for each id it hands back to be parsed later | Unparsed |
+| `NodeUnparsed` | `LazyLoadReconciliationServer` | git Load reconcile, for a modified file's Current controlling Special, and for the containing Directory of a received file that is not PullingFile | Unparsed |
+| `NodeParsing` | `ParseThread`, `LazyLoadReconciliationServer` | Before a parse or reconcile posts its graph Change | None (logged) |
+| `NodeParsed` | `ParseThread`, `LazyLoadReconciliationServer` | After a real parse or reconcile succeeds | Parsed, unless PullingFile. Queues a write when Unpersisted |
+| `ParseFailed` | `ParseThread`, `LazyLoadReconciliationServer` | The parse or reconcile Change is refused | None (logged) |
+| `NodeReceived` | `LazyLoadReconciliationServer` | git Load pull delivers or renames the file | Unparsed and Persisted, clears PullingFile |
+| `ActorStopped` | Pool | An Actor's work ends, or a Cancel stops a live run. One per run | None (logged) |
+| `SearchStopped` | Search code | A search ends | None (logged) |
+
+Only a holder of the notice function posts a Notice. No Notice is inferred from ops.
 
 ###  Other
 9. **EventBody** — History `EventBody` is `Order of Order | Notice of Notice`. The seven old cases (`Change`, `Undo`, `Redo`, `ActorStart`, `ActorStop`, `Load`, `Cancel`) leave one at a time. `Ev` keeps `id`, `submissionId`, `authority`, and `commandName` (choice (c)). For an order, accept assigns `id`, sets `submissionId` from `orderId`, `authority` from the `Caller`'s `Authority`, and `commandName` from the `PlacedOrder` (`None` is `""`). A `Notice` `Ev` has a fresh `submissionId`, an empty `authority`, and an empty `commandName`. `MailboxEventBody` and `EventBody` are one type, and `MailboxLog.Ev` leaves ([116 — One EventBody type, and MailboxLog.Ev leaves](issues/116-one-eventbody-type-and-mailboxlog-ev-leaves.md)).
