@@ -338,20 +338,27 @@ let ``git load reconcile leaves an Unparsed parent Unparsed without NodeParsed``
     }
 
 [<Fact>]
-let ``git Load reconcile posts NodeUnparsed for the containing Directory after NodeParsed`` () =
+let ``git Load reconcile posts NodeUnparsed then the Change then NodeParsed`` () =
     task {
         let dataDir = newTempDir ()
         let host, handle, wsId = admitHome dataDir
         try
             let docsId = addDirectory host wsId "docs"
-            Assert.Equal(Unparsed, documentState host docsId)
-            placeFile dataDir "docs/extra.txt" "extra"
+            setState host docsId Unparsed Current
+            let subId = addDirectory host docsId "sub"
+            setState host subId Unparsed Current
+            placeFile
+                dataDir
+                "docs/.amb"
+                ("outline body" + Environment.NewLine)
+            placeFile dataDir "docs/sub/extra.txt" "extra"
             do!
                 pullReceived
                     host
                     handle
                     dataDir
-                    [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+                    [ LazyLoadReconciliation.Modified "docs/.amb"
+                      LazyLoadReconciliation.Added "docs/sub/extra.txt" ]
             let ordered =
                 (stateOf host) |> ignore
                 CoreMailboxApi.eventsSince host EventId.zero
@@ -359,20 +366,41 @@ let ``git Load reconcile posts NodeUnparsed for the containing Directory after N
                 |> fun log ->
                     log.events
                     |> List.sortBy (fun event -> EventId.value event.id)
+            let indexOf notice =
+                ordered
+                |> List.findIndex (function
+                    | { body = EventBody.Notice found } -> found = notice
+                    | _ -> false)
+            let changeAt =
+                ordered
+                |> List.findIndex (function
+                    | { commandName = "Parse"; body = EventBody.Change _ } ->
+                        true
+                    | _ -> false)
+            let unparsedAt = indexOf (Notice.NodeUnparsed docsId)
+            let childAt = indexOf (Notice.NodeUnparsed subId)
             let parsedAt =
                 ordered
-                |> List.findIndex (function
-                    | { body = EventBody.Notice (Notice.NodeParsed id) } ->
-                        id = docsId
-                    | _ -> false)
-            let unparsedAt =
+                |> List.mapi (fun i event -> i, event)
+                |> List.find (fun (i, event) ->
+                    i > changeAt
+                    && match event.body with
+                       | EventBody.Notice (Notice.NodeParsed id) ->
+                           id = docsId
+                       | _ -> false)
+                |> fst
+            Assert.True(unparsedAt < changeAt)
+            Assert.True(changeAt < childAt)
+            Assert.True(childAt < parsedAt)
+            Assert.False(
                 ordered
-                |> List.findIndex (function
+                |> List.skip (parsedAt + 1)
+                |> List.exists (function
                     | { body = EventBody.Notice (Notice.NodeUnparsed id) } ->
                         id = docsId
-                    | _ -> false)
-            Assert.True(unparsedAt > parsedAt)
-            Assert.Equal(Unparsed, documentState host docsId)
+                    | _ -> false))
+            Assert.Equal(Current, documentState host docsId)
+            Assert.Equal(Unparsed, documentState host subId)
         finally
             CoreMailboxApi.dispose host
     }

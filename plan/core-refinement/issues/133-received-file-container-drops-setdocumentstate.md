@@ -27,7 +27,7 @@ Source: `LazyLoadReconciliation.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoa
 
 [ ] `LazyLoadReconciliationTests`: the 8 `received file …` facts
 [ ] `LazyLoadReconciliationServerTests` `git pull add marks the containing directory Unparsed`
-[ ] New: git Load reconcile posts `NodeUnparsed` for the containing Directory after `NodeParsed`, passing with `unparsedStateOp` removed.
+[ ] New: git Load reconcile posts `NodeUnparsed`, then the Change, then `NodeParsed`, passing with `unparsedStateOp` removed.
 
 ## 7. Done
 
@@ -39,11 +39,13 @@ Source: `LazyLoadReconciliation.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoa
 
 [ ] `LazyLoadReconciliationReport.containingDirIds` lists each Directory or Workspace `LazyLoadReconciliation.containingDirectoryIds` chooses for an added, removed, or renamed file.
 [ ] A Modified path adds no id to that list.
-[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeUnparsed` for each of those ids on the core mailbox, after `Notice.NodeParsed` for `parsedParentIds`.
+[ ] A directory in `parsedDirIds` gets `Notice.NodeUnparsed`, then `Notice.NodeParsing`, then the parse Change, then `Notice.NodeParsed`. `Notice.NodeParsing` is posted before that Change, including received-file stubs under the directory. The directory ends Parsed. A stub owner that is not in `parsedDirIds` stays Unparsed.
+[ ] A child id in `containingDirIds` gets `Notice.NodeUnparsed` after the Change and before that `Notice.NodeParsed`.
+[ ] The actor posts no `Notice.NodeUnparsed` for that loaded directory after its `Notice.NodeParsed`.
 [ ] A PullingFile container stays PullingFile. That id is on the report. The actor posts no `Notice.NodeUnparsed` for it.
 [ ] `unparsedStateOp` and `containingDirectoryMarkOps` are gone. This site emits no `Op.SetDocumentState`.
 [ ] `LazyLoadReconciliationApply.markUnparsed` returns no op. `Report.renamedReceivedIds` and `receivedFileIds` still name renamed files without reading ops.
 [ ] Path failures stay on `Report.failures`. The actor still posts the Notices and the Change.
-[ ] `git Load reconcile posts NodeUnparsed for the containing Directory after NodeParsed` checks that order and legacy Unparsed.
+[ ] `git Load reconcile posts NodeUnparsed then the Change then NodeParsed` checks that order, a child container `Notice.NodeUnparsed` before the directory `Notice.NodeParsed`, and legacy Parsed on the directory.
 [ ] `git Load reconcile posts no NodeUnparsed for a PullingFile container` checks that the container stays PullingFile.
-[ ] The received-file facts assert `containingDirIds` and `Notice.NodeUnparsed` for the container. A Modified file asserts an empty container list and its `unparsedIds` entry.
+[ ] The received-file facts assert `containingDirIds` and `Notice.NodeUnparsed`. A container that is not in `parsedDirIds` stays Unparsed. A Modified file asserts an empty container list and its `unparsedIds` entry.

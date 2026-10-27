@@ -125,15 +125,29 @@ let private containerNotices (graph: Graph) (ids: NodeId list) =
             Some(Notice.NodeUnparsed id)
         | _ -> None)
 
-/// Ops, then container NodeUnparsed. Stub owners stay Unparsed.
+/// NodeUnparsed for a parsed directory, then ops, then child
+/// container NodeUnparsed, then NodeParsed for parsedDirIds.
 let private applyReceived
     (graph: Graph)
     (report: LazyLoadReconciliationReport.Report)
     =
-    let afterOps = applyOps graph report.ops
-    report.containingDirIds
-    |> containerNotices graph
-    |> List.fold (fun current notice -> applyNotice current notice) afterOps
+    let loaded = report.parsedDirIds
+    let afterLoaded =
+        loaded
+        |> containerNotices graph
+        |> List.fold (fun current notice -> applyNotice current notice) graph
+    let afterOps = applyOps afterLoaded report.ops
+    let children =
+        report.containingDirIds
+        |> List.filter (fun id -> not (List.contains id loaded))
+    let afterChildren =
+        children
+        |> containerNotices graph
+        |> List.fold (fun current notice -> applyNotice current notice) afterOps
+    report.parsedDirIds
+    |> List.fold
+        (fun current id -> applyNotice current (Notice.NodeParsed id))
+        afterChildren
 
 let private childNamed graph parentId name =
     ownedNamedChildren graph parentId

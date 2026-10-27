@@ -119,6 +119,22 @@ module LazyLoadReconciliationServer =
                 CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
             | _ -> ())
 
+    /// Directories this reconcile finishes with NodeParsed.
+    let private loadedDirectoryIds
+        (report: LazyLoadReconciliationReport.Report)
+        (renamedDirIds: NodeId list)
+        =
+        List.distinct (report.parsedDirIds @ renamedDirIds)
+
+    /// Child containers. The loaded directory is not marked again.
+    let private childContainerIds
+        (report: LazyLoadReconciliationReport.Report)
+        (renamedDirIds: NodeId list)
+        =
+        let loaded = loadedDirectoryIds report renamedDirIds |> Set.ofList
+        report.containingDirIds
+        |> List.filter (fun id -> not (Set.contains id loaded))
+
     /// Current controlling Special for each id `markUnparsed` received.
     let private postCurrentUnparsed
         (host: MailboxHost)
@@ -133,6 +149,32 @@ module LazyLoadReconciliationServer =
                 CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
             | _ -> ())
 
+    /// NodeUnparsed, then the Change, then NodeParsed for a loaded directory.
+    let private postBeforeChange
+        (host: MailboxHost)
+        (graph: Graph)
+        (report: LazyLoadReconciliationReport.Report)
+        =
+        postContainerUnparsed host graph report.parsedDirIds
+        postNotices host Notice.NodeParsing report.parsedDirIds
+
+    /// Child NodeUnparsed, then the loaded directory's NodeParsed.
+    let private postAfterChange
+        (host: MailboxHost)
+        (listed: ListedReconcile)
+        (report: LazyLoadReconciliationReport.Report)
+        =
+        listed.beside report
+        postContainerUnparsed
+            host
+            listed.graph
+            (childContainerIds report listed.renamedDirIds)
+        postCurrentUnparsed host listed.graph report.unparsedIds
+        postNotices
+            host
+            Notice.NodeParsed
+            (report.parsedDirIds @ listed.renamedDirIds)
+
     let private postReconcileReport
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
@@ -140,23 +182,10 @@ module LazyLoadReconciliationServer =
         async {
             logFailures listed.workspaceLabel report.failures
             let host = listed.handle.host
-            let postMarks () =
-                postContainerUnparsed host listed.graph report.containingDirIds
-                postCurrentUnparsed host listed.graph report.unparsedIds
-            let postDirParsing () =
-                postNotices host Notice.NodeParsing report.parsedDirIds
-            let postDirParsed () =
-                postNotices
-                    host
-                    Notice.NodeParsed
-                    (report.parsedDirIds @ listed.renamedDirIds)
-            let postReceived () = listed.beside report
-            postDirParsing ()
+            postBeforeChange host listed.graph report
             match report.ops with
             | [] ->
-                postReceived ()
-                postMarks ()
-                postDirParsed ()
+                postAfterChange host listed report
                 return Ok report.failures
             | ops ->
                 let! result =
@@ -166,9 +195,7 @@ module LazyLoadReconciliationServer =
                         (GraphOnlyChangeChunks.split ops)
                 match result with
                 | Ok () ->
-                    postReceived ()
-                    postMarks ()
-                    postDirParsed ()
+                    postAfterChange host listed report
                     return Ok report.failures
                 | Error err -> return Error err
         }
@@ -256,8 +283,9 @@ module LazyLoadReconciliationServer =
 
     /// Git pull. Added and Modified directory files reach
     /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
-    /// Each received file is marked. An added, removed, or renamed file
-    /// posts NodeUnparsed for its containing Directory or Workspace.
+    /// Each received file is marked. A directory this reconcile parses
+    /// is NodeUnparsed before the Change and NodeParsed after it.
+    /// A child container is NodeUnparsed between those two.
     /// The list does not discover members.
     /// `NodeReceived` uses the received-file list. A Modified directory
     /// file with no text stays here and lands on `unparsedIds`.
