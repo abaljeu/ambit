@@ -211,8 +211,8 @@ module ChangeAmendment =
             ops
             state
 
-    /// Mailbox postGraphOnly. A document-root suffix attach may land on an
-    /// Unparsed shell. Other unparsed content edits stay blocked.
+    /// Mailbox postGraphOnly. guardUnparsed is false, so outline ops may
+    /// edit an Unparsed document. NodeParsed sets Current after the post.
     let applyForGraphOnly
         (changedVersion: EventId)
         (commandName: string)

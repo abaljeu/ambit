@@ -40,3 +40,20 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`.
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `LazyLoadReconciliationReport.parsedDirIds` lists each Directory or Workspace `parseDirInfoIfPresent` parsed.
+[ ] `invalidateOrParseModified` and `finalizeAdded` supply that id. `parseDirInfoInfos` drops it. That planner returns ops.
+[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` plans Added and Modified directory files with the received files. `receivedFileChanges` still chooses `Notice.NodeReceived`.
+[ ] That actor posts `Notice.NodeParsing` for each `parsedDirIds` entry before the reconcile Change, and `Notice.NodeParsed` for each entry after the Change.
+[ ] A renamed directory file stays off that plan. The actor posts `Notice.NodeParsed` for the existing directory id. It does not post `Notice.NodeParsing` for that rename, and it does not rename the directory.
+[ ] `parsedFromPulling` and `postParsedFromPulling` are gone.
+[ ] `DocumentOpImpact.noticesBeside` is unchanged.
+[ ] `CoreMailboxFilesAxis.applyNodeParsed` still sets legacy DocumentState to Current.
+[ ] `git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse` checks that order on a Current directory.
+[ ] `parseDirInfoIfPresent` keeps the `Unparsed`, `PullingFile`, and `Current` branch for previous artifact text. That function emits no `Op.SetDocumentState`.
+[ ] `ChangeAmendment.applyPosted` with graph-only true, and `ChangeAmendment.applyForGraphOnly`, apply with `guardUnparsed` false. That apply allows outline ops on an Unparsed document.
+[ ] `LazyLoadReconciliationApply.applyOps` uses that same graph-only apply.
+[ ] `Notice.NodeParsing` still changes nothing. `Notice.NodeParsed` after the Change sets legacy Current.
+[ ] `git load reconcile parses an Unparsed directory file and NodeParsed sets Current` checks the outline text and legacy Current.

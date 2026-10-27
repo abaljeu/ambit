@@ -13,7 +13,8 @@ module LazyLoadReconciliationReport =
         { ops: Op list
           failures: Failure list
           parsedParentIds: NodeId list
-          unparsedIds: NodeId list }
+          unparsedIds: NodeId list
+          parsedDirIds: NodeId list }
 
     type private PathItem =
         { path: string
@@ -150,18 +151,23 @@ module LazyLoadReconciliationReport =
                     createOps
                     item.info
             then
-                Ok(withFiles, fileOps, parentIds)
+                Ok(withFiles, fileOps, parentIds, None)
             else
                 LazyLoadReconciliationApply.parseDirInfoIfPresent
                     withFiles
                     workspaceId
                     artifacts
                     item.info
-                |> Result.map (fun (finalGraph, parseOps) ->
-                    finalGraph, fileOps @ parseOps, parentIds))
+                |> Result.map (fun (finalGraph, parseOps, dirId) ->
+                    finalGraph, fileOps @ parseOps, parentIds, dirId))
 
     let private consOnto acc items =
         List.fold (fun acc item -> item :: acc) acc items
+
+    let private consDir dirId revDirs =
+        match dirId with
+        | Some id -> id :: revDirs
+        | None -> revDirs
 
     let private foldFinalizedAdds
         artifacts
@@ -169,46 +175,57 @@ module LazyLoadReconciliationReport =
         (graph, ops, failures)
         items
         =
-        let graph, revOps, revFailures, revParents =
+        let graph, revOps, revFailures, revParents, revDirs =
             items
-            |> List.fold (fun (graph, revOps, revFailures, revParents) item ->
-                match finalizeAdded artifacts workspaceId graph item with
-                | Ok(next, nextOps, parentIds) ->
-                    next,
-                    consOnto revOps nextOps,
-                    revFailures,
-                    consOnto revParents parentIds
-                | Error message ->
-                    let itemInfo, _ = item
-                    graph,
-                    revOps,
-                    { path = itemInfo.path; message = message } :: revFailures,
-                    revParents)
-                (graph, [], [], [])
+            |> List.fold
+                (fun (graph, revOps, revFailures, revParents, revDirs) item ->
+                    match finalizeAdded artifacts workspaceId graph item with
+                    | Ok(next, nextOps, parentIds, dirId) ->
+                        next,
+                        consOnto revOps nextOps,
+                        revFailures,
+                        consOnto revParents parentIds,
+                        consDir dirId revDirs
+                    | Error message ->
+                        let itemInfo, _ = item
+                        graph,
+                        revOps,
+                        { path = itemInfo.path
+                          message = message }
+                        :: revFailures,
+                        revParents,
+                        revDirs)
+                (graph, [], [], [], [])
         graph,
         ops @ List.rev revOps,
         failures @ List.rev revFailures,
-        List.rev revParents
+        List.rev revParents,
+        List.rev revDirs
 
     let private foldModified artifacts workspaceId state items =
-        items
-        |> List.fold (fun ((graph, ops, failures), ids) item ->
-            match
-                LazyLoadReconciliation.invalidateOrParseModified
-                    artifacts
-                    workspaceId
-                    graph
-                    item.info
-            with
-            | Ok(next, nextOps, touched) ->
-                (next, ops @ nextOps, failures), ids @ touched
-            | Error message ->
-                (graph,
-                 ops,
-                 failures
-                 @ [ { path = item.path
-                       message = message } ]),
-                ids) (state, [])
+        let folded, ids, revDirs =
+            items
+            |> List.fold (fun ((graph, ops, failures), ids, revDirs) item ->
+                match
+                    LazyLoadReconciliation.invalidateOrParseModified
+                        artifacts
+                        workspaceId
+                        graph
+                        item.info
+                with
+                | Ok(next, nextOps, touched, dirId) ->
+                    (next, ops @ nextOps, failures),
+                    ids @ touched,
+                    consDir dirId revDirs
+                | Error message ->
+                    (graph,
+                     ops,
+                     failures
+                     @ [ { path = item.path
+                           message = message } ]),
+                    ids,
+                    revDirs) (state, [], [])
+        folded, ids, List.rev revDirs
 
     let planChangedPathsWithArtifacts
         (graph: Graph)
@@ -276,9 +293,9 @@ module LazyLoadReconciliationReport =
                             item.newInfo)
                     afterDeletes
             let afterAdds, acceptedAdds = foldAdded workspaceId afterRenames added
-            let afterModified, modifiedIds =
+            let afterModified, modifiedIds, modifiedDirs =
                 foldModified artifacts workspaceId afterAdds modified
-            let _, ops, failures, parents =
+            let _, ops, failures, parents, addedDirs =
                 foldFinalizedAdds
                     artifacts
                     workspaceId
@@ -288,7 +305,8 @@ module LazyLoadReconciliationReport =
                 ops = ops
                 failures = failures
                 parsedParentIds = List.distinct parents
-                unparsedIds = modifiedIds })
+                unparsedIds = modifiedIds
+                parsedDirIds = List.distinct (modifiedDirs @ addedDirs) })
 
     /// A renamed File the pull actually moved. Resolve oldPath on the
     /// pre-plan graph. A failed rename is not marked.

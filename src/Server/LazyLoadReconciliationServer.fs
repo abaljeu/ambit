@@ -94,31 +94,19 @@ module LazyLoadReconciliationServer =
           graph: Graph
           changes: LazyLoadReconciliation.ChangedPath list
           artifactReads: LazyLoadReconciliation.ChangedPath list
+          renamedDirIds: NodeId list
           beside: Op list -> unit }
 
-    /// Last `PullingFile` to `Current` per node. A later state op drops it.
-    /// `DocumentOpImpact.noticesBeside` has no Notice for that pair.
-    let private parsedFromPulling (ops: Op list) : NodeId list =
-        ops
-        |> List.fold
-            (fun acc op ->
-                match op with
-                | Op.SetDocumentState(id, PullingFile, Current) ->
-                    Map.add id true acc
-                | Op.SetDocumentState(id, _, _) -> Map.add id false acc
-                | _ -> acc)
-            Map.empty
-        |> Map.fold
-            (fun acc id keep -> if keep then id :: acc else acc)
-            []
+    let private postNotices
+        (host: MailboxHost)
+        (notice: NodeId -> Notice)
+        (ids: NodeId list)
+        =
+        ids
+        |> List.iter (fun id -> CoreMailboxApi.postNotice host (notice id))
 
     let private postParsedParents (host: MailboxHost) (parentIds: NodeId list) =
-        parentIds
-        |> List.iter (fun id ->
-            CoreMailboxApi.postNotice host (Notice.NodeParsed id))
-
-    let private postParsedFromPulling (host: MailboxHost) (ops: Op list) =
-        postParsedParents host (parsedFromPulling ops)
+        postNotices host Notice.NodeParsed parentIds
 
     /// Current controlling Special for each id `markUnparsed` received.
     let private postCurrentUnparsed
@@ -140,17 +128,22 @@ module LazyLoadReconciliationServer =
         =
         async {
             logFailures listed.workspaceLabel report.failures
+            let host = listed.handle.host
             let postMarks () =
-                postParsedParents
-                    listed.handle.host
-                    report.parsedParentIds
-                postCurrentUnparsed
-                    listed.handle.host
-                    listed.graph
-                    report.unparsedIds
+                postParsedParents host report.parsedParentIds
+                postCurrentUnparsed host listed.graph report.unparsedIds
+            let postDirParsing () =
+                postNotices host Notice.NodeParsing report.parsedDirIds
+            let postDirParsed () =
+                postNotices
+                    host
+                    Notice.NodeParsed
+                    (report.parsedDirIds @ listed.renamedDirIds)
+            postDirParsing ()
             match report.ops with
             | [] ->
                 postMarks ()
+                postDirParsed ()
                 return Ok report.failures
             | ops ->
                 let! result =
@@ -162,7 +155,7 @@ module LazyLoadReconciliationServer =
                 | Ok () ->
                     listed.beside ops
                     postMarks ()
-                    postParsedFromPulling listed.handle.host ops
+                    postDirParsed ()
                     return Ok report.failures
                 | Error err -> return Error err
         }
@@ -224,8 +217,46 @@ module LazyLoadReconciliationServer =
             | _ -> None)
         |> List.distinct
 
-    /// Git pull. Each received file is marked. An added, removed, or renamed
-    /// file marks its containing Directory. The list does not discover members.
+    /// A directory-file rename is not a plan. The existing directory id is
+    /// the change Notice.
+    let private renamedDirectoryIds
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        =
+        changes
+        |> List.choose (function
+            | LazyLoadReconciliation.Renamed(oldPath, newPath) when
+                isDirInfoPath oldPath || isDirInfoPath newPath ->
+                let path =
+                    if isDirInfoPath oldPath then oldPath else newPath
+                match
+                    LazyLoadReconciliation.resolveOwnedPath
+                        graph
+                        workspaceLabel
+                        path
+                with
+                | Ok(Some(id, _)) -> Some id
+                | _ -> None
+            | _ -> None)
+        |> List.distinct
+
+    /// Directory-file renames stay off the plan. Added and Modified
+    /// directory files stay, so `parseDirInfoIfPresent` still runs.
+    let private plannedChanges
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        =
+        changes
+        |> List.filter (function
+            | LazyLoadReconciliation.Renamed(oldPath, newPath) ->
+                not (isDirInfoPath oldPath || isDirInfoPath newPath)
+            | _ -> true)
+
+    /// Git pull. Added and Modified directory files reach
+    /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
+    /// Each received file is marked. An added, removed, or renamed file
+    /// marks its containing Directory. The list does not discover members.
+    /// `NodeReceived` uses the received-file list.
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
@@ -237,6 +268,7 @@ module LazyLoadReconciliationServer =
             | Ok stateResponse ->
                 let files =
                     LazyLoadReconciliation.receivedFileChanges changedPaths
+                let planned = plannedChanges changedPaths
                 return!
                     reconcileListed
                         LazyLoadReconciliationReport.planReceivedFiles
@@ -244,8 +276,13 @@ module LazyLoadReconciliationServer =
                           dataDir = workspace.dataDir
                           workspaceLabel = workspace.workspaceLabel
                           graph = stateResponse.graph
-                          changes = files
-                          artifactReads = files
+                          changes = planned
+                          artifactReads = planned
+                          renamedDirIds =
+                            renamedDirectoryIds
+                                stateResponse.graph
+                                workspace.workspaceLabel
+                                changedPaths
                           beside =
                             fun ops ->
                                 receivedFileIds

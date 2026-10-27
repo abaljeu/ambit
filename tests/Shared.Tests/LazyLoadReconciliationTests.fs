@@ -6,6 +6,31 @@ open Xunit
 [<CollectionDefinition("ExclusiveTiming", DisableParallelization = true)>]
 type ExclusiveTimingCollection() = class end
 
+/// Graph-only post: guardUnparsed false. NodeParsed sets Current after.
+let private applyGraphOnly (graph: Graph) (ops: Op list) : Graph =
+    if List.isEmpty ops then
+        graph
+    else
+        let state = { graph = graph; eventId = EventId.zero }
+        match
+            ChangeAmendment.applyForGraphOnly EventId.zero "Parse" ops state
+        with
+        | ApplyResult.Changed next, _, _
+        | ApplyResult.Unchanged next, _, _ -> next.graph
+        | ApplyResult.Invalid(_, msg), _, _ -> failwith msg
+
+let private applyNodeParsed (graph: Graph) (nodeId: NodeId) : Graph =
+    let event =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Parse"
+          commandName = ""
+          body = EventBody.Notice(Notice.NodeParsed nodeId) }
+    match Ev.apply event { graph = graph; eventId = EventId.zero } with
+    | ApplyResult.Changed next
+    | ApplyResult.Unchanged next -> next.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state = { graph = graph; eventId = EventId.zero }
     ops
@@ -176,8 +201,10 @@ let ``exact amb add with text parses outline immediately`` () =
         with
         | Ok o -> o
         | Error err -> failwith err
-    let graph2 = applyOps graph ops
-    let docs = childNamed graph2 workspaceId "docs"
+    let parsed = applyGraphOnly graph ops
+    let docsId = (childNamed parsed workspaceId "docs").id
+    let graph2 = applyNodeParsed parsed docsId
+    let docs = graph2.nodes.[docsId]
     Assert.Equal(Current, docs.documentState.AsEnum)
     Assert.Equal(1, (Graph.children graph2 docs.id).Length)
     Assert.Equal("outline body", graph2.nodes.[(Graph.children graph2 docs.id).Head.id].text)
@@ -186,15 +213,6 @@ let private requirePersist nodeId persistState graph =
     match Graph.setPersistState nodeId persistState graph with
     | Ok g -> g
     | Error err -> failwith err
-
-let private applyDiskParse (graph: Graph) (ops: Op list) : Graph =
-    let state = { graph = graph; eventId = EventId.zero }
-    let result, _, _ =
-        ChangeAmendment.applyForCommand EventId.zero "Parse" ops state
-    match result with
-    | ApplyResult.Changed next
-    | ApplyResult.Unchanged next -> next.graph
-    | ApplyResult.Invalid(_, msg) -> failwith msg
 
 [<Fact>]
 let ``disk parse of a directory sets Parsed and keeps PersistState`` () =
@@ -212,10 +230,10 @@ let ``disk parse of a directory sets Parsed and keeps PersistState`` () =
             with
             | Ok o -> o
             | Error err -> failwith err
-        let graph2 = applyOps graph ops1
-        let docs = childNamed graph2 workspaceId "docs"
+        let parsed = applyGraphOnly graph ops1
+        let docs = childNamed parsed workspaceId "docs"
         let seeded =
-            graph2
+            applyNodeParsed parsed docs.id
             |> requirePersist docs.id persist
             |> requirePersist workspaceId persist
         let edited = Map.ofList [ "docs/.amb", "beta" + System.Environment.NewLine ]
@@ -229,7 +247,7 @@ let ``disk parse of a directory sets Parsed and keeps PersistState`` () =
             with
             | Ok o -> o
             | Error err -> failwith err
-        let graph3 = applyDiskParse seeded ops2
+        let graph3 = applyGraphOnly seeded ops2
         Assert.Equal(ParseState.Parsed, graph3.nodes.[docs.id].documentState.parseState)
         Assert.Equal(Current, graph3.nodes.[docs.id].documentState.AsEnum)
         Assert.Equal(persist, graph3.nodes.[docs.id].documentState.persistState)
@@ -252,7 +270,8 @@ let ``exact amb modify with text reparses instead of leaving unparsed`` () =
         with
         | Ok o -> o
         | Error err -> failwith err
-    let graph3 = applyOps graph2 ops
+    let graph3 =
+        applyGraphOnly graph2 ops |> fun parsed -> applyNodeParsed parsed docs.id
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Equal(
         "fresh",
@@ -272,8 +291,9 @@ let ``exact amb modify warm keeps node id on text edit`` () =
         with
         | Ok o -> o
         | Error err -> failwith err
-    let graph2 = applyOps graph ops1
-    let docs = childNamed graph2 workspaceId "docs"
+    let parsed = applyGraphOnly graph ops1
+    let docs = childNamed parsed workspaceId "docs"
+    let graph2 = applyNodeParsed parsed docs.id
     let childId = (Graph.children graph2 docs.id).Head.id
     Assert.Equal("alpha", graph2.nodes.[childId].text)
     let edited = Map.ofList [ "docs/.amb", "ALPHA" + System.Environment.NewLine ]
@@ -287,7 +307,7 @@ let ``exact amb modify warm keeps node id on text edit`` () =
         with
         | Ok o -> o
         | Error err -> failwith err
-    let graph3 = applyOps graph2 ops2
+    let graph3 = applyGraphOnly graph2 ops2
     Assert.Equal(childId, (Graph.children graph3 docs.id).Head.id)
     Assert.Equal("ALPHA", graph3.nodes.[childId].text)
 
@@ -733,7 +753,7 @@ let private seedCurrentDirsWithAmb
         with
         | Ok report -> report.ops
         | Error err -> failwith err
-    let graph1 = applyOps graph0 ops |> markDocumentsCurrent
+    let graph1 = applyGraphOnly graph0 ops |> markDocumentsCurrent
     let changes = paths |> List.map LazyLoadReconciliation.Added
     graph1, artifacts, changes
 
@@ -752,7 +772,7 @@ let ``rediscovered Current Directory Files skip parse on Added`` () =
         with
         | Ok report -> report.ops
         | Error err -> failwith err
-    let graph1 = applyOps graph0 ops1 |> markDocumentsCurrent
+    let graph1 = applyGraphOnly graph0 ops1 |> markDocumentsCurrent
     let docs = childNamed graph1 workspaceId "docs"
     Assert.Equal("outline", graph1.nodes.[(Graph.children graph1 docs.id).Head.id].text)
     // Divergent disk text must not apply while stub stays Current.
@@ -792,7 +812,9 @@ let ``rediscovered Unparsed Directory File still parses on Added`` () =
     | Ok report ->
         Assert.Empty(report.failures)
         Assert.NotEmpty(report.ops)
-        let graph2 = applyOps graph1 report.ops
+        let graph2 =
+            let parsed = applyGraphOnly graph1 report.ops
+            applyNodeParsed parsed docs.id
         let docs2 = graph2.nodes.[docs.id]
         Assert.Equal(Current, docs2.documentState.AsEnum)
         Assert.Equal(1, (Graph.children graph2 docs2.id).Length)
@@ -814,8 +836,10 @@ let ``new Directory File Added still parses outline`` () =
     | Ok report ->
         Assert.Empty(report.failures)
         Assert.NotEmpty(report.ops)
-        let graph1 = applyOps graph0 report.ops
-        let fresh = childNamed graph1 workspaceId "fresh"
+        let parsed = applyGraphOnly graph0 report.ops
+        let freshId = (childNamed parsed workspaceId "fresh").id
+        let graph1 = applyNodeParsed parsed freshId
+        let fresh = graph1.nodes.[freshId]
         Assert.Equal(Current, fresh.documentState.AsEnum)
         Assert.Equal("hello", graph1.nodes.[(Graph.children graph1 fresh.id).Head.id].text)
 
