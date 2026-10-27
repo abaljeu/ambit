@@ -96,17 +96,38 @@ module EventLog =
         | Notice.NodeUploading _ -> true
         | Notice.ParseFailed _ -> false
 
+    let private withUnpersistedFlag (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> graph
+        | Some node ->
+            let updated =
+                Node.withPersistState PersistState.Unpersisted node
+            { graph with
+                nodes = Map.add nodeId updated graph.nodes }
+
+    /// Replay of Parse has no version. The flag flips on the owning special.
+    let private flagParseReplay (event: Ev) (state: State) =
+        if event.commandName <> "Parse" then
+            state
+        else
+            let ops = Ev.ops event |> Option.defaultValue []
+            let graph =
+                DocumentOpImpact.owningSpecials state.graph ops
+                |> List.fold withUnpersistedFlag state.graph
+            { state with graph = graph }
+
+    let private appliedState state event =
+        match event.body with
+        | EventBody.Notice notice when replaySkipsNotice notice ->
+            state
+        | _ ->
+            match Ev.apply event state with
+            | ApplyResult.Changed next -> flagParseReplay event next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid (next, _) -> next
+
     let private applyRecover state event =
-        let next =
-            match event.body with
-            | EventBody.Notice notice when replaySkipsNotice notice ->
-                state
-            | _ ->
-                match Ev.apply event state with
-                | ApplyResult.Changed next -> next
-                | ApplyResult.Unchanged next -> next
-                | ApplyResult.Invalid (next, _) -> next
-        { next with eventId = event.id }
+        { appliedState state event with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
     let recover (state: State) (log: EventLog) : State * EventLog =

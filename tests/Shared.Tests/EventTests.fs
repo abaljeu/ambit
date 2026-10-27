@@ -551,3 +551,38 @@ let ``Replay sets persistState Unpersisted and ignores persist Notices`` () =
     Assert.Equal(persisted, live.documentState.persistedVersion)
     Assert.Equal(changeId, live.documentState.changedVersion)
     Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`` () =
+    let fileId = NodeId.New()
+    let persisted = EventId.fromJson 2
+    let changed = EventId.fromJson 1
+    let created =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    parseState = ParseState.Parsed
+                    persistState = PersistState.Persisted
+                    persistedVersion = persisted
+                    changedVersion = changed } }
+    let before =
+        { graph = Graph.addDetachedNode node (Graph.create ())
+          eventId = EventId.fromJson 3 }
+    let parseId = EventId.fromJson 4
+    let ops = [ Op.SetText(fileId, "hello", "parsed") ]
+    let parse =
+        fromOrder parseId "Parse" (Order.Change(ops, ChangeOrigin.Parse))
+    let log = EventLog.adoptNewestHead [ parse ]
+    let recovered, _ = EventLog.recover before log
+    let live = recovered.graph.nodes.[fileId]
+    Assert.Equal("parsed", live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)

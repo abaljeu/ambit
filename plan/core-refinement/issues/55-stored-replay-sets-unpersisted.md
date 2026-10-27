@@ -1,7 +1,7 @@
 # 55 — Undo, redo, and replay set persistState
 
 **Status**: defined
-One job: Undo, Redo, and replay from load leave `DocumentState.persistedVersion : EventId` unchanged, set `DocumentState.persistState : PersistState` to `Unpersisted` when the Graph changes, leave `DocumentState.parseState` unchanged, and set `DocumentState.changedVersion : EventId` to the `EventId` of the Event applied. Replay ignores persist Notices and parse Notices. The job comes from [Document-state events](../spec.md).
+One job: Undo, Redo, and replay from load leave `DocumentState.persistedVersion : EventId` and `DocumentState.parseState` unchanged, and set `DocumentState.persistState : PersistState` to `Unpersisted` when the Graph changes. A replayed `Parse` command flips that flag and leaves `DocumentState.changedVersion : EventId`. Every other applied Event sets `changedVersion` to that Event's `EventId`. Replay ignores persist Notices and parse Notices. The job comes from [Document-state events](../spec.md).
 
 Type: bug-fixing
 Blockers: none
@@ -12,7 +12,7 @@ Blockers: none
 
 [ ] [EventLog.fs](../../../src/Shared/EventLog.fs) `EventLog.recover` and `applyRecover` apply each Event ahead of the Graph through `Ev.apply`
 [ ] [History.fs](../../../src/Shared/History.fs) `Ev.apply` passes `Op.persistMarkVersion` into the Op apply. `Ev.documentStateFromNotice` writes parse state for `NodeUploading`, `NodeReceived`, `NodeUnparsed`, and `NodeParsed`
-[ ] [Model.fs](../../../src/Shared/Model.fs) `DocumentState.persistedVersion : EventId`, `DocumentState.changedVersion : EventId`, `DocumentState.persistState : PersistState`. `Node.withUnpersistedAt` sets `persistState` to `Unpersisted` and sets `changedVersion` to `EventId.max` of the stored value and the argument. It leaves `persistedVersion`
+[ ] [Model.fs](../../../src/Shared/Model.fs) `DocumentState.persistedVersion : EventId`, `DocumentState.changedVersion : EventId`, `DocumentState.persistState : PersistState`. `Node.withPersistState` writes `persistState` only. `Node.withUnpersistedAt` also sets `changedVersion` to `EventId.max` of the stored value and the argument. Both leave `persistedVersion`
 [ ] [GraphMutate.fs](../../../src/Shared/GraphMutate.fs) `finishPersist` calls `setUnpersistedAt` when the `EventId` is present
 [ ] [ChangeAmendment.fs](../../../src/Shared/ChangeAmendment.fs) `applyPosted` applies Undo and Redo Ops with `Op.persistMarkVersion`
 [ ] [CoreEventDispatch.fs](../../../src/Server/Core/CoreEventDispatch.fs) `markForPersist` calls `GraphMutate.setUnpersistedAt` for Undo and Redo
@@ -38,6 +38,7 @@ Blockers: none
 3. [ ] Persist Notices are `NodePersisting`, `NodePersisted`, `PersistFailed`, and `NodeUnpersisted`.
 4. [ ] Parse Notices are `NodeParsing`, `NodeParsed`, `NodeUnparsed`, `NodeReceived`, and `NodeUploading`.
 5. [ ] Undo, Redo, and a replayed Change keep the `Op.persistMarkVersion` apply. That apply writes `persistState` and `changedVersion` through `Node.withUnpersistedAt` and leaves `persistedVersion`.
+6. [ ] A replayed `Parse` command that changes the Graph sets `persistState` to `Unpersisted` with `Node.withPersistState`. It leaves `persistedVersion`, `changedVersion`, and `parseState`. Live `Parse` stays on `Op.persistMarkVersion`, which gives `Parse` no `EventId`.
 
 ## Outputs
 
@@ -45,6 +46,7 @@ Blockers: none
 [ ] `PersistApplyTests.fs` ``Undo sets persistState Unpersisted and leaves persistedVersion``
 [ ] `PersistApplyTests.fs` ``Redo sets persistState Unpersisted and leaves persistedVersion``
 [ ] `EventTests.fs` ``Replay sets persistState Unpersisted and ignores persist Notices``
+[ ] `EventTests.fs` ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion``
 
 ## Stop when
 
@@ -59,6 +61,7 @@ Blockers: none
 [ ] `Server.Tests`: ``Undo sets persistState Unpersisted and leaves persistedVersion``
 [ ] `Server.Tests`: ``Redo sets persistState Unpersisted and leaves persistedVersion``
 [ ] `Shared.Tests`: ``Replay sets persistState Unpersisted and ignores persist Notices``
+[ ] `Shared.Tests`: ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/core-refinement/reports/55-stored-replay-sets-unpersisted-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
