@@ -466,6 +466,33 @@ let ``git load reconcile notices a renamed directory file and does not rename it
     }
 
 [<Fact>]
+let ``modified directory file with no text posts NodeUnparsed`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let docsId = addDirectory host wsId "docs"
+        setState host wsId Unparsed Current
+        setState host docsId Unparsed Current
+        let! pulled =
+            LazyLoadReconciliationServer.reconcileReceivedFiles
+                { handle = handle
+                  dataDir = dataDir
+                  workspaceLabel = "home" }
+                [ LazyLoadReconciliation.Modified ".amb"
+                  LazyLoadReconciliation.Modified "docs/.amb" ]
+            |> Async.StartAsTask
+        requireOk "pull" pulled |> ignore
+        Assert.True(loggedUnparsed host wsId)
+        Assert.True(loggedUnparsed host docsId)
+        Assert.Equal(Unparsed, documentState host wsId)
+        Assert.Equal(Unparsed, documentState host docsId)
+        Assert.False(wroteSet host wsId Unparsed)
+        Assert.False(wroteSet host docsId Unparsed)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
 let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir

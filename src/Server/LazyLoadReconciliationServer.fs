@@ -247,7 +247,8 @@ module LazyLoadReconciliationServer =
     /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
     /// Each received file is marked. An added, removed, or renamed file
     /// marks its containing Directory. The list does not discover members.
-    /// `NodeReceived` uses the received-file list.
+    /// `NodeReceived` uses the received-file list. A Modified directory
+    /// file with no text stays here and lands on `unparsedIds`.
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)

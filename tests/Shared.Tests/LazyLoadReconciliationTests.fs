@@ -84,6 +84,18 @@ let private setsUnparsed id = function
     | Op.SetDocumentState(found, _, Unparsed) when found = id -> true
     | _ -> false
 
+let private applyUnparsedNotice (graph: Graph) nodeId =
+    let event: Ev =
+        { id = EventId.zero
+          submissionId = System.Guid.Empty
+          authority = Authority "test"
+          commandName = ""
+          body = EventBody.Notice(Notice.NodeUnparsed nodeId) }
+    match Ev.apply event { graph = graph; eventId = EventId.zero } with
+    | ApplyResult.Changed next
+    | ApplyResult.Unchanged next -> next.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
 let private childNamed graph parentId name =
     ownedNamedChildren graph parentId
     |> List.find (fst >> (=) name)
@@ -548,13 +560,19 @@ let ``exact Directory File modification invalidates containing documents`` () =
     let graph2 = createPaths graph [ "docs/.amb" ] |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
     Assert.Equal(Current, docs.documentState.AsEnum)
-    let graph3 =
-        requireChangedPlan
+    let report =
+        requireReceivedReport
             graph2
             "home"
             [ LazyLoadReconciliation.Modified ".amb"
               LazyLoadReconciliation.Modified "docs/.amb" ]
-        |> applyOps graph2
+    Assert.Contains(workspaceId, report.unparsedIds)
+    Assert.Contains(docs.id, report.unparsedIds)
+    Assert.DoesNotContain(report.ops, setsUnparsed workspaceId)
+    Assert.DoesNotContain(report.ops, setsUnparsed docs.id)
+    let graph3 =
+        report.unparsedIds
+        |> List.fold applyUnparsedNotice graph2
     Assert.Equal(Unparsed, graph3.nodes.[workspaceId].documentState.AsEnum)
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.AsEnum)
 
