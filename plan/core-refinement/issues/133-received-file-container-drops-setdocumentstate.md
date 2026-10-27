@@ -46,6 +46,6 @@ Source: `LazyLoadReconciliation.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoa
 [ ] `unparsedStateOp` and `containingDirectoryMarkOps` are gone. This site emits no `Op.SetDocumentState`.
 [ ] `LazyLoadReconciliationApply.markUnparsed` returns no op. `Report.renamedReceivedIds` and `receivedFileIds` still name renamed files without reading ops.
 [ ] Path failures stay on `Report.failures`. The actor still posts the Notices and the Change.
-[ ] `git Load reconcile posts NodeUnparsed then the Change then NodeParsed` checks that order, a child container `Notice.NodeUnparsed` before the directory `Notice.NodeParsed`, and legacy Parsed on the directory.
+[ ] `git Load reconcile posts NodeUnparsed then the Change then NodeParsed` checks `Notice.NodeUnparsed`, then `Notice.NodeParsing`, then the parse Change that adds `extra.txt`, then `Notice.NodeParsed`. A child container `Notice.NodeUnparsed` is before that `Notice.NodeParsed`. The directory ends Parsed.
 [ ] `git Load reconcile posts no NodeUnparsed for a PullingFile container` checks that the container stays PullingFile.
 [ ] The received-file facts assert `containingDirIds` and `Notice.NodeUnparsed`. A container that is not in `parsedDirIds` stays Unparsed. A Modified file asserts an empty container list and its `unparsedIds` entry.

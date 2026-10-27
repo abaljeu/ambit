@@ -378,6 +378,7 @@ let ``git Load reconcile posts NodeUnparsed then the Change then NodeParsed`` ()
                         true
                     | _ -> false)
             let unparsedAt = indexOf (Notice.NodeUnparsed docsId)
+            let parsingAt = indexOf (Notice.NodeParsing docsId)
             let childAt = indexOf (Notice.NodeUnparsed subId)
             let parsedAt =
                 ordered
@@ -389,7 +390,29 @@ let ``git Load reconcile posts NodeUnparsed then the Change then NodeParsed`` ()
                            id = docsId
                        | _ -> false)
                 |> fst
-            Assert.True(unparsedAt < changeAt)
+            let parseOps =
+                ordered
+                |> List.collect (fun event ->
+                    match event with
+                    | { commandName = "Parse"; body = EventBody.Change ops } ->
+                        ops
+                    | _ -> [])
+            Assert.Contains(
+                parseOps,
+                fun op ->
+                    match op with
+                    | Op.NewSpecialNode(_, _, "extra.txt") -> true
+                    | _ -> false)
+            Assert.True(
+                ordered
+                |> List.mapi (fun i event -> i, event)
+                |> List.forall (fun (i, event) ->
+                    match event with
+                    | { commandName = "Parse"; body = EventBody.Change _ } ->
+                        i > parsingAt
+                    | _ -> true))
+            Assert.True(unparsedAt < parsingAt)
+            Assert.True(parsingAt < changeAt)
             Assert.True(changeAt < childAt)
             Assert.True(childAt < parsedAt)
             Assert.False(
