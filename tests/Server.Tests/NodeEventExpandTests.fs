@@ -65,6 +65,10 @@ let private hasCase (host: MailboxHost) pred =
 let private documentState host id =
     Node.documentStateEnum (stateOf host).graph.nodes.[id]
 
+let private setsUnparsed id = function
+    | Op.SetDocumentState(found, _, Unparsed) when found = id -> true
+    | _ -> false
+
 let private containsSet (ops: Op list) id newState =
     ops
     |> List.exists (function
@@ -263,7 +267,7 @@ let ``upload emits NodeUploading`` () = task {
 }
 
 [<Fact>]
-let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
+let ``git changed file posts NodeReceived and NodeUnparsed`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
     try
@@ -280,7 +284,8 @@ let ``git changed file posts NodeReceived beside SetDocumentState`` () = task {
                 [ LazyLoadReconciliation.Modified "note.txt" ]
             |> Async.StartAsTask
         requireOk "pull" pulled |> ignore
-        Assert.True(wroteSet host fileId Unparsed)
+        Assert.False(wroteSet host fileId Unparsed)
+        Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
         CoreMailboxApi.dispose host
@@ -461,6 +466,33 @@ let ``git load reconcile notices a renamed directory file and does not rename it
     }
 
 [<Fact>]
+let ``modified directory file with no text posts NodeUnparsed`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, wsId = admitHome dataDir
+    try
+        let docsId = addDirectory host wsId "docs"
+        setState host wsId Unparsed Current
+        setState host docsId Unparsed Current
+        let! pulled =
+            LazyLoadReconciliationServer.reconcileReceivedFiles
+                { handle = handle
+                  dataDir = dataDir
+                  workspaceLabel = "home" }
+                [ LazyLoadReconciliation.Modified ".amb"
+                  LazyLoadReconciliation.Modified "docs/.amb" ]
+            |> Async.StartAsTask
+        requireOk "pull" pulled |> ignore
+        Assert.True(loggedUnparsed host wsId)
+        Assert.True(loggedUnparsed host docsId)
+        Assert.Equal(Unparsed, documentState host wsId)
+        Assert.Equal(Unparsed, documentState host docsId)
+        Assert.False(wroteSet host wsId Unparsed)
+        Assert.False(wroteSet host docsId Unparsed)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
 let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
@@ -576,6 +608,15 @@ let ``renamed file posts NodeReceived`` () = task {
         let fileId = addFile host wsId "note.txt"
         setState host wsId Unparsed Current
         setState host fileId Unparsed Current
+        let planned =
+            LazyLoadReconciliationReport.planReceivedFiles
+                (stateOf host).graph
+                "home"
+                [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
+                Map.empty
+            |> requireOk "plan"
+        Assert.Contains(fileId, planned.renamedReceivedIds)
+        Assert.DoesNotContain(planned.ops, setsUnparsed fileId)
         placeFile dataDir "note.txt" "body"
         File.Move(
             Path.Combine(dataDir, "home", "note.txt"),
@@ -586,7 +627,8 @@ let ``renamed file posts NodeReceived`` () = task {
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        Assert.True(wroteSet host fileId Unparsed)
+        Assert.False(wroteSet host fileId Unparsed)
+        Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
         CoreMailboxApi.dispose host
@@ -618,7 +660,8 @@ let ``moved file posts NodeReceived`` () = task {
                 dataDir
                 [ LazyLoadReconciliation.Renamed(
                     "docs/note.txt", "other/note.txt") ]
-        Assert.True(wroteSet host fileId Unparsed)
+        Assert.False(wroteSet host fileId Unparsed)
+        Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
         CoreMailboxApi.dispose host
@@ -639,7 +682,8 @@ let ``renamed and modified file posts NodeReceived`` () = task {
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        Assert.True(wroteSet host fileId Unparsed)
+        Assert.False(wroteSet host fileId Unparsed)
+        Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
         CoreMailboxApi.dispose host

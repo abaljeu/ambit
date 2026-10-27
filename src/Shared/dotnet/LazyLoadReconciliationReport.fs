@@ -14,7 +14,8 @@ module LazyLoadReconciliationReport =
           failures: Failure list
           parsedParentIds: NodeId list
           unparsedIds: NodeId list
-          parsedDirIds: NodeId list }
+          parsedDirIds: NodeId list
+          renamedReceivedIds: NodeId list }
 
     type private PathItem =
         { path: string
@@ -306,7 +307,8 @@ module LazyLoadReconciliationReport =
                 failures = failures
                 parsedParentIds = List.distinct parents
                 unparsedIds = modifiedIds
-                parsedDirIds = List.distinct (modifiedDirs @ addedDirs) })
+                parsedDirIds = List.distinct (modifiedDirs @ addedDirs)
+                renamedReceivedIds = [] })
 
     /// A renamed File the pull actually moved. Resolve oldPath on the
     /// pre-plan graph. A failed rename is not marked.
@@ -363,6 +365,12 @@ module LazyLoadReconciliationReport =
                         workspaceLabel
                         changes
                         report.failures
+                let renamedReceivedIds =
+                    fileIds
+                    |> List.filter (
+                        LazyLoadReconciliationApply.decidesUnparsedMark
+                            graph)
                 { report with
                     ops = report.ops @ markOps @ fileOps
-                    unparsedIds = report.unparsedIds @ fileIds }))
+                    unparsedIds = report.unparsedIds @ fileIds
+                    renamedReceivedIds = renamedReceivedIds }))
