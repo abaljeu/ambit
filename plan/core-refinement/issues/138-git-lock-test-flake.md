@@ -12,15 +12,19 @@ None.
 
 ## 3. Problem
 
-`GitRunTests.second git waits instead of failing on index.lock` (tests/Shared.Tests/GitRunTests.fs) sometimes fails under the full suite and passes on rerun. It depends on timing: a slow clean filter (`sleep 2`) holds `index.lock`, the test polls for the lock for about 3 s, and it then expects the second `git add` to take at least 500 ms.
+`GitRunTests.second git waits instead of failing on index.lock` (tests/Shared.Tests/GitRunTests.fs) shows that a second `GitRun.gitExec` waits while `index.lock` is held.
+
+- A clean filter holds `index.lock` until the test releases it.
+- The second add starts only while that lock exists.
+- The assertion is that the second call blocks, then succeeds.
 
 ## 4. Change
 
-- Find the failing assertion and its cause under full-suite load.
-- Make the test deterministic: the second git starts only while the lock is known to be held, and the assertions don't depend on scheduler timing.
-- If the cause is in `GitRun` rather than the test, fix `GitRun`.
+- Hold `index.lock` until this test releases it.
+- Start the second git only while that lock is held.
+- Assert that the second git blocks and then succeeds, with no elapsed-time threshold.
 
-Source: `GitRunTests.fs`, and `GitRun.fs` if the cause is there.
+Source: `GitRunTests.fs`.
 
 ## 5. Tests
 
