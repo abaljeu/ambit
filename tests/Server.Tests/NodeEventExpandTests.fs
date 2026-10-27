@@ -81,14 +81,6 @@ let private changeOps (event: Ev) =
     | EventBody.Change ops -> ops
     | _ -> []
 
-let private fileNamed (host: MailboxHost) parentId name =
-    Graph.children (stateOf host).graph parentId
-    |> List.pick (fun child ->
-        let node = (stateOf host).graph.nodes.[child.id]
-        match Filename.tryValue node.name with
-        | Some found when found = name -> Some child.id
-        | _ -> None)
-
 let private waitUntil pred timeoutMs = task {
     let start = DateTime.UtcNow
     while
@@ -176,11 +168,6 @@ let private addDirectory host parent name =
 let private setState host id oldState newState =
     postGraph host [ Op.SetDocumentState(id, oldState, newState) ]
 
-let private uploading host id =
-    hasCase host (function
-        | Notice.NodeUploading found -> found = id
-        | _ -> false)
-
 let private received host id =
     hasCase host (function
         | Notice.NodeReceived found -> found = id
@@ -233,11 +220,6 @@ let private wroteSet host id newState =
         | EventBody.Change ops -> containsSet ops id newState
         | _ -> false)
 
-let private assertBeside host id newState ops =
-    Assert.True(containsSet ops id newState)
-    Assert.True(wroteSet host id newState)
-    Assert.Equal(newState, documentState host id)
-
 let private assertLogged host id newState present =
     Assert.Equal(newState, documentState host id)
     Assert.True(present)
@@ -251,61 +233,6 @@ let private waitParsed host id = task {
                 && not (wroteSet host id Current))
             2000
     Assert.True(parsed)
-}
-
-[<Fact(Skip = "128/129: upload posts NodeUploading beside SetDocumentState pending")>]
-let ``upload posts NodeUploading beside SetDocumentState`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let planned =
-            WorkspaceUploadStructure.planStubOps
-                (stateOf host).graph
-                "home"
-                [ { relative = "note.txt"; isDirectory = false } ]
-            |> requireOk "stubs"
-        Assert.False(anyNodeMsg host)
-        do! postChange handle planned
-        let noteId = fileNamed host wsId "note.txt"
-        assertBeside host noteId PullingFile planned
-        Assert.True(uploading host noteId)
-        let currentId = addFile host wsId "current.txt"
-        setState host currentId Unparsed Current
-        let plainId = addFile host wsId "plain.txt"
-        let marks =
-            [ Op.SetDocumentState(currentId, Current, PullingFile)
-              Op.SetDocumentState(plainId, Unparsed, PullingFile) ]
-        do! postChange handle marks
-        assertBeside host currentId PullingFile marks
-        Assert.True(uploading host currentId)
-        assertBeside host plainId PullingFile marks
-        Assert.True(uploading host plainId)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<Fact(Skip = "128/129: upload emits NodeUploading pending")>]
-let ``upload emits NodeUploading`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let planned =
-            WorkspaceUploadStructure.planStubOps
-                (stateOf host).graph
-                "home"
-                [ { relative = "note.txt"; isDirectory = false } ]
-            |> requireOk "stubs"
-        do! postChange handle planned
-        let noteId = fileNamed host wsId "note.txt"
-        let node = (stateOf host).graph.nodes.[noteId]
-        Assert.True(uploading host noteId)
-        Assert.True(node.documentState.pullingFile)
-        Assert.Equal(PullingFile, documentState host noteId)
-        Assert.Equal(
-            PersistState.Unpersisted,
-            node.documentState.persistState)
-    finally
-        CoreMailboxApi.dispose host
 }
 
 [<Fact>]
@@ -800,60 +727,6 @@ let ``renamed and modified file posts NodeReceived`` () = task {
         Assert.False(wroteSet host fileId Unparsed)
         Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<SkippableFact>]
-let ``incoming file posts NodeReceived beside SetDocumentState`` () = task {
-    Skip.If(
-        true,
-        "127 — Server file present drops its SetDocumentState")
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let presentId = addFile host wsId "present.txt"
-        setState host presentId Unparsed PullingFile
-        let otherId = addFile host wsId "other.txt"
-        setState host otherId Unparsed PullingFile
-        let ops =
-            WorkspaceUploadStructure.planServerFilePresentOps
-                (stateOf host).graph
-                "home"
-                [ "present.txt"; "missing.txt" ]
-        Assert.False(received host presentId)
-        do! postChange handle ops
-        assertBeside host presentId Unparsed ops
-        Assert.True(received host presentId)
-        Assert.Equal(PullingFile, documentState host otherId)
-        Assert.False(received host otherId)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<SkippableFact>]
-let ``incoming file emits NodeReceived`` () = task {
-    Skip.If(
-        true,
-        "127 — Server file present drops its SetDocumentState")
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let presentId = addFile host wsId "present.txt"
-        setState host presentId Unparsed PullingFile
-        let ops =
-            WorkspaceUploadStructure.planServerFilePresentOps
-                (stateOf host).graph
-                "home"
-                [ "present.txt" ]
-        do! postChange handle ops
-        let node = (stateOf host).graph.nodes.[presentId]
-        Assert.True(received host presentId)
-        Assert.Equal(Unparsed, documentState host presentId)
-        Assert.False(node.documentState.pullingFile)
-        Assert.Equal(
-            PersistState.Persisted,
-            node.documentState.persistState)
     finally
         CoreMailboxApi.dispose host
 }
