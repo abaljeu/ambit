@@ -341,29 +341,19 @@ module LazyLoadReconciliation =
             List.choose fileParentParts [ oldPath; newPath ]
         | Modified _ -> []
 
-    let private containingDirectoryIds graph workspaceId changes =
-        changes
-        |> List.collect changedFileParents
-        |> List.map (nearestExistingDirectory graph workspaceId)
-        |> List.distinct
-
-    /// Always Unparsed. Appended after the file plan.
-    let private unparsedStateOp (graph: Graph) nodeId =
-        Op.SetDocumentState(
-            nodeId,
-            Node.documentStateEnum graph.nodes.[nodeId],
-            Unparsed)
-
-    /// Marks for an added, removed, or renamed file. Targets come from `graph`.
-    let containingDirectoryMarkOps
+    /// Directory or Workspace for an added, removed, or renamed file.
+    /// Modified paths add none. Targets come from `graph`.
+    let containingDirectoryIds
         (graph: Graph)
         (workspaceLabel: string)
         (changes: ChangedPath list)
-        : Result<Op list, string> =
+        : Result<NodeId list, string> =
         GraphQuery.trySyncRootByLabel graph workspaceLabel
         |> Result.map (fun workspaceId ->
-            containingDirectoryIds graph workspaceId changes
-            |> List.map (unparsedStateOp graph))
+            changes
+            |> List.collect changedFileParents
+            |> List.map (nearestExistingDirectory graph workspaceId)
+            |> List.distinct)
 
     let planChangedPathsWithArtifacts
         (graph: Graph)

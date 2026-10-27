@@ -14,7 +14,8 @@ module LazyLoadReconciliationReport =
           failures: Failure list
           unparsedIds: NodeId list
           parsedDirIds: NodeId list
-          renamedReceivedIds: NodeId list }
+          renamedReceivedIds: NodeId list
+          containingDirIds: NodeId list }
 
     type private PathItem =
         { path: string
@@ -303,7 +304,8 @@ module LazyLoadReconciliationReport =
                 failures = failures
                 unparsedIds = modifiedIds
                 parsedDirIds = List.distinct (modifiedDirs @ addedDirs)
-                renamedReceivedIds = [] })
+                renamedReceivedIds = []
+                containingDirIds = [] })
 
     /// A renamed File the pull actually moved. Resolve oldPath on the
     /// pre-plan graph. A failed rename is not marked.
@@ -340,7 +342,7 @@ module LazyLoadReconciliationReport =
         ops, ids
 
     /// Git pull plan. Each file is marked. An added, removed, or renamed file
-    /// also marks the containing Directory, or the nearest ancestor that exists.
+    /// records the containing Directory, or the nearest ancestor that exists.
     let planReceivedFiles
         (graph: Graph)
         (workspaceLabel: string)
@@ -349,11 +351,11 @@ module LazyLoadReconciliationReport =
         : Result<Report, string> =
         planChangedPathsWithArtifacts graph workspaceLabel changes artifacts
         |> Result.bind (fun report ->
-            LazyLoadReconciliation.containingDirectoryMarkOps
+            LazyLoadReconciliation.containingDirectoryIds
                 graph
                 workspaceLabel
                 changes
-            |> Result.map (fun markOps ->
+            |> Result.map (fun dirIds ->
                 let fileOps, fileIds =
                     renamedFileUnparsedOps
                         graph
@@ -366,6 +368,7 @@ module LazyLoadReconciliationReport =
                         LazyLoadReconciliationApply.decidesUnparsedMark
                             graph)
                 { report with
-                    ops = report.ops @ markOps @ fileOps
+                    ops = report.ops @ fileOps
                     unparsedIds = report.unparsedIds @ fileIds
-                    renamedReceivedIds = renamedReceivedIds }))
+                    renamedReceivedIds = renamedReceivedIds
+                    containingDirIds = dirIds }))

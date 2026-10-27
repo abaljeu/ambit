@@ -77,9 +77,6 @@ let private requireReceivedReport graph label changes =
         report
     | Error err -> failwith err
 
-let private requireReceivedPlan graph label changes =
-    (requireReceivedReport graph label changes).ops
-
 let private requireAddedReport graph paths =
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
@@ -101,17 +98,53 @@ let private setsCurrent id = function
     | Op.SetDocumentState(found, _, Current) when found = id -> true
     | _ -> false
 
-let private applyUnparsedNotice (graph: Graph) nodeId =
-    let event: Ev =
+let private applyNotice (graph: Graph) (notice: Notice) : Graph =
+    let event =
         { id = EventId.zero
           submissionId = System.Guid.Empty
           authority = Authority "test"
           commandName = ""
-          body = EventBody.Notice(Notice.NodeUnparsed nodeId) }
+          body = EventBody.Notice notice }
     match Ev.apply event { graph = graph; eventId = EventId.zero } with
     | ApplyResult.Changed next
     | ApplyResult.Unchanged next -> next.graph
     | ApplyResult.Invalid(_, msg) -> failwith msg
+
+let private applyUnparsedNotice (graph: Graph) nodeId =
+    applyNotice graph (Notice.NodeUnparsed nodeId)
+
+/// Same ids the plan chose, except a PullingFile container.
+let private containerNotices (graph: Graph) (ids: NodeId list) =
+    ids
+    |> List.choose (fun id ->
+        match Map.tryFind id graph.nodes with
+        | Some node when Node.documentStateEnum node <> PullingFile ->
+            Some(Notice.NodeUnparsed id)
+        | _ -> None)
+
+/// NodeUnparsed for a parsed directory, then ops, then child
+/// container NodeUnparsed, then NodeParsed for parsedDirIds.
+let private applyReceived
+    (graph: Graph)
+    (report: LazyLoadReconciliationReport.Report)
+    =
+    let loaded = report.parsedDirIds
+    let afterLoaded =
+        loaded
+        |> containerNotices graph
+        |> List.fold (fun current notice -> applyNotice current notice) graph
+    let afterOps = applyOps afterLoaded report.ops
+    let children =
+        report.containingDirIds
+        |> List.filter (fun id -> not (List.contains id loaded))
+    let afterChildren =
+        children
+        |> containerNotices graph
+        |> List.fold (fun current notice -> applyNotice current notice) afterOps
+    report.parsedDirIds
+    |> List.fold
+        (fun current id -> applyNotice current (Notice.NodeParsed id))
+        afterChildren
 
 let private childNamed graph parentId name =
     ownedNamedChildren graph parentId
@@ -946,12 +979,16 @@ let ``received file add marks the containing directory Unparsed`` () =
     let graph1 = createPaths graph [ "docs/keep.txt" ]
     let graph2 = markDocumentsCurrent graph1
     let docs = childNamed graph2 workspaceId "docs"
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graph2
             "home"
             [ LazyLoadReconciliation.Added "docs/new.txt" ]
-        |> applyOps graph2
+    Assert.Equal<NodeId list>([ docs.id ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed docs.id ],
+        containerNotices graph2 report.containingDirIds)
+    let graph3 = applyReceived graph2 report
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Equal(Unparsed, (childNamed graph3 docs.id "new.txt").documentState.AsEnum)
 
@@ -963,12 +1000,16 @@ let ``received file add leaves an Unparsed directory Unparsed`` () =
     let docs = childNamed graph2 workspaceId "docs"
     let graphUnparsed =
         applyOps graph2 [ Op.SetDocumentState(docs.id, Current, Unparsed) ]
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graphUnparsed
             "home"
             [ LazyLoadReconciliation.Added "docs/new.txt" ]
-        |> applyOps graphUnparsed
+    Assert.Equal<NodeId list>([ docs.id ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed docs.id ],
+        containerNotices graphUnparsed report.containingDirIds)
+    let graph3 = applyReceived graphUnparsed report
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.AsEnum)
 
 [<Fact>]
@@ -977,12 +1018,16 @@ let ``received file removal marks the containing directory Unparsed`` () =
     let graph1 = createPaths graph [ "docs/keep.txt"; "docs/gone.txt" ]
     let graph2 = markDocumentsCurrent graph1
     let docs = childNamed graph2 workspaceId "docs"
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graph2
             "home"
             [ LazyLoadReconciliation.Deleted "docs/gone.txt" ]
-        |> applyOps graph2
+    Assert.Equal<NodeId list>([ docs.id ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed docs.id ],
+        containerNotices graph2 report.containingDirIds)
+    let graph3 = applyReceived graph2 report
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Equal(Current, (childNamed graph3 docs.id "keep.txt").documentState.AsEnum)
 
@@ -994,12 +1039,18 @@ let ``received file rename marks both directories Unparsed`` () =
     let graph2 = markDocumentsCurrent graph1
     let docs = childNamed graph2 workspaceId "docs"
     let other = childNamed graph2 workspaceId "other"
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graph2
             "home"
             [ LazyLoadReconciliation.Renamed("docs/move.txt", "other/move.txt") ]
-        |> applyOps graph2
+    Assert.Equal<NodeId list>(
+        [ docs.id; other.id ],
+        report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed docs.id; Notice.NodeUnparsed other.id ],
+        containerNotices graph2 report.containingDirIds)
+    let graph3 = applyReceived graph2 report
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Equal(Unparsed, graph3.nodes.[other.id].documentState.AsEnum)
 
@@ -1007,12 +1058,16 @@ let ``received file rename marks both directories Unparsed`` () =
 let ``received file at the workspace top marks the workspace Unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph1 = markDocumentsCurrent graph
-    let graph2 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graph1
             "home"
             [ LazyLoadReconciliation.Added "top.txt" ]
-        |> applyOps graph1
+    Assert.Equal<NodeId list>([ workspaceId ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed workspaceId ],
+        containerNotices graph1 report.containingDirIds)
+    let graph2 = applyReceived graph1 report
     Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState.AsEnum)
 
 [<Fact>]
@@ -1021,12 +1076,16 @@ let ``received file at the workspace top leaves an Unparsed workspace Unparsed``
     let graph1 = markDocumentsCurrent graph
     let graphUnparsed =
         applyOps graph1 [ Op.SetDocumentState(workspaceId, Current, Unparsed) ]
-    let graph2 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graphUnparsed
             "home"
             [ LazyLoadReconciliation.Added "top.txt" ]
-        |> applyOps graphUnparsed
+    Assert.Equal<NodeId list>([ workspaceId ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed workspaceId ],
+        containerNotices graphUnparsed report.containingDirIds)
+    let graph2 = applyReceived graphUnparsed report
     Assert.Equal(Unparsed, graph2.nodes.[workspaceId].documentState.AsEnum)
 
 [<Fact>]
@@ -1041,6 +1100,7 @@ let ``received file modification leaves the containing directory Current`` () =
             graph2
             "home"
             [ LazyLoadReconciliation.Modified "docs/note.txt" ]
+    Assert.Empty(report.containingDirIds)
     let graph3 = applyOps graph2 report.ops
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Contains(note.id, report.unparsedIds)
@@ -1053,12 +1113,16 @@ let ``received file add marks the nearest existing ancestor directory`` () =
     let graph2 = markDocumentsCurrent graph1
     let w = childNamed graph2 workspaceId "w"
     let x = childNamed graph2 w.id "x"
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graph2
             "home"
             [ LazyLoadReconciliation.Added "w/x/y/z" ]
-        |> applyOps graph2
+    Assert.Equal<NodeId list>([ x.id ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed x.id ],
+        containerNotices graph2 report.containingDirIds)
+    let graph3 = applyReceived graph2 report
     Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState.AsEnum)
     Assert.Equal(Current, graph3.nodes.[w.id].documentState.AsEnum)
     Assert.Equal(Current, graph3.nodes.[workspaceId].documentState.AsEnum)
@@ -1072,12 +1136,16 @@ let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
     let x = childNamed graph2 w.id "x"
     let graphUnparsed =
         applyOps graph2 [ Op.SetDocumentState(x.id, Current, Unparsed) ]
-    let graph3 =
-        requireReceivedPlan
+    let report =
+        requireReceivedReport
             graphUnparsed
             "home"
             [ LazyLoadReconciliation.Added "w/x/y/z" ]
-        |> applyOps graphUnparsed
+    Assert.Equal<NodeId list>([ x.id ], report.containingDirIds)
+    Assert.Equal<Notice list>(
+        [ Notice.NodeUnparsed x.id ],
+        containerNotices graphUnparsed report.containingDirIds)
+    let graph3 = applyReceived graphUnparsed report
     Assert.Equal(Unparsed, graph3.nodes.[x.id].documentState.AsEnum)
     Assert.Equal(Current, graph3.nodes.[w.id].documentState.AsEnum)
 
