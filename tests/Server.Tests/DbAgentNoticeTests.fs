@@ -102,14 +102,19 @@ let ``NodeUnparsed writes parse state to the database`` () = task {
 }
 
 [<Fact>]
-let ``NodePersisting writes persist state to the database`` () = task {
+let ``NodePersisting writes no persist row`` () = task {
     let! connStr, mailbox, id, before = freshFile ()
     do! apply mailbox (Notice.NodePersisting id)
     let! after = readNode connStr id
-    Assert.Equal(PersistState.Unpersisted, after.documentState.persistState)
+    Assert.Equal(
+        before.documentState.persistState,
+        after.documentState.persistState)
     Assert.Equal(
         before.documentState.parseState,
         after.documentState.parseState)
+    Assert.Equal(
+        before.documentState.changedVersion,
+        after.documentState.changedVersion)
     Assert.Equal(before.updateTime, after.updateTime)
 }
 
