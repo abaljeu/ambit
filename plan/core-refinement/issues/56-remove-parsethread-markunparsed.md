@@ -1,6 +1,6 @@
 # 56 — Remove ParseThread markUnparsed
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Note:** 2026-10-25 — Likely absorbed by 45 — SetDocumentState leaves; NodeUnpersisted replaces it, which deletes `Notice.MarkUnparsed`. Not closed.

@@ -1,6 +1,6 @@
 # 55 — Undo, redo, and replay set persistState
 
-**Status**: defined
+**Status:** `coded`
 One job: Undo, Redo, and replay from load leave `DocumentState.persistedVersion : EventId` and `DocumentState.parseState` unchanged, and set `DocumentState.persistState : PersistState` to `Unpersisted` when the Graph changes. They set `DocumentState.changedVersion : EventId` to the applied Event's `EventId`, including a replayed `Parse` command. Replay ignores persist Notices and parse Notices. The job comes from [Document-state events](../spec.md).
 
 Type: bug-fixing
