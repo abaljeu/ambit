@@ -27,13 +27,13 @@ Source: `PathPick.fs`, and the Git Load path where a Directory or File subject n
 
 ## 5. Tests
 
-[ ] A plain Load on a Directory in a workspace with a GitHub remote resolves to Git.
-[ ] A plain Load on a File in a workspace with a GitHub remote resolves to Git.
-[ ] A plain Load on a Directory in a workspace with no GitHub remote resolves to Desk.
-[ ] A plain Load on a File in a GitHub-backed workspace marks the file Unparsed and parses it, with no local-folder read.
+[x] A plain Load on a Directory in a workspace with a GitHub remote resolves to Git.
+[x] A plain Load on a File in a workspace with a GitHub remote resolves to Git.
+[x] A plain Load on a Directory in a workspace with no GitHub remote resolves to Desk.
+[x] A plain Load on a File in a GitHub-backed workspace marks the file Unparsed and parses it, with no local-folder read.
 
 ## 6. Done
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
-[ ] All executed tests pass.
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
+[x] All executed tests pass.

@@ -172,23 +172,35 @@ module GithubTransportActor =
                         changed
         }
 
-    let private runOperation
+    let private loadFocus changes focusId =
+        async {
+            let! loaded = CoreDoor.loadNode changes focusId
+            return loaded |> Result.map (fun _ -> ())
+        }
+
+    /// Workspace Load pulls. A Directory or File loads that node only.
+    let private runStep
         operation
         dependencies
         dataDir
         changes
+        focusId
+        subject
         workspaceId
         root
         =
-        match operation with
-        | GithubTransportOperation.Load ->
+        match operation, subject with
+        | GithubTransportOperation.Load, Some LoadSubject.Directory
+        | GithubTransportOperation.Load, Some LoadSubject.File ->
+            loadFocus changes focusId
+        | GithubTransportOperation.Load, _ ->
             runLoad
                 dependencies
                 dataDir
                 changes
                 workspaceId
                 root
-        | GithubTransportOperation.Save ->
+        | GithubTransportOperation.Save, _ ->
             async.Return(
                 saveTracked dependencies.git root
                 |> Result.map ignore)
@@ -207,12 +219,18 @@ module GithubTransportActor =
                 with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
+                    let subject =
+                        PathPick.subjectOf
+                            current.graph
+                            input.focusId
                     match!
-                        runOperation
+                        runStep
                             operation
                             dependencies
                             dataDir
                             actorChanges
+                            input.focusId
+                            subject
                             workspaceId
                             root
                     with
