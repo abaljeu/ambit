@@ -82,13 +82,47 @@ module EventLog =
     let afterCheckpoint (eventId: EventId) : EventLog =
         { empty with nextId = EventId.next eventId }
 
-    let private applyRecover state event =
-        let next =
+    /// Persist Notices and parse Notices. Replay leaves the file and parse state.
+    let private replaySkipsNotice (notice: Notice) =
+        match notice with
+        | Notice.NodePersisting _
+        | Notice.NodePersisted _
+        | Notice.PersistFailed _
+        | Notice.NodeUnpersisted _
+        | Notice.NodeParsing _
+        | Notice.NodeParsed _
+        | Notice.NodeUnparsed _
+        | Notice.NodeReceived _
+        | Notice.NodeUploading _ -> true
+        | Notice.ParseFailed _ -> false
+
+    /// Replay of Parse writes the owning special at the Event id.
+    let private flagParseReplay (event: Ev) (state: State) =
+        if event.commandName <> "Parse" then
+            state
+        else
+            let ops = Ev.ops event |> Option.defaultValue []
+            let graph =
+                DocumentOpImpact.owningSpecials state.graph ops
+                |> List.fold
+                    (fun graph nodeId ->
+                        GraphMutate.setUnpersistedAt
+                            nodeId event.id graph)
+                    state.graph
+            { state with graph = graph }
+
+    let private appliedState state event =
+        match event.body with
+        | EventBody.Notice notice when replaySkipsNotice notice ->
+            state
+        | _ ->
             match Ev.apply event state with
-            | ApplyResult.Changed next -> next
+            | ApplyResult.Changed next -> flagParseReplay event next
             | ApplyResult.Unchanged next -> next
             | ApplyResult.Invalid (next, _) -> next
-        { next with eventId = event.id }
+
+    let private applyRecover state event =
+        { appliedState state event with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
     let recover (state: State) (log: EventLog) : State * EventLog =

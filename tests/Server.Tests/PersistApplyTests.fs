@@ -233,6 +233,46 @@ let ``Redo sets changedVersion to the Redo event and leaves persistedVersion`` (
     assertVersions
         state fileId "edited" (EventIdFixtures.storedId 12) persisted
 
+let private assertPersistMark state fileId text persisted changed =
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(text, live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``Undo sets persistState Unpersisted and leaves persistedVersion`` () =
+    let undo version fileId =
+        EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])
+    let handlers = fileHandlers ()
+    let fileId, persisted, state = editThenAction handlers 9 undo
+    assertPersistMark
+        state fileId "hello" persisted (EventIdFixtures.storedId 9)
+
+[<Fact>]
+let ``Redo sets persistState Unpersisted and leaves persistedVersion`` () =
+    let handlers = fileHandlers ()
+    let version = EventIdFixtures.storedId 4
+    let undoId = EventIdFixtures.storedId 9
+    let persisted = EventIdFixtures.storedId 2
+    let redoId = EventIdFixtures.storedId 12
+    let fileId, node = fileAt "hello" persisted
+    seedPersisted handlers fileId node
+    applyAction handlers (
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ]))
+    |> ignore
+    applyAction handlers (
+        editAction 9 (
+            EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])))
+    |> ignore
+    let state =
+        applyAction handlers (
+            editAction 12 (
+                EventBody.Redo(
+                    undoId, [ Op.SetText(fileId, "hello", "edited") ])))
+    assertPersistMark state fileId "edited" persisted redoId
+
 let private postBody host commandName body =
     let event =
         { id = EventId.zero
