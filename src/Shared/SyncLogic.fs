@@ -116,6 +116,41 @@ module SyncLogic =
         | ApplyResult.Unchanged projected ->
             Ok { st with graph = projected.graph }
 
+    /// NodeParsed leaves PullingFile. The enum write would clear it.
+    let private projectNodeParse (notice: Notice) (st: ClientSyncState) =
+        match notice with
+        | Notice.NodeParsed nodeId ->
+            match Map.tryFind nodeId st.graph.nodes with
+            | Some node when node.documentState.pullingFile -> Ok st
+            | _ -> projectDocumentNotice notice st
+        | _ -> projectDocumentNotice notice st
+
+    let private writePersist
+        (nodeId: NodeId)
+        (persist: PersistState)
+        (st: ClientSyncState)
+        =
+        match Map.tryFind nodeId st.graph.nodes with
+        | None -> st
+        | Some node ->
+            let updated = Node.withPersistState persist node
+            { st with
+                graph =
+                    { st.graph with
+                        nodes = Map.add nodeId updated st.graph.nodes } }
+
+    /// Persist half of a Node notice. An absent node is left absent.
+    let private applyNoticePersist (notice: Notice) (st: ClientSyncState) =
+        match notice with
+        | Notice.NodePersisted (nodeId, written, time) ->
+            applyNodePersisted nodeId written time st
+        | Notice.NodeUploading nodeId
+        | Notice.NodePersisting nodeId ->
+            writePersist nodeId PersistState.Unpersisted st
+        | Notice.NodeReceived nodeId ->
+            writePersist nodeId PersistState.Persisted st
+        | _ -> st
+
     let private applyLoggedNotice
         (event: Ev)
         (st: ClientSyncState)
@@ -123,15 +158,11 @@ module SyncLogic =
         =
         match event.body with
         | EventBody.Notice notice ->
-            match projectDocumentNotice notice st with
+            match projectNodeParse notice st with
             | Error msg -> Error msg
             | Ok next ->
-                let withPersist =
-                    match notice with
-                    | Notice.NodePersisted (nodeId, written, time) ->
-                        applyNodePersisted nodeId written time next
-                    | _ -> next
-                Ok({ withPersist with eventId = event.id }, undid)
+                let applied = applyNoticePersist notice next
+                Ok({ applied with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.
