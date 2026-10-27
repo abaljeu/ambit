@@ -27,18 +27,16 @@ Sites that post `NodeParsing` and can then fail:
 
 Source: `History.fs`, `EventJson.fs`, `ParseThread.fs`, `LazyLoadReconciliationServer.fs`, and each exhaustive `Notice` match (`CoreMailboxLoop.fs`, `Database.fs`, `History.fs`).
 
-## 5. Questions (Alan)
+- `Notice.ParseFailed` leaves the node's document state unchanged.
 
-[ ] What document state does `Notice.ParseFailed` leave on the node?
-
-## 6. Tests
+## 5. Tests
 
 [ ] A file parse whose Change fails posts `NodeParsing`, then `ParseFailed`, and no `NodeParsed`.
 [ ] A directory parse whose Change fails posts `NodeParsing`, then `ParseFailed`, and no `NodeParsed`.
 [ ] A git Load reconcile whose Change fails posts `ParseFailed` for each `parsedDirIds` entry.
 [ ] `EventJson` round-trips `Notice.ParseFailed`.
 
-## 7. Done
+## 6. Done
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
