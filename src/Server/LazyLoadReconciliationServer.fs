@@ -105,9 +105,6 @@ module LazyLoadReconciliationServer =
         ids
         |> List.iter (fun id -> CoreMailboxApi.postNotice host (notice id))
 
-    let private postParsedParents (host: MailboxHost) (parentIds: NodeId list) =
-        postNotices host Notice.NodeParsed parentIds
-
     /// Current controlling Special for each id `markUnparsed` received.
     let private postCurrentUnparsed
         (host: MailboxHost)
@@ -130,7 +127,6 @@ module LazyLoadReconciliationServer =
             logFailures listed.workspaceLabel report.failures
             let host = listed.handle.host
             let postMarks () =
-                postParsedParents host report.parsedParentIds
                 postCurrentUnparsed host listed.graph report.unparsedIds
             let postDirParsing () =
                 postNotices host Notice.NodeParsing report.parsedDirIds

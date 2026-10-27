@@ -16,10 +16,9 @@ This is round 9 of [124 — Remove SetDocumentState one site at a time](124-remo
 
 ## 4. Change
 
-- `LazyLoadReconciliationApply.markParentCurrent` returns an empty op list.
-- `LazyLoadReconciliationReport.parsedParentIds` lists each Unparsed Directory or Workspace that owns an attached stub.
-- `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each of those ids.
-- Graph-only apply uses `guardUnparsed` false.
+- `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each parsed directory file and each renamed directory id.
+- A new Directory or File on an added path stays Unparsed.
+- `LazyLoadReconciliationApply.markAddedDocumentsUnparsed` returns that graph and the stub ops.
 
 Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationReport.fs`, `LazyLoadReconciliationServer.fs`.
 
@@ -48,9 +47,8 @@ The intended direction: such uploads should go through the existing Load channel
 
 ## 8. Round
 
-[ ] `LazyLoadReconciliationApply.markParentCurrent` returns an empty op list. The Unparsed Directory or Workspace check stays.
-[ ] `LazyLoadReconciliationApply.parentsOfAttachedStubs` names that container. `LazyLoadReconciliationReport.parsedParentIds` carries those ids.
-[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each id.
-[ ] `upload-built directories become current when members are added` asserts those ids and `Notice.NodeParsed`.
-[ ] `DocumentOpImpact.noticesBeside` stays as it is.
-[ ] Graph-only apply uses `guardUnparsed` false.
+[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeParsed` for each parsed directory file and each renamed directory id.
+[ ] A new Directory or File on an added path stays Unparsed.
+[ ] `git load reconcile leaves an Unparsed parent Unparsed without NodeParsed` asserts the directory, the workspace, and the new file stay Unparsed and carry no `Notice.NodeParsed`.
+[ ] `upload-built directories stay Unparsed without NodeParsed` asserts the workspace and the new directories stay Unparsed.
+[ ] `nested file parse leaves the new directory Unparsed without NodeParsed` asserts the new directory stays Unparsed.
