@@ -866,8 +866,7 @@ let ``an edit logs NodeUnpersisted for its owning special`` () =
     task {
         let fileId, initial = fileWithText ()
         let state = ref initial
-        let notices = ResizeArray<Notice>()
-        let host = hostRecordingNotices state notices
+        let host = hostRecordingGraph state
         try
             let! posted =
                 CoreMailboxApi.postEvents
@@ -879,18 +878,23 @@ let ``an edit logs NodeUnpersisted for its owning special`` () =
             let! since =
                 CoreMailboxApi.getEventsSince host EventId.zero
                 |> Async.StartAsTask
+            let ordered = List.rev since
             let changeAt =
-                since
+                ordered
                 |> List.findIndex (fun event ->
                     match event.body with
                     | EventBody.Change _ -> true
                     | _ -> false)
-            Assert.True(changeAt >= 0)
-            Assert.Equal<Notice list>(
-                [ Notice.NodeUnpersisted fileId ],
-                List.ofSeq notices)
+            let noticeAt =
+                ordered
+                |> List.findIndex (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodeUnpersisted id) ->
+                        id = fileId
+                    | _ -> false)
+            Assert.True(noticeAt > changeAt)
             let loggedPersisting =
-                since
+                ordered
                 |> List.exists (fun event ->
                     match event.body with
                     | EventBody.Notice (Notice.NodePersisting _) -> true

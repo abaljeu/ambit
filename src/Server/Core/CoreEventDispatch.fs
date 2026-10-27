@@ -205,22 +205,27 @@ module internal CoreEventDispatch =
             < EventId.value version
 
     let private markForPersist
-        (persist: PersistHandlers)
+        (context: Context)
         (version: EventId)
         (nodeId: NodeId)
         : Result<unit, string> =
-        match persist.getState () with
+        match context.persist.getState () with
         | Error err -> Error err
         | Ok state ->
             match Map.tryFind nodeId state.graph.nodes with
             | Some node when needsUnpersistedMark node version ->
-                writeAxis
-                    persist
-                    (Gambol.Shared.Notice.NodeUnpersisted nodeId)
-                    (fun graph ->
-                        Ok (
-                            GraphMutate.setUnpersistedAt
-                                nodeId version graph))
+                let notice =
+                    Gambol.Shared.Notice.NodeUnpersisted nodeId
+                match logNotice context notice with
+                | Error err -> Error err
+                | Ok _ ->
+                    writeAxis
+                        context.persist
+                        notice
+                        (fun graph ->
+                            Ok (
+                                GraphMutate.setUnpersistedAt
+                                    nodeId version graph))
             | _ -> Ok ()
 
     let private pushChangeSpecials
@@ -248,7 +253,7 @@ module internal CoreEventDispatch =
                             acc
                             |> Result.bind (fun () ->
                                 markForPersist
-                                    context.persist
+                                    context
                                     completed.id
                                     nodeId))
                         (Ok ())
@@ -261,14 +266,8 @@ module internal CoreEventDispatch =
         match Ev.ops completed with
         | None -> Ok None
         | Some _ ->
-            match context.persist.applyEvent completed graphOnly with
-            | Error error -> Error error
-            | Ok accepted ->
-                if graphOnly then
-                    Ok(Some accepted)
-                else
-                    pushChangeSpecials context completed accepted
-                    |> Result.map (fun () -> Some accepted)
+            context.persist.applyEvent completed graphOnly
+            |> Result.map Some
 
     let private store context accepted completed =
         let confirmed =
@@ -276,6 +275,22 @@ module internal CoreEventDispatch =
             | None -> completed
             | Some result -> withConfirmedOps completed result
         commit context confirmed
+
+    /// The Change is stored first. NodeUnpersisted then takes the Notice
+    /// path: logNotice, then the axis write.
+    let private markAcceptedSpecials
+        (context: Context)
+        (graphOnly: bool)
+        (completed: Ev)
+        (accepted: CoreChangesAccepted option)
+        =
+        if graphOnly then
+            Ok ()
+        else
+            match accepted with
+            | None -> Ok ()
+            | Some result ->
+                pushChangeSpecials context completed result
 
     let private persistNew
         (context: Context)
@@ -295,7 +310,10 @@ module internal CoreEventDispatch =
                 | Ok accepted ->
                     match store context accepted completed with
                     | Error error -> Error error
-                    | Ok stored -> Ok(stored, accepted)
+                    | Ok stored ->
+                        markAcceptedSpecials
+                            context graphOnly completed accepted
+                        |> Result.map (fun () -> stored, accepted)
 
     let postEvent
         (context: Context)
