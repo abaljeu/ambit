@@ -47,6 +47,7 @@ type Notice =
     | NodeParsing of nodeId: NodeId
     | NodePersisting of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
+    | ParseFailed of nodeId: NodeId * message: string
 
 [<RequireQualifiedAccess>]
 type EventBody =
@@ -444,6 +445,7 @@ module Ev =
         | Notice.NodeParsing _
         | Notice.NodePersisting _
         | Notice.PersistFailed _
+        | Notice.ParseFailed _
         | Notice.NodePersisted _ -> None
 
     let private applyNotice (notice: Notice) (state: State) : ApplyResult =

@@ -197,7 +197,12 @@ module LazyLoadReconciliationServer =
                 | Ok () ->
                     postAfterChange host listed report
                     return Ok report.failures
-                | Error err -> return Error err
+                | Error err ->
+                    postNotices
+                        host
+                        (fun id -> Notice.ParseFailed(id, err))
+                        report.parsedDirIds
+                    return Error err
         }
 
     /// Plan and post. `artifactReads` is the set whose text is read.

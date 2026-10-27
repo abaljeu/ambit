@@ -106,7 +106,8 @@ module internal CoreMailboxLoop =
             CoreMailboxFilesAxis.writePullingFileUnpersisted persist nodeId
         | Notice.NodeReceived nodeId ->
             CoreMailboxFilesAxis.writeReceived persist nodeId
-        | Notice.NodeParsing _ -> Ok ()
+        | Notice.NodeParsing _
+        | Notice.ParseFailed _ -> Ok ()
         | Notice.NodePersisting nodeId ->
             CoreEventDispatch.writeAxis persist msg (fun live ->
                 CoreMailboxFilesAxis.writeUnpersisted nodeId live)

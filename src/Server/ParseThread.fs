@@ -169,7 +169,11 @@ module ParseThread =
                 let event = GraphOnlyChangePost.mint "Parse" ops
                 match! CoreDoor.postGraphOnly handle event with
                 | Ok _ -> return Ok ()
-                | Error err -> return Error err
+                | Error err ->
+                    CoreMailboxApi.postNotice
+                        handle.host
+                        (Notice.ParseFailed(nodeId, err))
+                    return Error err
         }
 
     let graphFromHost
