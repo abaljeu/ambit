@@ -40,3 +40,17 @@ Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`.
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `LazyLoadReconciliationReport.parsedDirIds` lists each Directory or Workspace `parseDirInfoIfPresent` parsed.
+[ ] `invalidateOrParseModified` and `finalizeAdded` supply that id. `parseDirInfoInfos` drops it. That planner returns ops.
+[ ] `LazyLoadReconciliationServer.reconcileReceivedFiles` plans the git change list. `receivedFileChanges` still chooses `Notice.NodeReceived`.
+[ ] That actor posts `Notice.NodeParsing` for each `parsedDirIds` entry before the reconcile Change, and `Notice.NodeParsed` for each entry after the Change.
+[ ] `parsedFromPulling` and `postParsedFromPulling` are gone.
+[ ] `DocumentOpImpact.noticesBeside` is unchanged.
+[ ] `CoreMailboxFilesAxis.applyNodeParsed` still sets legacy DocumentState to Current.
+[ ] `git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse` checks that order on a Current directory. The fact holds with the `markCurrent` arms emptied.
+[ ] Both `markCurrent` arms in `parseDirInfoIfPresent` remain.
+[ ] Emptying both arms makes `Op.apply` fail with `operation cannot modify an unparsed document; parse it first` for `exact amb add with text parses outline immediately`, `exact amb modify with text reparses instead of leaving unparsed`, `exact amb modify warm keeps node id on text edit`, `disk parse of a directory sets Parsed and keeps PersistState`, `new Directory File Added still parses outline`, and `rediscovered Unparsed Directory File still parses on Added`.
+[ ] With the arms emptied, `rediscovered Current Directory Files skip parse on Added` fails because the outline child list is empty.

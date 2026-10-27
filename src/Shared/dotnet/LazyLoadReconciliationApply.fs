@@ -128,6 +128,35 @@ module internal LazyLoadReconciliationApply =
                 Node.documentStateEnum graph.nodes.[nodeId] = Current
             | _ -> false
 
+    let private noParsedDir graph =
+        Ok(graph, [], None)
+
+    /// `dirId` is the Directory or Workspace this parse applied.
+    let private planParsedDir graph nodeId relativePath text docState =
+        let previousText =
+            match docState with
+            | Unparsed
+            | PullingFile -> None
+            | Current ->
+                previousArtifactText graph nodeId relativePath
+        let markCurrent =
+            match docState with
+            | Unparsed ->
+                [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
+            | PullingFile ->
+                [ Op.SetDocumentState(nodeId, PullingFile, Current) ]
+            | Current -> []
+        DocumentParseOps.planApplyArtifact
+            graph
+            nodeId
+            relativePath
+            text
+            previousText
+        |> Result.bind (fun parseOps ->
+            let ops = markCurrent @ parseOps
+            applyOps graph ops
+            |> Result.map (fun next -> next, ops, Some nodeId))
+
     let parseDirInfoIfPresent
         graph
         workspaceId
@@ -135,43 +164,24 @@ module internal LazyLoadReconciliationApply =
         (info: LazyLoadReconciliationPath.PathInfo)
         =
         if not info.isDirInfo then
-            Ok(graph, [])
+            noParsedDir graph
         else
             match tryArtifactText artifacts info with
-            | None -> Ok(graph, [])
+            | None -> noParsedDir graph
             | Some text ->
                 LazyLoadReconciliationPath.resolveInfo graph workspaceId info
                 |> Result.bind (function
-                    | None -> Ok(graph, [])
+                    | None -> noParsedDir graph
                     | Some(nodeId, _) ->
                         let relativePath = directoryFileRelativePath info
-                        let docState = Node.documentStateEnum graph.nodes.[nodeId]
-                        let previousText =
-                            match docState with
-                            | Unparsed
-                            | PullingFile -> None
-                            | Current ->
-                                previousArtifactText graph nodeId relativePath
-                        let markCurrent =
-                            match docState with
-                            | Unparsed ->
-                                [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-                            | PullingFile ->
-                                [ Op.SetDocumentState(
-                                    nodeId,
-                                    PullingFile,
-                                    Current) ]
-                            | Current -> []
-                        DocumentParseOps.planApplyArtifact
+                        let docState =
+                            Node.documentStateEnum graph.nodes.[nodeId]
+                        planParsedDir
                             graph
                             nodeId
                             relativePath
                             text
-                            previousText
-                        |> Result.bind (fun parseOps ->
-                            let ops = markCurrent @ parseOps
-                            applyOps graph ops
-                            |> Result.map (fun next -> next, ops)))
+                            docState)
 
     let parseDirInfoInfos
         graph
@@ -187,5 +197,5 @@ module internal LazyLoadReconciliationApply =
                     Ok(current, ops)
                 else
                     parseDirInfoIfPresent current workspaceId artifacts info
-                    |> Result.map (fun (next, parseOps) ->
+                    |> Result.map (fun (next, parseOps, _) ->
                         next, ops @ parseOps))) (Ok(graph, []))
