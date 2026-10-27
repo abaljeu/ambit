@@ -40,7 +40,7 @@
 
 [ ] `placeOrder` sends `Order.Change (ops, ChangeOrigin.Edit)` to `replyEdit`, then `postEvent` with `graphOnly = false`
 [ ] `persist` calls `pushChangeSpecials`, which folds `markForPersist` over `owningSpecials` and then `pushPersist`
-[ ] `markForPersist` logs `Notice.NodePersisting` through `writeAxis` with `setUnpersistedAt` at `completed.id`
+[x] `markForPersist` logs `Notice.NodeUnpersisted` through `logNotice`, then `writeAxis` with `setUnpersistedAt` at `completed.id`
 [ ] `postNotice` enqueues `CoreQueue.Notice`; `dispatchItem` runs `logNotice`, then `applyNotice`
 [ ] `dispatchPostEvent` posts Undo, Redo, and a legacy Change with `graphOnly = false`
 [ ] `dispatchPostGraphOnly` posts with `graphOnly = true`
@@ -61,66 +61,38 @@
 ### Today
 
 [ ] `Context` is `{ persist: PersistHandlers; eventLog: EventLog ref; restartTip: EventId }`
-[ ] `hostPublishing` passes `CoreMailboxApi.postNotice created` to `bindPersistFinished`
-[ ] `eventDispatchContext` copies `persist`, `eventLog`, and `restartTip` into `Context`
+[x] `hostPublishing` passes `CoreMailboxApi.postNotice created` to `bindPersistFinished`
+[x] `eventDispatchContext` copies `persist`, `eventLog`, and `restartTip` into `Context`
+[x] `PersistThread.runRequest` posts `Notice.NodePersisting` through its `postNotice` when the taken node is not still Persisted, then `Notice.NodePersisted` or `Notice.PersistFailed`
+[x] `CoreMailboxLoop.applyNotice` leaves the graph unchanged for `Notice.NodePersisting`
+[x] `Database.writeNoticeRow` writes no row for `Notice.NodePersisting`
+[x] `Notice.NodeUnpersisted` is what sets Unpersisted
 
 ## 5. Changes
 
-### Change
+### Persist thread
 
-[ ] One change: after a successful ordinary Edit, `postEvent` posts `Notice.NodeUnpersisted` through `postNotice`
+[x] `PersistThread.runRequest` posts `Notice.NodePersisting nodeId` before the write when the node is not still Persisted
+[x] That post uses the persist thread's `postNotice`, the same function that posts `Notice.NodePersisted`
+[x] No new caller of `CoreMailboxApi.postNotice`
 
-### CoreEventDispatch.fs
+### Apply
 
-[ ] `Context` gains a notice poster of type `Notice -> unit`
-[ ] The success exit of `persistNew` posts `Notice.NodeUnpersisted nodeId` for each owning special of that Edit
-[ ] The ids come from `owningSpecials` on the confirmed ops
-[ ] The version is `completed.id`
-[ ] The log gains `EventBody.Notice (Notice.NodeUnpersisted nodeId)` after the Change
-[ ] For that Edit, `markForPersist` still calls `setUnpersistedAt` at `completed.id`
-[ ] That Edit logs one notice, `Notice.NodeUnpersisted`
-[ ] `pushChangeSpecials` still calls `pushPersist` for those owning specials
-[ ] `EventBody.Undo` and `EventBody.Redo` still log `Notice.NodePersisting` through `markForPersist`
-[ ] `graphOnly` true posts no `Notice.NodeUnpersisted`
-[ ] `Op.SetDocumentState` stays in `Op`
-
-### CoreMailboxLoad.fs
-
-[ ] `replyEdit` passes the Edit gate into `postEvent`
-[ ] The gate covers every `replyEdit`, including `commandName` `"Edit"` and `commandName` `"Set text"`
-
-### CoreMailboxEvents.fs
-
-[ ] `eventDispatchContext` copies the notice poster into `Context`
-
-### CoreMailbox.fs
-
-[ ] After `MailboxHost.create`, `hostPublishing` sets that poster to `CoreMailboxApi.postNotice created`, beside `bindPersistFinished`
+[x] `Notice.NodePersisting` changes no node state
+[x] `Database.writeNoticeRow` writes no row for `Notice.NodePersisting`
+[x] `Notice.NodeUnpersisted` still sets Unpersisted
 
 ## 6. Tests
 
-### Add
-
-[ ] Add `ordinary edit posts NodeUnpersisted` in `CoreMailboxDoorTests.fs`
-[ ] The test calls `postEvents` with `editFileText`
-[ ] The log from `getEventsSince` or `eventHistory` contains `EventBody.Notice (Notice.NodeUnpersisted fileId)` after the Change
-[ ] The live graph shows Unpersisted at the Edit event id
-[ ] Filter: `ordinary edit posts NodeUnpersisted`
-
-### Mark
-
-[ ] `An Edit marks its owning special node at the Edit's id` still expects `PersistState.Unpersisted`
-[ ] That test still expects `changedVersion` equal to the second ack `eventId`
-[ ] The Edit's notice in that log is the one `Notice.NodeUnpersisted` row
-[ ] Filter: `An Edit marks its owning special node at the Edit's id`
-
-### Push
-
-[ ] `An Edit pushes its owning special node` still expects `pushPersist` to receive the file `NodeId`
-[ ] Filter: `An Edit pushes its owning special node`
-[ ] Filter: `A graph-only change pushes nothing`
+[x] `NodePersisting changes no node state` in [CoreLoopNoticeTests.fs](../../../tests/Server.Tests/CoreLoopNoticeTests.fs). Filter: `NodePersisting changes no node state`
+[x] `NodePersisting writes no persist row` in [DbAgentNoticeTests.fs](../../../tests/Server.Tests/DbAgentNoticeTests.fs). Filter: `NodePersisting writes no persist row`
+[x] `persist thread posts NodePersisted on success only` expects `Notice.NodePersisting` then `Notice.NodePersisted`, and `Notice.NodePersisting` then `Notice.PersistFailed` when the write fails
+[x] `persist thread posts the version it read` expects `Notice.NodePersisting` then `Notice.NodePersisted`
+[x] `CoreMailboxApi.postEvent appends an Ev that eventsSince returns` expects Change, then `Notice.NodePersisting`, then `Notice.NodePersisted`
+[x] `new special node's first file write posts NodePersisting` expects `Notice.NodePersisting` for that workspace before `Notice.NodePersisted`
+[x] `soft-fail Edit is not in the graph after restart` checks that no node text is `soft-fail-probe`. It does not assert `eventId`
 
 ## 7. Done
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
-[ ] All executed tests pass.
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[x] All executed tests pass.

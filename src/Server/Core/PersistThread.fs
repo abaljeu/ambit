@@ -32,6 +32,7 @@ module PersistThread =
         let stillPersisted =
             CoreEventDispatch.persistedNode state.graph request.nodeId
         if not stillPersisted then
+            deps.postNotice (Notice.NodePersisting request.nodeId)
             let written =
                 try
                     deps.persistNode state.graph request.nodeId
