@@ -165,7 +165,8 @@ let private seedWorkspace host operationName =
     let commandId, focusId = NodeId.New(), NodeId.New()
     let ops =
         workspaceOps
-        @ [ Op.NewNode(commandId, operationName)
+        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
+            Op.NewNode(commandId, operationName)
             Op.NewNode(focusId, "focus")
             Op.Replace(
                 workspaceId,
@@ -427,7 +428,7 @@ let ``every Git choice starts the Server Peer Actor``
 }
 
 [<Fact>]
-let ``plain Load of a Directory returns Git when a remote exists`` () =
+let ``plain Load of a non-Workspace returns Desk when a remote exists`` () =
     task {
         let operation = LoadSaveOperation.Load
         let host, seed, started =
@@ -442,12 +443,9 @@ let ``plain Load of a Directory returns Git when a remote exists`` () =
                     (encodeRequest command)
                 |> Async.StartAsTask
             let response = requireResponse result
-            Assert.Equal(LoadSavePath.Git, response.path)
-            Assert.True(Option.isSome response.command)
-            do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
-            let! history =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            Assert.Contains(history.events, hasActorStart seed.focusId)
+            Assert.Equal(LoadSavePath.Desk, response.path)
+            Assert.True(response.command.IsNone)
+            Assert.False(started.Task.IsCompleted)
         finally
             CoreMailboxApi.dispose host
     }
@@ -608,7 +606,7 @@ let ``git Load pulls a staging checkout and does not reconcile`` () = task {
 }
 
 [<SkippableFact>]
-let ``plain Load of a File or Directory returns Git when a remote exists`` () =
+let ``plain Load of a File or Directory stays Desk when a remote exists`` () =
     task {
         Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
         let harness = createGitHarness "load"
@@ -643,15 +641,13 @@ let ``plain Load of a File or Directory returns Git when a remote exists`` () =
                         (encodeRequest command)
                     |> Async.StartAsTask
                 let response = requireResponse result
-                Assert.Equal(LoadSavePath.Git, response.path)
-                Assert.True(Option.isSome response.command)
-                let! stopped = waitForStop harness.host focusId
-                Assert.Equal(Some ActorSucceeded, stopped)
+                Assert.Equal(LoadSavePath.Desk, response.path)
+                Assert.True(response.command.IsNone)
             let! history =
                 CoreMailboxApi.eventHistory harness.host
                 |> Async.StartAsTask
-            Assert.Contains(history.events, hasActorStart fileId)
-            Assert.Contains(history.events, hasActorStart dirId)
+            Assert.DoesNotContain(history.events, hasActorStart fileId)
+            Assert.DoesNotContain(history.events, hasActorStart dirId)
         finally
             CoreMailboxApi.dispose harness.host
     }
@@ -674,24 +670,11 @@ let rec private waitForParsedFile host fileId text deadline = task {
         return! waitForParsedFile host fileId text deadline
 }
 
-let private registerGitLoad (dataDir: string) (pool: CoreActorPool) =
-    pool.registerPeer
-        (GithubTransportActor.peerName GithubTransportOperation.Load)
-        (GithubTransportActor.actorFn
-            dataDir
-            GithubTransportOperation.Load
-            GithubTransportActor.productionDependencies)
-
-let private fileLoadHost
-    (dataDir: string)
-    (preparePool: CoreActorPool -> unit)
-    =
+let private fileLoadHost (dataDir: string) =
     let push, consumer = ParseStack.create ()
-    let pool = CoreActorPool.create ()
-    preparePool pool
     let host =
         CoreMailbox.hostWithParsePush
-            pool
+            (CoreActorPool.create ())
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
             push
@@ -723,32 +706,10 @@ let private fileLoadHost
                     request }
     host, handle, router
 
-let private noticeIndex events notice =
-    events
-    |> List.tryFindIndex (fun event ->
-        match event.body with
-        | EventBody.Notice found -> found = notice
-        | _ -> false)
-
-let rec private waitForNamedChild host parentId name deadline = task {
-    let after = readGraph host
-    let found =
-        Graph.children after parentId
-        |> List.exists (fun child ->
-            Filename.tryValue after.nodes.[child.id].name = Some name)
-    if found then
-        return Some after
-    elif DateTime.UtcNow >= deadline then
-        return None
-    else
-        do! Task.Delay 10
-        return! waitForNamedChild host parentId name deadline
-}
-
 [<Fact>]
 let ``Load on a file parses that file`` () = task {
     let dataDir = newTempDir ()
-    let host, handle, router = fileLoadHost dataDir ignore
+    let host, handle, router = fileLoadHost dataDir
     try
         let seed = seedWorkspace host "load"
         let fileId, fileOps =
@@ -757,7 +718,6 @@ let ``Load on a file parses that file`` () = task {
         postChange host fileOps
         let disk = Path.Combine(dataDir, "home", "note.txt")
         Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
-        git (Path.GetDirectoryName disk) "init -b master" |> ignore
         File.WriteAllText(disk, "seed")
         let command =
             requestForFocus
@@ -781,262 +741,6 @@ let ``Load on a file parses that file`` () = task {
                 "seed",
                 after.nodes.[(Graph.children after fileId).Head.id].text)
         | None -> Assert.Fail("Load did not parse the file")
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<SkippableFact>]
-let ``plain Load of a GitHub File marks it Unparsed and parses it`` () = task {
-    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let dataDir = newTempDir ()
-    let _, _, source, workspace = createTrackedWorkspace dataDir
-    commitFile source "only-remote.txt" "remote" "remote-only"
-    git source "push origin main" |> ignore
-    let host, handle, router =
-        fileLoadHost dataDir (registerGitLoad dataDir)
-    try
-        let seed = seedWorkspace host "load"
-        let fileId, fileOps =
-            FileNodeOps.planCreateOwnedFile
-                (readGraph host) seed.workspaceId "note.txt"
-        postChange host fileOps
-        let command =
-            requestForFocus
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                seed
-                fileId
-        let! result =
-            Api.postLoadSaveCommand
-                router
-                handle
-                (encodeRequest command)
-            |> Async.StartAsTask
-        Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
-        let! parsed =
-            waitForParsedFile
-                host
-                fileId
-                "seed"
-                (DateTime.UtcNow.AddSeconds 5.0)
-        match parsed with
-        | None -> Assert.Fail("Git Load did not parse the file")
-        | Some _ -> ()
-        File.WriteAllText(Path.Combine(workspace, "note.txt"), "next")
-        let! again =
-            Api.postLoadSaveCommand
-                router
-                handle
-                (encodeRequest command)
-            |> Async.StartAsTask
-        Assert.Equal(LoadSavePath.Git, (requireResponse again).path)
-        let! reparsed =
-            waitForParsedFile
-                host
-                fileId
-                "next"
-                (DateTime.UtcNow.AddSeconds 5.0)
-        match reparsed with
-        | None -> Assert.Fail("Git Load did not parse a Parsed file")
-        | Some after ->
-            Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
-            Assert.Equal(
-                "next",
-                after.nodes.[(Graph.children after fileId).Head.id].text)
-        Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
-        let! history =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let ordered =
-            history.events
-            |> List.sortBy (fun event -> EventId.value event.id)
-        match noticeIndex ordered (Notice.NodeParsing fileId) with
-        | None ->
-            Assert.Fail("Git File Load did not post NodeParsing")
-        | Some parsingAt ->
-            let parsedAfter =
-                ordered
-                |> List.skip (parsingAt + 1)
-                |> List.exists (fun event ->
-                    event.body =
-                        EventBody.Notice(Notice.NodeParsed fileId))
-            Assert.True(parsedAfter)
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<SkippableFact>]
-let ``plain Load of a GitHub Directory reconciles that directory`` () = task {
-    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let dataDir = newTempDir ()
-    let _, _, source, workspace = createTrackedWorkspace dataDir
-    commitFile source "only-remote.txt" "remote" "remote-only"
-    git source "push origin main" |> ignore
-    let docs = Path.Combine(workspace, "docs")
-    Directory.CreateDirectory(docs) |> ignore
-    File.WriteAllText(Path.Combine(docs, "page.txt"), "page")
-    let host, handle, router =
-        fileLoadHost dataDir (registerGitLoad dataDir)
-    try
-        let seed = seedWorkspace host "load"
-        let dirId, dirOps =
-            FileNodeOps.planCreateOwnedDirectory
-                (readGraph host)
-                seed.workspaceId
-                "docs"
-        postChange host dirOps
-        let command =
-            requestForFocus
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                seed
-                dirId
-        let! result =
-            Api.postLoadSaveCommand
-                router
-                handle
-                (encodeRequest command)
-            |> Async.StartAsTask
-        Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
-        let! found =
-            waitForNamedChild
-                host
-                dirId
-                "page.txt"
-                (DateTime.UtcNow.AddSeconds 5.0)
-        match found with
-        | None -> Assert.Fail("Git Directory Load did not reconcile page.txt")
-        | Some after ->
-            Assert.Equal(Current, after.nodes.[dirId].documentState.AsEnum)
-            let page = childNamed after dirId "page.txt"
-            Assert.Equal(Unparsed, page.documentState.AsEnum)
-        Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<SkippableFact>]
-let ``plain Load of a child loads the enclosing File and does not pull`` () =
-    task {
-        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-        let dataDir = newTempDir ()
-        let _, _, source, workspace = createTrackedWorkspace dataDir
-        commitFile source "only-remote.txt" "remote" "remote-only"
-        git source "push origin main" |> ignore
-        let host, handle, router =
-            fileLoadHost dataDir (registerGitLoad dataDir)
-        try
-            let seed = seedWorkspace host "load"
-            let fileId, fileOps =
-                FileNodeOps.planCreateOwnedFile
-                    (readGraph host)
-                    seed.workspaceId
-                    "note.txt"
-            postChange host fileOps
-            let childId = NodeId.New()
-            let kids = GraphChildren.get (readGraph host) fileId
-            postChange
-                host
-                [ Op.NewNode(childId, "body")
-                  Op.Replace(
-                      fileId,
-                      kids,
-                      kids @ [ ChildNode.owner childId ]) ]
-            let command =
-                requestForFocus
-                    LoadSaveOperation.Load
-                    LoadSavePrePick.Plain
-                    seed
-                    childId
-            let! result =
-                Api.postLoadSaveCommand
-                    router
-                    handle
-                    (encodeRequest command)
-                |> Async.StartAsTask
-            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
-            let! parsed =
-                waitForParsedFile
-                    host
-                    fileId
-                    "seed"
-                    (DateTime.UtcNow.AddSeconds 5.0)
-            match parsed with
-            | None -> Assert.Fail("child Load did not parse the enclosing File")
-            | Some after ->
-                Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
-            Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
-        finally
-            CoreMailboxApi.dispose host
-    }
-
-[<Fact>]
-let ``editing file content posts NodeUnparsed`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, router = fileLoadHost dataDir ignore
-    try
-        let seed = seedWorkspace host "load"
-        let fileId, fileOps =
-            FileNodeOps.planCreateOwnedFile
-                (readGraph host) seed.workspaceId "note.txt"
-        postChange host fileOps
-        let disk = Path.Combine(dataDir, "home", "note.txt")
-        Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
-        git (Path.GetDirectoryName disk) "init -b master" |> ignore
-        File.WriteAllText(disk, "seed")
-        let command =
-            requestForFocus
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                seed
-                fileId
-        let! loaded =
-            Api.postLoadSaveCommand
-                router
-                handle
-                (encodeRequest command)
-            |> Async.StartAsTask
-        Assert.Equal(LoadSavePath.Desk, (requireResponse loaded).path)
-        let! parsed =
-            waitForParsedFile
-                host
-                fileId
-                "seed"
-                (DateTime.UtcNow.AddSeconds 2.0)
-        match parsed with
-        | None -> Assert.Fail("Load did not parse the file")
-        | Some after ->
-            let bodyId = (Graph.children after fileId).Head.id
-            let oldText = after.nodes.[bodyId].text
-            let edit =
-                { id = EventId.zero
-                  submissionId = Guid.NewGuid()
-                  authority = Authority "Browser"
-                  commandName = ""
-                  body =
-                    EventBody.Change
-                        [ Op.SetText(bodyId, oldText, "changed") ] }
-            let accepted =
-                CoreMailboxApi.postGraphOnly host testCaller edit
-                |> Async.RunSynchronously
-                |> requireOk "edit"
-            Assert.Equal(
-                Unparsed,
-                (readGraph host).nodes.[fileId].documentState.AsEnum)
-            let! history =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let ordered =
-                history.events
-                |> List.sortBy (fun event -> EventId.value event.id)
-            let changeAt =
-                ordered
-                |> List.findIndex (fun event -> event.id = accepted.eventId)
-            let unparsedAfter =
-                ordered
-                |> List.skip (changeAt + 1)
-                |> List.exists (fun event ->
-                    event.body =
-                        EventBody.Notice(Notice.NodeUnparsed fileId))
-            Assert.True(unparsedAfter)
     finally
         CoreMailboxApi.dispose host
 }

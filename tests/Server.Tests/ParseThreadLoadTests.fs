@@ -314,7 +314,7 @@ let private plainLoadRequest (nodeId: NodeId) (prePick: LoadSavePrePick) =
     { deskLoadRequest nodeId with prePick = prePick }
 
 [<Fact>]
-let ``plain Load of a File or Directory on a Git path requires the git actor`` () =
+let ``plain Load of a File or Directory ignores a Git path`` () =
     task {
         let dataDir = newTempDir ()
         let pushed = ResizeArray<NodeId>()
@@ -334,9 +334,7 @@ let ``plain Load of a File or Directory on a Git path requires the git actor`` (
                     (PeerActorName "unregistered")
                     (plainLoadRequest dirId LoadSavePrePick.Plain)
                 |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                directory)
+            requireOk "directory" directory
             let! file =
                 CoreMailboxApi.startLoadSaveCommand
                     host
@@ -345,10 +343,10 @@ let ``plain Load of a File or Directory on a Git path requires the git actor`` (
                     (PeerActorName "unregistered")
                     (plainLoadRequest fileId LoadSavePrePick.Plain)
                 |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                file)
-            Assert.Empty(pushed)
+            requireOk "file" file
+            Assert.Equal<NodeId list>(
+                [ dirId; fileId ],
+                pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
     }

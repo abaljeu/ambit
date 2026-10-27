@@ -29,31 +29,6 @@ module DocumentOpImpact =
         (removedChildren oldChildren newChildren)
         @ (introducedChildren oldChildren newChildren)
 
-    let private contentNodeId op =
-        match op with
-        | Op.SetText(id, _, _) -> Some id
-        | Op.SetClasses(id, _, _) -> Some id
-        | Op.Replace(id, _, _) -> Some id
-        | _ -> None
-
-    let private fileCarrier (node: Node) =
-        node.kind = Special File && Node.carriesStateAxes node
-
-    /// Files whose content these ops edit. A Parse change is not an edit.
-    let editedFileIds
-        (graph: Graph)
-        (commandName: string)
-        (ops: Op list)
-        : NodeId list =
-        if commandName = "Parse" then
-            []
-        else
-            ops
-            |> List.choose contentNodeId
-            |> List.choose (fun id ->
-                GraphQuery.enclosing graph fileCarrier id)
-            |> List.distinct
-
     /// Node id an op names, when the op names one.
     let opAnchor (op: Op) : NodeId option =
         match op with

@@ -27,10 +27,7 @@ Source: `PathPick.fs`, and the Git Load path where a Directory or File subject n
 
 ## 5. Tests
 
-[x] A plain Load on a Directory in a workspace with a GitHub remote resolves to Git.
-[x] A plain Load on a File in a workspace with a GitHub remote resolves to Git.
-[x] A plain Load on a Directory in a workspace with no GitHub remote resolves to Desk.
-[x] A plain Load on a File in a GitHub-backed workspace marks the file Unparsed and parses it, with no local-folder read.
+[x] A node in a workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path).
 
 ## 6. Done
 

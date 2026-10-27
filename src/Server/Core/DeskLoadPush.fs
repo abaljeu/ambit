@@ -15,13 +15,12 @@ module internal DeskLoadPush =
         else
             match path, request.operation with
             | LoadSavePath.Desk, LoadSaveOperation.Load ->
-                LoadSubject.enclosingSubject
-                    graph
-                    request.start.focusId
-                |> Option.map fst
+                match LoadSubject.ofId graph request.start.focusId with
+                | Ok _ -> Some request.start.focusId
+                | Error _ -> None
             | _ -> None
 
-    /// Mailbox-Load when the chosen path is Desk.
+    /// Coerce plain Load of a Directory or a File onto Desk, then mailbox-Load when Desk.
     let runLoadSave
         (run: LoadSaveContext)
         (load: NodeId -> Result<unit, string>)
@@ -29,11 +28,9 @@ module internal DeskLoadPush =
         (path: LoadSavePath)
         =
         let graph = run.getState ()
-        CoreActorPool.startLoadSaveCommand
-            run
-            path
-            (LoadPathChoice.ofRequest request graph)
-            request
+        let chosen = LoadPathChoice.ofRequest request graph
+        let path = PathPick.effectiveLoadPath chosen path
+        CoreActorPool.startLoadSaveCommand run path chosen request
         |> Result.bind (fun secret ->
             match subjectToLoad request path graph with
             | None -> Ok secret

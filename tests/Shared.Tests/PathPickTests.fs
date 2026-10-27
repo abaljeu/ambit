@@ -8,13 +8,14 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private plainLoad subject remote =
+let private staysDesk subject =
+    let remoteExists () = Error "remote check must not run"
     PathPick.resolveCommand
         (choice
             LoadSaveOperation.Load
             LoadSavePrePick.Plain
             subject)
-        (fun () -> Ok remote)
+        remoteExists
 
 [<Fact>]
 let ``choose returns Git when a remote exists`` () =
@@ -54,26 +55,14 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
     Assert.Equal(Ok expected, actual)
 
 [<Fact>]
-let ``plain Load of a Directory, File, or non-subject uses the remote`` () =
+let ``plain Load of a Directory, File, or non-subject stays Desk`` () =
     let subjects = [
         Some LoadSubject.Directory
         Some LoadSubject.File
         None
     ]
     for subject in subjects do
-        Assert.Equal(Ok LoadSavePath.Git, plainLoad subject true)
-
-[<Fact>]
-let ``plain Load of a Directory stays Desk when no remote exists`` () =
-    Assert.Equal(
-        Ok LoadSavePath.Desk,
-        plainLoad (Some LoadSubject.Directory) false)
-
-[<Fact>]
-let ``plain Load of a File stays Desk when no remote exists`` () =
-    Assert.Equal(
-        Ok LoadSavePath.Desk,
-        plainLoad (Some LoadSubject.File) false)
+        Assert.Equal(Ok LoadSavePath.Desk, staysDesk subject)
 
 [<Fact>]
 let ``plain Load of a Workspace uses the remote`` () =
@@ -108,3 +97,48 @@ let ``plain Save of a Directory still asks the remote`` () =
             (fun () -> Ok true)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
+[<Fact>]
+let ``effective path forces Desk for plain File Load`` () =
+    let path =
+        PathPick.effectiveLoadPath
+            (choice
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                (Some LoadSubject.File))
+            LoadSavePath.Git
+    Assert.Equal(LoadSavePath.Desk, path)
+
+let private mustApply (graph: Graph) (ops: Op list) =
+    let state = { graph = graph; eventId = EventId.zero }
+    let next =
+        ops
+        |> List.fold
+            (fun current op ->
+                match Op.apply op current with
+                | ApplyResult.Changed next -> next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, message) ->
+                    failwith message)
+            state
+    next.graph
+
+[<Fact>]
+let ``a node in a workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = mustApply graph0 workspaceOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "note.txt"
+    let graph = mustApply graph1 fileOps
+    let presence = {
+        githubLabels = Set.singleton "home"
+        localLabels = Set.singleton "home"
+    }
+    let path =
+        PathPick.plainLoadPath
+            graph
+            fileId
+            LoadSavePrePick.Plain
+            presence
+    Assert.Equal(Some LoadSavePath.Git, path)
