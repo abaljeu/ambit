@@ -18,8 +18,16 @@ type ParseThreadDeps =
 [<RequireQualifiedAccess>]
 module ParseThread =
 
+    type private InnerDeps =
+        { dataDir: string
+          consumer: unit -> NodeId option
+          push: NodeId -> unit
+          getGraph: unit -> Async<Result<Graph, string>>
+          postOps: NodeId -> Op list -> Async<Result<unit, string>>
+          finishParse: NodeId -> unit }
+
     let private postContent
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (nodeId: NodeId)
         (ops: Op list)
         =
@@ -55,7 +63,7 @@ module ParseThread =
         | _ -> false
 
     let private afterPost
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (nodeId: NodeId)
         (push: NodeId list)
         (posted: Result<unit, string>)
@@ -63,7 +71,6 @@ module ParseThread =
         match posted with
         | Error err -> reportPost err
         | Ok () ->
-            push |> List.iter deps.markUnparsed
             // requeueOnUnparsed is false: Unparsed stays set, and these
             // ids are not added to the Parse queue. Queue processing is
             // currently wrong. It caused a whole-workspace reconcile that
@@ -76,7 +83,7 @@ module ParseThread =
             deps.finishParse nodeId
 
     let private parseFile
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (graph: Graph)
         (fileId: NodeId)
         =
@@ -95,7 +102,7 @@ module ParseThread =
         }
 
     let private parseDirectory
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (graph: Graph)
         (directoryId: NodeId)
         =
@@ -114,7 +121,7 @@ module ParseThread =
                 return afterPost deps directoryId planned.push posted
         }
 
-    let private parseOne (deps: ParseThreadDeps) (nodeId: NodeId) =
+    let private parseOne (deps: InnerDeps) (nodeId: NodeId) =
         async {
             let! graphResult = deps.getGraph ()
             match graphResult with
@@ -129,7 +136,7 @@ module ParseThread =
                 | _ -> return ()
         }
 
-    let private loop (deps: ParseThreadDeps) =
+    let private loop (deps: InnerDeps) =
         let rec run () =
             match deps.consumer () with
             | None -> ()
@@ -139,7 +146,7 @@ module ParseThread =
         run ()
 
     /// Hosts the consumer. Reset joins this thread after the stack stops.
-    let start (deps: ParseThreadDeps) =
+    let private startInner (deps: InnerDeps) =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
         thread.Name <- "gambol-parse"
@@ -152,6 +159,15 @@ module ParseThread =
                     joined.Value <- true
                     thread.Join())
         ServerRunRegistry.registerParseJoin join
+
+    let start (deps: ParseThreadDeps) =
+        startInner
+            { dataDir = deps.dataDir
+              consumer = deps.consumer
+              push = deps.push
+              getGraph = deps.getGraph
+              postOps = deps.postOps
+              finishParse = deps.finishParse }
 
     /// Posts NodeParsing for this node, then the graph Change.
     let postParseOps
@@ -192,17 +208,12 @@ module ParseThread =
         let core, push = CoreRuntime.createPublishing coreBoot rawPush
         let parseHandle =
             CoreDoor.create true core.host core.parseCaller
-        start
+        startInner
             { dataDir = coreBoot.DataDir
               consumer = consumer
               push = push
               getGraph = graphFromHost core.host
               postOps = postParseOps parseHandle
-              markUnparsed =
-                fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        core.host
-                        (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice

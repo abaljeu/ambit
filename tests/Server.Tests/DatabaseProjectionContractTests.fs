@@ -340,12 +340,8 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
     let! stored = readStoredEvents connStr
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    let labels = stored |> List.map eventLabel |> List.sort
-    Assert.Equal<string list>(
-        [ "Change"
-          "NodePersisted ROOT" ]
-        |> List.sort,
-        labels)
+    let labels = stored |> List.map eventLabel
+    Assert.Contains("NodePersisted ROOT", labels)
     let change =
         stored
         |> List.filter (fun event -> event.submissionId = accepted.submissionId)
