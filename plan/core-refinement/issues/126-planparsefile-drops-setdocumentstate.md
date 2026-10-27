@@ -17,7 +17,7 @@ coding
 ## 4. Change
 
 - `ImportDocument.planParseFile` emits the parse ops only.
-- `ParseThread.parseFile` posts `Notice.NodeParsing` for that File id before the Change.
+- `ParseThread.postParseOps` posts `Notice.NodeParsing` for the File id before the Change.
 - `ParseThread` posts `Notice.NodeParsed` for that File id after the Change.
 - The parse Change is graph-only. `guardUnparsed` is false. The ops apply on an Unparsed File.
 - `Notice.NodeParsing` sets nothing. `Notice.NodeParsed` sets Current.

@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.SpecialNodeStateAxesTests
 
 open Xunit
 open Gambol.Shared
+open ParseApplyHelpers
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
@@ -330,30 +331,6 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(ParseState.Unparsed, stated.nodes.[ambId].documentState.parseState)
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].documentState.persistState)
 
-let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
-    if List.isEmpty ops then
-        graph
-    else
-        let state = { graph = graph; eventId = EventId.zero }
-        let result, _, _ =
-            ChangeAmendment.applyForGraphOnly EventId.zero "Parse" ops state
-        match result with
-        | ApplyResult.Changed next
-        | ApplyResult.Unchanged next -> next.graph
-        | ApplyResult.Invalid(_, msg) -> failwith msg
-
-let private applyNodeParsed (graph: Graph) (fileId: NodeId) : Graph =
-    let event =
-        { id = EventId.zero
-          submissionId = System.Guid.NewGuid()
-          authority = Authority "Parse"
-          commandName = ""
-          body = EventBody.Notice(Notice.NodeParsed fileId) }
-    match Ev.apply event { graph = graph; eventId = EventId.zero } with
-    | ApplyResult.Changed next
-    | ApplyResult.Unchanged next -> next.graph
-    | ApplyResult.Invalid(_, msg) -> failwith msg
-
 [<Fact>]
 let ``disk parse ops set Parsed and keep PersistState`` () =
     for persist in [ PersistState.Persisted; PersistState.Unpersisted ] do
@@ -381,13 +358,8 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
             with
             | Ok planned -> planned
             | Error err -> failwith err
-        Assert.False(
-            List.exists
-                (function
-                | Op.SetDocumentState _ -> true
-                | _ -> false)
-                ops)
-        let parsed = applyDiskParse ops graph
+        assertNoSetDocumentState ops
+        let parsed = applyGraphOnly graph ops
         Assert.Equal(Unparsed, parsed.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(persist, parsed.nodes.[fileId].documentState.persistState)
         let after = applyNodeParsed parsed fileId

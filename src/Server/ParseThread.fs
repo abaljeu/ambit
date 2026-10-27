@@ -9,9 +9,8 @@ type ParseThreadDeps =
       consumer: unit -> NodeId option
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
-      postOps: Op list -> Async<Result<unit, string>>
+      postOps: NodeId option -> Op list -> Async<Result<unit, string>>
       markUnparsed: NodeId -> unit
-      beginParse: NodeId -> unit
       finishParse: NodeId -> unit }
 
 /// One long-lived Parse consumer thread: pull stack, run planParseFile
@@ -19,13 +18,12 @@ type ParseThreadDeps =
 [<RequireQualifiedAccess>]
 module ParseThread =
 
-    let private postContent (deps: ParseThreadDeps) (ops: Op list) =
-        async {
-            if List.isEmpty ops then
-                return Ok ()
-            else
-                return! deps.postOps ops
-        }
+    let private postContent
+        (deps: ParseThreadDeps)
+        (nodeId: NodeId option)
+        (ops: Op list)
+        =
+        deps.postOps nodeId ops
 
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
@@ -92,8 +90,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                deps.beginParse fileId
-                let! posted = postContent deps ops
+                let! posted = postContent deps (Some fileId) ops
                 return afterPost deps fileId [] posted
         }
 
@@ -115,7 +112,7 @@ module ParseThread =
             | Ok planned ->
                 if not (List.isEmpty planned.ops) then
                     deps.finishParse directoryId
-                let! posted = postContent deps planned.ops
+                let! posted = postContent deps None planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 
@@ -158,15 +155,26 @@ module ParseThread =
                     thread.Join())
         ServerRunRegistry.registerParseJoin join
 
+    /// File id posts NodeParsing before the graph Change. None posts ops only.
     let postParseOps
         (handle: CoreChangesDoor)
+        (nodeId: NodeId option)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
-            let event = GraphOnlyChangePost.mint "Parse" ops
-            match! CoreDoor.postGraphOnly handle event with
-            | Ok _ -> return Ok ()
-            | Error err -> return Error err
+            match nodeId with
+            | Some id ->
+                CoreMailboxApi.postNotice
+                    handle.host
+                    (Notice.NodeParsing id)
+            | None -> ()
+            if List.isEmpty ops then
+                return Ok ()
+            else
+                let event = GraphOnlyChangePost.mint "Parse" ops
+                match! CoreDoor.postGraphOnly handle event with
+                | Ok _ -> return Ok ()
+                | Error err -> return Error err
         }
 
     let graphFromHost
@@ -196,11 +204,6 @@ module ParseThread =
                     CoreMailboxApi.postNotice
                         core.host
                         (Notice.NodeUnparsed nodeId)
-              beginParse =
-                fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        core.host
-                        (Notice.NodeParsing nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
