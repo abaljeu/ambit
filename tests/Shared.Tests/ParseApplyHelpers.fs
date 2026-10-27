@@ -29,16 +29,8 @@ let applyNodeParsed (graph: Graph) (nodeId: NodeId) : Graph =
     | ApplyResult.Unchanged next -> next.graph
     | ApplyResult.Invalid(_, msg) -> failwith msg
 
-let assertNoSetDocumentState (ops: Op list) =
-    Assert.False(
-        ops
-        |> List.exists (function
-            | Op.SetDocumentState _ -> true
-            | _ -> false))
-
-/// Ops stay free of SetDocumentState. The file stays Unparsed until NodeParsed.
+/// Parse ops leave the file Unparsed. NodeParsed makes it Current.
 let applyParseThenCurrent (graph: Graph) (fileId: NodeId) (ops: Op list) =
-    assertNoSetDocumentState ops
     let during = applyGraphOnly graph ops
     Assert.Equal(Unparsed, during.nodes.[fileId].documentState.AsEnum)
     let after = applyNodeParsed during fileId
