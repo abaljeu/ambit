@@ -9,7 +9,7 @@ type ParseThreadDeps =
       consumer: unit -> NodeId option
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
-      postOps: Op list -> Async<Result<unit, string>>
+      postOps: NodeId -> Op list -> Async<Result<unit, string>>
       markUnparsed: NodeId -> unit
       finishParse: NodeId -> unit }
 
@@ -18,13 +18,12 @@ type ParseThreadDeps =
 [<RequireQualifiedAccess>]
 module ParseThread =
 
-    let private postContent (deps: ParseThreadDeps) (ops: Op list) =
-        async {
-            if List.isEmpty ops then
-                return Ok ()
-            else
-                return! deps.postOps ops
-        }
+    let private postContent
+        (deps: ParseThreadDeps)
+        (nodeId: NodeId)
+        (ops: Op list)
+        =
+        deps.postOps nodeId ops
 
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
@@ -91,7 +90,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps ops
+                let! posted = postContent deps fileId ops
                 return afterPost deps fileId [] posted
         }
 
@@ -111,9 +110,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
-                if not (List.isEmpty planned.ops) then
-                    deps.finishParse directoryId
-                let! posted = postContent deps planned.ops
+                let! posted = postContent deps directoryId planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 
@@ -156,15 +153,23 @@ module ParseThread =
                     thread.Join())
         ServerRunRegistry.registerParseJoin join
 
+    /// Posts NodeParsing for this node, then the graph Change.
     let postParseOps
         (handle: CoreChangesDoor)
+        (nodeId: NodeId)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
-            let event = GraphOnlyChangePost.mint "Parse" ops
-            match! CoreDoor.postGraphOnly handle event with
-            | Ok _ -> return Ok ()
-            | Error err -> return Error err
+            CoreMailboxApi.postNotice
+                handle.host
+                (Notice.NodeParsing nodeId)
+            if List.isEmpty ops then
+                return Ok ()
+            else
+                let event = GraphOnlyChangePost.mint "Parse" ops
+                match! CoreDoor.postGraphOnly handle event with
+                | Ok _ -> return Ok ()
+                | Error err -> return Error err
         }
 
     let graphFromHost

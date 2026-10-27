@@ -12,26 +12,30 @@ coding
 
 ## 3. Problem
 
-This is round 2 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). In `ImportDocument.planParseFile`, `markCurrent` (`Unparsed → Current`) is the first op, and it unlocks the parse ops. `ParseThread.finishParse` and `Api.applyParseFile` post `NodeParsed` only after the Change. That is #404.
+`ParseThread` parses a File or a Directory. That node id is known before the parse Change.
 
 ## 4. Change
 
-Resolution (Alan 2026-10-26): delete the parse endpoint, `POST /ambit/file/parse`.
+- `ImportDocument.planParseFile` emits the parse ops only.
+- `ParseThread.postParseOps` posts `Notice.NodeParsing` for the node id, then the Change.
+- `parseFile` passes the File id. `parseDirectory` passes the Directory id.
+- `Notice.NodeParsed` is posted once, after the parse succeeds.
+- An empty directory plan posts `Notice.NodeParsing`, then `Notice.NodeParsed`.
+- A failed plan posts neither notice.
+- The parse Change is graph-only. `guardUnparsed` is false. The ops apply on an Unparsed node.
+- `Notice.NodeParsing` sets nothing. `Notice.NodeParsed` sets Current.
+- This path builds each Notice from the node id. It builds no Notice from ops.
 
-- Delete the `/ambit/file/parse` route and `postParseRequest` in `RouteRegistration.fs`, `Api.postParseFile` and `Api.applyParseFile` in `Api.fs`, and the route's entry in `HttpResponseLog.fs`.
-- `planParseFile` and its `markCurrent` op stay. Load parses on the server: Load Order, then the mailbox, then ParseStack, then ParseThread, then `DocumentPersistWrite.planParseFile`, then `ImportDocument.planParseFile`. That path must not depend on `/parse`.
-
-126 deletes only the parse endpoint and its tests.
-
-Accepted breakage: web dev depends on the parse endpoint (`src/Client/App.fs` posts to `/ambit/file/parse`), so deleting it breaks web dev. That breakage is accepted; this ticket does not repair the client.
-
-Source: `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
+Source: `ImportDocument.fs`, `ParseThread.fs`.
 
 ## 5. Tests
 
-[ ] `ChangeEndpointResilienceTests`: drop the fact that posts to `/ambit/file/parse`
-[ ] `SessionTests`: drop the fact that calls `postParseRequest`
-[ ] `NodeEventExpandTests` `planParseFile logs NodeParsed beside SetDocumentState`: drive the parse through ParseThread, not `Api.postParseFile`
+[ ] `ImportDocument.planParseFile` ops contain no `Op.SetDocumentState`.
+[ ] Graph-only apply of those ops edits an Unparsed File.
+[ ] `Notice.NodeParsed` after that apply sets Current.
+[ ] `planParseFile posts NodeParsing, the Change, then NodeParsed` checks that order, the outline text, and legacy Current.
+[ ] `planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed once` checks that order and one `Notice.NodeParsed`.
+[ ] `empty directory plan posts NodeParsing then NodeParsed` checks that order with no Change, and one `Notice.NodeParsed`.
 
 ## 6. Done
 

@@ -98,6 +98,48 @@ let private waitUntil pred timeoutMs = task {
     return pred ()
 }
 
+let private orderedEvents (host: MailboxHost) =
+    CoreMailboxApi.eventsSince host EventId.zero
+    |> Async.RunSynchronously
+    |> fun log ->
+        log.events
+        |> List.sortBy (fun event -> EventId.value event.id)
+
+let private assertParsingThenParsed
+    (host: MailboxHost)
+    (nodeId: NodeId)
+    (expectChange: bool)
+    =
+    let ordered = orderedEvents host
+    let parsingAt =
+        ordered
+        |> List.findIndex (function
+            | { body = EventBody.Notice (Notice.NodeParsing id) } ->
+                id = nodeId
+            | _ -> false)
+    let after = List.skip (parsingAt + 1) ordered
+    let untilParsed =
+        after
+        |> List.takeWhile (function
+            | { body = EventBody.Notice (Notice.NodeParsed id) } ->
+                id <> nodeId
+            | _ -> true)
+    Assert.True(after.Length > untilParsed.Length)
+    Assert.Equal(
+        expectChange,
+        untilParsed
+        |> List.exists (function
+            | { body = EventBody.Change _ } -> true
+            | _ -> false))
+
+let private parsedCount (host: MailboxHost) (nodeId: NodeId) =
+    orderedEvents host
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Notice (Notice.NodeParsed id) -> id = nodeId
+        | _ -> false)
+    |> List.length
+
 let private startParse dataDir host =
     let push, consumer = ParseStack.create ()
     let parseHandle = CoreDoor.create true host testCaller
@@ -206,7 +248,7 @@ let private waitParsed host id = task {
             (fun () ->
                 parsedMsg host id
                 && documentState host id = Current
-                && wroteSet host id Current)
+                && not (wroteSet host id Current))
             2000
     Assert.True(parsed)
 }
@@ -469,35 +511,8 @@ let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-i
                     handle
                     dataDir
                     [ LazyLoadReconciliation.Modified "docs/.amb" ]
-            let ordered =
-                (stateOf host) |> ignore
-                CoreMailboxApi.eventsSince host EventId.zero
-                |> Async.RunSynchronously
-                |> fun log ->
-                    log.events
-                    |> List.sortBy (fun event -> EventId.value event.id)
-            let parsingAt =
-                ordered
-                |> List.findIndex (function
-                    | { body = EventBody.Notice (Notice.NodeParsing id) } ->
-                        id = docsId
-                    | _ -> false)
-            let after = List.skip (parsingAt + 1) ordered
-            let untilParsed =
-                after
-                |> List.takeWhile (function
-                    | { body = EventBody.Notice (Notice.NodeParsed id) } ->
-                        id <> docsId
-                    | _ -> true)
-            let parsedFollows =
-                after.Length > untilParsed.Length
-            let changeBetween =
-                untilParsed
-                |> List.exists (function
-                    | { body = EventBody.Change _ } -> true
-                    | _ -> false)
-            Assert.True(parsedFollows)
-            Assert.True(changeBetween)
+            let _ = stateOf host
+            assertParsingThenParsed host docsId true
             let graph = (stateOf host).graph
             let childId = (Graph.children graph docsId).Head.id
             Assert.Equal("outline body", graph.nodes.[childId].text)
@@ -524,32 +539,8 @@ let ``git load reconcile parses an Unparsed directory file and NodeParsed sets C
                     handle
                     dataDir
                     [ LazyLoadReconciliation.Modified "docs/.amb" ]
-            let ordered =
-                (stateOf host) |> ignore
-                CoreMailboxApi.eventsSince host EventId.zero
-                |> Async.RunSynchronously
-                |> fun log ->
-                    log.events
-                    |> List.sortBy (fun event -> EventId.value event.id)
-            let parsingAt =
-                ordered
-                |> List.findIndex (function
-                    | { body = EventBody.Notice (Notice.NodeParsing id) } ->
-                        id = docsId
-                    | _ -> false)
-            let after = List.skip (parsingAt + 1) ordered
-            let untilParsed =
-                after
-                |> List.takeWhile (function
-                    | { body = EventBody.Notice (Notice.NodeParsed id) } ->
-                        id <> docsId
-                    | _ -> true)
-            Assert.True(after.Length > untilParsed.Length)
-            Assert.True(
-                untilParsed
-                |> List.exists (function
-                    | { body = EventBody.Change _ } -> true
-                    | _ -> false))
+            let _ = stateOf host
+            assertParsingThenParsed host docsId true
             let graph = (stateOf host).graph
             let childId = (Graph.children graph docsId).Head.id
             Assert.Equal("outline body", graph.nodes.[childId].text)
@@ -868,7 +859,7 @@ let ``incoming file emits NodeReceived`` () = task {
 }
 
 [<Fact>]
-let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
+let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () = task {
     let dataDir = newTempDir ()
     let host, _, wsId = admitHome dataDir
     let push = startParse dataDir host
@@ -879,6 +870,62 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         File.WriteAllText(disk, "HELLO\n")
         push fileId
         do! waitParsed host fileId
+        assertParsingThenParsed host fileId true
+        let graph = (stateOf host).graph
+        let childId = (Graph.children graph fileId).Head.id
+        Assert.Equal("HELLO", graph.nodes.[childId].text)
+        Assert.Equal(Current, documentState host fileId)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed once`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, _, wsId = admitHome dataDir
+        let push = startParse dataDir host
+        try
+            let dirId = addDirectory host wsId "docs"
+            placeFile dataDir "docs/extra.txt" "EXTRA\n"
+            push dirId
+            let! parsed =
+                waitUntil
+                    (fun () ->
+                        parsedMsg host dirId
+                        && documentState host dirId = Current)
+                    2000
+            Assert.True(parsed)
+            assertParsingThenParsed host dirId true
+            Assert.Equal(1, parsedCount host dirId)
+            let graph = (stateOf host).graph
+            let childId = (Graph.children graph dirId).Head.id
+            Assert.Equal(
+                Some "extra.txt",
+                Filename.tryValue graph.nodes.[childId].name)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``empty directory plan posts NodeParsing then NodeParsed`` () = task {
+    let dataDir = newTempDir ()
+    let host, _, wsId = admitHome dataDir
+    let push = startParse dataDir host
+    try
+        let dirId = addDirectory host wsId "docs"
+        Directory.CreateDirectory(Path.Combine(dataDir, "home", "docs"))
+        |> ignore
+        push dirId
+        let! parsed =
+            waitUntil
+                (fun () ->
+                    parsedMsg host dirId
+                    && documentState host dirId = Current)
+                2000
+        Assert.True(parsed)
+        assertParsingThenParsed host dirId false
+        Assert.Equal(1, parsedCount host dirId)
     finally
         CoreMailboxApi.dispose host
 }

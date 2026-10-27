@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="SpecialNodeTestHelpers.fs" />
+    <Compile Include="ParseApplyHelpers.fs" />
     <Compile Include="GraphChildMapHelpers.fs" />
     <Compile Include="EventIdFixtures.fs" />
     <Compile Include="VmTestHelpers.fs" />
