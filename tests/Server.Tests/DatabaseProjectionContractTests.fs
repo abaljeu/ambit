@@ -180,7 +180,6 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let updateOps =
         [ Op.SetName(parentId, "initial.amb", "renamed.amb")
           Op.SetClasses(parentId, CssClass.empty, final.cssClasses)
-          Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
           Op.Replace(parentId, initialKids, finalKids) ]
     do! persistPatch connStr finalGraph (EventIdFixtures.storedId 2) [ change updateOps ]

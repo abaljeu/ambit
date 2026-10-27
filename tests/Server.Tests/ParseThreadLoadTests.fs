@@ -961,11 +961,10 @@ let private holdCurrentChild host dataDir =
         File.WriteAllText(Path.Combine(keptDir, "secret.txt"), "secret")
         Directory.SetLastWriteTimeUtc(keptDir, diskTime)
         let keptNode = (stateOf host).graph.nodes.[keptId]
+        CoreMailboxApi.postNotice host (Notice.NodeParsed keptId)
         postOps
             host
-            [ Op.SetDocumentState(keptId, Unparsed, Current)
-              Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
-        CoreMailboxApi.postNotice host (Notice.NodeParsed keptId)
+            [ Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
         let! parsed =
             waitUntil
                 (fun () -> parseStateOf host keptId = Some ParseState.Parsed)

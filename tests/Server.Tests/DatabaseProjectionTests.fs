@@ -59,7 +59,7 @@ let private expectedRow node =
 
 [<Fact>]
 let ``plan selects complete final node rows for every current op`` () =
-    let ids = [ 1..8 ] |> List.map id
+    let ids = [ 1..7 ] |> List.map id
     let nodes = ids |> List.mapi (fun index nodeId -> completeNode nodeId $"final-{index}")
     let graph = graphFromNodes nodes
     let classes = CssClass.ofList [ "old" ]
@@ -72,8 +72,7 @@ let ``plan selects complete final node rows for every current op`` () =
           Op.Replace(ids.[3], [], [ child ])
           Op.NewSpecialNode(ids.[4], SpecialKind.File, "initial.amb")
           Op.SetName(ids.[5], "before.amb", "after.amb")
-          Op.SetDocumentState(ids.[6], Current, Unparsed)
-          Op.SetUpdateTime(ids.[7], stamp 0, stamp 1) ]
+          Op.SetUpdateTime(ids.[6], stamp 0, stamp 1) ]
         |> List.map change
 
     let eventId = EventIdFixtures.storedId 23
