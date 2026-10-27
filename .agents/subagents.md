@@ -7,6 +7,9 @@ Write your full result to `plan/<project-name>/reports/<subagent-title>.md`. Cre
 Reports are write-once.  Never edit a report, except to fix your own work.
 Never read a report unless following a link.
 
+## Git
+Never push to staging, ready, or master without an explicit instruction naming that branch.
+
 ## Cheap Scope
 A scope pass follows [Cursor scope](plan/context/cursor-scope.md). The parent prompt names that file, the mode, and the report path.
 
