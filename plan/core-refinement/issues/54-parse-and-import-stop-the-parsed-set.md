@@ -1,6 +1,6 @@
 # 54 — Parse and import stop the Parsed Set
 
-**Status:** `defined`
+**Status:** `done`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events
 **Trackers:** architecture, project spec
