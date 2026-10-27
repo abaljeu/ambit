@@ -304,28 +304,38 @@ let private parsedNotices host id =
         | _ -> None)
 
 [<Fact>]
-let ``git load reconcile posts NodeParsed for an Unparsed parent`` () = task {
-    let dataDir = newTempDir ()
-    let host, handle, wsId = admitHome dataDir
-    try
-        let docsId = addDirectory host wsId "docs"
-        Assert.Equal(Unparsed, documentState host docsId)
-        let home = Path.Combine(dataDir, "home")
-        let docs = Path.Combine(home, "docs")
-        Directory.CreateDirectory(docs) |> ignore
-        File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
-        do!
-            pullReceived
-                host
-                handle
-                dataDir
-                [ LazyLoadReconciliation.Added "docs/extra.txt" ]
-        let direct = parsedNotices host docsId
-        Assert.NotEmpty(direct)
-        Assert.Equal(Current, documentState host docsId)
-    finally
-        CoreMailboxApi.dispose host
-}
+let ``git load reconcile leaves an Unparsed parent Unparsed without NodeParsed`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            Assert.Equal(Unparsed, documentState host docsId)
+            let home = Path.Combine(dataDir, "home")
+            let docs = Path.Combine(home, "docs")
+            Directory.CreateDirectory(docs) |> ignore
+            File.WriteAllText(Path.Combine(docs, "extra.txt"), "extra")
+            do!
+                pullReceived
+                    host
+                    handle
+                    dataDir
+                    [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+            let graph = (stateOf host).graph
+            let extraId =
+                Graph.children graph docsId
+                |> List.find (fun child ->
+                    Filename.tryValue graph.nodes.[child.id].name = Some "extra.txt")
+                |> fun child -> child.id
+            Assert.Empty(parsedNotices host docsId)
+            Assert.Empty(parsedNotices host wsId)
+            Assert.Empty(parsedNotices host extraId)
+            Assert.Equal(Unparsed, documentState host docsId)
+            Assert.Equal(Unparsed, documentState host wsId)
+            Assert.Equal(Unparsed, documentState host extraId)
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse`` () =

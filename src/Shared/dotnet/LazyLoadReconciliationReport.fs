@@ -12,7 +12,6 @@ module LazyLoadReconciliationReport =
     type Report =
         { ops: Op list
           failures: Failure list
-          parsedParentIds: NodeId list
           unparsedIds: NodeId list
           parsedDirIds: NodeId list
           renamedReceivedIds: NodeId list }
@@ -144,7 +143,7 @@ module LazyLoadReconciliationReport =
             workspaceId
             [ item.info ]
             createOps
-        |> Result.bind (fun (withFiles, fileOps, parentIds) ->
+        |> Result.bind (fun (withFiles, fileOps) ->
             if
                 LazyLoadReconciliationApply.skipParseAddedDirInfo
                     withFiles
@@ -152,7 +151,7 @@ module LazyLoadReconciliationReport =
                     createOps
                     item.info
             then
-                Ok(withFiles, fileOps, parentIds, None)
+                Ok(withFiles, fileOps, None)
             else
                 LazyLoadReconciliationApply.parseDirInfoIfPresent
                     withFiles
@@ -160,7 +159,7 @@ module LazyLoadReconciliationReport =
                     artifacts
                     item.info
                 |> Result.map (fun (finalGraph, parseOps, dirId) ->
-                    finalGraph, fileOps @ parseOps, parentIds, dirId))
+                    finalGraph, fileOps @ parseOps, dirId))
 
     let private consOnto acc items =
         List.fold (fun acc item -> item :: acc) acc items
@@ -176,16 +175,15 @@ module LazyLoadReconciliationReport =
         (graph, ops, failures)
         items
         =
-        let graph, revOps, revFailures, revParents, revDirs =
+        let graph, revOps, revFailures, revDirs =
             items
             |> List.fold
-                (fun (graph, revOps, revFailures, revParents, revDirs) item ->
+                (fun (graph, revOps, revFailures, revDirs) item ->
                     match finalizeAdded artifacts workspaceId graph item with
-                    | Ok(next, nextOps, parentIds, dirId) ->
+                    | Ok(next, nextOps, dirId) ->
                         next,
                         consOnto revOps nextOps,
                         revFailures,
-                        consOnto revParents parentIds,
                         consDir dirId revDirs
                     | Error message ->
                         let itemInfo, _ = item
@@ -194,13 +192,11 @@ module LazyLoadReconciliationReport =
                         { path = itemInfo.path
                           message = message }
                         :: revFailures,
-                        revParents,
                         revDirs)
-                (graph, [], [], [], [])
+                (graph, [], [], [])
         graph,
         ops @ List.rev revOps,
         failures @ List.rev revFailures,
-        List.rev revParents,
         List.rev revDirs
 
     let private foldModified artifacts workspaceId state items =
@@ -296,7 +292,7 @@ module LazyLoadReconciliationReport =
             let afterAdds, acceptedAdds = foldAdded workspaceId afterRenames added
             let afterModified, modifiedIds, modifiedDirs =
                 foldModified artifacts workspaceId afterAdds modified
-            let _, ops, failures, parents, addedDirs =
+            let _, ops, failures, addedDirs =
                 foldFinalizedAdds
                     artifacts
                     workspaceId
@@ -305,7 +301,6 @@ module LazyLoadReconciliationReport =
             Ok {
                 ops = ops
                 failures = failures
-                parsedParentIds = List.distinct parents
                 unparsedIds = modifiedIds
                 parsedDirIds = List.distinct (modifiedDirs @ addedDirs)
                 renamedReceivedIds = [] })

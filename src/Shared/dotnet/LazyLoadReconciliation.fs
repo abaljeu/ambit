@@ -347,7 +347,7 @@ module LazyLoadReconciliation =
         |> List.map (nearestExistingDirectory graph workspaceId)
         |> List.distinct
 
-    /// Always Unparsed. Appended after the file plan, so it follows markParentCurrent.
+    /// Always Unparsed. Appended after the file plan.
     let private unparsedStateOp (graph: Graph) nodeId =
         Op.SetDocumentState(
             nodeId,
@@ -488,7 +488,7 @@ module LazyLoadReconciliation =
                             workspaceId
                             added
                             planned
-                        |> Result.bind (fun (withFiles, stateOps, _) ->
+                        |> Result.bind (fun (withFiles, stateOps) ->
                             LazyLoadReconciliationApply.parseDirInfoInfos
                                 withFiles
                                 workspaceId
