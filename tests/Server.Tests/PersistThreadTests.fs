@@ -178,19 +178,15 @@ let ``persist thread posts NodePersisted on success only`` () =
     let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
     let okId, okNotices = run (fun _ _ -> Ok written)
     match okNotices with
-    | [ Notice.NodePersisting id
-        Notice.NodePersisted (persistedId, _, time) ] ->
+    | [ Notice.NodePersisted (id, _, time) ] ->
         Assert.Equal(okId, id)
-        Assert.Equal(okId, persistedId)
         Assert.Equal(written, time)
     | other ->
-        Assert.Fail(
-            $"expected NodePersisting then NodePersisted, got {other}")
+        Assert.Fail($"expected NodePersisted, got {other}")
 
     let badId, badNotices = run (fun _ _ -> Error "disk full")
     Assert.Equal<Notice list>(
-        [ Notice.NodePersisting badId
-          Notice.PersistFailed(badId, "disk full") ],
+        [ Notice.PersistFailed(badId, "disk full") ],
         badNotices)
     let persistedBad =
         badNotices
@@ -251,14 +247,11 @@ let ``persist thread posts the version it read`` () =
     PersistRequestStack.stop stack
     join ()
     match List.ofSeq notices with
-    | [ Notice.NodePersisting persistingId
-        Notice.NodePersisted (postedId, persistedVersion, _) ] ->
-        Assert.Equal(id, persistingId)
+    | [ Notice.NodePersisted (postedId, persistedVersion, _) ] ->
         Assert.Equal(id, postedId)
         Assert.Equal(version, persistedVersion)
     | other ->
-        Assert.Fail(
-            $"expected NodePersisting then NodePersisted, got {other}")
+        Assert.Fail($"expected NodePersisted, got {other}")
 
 [<Fact>]
 let ``NodePersisted carries the written file time`` () =

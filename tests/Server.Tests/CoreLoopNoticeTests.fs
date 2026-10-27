@@ -374,18 +374,21 @@ let ``applyNotice NodeUnpersisted marks Unpersisted`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
-let ``NodePersisting changes no node state`` () =
+let ``NodePersisting matches the Unpersisted Set`` () =
     let id, initial =
         fileState PersistState.Persisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    let before = initial.graph.nodes.[id]
     apply (handlers state snaps) (Notice.NodePersisting id)
-    let after = state.Value.graph.nodes.[id]
-    Assert.Equal(before.documentState, after.documentState)
-    Assert.Equal(ParseState.Parsed, after.documentState.parseState)
-    Assert.Equal(PersistState.Persisted, after.documentState.persistState)
-    Assert.Equal(before.updateTime, after.updateTime)
+    let viaNotice = state.Value.graph.nodes.[id]
+    let viaSet =
+        Graph.setPersistState id PersistState.Unpersisted initial.graph
+        |> requireState "set"
+        |> fun graph -> graph.nodes.[id]
+    Assert.Equal(viaSet.documentState, viaNotice.documentState)
+    Assert.Equal(ParseState.Parsed, viaNotice.documentState.parseState)
+    Assert.Equal(PersistState.Unpersisted, viaNotice.documentState.persistState)
+    Assert.False(viaNotice.documentState.pullingFile)
     Assert.Empty(snaps)
 
 [<Fact>]

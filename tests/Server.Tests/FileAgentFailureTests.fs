@@ -345,6 +345,7 @@ let ``soft-fail Edit is not in the graph after restart`` () = task {
         Assert.False(
             state.graph.nodes
             |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
+        Assert.Equal(EventId.fromJson 2, state.eventId)
     finally
         CoreMailboxApi.dispose (host agent2)
 }
@@ -418,11 +419,10 @@ let ``ACK keeps the Edit events and NodePersisted follows the write`` () = task 
 }
 
 /// A new special node starts Persisted. Mark it Unpersisted before
-/// the persist push so the first file write is not skipped. The
-/// persist thread posts NodePersisting for that workspace, then
-/// NodePersisted.
+/// the persist push so the first file write is not skipped. That
+/// mark does not post NodePersisting.
 [<Fact>]
-let ``new special node's first file write posts NodePersisting`` () = task {
+let ``new special node writes its file without NodePersisting`` () = task {
     let dataDir = newTempDir ()
     let agent = FileAgent.create dataDir
     let mailbox = host agent
@@ -454,27 +454,22 @@ let ``new special node's first file write posts NodePersisting`` () = task {
                         | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
                             id = wsId
                         | _ -> false))
-        let noticeIndex pred =
+        let hasNotice pred =
             events
-            |> List.rev
-            |> List.tryFindIndex (fun event ->
+            |> List.exists (fun event ->
                 match event.body with
                 | EventBody.Notice notice -> pred notice
                 | _ -> false)
-        let persistingAt =
-            noticeIndex (function
+        Assert.False(
+            hasNotice (function
                 | Notice.NodePersisting id -> id = wsId
-                | _ -> false)
-        let persistedAt =
-            noticeIndex (function
+                | _ -> false),
+            $"NodePersisting was posted, got {events}")
+        Assert.True(
+            hasNotice (function
                 | Notice.NodePersisted (id, _, _) -> id = wsId
-                | _ -> false)
-        match persistingAt, persistedAt with
-        | Some persisting, Some persisted when persisting < persisted ->
-            ()
-        | _ ->
-            Assert.Fail(
-                $"expected NodePersisting then NodePersisted for {wsId}, got {events}")
+                | _ -> false),
+            $"NodePersisted missing, got {events}")
         let! after =
             CoreMailboxApi.getState mailbox |> Async.StartAsTask
         let after = requireOk "after" after
