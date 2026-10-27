@@ -688,6 +688,11 @@ let private fileLoadHost (dataDir: string) =
           markUnparsed =
             fun nodeId ->
                 CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
+          beginParse =
+            fun nodeId ->
+                CoreMailboxApi.postNotice
+                    host
+                    (Notice.NodeParsing nodeId)
           finishParse =
             fun nodeId ->
                 CoreMailboxApi.postNotice

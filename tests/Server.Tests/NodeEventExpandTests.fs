@@ -108,6 +108,9 @@ let private startParse dataDir host =
           getGraph = ParseThread.graphFromHost host
           postOps = ParseThread.postParseOps parseHandle
           markUnparsed = ignore
+          beginParse =
+            fun nodeId ->
+                CoreMailboxApi.postNotice host (Notice.NodeParsing nodeId)
           finishParse =
             fun nodeId ->
                 CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId) }
@@ -868,7 +871,7 @@ let ``incoming file emits NodeReceived`` () = task {
 }
 
 [<Fact>]
-let ``planParseFile posts NodeParsed and sets Current`` () = task {
+let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () = task {
     let dataDir = newTempDir ()
     let host, _, wsId = admitHome dataDir
     let push = startParse dataDir host
@@ -879,9 +882,35 @@ let ``planParseFile posts NodeParsed and sets Current`` () = task {
         File.WriteAllText(disk, "HELLO\n")
         push fileId
         do! waitParsed host fileId
+        let ordered =
+            CoreMailboxApi.eventsSince host EventId.zero
+            |> Async.RunSynchronously
+            |> fun log ->
+                log.events
+                |> List.sortBy (fun event -> EventId.value event.id)
+        let parsingAt =
+            ordered
+            |> List.findIndex (function
+                | { body = EventBody.Notice (Notice.NodeParsing id) } ->
+                    id = fileId
+                | _ -> false)
+        let after = List.skip (parsingAt + 1) ordered
+        let untilParsed =
+            after
+            |> List.takeWhile (function
+                | { body = EventBody.Notice (Notice.NodeParsed id) } ->
+                    id <> fileId
+                | _ -> true)
+        Assert.True(after.Length > untilParsed.Length)
+        Assert.True(
+            untilParsed
+            |> List.exists (function
+                | { body = EventBody.Change _ } -> true
+                | _ -> false))
         let graph = (stateOf host).graph
         let childId = (Graph.children graph fileId).Head.id
         Assert.Equal("HELLO", graph.nodes.[childId].text)
+        Assert.Equal(Current, documentState host fileId)
     finally
         CoreMailboxApi.dispose host
 }

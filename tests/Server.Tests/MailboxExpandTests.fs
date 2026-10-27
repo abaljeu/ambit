@@ -193,6 +193,11 @@ let ``loadNode pushes the subject`` () =
                 getGraph = ParseThread.graphFromHost host
                 postOps = ParseThread.postParseOps parseHandle
                 markUnparsed = ignore
+                beginParse =
+                    fun nodeId ->
+                        CoreMailboxApi.postNotice
+                            host
+                            (Notice.NodeParsing nodeId)
                 finishParse =
                     fun nodeId ->
                         CoreMailboxApi.postNotice

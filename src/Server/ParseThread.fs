@@ -11,6 +11,7 @@ type ParseThreadDeps =
       getGraph: unit -> Async<Result<Graph, string>>
       postOps: Op list -> Async<Result<unit, string>>
       markUnparsed: NodeId -> unit
+      beginParse: NodeId -> unit
       finishParse: NodeId -> unit }
 
 /// One long-lived Parse consumer thread: pull stack, run planParseFile
@@ -91,6 +92,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
+                deps.beginParse fileId
                 let! posted = postContent deps ops
                 return afterPost deps fileId [] posted
         }
@@ -194,6 +196,11 @@ module ParseThread =
                     CoreMailboxApi.postNotice
                         core.host
                         (Notice.NodeUnparsed nodeId)
+              beginParse =
+                fun nodeId ->
+                    CoreMailboxApi.postNotice
+                        core.host
+                        (Notice.NodeParsing nodeId)
               finishParse =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
