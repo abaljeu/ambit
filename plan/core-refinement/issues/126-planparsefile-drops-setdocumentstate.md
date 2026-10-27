@@ -12,26 +12,24 @@ coding
 
 ## 3. Problem
 
-This is round 2 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). In `ImportDocument.planParseFile`, `markCurrent` (`Unparsed → Current`) is the first op, and it unlocks the parse ops. `ParseThread.finishParse` and `Api.applyParseFile` post `NodeParsed` only after the Change. That is #404.
+`ImportDocument.planParseFile` emits `Op.SetDocumentState` (`Unparsed` to `Current`) ahead of the parse ops.
 
 ## 4. Change
 
-Resolution (Alan 2026-10-26): delete the parse endpoint, `POST /ambit/file/parse`.
+- `ImportDocument.planParseFile` emits the parse ops only.
+- `ParseThread` posts `Notice.NodeParsed` after the Change.
+- The parse Change is graph-only. `guardUnparsed` is false. The ops apply on an Unparsed File.
+- `Notice.NodeParsed` sets Current.
+- This path builds no Notice from ops.
 
-- Delete the `/ambit/file/parse` route and `postParseRequest` in `RouteRegistration.fs`, `Api.postParseFile` and `Api.applyParseFile` in `Api.fs`, and the route's entry in `HttpResponseLog.fs`.
-- `planParseFile` and its `markCurrent` op stay. Load parses on the server: Load Order, then the mailbox, then ParseStack, then ParseThread, then `DocumentPersistWrite.planParseFile`, then `ImportDocument.planParseFile`. That path must not depend on `/parse`.
-
-126 deletes only the parse endpoint and its tests.
-
-Accepted breakage: web dev depends on the parse endpoint (`src/Client/App.fs` posts to `/ambit/file/parse`), so deleting it breaks web dev. That breakage is accepted; this ticket does not repair the client.
-
-Source: `Api.fs`, `RouteRegistration.fs`, `HttpResponseLog.fs`.
+Source: `ImportDocument.fs`.
 
 ## 5. Tests
 
-[ ] `ChangeEndpointResilienceTests`: drop the fact that posts to `/ambit/file/parse`
-[ ] `SessionTests`: drop the fact that calls `postParseRequest`
-[ ] `NodeEventExpandTests` `planParseFile logs NodeParsed beside SetDocumentState`: drive the parse through ParseThread, not `Api.postParseFile`
+[ ] `ImportDocument.planParseFile` ops contain no `Op.SetDocumentState`.
+[ ] Graph-only apply of those ops edits an Unparsed File.
+[ ] `Notice.NodeParsed` after that apply sets Current.
+[ ] `planParseFile posts NodeParsed and sets Current` checks the `ParseThread` log and legacy Current.
 
 ## 6. Done
 

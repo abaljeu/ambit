@@ -331,10 +331,25 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].documentState.persistState)
 
 let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
-    let state = { graph = graph; eventId = EventId.zero }
-    let result, _, _ =
-        ChangeAmendment.applyForCommand EventId.zero "Parse" ops state
-    match result with
+    if List.isEmpty ops then
+        graph
+    else
+        let state = { graph = graph; eventId = EventId.zero }
+        let result, _, _ =
+            ChangeAmendment.applyForGraphOnly EventId.zero "Parse" ops state
+        match result with
+        | ApplyResult.Changed next
+        | ApplyResult.Unchanged next -> next.graph
+        | ApplyResult.Invalid(_, msg) -> failwith msg
+
+let private applyNodeParsed (graph: Graph) (fileId: NodeId) : Graph =
+    let event =
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Parse"
+          commandName = ""
+          body = EventBody.Notice(Notice.NodeParsed fileId) }
+    match Ev.apply event { graph = graph; eventId = EventId.zero } with
     | ApplyResult.Changed next
     | ApplyResult.Unchanged next -> next.graph
     | ApplyResult.Invalid(_, msg) -> failwith msg
@@ -366,7 +381,16 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
             with
             | Ok planned -> planned
             | Error err -> failwith err
-        let after = applyDiskParse ops graph
+        Assert.False(
+            List.exists
+                (function
+                | Op.SetDocumentState _ -> true
+                | _ -> false)
+                ops)
+        let parsed = applyDiskParse ops graph
+        Assert.Equal(Unparsed, parsed.nodes.[fileId].documentState.AsEnum)
+        Assert.Equal(persist, parsed.nodes.[fileId].documentState.persistState)
+        let after = applyNodeParsed parsed fileId
         Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(ParseState.Parsed, after.nodes.[fileId].documentState.parseState)
         Assert.Equal(persist, after.nodes.[fileId].documentState.persistState)

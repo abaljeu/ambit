@@ -206,7 +206,7 @@ let private waitParsed host id = task {
             (fun () ->
                 parsedMsg host id
                 && documentState host id = Current
-                && wroteSet host id Current)
+                && not (wroteSet host id Current))
             2000
     Assert.True(parsed)
 }
@@ -868,7 +868,7 @@ let ``incoming file emits NodeReceived`` () = task {
 }
 
 [<Fact>]
-let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
+let ``planParseFile posts NodeParsed and sets Current`` () = task {
     let dataDir = newTempDir ()
     let host, _, wsId = admitHome dataDir
     let push = startParse dataDir host
@@ -879,6 +879,9 @@ let ``planParseFile logs NodeParsed beside SetDocumentState`` () = task {
         File.WriteAllText(disk, "HELLO\n")
         push fileId
         do! waitParsed host fileId
+        let graph = (stateOf host).graph
+        let childId = (Graph.children graph fileId).Head.id
+        Assert.Equal("HELLO", graph.nodes.[childId].text)
     finally
         CoreMailboxApi.dispose host
 }

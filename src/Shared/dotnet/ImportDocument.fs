@@ -19,7 +19,7 @@ module ImportDocument =
     /// Live-graph parse ops for ParseFile (server apply). Reuse the existing
     /// File owner id. When graph export yields prior artifact text (Current, or
     /// Unparsed after M/upload with structure retained), warm-reconcile; cold
-    /// only when there is no prior content. Unparsed also emits SetDocumentState.
+    /// only when there is no prior content. Emits no SetDocumentState.
     let planParseFile
         (graph: Graph)
         (fileId: NodeId)
@@ -52,17 +52,5 @@ module ImportDocument =
                             fileId
                             relativePath
                             text
-                            previousText
-                        |> Result.map (fun parseOps ->
-                            let markCurrent =
-                                match state with
-                                | Unparsed ->
-                                    [ Op.SetDocumentState(
-                                        fileId,
-                                        Unparsed,
-                                        Current) ]
-                                | Current -> []
-                                | PullingFile -> []
-
-                            markCurrent @ parseOps))
+                            previousText)
             | _ -> Error "file not found or not a File document")
