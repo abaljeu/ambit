@@ -257,6 +257,44 @@ module internal CoreEventDispatch =
                     List.iter context.persist.pushPersist ids)
         | _ -> Ok ()
 
+    let private markFileUnparsed (context: Context) (fileId: NodeId) =
+        match logNotice context (Notice.NodeUnparsed fileId) with
+        | Error err -> Error err
+        | Ok _ ->
+            match context.persist.getState () with
+            | Error err -> Error err
+            | Ok state ->
+                match
+                    GraphMutate.setParseState
+                        fileId
+                        ParseState.Unparsed
+                        state.graph
+                with
+                | Error err -> Error err
+                | Ok graph ->
+                    context.persist.replaceGraph
+                        (Notice.NodeUnparsed fileId)
+                        graph
+                    Ok ()
+
+    let private markEditedFiles (context: Context) (completed: Ev) =
+        match Ev.ops completed with
+        | None -> Ok ()
+        | Some ops ->
+            match context.persist.getState () with
+            | Error err -> Error err
+            | Ok state ->
+                DocumentOpImpact.editedFileIds
+                    state.graph
+                    completed.commandName
+                    ops
+                |> List.fold
+                    (fun acc fileId ->
+                        acc
+                        |> Result.bind (fun () ->
+                            markFileUnparsed context fileId))
+                    (Ok ())
+
     let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
         match Ev.ops completed with
         | None -> Ok None
@@ -295,7 +333,10 @@ module internal CoreEventDispatch =
                 | Ok accepted ->
                     match store context accepted completed with
                     | Error error -> Error error
-                    | Ok stored -> Ok(stored, accepted)
+                    | Ok stored ->
+                        match markEditedFiles context stored with
+                        | Error error -> Error error
+                        | Ok () -> Ok(stored, accepted)
 
     let postEvent
         (context: Context)

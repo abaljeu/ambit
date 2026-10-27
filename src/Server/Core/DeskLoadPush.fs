@@ -15,9 +15,10 @@ module internal DeskLoadPush =
         else
             match path, request.operation with
             | LoadSavePath.Desk, LoadSaveOperation.Load ->
-                match LoadSubject.ofId graph request.start.focusId with
-                | Ok _ -> Some request.start.focusId
-                | Error _ -> None
+                LoadSubject.enclosingSubject
+                    graph
+                    request.start.focusId
+                |> Option.map fst
             | _ -> None
 
     /// Mailbox-Load when the chosen path is Desk.

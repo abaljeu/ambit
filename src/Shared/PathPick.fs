@@ -46,6 +46,22 @@ module LoadSubject =
             | Special File -> Ok LoadSubject.File
             | _ -> Error LoadSubjectRejection.NotLoadSubject
 
+    let private isSubjectNode (node: Node) =
+        match node.kind with
+        | Special (Workspace | Directory | File) -> true
+        | _ -> false
+
+    /// Nearest Workspace, Directory, or File on the owner chain, inclusive.
+    let enclosingSubject
+        (graph: Graph)
+        (nodeId: NodeId)
+        : (NodeId * LoadSubject) option =
+        GraphQuery.enclosing graph isSubjectNode nodeId
+        |> Option.bind (fun id ->
+            match ofId graph id with
+            | Ok subject -> Some(id, subject)
+            | Error _ -> None)
+
 /// Operation, pre-pick, and subject. The chosen path stays outside this record.
 type LoadPathChoice = {
     operation: LoadSaveOperation

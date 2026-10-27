@@ -235,8 +235,13 @@ module ChangeAmendment =
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list =
+        let guard =
+            match event.body with
+            | EventBody.Undo _
+            | EventBody.Redo _ -> false
+            | _ -> not graphOnly
         applyMarked
-            (not graphOnly)
+            guard
             (Op.persistMarkVersion event.commandName eventId)
             ops
             state

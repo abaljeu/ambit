@@ -165,8 +165,7 @@ let private seedWorkspace host operationName =
     let commandId, focusId = NodeId.New(), NodeId.New()
     let ops =
         workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
+        @ [ Op.NewNode(commandId, operationName)
             Op.NewNode(focusId, "focus")
             Op.Replace(
                 workspaceId,
@@ -675,51 +674,21 @@ let rec private waitForParsedFile host fileId text deadline = task {
         return! waitForParsedFile host fileId text deadline
 }
 
-let private fileLoadHost (dataDir: string) =
-    let push, consumer = ParseStack.create ()
-    let host =
-        CoreMailbox.hostWithParsePush
-            (CoreActorPool.create ())
-            (FileAgent.persist (FileAgent.create dataDir))
-            admittedCredentials
-            push
-    let handle = CoreDoor.create true host testCaller
-    ParseThread.start
-        { dataDir = dataDir
-          consumer = consumer
-          push = push
-          getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps handle
-          markUnparsed =
-            fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
-          finishParse =
-            fun nodeId ->
-                CoreMailboxApi.postNotice
-                    host
-                    (Notice.NodeParsed nodeId) }
-    let router =
-        { resolvePath = LoadSaveRouting.resolvePath dataDir
-          startCommand =
-            fun path request ->
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    path
-                    (GithubTransportActor.peerName
-                        GithubTransportOperation.Load)
-                    request }
-    host, handle, router
-
-let private gitFileLoadHost (dataDir: string) =
-    let push, consumer = ParseStack.create ()
-    let pool = CoreActorPool.create ()
+let private registerGitLoad (dataDir: string) (pool: CoreActorPool) =
     pool.registerPeer
         (GithubTransportActor.peerName GithubTransportOperation.Load)
         (GithubTransportActor.actorFn
             dataDir
             GithubTransportOperation.Load
             GithubTransportActor.productionDependencies)
+
+let private fileLoadHost
+    (dataDir: string)
+    (preparePool: CoreActorPool -> unit)
+    =
+    let push, consumer = ParseStack.create ()
+    let pool = CoreActorPool.create ()
+    preparePool pool
     let host =
         CoreMailbox.hostWithParsePush
             pool
@@ -779,7 +748,7 @@ let rec private waitForNamedChild host parentId name deadline = task {
 [<Fact>]
 let ``Load on a file parses that file`` () = task {
     let dataDir = newTempDir ()
-    let host, handle, router = fileLoadHost dataDir
+    let host, handle, router = fileLoadHost dataDir ignore
     try
         let seed = seedWorkspace host "load"
         let fileId, fileOps =
@@ -788,6 +757,7 @@ let ``Load on a file parses that file`` () = task {
         postChange host fileOps
         let disk = Path.Combine(dataDir, "home", "note.txt")
         Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
+        git (Path.GetDirectoryName disk) "init -b master" |> ignore
         File.WriteAllText(disk, "seed")
         let command =
             requestForFocus
@@ -822,17 +792,14 @@ let ``plain Load of a GitHub File marks it Unparsed and parses it`` () = task {
     let _, _, source, workspace = createTrackedWorkspace dataDir
     commitFile source "only-remote.txt" "remote" "remote-only"
     git source "push origin main" |> ignore
-    let host, handle, router = gitFileLoadHost dataDir
+    let host, handle, router =
+        fileLoadHost dataDir (registerGitLoad dataDir)
     try
         let seed = seedWorkspace host "load"
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
                 (readGraph host) seed.workspaceId "note.txt"
-        postChange
-            host
-            (fileOps
-             @ [ Op.SetDocumentState(fileId, Unparsed, Current) ])
-        Assert.Equal(Current, (readGraph host).nodes.[fileId].documentState.AsEnum)
+        postChange host fileOps
         let command =
             requestForFocus
                 LoadSaveOperation.Load
@@ -854,10 +821,27 @@ let ``plain Load of a GitHub File marks it Unparsed and parses it`` () = task {
                 (DateTime.UtcNow.AddSeconds 5.0)
         match parsed with
         | None -> Assert.Fail("Git Load did not parse the file")
+        | Some _ -> ()
+        File.WriteAllText(Path.Combine(workspace, "note.txt"), "next")
+        let! again =
+            Api.postLoadSaveCommand
+                router
+                handle
+                (encodeRequest command)
+            |> Async.StartAsTask
+        Assert.Equal(LoadSavePath.Git, (requireResponse again).path)
+        let! reparsed =
+            waitForParsedFile
+                host
+                fileId
+                "next"
+                (DateTime.UtcNow.AddSeconds 5.0)
+        match reparsed with
+        | None -> Assert.Fail("Git Load did not parse a Parsed file")
         | Some after ->
             Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
             Assert.Equal(
-                "seed",
+                "next",
                 after.nodes.[(Graph.children after fileId).Head.id].text)
         Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
         let! history =
@@ -890,7 +874,8 @@ let ``plain Load of a GitHub Directory reconciles that directory`` () = task {
     let docs = Path.Combine(workspace, "docs")
     Directory.CreateDirectory(docs) |> ignore
     File.WriteAllText(Path.Combine(docs, "page.txt"), "page")
-    let host, handle, router = gitFileLoadHost dataDir
+    let host, handle, router =
+        fileLoadHost dataDir (registerGitLoad dataDir)
     try
         let seed = seedWorkspace host "load"
         let dirId, dirOps =
@@ -898,10 +883,7 @@ let ``plain Load of a GitHub Directory reconciles that directory`` () = task {
                 (readGraph host)
                 seed.workspaceId
                 "docs"
-        postChange
-            host
-            (dirOps
-             @ [ Op.SetDocumentState(dirId, Unparsed, Current) ])
+        postChange host dirOps
         let command =
             requestForFocus
                 LoadSaveOperation.Load
@@ -928,6 +910,133 @@ let ``plain Load of a GitHub Directory reconciles that directory`` () = task {
             let page = childNamed after dirId "page.txt"
             Assert.Equal(Unparsed, page.documentState.AsEnum)
         Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<SkippableFact>]
+let ``plain Load of a child loads the enclosing File and does not pull`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let dataDir = newTempDir ()
+        let _, _, source, workspace = createTrackedWorkspace dataDir
+        commitFile source "only-remote.txt" "remote" "remote-only"
+        git source "push origin main" |> ignore
+        let host, handle, router =
+            fileLoadHost dataDir (registerGitLoad dataDir)
+        try
+            let seed = seedWorkspace host "load"
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    (readGraph host)
+                    seed.workspaceId
+                    "note.txt"
+            postChange host fileOps
+            let childId = NodeId.New()
+            let kids = GraphChildren.get (readGraph host) fileId
+            postChange
+                host
+                [ Op.NewNode(childId, "body")
+                  Op.Replace(
+                      fileId,
+                      kids,
+                      kids @ [ ChildNode.owner childId ]) ]
+            let command =
+                requestForFocus
+                    LoadSaveOperation.Load
+                    LoadSavePrePick.Plain
+                    seed
+                    childId
+            let! result =
+                Api.postLoadSaveCommand
+                    router
+                    handle
+                    (encodeRequest command)
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+            let! parsed =
+                waitForParsedFile
+                    host
+                    fileId
+                    "seed"
+                    (DateTime.UtcNow.AddSeconds 5.0)
+            match parsed with
+            | None -> Assert.Fail("child Load did not parse the enclosing File")
+            | Some after ->
+                Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
+            Assert.False(File.Exists(Path.Combine(workspace, "only-remote.txt")))
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``editing file content posts NodeUnparsed`` () = task {
+    let dataDir = newTempDir ()
+    let host, handle, router = fileLoadHost dataDir ignore
+    try
+        let seed = seedWorkspace host "load"
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                (readGraph host) seed.workspaceId "note.txt"
+        postChange host fileOps
+        let disk = Path.Combine(dataDir, "home", "note.txt")
+        Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
+        git (Path.GetDirectoryName disk) "init -b master" |> ignore
+        File.WriteAllText(disk, "seed")
+        let command =
+            requestForFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                seed
+                fileId
+        let! loaded =
+            Api.postLoadSaveCommand
+                router
+                handle
+                (encodeRequest command)
+            |> Async.StartAsTask
+        Assert.Equal(LoadSavePath.Desk, (requireResponse loaded).path)
+        let! parsed =
+            waitForParsedFile
+                host
+                fileId
+                "seed"
+                (DateTime.UtcNow.AddSeconds 2.0)
+        match parsed with
+        | None -> Assert.Fail("Load did not parse the file")
+        | Some after ->
+            let bodyId = (Graph.children after fileId).Head.id
+            let oldText = after.nodes.[bodyId].text
+            let edit =
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = ""
+                  body =
+                    EventBody.Change
+                        [ Op.SetText(bodyId, oldText, "changed") ] }
+            let accepted =
+                CoreMailboxApi.postGraphOnly host testCaller edit
+                |> Async.RunSynchronously
+                |> requireOk "edit"
+            Assert.Equal(
+                Unparsed,
+                (readGraph host).nodes.[fileId].documentState.AsEnum)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let ordered =
+                history.events
+                |> List.sortBy (fun event -> EventId.value event.id)
+            let changeAt =
+                ordered
+                |> List.findIndex (fun event -> event.id = accepted.eventId)
+            let unparsedAfter =
+                ordered
+                |> List.skip (changeAt + 1)
+                |> List.exists (fun event ->
+                    event.body =
+                        EventBody.Notice(Notice.NodeUnparsed fileId))
+            Assert.True(unparsedAfter)
     finally
         CoreMailboxApi.dispose host
 }

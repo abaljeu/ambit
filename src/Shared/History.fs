@@ -457,6 +457,14 @@ module Ev =
             | Ok graph -> ApplyResult.Changed { state with graph = graph }
             | Error msg -> ApplyResult.Invalid(state, msg)
 
+    /// Undo and Redo restore a change that already landed. The unparsed
+    /// gate stays on a new edit.
+    let private unparsedGuard (event: Ev) =
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _ -> false
+        | _ -> Op.guardsUnparsedDocument event.commandName
+
     let apply (event: Ev) (state: State) : ApplyResult =
         match event.body with
         | EventBody.Notice notice -> applyNotice notice state
@@ -465,7 +473,7 @@ module Ev =
             | None -> ApplyResult.Unchanged state
             | Some opList ->
                 Op.applyAllAllowing
-                    (Op.guardsUnparsedDocument event.commandName)
+                    (unparsedGuard event)
                     (Op.persistMarkVersion event.commandName event.id)
                     opList
                     state

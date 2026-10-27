@@ -178,29 +178,51 @@ module GithubTransportActor =
             return loaded |> Result.map (fun _ -> ())
         }
 
+    let private missingSubject =
+        Error "Focus is not in a Workspace, Directory, or File."
+
     /// Workspace Load pulls. A Directory or File loads that node only.
-    let private runStep
-        operation
+    let private runLoadChoice
         dependencies
         dataDir
         changes
-        focusId
-        subject
+        choice
         workspaceId
         root
         =
-        match operation, subject with
-        | GithubTransportOperation.Load, Some LoadSubject.Directory
-        | GithubTransportOperation.Load, Some LoadSubject.File ->
-            loadFocus changes focusId
-        | GithubTransportOperation.Load, _ ->
+        match choice with
+        | Some (_, LoadSubject.Workspace) ->
             runLoad
                 dependencies
                 dataDir
                 changes
                 workspaceId
                 root
-        | GithubTransportOperation.Save, _ ->
+        | Some (id, LoadSubject.Directory)
+        | Some (id, LoadSubject.File) ->
+            loadFocus changes id
+        | None -> async.Return missingSubject
+
+    let private runStep
+        operation
+        dependencies
+        dataDir
+        changes
+        graph
+        focusId
+        workspaceId
+        root
+        =
+        match operation with
+        | GithubTransportOperation.Load ->
+            runLoadChoice
+                dependencies
+                dataDir
+                changes
+                (LoadSubject.enclosingSubject graph focusId)
+                workspaceId
+                root
+        | GithubTransportOperation.Save ->
             async.Return(
                 saveTracked dependencies.git root
                 |> Result.map ignore)
@@ -219,18 +241,14 @@ module GithubTransportActor =
                 with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
-                    let subject =
-                        PathPick.subjectOf
-                            current.graph
-                            input.focusId
                     match!
                         runStep
                             operation
                             dependencies
                             dataDir
                             actorChanges
+                            current.graph
                             input.focusId
-                            subject
                             workspaceId
                             root
                     with
