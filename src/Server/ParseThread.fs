@@ -9,7 +9,7 @@ type ParseThreadDeps =
       consumer: unit -> NodeId option
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
-      postOps: NodeId option -> Op list -> Async<Result<unit, string>>
+      postOps: NodeId -> Op list -> Async<Result<unit, string>>
       markUnparsed: NodeId -> unit
       finishParse: NodeId -> unit }
 
@@ -20,7 +20,7 @@ module ParseThread =
 
     let private postContent
         (deps: ParseThreadDeps)
-        (nodeId: NodeId option)
+        (nodeId: NodeId)
         (ops: Op list)
         =
         deps.postOps nodeId ops
@@ -90,7 +90,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps (Some fileId) ops
+                let! posted = postContent deps fileId ops
                 return afterPost deps fileId [] posted
         }
 
@@ -110,9 +110,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
-                if not (List.isEmpty planned.ops) then
-                    deps.finishParse directoryId
-                let! posted = postContent deps None planned.ops
+                let! posted = postContent deps directoryId planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 
@@ -155,19 +153,16 @@ module ParseThread =
                     thread.Join())
         ServerRunRegistry.registerParseJoin join
 
-    /// File id posts NodeParsing before the graph Change. None posts ops only.
+    /// Posts NodeParsing for this node, then the graph Change.
     let postParseOps
         (handle: CoreChangesDoor)
-        (nodeId: NodeId option)
+        (nodeId: NodeId)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
-            match nodeId with
-            | Some id ->
-                CoreMailboxApi.postNotice
-                    handle.host
-                    (Notice.NodeParsing id)
-            | None -> ()
+            CoreMailboxApi.postNotice
+                handle.host
+                (Notice.NodeParsing nodeId)
             if List.isEmpty ops then
                 return Ok ()
             else
