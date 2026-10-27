@@ -61,8 +61,7 @@ When a batch can only be green together with others, the batches share an integr
 
 - A ticket is one step: one expand, one change, or one contract.
 - A ticket with numbered steps is split into one ticket per step.
-- A ticket changes 8 source files or fewer.
-- A ticket adds or changes 4 tests or fewer.
+- A ticket stays within the [Size limit](size-limit.md).
 
 ### Ripple
 
