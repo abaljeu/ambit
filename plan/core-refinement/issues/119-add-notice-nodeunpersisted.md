@@ -11,90 +11,31 @@
 
 [ ] none
 
-## 3. Look at
+## 3. Problem
 
-### Owner
+When the core applier stores a Change, Undo or Redo, `CoreEventDispatch.markForPersist` marks each owning Special Unpersisted and logs that as `Notice.NodePersisting`. Per the Notice table in [cqrs-messages](../cqrs-messages.md), a node change logs `Notice.NodeUnpersisted`, and `NodePersisting` belongs to the persist thread.
 
-[ ] [History.fs](src/Shared/History.fs) owns `Notice`
+## 4. Change
 
-### Source
+[ ] [History.fs](../../../src/Shared/History.fs): add `| NodeUnpersisted of nodeId: NodeId` to `Notice`.
+[ ] [CoreEventDispatch.fs](../../../src/Server/Core/CoreEventDispatch.fs) `markForPersist`: log `Notice.NodeUnpersisted nodeId` instead of `Notice.NodePersisting nodeId`. The axis write (`setUnpersistedAt` at the change's id) and the `pushPersist` that follows are unchanged.
+[ ] [CoreMailboxLoop.fs](../../../src/Server/Core/CoreMailboxLoop.fs) `applyNotice`: the `NodeUnpersisted` arm sets Unpersisted, the same `writeAxis` call the `NodePersisting` arm makes.
+[ ] [EventJson.fs](../../../src/Shared/EventJson.fs): encode and decode `NodeUnpersisted` as `"nodeUnpersisted"`.
+[ ] [Database.fs](../../../src/Server/Database.fs) `writeNoticeRow`: the `NodeUnpersisted` arm writes the persist state, as the `NodePersisting` arm does.
+[ ] Every other `match` on `Notice` gets a `NodeUnpersisted` arm with the same handling as `NodePersisting`.
+[ ] `NodePersisting` keeps its current handling. Nothing in `src` posts it after this ticket.
+[ ] A graph-only change logs no `NodeUnpersisted`.
 
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `applyNotice`, `writeUnpersisted`
-[ ] [EventJson.fs](src/Shared/EventJson.fs) `encodeNotice`, `noticeFrom`, `encodeSingleNotice`
-[ ] [Database.fs](src/Server/Database.fs) `writeNoticeRow`
+## 5. Tests
 
-### Helper
+[ ] `CoreLoopNoticeTests.fs`: add `applyNotice NodeUnpersisted marks Unpersisted`.
+[ ] `CoreMailboxDoorTests.fs`: add `an edit logs NodeUnpersisted for its owning special`. Post an ordinary edit through `postEvents`; the log has `Notice.NodeUnpersisted fileId` after the Change, and no `Notice.NodePersisting`.
+[ ] `EventJsonTests.fs` `Notice JSON round trip` includes `Notice.NodeUnpersisted`.
+[ ] `DbAgentNoticeTests.fs`: add `NodeUnpersisted writes persist state to the database`.
+[ ] Any existing test that expects the core applier to log `Notice.NodePersisting` for a change expects `Notice.NodeUnpersisted` instead.
 
-[ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `writeAxis`
-[ ] [GraphMutate.fs](src/Shared/GraphMutate.fs) `setPersistState`
+## 6. Done
 
-### Match sites
-
-[ ] `applyNotice`, `encodeNotice`, `noticeFrom`, and `writeNoticeRow` match every `Notice` case
-
-### Caller
-
-[ ] [CoreLoopNoticeTests.fs](tests/Server.Tests/CoreLoopNoticeTests.fs) `apply` calls `applyNotice`
-
-### Tests this ticket names
-
-[ ] `NodePersisting matches the Unpersisted Set` in `CoreLoopNoticeTests.fs`
-[ ] [EventJsonTests.fs](tests/Shared.Tests/EventJsonTests.fs) `Notice JSON round trip`
-
-### Pattern
-
-[ ] [73 — Add the NodeParsing and NodePersisting Notices](73-add-the-nodeparsing-and-nodepersisting-notices.md)
-
-## 4. Context
-
-### Copy-from
-
-[ ] `Notice` is `[<RequireQualifiedAccess>]`
-[ ] `Notice` cases are `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`
-[ ] The `Notice.NodePersisting nodeId` arm of `applyNotice` is `CoreEventDispatch.writeAxis persist msg (fun live -> writeUnpersisted nodeId live)`
-[ ] `writeUnpersisted` calls `setPersistState nodeId PersistState.Unpersisted live`
-[ ] `Notice.NodePersisting` encodes with `encodeSingleNotice "nodePersisting" nodeId`
-[ ] `"nodePersisting"` decodes to `Notice.NodePersisting nodeId`
-[ ] The `Notice.NodePersisting nodeId` arm of `writeNoticeRow` calls `writePersistState connectionString graph nodeId`
-
-## 5. Changes
-
-### Expand
-
-[ ] One expand: add `Notice.NodeUnpersisted of nodeId`
-
-### History.fs
-
-[ ] Add `| NodeUnpersisted of nodeId: NodeId` beside `NodePersisting`
-
-### CoreMailboxLoad.fs
-
-[ ] The `Notice.NodeUnpersisted nodeId` arm is the same `writeAxis` call as `Notice.NodePersisting`
-
-### EventJson.fs
-
-[ ] `encodeNotice` writes `Notice.NodeUnpersisted nodeId` with `encodeSingleNotice "nodeUnpersisted" nodeId`
-[ ] `noticeFrom` maps `"nodeUnpersisted"` to `Ok (Notice.NodeUnpersisted nodeId)`
-
-### Database.fs
-
-[ ] The `Notice.NodeUnpersisted nodeId` arm calls `writePersistState connectionString graph nodeId`
-
-## 6. Tests
-
-### applyNotice
-
-[ ] Add `applyNotice marks Unpersisted` in `CoreLoopNoticeTests.fs`
-[ ] The test calls `applyNotice` with `Notice.NodeUnpersisted nodeId`
-[ ] The node equals `Graph.setPersistState nodeId PersistState.Unpersisted` on the same graph
-[ ] Filter: `applyNotice marks Unpersisted`
-
-### JSON
-
-[ ] `Notice JSON round trip` includes `Notice.NodeUnpersisted nodeId`
-[ ] Filter: `Notice JSON round trip`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
 [ ] All executed tests pass.
