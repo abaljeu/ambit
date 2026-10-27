@@ -28,11 +28,11 @@ Source: `GitRunTests.fs`.
 
 ## 5. Tests
 
-[ ] `second git waits instead of failing on index.lock` passes 20 consecutive runs under `--filter`.
-[ ] The full suite passes.
+[x] `second git waits instead of failing on index.lock` passes 20 consecutive runs under `--filter`.
+[x] The full suite passes.
 
 ## 6. Done
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
-[ ] All executed tests pass.
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
+[x] All executed tests pass.
