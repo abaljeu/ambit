@@ -305,6 +305,78 @@ let ``Desk Load response continues to mapped workspace push`` () =
         assertPosted "/_desktop/workspace-push" handler
     | other -> failwith $"expected workspace push, got {other}"
 
+let private mappedSaveModel () =
+    { mappedWorkspaceModel () with
+        serverCapabilities =
+            Some { canGitSave = true; canFileStatus = true }
+        workspaceRemotes =
+            Map [
+                "home",
+                { remote = "https://github.com/example/home.git"
+                  ahead = 0
+                  behind = 0 } ] }
+
+let private isDownloadEffect =
+    function
+    | ScheduleAutoDownloadTick _
+    | ContinueWorkspaceDownload _ -> true
+    | _ -> false
+
+/// Plain Save keeps the plain pre-pick when a local mapping and a remote tip exist.
+/// A Git response completes the command and posts no workspace download.
+[<Fact>]
+let ``plain Save with a mapping and a Git response starts no download`` () =
+    let urls = ResizeArray<string>()
+    let messages = ResizeArray<Msg>()
+    let post url body onOk _ _ =
+        urls.Add url
+        let decoded =
+            Decode.fromString
+                EventJson.decodeLoadSaveCommandRequest
+                body
+            |> requireOk
+        Assert.Equal(LoadSaveOperation.Save, decoded.operation)
+        Assert.Equal(LoadSavePrePick.Plain, decoded.prePick)
+        onOk gitResponse
+    let dependencies: LoadSaveCommandClient.Dependencies =
+        { encodeRequest =
+            fun command ->
+                EventJson.encodeLoadSaveCommandRequest command
+                |> Encode.toString 0
+          decodeResponse =
+            Decode.fromString
+                ApiResponseSerialization.decodeLoadSaveCommandResponseDecoder
+          post = post
+          continueDesk =
+            fun _ -> Assert.Fail("unexpected Desk continuation")
+          commandDone =
+            fun events -> messages.Add(SysMsg (CommandDone events))
+          commandFailed = fun detail -> Assert.Fail(detail) }
+    let updater =
+        Commands.commandRegistry
+        |> List.tryFind (fun entry -> entry.name = "Save")
+        |> requireSome "Save"
+        |> fun command -> command.run ()
+        |> requireSome "Save unavailable"
+    let model = mappedSaveModel ()
+    match updater model with
+    | _, [ SubmitLoadSaveCommand (request, None) ] ->
+        LoadSaveCommandClient.runWith dependencies "ambit" request
+    | _, other ->
+        Assert.Fail($"expected one plain Save request, got {other}")
+    match messages |> Seq.toList with
+    | [ SysMsg (CommandDone events) ] ->
+        let _, effects = Update.update (SysMsg (CommandDone events)) model
+        Assert.DoesNotContain(effects, isDownloadEffect)
+        Assert.Empty(events)
+    | other -> Assert.Fail($"expected CommandDone, got {other}")
+    Assert.Equal<string list>(
+        [ "/ambit/load-save-command" ],
+        urls |> Seq.toList)
+    Assert.DoesNotContain(
+        urls |> Seq.toList,
+        fun url -> url.Contains("workspace-download"))
+
 [<Fact>]
 let ``Desk Save response continues to existing save endpoint`` () =
     let updater = runDesk LoadSaveOperation.Save
