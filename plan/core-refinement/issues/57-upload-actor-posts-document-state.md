@@ -1,6 +1,6 @@
 # 57 — Upload Actor posts Node notices
 
-**Status:** `defined`
+**Status:** `coded`
 **Type:** coding
 **Blocked by:** 44 — Apply document state from Node events; 54 — Parse and import stop the Parsed Set
 **Trackers:** architecture, project spec
