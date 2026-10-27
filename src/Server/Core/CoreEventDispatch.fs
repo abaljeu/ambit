@@ -216,7 +216,7 @@ module internal CoreEventDispatch =
             | Some node when needsUnpersistedMark node version ->
                 writeAxis
                     persist
-                    (Gambol.Shared.Notice.NodePersisting nodeId)
+                    (Gambol.Shared.Notice.NodeUnpersisted nodeId)
                     (fun graph ->
                         Ok (
                             GraphMutate.setUnpersistedAt

@@ -356,6 +356,24 @@ let ``NodeUploading leaves the Edit's changedVersion`` () =
     Assert.Empty(snaps)
 
 [<Fact>]
+let ``applyNotice NodeUnpersisted marks Unpersisted`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Parsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeUnpersisted id)
+    let viaNotice = state.Value.graph.nodes.[id]
+    let viaSet =
+        Graph.setPersistState id PersistState.Unpersisted initial.graph
+        |> requireState "set"
+        |> fun graph -> graph.nodes.[id]
+    Assert.Equal(viaSet.documentState, viaNotice.documentState)
+    Assert.Equal(ParseState.Parsed, viaNotice.documentState.parseState)
+    Assert.Equal(PersistState.Unpersisted, viaNotice.documentState.persistState)
+    Assert.False(viaNotice.documentState.pullingFile)
+    Assert.Empty(snaps)
+
+[<Fact>]
 let ``NodePersisting matches the Unpersisted Set`` () =
     let id, initial =
         fileState PersistState.Persisted ParseState.Parsed

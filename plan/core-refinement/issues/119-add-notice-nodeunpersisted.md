@@ -29,7 +29,8 @@ When the core applier stores a Change, Undo or Redo, `CoreEventDispatch.markForP
 ## 5. Tests
 
 [ ] `CoreLoopNoticeTests.fs`: add `applyNotice NodeUnpersisted marks Unpersisted`.
-[ ] `CoreMailboxDoorTests.fs`: add `an edit logs NodeUnpersisted for its owning special`. Post an ordinary edit through `postEvents`; the log has `Notice.NodeUnpersisted fileId` after the Change, and no `Notice.NodePersisting`.
+[ ] `CoreMailboxDoorTests.fs`: add `an edit logs NodeUnpersisted for its owning special`. Post an ordinary edit through `postEvents`. `getEventsSince` returns that Change. `replaceGraph` receives `Notice.NodeUnpersisted fileId`. Neither list has `Notice.NodePersisting`.
+[ ] `CoreMailboxDoorTests.fs`: add `a graph-only change logs no NodeUnpersisted`. `postGraphOnly` of that same edit records no notice.
 [ ] `EventJsonTests.fs` `Notice JSON round trip` includes `Notice.NodeUnpersisted`.
 [ ] `DbAgentNoticeTests.fs`: add `NodeUnpersisted writes persist state to the database`.
 [ ] Any existing test that expects the core applier to log `Notice.NodePersisting` for a change expects `Notice.NodeUnpersisted` instead.

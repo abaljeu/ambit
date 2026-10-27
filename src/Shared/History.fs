@@ -46,6 +46,7 @@ type Notice =
     | NodeReceived of nodeId: NodeId
     | NodeParsing of nodeId: NodeId
     | NodePersisting of nodeId: NodeId
+    | NodeUnpersisted of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
     | ParseFailed of nodeId: NodeId * message: string
 
@@ -444,6 +445,7 @@ module Ev =
         | Notice.NodeParsed nodeId -> Some(nodeId, Current)
         | Notice.NodeParsing _
         | Notice.NodePersisting _
+        | Notice.NodeUnpersisted _
         | Notice.PersistFailed _
         | Notice.ParseFailed _
         | Notice.NodePersisted _ -> None

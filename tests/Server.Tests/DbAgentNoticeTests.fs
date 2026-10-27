@@ -114,6 +114,18 @@ let ``NodePersisting writes persist state to the database`` () = task {
 }
 
 [<Fact>]
+let ``NodeUnpersisted writes persist state to the database`` () = task {
+    let! connStr, mailbox, id, before = freshFile ()
+    do! apply mailbox (Notice.NodeUnpersisted id)
+    let! after = readNode connStr id
+    Assert.Equal(PersistState.Unpersisted, after.documentState.persistState)
+    Assert.Equal(
+        before.documentState.parseState,
+        after.documentState.parseState)
+    Assert.Equal(before.updateTime, after.updateTime)
+}
+
+[<Fact>]
 let ``NodePersisted writes persist state to the database`` () = task {
     let! connStr, mailbox, id, _ = freshFile ()
     do! apply mailbox (Notice.NodePersisting id)
