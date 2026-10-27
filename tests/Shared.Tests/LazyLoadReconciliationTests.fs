@@ -77,9 +77,6 @@ let private requireReceivedReport graph label changes =
         report
     | Error err -> failwith err
 
-let private requireReceivedPlan graph label changes =
-    (requireReceivedReport graph label changes).ops
-
 let private requireAddedReport graph paths =
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
