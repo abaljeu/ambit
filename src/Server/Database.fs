@@ -584,7 +584,6 @@ module Database =
         | Notice.NodeParsed nodeId
         | Notice.NodeUnparsed nodeId ->
             writeDocumentState connectionString graph nodeId
-        | Notice.NodePersisting nodeId
         | Notice.NodeUnpersisted nodeId ->
             writePersistState connectionString graph nodeId
         | Notice.NodePersisted (nodeId, _, _) ->
@@ -593,6 +592,7 @@ module Database =
             writeReceivedNode connectionString graph nodeId
         | Notice.NodeUploading _
         | Notice.NodeParsing _
+        | Notice.NodePersisting _
         | Notice.PersistFailed _
         | Notice.ParseFailed _ ->
             task { return () }
