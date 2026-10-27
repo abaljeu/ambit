@@ -133,14 +133,6 @@ module DatabaseProjection =
                         GraphProjection.childRowsFromNode
                             graph parentId kids })))
 
-    /// Notices for SetDocumentState ops on a Change. The op stays.
-    let noticesBeside (events: Ev list) : Notice list =
-        events
-        |> List.collect (fun event ->
-            match event.body with
-            | EventBody.Change ops -> DocumentOpImpact.noticesBeside ops
-            | _ -> [])
-
     let plan (graph: Graph) (eventId: EventId) (events: Ev list) : ProjectionPatch =
         { nodeUpserts = nodeRows graph events
           childReplacements = childReplacements graph events

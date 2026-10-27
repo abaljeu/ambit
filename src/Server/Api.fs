@@ -242,13 +242,6 @@ module Api =
               nodes = answer.nodes
               childMap = answer.childMap }
 
-    // Known design weakness: see the postEvents Note in
-    // plan/core-refinement/arch.md (inferred from Ops, not explicit commands).
-    let private inferredNodeEvents (event: Ev) : Notice list =
-        match event.body with
-        | EventBody.Change ops -> DocumentOpImpact.noticesBeside ops
-        | _ -> []
-
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -265,9 +258,6 @@ module Api =
         | Ok request ->
             match! CoreDoor.postEvents handle request.events with
             | Ok accepted ->
-                request.events
-                |> List.collect inferredNodeEvents
-                |> List.iter (CoreMailboxApi.postNotice handle.host)
                 match! wantAnswerFromHandle handle request.want with
                 | Error err -> return agentErrorResult err
                 | Ok answer ->
