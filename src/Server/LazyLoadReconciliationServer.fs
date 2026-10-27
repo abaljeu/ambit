@@ -105,6 +105,20 @@ module LazyLoadReconciliationServer =
         ids
         |> List.iter (fun id -> CoreMailboxApi.postNotice host (notice id))
 
+    /// Containing Directory or Workspace from the plan ids.
+    /// A PullingFile container gets no NodeUnparsed.
+    let private postContainerUnparsed
+        (host: MailboxHost)
+        (graph: Graph)
+        (ids: NodeId list)
+        =
+        ids
+        |> List.iter (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node when Node.documentStateEnum node <> PullingFile ->
+                CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
+            | _ -> ())
+
     /// Current controlling Special for each id `markUnparsed` received.
     let private postCurrentUnparsed
         (host: MailboxHost)
@@ -127,6 +141,7 @@ module LazyLoadReconciliationServer =
             logFailures listed.workspaceLabel report.failures
             let host = listed.handle.host
             let postMarks () =
+                postContainerUnparsed host listed.graph report.containingDirIds
                 postCurrentUnparsed host listed.graph report.unparsedIds
             let postDirParsing () =
                 postNotices host Notice.NodeParsing report.parsedDirIds
@@ -242,7 +257,8 @@ module LazyLoadReconciliationServer =
     /// Git pull. Added and Modified directory files reach
     /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
     /// Each received file is marked. An added, removed, or renamed file
-    /// marks its containing Directory. The list does not discover members.
+    /// posts NodeUnparsed for its containing Directory or Workspace.
+    /// The list does not discover members.
     /// `NodeReceived` uses the received-file list. A Modified directory
     /// file with no text stays here and lands on `unparsedIds`.
     let reconcileReceivedFiles

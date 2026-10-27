@@ -338,6 +338,69 @@ let ``git load reconcile leaves an Unparsed parent Unparsed without NodeParsed``
     }
 
 [<Fact>]
+let ``git Load reconcile posts NodeUnparsed for the containing Directory after NodeParsed`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            Assert.Equal(Unparsed, documentState host docsId)
+            placeFile dataDir "docs/extra.txt" "extra"
+            do!
+                pullReceived
+                    host
+                    handle
+                    dataDir
+                    [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+            let ordered =
+                (stateOf host) |> ignore
+                CoreMailboxApi.eventsSince host EventId.zero
+                |> Async.RunSynchronously
+                |> fun log ->
+                    log.events
+                    |> List.sortBy (fun event -> EventId.value event.id)
+            let parsedAt =
+                ordered
+                |> List.findIndex (function
+                    | { body = EventBody.Notice (Notice.NodeParsed id) } ->
+                        id = docsId
+                    | _ -> false)
+            let unparsedAt =
+                ordered
+                |> List.findIndex (function
+                    | { body = EventBody.Notice (Notice.NodeUnparsed id) } ->
+                        id = docsId
+                    | _ -> false)
+            Assert.True(unparsedAt > parsedAt)
+            Assert.Equal(Unparsed, documentState host docsId)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``git Load reconcile posts no NodeUnparsed for a PullingFile container`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            setState host docsId Unparsed Current
+            CoreMailboxApi.postNotice host (Notice.NodeUploading docsId)
+            Assert.Equal(PullingFile, documentState host docsId)
+            placeFile dataDir "docs/extra.txt" "extra"
+            do!
+                pullReceived
+                    host
+                    handle
+                    dataDir
+                    [ LazyLoadReconciliation.Added "docs/extra.txt" ]
+            Assert.False(loggedUnparsed host docsId)
+            Assert.Equal(PullingFile, documentState host docsId)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-info parse`` () =
     task {
         let dataDir = newTempDir ()
