@@ -161,6 +161,7 @@ let ``Notice JSON round trip`` () =
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId
           Notice.NodePersisting nodeId
+          Notice.NodeUnpersisted nodeId
           Notice.PersistFailed(nodeId, "disk full")
           Notice.ParseFailed(nodeId, "parse failed") ]
     notices

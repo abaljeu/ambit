@@ -584,7 +584,8 @@ module Database =
         | Notice.NodeParsed nodeId
         | Notice.NodeUnparsed nodeId ->
             writeDocumentState connectionString graph nodeId
-        | Notice.NodePersisting nodeId ->
+        | Notice.NodePersisting nodeId
+        | Notice.NodeUnpersisted nodeId ->
             writePersistState connectionString graph nodeId
         | Notice.NodePersisted (nodeId, _, _) ->
             writePersistedNode connectionString graph nodeId

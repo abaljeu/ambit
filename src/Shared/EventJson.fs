@@ -185,6 +185,8 @@ module EventJson =
             encodeSingleNotice "nodeParsing" nodeId
         | Notice.NodePersisting nodeId ->
             encodeSingleNotice "nodePersisting" nodeId
+        | Notice.NodeUnpersisted nodeId ->
+            encodeSingleNotice "nodeUnpersisted" nodeId
         | Notice.PersistFailed (nodeId, message) ->
             encodeFailedNotice "persistFailed" nodeId message
         | Notice.ParseFailed (nodeId, message) ->
@@ -198,6 +200,7 @@ module EventJson =
         | "nodeReceived" -> Ok (Notice.NodeReceived nodeId)
         | "nodeParsing" -> Ok (Notice.NodeParsing nodeId)
         | "nodePersisting" -> Ok (Notice.NodePersisting nodeId)
+        | "nodeUnpersisted" -> Ok (Notice.NodeUnpersisted nodeId)
         | other -> Error ("Unknown notice: " + other)
 
     let private decodeSingleNotice: Decoder<Notice> =

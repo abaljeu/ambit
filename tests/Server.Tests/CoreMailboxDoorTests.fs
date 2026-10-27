@@ -845,6 +845,84 @@ let ``An Edit marks its owning special node at the Edit's id`` () =
             CoreMailboxApi.dispose host
     }
 
+let private hostRecordingNotices
+    (state: State ref)
+    (notices: ResizeArray<Notice>)
+    =
+    let handlers =
+        { cannedHandlers
+            (fun () -> Ok state.Value)
+            (fun _ -> [])
+            acceptPosted with
+            replaceGraph =
+                fun notice graph ->
+                    notices.Add notice
+                    state.Value <-
+                        { state.Value with graph = graph } }
+    hostWithHandlers handlers
+
+[<Fact>]
+let ``an edit logs NodeUnpersisted for its owning special`` () =
+    task {
+        let fileId, initial = fileWithText ()
+        let state = ref initial
+        let host = hostRecordingGraph state
+        try
+            let! posted =
+                CoreMailboxApi.postEvents
+                    host
+                    testCaller
+                    [ editFileText fileId ]
+                |> Async.StartAsTask
+            requireOk "edit" posted |> ignore
+            let! since =
+                CoreMailboxApi.getEventsSince host EventId.zero
+                |> Async.StartAsTask
+            let ordered = List.rev since
+            let changeAt =
+                ordered
+                |> List.findIndex (fun event ->
+                    match event.body with
+                    | EventBody.Change _ -> true
+                    | _ -> false)
+            let noticeAt =
+                ordered
+                |> List.findIndex (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodeUnpersisted id) ->
+                        id = fileId
+                    | _ -> false)
+            Assert.True(noticeAt > changeAt)
+            let loggedPersisting =
+                ordered
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.NodePersisting _) -> true
+                    | _ -> false)
+            Assert.False(loggedPersisting)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``a graph-only change logs no NodeUnpersisted`` () =
+    task {
+        let fileId, state = fileWithText ()
+        let notices = ResizeArray<Notice>()
+        let host = hostRecordingNotices (ref state) notices
+        try
+            let! posted =
+                CoreMailboxApi.postGraphOnly
+                    host
+                    testCaller
+                    (editFileText fileId)
+                |> Async.StartAsTask
+            requireOk "graph-only edit" posted |> ignore
+            Assert.Empty(notices)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
 [<Fact>]
 let ``A graph-only change pushes nothing`` () =
     task {
