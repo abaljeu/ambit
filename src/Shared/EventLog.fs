@@ -96,16 +96,7 @@ module EventLog =
         | Notice.NodeUploading _ -> true
         | Notice.ParseFailed _ -> false
 
-    let private withUnpersistedFlag (graph: Graph) (nodeId: NodeId) =
-        match Map.tryFind nodeId graph.nodes with
-        | None -> graph
-        | Some node ->
-            let updated =
-                Node.withPersistState PersistState.Unpersisted node
-            { graph with
-                nodes = Map.add nodeId updated graph.nodes }
-
-    /// Replay of Parse has no version. The flag flips on the owning special.
+    /// Replay of Parse writes the owning special at the Event id.
     let private flagParseReplay (event: Ev) (state: State) =
         if event.commandName <> "Parse" then
             state
@@ -113,7 +104,11 @@ module EventLog =
             let ops = Ev.ops event |> Option.defaultValue []
             let graph =
                 DocumentOpImpact.owningSpecials state.graph ops
-                |> List.fold withUnpersistedFlag state.graph
+                |> List.fold
+                    (fun graph nodeId ->
+                        GraphMutate.setUnpersistedAt
+                            nodeId event.id graph)
+                    state.graph
             { state with graph = graph }
 
     let private appliedState state event =

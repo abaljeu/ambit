@@ -556,7 +556,6 @@ let ``Replay sets persistState Unpersisted and ignores persist Notices`` () =
 let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`` () =
     let fileId = NodeId.New()
     let persisted = EventId.fromJson 2
-    let changed = EventId.fromJson 1
     let created =
         Node.Create(
             fileId,
@@ -570,7 +569,7 @@ let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`
                     parseState = ParseState.Parsed
                     persistState = PersistState.Persisted
                     persistedVersion = persisted
-                    changedVersion = changed } }
+                    changedVersion = EventId.fromJson 1 } }
     let before =
         { graph = Graph.addDetachedNode node (Graph.create ())
           eventId = EventId.fromJson 3 }
@@ -584,5 +583,5 @@ let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`
     Assert.Equal("parsed", live.text)
     Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
     Assert.Equal(persisted, live.documentState.persistedVersion)
-    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(parseId, live.documentState.changedVersion)
     Assert.Equal(ParseState.Parsed, live.documentState.parseState)
