@@ -172,20 +172,54 @@ module GithubTransportActor =
                         changed
         }
 
-    let private runOperation
+    let private loadFocus changes focusId =
+        async {
+            let! loaded = CoreDoor.loadNode changes focusId
+            return loaded |> Result.map (fun _ -> ())
+        }
+
+    let private missingSubject =
+        Error "Focus is not in a Workspace, Directory, or File."
+
+    /// Workspace Load pulls. A Directory or File loads that node only.
+    let private runLoadChoice
+        dependencies
+        dataDir
+        changes
+        choice
+        workspaceId
+        root
+        =
+        match choice with
+        | Some (_, LoadSubject.Workspace) ->
+            runLoad
+                dependencies
+                dataDir
+                changes
+                workspaceId
+                root
+        | Some (id, LoadSubject.Directory)
+        | Some (id, LoadSubject.File) ->
+            loadFocus changes id
+        | None -> async.Return missingSubject
+
+    let private runStep
         operation
         dependencies
         dataDir
         changes
+        graph
+        focusId
         workspaceId
         root
         =
         match operation with
         | GithubTransportOperation.Load ->
-            runLoad
+            runLoadChoice
                 dependencies
                 dataDir
                 changes
+                (LoadSubject.enclosingSubject graph focusId)
                 workspaceId
                 root
         | GithubTransportOperation.Save ->
@@ -208,11 +242,13 @@ module GithubTransportActor =
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
                     match!
-                        runOperation
+                        runStep
                             operation
                             dependencies
                             dataDir
                             actorChanges
+                            current.graph
+                            input.focusId
                             workspaceId
                             root
                     with
