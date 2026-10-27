@@ -161,7 +161,8 @@ let ``Notice JSON round trip`` () =
           Notice.NodeReceived nodeId
           Notice.NodeParsing nodeId
           Notice.NodePersisting nodeId
-          Notice.PersistFailed(nodeId, "disk full") ]
+          Notice.PersistFailed(nodeId, "disk full")
+          Notice.ParseFailed(nodeId, "parse failed") ]
     notices
     |> List.iter (fun notice ->
         let event =
@@ -169,6 +170,16 @@ let ``Notice JSON round trip`` () =
                 commandName = ""
                 body = EventBody.Notice notice }
         Assert.Equal(event, roundTrip event))
+
+[<Fact>]
+let ``EventJson round-trips Notice.ParseFailed`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let notice = Notice.ParseFailed(nodeId, "parse failed")
+    let event =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.Notice notice }
+    Assert.Equal(event, roundTrip event)
 
 [<Fact>]
 let ``Stored snapshotDone decodes as NodePersisted`` () =

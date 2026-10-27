@@ -162,10 +162,10 @@ module EventJson =
               "persistedVersion", Encode.int (EventId.toJson persistedVersion)
               "updateTime", Encode.int64 updateTime.Ticks ]
 
-    let private encodePersistFailed nodeId message =
+    let private encodeFailedNotice tag nodeId message =
         Encode.object
             [ "kind", Encode.string "notice"
-              "notice", Encode.string "persistFailed"
+              "notice", Encode.string tag
               "nodeId", Serialization.encodeNodeId nodeId
               "message", Encode.string message ]
 
@@ -186,7 +186,9 @@ module EventJson =
         | Notice.NodePersisting nodeId ->
             encodeSingleNotice "nodePersisting" nodeId
         | Notice.PersistFailed (nodeId, message) ->
-            encodePersistFailed nodeId message
+            encodeFailedNotice "persistFailed" nodeId message
+        | Notice.ParseFailed (nodeId, message) ->
+            encodeFailedNotice "parseFailed" nodeId message
 
     let private noticeFrom tag nodeId =
         match tag with
@@ -221,9 +223,9 @@ module EventJson =
                     get.Required.Field "updateTime" Decode.int64,
                     System.DateTimeKind.Utc)))
 
-    let private decodePersistFailed: Decoder<Notice> =
+    let private decodeFailedNotice make : Decoder<Notice> =
         Decode.object (fun get ->
-            Notice.PersistFailed(
+            make (
                 get.Required.Field "nodeId" Serialization.decodeNodeId,
                 get.Required.Field "message" Decode.string))
 
@@ -235,7 +237,11 @@ module EventJson =
             | "snapshotDone" ->
                 decodeNodePersisted |> Decode.map EventBody.Notice
             | "persistFailed" ->
-                decodePersistFailed |> Decode.map EventBody.Notice
+                decodeFailedNotice Notice.PersistFailed
+                |> Decode.map EventBody.Notice
+            | "parseFailed" ->
+                decodeFailedNotice Notice.ParseFailed
+                |> Decode.map EventBody.Notice
             | _ ->
                 decodeSingleNotice |> Decode.map EventBody.Notice)
 

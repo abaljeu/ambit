@@ -592,5 +592,6 @@ module Database =
             writeReceivedNode connectionString graph nodeId
         | Notice.NodeUploading _
         | Notice.NodeParsing _
-        | Notice.PersistFailed _ ->
+        | Notice.PersistFailed _
+        | Notice.ParseFailed _ ->
             task { return () }

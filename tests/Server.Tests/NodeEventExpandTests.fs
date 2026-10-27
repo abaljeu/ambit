@@ -140,9 +140,43 @@ let private parsedCount (host: MailboxHost) (nodeId: NodeId) =
         | _ -> false)
     |> List.length
 
-let private startParse dataDir host =
+let private readOnlyPostMessage =
+    "Database persistence is unavailable; file fallback is read-only."
+
+let private assertParsingThenFailed host nodeId message =
+    let ordered = orderedEvents host
+    let parsingAt =
+        ordered
+        |> List.findIndex (function
+            | { body = EventBody.Notice (Notice.NodeParsing id) } ->
+                id = nodeId
+            | _ -> false)
+    let failedAt =
+        ordered
+        |> List.findIndex (function
+            | { body = EventBody.Notice (Notice.ParseFailed (id, found)) } ->
+                id = nodeId && found = message
+            | _ -> false)
+    let afterParsing = List.skip (parsingAt + 1) ordered
+    let between = List.take (failedAt - parsingAt - 1) afterParsing
+    Assert.True(parsingAt < failedAt)
+    Assert.False(
+        List.exists
+            (function
+            | { body = EventBody.Change _ } -> true
+            | _ -> false)
+            between)
+    Assert.False(
+        List.exists
+            (function
+            | { body = EventBody.Notice (Notice.NodeParsed id) } ->
+                id = nodeId
+            | _ -> false)
+            afterParsing)
+
+let private startParseOn writable dataDir host =
     let push, consumer = ParseStack.create ()
-    let parseHandle = CoreDoor.create true host testCaller
+    let parseHandle = CoreDoor.create writable host testCaller
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
@@ -154,6 +188,9 @@ let private startParse dataDir host =
             fun nodeId ->
                 CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId) }
     push
+
+let private startParse dataDir host =
+    startParseOn true dataDir host
 
 let private admitHome dataDir =
     let host, handle = createAdmittedFile dataDir
@@ -522,6 +559,53 @@ let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-i
     }
 
 [<Fact>]
+let ``A git Load reconcile whose Change fails posts ParseFailed for each parsedDirIds entry`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, _, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            setState host docsId Unparsed Current
+            let subId = addDirectory host docsId "sub"
+            setState host subId Unparsed Current
+            placeFile
+                dataDir
+                "docs/.amb"
+                ("outline body" + Environment.NewLine)
+            placeFile
+                dataDir
+                "docs/sub/.amb"
+                ("sub body" + Environment.NewLine)
+            let! pulled =
+                LazyLoadReconciliationServer.reconcileReceivedFiles
+                    { handle = CoreDoor.create false host testCaller
+                      dataDir = dataDir
+                      workspaceLabel = "home" }
+                    [ LazyLoadReconciliation.Modified "docs/.amb"
+                      LazyLoadReconciliation.Modified "docs/sub/.amb" ]
+                |> Async.StartAsTask
+            match pulled with
+            | Ok _ -> Assert.Fail("expected the Change post to fail")
+            | Error message ->
+                Assert.Equal(readOnlyPostMessage, message)
+            let parsingIds =
+                orderedEvents host
+                |> List.choose (function
+                    | { body = EventBody.Notice (Notice.NodeParsing id) } ->
+                        Some id
+                    | _ -> None)
+            Assert.Equal<NodeId list>(
+                List.sort [ docsId; subId ],
+                List.sort parsingIds)
+            parsingIds
+            |> List.iter (fun id ->
+                assertParsingThenFailed host id readOnlyPostMessage
+                Assert.Equal(Unparsed, documentState host id))
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``git load reconcile parses an Unparsed directory file and NodeParsed sets Current`` () =
     task {
         let dataDir = newTempDir ()
@@ -878,6 +962,74 @@ let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () = task {
     finally
         CoreMailboxApi.dispose host
 }
+
+[<Fact>]
+let ``A file parse whose Change fails posts NodeParsing, then ParseFailed, and no NodeParsed`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, _, wsId = admitHome dataDir
+        let push = startParseOn false dataDir host
+        try
+            let fileId = addFile host wsId "note.txt"
+            let before =
+                (stateOf host).graph.nodes.[fileId].documentState
+            let disk = Path.Combine(dataDir, "home", "note.txt")
+            Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
+            File.WriteAllText(disk, "HELLO\n")
+            push fileId
+            let! failed =
+                waitUntil
+                    (fun () ->
+                        hasCase host (function
+                            | Notice.ParseFailed (id, message) ->
+                                id = fileId
+                                && message = readOnlyPostMessage
+                            | _ -> false))
+                    2000
+            Assert.True(failed)
+            assertParsingThenFailed host fileId readOnlyPostMessage
+            Assert.Equal(
+                before,
+                (stateOf host).graph.nodes.[fileId].documentState)
+            Assert.Empty(Graph.children (stateOf host).graph fileId)
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``A directory parse whose Change fails posts NodeParsing, then ParseFailed, and no NodeParsed`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, _, wsId = admitHome dataDir
+        let push = startParseOn false dataDir host
+        try
+            let dirId = addDirectory host wsId "docs"
+            let before =
+                (stateOf host).graph.nodes.[dirId].documentState
+            placeFile dataDir "docs/extra.txt" "EXTRA\n"
+            push dirId
+            let! failed =
+                waitUntil
+                    (fun () ->
+                        hasCase host (function
+                            | Notice.ParseFailed (id, message) ->
+                                id = dirId && message = readOnlyPostMessage
+                            | _ -> false))
+                    2000
+            Assert.True(failed)
+            assertParsingThenFailed host dirId readOnlyPostMessage
+            Assert.Equal(
+                before,
+                (stateOf host).graph.nodes.[dirId].documentState)
+            let names =
+                Graph.children (stateOf host).graph dirId
+                |> List.map (fun child ->
+                    Filename.tryValue
+                        (stateOf host).graph.nodes.[child.id].name)
+            Assert.DoesNotContain(Some "extra.txt", names)
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed once`` () =
