@@ -378,6 +378,37 @@ let ``git load reconcile posts NodeParsing before and NodeParsed after the dir-i
     }
 
 [<Fact>]
+let ``git load reconcile notices a renamed directory file and does not rename it`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host, handle, wsId = admitHome dataDir
+        try
+            let docsId = addDirectory host wsId "docs"
+            do!
+                pullReceived
+                    host
+                    handle
+                    dataDir
+                    [ LazyLoadReconciliation.Renamed(
+                        "docs/.amb",
+                        "moved/.amb") ]
+            Assert.Equal(Current, documentState host docsId)
+            Assert.Equal(
+                Some "docs",
+                Filename.tryValue (stateOf host).graph.nodes.[docsId].name)
+            Assert.True(
+                hasCase host (function
+                    | Notice.NodeParsed id -> id = docsId
+                    | _ -> false))
+            Assert.False(
+                hasCase host (function
+                    | Notice.NodeParsing id -> id = docsId
+                    | _ -> false))
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
 let ``git load reconcile posts NodeUnparsed for a modified file`` () = task {
     let dataDir = newTempDir ()
     let host, handle, wsId = admitHome dataDir
