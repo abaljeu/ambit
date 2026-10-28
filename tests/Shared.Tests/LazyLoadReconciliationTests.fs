@@ -90,13 +90,10 @@ let private requireAddedReport graph paths =
         report
     | Error err -> failwith err
 
-let private setsUnparsed id = function
-    | Op.SetDocumentState(found, _, Unparsed) when found = id -> true
-    | _ -> false
-
-let private setsCurrent id = function
-    | Op.SetDocumentState(found, _, Current) when found = id -> true
-    | _ -> false
+let private setDocumentState nodeId oldState newState graph =
+    match GraphMutate.setDocumentState nodeId oldState newState graph with
+    | Ok next -> next
+    | Error err -> failwith err
 
 let private applyNotice (graph: Graph) (notice: Notice) : Graph =
     let event =
@@ -157,12 +154,11 @@ let private createPaths graph paths =
 let private markDocumentsCurrent graph =
     graph.nodes
     |> Map.toList
-    |> List.choose (fun (nodeId, node) ->
+    |> List.fold (fun current (nodeId, node) ->
         match node.kind, Node.documentStateEnum node with
         | Special (Workspace | Directory | File), Unparsed ->
-            Some(Op.SetDocumentState(nodeId, Unparsed, Current))
-        | _ -> None)
-    |> applyOps graph
+            setDocumentState nodeId Unparsed Current current
+        | _ -> current) graph
 
 [<Fact>]
 let ``one added file creates a file stub`` () =
@@ -182,23 +178,21 @@ let ``nested file parse leaves the new directory Unparsed without NodeParsed`` (
     let built = applyOps graph report.ops
     let src = childNamed built workspaceId "src"
     let file = childNamed built src.id "note.txt"
-    Assert.DoesNotContain(report.ops, setsCurrent src.id)
-    Assert.DoesNotContain(report.ops, setsCurrent workspaceId)
     Assert.Equal(Unparsed, src.documentState.AsEnum)
     Assert.Equal(Unparsed, built.nodes.[workspaceId].documentState.AsEnum)
     Assert.Equal(Unparsed, file.documentState.AsEnum)
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
+    let current = setDocumentState file.id Unparsed Current built
     let state =
-        { graph = built; eventId = EventId.zero }
+        { graph = current; eventId = EventId.zero }
     let parseChange =
         { id = EventId.zero
           submissionId = System.Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change
-            [ Op.SetDocumentState(file.id, Unparsed, Current)
-              Op.NewNode(parsedId, "parsed")
+            [ Op.NewNode(parsedId, "parsed")
               Op.Replace(file.id, [], [ attach ]) ] }
     match SpecialNodeTestHelpers.applyChange parseChange state with
     | ApplyResult.Changed next ->
@@ -248,9 +242,6 @@ let ``upload-built directories stay Unparsed without NodeParsed`` () =
     let src = childNamed built workspaceId "src"
     let lib = childNamed built src.id "lib"
     let file = childNamed built lib.id "core.fs"
-    Assert.DoesNotContain(report.ops, setsCurrent workspaceId)
-    Assert.DoesNotContain(report.ops, setsCurrent src.id)
-    Assert.DoesNotContain(report.ops, setsCurrent lib.id)
     Assert.Equal(Unparsed, src.documentState.AsEnum)
     Assert.Equal(Unparsed, lib.documentState.AsEnum)
     Assert.Equal(Unparsed, file.documentState.AsEnum)
@@ -398,8 +389,7 @@ let ``repeated reconciliation reuses matching stubs`` () =
 [<Fact>]
 let ``reconciliation finds artifacts through normal organizers`` () =
     let workspaceId, created = Graph.create () |> addWorkspace "home"
-    let graph0 =
-        applyOps created [ Op.SetDocumentState(workspaceId, Unparsed, Current) ]
+    let graph0 = setDocumentState workspaceId Unparsed Current created
     let graph1, workspaceOrganizerId = Graph.newNode "organizer" graph0
     let graph2 =
         [ Op.Replace(
@@ -411,7 +401,7 @@ let ``reconciliation finds artifacts through normal organizers`` () =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
     let graph3 =
         applyOps graph2 srcOps
-        |> fun g -> applyOps g [ Op.SetDocumentState(srcId, Unparsed, Current) ]
+        |> setDocumentState srcId Unparsed Current
     let graph4, srcOrganizerId = Graph.newNode "nested organizer" graph3
     let graph5 =
         [ Op.Replace(
@@ -626,8 +616,6 @@ let ``exact Directory File modification invalidates containing documents`` () =
               LazyLoadReconciliation.Modified "docs/.amb" ]
     Assert.Contains(workspaceId, report.unparsedIds)
     Assert.Contains(docs.id, report.unparsedIds)
-    Assert.DoesNotContain(report.ops, setsUnparsed workspaceId)
-    Assert.DoesNotContain(report.ops, setsUnparsed docs.id)
     let graph3 =
         report.unparsedIds
         |> List.fold applyUnparsedNotice graph2
@@ -639,10 +627,7 @@ let ``modified file keeps identity and records an unparsed id`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "note.txt" ]
     let file = childNamed graph2 workspaceId "note.txt"
-    let current =
-        Op.SetDocumentState(file.id, Unparsed, Current)
-        |> List.singleton
-        |> applyOps graph2
+    let current = setDocumentState file.id Unparsed Current graph2
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
             current
@@ -653,7 +638,6 @@ let ``modified file keeps identity and records an unparsed id`` () =
     | Error err -> failwith err
     | Ok report ->
         Assert.Contains(file.id, report.unparsedIds)
-        Assert.DoesNotContain(report.ops, setsUnparsed file.id)
         let graph3 = applyOps current report.ops
         let after = childNamed graph3 workspaceId "note.txt"
         Assert.Equal(file.id, after.id)
@@ -668,10 +652,9 @@ let ``rediscovered Added Current file stays Current with children`` () =
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let current =
-        [ Op.SetDocumentState(file.id, Unparsed, Current)
-          Op.NewNode(parsedId, "parsed")
+        [ Op.NewNode(parsedId, "parsed")
           Op.Replace(file.id, [], [ attach ]) ]
-        |> applyOps graph2
+        |> applyOps (setDocumentState file.id Unparsed Current graph2)
     Assert.Equal(Current, current.nodes.[file.id].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children current file.id).Head.id)
     let graph3 =
@@ -966,8 +949,6 @@ let ``received file plan records top and nested unparsed ids and leaves the dire
     let report = requireReceivedReport graph2 "home" changes
     Assert.Contains(top.id, report.unparsedIds)
     Assert.Contains(nested.id, report.unparsedIds)
-    Assert.DoesNotContain(report.ops, setsUnparsed top.id)
-    Assert.DoesNotContain(report.ops, setsUnparsed nested.id)
     let graph3 = applyOps graph2 report.ops
     Assert.Equal(Current, graph3.nodes.[top.id].documentState.AsEnum)
     Assert.Equal(Current, graph3.nodes.[nested.id].documentState.AsEnum)
@@ -998,8 +979,7 @@ let ``received file add leaves an Unparsed directory Unparsed`` () =
     let graph1 = createPaths graph [ "docs/keep.txt" ]
     let graph2 = markDocumentsCurrent graph1
     let docs = childNamed graph2 workspaceId "docs"
-    let graphUnparsed =
-        applyOps graph2 [ Op.SetDocumentState(docs.id, Current, Unparsed) ]
+    let graphUnparsed = setDocumentState docs.id Current Unparsed graph2
     let report =
         requireReceivedReport
             graphUnparsed
@@ -1075,7 +1055,7 @@ let ``received file at the workspace top leaves an Unparsed workspace Unparsed``
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph1 = markDocumentsCurrent graph
     let graphUnparsed =
-        applyOps graph1 [ Op.SetDocumentState(workspaceId, Current, Unparsed) ]
+        setDocumentState workspaceId Current Unparsed graph1
     let report =
         requireReceivedReport
             graphUnparsed
@@ -1104,7 +1084,6 @@ let ``received file modification leaves the containing directory Current`` () =
     let graph3 = applyOps graph2 report.ops
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState.AsEnum)
     Assert.Contains(note.id, report.unparsedIds)
-    Assert.DoesNotContain(report.ops, setsUnparsed note.id)
 
 [<Fact>]
 let ``received file add marks the nearest existing ancestor directory`` () =
@@ -1134,8 +1113,7 @@ let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
     let graph2 = markDocumentsCurrent graph1
     let w = childNamed graph2 workspaceId "w"
     let x = childNamed graph2 w.id "x"
-    let graphUnparsed =
-        applyOps graph2 [ Op.SetDocumentState(x.id, Current, Unparsed) ]
+    let graphUnparsed = setDocumentState x.id Current Unparsed graph2
     let report =
         requireReceivedReport
             graphUnparsed

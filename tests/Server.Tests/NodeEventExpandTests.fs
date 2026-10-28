@@ -65,17 +65,6 @@ let private hasCase (host: MailboxHost) pred =
 let private documentState host id =
     Node.documentStateEnum (stateOf host).graph.nodes.[id]
 
-let private setsUnparsed id = function
-    | Op.SetDocumentState(found, _, Unparsed) when found = id -> true
-    | _ -> false
-
-let private containsSet (ops: Op list) id newState =
-    ops
-    |> List.exists (function
-        | Op.SetDocumentState(found, _, next) ->
-            found = id && next = newState
-        | _ -> false)
-
 let private changeOps (event: Ev) =
     match event.body with
     | EventBody.Change ops -> ops
@@ -123,14 +112,6 @@ let private assertParsingThenParsed
         |> List.exists (function
             | { body = EventBody.Change _ } -> true
             | _ -> false))
-
-let private parsedCount (host: MailboxHost) (nodeId: NodeId) =
-    orderedEvents host
-    |> List.filter (fun event ->
-        match event.body with
-        | EventBody.Notice (Notice.NodeParsed id) -> id = nodeId
-        | _ -> false)
-    |> List.length
 
 let private readOnlyPostMessage =
     "Database persistence is unavailable; file fallback is read-only."
@@ -203,7 +184,15 @@ let private addDirectory host parent name =
     addOwned host parent FileNodeOps.planCreateOwnedDirectory name
 
 let private setState host id oldState newState =
-    postGraph host [ Op.SetDocumentState(id, oldState, newState) ]
+    let notice =
+        match oldState, newState with
+        | Unparsed, Current -> Notice.NodeParsed id
+        | Unparsed, PullingFile -> Notice.NodeUploading id
+        | Current, Unparsed -> Notice.NodeUnparsed id
+        | foundOld, foundNew ->
+            failwith $"no notice sets {foundOld} to {foundNew}"
+    CoreMailboxApi.postNotice host notice
+    Assert.Equal(newState, documentState host id)
 
 let private received host id =
     hasCase host (function
@@ -247,16 +236,6 @@ let private anyNodeMsg host =
         | Notice.NodeParsed _ -> true
         | _ -> false)
 
-let private wroteSet host id newState =
-    let log =
-        CoreMailboxApi.eventsSince host EventId.zero
-        |> Async.RunSynchronously
-    log.events
-    |> List.exists (fun event ->
-        match event.body with
-        | EventBody.Change ops -> containsSet ops id newState
-        | _ -> false)
-
 let private assertLogged host id newState present =
     Assert.Equal(newState, documentState host id)
     Assert.True(present)
@@ -266,8 +245,7 @@ let private waitParsed host id = task {
         waitUntil
             (fun () ->
                 parsedMsg host id
-                && documentState host id = Current
-                && not (wroteSet host id Current))
+                && documentState host id = Current)
             2000
     Assert.True(parsed)
 }
@@ -290,7 +268,6 @@ let ``git changed file posts NodeReceived and NodeUnparsed`` () = task {
                 [ LazyLoadReconciliation.Modified "note.txt" ]
             |> Async.StartAsTask
         requireOk "pull" pulled |> ignore
-        Assert.False(wroteSet host fileId Unparsed)
         Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
@@ -612,8 +589,6 @@ let ``modified directory file with no text posts NodeUnparsed`` () = task {
         Assert.True(loggedUnparsed host docsId)
         Assert.Equal(Unparsed, documentState host wsId)
         Assert.Equal(Unparsed, documentState host docsId)
-        Assert.False(wroteSet host wsId Unparsed)
-        Assert.False(wroteSet host docsId Unparsed)
     finally
         CoreMailboxApi.dispose host
 }
@@ -742,7 +717,6 @@ let ``renamed file posts NodeReceived`` () = task {
                 Map.empty
             |> requireOk "plan"
         Assert.Contains(fileId, planned.renamedReceivedIds)
-        Assert.DoesNotContain(planned.ops, setsUnparsed fileId)
         placeFile dataDir "note.txt" "body"
         File.Move(
             Path.Combine(dataDir, "home", "note.txt"),
@@ -753,7 +727,6 @@ let ``renamed file posts NodeReceived`` () = task {
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        Assert.False(wroteSet host fileId Unparsed)
         Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
@@ -786,7 +759,6 @@ let ``moved file posts NodeReceived`` () = task {
                 dataDir
                 [ LazyLoadReconciliation.Renamed(
                     "docs/note.txt", "other/note.txt") ]
-        Assert.False(wroteSet host fileId Unparsed)
         Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
@@ -808,7 +780,6 @@ let ``renamed and modified file posts NodeReceived`` () = task {
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        Assert.False(wroteSet host fileId Unparsed)
         Assert.True(loggedUnparsed host fileId)
         assertLogged host fileId Unparsed (received host fileId)
     finally
@@ -905,7 +876,7 @@ let ``A directory parse whose Change fails posts NodeParsing, then ParseFailed, 
     }
 
 [<Fact>]
-let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed once`` () =
+let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed`` () =
     task {
         let dataDir = newTempDir ()
         let host, _, wsId = admitHome dataDir
@@ -922,7 +893,6 @@ let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed once
                     2000
             Assert.True(parsed)
             assertParsingThenParsed host dirId true
-            Assert.Equal(1, parsedCount host dirId)
             let graph = (stateOf host).graph
             let childId = (Graph.children graph dirId).Head.id
             Assert.Equal(
@@ -950,13 +920,12 @@ let ``empty directory plan posts NodeParsing then NodeParsed`` () = task {
                 2000
         Assert.True(parsed)
         assertParsingThenParsed host dirId false
-        Assert.Equal(1, parsedCount host dirId)
     finally
         CoreMailboxApi.dispose host
 }
 
 [<Fact>]
-let ``planDirectoryReconcile logs NodeParsed beside SetDocumentState`` () =
+let ``planDirectoryReconcile posts NodeParsed and leaves Current`` () =
     task {
         let dataDir = newTempDir ()
         let host, _, wsId = admitHome dataDir
@@ -967,7 +936,6 @@ let ``planDirectoryReconcile logs NodeParsed beside SetDocumentState`` () =
                 Path.Combine(dataDir, "home", "docs"))
             |> ignore
             Assert.False(parsedMsg host dirId)
-            Assert.False(wroteSet host dirId Current)
             push dirId
             let! parsed =
                 waitUntil
@@ -976,7 +944,6 @@ let ``planDirectoryReconcile logs NodeParsed beside SetDocumentState`` () =
                         && documentState host dirId = Current)
                     2000
             Assert.True(parsed)
-            Assert.False(wroteSet host dirId Current)
             CoreMailboxApi.postNotice host (Notice.NodeParsed dirId)
             Assert.Equal(Current, documentState host dirId)
             Assert.True(parsedMsg host dirId)
