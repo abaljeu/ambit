@@ -67,7 +67,7 @@ let ``special node stores parse persist and pullingFile only inside DocumentStat
     Assert.False(dirtyNode.documentState.pullingFile)
 
     let absent =
-        apply [ Op.SetDocumentState(id, Current, PullingFile) ] dirty
+        Graph.setDocumentState id Current PullingFile dirty |> requireOk
     let absentNode = absent.nodes.[id]
     Assert.True(absentNode.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, absentNode.documentState.parseState)
@@ -135,31 +135,6 @@ let ``NewSpecialNode starts Unparsed and Persisted`` () =
         Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 
-[<Fact>]
-let ``SetDocumentState writes parseState and pullingFile together`` () =
-    let graph, id = artifact File "file.txt"
-    let dirty = Graph.setPersistState id PersistState.Unpersisted graph |> requireOk
-    let unparsed =
-        apply [ Op.SetDocumentState(id, Current, Unparsed) ] dirty
-    Assert.Equal(Unparsed, unparsed.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Unparsed, unparsed.nodes.[id].documentState.parseState)
-    Assert.False(unparsed.nodes.[id].documentState.pullingFile)
-    Assert.Equal(PersistState.Unpersisted, unparsed.nodes.[id].documentState.persistState)
-
-    let parsed =
-        apply [ Op.SetDocumentState(id, Unparsed, Current) ] unparsed
-    Assert.Equal(Current, parsed.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Parsed, parsed.nodes.[id].documentState.parseState)
-    Assert.False(parsed.nodes.[id].documentState.pullingFile)
-    Assert.Equal(PersistState.Unpersisted, parsed.nodes.[id].documentState.persistState)
-
-    let absent =
-        apply [ Op.SetDocumentState(id, Current, PullingFile) ] parsed
-    Assert.Equal(PullingFile, absent.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Unparsed, absent.nodes.[id].documentState.parseState)
-    Assert.True(absent.nodes.[id].documentState.pullingFile)
-    Assert.Equal(PersistState.Unpersisted, absent.nodes.[id].documentState.persistState)
-
 let private markPersisted id graph =
     Graph.setPersistState id PersistState.Persisted graph |> requireOk
 
@@ -176,7 +151,7 @@ let private persistedOwnedFile () =
         |> place wsId dirId
         |> apply [ Op.NewSpecialNode(fileId, File, "file.txt") ]
         |> place dirId fileId
-        |> apply [ Op.SetDocumentState(fileId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState fileId ParseState.Parsed g |> requireOk
         |> apply [ Op.NewNode(childId, "body") ]
         |> place fileId childId
         |> markPersisted wsId
@@ -197,8 +172,8 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
 
     let opened =
         edited
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
-        |> apply [ Op.SetDocumentState(wsId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
+        |> fun g -> Graph.setParseState wsId ParseState.Parsed g |> requireOk
     let reset =
         opened
         |> markPersisted fileId
@@ -231,7 +206,7 @@ let ``directory Replace marks that directory only`` () =
         |> place Graph.workspacesId wsId
         |> apply [ Op.NewSpecialNode(dirId, Directory, "dir") ]
         |> place wsId dirId
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
         |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
         |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
         |> apply [ Op.NewNode(noteId, "note") ]
@@ -314,8 +289,8 @@ let ``directory file amb node is excluded from state axes`` () =
                 name = Filename.create ".amb",
                 kind = Special File))
         |> place dirId ambId
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
-        |> apply [ Op.SetDocumentState(wsId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
+        |> fun g -> Graph.setParseState wsId ParseState.Parsed g |> requireOk
         |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
         |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
     Assert.True(Result.isError (Graph.setParseState ambId ParseState.Unparsed graph))
@@ -326,7 +301,8 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[dirId].documentState.persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[wsId].documentState.persistState)
     Assert.Equal(ParseState.Parsed, edited.nodes.[ambId].documentState.parseState)
-    let stated = apply [ Op.SetDocumentState(ambId, Current, Unparsed) ] graph
+    let stated =
+        Graph.setDocumentState ambId Current Unparsed graph |> requireOk
     Assert.Equal(Unparsed, stated.nodes.[ambId].documentState.AsEnum)
     Assert.Equal(ParseState.Unparsed, stated.nodes.[ambId].documentState.parseState)
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].documentState.persistState)
@@ -346,7 +322,6 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
                     kind = Special File))
             |> Graph.addDetachedNode (Node.Create(lineId, text = "alpha"))
             |> place fileId lineId
-            |> apply [ Op.SetDocumentState(fileId, Current, Unparsed) ]
             |> fun g -> Graph.setParseState fileId ParseState.Unparsed g |> requireOk
             |> fun g -> Graph.setPersistState fileId persist g |> requireOk
         let ops =
@@ -358,7 +333,6 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
             with
             | Ok planned -> planned
             | Error err -> failwith err
-        assertNoSetDocumentState ops
         let parsed = applyGraphOnly graph ops
         Assert.Equal(Unparsed, parsed.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(persist, parsed.nodes.[fileId].documentState.persistState)
