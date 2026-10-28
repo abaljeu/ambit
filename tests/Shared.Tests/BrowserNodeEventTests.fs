@@ -70,13 +70,20 @@ let ``client applies Node events for parse state and persist state`` () =
     Assert.Equal(
         Some "disk full",
         SyncLogic.persistFailedMessage [ failed; parsing ])
+    let beforePersisting = live receivedBoth fileId
     let persisting =
         applyOne receivedBoth (EventId.fromJson 3) (Notice.NodePersisting fileId)
     let afterPersisting = live persisting fileId
     Assert.Equal(ParseState.Parsed, afterPersisting.documentState.parseState)
     Assert.Equal(
-        PersistState.Unpersisted,
+        PersistState.Persisted,
         afterPersisting.documentState.persistState)
+    Assert.False(afterPersisting.documentState.pullingFile)
+    Assert.Equal(beforePersisting.updateTime, afterPersisting.updateTime)
+    Assert.Equal(
+        beforePersisting.documentState,
+        afterPersisting.documentState)
+    let beforeUpload = live persisting fileId
     let uploading =
         applyOne persisting (EventId.fromJson 4) (Notice.NodeUploading fileId)
     let absent =
@@ -88,6 +95,7 @@ let ``client applies Node events for parse state and persist state`` () =
     Assert.Equal(
         PersistState.Unpersisted,
         uploaded.documentState.persistState)
+    Assert.Equal(beforeUpload.updateTime, uploaded.updateTime)
     let received =
         applyOne absent (EventId.fromJson 6) (Notice.NodeReceived fileId)
     let arrived = live received fileId
@@ -108,10 +116,26 @@ let ``client applies Node events for parse state and persist state`` () =
     Assert.Equal(
         PersistState.Unpersisted,
         stillPulling.documentState.persistState)
+    let unparsed =
+        applyOne stayed (EventId.fromJson 9) (Notice.NodeUnparsed fileId)
+    let marked = live unparsed fileId
+    Assert.Equal(ParseState.Unparsed, marked.documentState.parseState)
+    Assert.Equal(PersistState.Persisted, marked.documentState.persistState)
+    Assert.False(marked.documentState.pullingFile)
+    let reparsed =
+        applyOne unparsed (EventId.fromJson 10) (Notice.NodeParsed fileId)
+    let unpersisted =
+        applyOne
+            reparsed
+            (EventId.fromJson 11)
+            (Notice.NodeUnpersisted fileId)
+    let dirty = live unpersisted fileId
+    Assert.Equal(ParseState.Parsed, dirty.documentState.parseState)
+    Assert.Equal(PersistState.Unpersisted, dirty.documentState.persistState)
     let stamped =
         applyOne
-            stayed
-            (EventId.fromJson 9)
+            unpersisted
+            (EventId.fromJson 12)
             (Notice.NodePersisted(
                 fileId,
                 EventId.fromJson 1,
