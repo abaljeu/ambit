@@ -109,15 +109,19 @@ module internal CoreMailboxLoop =
         | Notice.NodeParsing _
         | Notice.ParseFailed _
         | Notice.NodePersisting _ -> Ok ()
-        | Notice.NodeUnpersisted nodeId ->
-            CoreEventDispatch.writeAxis persist msg (fun live ->
-                CoreMailboxFilesAxis.writeUnpersisted nodeId live)
+        | Notice.NodeUnpersisted _ ->
+            CoreEventDispatch.writeAxis
+                persist
+                msg
+                (NoticeGraph.writeGraph msg)
         | Notice.PersistFailed _ ->
             persist.noteWriteFailed ()
             Ok ()
-        | Notice.NodeUnparsed nodeId ->
-            CoreMailboxFilesAxis.writeParseState
-                persist msg nodeId ParseState.Unparsed
+        | Notice.NodeUnparsed _ ->
+            CoreEventDispatch.writeAxis
+                persist
+                msg
+                (NoticeGraph.writeGraph msg)
         | Notice.NodePersisted (nodeId, persistedVersion, updateTime) ->
             persist.noteDiffDone nodeId
             match

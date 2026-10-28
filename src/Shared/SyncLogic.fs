@@ -73,112 +73,30 @@ module SyncLogic =
     let opsForDownload (event: Ev) : Op list =
         Ev.ops event |> Option.defaultValue []
 
-    /// Same written-version rule as CoreMailboxFilesAxis.writePersisted.
-    let private nodeAfterPersisted
-        (written: EventId)
-        (updateTime: System.DateTime)
-        (node: Node)
-        : Node =
-        let stamped = NodeUpdateTime.withStamp updateTime node
-        let nextState =
-            DocumentState.persistStateForWritten
-                node.documentState
-                written
-        { stamped with
-            documentState =
-                { node.documentState with
-                    persistState = nextState
-                    persistedVersion = written } }
+    let private noticeNodeId (notice: Notice) =
+        match notice with
+        | Notice.NodeParsed nodeId
+        | Notice.NodeUploading nodeId
+        | Notice.NodeReceived nodeId
+        | Notice.NodeParsing nodeId
+        | Notice.NodePersisting nodeId
+        | Notice.NodeUnpersisted nodeId
+        | Notice.NodeUnparsed nodeId
+        | Notice.PersistFailed (nodeId, _)
+        | Notice.ParseFailed (nodeId, _) ->
+            nodeId
+        | Notice.NodePersisted (nodeId, _, _) -> nodeId
 
-    let private applyNodePersisted
-        (nodeId: NodeId)
-        (written: EventId)
-        (updateTime: System.DateTime)
-        (st: ClientSyncState)
-        =
-        match Map.tryFind nodeId st.graph.nodes with
-        | None -> st
-        | Some node ->
-            let updated = nodeAfterPersisted written updateTime node
-            { st with
-                graph =
-                    { st.graph with
-                        nodes = Map.add nodeId updated st.graph.nodes } }
-
-    /// Same graph writes as CoreMailboxLoop.applyNotice. An absent node
-    /// stays absent. Side effects that are not graph writes stay on the server.
-    let private mapResident
-        (nodeId: NodeId)
-        (mutate: Graph -> Result<Graph, string>)
-        (st: ClientSyncState)
-        =
+    /// NoticeGraph.writeGraph. An absent node stays absent, with no error.
+    /// Side effects that are not graph writes stay on the server.
+    let private applyNoticeGraph (notice: Notice) (st: ClientSyncState) =
+        let nodeId = noticeNodeId notice
         if not (Map.containsKey nodeId st.graph.nodes) then
             Ok st
         else
-            match mutate st.graph with
+            match NoticeGraph.writeGraph notice st.graph with
             | Error msg -> Error msg
             | Ok graph -> Ok { st with graph = graph }
-
-    let private writeParse nodeId parseState st =
-        mapResident nodeId (GraphMutate.setParseState nodeId parseState) st
-
-    let private writePersist nodeId persistState st =
-        mapResident
-            nodeId
-            (GraphMutate.setPersistState nodeId persistState)
-            st
-
-    let private writeReceived nodeId st =
-        mapResident nodeId (fun graph ->
-            match GraphMutate.setParseState nodeId ParseState.Unparsed graph with
-            | Error err -> Error err
-            | Ok next ->
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Persisted
-                    next)
-            st
-
-    /// Unpersisted, then PullingFile in memory. No updateTime touch.
-    let private writePullingFileUnpersisted nodeId st =
-        mapResident nodeId (fun graph ->
-            match
-                GraphMutate.setPersistState
-                    nodeId
-                    PersistState.Unpersisted
-                    graph
-            with
-            | Error err -> Error err
-            | Ok next ->
-                match Map.tryFind nodeId next.nodes with
-                | None -> Error "node not found"
-                | Some node ->
-                    let updated = Node.withDocumentState PullingFile node
-                    Ok {
-                        next with
-                            nodes = Map.add nodeId updated next.nodes
-                    })
-            st
-
-    let private applyNoticeGraph (notice: Notice) (st: ClientSyncState) =
-        match notice with
-        | Notice.NodeParsed nodeId ->
-            writeParse nodeId ParseState.Parsed st
-        | Notice.NodeUploading nodeId ->
-            writePullingFileUnpersisted nodeId st
-        | Notice.NodeReceived nodeId ->
-            writeReceived nodeId st
-        | Notice.NodeParsing _
-        | Notice.ParseFailed _
-        | Notice.NodePersisting _
-        | Notice.PersistFailed _ ->
-            Ok st
-        | Notice.NodeUnpersisted nodeId ->
-            writePersist nodeId PersistState.Unpersisted st
-        | Notice.NodeUnparsed nodeId ->
-            writeParse nodeId ParseState.Unparsed st
-        | Notice.NodePersisted (nodeId, written, time) ->
-            Ok (applyNodePersisted nodeId written time st)
 
     let private applyLoggedNotice
         (event: Ev)
