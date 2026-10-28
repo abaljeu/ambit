@@ -105,16 +105,80 @@ module SyncLogic =
                     { st.graph with
                         nodes = Map.add nodeId updated st.graph.nodes } }
 
-    let private projectDocumentNotice (notice: Notice) (st: ClientSyncState) =
-        match
-            ResidentProjection.applyDocumentNotice
-                notice
-                (asProjectionState st)
-        with
-        | ApplyResult.Invalid (_, msg) -> Error msg
-        | ApplyResult.Changed projected
-        | ApplyResult.Unchanged projected ->
-            Ok { st with graph = projected.graph }
+    /// Same graph writes as CoreMailboxLoop.applyNotice. An absent node
+    /// stays absent. Side effects that are not graph writes stay on the server.
+    let private mapResident
+        (nodeId: NodeId)
+        (mutate: Graph -> Result<Graph, string>)
+        (st: ClientSyncState)
+        =
+        if not (Map.containsKey nodeId st.graph.nodes) then
+            Ok st
+        else
+            match mutate st.graph with
+            | Error msg -> Error msg
+            | Ok graph -> Ok { st with graph = graph }
+
+    let private writeParse nodeId parseState st =
+        mapResident nodeId (GraphMutate.setParseState nodeId parseState) st
+
+    let private writePersist nodeId persistState st =
+        mapResident
+            nodeId
+            (GraphMutate.setPersistState nodeId persistState)
+            st
+
+    let private writeReceived nodeId st =
+        mapResident nodeId (fun graph ->
+            match GraphMutate.setParseState nodeId ParseState.Unparsed graph with
+            | Error err -> Error err
+            | Ok next ->
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Persisted
+                    next)
+            st
+
+    /// Unpersisted, then PullingFile in memory. No updateTime touch.
+    let private writePullingFileUnpersisted nodeId st =
+        mapResident nodeId (fun graph ->
+            match
+                GraphMutate.setPersistState
+                    nodeId
+                    PersistState.Unpersisted
+                    graph
+            with
+            | Error err -> Error err
+            | Ok next ->
+                match Map.tryFind nodeId next.nodes with
+                | None -> Error "node not found"
+                | Some node ->
+                    let updated = Node.withDocumentState PullingFile node
+                    Ok {
+                        next with
+                            nodes = Map.add nodeId updated next.nodes
+                    })
+            st
+
+    let private applyNoticeGraph (notice: Notice) (st: ClientSyncState) =
+        match notice with
+        | Notice.NodeParsed nodeId ->
+            writeParse nodeId ParseState.Parsed st
+        | Notice.NodeUploading nodeId ->
+            writePullingFileUnpersisted nodeId st
+        | Notice.NodeReceived nodeId ->
+            writeReceived nodeId st
+        | Notice.NodeParsing _
+        | Notice.ParseFailed _
+        | Notice.NodePersisting _
+        | Notice.PersistFailed _ ->
+            Ok st
+        | Notice.NodeUnpersisted nodeId ->
+            writePersist nodeId PersistState.Unpersisted st
+        | Notice.NodeUnparsed nodeId ->
+            writeParse nodeId ParseState.Unparsed st
+        | Notice.NodePersisted (nodeId, written, time) ->
+            Ok (applyNodePersisted nodeId written time st)
 
     let private applyLoggedNotice
         (event: Ev)
@@ -123,15 +187,10 @@ module SyncLogic =
         =
         match event.body with
         | EventBody.Notice notice ->
-            match projectDocumentNotice notice st with
+            match applyNoticeGraph notice st with
             | Error msg -> Error msg
             | Ok next ->
-                let withPersist =
-                    match notice with
-                    | Notice.NodePersisted (nodeId, written, time) ->
-                        applyNodePersisted nodeId written time next
-                    | _ -> next
-                Ok({ withPersist with eventId = event.id }, undid)
+                Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.

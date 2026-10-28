@@ -121,6 +121,7 @@
     <Compile Include="ResidentProjectionApplyTests.fs" />
     <Compile Include="SplitOriginTraceTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
+    <Compile Include="BrowserNodeEventTests.fs" />
     <Compile Include="BootCacheTestHelpers.fs" />
     <Compile Include="BootCacheTests.fs" />
     <Compile Include="BootCachePollTests.fs" />
