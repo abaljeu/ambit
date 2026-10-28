@@ -111,6 +111,11 @@ let private readGraph (fileAgent: MailboxHost) =
     |> requireOk "state"
     |> fun state -> state.graph
 
+/// Current is the state Notice.NodeParsed writes.
+let private markCurrent (fileAgent: MailboxHost) (nodeId: NodeId) =
+    CoreMailboxApi.postNotice fileAgent (Notice.NodeParsed nodeId)
+    readGraph fileAgent |> ignore
+
 [<Fact>]
 let ``git pull marks received files at any depth and does not discover`` () =
     let tempDir = newTempDir ()
@@ -119,24 +124,18 @@ let ``git pull marks received files at any depth and does not discover`` () =
     let graph1 = readGraph fileAgent
     let topId, topOps =
         FileNodeOps.planCreateOwnedFile graph1 workspaceId "top.txt"
-    postOps
-        fileAgent
-        1
-        (topOps @ [ Op.SetDocumentState(topId, Unparsed, Current) ])
+    postOps fileAgent 1 topOps
+    markCurrent fileAgent topId
     let graph2 = readGraph fileAgent
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceId "docs"
-    postOps
-        fileAgent
-        2
-        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    postOps fileAgent 2 docsOps
+    markCurrent fileAgent docsId
     let graph3 = readGraph fileAgent
     let nestedId, nestedOps =
         FileNodeOps.planCreateOwnedFile graph3 docsId "nested.txt"
-    postOps
-        fileAgent
-        3
-        (nestedOps @ [ Op.SetDocumentState(nestedId, Unparsed, Current) ])
+    postOps fileAgent 3 nestedOps
+    markCurrent fileAgent nestedId
     let home = Path.Combine(tempDir, "home")
     let docs = Path.Combine(home, "docs")
     Directory.CreateDirectory(docs) |> ignore
@@ -178,17 +177,13 @@ let ``git pull add marks the containing directory Unparsed`` () =
     let graph1 = readGraph fileAgent
     let docsId, docsOps =
         FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
-    postOps
-        fileAgent
-        1
-        (docsOps @ [ Op.SetDocumentState(docsId, Unparsed, Current) ])
+    postOps fileAgent 1 docsOps
+    markCurrent fileAgent docsId
     let graph2 = readGraph fileAgent
     let keepId, keepOps =
         FileNodeOps.planCreateOwnedFile graph2 docsId "keep.txt"
-    postOps
-        fileAgent
-        2
-        (keepOps @ [ Op.SetDocumentState(keepId, Unparsed, Current) ])
+    postOps fileAgent 2 keepOps
+    markCurrent fileAgent keepId
     let home = Path.Combine(tempDir, "home")
     let docs = Path.Combine(home, "docs")
     Directory.CreateDirectory(docs) |> ignore
