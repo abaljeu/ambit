@@ -1,6 +1,7 @@
 module EventTests
 
 open System
+open FSharp.Reflection
 open Gambol.Shared
 open Gambol.Shared
 open Xunit
@@ -585,3 +586,11 @@ let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`
     Assert.Equal(persisted, live.documentState.persistedVersion)
     Assert.Equal(parseId, live.documentState.changedVersion)
     Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``no SetDocumentState message case`` () =
+    let names unionType =
+        FSharpType.GetUnionCases unionType
+        |> Array.map (fun case -> case.Name)
+    Assert.DoesNotContain("SetDocumentState", names typeof<Notice>)
+    Assert.DoesNotContain("SetDocumentState", names typeof<EventBody>)

@@ -151,17 +151,6 @@ let ``NewSpecialNode and Replace affect new root and parent package`` () =
     Assert.DoesNotContain(fileBId, affected)
 
 [<Fact>]
-let ``SetDocumentState includes the containing parent and filters unwritable root`` () =
-    let graph, _, dirAId, _, fileAId, fileBId, _, _ = graphWithDocuments ()
-    let ops = [ Op.SetDocumentState(fileAId, Current, PullingFile) ]
-    let post = applyOps graph ops
-    let affected = affectedByOps graph post ops
-    assertParity graph post ops
-    Assert.Equal<Set<NodeId>>(Set.singleton dirAId, affected)
-    Assert.DoesNotContain(fileAId, affected)
-    Assert.DoesNotContain(fileBId, affected)
-
-[<Fact>]
 let ``SetUpdateTime has no document artifact impact`` () =
     let graph, _, _, _, fileAId, _, _, _ = graphWithDocuments ()
     let oldTime = graph.nodes.[fileAId].updateTime

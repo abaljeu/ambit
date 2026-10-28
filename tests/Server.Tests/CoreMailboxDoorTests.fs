@@ -920,6 +920,71 @@ let ``an edit logs NodeUnpersisted for its owning special`` () =
             CoreMailboxApi.dispose host
     }
 
+let private applyOrdinaryEdit (state: State ref) (event: Ev) (_graphOnly: bool) =
+    match Ev.ops event with
+    | None -> Error "Event has no Ops"
+    | Some ops ->
+        let step graph op =
+            match op with
+            | Op.SetText(nodeId, oldText, newText) ->
+                GraphMutate.setText None nodeId oldText newText graph
+            | _ -> Error "not an ordinary edit"
+        let applied =
+            ops
+            |> List.fold
+                (fun acc op ->
+                    acc |> Result.bind (fun graph -> step graph op))
+                (Ok state.Value.graph)
+        match applied with
+        | Error err -> Error err
+        | Ok graph ->
+            state.Value <- { state.Value with graph = graph }
+            Ok(CoreChanges.accepted event.id true [ event ] false)
+
+[<Fact>]
+let ``ordinary edit posts NodeUnpersisted`` () =
+    let fileId, initial = fileWithText ()
+    let state = ref initial
+    let handlers =
+        { cannedHandlers
+            (fun () -> Ok state.Value)
+            (fun _ -> [])
+            (applyOrdinaryEdit state) with
+            replaceGraph =
+                fun _notice graph ->
+                    state.Value <- { state.Value with graph = graph } }
+    let context: CoreEventDispatch.Context = {
+        persist = handlers
+        eventLog = ref EventLog.empty
+        restartTip = EventId.zero
+    }
+    let event = editFileText fileId
+    match
+        CoreEventDispatch.postEvent context testCaller event false
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        let ordered = List.rev context.eventLog.Value.events
+        let changeAt =
+            ordered
+            |> List.findIndex (fun stored ->
+                match stored.body with
+                | EventBody.Change _ -> true
+                | _ -> false)
+        let noticeAt =
+            ordered
+            |> List.findIndex (fun stored ->
+                match stored.body with
+                | EventBody.Notice (Notice.NodeUnpersisted id) ->
+                    id = fileId
+                | _ -> false)
+        Assert.True(noticeAt > changeAt)
+        let node = state.Value.graph.nodes.[fileId]
+        Assert.Equal("edited", node.text)
+        Assert.Equal(
+            PersistState.Unpersisted,
+            node.documentState.persistState)
+
 [<Fact>]
 let ``a graph-only change logs no NodeUnpersisted`` () =
     task {

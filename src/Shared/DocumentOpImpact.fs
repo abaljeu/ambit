@@ -37,7 +37,6 @@ module DocumentOpImpact =
         | Op.SetClasses(id, _, _)
         | Op.NewSpecialNode(id, _, _)
         | Op.SetName(id, _, _)
-        | Op.SetDocumentState(id, _, _)
         | Op.Replace(id, _, _) -> Some id
         | Op.SetUpdateTime _ -> None
 
@@ -58,8 +57,7 @@ module DocumentOpImpact =
         | Op.SetText(nodeId, _, _)
         | Op.SetClasses(nodeId, _, _)
         | Op.NewSpecialNode(nodeId, _, _)
-        | Op.SetName(nodeId, _, _)
-        | Op.SetDocumentState(nodeId, _, _) -> [ nodeId ]
+        | Op.SetName(nodeId, _, _) -> [ nodeId ]
         | Op.Replace(parentId, oldChildren, newChildren) ->
             parentId
             :: (childListDelta oldChildren newChildren

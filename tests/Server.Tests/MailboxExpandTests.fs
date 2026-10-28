@@ -2,11 +2,15 @@ module Gambol.Server.Tests.MailboxExpandTests
 
 open System
 open System.IO
+open System.Reflection
 open System.Threading.Tasks
+open FSharp.Reflection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
+
+module Dec = Thoth.Json.Newtonsoft.Decode
 
 let private requireOk label result =
     match result with
@@ -255,3 +259,30 @@ let ``loadNode of a plain Node replies Error`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+let private unionCaseNames (unionType: Type) =
+    FSharpType.GetUnionCases(
+        unionType,
+        BindingFlags.Public ||| BindingFlags.NonPublic)
+    |> Array.map (fun case -> case.Name)
+
+[<Fact>]
+let ``SetDocumentState leaves the Op list`` () =
+    Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<Op>)
+    Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<CoreMsg>)
+    Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<EventBody>)
+    let id = NodeId.New()
+    let opJson =
+        "{\"type\":\"SetDocumentState\",\"nodeId\":\""
+        + string id.Value
+        + "\",\"oldState\":\"current\",\"newState\":\"unparsed\"}"
+    match Dec.fromString Serialization.decodeOp opJson with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("SetDocumentState must not decode")
+    let changeJson =
+        "{\"eventId\":0,\"submissionId\":\"00000000-0000-0000-0000-000000000001\",\"authority\":\"Browser\",\"commandName\":\"Edit\",\"body\":{\"kind\":\"change\",\"ops\":["
+        + opJson
+        + "]}}"
+    match Dec.fromString EventJson.decode changeJson with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("a CoreMsg Change cannot carry SetDocumentState")

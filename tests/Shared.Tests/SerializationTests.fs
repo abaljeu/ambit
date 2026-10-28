@@ -242,12 +242,6 @@ let ``PullingFile round-trip`` () =
     Assert.Equal(PullingFile, decoded.documentState.AsEnum)
     Assert.True(decoded.documentState.pullingFile)
 
-    let op = Op.SetDocumentState(node.id, PullingFile, Unparsed)
-    let opJson = Enc.toString 0 (Serialization.encodeOp op)
-    Assert.Contains("\"noServerFile\"", opJson)
-    Assert.DoesNotContain("pullingFile", opJson)
-    Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
-
     let row = GraphProjection.nodeRowFromNode node
     Assert.Equal("unparsed", row.documentState)
     let graph = Graph.create () |> Graph.addDetachedNode node
@@ -268,10 +262,6 @@ let ``PullingFile node and state op round-trip`` () =
             documentState = PullingFile)
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(PullingFile, decoded.documentState.AsEnum)
-
-    let op =
-        Op.SetDocumentState(node.id, PullingFile, Unparsed)
-    Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
 
 [<Fact>]
 let ``Graph round-trip`` () =
@@ -347,12 +337,6 @@ let ``Op.Replace round-trip preserves child ownership`` () =
             [],
             [ ChildNode.owner shared
               ChildNode.reference shared ])
-    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
-    Assert.Equal(op, decoded)
-
-[<Fact>]
-let ``Op.SetDocumentState round-trip`` () =
-    let op = Op.SetDocumentState(NodeId.New(), Current, Unparsed)
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
     Assert.Equal(op, decoded)
 
