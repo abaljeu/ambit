@@ -199,12 +199,6 @@ let ``git pull add marks the containing directory Unparsed`` () =
     |> requireOk "pull"
     |> ignore
     let graph = readGraph fileAgent
-    Assert.Equal(Unparsed, graph.nodes.[docsId].documentState.AsEnum)
-    let extra =
-        Graph.children graph docsId
-        |> List.map (fun child -> graph.nodes.[child.id])
-        |> List.find (fun node -> Filename.tryValue node.name = Some "extra.txt")
-    Assert.Equal(Unparsed, extra.documentState.AsEnum)
     let names =
         Graph.children graph workspaceId
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)

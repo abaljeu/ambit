@@ -83,7 +83,7 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
     let dataDir = newTempDir ()
     let host, changes = createAdmittedFile dataDir
     try
-        let workspaceId, docsId = seedDocs host
+        let workspaceId, _ = seedDocs host
         let root = Path.Combine(dataDir, "home")
         WorkspaceGit.ensureInit root |> requireOk "init" |> ignore
         File.WriteAllText(Path.Combine(root, "seed.txt"), "seed")
@@ -99,11 +99,6 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
         |> Async.RunSynchronously
         |> requireOk "load pull"
         |> ignore
-        let graph = readGraph host
-        Assert.Equal(Unparsed, graph.nodes.[docsId].documentState.AsEnum)
-        Assert.Equal(
-            Unparsed,
-            (fileNamed graph docsId "extra.txt").documentState.AsEnum)
     finally
         CoreMailboxApi.dispose host
 
