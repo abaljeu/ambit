@@ -73,48 +73,30 @@ module SyncLogic =
     let opsForDownload (event: Ev) : Op list =
         Ev.ops event |> Option.defaultValue []
 
-    /// Same written-version rule as CoreMailboxFilesAxis.writePersisted.
-    let private nodeAfterPersisted
-        (written: EventId)
-        (updateTime: System.DateTime)
-        (node: Node)
-        : Node =
-        let stamped = NodeUpdateTime.withStamp updateTime node
-        let nextState =
-            DocumentState.persistStateForWritten
-                node.documentState
-                written
-        { stamped with
-            documentState =
-                { node.documentState with
-                    persistState = nextState
-                    persistedVersion = written } }
+    let private noticeNodeId (notice: Notice) =
+        match notice with
+        | Notice.NodeParsed nodeId
+        | Notice.NodeUploading nodeId
+        | Notice.NodeReceived nodeId
+        | Notice.NodeParsing nodeId
+        | Notice.NodePersisting nodeId
+        | Notice.NodeUnpersisted nodeId
+        | Notice.NodeUnparsed nodeId
+        | Notice.PersistFailed (nodeId, _)
+        | Notice.ParseFailed (nodeId, _) ->
+            nodeId
+        | Notice.NodePersisted (nodeId, _, _) -> nodeId
 
-    let private applyNodePersisted
-        (nodeId: NodeId)
-        (written: EventId)
-        (updateTime: System.DateTime)
-        (st: ClientSyncState)
-        =
-        match Map.tryFind nodeId st.graph.nodes with
-        | None -> st
-        | Some node ->
-            let updated = nodeAfterPersisted written updateTime node
-            { st with
-                graph =
-                    { st.graph with
-                        nodes = Map.add nodeId updated st.graph.nodes } }
-
-    let private projectDocumentNotice (notice: Notice) (st: ClientSyncState) =
-        match
-            ResidentProjection.applyDocumentNotice
-                notice
-                (asProjectionState st)
-        with
-        | ApplyResult.Invalid (_, msg) -> Error msg
-        | ApplyResult.Changed projected
-        | ApplyResult.Unchanged projected ->
-            Ok { st with graph = projected.graph }
+    /// NoticeGraph.writeGraph. An absent node stays absent, with no error.
+    /// Side effects that are not graph writes stay on the server.
+    let private applyNoticeGraph (notice: Notice) (st: ClientSyncState) =
+        let nodeId = noticeNodeId notice
+        if not (Map.containsKey nodeId st.graph.nodes) then
+            Ok st
+        else
+            match NoticeGraph.writeGraph notice st.graph with
+            | Error msg -> Error msg
+            | Ok graph -> Ok { st with graph = graph }
 
     let private applyLoggedNotice
         (event: Ev)
@@ -123,15 +105,10 @@ module SyncLogic =
         =
         match event.body with
         | EventBody.Notice notice ->
-            match projectDocumentNotice notice st with
+            match applyNoticeGraph notice st with
             | Error msg -> Error msg
             | Ok next ->
-                let withPersist =
-                    match notice with
-                    | Notice.NodePersisted (nodeId, written, time) ->
-                        applyNodePersisted nodeId written time next
-                    | _ -> next
-                Ok({ withPersist with eventId = event.id }, undid)
+                Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
 
     /// EventLog storage is newest-head. Apply from the older id upward.

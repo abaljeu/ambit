@@ -324,6 +324,11 @@ let private assertUnparsedInvalid state op =
     Assert.Equal(unparsedError, error)
     Assert.Equal(state.graph, unchanged.graph)
 
+let private withDocumentState nodeId oldState newState state =
+    match GraphMutate.setDocumentState nodeId oldState newState state.graph with
+    | Ok graph -> { state with graph = graph }
+    | Error message -> failwith message
+
 [<Fact>]
 let ``SetUpdateTime on unparsed file root succeeds`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
@@ -351,11 +356,7 @@ let ``edit or rename of unparsed file descendant is rejected`` () =
 [<Fact>]
 let ``edit of no-server-file document is rejected`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
-    let absent =
-        Op.apply
-            (Op.SetDocumentState(fileId, Unparsed, PullingFile))
-            state
-        |> expectChanged
+    let absent = withDocumentState fileId Unparsed PullingFile state
     assertUnparsedInvalid
         absent
         (Op.SetText(fileId, "file.txt", "changed"))
@@ -402,50 +403,6 @@ let ``ref occurrence is governed by occurrence document not target document`` ()
     assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
 
 [<Fact>]
-let ``parse state transition before tree mutation succeeds and reverse order fails`` () =
-    let state, fileId, _, _, _ = unparsedFileState ()
-    let parsedId = NodeId.New()
-    let attach = ChildNode.owner parsedId
-    let fileChildren = Graph.children state.graph fileId
-    let parseOps =
-        [ Op.SetDocumentState(fileId, Unparsed, Current)
-          Op.NewNode(parsedId, "parsed")
-          ChildListWire.append fileId fileChildren [ attach ] ]
-    let parsed = ChangeValidation.applyOps parseOps state |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal(parsedId, (Graph.children parsed.graph fileId).[1].id)
-
-    let reverse =
-        [ Op.NewNode(parsedId, "parsed")
-          ChildListWire.append fileId fileChildren [ attach ]
-          Op.SetDocumentState(fileId, Unparsed, Current) ]
-    let rejected, error = ChangeValidation.applyOps reverse state |> expectInvalid
-    Assert.Equal(unparsedError, error)
-    Assert.Equal(state.graph, rejected.graph)
-
-[<Fact>]
-let ``marking document unparsed remains legal`` () =
-    let state, _, _, otherId, _ = unparsedFileState ()
-    let changed =
-        Op.apply (Op.SetDocumentState(otherId, Current, Unparsed)) state
-        |> expectChanged
-    Assert.Equal(Unparsed, changed.graph.nodes.[otherId].documentState.AsEnum)
-
-[<Fact>]
-let ``valid parse batch can replay undo and redo`` () =
-    let state, fileId, childId, _, _ = unparsedFileState ()
-    let ops =
-        [ Op.SetDocumentState(fileId, Unparsed, Current)
-          Op.SetText(childId, "body", "parsed") ]
-    let applied = ChangeValidation.applyOps ops state |> expectChanged
-    let undone = ChangeValidation.applyOps (Op.invertAll ops) applied |> expectChanged
-    Assert.Equal(Unparsed, undone.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal("body", undone.graph.nodes.[childId].text)
-    let redone = ChangeValidation.applyOps ops undone |> expectChanged
-    Assert.Equal(Current, redone.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal("parsed", redone.graph.nodes.[childId].text)
-
-[<Fact>]
 let ``nested file parse under current directory replaces file tree`` () =
     let graph0 = Graph.create ()
     let workspaceId, workspaceOps =
@@ -464,18 +421,17 @@ let ``nested file parse under current directory replaces file tree`` () =
     let state2 =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
-    let fileUnparsed =
-        Op.apply (Op.SetDocumentState(directoryId, Unparsed, Current)) state2
-        |> expectChanged
-    Assert.Equal(Unparsed, fileUnparsed.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState.AsEnum)
+    let directoryCurrent =
+        withDocumentState directoryId Unparsed Current state2
+    Assert.Equal(Unparsed, directoryCurrent.graph.nodes.[fileId].documentState.AsEnum)
+    Assert.Equal(Current, directoryCurrent.graph.nodes.[directoryId].documentState.AsEnum)
+    let ready = withDocumentState fileId Unparsed Current directoryCurrent
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let parseOps =
-        [ Op.SetDocumentState(fileId, Unparsed, Current)
-          Op.NewNode(parsedId, "parsed")
+        [ Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
-    let parsed = ChangeValidation.applyOps parseOps fileUnparsed |> expectChanged
+    let parsed = ChangeValidation.applyOps parseOps ready |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
     Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
@@ -503,11 +459,11 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let bothUnparsed = state2
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
+    let ready = withDocumentState fileId Unparsed Current bothUnparsed
     let parseOps =
-        [ Op.SetDocumentState(fileId, Unparsed, Current)
-          Op.NewNode(parsedId, "parsed")
+        [ Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
-    let parsed = ChangeValidation.applyOps parseOps bothUnparsed |> expectChanged
+    let parsed = ChangeValidation.applyOps parseOps ready |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
     Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
@@ -530,10 +486,7 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
         state1
         (Op.SetName(directoryId, "docs", "renamed"))
     let directoryCurrent =
-        Op.apply
-            (Op.SetDocumentState(directoryId, Unparsed, Current))
-            state1
-        |> expectChanged
+        withDocumentState directoryId Unparsed Current state1
     assertUnparsedInvalid
         directoryCurrent
         (Op.SetName(directoryId, "docs", "renamed"))

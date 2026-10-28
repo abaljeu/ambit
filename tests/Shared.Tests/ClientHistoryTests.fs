@@ -60,12 +60,10 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
             [ Op.SetText(nodeId, "before", "after")
               Op.SetClasses(nodeId, oldClasses, newClasses)
               Op.SetName(nodeId, "old.txt", "new.txt")
-              Op.SetDocumentState(nodeId, Current, Unparsed)
               Op.SetUpdateTime(nodeId, oldTime, newTime) ]
     let inverse = Op.invertAll (eventOps source)
     Assert.Equal<Op list>(
         [ Op.SetUpdateTime(nodeId, newTime, oldTime)
-          Op.SetDocumentState(nodeId, Unparsed, Current)
           Op.SetName(nodeId, "new.txt", "old.txt")
           Op.SetClasses(nodeId, newClasses, oldClasses)
           Op.SetText(nodeId, "after", "before") ],
