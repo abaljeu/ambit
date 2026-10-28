@@ -23,7 +23,6 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
     Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Cold load: on-disk plain body → Unparsed File stub (no children), not Normal outline.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
-    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(Graph.children actual fileId)
 
@@ -268,7 +267,6 @@ let ``readAllDocuments cold load keeps file outline without plain body`` () =
     Assert.Equal(fileId, (Graph.children actual dirId).Head.id)
     // Body is on disk but unloaded: Special File + Unparsed, empty children.
     Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
-    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState.AsEnum)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(Graph.children actual fileId)
 

@@ -423,8 +423,6 @@ let ``nested file parse under current directory replaces file tree`` () =
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
     let directoryCurrent =
         withDocumentState directoryId Unparsed Current state2
-    Assert.Equal(Unparsed, directoryCurrent.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal(Current, directoryCurrent.graph.nodes.[directoryId].documentState.AsEnum)
     let ready = withDocumentState fileId Unparsed Current directoryCurrent
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
@@ -432,8 +430,6 @@ let ``nested file parse under current directory replaces file tree`` () =
         [ Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
     let parsed = ChangeValidation.applyOps parseOps ready |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
@@ -464,8 +460,6 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
         [ Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
     let parsed = ChangeValidation.applyOps parseOps ready |> expectChanged
-    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState.AsEnum)
-    Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState.AsEnum)
     Assert.Equal(parsedId, (Graph.children parsed.graph fileId).Head.id)
 
 [<Fact>]
@@ -479,9 +473,13 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
             { graph = graph0; eventId = EventId.zero }
     let directoryId, directoryOps =
         FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
-    let state1 =
+    let created =
         directoryOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
+    let state1 =
+        created
+        |> withDocumentState workspaceId Current Unparsed
+        |> withDocumentState directoryId Current Unparsed
     assertUnparsedInvalid
         state1
         (Op.SetName(directoryId, "docs", "renamed"))

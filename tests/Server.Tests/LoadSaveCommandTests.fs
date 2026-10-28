@@ -159,30 +159,48 @@ let private createProductionHost dataDir =
         (FileAgent.persist (FileAgent.create dataDir))
         admittedCredentials
 
-let private seedWorkspace host operationName =
-    let workspaceId, workspaceOps =
-        FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let commandId, focusId = NodeId.New(), NodeId.New()
-    let ops =
-        workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
-            Op.NewNode(focusId, "focus")
-            Op.Replace(
-                workspaceId,
-                [],
-                [ ChildNode.owner commandId
-                  ChildNode.owner focusId ]) ]
+let private postSeed host ops =
     let event =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
           authority = Authority "Browser"
           commandName = ""
           body = EventBody.Change ops }
-    let accepted =
-        CoreMailboxApi.postGraphOnly host testCaller event
+    CoreMailboxApi.postGraphOnly host testCaller event
+    |> Async.RunSynchronously
+    |> requireOk "seed workspace"
+
+let private markCurrent host nodeId =
+    CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId)
+    let state =
+        CoreMailboxApi.getState host
         |> Async.RunSynchronously
-        |> requireOk "seed workspace"
+        |> requireOk "mark current"
+    match Map.tryFind nodeId state.graph.nodes with
+    | Some node when Node.documentStateEnum node = Current ->
+        state.graph
+    | _ ->
+        Assert.Fail("NodeParsed did not set Current")
+        Unchecked.defaultof<_>
+
+let private seedWorkspace host operationName =
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+    let commandId, focusId = NodeId.New(), NodeId.New()
+    postSeed host workspaceOps |> ignore
+    let graph = markCurrent host workspaceId
+    let children = Graph.children graph workspaceId
+    let accepted =
+        postSeed
+            host
+            [ Op.NewNode(commandId, operationName)
+              Op.NewNode(focusId, "focus")
+              Op.Replace(
+                  workspaceId,
+                  children,
+                  children
+                  @ [ ChildNode.owner commandId
+                      ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
       commandId = commandId
       focusId = focusId
@@ -570,9 +588,11 @@ let ``git Load pulls a staging checkout and does not reconcile`` () = task {
     try
         let seed = seedWorkspace host "load"
         let graph = readGraph host
-        let _, fileOps =
+        let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile graph seed.workspaceId "note.txt"
         postChange host fileOps
+        CoreMailboxApi.postNotice host (Notice.NodeUnparsed fileId)
+        readGraph host |> ignore
         fetchSwitchStaging workspace remote
         let harness =
             { dataDir = dataDir

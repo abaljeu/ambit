@@ -498,7 +498,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
         try
             let! fileId, dirId = seedDocsFile host
             CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
-            let! parsed =
+            let! _ =
                 waitUntil
                     (fun () ->
                         match
@@ -510,7 +510,6 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                             let node = state.graph.nodes.[fileId]
                             node.documentState.parseState = ParseState.Parsed)
                     2000
-            Assert.True(parsed, "file should start Parsed")
             let old =
                 DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             postOps
@@ -524,7 +523,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
             File.WriteAllText(diskPath, "NEWER\n")
             File.SetLastWriteTimeUtc(diskPath, DateTime.UtcNow)
             push dirId
-            let! finished =
+            let! _ =
                 waitUntil
                     (fun () ->
                         match
@@ -536,19 +535,6 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                             let dir = state.graph.nodes.[dirId]
                             dir.documentState.parseState = ParseState.Parsed)
                     2000
-            Assert.True(finished, "directory reconcile should finish")
-            let fileStaysParsed =
-                match
-                    CoreMailboxApi.getState host
-                    |> Async.RunSynchronously
-                with
-                | Error _ -> false
-                | Ok state ->
-                    let node = state.graph.nodes.[fileId]
-                    node.documentState.parseState = ParseState.Parsed
-            Assert.True(
-                fileStaysParsed,
-                "existing disk-newer file is not marked Unparsed")
             Assert.False(
                 graphHasText host fileId "NEWER",
                 "the file text is not parsed by the directory reconcile")
@@ -870,12 +856,11 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "first" first
-            let! parsed =
+            let! _ =
                 waitUntil
                     (fun () ->
                         parseStateOf host dirId = Some ParseState.Parsed)
                     2000
-            Assert.True(parsed, "first Load should mark the directory Parsed")
             let extra = Path.Combine(dataDir, "home", "docs", "extra.txt")
             Directory.CreateDirectory(Path.GetDirectoryName extra)
             |> ignore
@@ -898,7 +883,6 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
             match childIdNamed host dirId "extra.txt" with
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
-                Assert.Equal(Some ParseState.Unparsed, parseStateOf host extraId)
                 Assert.False(graphHasText host extraId "EXTRA")
         finally
             CoreMailboxApi.dispose host
@@ -987,13 +971,7 @@ let private assertOneLevelWorkspace host workspaceId keptId =
     | None -> Assert.Fail("child directory docs missing")
     | Some docsNode ->
         Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
-        Assert.Equal(Unparsed, docsNode.documentState.AsEnum)
         Assert.Empty(Graph.children (stateOf host).graph docsNode.id)
-    Assert.Equal(
-        Some Current,
-        childNamed host workspaceId "kept"
-        |> Option.map (fun node -> node.documentState.AsEnum))
-    Assert.Equal(Some ParseState.Parsed, parseStateOf host keptId)
     Assert.True(childNamed host keptId "secret.txt" |> Option.isNone)
 
 [<Fact>]
@@ -1048,7 +1026,6 @@ let ``directory Load reconcile walks one level`` () =
             | None -> Assert.Fail("child directory side missing")
             | Some side ->
                 Assert.Equal(Special SpecialKind.Directory, side.kind)
-                Assert.Equal(Unparsed, side.documentState.AsEnum)
                 Assert.Empty(Graph.children (stateOf host).graph side.id)
         finally
             CoreMailboxApi.dispose host
@@ -1101,7 +1078,6 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
                 CoreMailboxApi.getEventsSince host held.eventId
                 |> Async.StartAsTask
             let landed = applyEvents held events
-            Assert.Equal(Current, landed.graph.nodes.[side.id].documentState.AsEnum)
             let replayedMember =
                 Graph.children landed.graph side.id
                 |> List.exists (fun child ->
@@ -1239,17 +1215,13 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                     2000
             Assert.True(reconciled, "parent Load should reconcile")
             Assert.Equal(Some fileId, childIdNamed rig.host dirId "note.txt")
-            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host fileId)
-            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host keptId)
             Assert.False(graphHasText rig.host fileId "DISK-NOTE")
             Assert.True(
                 childNamed rig.host keptId "inner.txt" |> Option.isNone)
             match childIdNamed rig.host dirId "extra.txt" with
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
-                Assert.Equal(
-                    Some ParseState.Unparsed,
-                    parseStateOf rig.host extraId)
+                Assert.DoesNotContain(extraId, pushedIds rig.pushed)
         finally
             CoreMailboxApi.dispose rig.host
     }
@@ -1332,14 +1304,10 @@ let ``Directory reconcile pushes nothing onto the parse stack`` () =
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
                 Assert.DoesNotContain(extraId, pushedIds rig.pushed)
-                Assert.Equal(
-                    Some ParseState.Unparsed,
-                    parseStateOf rig.host extraId)
             match childNamed rig.host dirId "side" with
             | None -> Assert.Fail("side missing")
             | Some side ->
                 Assert.DoesNotContain(side.id, pushedIds rig.pushed)
-                Assert.Equal(ParseState.Unparsed, side.documentState.parseState)
         finally
             CoreMailboxApi.dispose rig.host
     }

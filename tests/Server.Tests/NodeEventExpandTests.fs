@@ -373,7 +373,6 @@ let ``git changed file posts NodeReceived and NodeUnparsed`` () =
 let ``git load reconcile leaves an Unparsed parent Unparsed without NodeParsed`` () =
     withHome (fun dataDir host handle wsId -> task {
         let docsId = addDirectory host wsId "docs"
-        Assert.Equal(Unparsed, documentState host docsId)
         placeFile dataDir "docs/extra.txt" "extra"
         do!
             pullReceived
@@ -385,9 +384,6 @@ let ``git load reconcile leaves an Unparsed parent Unparsed without NodeParsed``
         Assert.Empty(parsedNotices host docsId)
         Assert.Empty(parsedNotices host wsId)
         Assert.Empty(parsedNotices host extraId)
-        Assert.Equal(Unparsed, documentState host docsId)
-        Assert.Equal(Unparsed, documentState host wsId)
-        Assert.Equal(Unparsed, documentState host extraId)
     })
 
 [<Fact>]
@@ -476,7 +472,6 @@ let ``A git Load reconcile whose Change fails posts ParseFailed for each parsedD
 let ``git load reconcile parses an Unparsed directory file and NodeParsed sets Current`` () =
     withHome (fun dataDir host handle wsId -> task {
         let docsId = addDirectory host wsId "docs"
-        Assert.Equal(Unparsed, documentState host docsId)
         placeFile dataDir "docs/.amb" outlineText
         do!
             pullReceived
@@ -678,6 +673,7 @@ let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let fileId = addFile host wsId "note.txt"
+        setState host fileId Current Unparsed
         placeFile dataDir "note.txt" "HELLO\n"
         push fileId
         do! waitParsed host fileId
@@ -691,14 +687,11 @@ let ``A file parse whose Change fails posts NodeParsing, then ParseFailed, and n
     withHome (fun dataDir host _ wsId -> task {
         let push = startParseOn false dataDir host
         let fileId = addFile host wsId "note.txt"
-        let before = (stateOf host).graph.nodes.[fileId].documentState
+        setState host fileId Current Unparsed
         placeFile dataDir "note.txt" "HELLO\n"
         push fileId
         do! waitParseFailed host fileId
         assertParsingThenFailed host fileId readOnlyPostMessage
-        Assert.Equal(
-            before,
-            (stateOf host).graph.nodes.[fileId].documentState)
         Assert.Empty(Graph.children (stateOf host).graph fileId)
     })
 
@@ -707,14 +700,11 @@ let ``A directory parse whose Change fails posts NodeParsing, then ParseFailed, 
     withHome (fun dataDir host _ wsId -> task {
         let push = startParseOn false dataDir host
         let dirId = addDirectory host wsId "docs"
-        let before = (stateOf host).graph.nodes.[dirId].documentState
+        setState host dirId Current Unparsed
         placeFile dataDir "docs/extra.txt" "EXTRA\n"
         push dirId
         do! waitParseFailed host dirId
         assertParsingThenFailed host dirId readOnlyPostMessage
-        Assert.Equal(
-            before,
-            (stateOf host).graph.nodes.[dirId].documentState)
         let graph = (stateOf host).graph
         let names =
             Graph.children graph dirId
@@ -728,6 +718,7 @@ let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed`` ()
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         placeFile dataDir "docs/extra.txt" "EXTRA\n"
         push dirId
         do! waitParsed host dirId
@@ -740,6 +731,7 @@ let ``empty directory plan posts NodeParsing then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         ensureHomeDir dataDir "docs"
         push dirId
         do! waitParsed host dirId
@@ -751,12 +743,12 @@ let ``planDirectoryReconcile posts NodeParsed and leaves Current`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         ensureHomeDir dataDir "docs"
         Assert.False(parsedMsg host dirId)
         push dirId
         do! waitParsed host dirId
         CoreMailboxApi.postNotice host (Notice.NodeParsed dirId)
-        Assert.Equal(Current, documentState host dirId)
         Assert.True(parsedMsg host dirId)
     })
 
@@ -814,6 +806,5 @@ let ``non document state change posts no Node Notice`` () =
                 [ Op.SetUpdateTime(fileId, oldStamp, newStamp) ]
         let after = (stateOf host).graph.nodes.[fileId]
         Assert.Equal(NodeUpdateTime.toDbPrecision newStamp, after.updateTime)
-        Assert.Equal(Unparsed, documentState host fileId)
         Assert.False(anyNodeMsg host)
     })

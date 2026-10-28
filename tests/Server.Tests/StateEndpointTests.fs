@@ -356,8 +356,7 @@ let private addNestedWorkspace (client: HttpClient) = task {
     let createWorkspace =
         browserChange
             [ Op.NewSpecialNode(wsId, Workspace, "home")
-              Op.Replace(Graph.workspacesId, [], ownedChild wsId)
-              Op.SetDocumentState(wsId, Unparsed, Current) ]
+              Op.Replace(Graph.workspacesId, [], ownedChild wsId) ]
     let! _ = postChangeOk client createWorkspace
     let createInner =
         browserChange
