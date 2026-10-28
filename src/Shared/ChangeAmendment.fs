@@ -161,6 +161,35 @@ module ChangeAmendment =
 
         foldOps ops state []
 
+    let private createdSpecialIds (ops: Op list) =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(id, _, _) -> Some id
+            | _ -> None)
+
+    /// A detected file's new node starts Current from NewSpecialNode.
+    /// Parse apply marks it Unparsed so the outline parse is not skipped.
+    let private writeCreatedUnparsed (ops: Op list) (state: State) =
+        createdSpecialIds ops
+        |> List.fold (fun current id ->
+            match NoticeGraph.writeGraph (Notice.NodeUnparsed id) current.graph with
+            | Ok graph -> { current with graph = graph }
+            | Error _ -> current)
+            state
+
+    let private markCreatedUnparsed
+        (commandName: string)
+        (ops: Op list)
+        (result: ApplyResult)
+        =
+        match commandName, result with
+        | "Parse", ApplyResult.Changed state ->
+            ApplyResult.Changed (writeCreatedUnparsed ops state)
+        | "Parse", ApplyResult.Unchanged state
+            when not (List.isEmpty (createdSpecialIds ops)) ->
+            ApplyResult.Changed (writeCreatedUnparsed ops state)
+        | _ -> result
+
     let private applyMarked
         (guardUnparsed: bool)
         (changedVersion: EventId option)
@@ -220,11 +249,13 @@ module ChangeAmendment =
         (state: State)
         : ApplyResult * bool * Op list
         =
-        applyMarked
-            false
-            (Op.persistMarkVersion commandName changedVersion)
-            ops
-            state
+        let result, amended, applied =
+            applyMarked
+                false
+                (Op.persistMarkVersion commandName changedVersion)
+                ops
+                state
+        markCreatedUnparsed commandName ops result, amended, applied
 
     /// One apply for FileAgent and DbAgent. Pass the posted event id.
     /// Undo and Redo mark at that id the same way a Change does.
@@ -235,8 +266,10 @@ module ChangeAmendment =
         (ops: Op list)
         (state: State)
         : ApplyResult * bool * Op list =
-        applyMarked
-            (not graphOnly)
-            (Op.persistMarkVersion event.commandName eventId)
-            ops
-            state
+        let result, amended, applied =
+            applyMarked
+                (not graphOnly)
+                (Op.persistMarkVersion event.commandName eventId)
+                ops
+                state
+        markCreatedUnparsed event.commandName ops result, amended, applied
