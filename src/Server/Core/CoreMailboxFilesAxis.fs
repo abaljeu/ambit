@@ -84,20 +84,6 @@ module internal CoreMailboxFilesAxis =
         writeNotice persist (Notice.NodeReceived nodeId)
 
     let writePersisted persist nodeId persistedVersion updateTime =
-        let notice =
-            Notice.NodePersisted(nodeId, persistedVersion, updateTime)
-        CoreEventDispatch.writeAxis persist notice (fun live ->
-            match Map.tryFind nodeId live.nodes with
-            | None -> Error "node not found"
-            | Some node ->
-                // Same non-artifact errors as setPersistState. The shared
-                // write then updates any present node, which the browser
-                // applies to normal nodes.
-                match
-                    GraphMutate.setPersistState
-                        nodeId
-                        node.persistState
-                        live
-                with
-                | Error err -> Error err
-                | Ok _ -> NoticeGraph.writeGraph notice live)
+        writeNotice
+            persist
+            (Notice.NodePersisted(nodeId, persistedVersion, updateTime))

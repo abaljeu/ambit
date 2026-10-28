@@ -33,7 +33,33 @@ module NoticeGraph =
         |> Result.bind (
             GraphMutate.setPersistState nodeId PersistState.Persisted)
 
-    /// Any present node. The server rejects a non-artifact before this.
+    let private stampUpdateTime
+        (nodeId: NodeId)
+        (updateTime: DateTime)
+        (graph: Graph)
+        : Result<Graph, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node ->
+            let stamped = NodeUpdateTime.withStamp updateTime node
+            Ok { graph with nodes = Map.add nodeId stamped graph.nodes }
+
+    let private withPersistedVersion
+        (nodeId: NodeId)
+        (persistedVersion: EventId)
+        (graph: Graph)
+        : Result<Graph, string> =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> Error "node not found"
+        | Some node ->
+            let updated =
+                { node with
+                    documentState =
+                        { node.documentState with
+                            persistedVersion = persistedVersion } }
+            Ok { graph with nodes = Map.add nodeId updated graph.nodes }
+
+    /// setPersistState rejects a non-artifact. Version and file time follow.
     let private writePersisted
         (nodeId: NodeId)
         (persistedVersion: EventId)
@@ -47,14 +73,9 @@ module NoticeGraph =
                 DocumentState.persistStateForWritten
                     node.documentState
                     persistedVersion
-            let stamped = NodeUpdateTime.withStamp updateTime node
-            let updated =
-                { stamped with
-                    documentState =
-                        { node.documentState with
-                            persistState = next
-                            persistedVersion = persistedVersion } }
-            Ok { graph with nodes = Map.add nodeId updated graph.nodes }
+            GraphMutate.setPersistState nodeId next graph
+            |> Result.bind (withPersistedVersion nodeId persistedVersion)
+            |> Result.bind (stampUpdateTime nodeId updateTime)
 
     /// Graph write for one Notice. Failure and in-progress notices
     /// leave the graph unchanged.
