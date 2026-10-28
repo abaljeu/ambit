@@ -69,7 +69,7 @@ let private markingDependencies pull =
             { new GithubTransportWorkTreeGate with
                 member _.applyAction _ action = action () }
           pullTracked = pull
-          commitAll = fun _ _ _ ->n Ok(tracked, GitSave.nothingToCommitMessage)
+          commitAll = fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
           pushTracked = fun _ _ _ -> Error "unused" } }
 
 [<SkippableFact(Skip = "pending documentState/Load spec")>]

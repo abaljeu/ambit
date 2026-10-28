@@ -1302,6 +1302,100 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             CoreMailboxApi.dispose rig.host
     }
 
+let private orderedBodies host =
+    CoreMailboxApi.eventsSince host EventId.zero
+    |> Async.RunSynchronously
+    |> fun log ->
+        log.events
+        |> List.sortBy (fun event -> EventId.value event.id)
+        |> List.map (fun event -> event.body)
+
+let private fileLoadStep fileId body =
+    match body with
+    | EventBody.Load id when id = fileId -> Some "Load"
+    | EventBody.Notice (Notice.NodeUnparsed id) when id = fileId ->
+        Some "NodeUnparsed"
+    | EventBody.Notice (Notice.NodeParsing id) when id = fileId ->
+        Some "NodeParsing"
+    | EventBody.Notice (Notice.NodeParsed id) when id = fileId ->
+        Some "NodeParsed"
+    | _ -> None
+
+let private hasLoadOrder steps =
+    let expected =
+        [ "Load"; "NodeUnparsed"; "NodeParsing"; "NodeParsed" ]
+    let rec walk rest = function
+        | [] -> true
+        | step :: later ->
+            match List.tryFindIndex ((=) step) rest with
+            | None -> false
+            | Some index ->
+                walk (List.skip (index + 1) rest) later
+    walk steps expected
+
+let private bodyTag fileId body =
+    let mark id name =
+        if id = fileId then name + " file" else name
+    match body with
+    | EventBody.Load id -> mark id "Load"
+    | EventBody.Notice (Notice.NodeParsed id) ->
+        mark id "NodeParsed"
+    | EventBody.Notice (Notice.NodeUnparsed id) ->
+        mark id "NodeUnparsed"
+    | EventBody.Notice (Notice.NodeParsing id) ->
+        mark id "NodeParsing"
+    | EventBody.Notice (Notice.NodeUploading id) ->
+        mark id "NodeUploading"
+    | EventBody.Notice (Notice.NodeReceived id) ->
+        mark id "NodeReceived"
+    | EventBody.Notice (Notice.NodePersisting id) ->
+        mark id "NodePersisting"
+    | EventBody.Notice (Notice.NodeUnpersisted id) ->
+        mark id "NodeUnpersisted"
+    | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
+        mark id "NodePersisted"
+    | EventBody.Notice (Notice.PersistFailed (id, _)) ->
+        mark id "PersistFailed"
+    | EventBody.Notice (Notice.ParseFailed (id, _)) ->
+        mark id "ParseFailed"
+    | EventBody.Change _ -> "Change"
+    | EventBody.Undo _ -> "Undo"
+    | EventBody.Redo _ -> "Redo"
+    | EventBody.ActorStart _ -> "ActorStart"
+    | EventBody.ActorStop _ -> "ActorStop"
+    | EventBody.Cancel _ -> "Cancel"
+
+[<Fact>]
+let ``File Load logs Load, NodeUnparsed, NodeParsing, then NodeParsed`` () =
+    task {
+        let dataDir = newTempDir ()
+        let rig = loadRig dataDir
+        try
+            let! fileId, _ = seedWorkspaceFile rig.host "home" "note.txt"
+            let diskPath = Path.Combine(dataDir, "home", "note.txt")
+            Directory.CreateDirectory(Path.GetDirectoryName diskPath)
+            |> ignore
+            File.WriteAllText(diskPath, "HELLO\n")
+            let! loaded = userLoad rig.host fileId
+            requireOk "Load" loaded |> ignore
+            rig.startThread ()
+            let parsed () =
+                orderedBodies rig.host
+                |> List.exists (fun body ->
+                    body = EventBody.Notice(Notice.NodeParsed fileId))
+            let! reached = waitUntil parsed 2000
+            let bodies = orderedBodies rig.host
+            let steps = List.choose (fileLoadStep fileId) bodies
+            let shown =
+                bodies
+                |> List.map (bodyTag fileId)
+                |> String.concat ", "
+            Assert.True(reached, "Load should reach NodeParsed: " + shown)
+            Assert.True(hasLoadOrder steps, shown)
+        finally
+            CoreMailboxApi.dispose rig.host
+    }
+
 [<Fact(Skip = "pending documentState/Load spec")>]
 let ``Directory reconcile pushes nothing onto the parse stack`` () =
     task {
