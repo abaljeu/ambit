@@ -125,14 +125,14 @@ let ``axes reject Normal and Workspaces nodes`` () =
         Result.isError (Graph.setPersistState Graph.workspacesId PersistState.Unpersisted graph))
 
 [<Fact>]
-let ``NewSpecialNode starts Unparsed and Persisted`` () =
+let ``NewSpecialNode starts Current and Persisted`` () =
     for kind, name in kinds do
         let id = NodeId.New()
         let graph =
             apply [ Op.NewSpecialNode(id, kind, name) ] (Graph.create ())
         let node = graph.nodes.[id]
-        Assert.Equal(Unparsed, node.documentState.AsEnum)
-        Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+        Assert.Equal(Current, node.documentState.AsEnum)
+        Assert.Equal(ParseState.Parsed, node.documentState.parseState)
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 
 let private markPersisted id graph =
