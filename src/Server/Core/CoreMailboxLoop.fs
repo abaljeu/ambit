@@ -10,93 +10,6 @@ module internal CoreMailboxLoop =
     type Started = CoreMailboxEvents.Started
     module EventLog = Gambol.Shared.EventLog
 
-    let private createdWorkspaceIds (event: Ev) =
-        match Ev.ops event with
-        | None -> []
-        | Some ops ->
-            ops
-            |> List.choose (function
-                | Op.NewSpecialNode(id, Workspace, _) -> Some id
-                | _ -> None)
-
-    let private stillUnparsed (graph: Graph) (nodeId: NodeId) =
-        match Map.tryFind nodeId graph.nodes with
-        | Some node when Node.documentStateEnum node = Unparsed ->
-            true
-        | _ -> false
-
-    let private parseCaller = {
-        authority = Authority "Parse"
-        name = "process"
-        secret = Credential ""
-    }
-
-    let private parseChange (ops: Op list) : Ev = {
-        id = EventId.zero
-        submissionId = System.Guid.NewGuid()
-        authority = Authority "Parse"
-        commandName = "Parse"
-        body = EventBody.Change ops
-    }
-
-    let private postReconcile (context: MailboxContext) (ops: Op list) =
-        if List.isEmpty ops then
-            Ok ()
-        else
-            CoreEventDispatch.postEvent
-                (CoreMailboxEvents.eventDispatchContext context)
-                parseCaller
-                (parseChange ops)
-                true
-            |> Result.map ignore
-
-    let private markParsed (context: MailboxContext) (nodeId: NodeId) =
-        let notice = Notice.NodeParsed nodeId
-        match
-            CoreEventDispatch.logNotice
-                (CoreMailboxEvents.eventDispatchContext context)
-                notice
-        with
-        | Error _ -> ()
-        | Ok _ ->
-            CoreMailboxFilesAxis.applyNodeParsed context.persist nodeId
-            |> ignore
-
-    /// Load reconcile for a workspace the change just created.
-    /// NodeParsed is what leaves that workspace Current.
-    let private reconcileCreatedWorkspace
-        (context: MailboxContext)
-        (dataDir: string)
-        (nodeId: NodeId)
-        =
-        match context.persist.getState () with
-        | Error _ -> ()
-        | Ok state when not (stillUnparsed state.graph nodeId) -> ()
-        | Ok state ->
-            let planned =
-                DirectoryReconcile.planDirectoryReconcile {
-                    dataDir = dataDir
-                    graph = state.graph
-                    directoryId = nodeId
-                    discover = DocumentPersistPath.discoverImmediateMembers
-                }
-            match planned with
-            | Error _ -> ()
-            | Ok plan ->
-                match postReconcile context plan.ops with
-                | Error _ -> ()
-                | Ok () -> markParsed context nodeId
-
-    let private promoteCreatedWorkspaces
-        (context: MailboxContext)
-        (event: Ev)
-        =
-        match context.dataDir with
-        | None -> ()
-        | Some dataDir ->
-            createdWorkspaceIds event
-            |> List.iter (reconcileCreatedWorkspace context dataDir)
-
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
         | PostGraphOnly (caller, event, reply) ->
@@ -123,7 +36,6 @@ module internal CoreMailboxLoop =
             CoreMailboxActors.dispatchCancelActor context caller focusId reply
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
-            promoteCreatedWorkspaces context event
 
     let private reportDispatchException
         (context: MailboxContext)
@@ -405,7 +317,6 @@ module internal CoreMailboxLoop =
         pool
         (rawPush: NodeId -> unit)
         (session: Session)
-        (dataDir: string option)
         : MailboxContext * (NodeId -> unit) =
         let seeded = persist.handlers
         let eventLog, seedError, handlers, restartTip =
@@ -427,8 +338,7 @@ module internal CoreMailboxLoop =
           restartTip = restartTip
           eventLogSeedError = seedError
           coreChanges = ref None
-          session = session
-          dataDir = dataDir },
+          session = session },
         reported
 
     let private armMailbox (mailbox: MailboxProcessor<CoreQueue>) =

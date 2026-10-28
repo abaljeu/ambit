@@ -11,7 +11,6 @@ module CoreMailbox =
         (persist: PersistFilling)
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
-        (dataDir: string option)
         : MailboxHost * (NodeId -> unit) =
         let session = Session.create credentials
         let context, push =
@@ -20,7 +19,6 @@ module CoreMailbox =
                 pool
                 parsePush
                 session
-                dataDir
         let started = CoreMailboxLoop.start context persist
         let created =
             MailboxHost.create
@@ -41,8 +39,7 @@ module CoreMailbox =
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
         : MailboxHost =
-        let host, _ =
-            hostPublishing pool persist credentials parsePush None
+        let host, _ = hostPublishing pool persist credentials parsePush
         host
 
     let internal host

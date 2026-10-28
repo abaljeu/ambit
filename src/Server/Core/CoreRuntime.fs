@@ -29,7 +29,6 @@ module CoreRuntime =
         (credentials: CoreCredentials)
         (parsePush: NodeId -> unit)
         : MailboxHost * (NodeId -> unit) =
-        let dataDir = Some boot.DataDir
         match boot.DbStatus with
         | DatabaseSetup.DbStatus.Ok ->
             CoreMailbox.hostPublishing
@@ -40,14 +39,12 @@ module CoreRuntime =
                         boot.DataDir))
                 credentials
                 parsePush
-                dataDir
         | _ ->
             CoreMailbox.hostPublishing
                 pool
                 (FileAgent.persist (FileAgent.create boot.DataDir))
                 credentials
                 parsePush
-                dataDir
 
     let private bootCallers (boot: CoreBoot) =
         let browserSecret =

@@ -103,7 +103,6 @@ module internal CoreMailboxEvents =
         eventLogSeedError: string option
         coreChanges: (Caller -> CoreChangesDoor) option ref
         session: Session
-        dataDir: string option
     }
 
     let admitCaller (context: MailboxContext) (caller: Caller) =
