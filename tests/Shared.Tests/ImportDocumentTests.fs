@@ -62,7 +62,6 @@ let ``planParseFile md heading nests sections under the file`` () =
         ImportDocument.planParseFile graph fileId text
         |> requireOk "planParseFile"
     Assert.NotEmpty(replaceOps ops)
-    assertNoSetDocumentState ops
 
     let after = applyGraphOnly graph ops
 
@@ -92,7 +91,6 @@ let ``planParseFile md heading applies md-head and md-list classes`` () =
     let ops =
         ImportDocument.planParseFile graph focusId text
         |> requireOk "planParseFile"
-    assertNoSetDocumentState ops
 
     let after = applyGraphOnly graph ops
     let sectionId = (Graph.children after focusId).Head.id
@@ -959,7 +957,10 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     applyParseThenCurrent graph fileId ops |> ignore
 
 let private markDocumentCurrent id (state: State) =
-    applyOpsState state [ Op.SetDocumentState(id, Unparsed, Current) ]
+    let graph =
+        Graph.setParseState id ParseState.Parsed state.graph
+        |> requireOk "mark current"
+    { state with graph = graph }
 
 let private unparsedFileAfterInsertRef () =
     let graph0 = Graph.create ()
