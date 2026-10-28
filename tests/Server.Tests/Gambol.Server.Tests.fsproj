@@ -16,7 +16,10 @@
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
-    <Compile Include="DocumentPersistenceTests.fs" />
+    <Compile Include="DocumentPersistenceFixtures.fs" />
+    <Compile Include="DocumentPersistPathTests.fs" />
+    <Compile Include="DocumentPersistWriteTests.fs" />
+    <Compile Include="DocumentPersistChangeTests.fs" />
     <Compile Include="DocumentOpPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
     <Compile Include="IgnoredDestinationValidationTests.fs" />

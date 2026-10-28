@@ -38,7 +38,7 @@ Not locked.
 | `upload posts NodeUploading beside SetDocumentState` | `tests/Server.Tests/NodeEventExpandTests.fs:205` | 128/129 |
 | `upload emits NodeUploading` | `tests/Server.Tests/NodeEventExpandTests.fs:236` | 128/129 (also order-dependent) |
 | `reuses existing owned path without duplicating` | `tests/Shared.Tests/WorkspaceUploadStructureTests.fs:117` | 128 |
-| `upload structure persistence preserves existing file mtime` | `tests/Server.Tests/DocumentPersistenceTests.fs:249` | 128 |
+| `upload structure persistence preserves existing file mtime` | `tests/Server.Tests/DocumentPersistChangeTests.fs:31` | 128 |
 
 ## Notes
 

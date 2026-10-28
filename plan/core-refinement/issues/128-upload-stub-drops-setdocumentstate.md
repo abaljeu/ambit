@@ -39,7 +39,7 @@ Source: `WorkspaceUploadStructure.fs`, `DocumentOpImpact.fs`.
 [ ] Correct `WorkspaceUploadStructureTests` `reuses existing owned path without duplicating` (disabled, 128).
 [ ] Correct `NodeEventExpandTests` `upload posts NodeUploading beside SetDocumentState` (disabled, 128/129).
 [ ] Correct `NodeEventExpandTests` `upload emits NodeUploading` (disabled, 128/129).
-[ ] Correct `DocumentPersistenceTests` `upload structure persistence preserves existing file mtime` (disabled, 128).
+[ ] Correct `DocumentPersistenceTests.Change` `upload structure persistence preserves existing file mtime` (disabled, 128).
 
 ## 6. Done
 
