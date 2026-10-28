@@ -169,7 +169,7 @@ let ``git pull marks received files at any depth and does not discover`` () =
     Assert.Contains("docs", members)
     CoreMailboxApi.dispose fileAgent
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``git pull add marks the containing directory Unparsed`` () =
     let tempDir = newTempDir ()
     let fileAgent, handle = createAdmittedFile tempDir

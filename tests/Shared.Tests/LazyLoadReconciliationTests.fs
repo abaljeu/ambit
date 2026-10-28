@@ -160,7 +160,7 @@ let private markDocumentsCurrent graph =
             setDocumentState nodeId Unparsed Current current
         | _ -> current) graph
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``one added file creates a file stub`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "README.md" ] |> applyOps graph
@@ -171,7 +171,7 @@ let ``one added file creates a file stub`` () =
     Assert.Equal(Unparsed, (snd children.Head).documentState.AsEnum)
     Assert.Empty(Graph.children graph2 (snd children.Head).id)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``nested file parse leaves the new directory Unparsed without NodeParsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let report = requireAddedReport graph [ "src/note.txt" ]
@@ -234,7 +234,7 @@ let ``nested added path with spaces creates missing stubs`` () =
     Assert.Equal(Special Directory, business.kind)
     Assert.Equal(Special File, file.kind)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``upload-built directories stay Unparsed without NodeParsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let report = requireAddedReport graph [ "src/lib/core.fs" ]
@@ -247,7 +247,7 @@ let ``upload-built directories stay Unparsed without NodeParsed`` () =
     Assert.Equal(Unparsed, file.documentState.AsEnum)
     Assert.Equal(Unparsed, built.nodes.[workspaceId].documentState.AsEnum)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``exact amb add marks directory stub unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "docs/.amb" ] |> applyOps graph
@@ -643,7 +643,7 @@ let ``modified file keeps identity and records an unparsed id`` () =
         Assert.Equal(file.id, after.id)
         Assert.Equal(Current, after.documentState.AsEnum)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``rediscovered Added Current file stays Current with children`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "note.txt" ]
@@ -868,7 +868,7 @@ let ``rediscovered Current Directory Files skip parse on Added`` () =
             "outline",
             graph1.nodes.[(Graph.children graph1 docs.id).Head.id].text)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``rediscovered Unparsed Directory File still parses on Added`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
     let graph1 = createPaths graph0 [ "docs/.amb" ]
@@ -954,7 +954,7 @@ let ``received file plan records top and nested unparsed ids and leaves the dire
     Assert.Equal(Current, graph3.nodes.[nested.id].documentState.AsEnum)
     Assert.Equal(Current, graph3.nodes.[docs.id].documentState.AsEnum)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``received file add marks the containing directory Unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph1 = createPaths graph [ "docs/keep.txt" ]

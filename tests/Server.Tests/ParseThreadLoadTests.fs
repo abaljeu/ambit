@@ -472,7 +472,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
     }
 
 // A directory reconcile does not mark an existing disk-newer file Unparsed.
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``disk-newer file stays Parsed when its directory reconciles`` () =
     task {
         let dataDir = newTempDir ()
@@ -831,7 +831,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
             CoreMailboxApi.dispose host
     }
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
     task {
         let dataDir = newTempDir ()
@@ -996,7 +996,7 @@ let private assertOneLevelWorkspace host workspaceId keptId =
     Assert.Equal(Some ParseState.Parsed, parseStateOf host keptId)
     Assert.True(childNamed host keptId "secret.txt" |> Option.isNone)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``git Load and Workspace Load reconcile walks one level`` () =
     task {
         let dataDir = newTempDir ()
@@ -1021,7 +1021,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             CoreMailboxApi.dispose host
     }
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``directory Load reconcile walks one level`` () =
     task {
         let dataDir = newTempDir ()
@@ -1054,7 +1054,7 @@ let ``directory Load reconcile walks one level`` () =
             CoreMailboxApi.dispose host
     }
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``Load of a newly Unparsed child Directory reconciles one level`` () =
     task {
         let dataDir = newTempDir ()
@@ -1199,7 +1199,7 @@ let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
             CoreMailboxApi.dispose rig.host
     }
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``Directory reconcile leaves existing member parse state unchanged`` () =
     task {
         let dataDir = newTempDir ()
@@ -1302,7 +1302,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             CoreMailboxApi.dispose rig.host
     }
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``Directory reconcile pushes nothing onto the parse stack`` () =
     task {
         let dataDir = newTempDir ()

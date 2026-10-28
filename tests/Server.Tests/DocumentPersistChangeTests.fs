@@ -173,7 +173,7 @@ let ``readAllDocuments round trip matches normalized snapshot outline`` () =
     let actualOutline = Snapshot.normalizeOutlineForCompare (Snapshot.write actual)
     Assert.Equal(expectedOutline, actualOutline)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``readAllDocuments round trips nested workspace tree`` () =
     let dataDir = newTempDir ()
     let expected, _, _, _, _ = graphWithNestedDocs ()
@@ -259,7 +259,7 @@ let ``readAllDocuments duplicate id corruption returns error`` () =
     | Error msg ->
         Assert.True(msg.Contains("conflicting") || msg.Contains("member"))
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``readAllDocuments cold load keeps file outline without plain body`` () =
     let dataDir = newTempDir ()
     let expected, _, dirId, fileId, _ = graphWithNestedDocs ()

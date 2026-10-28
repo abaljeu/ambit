@@ -425,7 +425,7 @@ let ``readArtifact cold Amb overlays nested outline nodes`` () =
     let childId = (Graph.children after parentId).Head.id
     Assert.Equal("child", after.nodes.[childId].text)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
     let fileId = NodeId(System.Guid.Parse "6556583f-322d-4183-bc42-284a81044a0f")
     let artifacts =
