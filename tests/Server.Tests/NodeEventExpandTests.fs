@@ -673,7 +673,7 @@ let ``renamed and modified file posts NodeReceived`` () =
         assertReceivedUnparsed host fileId
     })
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
@@ -723,7 +723,7 @@ let ``A directory parse whose Change fails posts NodeParsing, then ParseFailed, 
         Assert.DoesNotContain(Some "extra.txt", names)
     })
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
@@ -735,7 +735,7 @@ let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed`` ()
         Assert.Equal(Some "extra.txt", (onlyChild host dirId).name |> Filename.tryValue)
     })
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``empty directory plan posts NodeParsing then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host

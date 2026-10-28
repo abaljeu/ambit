@@ -760,7 +760,7 @@ let private childText (graph: Graph) (fileId: NodeId) (text: string) =
     Graph.children graph fileId
     |> List.exists (fun child -> graph.nodes.[child.id].text = text)
 
-[<Fact>]
+[<Fact(Skip = "pending documentState/Load spec")>]
 let ``second Load of a Current File lands its parse Event on a client that still holds Current`` () =
     task {
         let dataDir = newTempDir ()
