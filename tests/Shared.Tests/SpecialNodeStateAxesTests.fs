@@ -46,6 +46,8 @@ let ``special node stores parse persist and pullingFile only inside DocumentStat
     let id = NodeId.New()
     let graph =
         apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+        |> Graph.setDocumentState id Current Unparsed
+        |> requireOk
     let created = graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, created.documentState.parseState)
     Assert.Equal(PersistState.Persisted, created.documentState.persistState)
@@ -161,7 +163,13 @@ let private persistedOwnedFile () =
 
 [<Fact>]
 let ``graph edit marks only the nearest owning special Unpersisted`` () =
-    let graph, wsId, dirId, fileId, childId = persistedOwnedFile ()
+    let created, wsId, dirId, fileId, childId = persistedOwnedFile ()
+    let graph =
+        created
+        |> Graph.setDocumentState dirId Current Unparsed
+        |> requireOk
+        |> Graph.setDocumentState wsId Current Unparsed
+        |> requireOk
     let edited = apply [ Op.SetText(childId, "body", "edited") ] graph
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileId].documentState.persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[dirId].documentState.persistState)
@@ -187,7 +195,10 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
 [<Fact>]
 let ``failed edit of an Unparsed special does not mark Unpersisted`` () =
     let id = NodeId.New()
-    let graph = apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+    let graph =
+        apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+        |> Graph.setDocumentState id Current Unparsed
+        |> requireOk
     Assert.Equal(PersistState.Persisted, graph.nodes.[id].documentState.persistState)
     match Op.apply (Op.SetText(id, "file.txt", "changed")) (freshState graph) with
     | ApplyResult.Invalid(state, _) ->

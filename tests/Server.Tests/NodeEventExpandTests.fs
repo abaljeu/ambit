@@ -673,6 +673,7 @@ let ``planParseFile posts NodeParsing, the Change, then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let fileId = addFile host wsId "note.txt"
+        setState host fileId Current Unparsed
         placeFile dataDir "note.txt" "HELLO\n"
         push fileId
         do! waitParsed host fileId
@@ -686,6 +687,7 @@ let ``A file parse whose Change fails posts NodeParsing, then ParseFailed, and n
     withHome (fun dataDir host _ wsId -> task {
         let push = startParseOn false dataDir host
         let fileId = addFile host wsId "note.txt"
+        setState host fileId Current Unparsed
         placeFile dataDir "note.txt" "HELLO\n"
         push fileId
         do! waitParseFailed host fileId
@@ -698,6 +700,7 @@ let ``A directory parse whose Change fails posts NodeParsing, then ParseFailed, 
     withHome (fun dataDir host _ wsId -> task {
         let push = startParseOn false dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         placeFile dataDir "docs/extra.txt" "EXTRA\n"
         push dirId
         do! waitParseFailed host dirId
@@ -715,6 +718,7 @@ let ``planDirectoryReconcile posts NodeParsing, the Change, then NodeParsed`` ()
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         placeFile dataDir "docs/extra.txt" "EXTRA\n"
         push dirId
         do! waitParsed host dirId
@@ -727,6 +731,7 @@ let ``empty directory plan posts NodeParsing then NodeParsed`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         ensureHomeDir dataDir "docs"
         push dirId
         do! waitParsed host dirId
@@ -738,6 +743,7 @@ let ``planDirectoryReconcile posts NodeParsed and leaves Current`` () =
     withHome (fun dataDir host _ wsId -> task {
         let push = startParse dataDir host
         let dirId = addDirectory host wsId "docs"
+        setState host dirId Current Unparsed
         ensureHomeDir dataDir "docs"
         Assert.False(parsedMsg host dirId)
         push dirId

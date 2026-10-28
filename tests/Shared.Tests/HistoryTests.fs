@@ -473,9 +473,13 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
             { graph = graph0; eventId = EventId.zero }
     let directoryId, directoryOps =
         FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
-    let state1 =
+    let created =
         directoryOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
+    let state1 =
+        created
+        |> withDocumentState workspaceId Current Unparsed
+        |> withDocumentState directoryId Current Unparsed
     assertUnparsedInvalid
         state1
         (Op.SetName(directoryId, "docs", "renamed"))

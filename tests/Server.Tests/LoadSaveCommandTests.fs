@@ -588,9 +588,11 @@ let ``git Load pulls a staging checkout and does not reconcile`` () = task {
     try
         let seed = seedWorkspace host "load"
         let graph = readGraph host
-        let _, fileOps =
+        let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile graph seed.workspaceId "note.txt"
         postChange host fileOps
+        CoreMailboxApi.postNotice host (Notice.NodeUnparsed fileId)
+        readGraph host |> ignore
         fetchSwitchStaging workspace remote
         let harness =
             { dataDir = dataDir

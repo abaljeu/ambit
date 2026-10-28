@@ -405,8 +405,10 @@ let ``reconciliation finds artifacts through normal organizers`` () =
 
 [<Fact>]
 let ``structural reconciliation rejects an already unparsed document`` () =
-    let _, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "note.txt" ]
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let created = createPaths graph [ "note.txt" ]
+    let note = childNamed created workspaceId "note.txt"
+    let graph2 = setDocumentState note.id Current Unparsed created
     match
         LazyLoadReconciliation.planChangedPaths
             graph2
@@ -714,7 +716,9 @@ let ``delete file plus add directory at same path is a kind conflict`` () =
 [<Fact>]
 let ``report planner keeps sibling ops when one path fails`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "bad.txt" ]
+    let created = createPaths graph [ "bad.txt" ]
+    let bad = childNamed created workspaceId "bad.txt"
+    let graph2 = setDocumentState bad.id Current Unparsed created
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
             graph2
@@ -854,8 +858,9 @@ let ``rediscovered Current Directory Files skip parse on Added`` () =
 [<Fact>]
 let ``rediscovered Unparsed Directory File still parses on Added`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
-    let graph1 = createPaths graph0 [ "docs/.amb" ]
-    let docs = childNamed graph1 workspaceId "docs"
+    let built = createPaths graph0 [ "docs/.amb" ]
+    let docs = childNamed built workspaceId "docs"
+    let graph1 = setDocumentState docs.id Current Unparsed built
     let artifacts =
         Map.ofList [ "docs/.amb", "body" + System.Environment.NewLine ]
     match
