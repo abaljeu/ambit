@@ -239,6 +239,7 @@ module Op =
                             text = name,
                             name = Filename.Ok name,
                             kind = Special kind,
+                            documentState = Unparsed,
                             updateTime = NodeUpdateTime.now ())
                     ApplyResult.Changed
                         { state with
