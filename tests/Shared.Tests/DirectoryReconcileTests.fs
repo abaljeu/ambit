@@ -65,12 +65,10 @@ let private makeDiskDir (dataDir: string) (relative: string) =
     Directory.CreateDirectory(full) |> ignore
     full
 
-let private setsDocumentState (ops: Op list) =
-    ops
-    |> List.exists (fun op ->
-        match op with
-        | Op.SetDocumentState _ -> true
-        | _ -> false)
+let private setDocumentState nodeId oldState newState graph =
+    match GraphMutate.setDocumentState nodeId oldState newState graph with
+    | Ok next -> next
+    | Error err -> failwith err
 
 let private listImmediate (full: string) =
     if not (Directory.Exists full) then
@@ -146,10 +144,7 @@ let ``disk-newer file below immediate children stays under its parent`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 =
-            applyOps
-                graph2
-                [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        let graph3 = setDocumentState dirId Unparsed Current graph2
         let normalId, graph4 = addNormal graph3 dirId "section"
         let fileId, graph5 = addFile graph4 normalId "deep.txt"
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -175,23 +170,13 @@ let ``disk-newer reconcile ops leave the file Current`` () =
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
         let fileId, graph3 = addFile graph2 dirId "note.txt"
-        let graph4 =
-            applyOps
-                graph3
-                [ Op.SetDocumentState(fileId, Unparsed, Current) ]
+        let graph4 = setDocumentState fileId Unparsed Current graph3
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         let graph5 = stamp graph4 fileId old
         let path = writeDisk dataDir "home/docs/note.txt" "newer"
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow)
         let planned = plan dataDir graph5 dirId
         let graph6 = applyOps graph5 planned.ops
-        let setsFile =
-            planned.ops
-            |> List.exists (fun op ->
-                match op with
-                | Op.SetDocumentState(id, _, _) when id = fileId -> true
-                | _ -> false)
-        Assert.False(setsFile)
         Assert.Empty(planned.push)
         Assert.Equal(Current, graph6.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(Unparsed, graph6.nodes.[dirId].documentState.AsEnum)
@@ -204,10 +189,7 @@ let ``disk-newer directory stays Current and is not pushed`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 =
-            applyOps
-                graph2
-                [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        let graph3 = setDocumentState dirId Unparsed Current graph2
         let newerId, graph4 = addDirectory graph3 dirId "newer"
         let currentId, graph5 = addDirectory graph4 dirId "kept"
         let graph6 = withParsed (withParsed graph5 newerId) currentId
@@ -221,7 +203,6 @@ let ``disk-newer directory stays Current and is not pushed`` () =
         Directory.SetLastWriteTimeUtc(keptPath, diskTime)
         let planned = plan dataDir graph8 dirId
         let graph9 = applyOps graph8 planned.ops
-        Assert.False(setsDocumentState planned.ops)
         Assert.Empty(planned.push)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(currentId, planned.push)
@@ -257,7 +238,6 @@ let ``missing disk directory is created Unparsed and is not pushed`` () =
             match createdDirectoryId planned.ops "a" with
             | Some id -> id
             | None -> failwith "missing directory a"
-        Assert.False(setsDocumentState planned.ops)
         Assert.Equal(Special Directory, graph6.nodes.[aId].kind)
         Assert.Equal(Unparsed, graph6.nodes.[aId].documentState.AsEnum)
         Assert.Equal(ParseState.Unparsed, graph6.nodes.[aId].documentState.parseState)
@@ -326,7 +306,6 @@ let ``disk-newer file beside a directory is not pushed`` () =
         Assert.Equal(ParseState.Parsed, graph7.nodes.[notesId].documentState.parseState)
         Assert.DoesNotContain(dirId, planned.push)
         Assert.DoesNotContain(wsId, planned.push)
-        Assert.False(setsDocumentState planned.ops)
     finally
         Directory.Delete(dataDir, true)
 
@@ -367,16 +346,10 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 =
-            applyOps
-                graph2
-                [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        let graph3 = setDocumentState dirId Unparsed Current graph2
         let normalId, graph4 = addNormal graph3 dirId "section"
         let fileId, graph5 = addFile graph4 normalId "note.txt"
-        let graph6 =
-            applyOps
-                graph5
-                [ Op.SetDocumentState(dirId, Current, Unparsed) ]
+        let graph6 = setDocumentState dirId Current Unparsed graph5
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         let graph7 = stamp graph6 fileId old
         let filePath = writeDisk dataDir "home/docs/note.txt" "newer"
