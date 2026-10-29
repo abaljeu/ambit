@@ -14,5 +14,4 @@ Started: 2026-10-29
 
 ## Open questions
 
-- 1 — Load trigger: `UpdateHelpers.loadTargetIntent` asks the Server for a Workspace only when the target is Unloaded. With no Unloaded Node, what makes a Load ask for the Workspace?
-- 2 — Large child lists: a collapsed row for a Node with many children sends all their ids. Is that cost accepted?
+- 1 — Large child lists: a collapsed row for a Node with many children sends all their ids, and boot sends one more level of child lists than today. Is that cost accepted?

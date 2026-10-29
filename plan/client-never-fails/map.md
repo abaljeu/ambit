@@ -29,7 +29,7 @@ The Browser applies every server reply. Each fix removes a refusal where it star
 - Remove Loaded and Unloaded: each state return for a NodeId includes both its Header and its child list. A child list holds ids only. A Resident Node always has its child list, so Loaded and Unloaded go away.
 
 - Absent display: an Absent child shows as a placeholder Bullet drawn in color #444444. It selects like any row and takes every Command except edit. Expand of a placeholder requests its Node. When its Node arrives, the next render draws it as a normal row.
-- Absent Fetch: the Browser requests each Absent child it shows. Expand of a Node requests its Absent children.
+- Absent Fetch: Poll is the one mechanism that gets data. The active process that looks for nearby Nodes looks for Absent ids, not Unloaded Nodes. Expand of a Node makes its Absent children nearby. The whole-Workspace request is unhooked and deleted.
 - 1 — Notices: when the Browser has no pending changes, it accepts each Notice. It applies the Notice and takes its event id. A Notice never blocks the Browser, never sets DataOutdated, and never refuses a Load reply. A post reply applies its Notices too.
 - 2 — Moved child: the Browser accepts the child list as the Server sends it. Its Absent children show as placeholders.
 - 3 — Protocol: the Browser posts every change. The Server merges and sends back revised Events. A post reply undoes the posted changes and replays the server Events. A Poll is the same with zero changes to undo, so a Poll always applies. A post reply with our own changes as Events is accepted. A post reply with different changes while more changes are pending is a merge in progress, not a reload. The Browser ignores that reply, posts the rest, and waits for a clean merge.
@@ -49,4 +49,4 @@ This Project covers:
 - the removal of Loaded and Unloaded
 - removal of the "Data changed on server" prompt
 
-"New version available" and the Server refusal of a Browser post stay as they are.
+"New version available" and the Server refusal of a Browser post stay as they are. A separate ticket repurposes the hollow circle to mark Absent Nodes.
