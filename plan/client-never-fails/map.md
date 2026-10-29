@@ -10,12 +10,12 @@ The Browser Graph is three collections:
 - nodes: map from NodeId to Node
 - children: map from NodeId to NodeId list option
 
-A Resident Node is in nodes and in children. An Absent Node is in nodes and not in children. These names replace Loaded and Unloaded, which are confused with the Load process. A new case occurs: a NodeId is in a child list and not in nodes. Today the Browser refuses that case with "new child not found".
+Today the Server can send a Node without its child list. That Node is Unloaded: it is in nodes and not in children. The word is confused with the Load process. A NodeId in a child list that is not in nodes is Absent. Today the Browser refuses that case with "new child not found".
 
 The Browser refuses server data in these places:
 
 - 1 — Notices: a Notice is a logged Event, so it moves the server event id. Each Change inside a File Node Body makes the Server log NodeUnpersisted, NodePersisting, and NodePersisted. A Poll that carries only these Notices while the edit box holds new text sets DataOutdated (`Update.fs` PollDone, `isAutoSyncBlocked`). A Load reply that follows only Notices is refused with "raced Load answer" (`SyncLogic.applyLoadResponse`). A Notice that `NoticeGraph.writeGraph` rejects stops the Poll (`SyncLogic.applyNoticeGraph`).
-- 2 — Moved child the Browser never had: a move under a Resident parent names a child that is not in nodes.
+- 2 — Moved child the Browser never had: a move under a parent with its child list names a child that is not in nodes.
 - 3 — Pending changes during a Poll: the Browser refuses the Poll Events while it holds changes it has not posted.
 - 4 — Typing during a server change: the Browser refuses the Events while the edit box holds text the Graph does not.
 - 5 — Edit during a Load: an expand followed by an edit sets the same refusal as 4.
@@ -26,10 +26,12 @@ The Browser refuses server data in these places:
 
 The Browser applies every server reply. Each fix removes a refusal where it starts.
 
-- New case display: a child NodeId that is not in nodes shows as a placeholder Bullet. It is drawn in color #444444. It expands like an Absent Node, it selects like any row, and it takes every Command except edit. When its Node arrives, the next render draws it as a normal row.
-- New case Fetch: inserting a child NodeId that is not in nodes makes the Browser request that Node. Today the request looks only at children = None.
+- Remove Loaded and Unloaded: each state return for a NodeId includes both its Header and its child list. A child list holds ids only. A Resident Node always has its child list, so Loaded and Unloaded go away.
+
+- Absent display: an Absent child shows as a placeholder Bullet drawn in color #444444. It selects like any row and takes every Command except edit. Expand of a placeholder requests its Node. When its Node arrives, the next render draws it as a normal row.
+- Absent Fetch: the Browser requests each Absent child it shows. Expand of a Node requests its Absent children.
 - 1 — Notices: when the Browser has no pending changes, it accepts each Notice. It applies the Notice and takes its event id. A Notice never blocks the Browser, never sets DataOutdated, and never refuses a Load reply. A post reply applies its Notices too.
-- 2 — Moved child: the Browser accepts the child list as the Server sends it.
+- 2 — Moved child: the Browser accepts the child list as the Server sends it. Its Absent children show as placeholders.
 - 3 — Protocol: the Browser posts every change. The Server merges and sends back revised Events. A post reply undoes the posted changes and replays the server Events. A Poll is the same with zero changes to undo, so a Poll always applies. A post reply with our own changes as Events is accepted. A post reply with different changes while more changes are pending is a merge in progress, not a reload. The Browser ignores that reply, posts the rest, and waits for a clean merge.
 - 4 — Typing: the Browser posts the edit after a one-second pause in typing. Edit mode stays on. When a Poll removes the Node in edit mode, the Browser leaves edit mode and the view renders as usual.
 - 5 — Expand is not a change. An edit during a Load is case 4.
@@ -41,10 +43,10 @@ The Browser applies every server reply. Each fix removes a refusal where it star
 
 This Project covers:
 
-- the placeholder display and Fetch for a child NodeId that is not in nodes
+- the placeholder display and Fetch for an Absent child
 - the Browser refusals 1 to 6
 - the server write order 7
-- the rename of Loaded to Resident and Unloaded to Absent
+- the removal of Loaded and Unloaded
 - removal of the "Data changed on server" prompt
 
 "New version available" and the Server refusal of a Browser post stay as they are.
