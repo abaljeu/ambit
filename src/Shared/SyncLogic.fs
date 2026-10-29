@@ -95,7 +95,7 @@ module SyncLogic =
             Ok st
         else
             match NoticeGraph.writeGraph notice st.graph with
-            | Error msg -> Error msg
+            | Error _ -> Ok st
             | Ok graph -> Ok { st with graph = graph }
 
     let private applyLoggedNotice
@@ -106,7 +106,8 @@ module SyncLogic =
         match event.body with
         | EventBody.Notice notice ->
             match applyNoticeGraph notice st with
-            | Error msg -> Error msg
+            | Error _ ->
+                Ok({ st with eventId = event.id }, undid)
             | Ok next ->
                 Ok({ next with eventId = event.id }, undid)
         | _ -> Ok({ st with eventId = event.id }, undid)
@@ -542,6 +543,16 @@ module SyncLogic =
             graph
             events
 
+    /// Notices in a post reply write the graph before confirmation matching.
+    let private applyReplyNotices
+        (confirmed: Ev list)
+        (state: ClientSyncState)
+        : ClientSyncState =
+        let notices = List.filter isNoticeEvent confirmed
+        match foldProjectedEvents notices state with
+        | Error _ -> state
+        | Ok (next, _) -> { next with eventId = state.eventId }
+
     let reconcileAck
         (submitted: Ev list)
         (confirmed: Ev list)
@@ -552,6 +563,7 @@ module SyncLogic =
         if submitted.IsEmpty then
             AckReconcile.Rejected "missing confirmation"
         else
+            let state = applyReplyNotices confirmed state
             match identityError submitted confirmed with
             | Some err -> AckReconcile.Rejected err
             | None ->

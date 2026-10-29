@@ -101,3 +101,28 @@ let ``Poll answer chains the next Included residency Want`` () =
     Assert.True(Map.containsKey fixture.childId next.graph.nodes)
     Assert.Equal<NodeId list>([ fixture.childId ], nextWant)
     Assert.Contains(effects, function | PollServer _ -> true | _ -> false)
+
+[<Fact>]
+let ``PollDone leaves Sync Idle when the edit box holds new text`` () =
+    let fixture = residencyFixture ()
+    let model =
+        { modelFor
+            fixture.browser
+            fixture.siteMap
+            fixture.nextSiteId
+            fixture.parentId
+          with mode = Editing ("parent", EditCaret.EndOfText) }
+    Assert.Empty(model.syncInfo.pending)
+    match model.mode with
+    | Editing (text, _) -> Assert.Equal("parent", text)
+    | _ -> failwith "expected Editing"
+    let response =
+        { events = []
+          nodes = []
+          childMap = Map.empty }
+    let next, _ =
+        Update.update
+            (SysMsg (PollDone (
+                Some DataOutdated, response, None, Some EventId.zero)))
+            model
+    Assert.Equal(Idle, next.syncInfo.syncState)

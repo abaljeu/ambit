@@ -428,9 +428,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
                 | Some DataOutdated
-                    when events.IsEmpty || isAutoSyncBlocked readyModel ->
+                    when not readyModel.syncInfo.pending.IsEmpty ->
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+                | Some DataOutdated when events.IsEmpty ->
+                    { readyModel with syncInfo = si }, []
                 | Some DataOutdated ->
                     match
                         SyncLogic.applySyncResponse

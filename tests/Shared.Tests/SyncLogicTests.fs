@@ -1381,13 +1381,33 @@ let ``NodePersisted on a normal node is rejected`` () =
             EventBody.Notice(
                 Notice.NodePersisted(nodeId, EventId.zero, fileTime)) }
     match applyTail [ persisted ] st with
-    | Ok _ ->
-        failwith "expected NodePersisted on a normal node to fail"
-    | Error msg ->
+    | Error msg -> failwith msg
+    | Ok afterFail ->
+        Assert.Equal(before, afterFail.graph.nodes.[nodeId].updateTime)
         Assert.Equal(
-            "normal nodes do not have parse or persist state",
-            msg)
-        Assert.Equal(before, st.graph.nodes.[nodeId].updateTime)
+            st.graph.nodes.[nodeId].documentState.persistState,
+            afterFail.graph.nodes.[nodeId].documentState.persistState)
+        Assert.Equal(EventIdFixtures.storedId 3, afterFail.eventId)
+
+[<Fact>]
+let ``writeGraph Error of a string leaves the graph and stores the event id`` () =
+    let st, nodeId = stateWithNode "before"
+    let beforeNode = st.graph.nodes.[nodeId]
+    let noticeId = EventIdFixtures.storedId 8
+    let fileTime = beforeNode.updateTime.AddMinutes(4.0)
+    let persisted =
+        { id = noticeId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority ""
+          commandName = ""
+          body =
+            EventBody.Notice(
+                Notice.NodePersisted(nodeId, EventId.zero, fileTime)) }
+    match applyTail [ persisted ] st with
+    | Error msg -> failwith msg
+    | Ok afterFail ->
+        Assert.Equal(beforeNode, afterFail.graph.nodes.[nodeId])
+        Assert.Equal(noticeId, afterFail.eventId)
 
 [<Fact>]
 let ``logged NodePersisted for an older version leaves the client node Unpersisted`` () =
