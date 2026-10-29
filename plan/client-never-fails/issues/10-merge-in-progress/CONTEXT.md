@@ -8,4 +8,4 @@ This folder is ticket 10 — Merge in progress.
 
 ## Stage
 
-The worker sets the stage when it starts that stage.
+build

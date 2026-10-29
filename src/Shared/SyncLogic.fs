@@ -440,6 +440,21 @@ module SyncLogic =
         pending.Length >= submitted.Length
         && List.forall2 sameBody submitted (List.take submitted.Length pending)
 
+    /// True when events sit behind the submitted prefix.
+    let pendingExtendsSubmitted (submitted: Ev list) (pending: Ev list) =
+        pending.Length > submitted.Length
+        && isQueuePrefix submitted pending
+
+    let private ignoreDifferentReply
+        (submitted: Ev list)
+        (syncInfo: SyncInfo)
+        (detail: string)
+        : AckReconcile =
+        if pendingExtendsSubmitted submitted syncInfo.pending then
+            AckReconcile.Ignored
+        else
+            AckReconcile.Rejected detail
+
     let private isPresent (pending: Ev list) submissionId =
         pending
         |> List.exists (fun event -> event.submissionId = submissionId)
@@ -577,10 +592,10 @@ module SyncLogic =
         (syncInfo: SyncInfo)
         : AckReconcile =
         match identityError submitted confirmed with
-        | Some err -> AckReconcile.Rejected err
+        | Some err -> ignoreDifferentReply submitted syncInfo err
         | None ->
             match collectSuffixes submitted confirmed with
-            | Error err -> AckReconcile.Rejected err
+            | Error err -> ignoreDifferentReply submitted syncInfo err
             | Ok suffixOps ->
                 match
                     queueOutcome

@@ -526,3 +526,29 @@ let ``Undo ACK sets changedVersion to the Undo event id`` () =
             Assert.Equal(undoId, live.documentState.changedVersion)
             Assert.Equal(persisted, live.documentState.persistedVersion)
         | other -> failwithf "expected Undo, got %A" other
+
+[<Fact>]
+let ``different post reply while more changes are pending is Ignored`` () =
+    let nodeId, state, first = seededEdit ()
+    let later =
+        { first with
+            id = EventId.zero
+            submissionId = Guid.NewGuid()
+            body = EventBody.Change [ Op.SetText(NodeId.New(), "x", "y") ] }
+    let different =
+        { first with
+            submissionId = Guid.NewGuid()
+            body =
+                EventBody.Change [ Op.SetText(nodeId, "before", "server") ] }
+    let pending = [ first; later ]
+    Assert.False(SyncLogic.isConfirmationEcho [ first ] [ different ])
+    let result =
+        SyncLogic.reconcileAck
+            [ first ]
+            [ different ]
+            (EventIdFixtures.storedId 1)
+            state
+            (sending pending)
+    match result with
+    | AckReconcile.Ignored -> ()
+    | other -> failwithf "expected Ignored, got %A" other
