@@ -14,7 +14,7 @@ The File Nodes sit under the new Directory Node in the Graph. Their files on dis
 
 ## Expected
 
-A File Node is its own enclosing artifact, so its file's directory comes from its parent's enclosing artifact. Moving a File Node so that its parent's enclosing artifact is a different Directory Node or Workspace Node moves the file on disk into that node's directory. This holds whether the File Node lands as a direct child or deeper in the Body, and whether or not it has been parsed.
+A File Node's file directory comes from its strictly enclosing artifact. Moving a File Node so that its strictly enclosing artifact is a different Directory Node or Workspace Node moves the file on disk into that node's directory. This holds whether the File Node lands as a direct child or deeper in the Body, and whether or not it has been parsed.
 
 ## Notes
 

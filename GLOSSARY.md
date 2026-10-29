@@ -186,7 +186,7 @@ A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
 
 **enclosing**:
-The first Node on a Node's Owned chain, counting the Node itself, that matches a predicate (`GraphQuery.enclosing`). The enclosing artifact of a Node is where that Node is persisted on disk. A File Node is its own enclosing artifact, so the directory its file sits in comes from its parent's enclosing artifact.
+The first Node on a Node's Owned chain, counting the Node itself, that matches a predicate (`GraphQuery.enclosing`). The enclosing artifact of a Node is where that Node is persisted on disk. **Strictly enclosing** starts at the parent and excludes the Node itself. A File Node is its own enclosing artifact; the directory its file sits in comes from its strictly enclosing artifact.
 _Avoid_: owning Special, owner (for this meaning), controlling Special, Head, Foot
 
 **Event**:
