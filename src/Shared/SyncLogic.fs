@@ -102,11 +102,10 @@ module SyncLogic =
         if event.id <= st.eventId then
             st
         else
-            let next =
-                match event.body with
-                | EventBody.Notice notice -> applyNoticeGraph notice st
-                | _ -> st
-            { next with eventId = event.id }
+            match event.body with
+            | EventBody.Notice notice ->
+                { applyNoticeGraph notice st with eventId = event.id }
+            | _ -> { st with eventId = event.id }
 
     let private applyLoggedNotice
         (event: Ev)
