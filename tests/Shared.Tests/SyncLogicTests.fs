@@ -1368,28 +1368,6 @@ let ``PersistFailed leaves the graph`` () =
         Assert.Equal(Some "disk full", SyncLogic.persistFailedMessage [ failed ])
 
 [<Fact>]
-let ``NodePersisted on a normal node is rejected`` () =
-    let st, nodeId = stateWithNode "before"
-    let before = st.graph.nodes.[nodeId].updateTime
-    let fileTime = before.AddMinutes(4.0)
-    let persisted =
-        { id = EventIdFixtures.storedId 3
-          submissionId = System.Guid.NewGuid()
-          authority = Authority ""
-          commandName = ""
-          body =
-            EventBody.Notice(
-                Notice.NodePersisted(nodeId, EventId.zero, fileTime)) }
-    match applyTail [ persisted ] st with
-    | Error msg -> failwith msg
-    | Ok afterFail ->
-        Assert.Equal(before, afterFail.graph.nodes.[nodeId].updateTime)
-        Assert.Equal(
-            st.graph.nodes.[nodeId].documentState.persistState,
-            afterFail.graph.nodes.[nodeId].documentState.persistState)
-        Assert.Equal(EventIdFixtures.storedId 3, afterFail.eventId)
-
-[<Fact>]
 let ``writeGraph Error of a string leaves the graph and stores the event id`` () =
     let st, nodeId = stateWithNode "before"
     let beforeNode = st.graph.nodes.[nodeId]

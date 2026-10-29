@@ -134,6 +134,50 @@ let private finishAppliedSubmit
      :: applied.effects @ pollEffects @ autoEffects)
     |> continueAutoWant (SyncLogic.changeSuccessToSync response)
 
+let private downloadPolledOps
+    (events: Ev list)
+    (syncResponse: SyncResponse)
+    (model: VM)
+    : VM * Effect list =
+    UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
+        (List.collect SyncLogic.opsForDownload events)
+        model
+    |> continueAutoWant syncResponse
+
+/// Empty pending and an empty event list leave the Idle sync state in si.
+/// A non-empty pending queue stays DataOutdated.
+let private applyPollDataOutdated
+    (events: Ev list)
+    (syncResponse: SyncResponse)
+    (readyModel: VM)
+    (si: SyncInfo)
+    : VM * Effect list =
+    if not readyModel.syncInfo.pending.IsEmpty then
+        { readyModel with
+            syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+    elif events.IsEmpty then
+        { readyModel with syncInfo = si }, []
+    else
+        match
+            SyncLogic.applySyncResponse
+                syncResponse
+                (clientSyncState readyModel)
+        with
+        | Error _ ->
+            { readyModel with
+                syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        | Ok newState ->
+            consoleLog (
+                "[Gambol sync] PollDone autoSync applied="
+                + string events.Length
+                + " newRev="
+                + string newState.eventId.Value)
+            let synced =
+                withAppliedResult events newState si readyModel
+                |> withSiteMap
+                |> adjustModeAfterServerApply readyModel.graph
+            downloadPolledOps events syncResponse synced
+
 let private applySubmitResponse
     (submitted: Ev list)
     (response: ChangeSuccessResponse)
@@ -312,11 +356,6 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         // While Uploading or Loading: keep the busy indicator. Do not apply
         // Poll tails during Loading — a stale poll would advance revision and cause
         // applyLoadResponse to reject answer-only Load payloads.
-        let autoDownload model' =
-            UpdateWorkspaceDownload.accumulateAutoDownloadFromOps
-                (List.collect SyncLogic.opsForDownload events)
-                model'
-            |> continueAutoWant syncResponse
         let finishPoll (model, effects) =
             match SyncLogic.persistFailedMessage events with
             | None -> model, effects
@@ -349,7 +388,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
                         syncInfo = SyncInfo.withSyncState busy kept.syncInfo }
-                    |> autoDownload
+                    |> downloadPolledOps events syncResponse
             | _ -> readyModel, []
         | _ ->
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
@@ -389,7 +428,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                                 readyModel
                             |> withSiteMap
                             |> adjustModeAfterServerApply readyModel.graph
-                        autoDownload synced
+                        downloadPolledOps events syncResponse synced
             | Some _, [] ->
                 match
                     SyncLogic.applySyncResponse
@@ -423,36 +462,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             events answeredState si readyModel
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
-                        |> autoDownload
+                        |> downloadPolledOps events syncResponse
                 | Some CodeOutdated ->
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
-                | Some DataOutdated
-                    when not readyModel.syncInfo.pending.IsEmpty ->
-                    { readyModel with
-                        syncInfo = SyncInfo.withSyncState DataOutdated si }, []
-                | Some DataOutdated when events.IsEmpty ->
-                    { readyModel with syncInfo = si }, []
                 | Some DataOutdated ->
-                    match
-                        SyncLogic.applySyncResponse
-                            syncResponse
-                            (clientSyncState readyModel)
-                    with
-                    | Error _ ->
-                        { readyModel with
-                            syncInfo = SyncInfo.withSyncState DataOutdated si }, []
-                    | Ok newState ->
-                        consoleLog (
-                            "[Gambol sync] PollDone autoSync applied="
-                            + string events.Length
-                            + " newRev="
-                            + string newState.eventId.Value)
-                        let synced =
-                            withAppliedResult events newState si readyModel
-                            |> withSiteMap
-                            |> adjustModeAfterServerApply readyModel.graph
-                        autoDownload synced
+                    applyPollDataOutdated events syncResponse readyModel si
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
         )

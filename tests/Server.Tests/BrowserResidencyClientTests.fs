@@ -111,10 +111,11 @@ let ``PollDone leaves Sync Idle when the edit box holds new text`` () =
             fixture.siteMap
             fixture.nextSiteId
             fixture.parentId
-          with mode = Editing ("parent", EditCaret.EndOfText) }
+          with mode = Editing ("parent new", EditCaret.EndOfText) }
     Assert.Empty(model.syncInfo.pending)
+    Assert.Equal("parent", model.graph.nodes.[fixture.parentId].text)
     match model.mode with
-    | Editing (text, _) -> Assert.Equal("parent", text)
+    | Editing (text, _) -> Assert.Equal("parent new", text)
     | _ -> failwith "expected Editing"
     let response =
         { events = []
