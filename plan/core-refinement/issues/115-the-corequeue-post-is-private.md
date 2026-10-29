@@ -9,7 +9,9 @@
 
 ## 2. Blockers
 
-[ ] None.
+[ ] [141 — ParseThread holds its own Notice post](141-parsethread-holds-its-own-notice-post.md)
+[ ] [142 — Reconcile holds its own Notice post](142-reconcile-holds-its-own-notice-post.md)
+[ ] [143 — Tests post Notices through the rig](143-tests-post-notices-through-the-rig.md)
 
 ## 3. Look at
 
@@ -37,9 +39,9 @@
 ### Holders of the notice and logout posts
 
 [ ] `CoreMailbox.hostPublishing` binds `CoreMailboxApi.postNotice` into the persist thread through `bindPersistFinished`
-[ ] `ParseThread` and `LazyLoadReconciliationServer` call `CoreMailboxApi.postNotice`
+[ ] `ParseThread` and `LazyLoadReconciliationServer` call `CoreMailboxApi.postNotice` on the host they reach through a `CoreChangesDoor`; 141 and 142 give them their own Notice post
 [ ] `RouteRegistration` calls `CoreMailboxApi.logout`
-[ ] 11 test files call `CoreMailboxApi.postNotice`; `CoreMailboxDoorTests.fs` and `SessionTests.fs` call `CoreMailboxApi.logout`
+[ ] 11 test files call `CoreMailboxApi.postNotice`; `CoreMailboxDoorTests.fs` and `SessionTests.fs` call `CoreMailboxApi.logout`; 143 moves them to the rig's post
 
 ## 4. Context
 
@@ -67,7 +69,8 @@
 
 ### Size
 
-[ ] Over the test-file limit if each of the 13 test files above changes; needs Alan's approval
+[ ] Source: `MailboxHost.fs`, `CoreMailboxApi.fs`, `CoreMailbox.fs`, `RouteRegistration.fs`
+[ ] Tests: none beyond 141, 142, and 143
 
 ## 6. Tests
 
