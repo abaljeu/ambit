@@ -423,6 +423,33 @@ let ``Actor bodies do not apply`` () =
     | _ -> failwith "ActorStop must not change the Graph"
 
 [<Fact>]
+let ``Ev.withOps replaces the ops and keeps the body kind`` () =
+    let nodeId = NodeId.New()
+    let oldOps = [ Op.SetText(nodeId, "a", "b") ]
+    let newOps = [ Op.SetText(nodeId, "b", "c") ]
+    let target = EventIdFixtures.storedId 3
+    let change = event "Cut" (EventBody.Change oldOps)
+    let undo = event "Cut" (EventBody.Undo(target, oldOps))
+    let redo = event "Cut" (EventBody.Redo(target, oldOps))
+    let started = event "Cut" (EventBody.ActorStart(startRequest ()))
+    let notice = event "Cut" (EventBody.Notice(Notice.NodeParsed nodeId))
+    match (Ev.withOps change newOps).body with
+    | EventBody.Change ops -> Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Change, got %A" other
+    match (Ev.withOps undo newOps).body with
+    | EventBody.Undo(kept, ops) ->
+        Assert.Equal(target, kept)
+        Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Undo, got %A" other
+    match (Ev.withOps redo newOps).body with
+    | EventBody.Redo(kept, ops) ->
+        Assert.Equal(target, kept)
+        Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Redo, got %A" other
+    Assert.Equal(started, Ev.withOps started newOps)
+    Assert.Equal(notice, Ev.withOps notice newOps)
+
+[<Fact>]
 let ``Undo Redo carried Ops`` () =
     let state, nodeId = textState ()
     let undoOps = [ Op.SetText(nodeId, "old", "undone") ]

@@ -434,6 +434,18 @@ module Ev =
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
 
+    let withOps (event: Ev) (ops: Op list) : Ev =
+        match event.body with
+        | EventBody.Change _ ->
+            { event with body = EventBody.Change ops }
+        | EventBody.Undo(target, _) ->
+            { event with body = EventBody.Undo(target, ops) }
+        | EventBody.Redo(target, _) ->
+            { event with body = EventBody.Redo(target, ops) }
+        | EventBody.ActorStart _ | EventBody.Cancel _
+        | EventBody.Load _
+        | EventBody.ActorStop _ | EventBody.Notice _ -> event
+
     let isAction (event: Ev) : bool = ops event |> Option.isSome
 
     let target (event: Ev) : EventId option =

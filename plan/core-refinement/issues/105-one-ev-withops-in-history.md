@@ -1,6 +1,6 @@
 # 105 — One Ev.withOps in History
 
-**Status:** `defined`
+**Status:** `coded`
 **Note:** 2026-10-25 — Optional. Not needed to remove a type. Out of the type chain; no ticket waits on it.
 **Trackers:** architecture
 
@@ -54,42 +54,42 @@
 
 ### Change
 
-[ ] One refactor: add `Ev.withOps`, and the three copies call it
+[x] One refactor: add `Ev.withOps`, and the three copies call it
 
 ### History.fs
 
-[ ] Add `Ev.withOps (event: Ev) (ops: Op list) : Ev` after `Ev.ops`
-[ ] `EventBody.Change _` gives `EventBody.Change ops`
-[ ] `EventBody.Undo(target, _)` gives `EventBody.Undo(target, ops)`
-[ ] `EventBody.Redo(target, _)` gives `EventBody.Redo(target, ops)`
-[ ] Every other body returns the Ev unchanged
+[x] Add `Ev.withOps (event: Ev) (ops: Op list) : Ev` after `Ev.ops`
+[x] `EventBody.Change _` gives `EventBody.Change ops`
+[x] `EventBody.Undo(target, _)` gives `EventBody.Undo(target, ops)`
+[x] `EventBody.Redo(target, _)` gives `EventBody.Redo(target, ops)`
+[x] Every other body returns the Ev unchanged
 
 ### Callers
 
-[ ] `PersistStamp.appendToEvent` calls `Ev.withOps event (appendToOps ops stampOps)` when `Ev.ops event` is `Some ops`
-[ ] `CoreMailboxEvents.withAppliedOps` is `Ev.withOps`
-[ ] `CoreEventDispatch.withConfirmedOps` calls `Ev.withOps event ops` when the confirmed ops are `Some ops`
-[ ] Behavior does not change
+[x] `PersistStamp.appendToEvent` returns the Ev unchanged when `stampOps` is empty. Otherwise it calls `Ev.withOps event (appendToOps ops stampOps)` when `Ev.ops event` is `Some ops`, and returns the Ev unchanged when `Ev.ops event` is `None`
+[x] `CoreMailboxEvents.withAppliedOps` is `Ev.withOps`
+[x] `CoreEventDispatch.withConfirmedOps` calls `Ev.withOps event ops` when the confirmed ops are `Some ops`, and returns the Ev unchanged when they are `None`
+[x] Behavior does not change
 
 ### Size
 
-[ ] 4 source files: `History.fs`, `PersistStamp.fs`, `CoreMailboxEvents.fs`, `CoreEventDispatch.fs`
-[ ] 1 test file: `EventTests.fs`
+[x] 4 source files: `History.fs`, `PersistStamp.fs`, `CoreMailboxEvents.fs`, `CoreEventDispatch.fs`
+[x] 1 test file: `EventTests.fs`
 
 ## 6. Tests
 
 ### withOps
 
-[ ] Add `Ev.withOps replaces the ops and keeps the body kind` in `EventTests.fs`
-[ ] A Change gets the new ops
-[ ] An Undo and a Redo keep their target and get the new ops
-[ ] An ActorStart and a Notice are unchanged
-[ ] Filter: `Ev.withOps replaces the ops and keeps the body kind`
+[x] Add `Ev.withOps replaces the ops and keeps the body kind` in `EventTests.fs`
+[x] A Change gets the new ops
+[x] An Undo and a Redo keep their target and get the new ops
+[x] An ActorStart and a Notice are unchanged
+[x] Filter: `Ev.withOps replaces the ops and keeps the body kind`
 
 ### Kept
 
-[ ] Keep `Undo Redo carried Ops`
-[ ] Filter: `Undo Redo carried Ops`
+[x] Keep `Undo Redo carried Ops`
+[x] Filter: `Undo Redo carried Ops`
 
 ## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
