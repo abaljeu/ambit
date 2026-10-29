@@ -90,8 +90,8 @@ let private requireAddedReport graph paths =
         report
     | Error err -> failwith err
 
-let private setDocumentState nodeId oldState newState graph =
-    match GraphMutate.setDocumentState nodeId oldState newState graph with
+let private setDocumentState nodeId newState graph =
+    match GraphMutate.setDocumentState nodeId newState graph with
     | Ok next -> next
     | Error err -> failwith err
 
@@ -157,7 +157,7 @@ let private markDocumentsCurrent graph =
     |> List.fold (fun current (nodeId, node) ->
         match node.kind, Node.documentStateEnum node with
         | Special (Workspace | Directory | File), Unparsed ->
-            setDocumentState nodeId Unparsed Current current
+            setDocumentState nodeId Current current
         | _ -> current) graph
 
 [<Fact>]
@@ -179,7 +179,7 @@ let ``nested file parse leaves the new directory Unparsed without NodeParsed`` (
     let file = childNamed built src.id "note.txt"
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
-    let current = setDocumentState file.id Unparsed Current built
+    let current = setDocumentState file.id Current built
     let state =
         { graph = current; eventId = EventId.zero }
     let parseChange =
@@ -375,7 +375,7 @@ let ``repeated reconciliation reuses matching stubs`` () =
 [<Fact>]
 let ``reconciliation finds artifacts through normal organizers`` () =
     let workspaceId, created = Graph.create () |> addWorkspace "home"
-    let graph0 = setDocumentState workspaceId Unparsed Current created
+    let graph0 = setDocumentState workspaceId Current created
     let graph1, workspaceOrganizerId = Graph.newNode "organizer" graph0
     let graph2 =
         [ Op.Replace(
@@ -387,7 +387,7 @@ let ``reconciliation finds artifacts through normal organizers`` () =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
     let graph3 =
         applyOps graph2 srcOps
-        |> setDocumentState srcId Unparsed Current
+        |> setDocumentState srcId Current
     let graph4, srcOrganizerId = Graph.newNode "nested organizer" graph3
     let graph5 =
         [ Op.Replace(
@@ -408,7 +408,7 @@ let ``structural reconciliation rejects an already unparsed document`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let created = createPaths graph [ "note.txt" ]
     let note = childNamed created workspaceId "note.txt"
-    let graph2 = setDocumentState note.id Current Unparsed created
+    let graph2 = setDocumentState note.id Unparsed created
     match
         LazyLoadReconciliation.planChangedPaths
             graph2
@@ -615,7 +615,7 @@ let ``modified file keeps identity and records an unparsed id`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "note.txt" ]
     let file = childNamed graph2 workspaceId "note.txt"
-    let current = setDocumentState file.id Unparsed Current graph2
+    let current = setDocumentState file.id Current graph2
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
             current
@@ -641,7 +641,7 @@ let ``rediscovered Added Current file stays Current with children`` () =
     let current =
         [ Op.NewNode(parsedId, "parsed")
           Op.Replace(file.id, [], [ attach ]) ]
-        |> applyOps (setDocumentState file.id Unparsed Current graph2)
+        |> applyOps (setDocumentState file.id Current graph2)
     Assert.Equal(parsedId, (Graph.children current file.id).Head.id)
     let graph3 =
         requirePlan current "home" [ "note.txt" ] |> applyOps current
@@ -718,7 +718,7 @@ let ``report planner keeps sibling ops when one path fails`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let created = createPaths graph [ "bad.txt" ]
     let bad = childNamed created workspaceId "bad.txt"
-    let graph2 = setDocumentState bad.id Current Unparsed created
+    let graph2 = setDocumentState bad.id Unparsed created
     match
         LazyLoadReconciliationReport.planChangedPathsWithArtifacts
             graph2
@@ -860,7 +860,7 @@ let ``rediscovered Unparsed Directory File still parses on Added`` () =
     let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
     let built = createPaths graph0 [ "docs/.amb" ]
     let docs = childNamed built workspaceId "docs"
-    let graph1 = setDocumentState docs.id Current Unparsed built
+    let graph1 = setDocumentState docs.id Unparsed built
     let artifacts =
         Map.ofList [ "docs/.amb", "body" + System.Environment.NewLine ]
     match
@@ -963,7 +963,7 @@ let ``received file add leaves an Unparsed directory Unparsed`` () =
     let graph1 = createPaths graph [ "docs/keep.txt" ]
     let graph2 = markDocumentsCurrent graph1
     let docs = childNamed graph2 workspaceId "docs"
-    let graphUnparsed = setDocumentState docs.id Current Unparsed graph2
+    let graphUnparsed = setDocumentState docs.id Unparsed graph2
     let report =
         requireReceivedReport
             graphUnparsed
@@ -1039,7 +1039,7 @@ let ``received file at the workspace top leaves an Unparsed workspace Unparsed``
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph1 = markDocumentsCurrent graph
     let graphUnparsed =
-        setDocumentState workspaceId Current Unparsed graph1
+        setDocumentState workspaceId Unparsed graph1
     let report =
         requireReceivedReport
             graphUnparsed
@@ -1097,7 +1097,7 @@ let ``received file add leaves an Unparsed nearest ancestor Unparsed`` () =
     let graph2 = markDocumentsCurrent graph1
     let w = childNamed graph2 workspaceId "w"
     let x = childNamed graph2 w.id "x"
-    let graphUnparsed = setDocumentState x.id Current Unparsed graph2
+    let graphUnparsed = setDocumentState x.id Unparsed graph2
     let report =
         requireReceivedReport
             graphUnparsed

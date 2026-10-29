@@ -2,6 +2,7 @@ module Gambol.Server.Tests.CoreLoopNoticeTests
 
 open System
 open System.Threading.Tasks
+open FSharp.Reflection
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -526,3 +527,23 @@ let ``mailbox queue applies NodePersisted off CoreMsg`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+[<Fact>]
+let ``parsed comes from NodeParsed`` () =
+    let id, initial =
+        fileState PersistState.Persisted ParseState.Unparsed
+    let state = ref initial
+    let snaps = ResizeArray<NodeId>()
+    apply (handlers state snaps) (Notice.NodeParsed id)
+    let node = state.Value.graph.nodes.[id]
+    Assert.Equal(ParseState.Parsed, node.documentState.parseState)
+    Assert.Equal(Current, node.documentState.AsEnum)
+    Assert.False(node.documentState.pullingFile)
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
+
+[<Fact>]
+let ``MarkUnparsed leaves Notice`` () =
+    let names =
+        FSharpType.GetUnionCases typeof<Notice>
+        |> Array.map (fun case -> case.Name)
+    Assert.DoesNotContain("MarkUnparsed", names)

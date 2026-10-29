@@ -355,12 +355,6 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldName", Encode.string oldName
                   "newName", Encode.string newName ]
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Encode.object
-                [ "type", Encode.string "SetDocumentState"
-                  "nodeId", encodeNodeId nodeId
-                  "oldState", encodeDocumentState oldState
-                  "newState", encodeDocumentState newState ]
         | Op.SetUpdateTime(nodeId, oldTime, newTime) ->
             Encode.object
                 [ "type", Encode.string "SetUpdateTime"
@@ -407,12 +401,6 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldName" Decode.string,
                         get.Required.Field "newName" Decode.string))
-            | "SetDocumentState" ->
-                Decode.object (fun get ->
-                    Op.SetDocumentState(
-                        get.Required.Field "nodeId" decodeNodeId,
-                        get.Required.Field "oldState" decodeDocumentState,
-                        get.Required.Field "newState" decodeDocumentState))
             | "SetUpdateTime" ->
                 Decode.object (fun get ->
                     Op.SetUpdateTime(

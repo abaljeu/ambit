@@ -11,10 +11,6 @@ type Op =
         newChildren: ChildNode list
     | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
     | SetName of nodeId: NodeId * oldName: string * newName: string
-    | SetDocumentState of
-        nodeId: NodeId *
-        oldState: DocumentStateEnum *
-        newState: DocumentStateEnum
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
@@ -118,7 +114,6 @@ module Op =
                     Some child.id
                 else
                     None)
-        | Op.SetDocumentState _ -> []
 
     let private isCurrentDocumentRoot (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
@@ -247,9 +242,6 @@ module Op =
         | Op.SetName(nodeId, oldName, newName) ->
             GraphMutate.setName changedVersion nodeId oldName newName state.graph
             |> fromGraphResult state
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Graph.setDocumentState nodeId oldState newState state.graph
-            |> fromGraphResult state
         | Op.SetUpdateTime(nodeId, _oldTime, newTime) ->
             match Map.tryFind nodeId state.graph.nodes with
             | None -> ApplyResult.Invalid(state, "node not found")
@@ -324,8 +316,6 @@ module Op =
             Op.Replace(parentId, newChildren, oldChildren)
         | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
         | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
-        | Op.SetDocumentState(id, old, new_) ->
-            Op.SetDocumentState(id, new_, old)
         | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
 
     let invertAll (ops: Op list) : Op list =
@@ -363,9 +353,6 @@ module Op =
                     graph = Graph.fromNodes state.graph.root nodes childMap }
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId newName oldName state.graph
-            |> fromGraphResult state
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Graph.setDocumentState nodeId newState oldState state.graph
             |> fromGraphResult state
         | Op.SetUpdateTime(nodeId, oldTime, _newTime) ->
             match Map.tryFind nodeId state.graph.nodes with
@@ -454,8 +441,7 @@ module Ev =
         match documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
         | Some(nodeId, newState) ->
-            // First enum is unused. Apply writes newState.
-            match Graph.setDocumentState nodeId newState newState state.graph with
+            match Graph.setDocumentState nodeId newState state.graph with
             | Ok graph -> ApplyResult.Changed { state with graph = graph }
             | Error msg -> ApplyResult.Invalid(state, msg)
 
@@ -675,7 +661,7 @@ module ChangeValidation =
     let private opChangesGraphShape =
         function
         | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
-        | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _
+        | Op.SetText _ | Op.SetClasses _ | Op.SetName _
         | Op.SetUpdateTime _ -> false
 
     let private invalidOwnedFileDirectoryPlacement

@@ -246,7 +246,7 @@ let ``tryResolveFileNode finds owned file by relative path`` () =
 let ``planServerFilePresentOps transitions only matching absent files`` () =
     Skip.If(
         true,
-        "127 — Server file present drops its SetDocumentState")
+        "127 — Server file present drops its document-state write")
     let _, graph0 = Graph.create () |> addWorkspace "home"
     let graph1 =
         requirePlan

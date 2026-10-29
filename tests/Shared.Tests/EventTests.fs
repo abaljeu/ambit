@@ -1,9 +1,12 @@
 module EventTests
 
 open System
+open FSharp.Reflection
 open Gambol.Shared
 open Gambol.Shared
 open Xunit
+
+module Dec = Thoth.Json.Newtonsoft.Decode
 
 let private browser = Authority "Browser"
 
@@ -585,3 +588,21 @@ let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`
     Assert.Equal(persisted, live.documentState.persistedVersion)
     Assert.Equal(parseId, live.documentState.changedVersion)
     Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``no SetDocumentState message case`` () =
+    let names unionType =
+        FSharpType.GetUnionCases unionType
+        |> Array.map (fun case -> case.Name)
+    Assert.DoesNotContain("SetDocumentState", names typeof<Notice>)
+    Assert.DoesNotContain("SetDocumentState", names typeof<EventBody>)
+    let id = NodeId.New()
+    let json =
+        "{\"eventId\":0,\"submissionId\":\"00000000-0000-0000-0000-000000000001\","
+        + "\"authority\":\"\",\"commandName\":\"\",\"body\":{"
+        + "\"kind\":\"notice\",\"notice\":\"setDocumentState\",\"nodeId\":\""
+        + string id.Value
+        + "\"}}"
+    match Dec.fromString EventJson.decode json with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("a Notice cannot carry SetDocumentState")

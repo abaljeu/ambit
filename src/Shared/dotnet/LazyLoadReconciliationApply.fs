@@ -29,7 +29,7 @@ module internal LazyLoadReconciliationApply =
         | Current
         | PullingFile -> true
 
-    /// No SetDocumentState. Callers record the id.
+    /// Returns no ops. Callers record the id.
     let markUnparsed (graph: Graph) nodeId =
         decidesUnparsedMark graph nodeId |> ignore
         []

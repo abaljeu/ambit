@@ -19,7 +19,7 @@ module ImportDocument =
     /// Live-graph parse ops for ParseFile (server apply). Reuse the existing
     /// File owner id. When graph export yields prior artifact text (Current, or
     /// Unparsed after M/upload with structure retained), warm-reconcile; cold
-    /// only when there is no prior content. Emits no SetDocumentState.
+    /// only when there is no prior content. The result is outline ops.
     let planParseFile
         (graph: Graph)
         (fileId: NodeId)

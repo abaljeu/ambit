@@ -60,8 +60,8 @@ module GraphOps =
                 (Some EventId.zero) nodeId oldClasses newClasses graph
         static member setName nodeId oldName newName graph =
             GraphMutate.setName (Some EventId.zero) nodeId oldName newName graph
-        static member setDocumentState nodeId oldState newState graph =
-            GraphMutate.setDocumentState nodeId oldState newState graph
+        static member setDocumentState nodeId newState graph =
+            GraphMutate.setDocumentState nodeId newState graph
         static member setParseState nodeId parseState graph =
             GraphMutate.setParseState nodeId parseState graph
         static member setPersistState nodeId persistState graph =
