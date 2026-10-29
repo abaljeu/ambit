@@ -1,5 +1,5 @@
 # 10 — Merge in progress
-**Status**: 
+**Status**: done
 One job: The outliner with more changes pending sees a server success reply accepted and the rest of the pending changes posted, with no code change for a server reject. The story Merge in progress in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding

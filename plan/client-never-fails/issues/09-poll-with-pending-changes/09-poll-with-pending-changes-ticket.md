@@ -1,5 +1,5 @@
 # 09 — Poll with pending changes
-**Status**: 
+**Status**: done
 One job: The outliner with changes not yet posted sees a Poll apply, and those changes post after it. The story Poll with pending changes in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
