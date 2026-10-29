@@ -33,4 +33,11 @@ Map: [[map.md]]
     - the `includeWorkspace` filter in `ResidentProjection.wantAnswerForTargets`
 16. Know about a new version — As an outliner, I want "New version available" to stay, so that I reload when the protocol changes.
 
-Out of scope: the hollow circle is repurposed to mark Absent Nodes. A separate ticket does that.
+Decision: Poll and child-id lists have no width limit. Parse holds the safety valve for size.
+
+Out of scope:
+
+- the hollow circle, repurposed to mark Absent Nodes by a separate ticket
+- the Load refusal `LoadRefuse.MultiWorkspace`, which stays
+
+Open questions: none. The spec is ready for Alan's review.

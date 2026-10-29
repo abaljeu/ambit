@@ -11,7 +11,8 @@ Started: 2026-10-29
 - 2026-10-29 — Alan agreed the points in [[plan/client-never-fails/map.md]] one at a time in chat. Alan added Notices as the first case: with no pending changes, the Browser accepts each Notice and never blocks on it. Evidence: [[plan/client-never-fails/reports/notice-trip-findings.md]].
 - 2026-10-29 — Alan answered the open questions on the draft PR. The map and the spec hold the answers. A post reply applies Notices. The placeholder is drawn in color #444444. A merge in progress ignores the reply, posts the rest, and waits for a clean merge (rule for now). An edit posts after a one-second typing pause. A Poll that removes the edited Node ends edit mode. The Server writes the Event first, then the Graph, so the Browser needs no handling for an event id with no Events.
 - 2026-10-29 — Alan: remove Loaded and Unloaded. Each state return for a NodeId includes both its Header and its child list. Resident and Absent keep their glossary meaning; an Absent child is the placeholder. Findings: [[plan/client-never-fails/reports/remove-loaded-findings.md]].
+- 2026-10-29 — Alan: cost accepted. Poll and child-id lists have no width limit. Parse holds the safety valve for size. The Load refusal `LoadRefuse.MultiWorkspace` stays; it is not residency Poll.
 
 ## Open questions
 
-- 1 — Large child lists: a collapsed row for a Node with many children sends all their ids, and boot sends one more level of child lists than today. Is that cost accepted?
+None. The spec is ready for Alan's review.
