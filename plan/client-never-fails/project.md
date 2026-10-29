@@ -14,10 +14,9 @@ Started: 2026-10-29
 - 2026-10-29 — Alan: cost accepted. Poll and child-id lists have no width limit. Parse holds the safety valve for size. The Load refusal `LoadRefuse.MultiWorkspace` stays; it is not residency Poll.
 - 2026-10-29 — Arch written: [[plan/client-never-fails/arch.md]]. Story paths and the slicing strategy follow Alan's seven steps, from Notices through the reload prompt. Direction: `tracer-cut`.
 - 2026-10-29 — Alan: the placeholder comes before the child-list step. Order: Notices, Event then Graph, placeholder, child list on each Node, Absent fetch, protocol then the one-second typing pause, reload prompt last.
-- 2026-10-29 — Slicing revised. `ChildrenStatus` stays. The Server-sends-child-list ticket is 06 — Server sends each Node with its child list. `includeWorkspace` is one ticket, 07 — Delete includeWorkspace, blocked by 06. Ticket `Status` stays empty. The worker sets the stage when it starts that stage. Scope facts sit in each ticket. Count of ticket files plus reports is 30.
+- 2026-10-29 — Slicing revised. `ChildrenStatus` stays. The Server-sends-child-list ticket is 06 — Server sends each Node with its child list. `includeWorkspace` is one ticket, 07 — Delete includeWorkspace, blocked by 16 — Poll for nearby Absent Nodes. Ticket `Status` stays empty. The worker sets the stage when it starts that stage. Scope facts sit in each ticket.
 
 ## Open questions
 
 - spec.md story 13 still says remove Loaded and Unloaded, including `ChildrenStatus`, the wire values, the `residencyText` children line, and the glossary entries.
 - arch.md path 6 still says this removes Loaded and Unloaded, and steps 6.8, 6.11, and 6.12 still delete the wire field and the type. Section 4 still proposes deleting the Loaded and Unloaded glossary entries.
-- arch.md path 7, Poll for nearby Absent Nodes, is not ticketed. The file count is at 30, and that path would change tests that build Unloaded Nodes.

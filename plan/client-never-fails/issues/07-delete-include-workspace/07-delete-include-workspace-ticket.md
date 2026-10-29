@@ -3,7 +3,7 @@
 One job: Load asks for target ids only, and `includeWorkspace` is gone along one path. `LoadRefuse.MultiWorkspace` stays. The story Delete the whole-Workspace request in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
-Blockers: [06 — Server sends each Node with its child list](plan/client-never-fails/issues/06-server-sends-child-list/06-server-sends-child-list-ticket.md)
+Blockers: [16 — Poll for nearby Absent Nodes](plan/client-never-fails/issues/16-poll-nearby-absent/16-poll-nearby-absent-ticket.md)
 
 ## Inputs
 
