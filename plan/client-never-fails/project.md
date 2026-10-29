@@ -9,14 +9,8 @@ Started: 2026-10-29
 
 - 2026-10-29 — Opened by Alan. Source statement: [140 — Client never fails on server data](../core-refinement/issues/140-client-never-fails-on-server-data.md). That ticket stays in core-refinement as the original statement; this Project does its work.
 - 2026-10-29 — Alan agreed the points in [[plan/client-never-fails/map.md]] one at a time in chat. Alan added Notices as the first case: with no pending changes, the Browser accepts each Notice and never blocks on it. Evidence: [[plan/client-never-fails/reports/notice-trip-findings.md]].
+- 2026-10-29 — Alan answered the open questions on the draft PR. The map and the spec hold the answers. A post reply applies Notices. The placeholder is drawn in color #444444. A merge in progress ignores the reply, posts the rest, and waits for a clean merge (rule for now). An edit posts after a one-second typing pause. A Poll that removes the edited Node ends edit mode. The Server writes the Event first, then the Graph, so the Browser needs no handling for an event id with no Events. Loaded becomes Resident (Node and child list on the Browser) and Unloaded becomes Nonresident.
 
 ## Open questions
 
-- 1 — Placeholder text: what text the placeholder row shows before its Node arrives.
-- 2 — Merge in progress: which handling the Browser uses when a post reply carries different changes and more changes are pending. Ignore the reply, post the rest, and wait for a clean merge is one example.
-- 3 — Typing pause: how long a pause in typing is before the Browser posts the edit.
-- 4 — Edited Node removed: what the Browser does when a Poll removes the Node in edit mode. Alan named "idle poll may override edit mode".
-- 5 — Server write order: the Server writes the Event first, or writes the Event and the Graph in one transaction.
-- 6 — Loaded definition: [[GLOSSARY.md]] says a Loaded Node has its Children present. Alan's definition adds that each child Node is Resident. Does the glossary change?
-- 7 — Notices with pending changes: the Browser starts no Poll or Load while changes are pending (`SyncPlanner.tryStartPoll`, `SyncPlanner.tryStartLoad`). A post reply drops its Notices before it matches confirmations (`SyncLogic.reconcileAck`) and takes the server event id. It does not apply their Graph writes, so parse and persist status can stay stale. Does the post reply apply its Notices too?
-- 8 — Event id ahead with no Events: after the server write order fix, does the Browser still need its own handling when the Server reports an event id with no Events behind it?
+- 1 — Resident collides: [[GLOSSARY.md]] already defines Resident as a Node whose Header is present, with antonym Absent, and the module `ResidentProjection` uses that sense. Alan's Resident adds the child list. Does the old Resident get a new name, and is Absent kept for a NodeId that is in a child list but not in nodes?
