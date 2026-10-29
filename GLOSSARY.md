@@ -118,6 +118,10 @@ _Avoid_: Desktop (in speech), shell, host app
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
 _Avoid_: sender, user (when the source may not be a person)
 
+**artifact**:
+A File Node, Directory Node, or Workspace Node: a Special Node that corresponds to a file or directory on disk (`NodeKind.artifact`). Narrower than Special, which also covers the Workspaces Node. Also said Artifact Node.
+_Avoid_: Special (when only these three Kinds are meant), document root (in speech)
+
 **Body**: of a Special Node.  Also Graph Body.
 The collection of nodes which correspond to the disk file for that Special node.  (Disk and Workspace objects get .amb file to hold extra data.)  Calculation: recursive descent through owned children, up to the next Special Nodes.
 
@@ -180,6 +184,10 @@ _Avoid_: Document (the project), File (for the English content when it is not a 
 **Download**:
 A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
+
+**enclosing**:
+The first Node on a Node's Owned chain, counting the Node itself, that matches a predicate (`GraphQuery.enclosing`). The enclosing artifact of a Node is where that Node is persisted on disk. A File Node is its own enclosing artifact, so the directory its file sits in comes from its parent's enclosing artifact.
+_Avoid_: owning Special, owner (for this meaning), controlling Special, Head, Foot
 
 **Event**:
 One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. The mailbox posts an Event. Code name `Ev`. It carries the Command that produced it (`commandName`).
@@ -341,7 +349,7 @@ Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and 
 _Avoid_: common, core (as a name for Shared), lib
 
 **Special**:
-Any Kind that is not Normal; a structural or system role.
+Any Kind that is not Normal; a structural or system role. The Special Kinds are Workspaces, Workspace, Directory, and File. Every artifact is Special, but the Workspaces Node is Special and not an artifact.
 _Avoid_: system node, meta node
 
 **State**:
