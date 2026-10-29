@@ -1,28 +1,5 @@
 namespace Gambol.Shared
 
-type PeerActorName = PeerActorName of string
-
-[<RequireQualifiedAccess>]
-type ChangeOrigin =
-    | Edit
-    | Parse
-
-[<RequireQualifiedAccess>]
-type Order =
-    | Change of ops: Op list * origin: ChangeOrigin
-    | Undo of target: EventId
-    | Redo of target: EventId
-    | StartActor of ActorStart
-    | StartPeerActor of
-        peerName: PeerActorName *
-        request: ActorStart
-    | LoadSave of
-        path: LoadSavePath *
-        peerName: PeerActorName *
-        request: LoadSaveCommandRequest
-    | Load of nodeId: NodeId
-    | Cancel of focusId: NodeId
-
 type PlacedOrder = {
     orderId: OrderId
     authority: Authority
