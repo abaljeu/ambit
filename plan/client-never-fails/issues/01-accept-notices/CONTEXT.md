@@ -8,4 +8,4 @@ This folder is ticket 01 — Accept Notices.
 
 ## Stage
 
-The worker sets the stage when it starts that stage.
+refactor

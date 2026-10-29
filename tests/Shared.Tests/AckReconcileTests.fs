@@ -436,6 +436,49 @@ let ``Notice in the reply keeps the confirmation echo`` () =
     | other -> failwithf "expected catch-up Applied, got %A" other
 
 [<Fact>]
+let ``post reply applies a Notice then matches the confirmation`` () =
+    let fileId = NodeId.New()
+    let fileTime = DateTime(2026, 10, 23, 4, 5, 6, DateTimeKind.Utc)
+    let file =
+        Node.Create(
+            fileId,
+            text = "before",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            updateTime = DateTime(2026, 10, 23, 1, 0, 0, DateTimeKind.Utc))
+    let graph = Graph.addDetachedNode file (Graph.create ())
+    let change = textChange EventId.zero fileId "before" "after"
+    let state0 = clientState graph EventId.zero (ClientHistory.clear ())
+    match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state0 with
+    | Error msg -> failwith msg
+    | Ok (state, pending) ->
+        let version = state.graph.nodes.[fileId].documentState.changedVersion
+        let notice =
+            { pending with
+                id = EventIdFixtures.storedId 4
+                submissionId = Guid.NewGuid()
+                authority = Authority "Browser"
+                commandName = "Edit node"
+                body =
+                    EventBody.Notice(
+                        Notice.NodePersisted(fileId, version, fileTime)) }
+        let serverEventId = EventIdFixtures.storedId 5
+        let result =
+            SyncLogic.reconcileAck
+                [ pending ]
+                [ confirm pending []; notice ]
+                serverEventId
+                state
+                (sending [ pending ])
+        let next, syncInfo, _, _ = expectApplied result
+        let live = next.graph.nodes.[fileId]
+        Assert.Equal(PersistState.Persisted, live.documentState.persistState)
+        Assert.Equal(fileTime, live.updateTime)
+        Assert.Equal("after", live.text)
+        Assert.Equal(serverEventId, next.eventId)
+        Assert.Empty(syncInfo.pending)
+
+[<Fact>]
 let ``Undo ACK sets changedVersion to the Undo event id`` () =
     let fileId = NodeId.New()
     let persisted = EventIdFixtures.storedId 2
