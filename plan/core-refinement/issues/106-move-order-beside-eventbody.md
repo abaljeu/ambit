@@ -1,6 +1,6 @@
 # 106 — Move Order beside EventBody
 
-**Status:** `coded`
+**Status:** `done`
 **Trackers:** architecture
 
 ## 1. Type
