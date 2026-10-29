@@ -538,6 +538,8 @@ let ``parsed comes from NodeParsed`` () =
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
+    Assert.False(node.documentState.pullingFile)
+    Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 
 [<Fact>]
 let ``MarkUnparsed leaves Notice`` () =

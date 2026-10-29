@@ -441,8 +441,7 @@ module Ev =
         match documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
         | Some(nodeId, newState) ->
-            // First enum is unused. Apply writes newState.
-            match Graph.setDocumentState nodeId newState newState state.graph with
+            match Graph.setDocumentState nodeId newState state.graph with
             | Ok graph -> ApplyResult.Changed { state with graph = graph }
             | Error msg -> ApplyResult.Invalid(state, msg)
 

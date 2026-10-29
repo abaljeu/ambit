@@ -200,7 +200,7 @@ let private fileWithHeadingAndBlankAbove () =
     let withWs =
         applyTrusted g0 wsOps
         |> fun g ->
-            GraphMutate.setDocumentState wsId Unparsed Current g
+            GraphMutate.setDocumentState wsId Current g
             |> ModelBuilder.requireOk "workspace current"
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile withWs wsId "agents.md"

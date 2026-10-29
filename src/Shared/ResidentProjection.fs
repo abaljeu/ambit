@@ -45,7 +45,7 @@ module ResidentProjection =
             if not (Map.containsKey nodeId state.graph.nodes) then
                 ApplyResult.Unchanged state
             else
-                match Graph.setDocumentState nodeId newState newState state.graph with
+                match Graph.setDocumentState nodeId newState state.graph with
                 | Error msg -> ApplyResult.Invalid(state, msg)
                 | Ok graph -> ApplyResult.Changed { state with graph = graph }
 

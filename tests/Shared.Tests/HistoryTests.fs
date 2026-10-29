@@ -324,8 +324,8 @@ let private assertUnparsedInvalid state op =
     Assert.Equal(unparsedError, error)
     Assert.Equal(state.graph, unchanged.graph)
 
-let private withDocumentState nodeId oldState newState state =
-    match GraphMutate.setDocumentState nodeId oldState newState state.graph with
+let private withDocumentState nodeId newState state =
+    match GraphMutate.setDocumentState nodeId newState state.graph with
     | Ok graph -> { state with graph = graph }
     | Error message -> failwith message
 
@@ -356,7 +356,7 @@ let ``edit or rename of unparsed file descendant is rejected`` () =
 [<Fact>]
 let ``edit of no-server-file document is rejected`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
-    let absent = withDocumentState fileId Unparsed PullingFile state
+    let absent = withDocumentState fileId PullingFile state
     assertUnparsedInvalid
         absent
         (Op.SetText(fileId, "file.txt", "changed"))
@@ -422,8 +422,8 @@ let ``nested file parse under current directory replaces file tree`` () =
         fileOps
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
     let directoryCurrent =
-        withDocumentState directoryId Unparsed Current state2
-    let ready = withDocumentState fileId Unparsed Current directoryCurrent
+        withDocumentState directoryId Current state2
+    let ready = withDocumentState fileId Current directoryCurrent
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
     let parseOps =
@@ -455,7 +455,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
     let bothUnparsed = state2
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
-    let ready = withDocumentState fileId Unparsed Current bothUnparsed
+    let ready = withDocumentState fileId Current bothUnparsed
     let parseOps =
         [ Op.NewNode(parsedId, "parsed")
           Op.Replace(fileId, [], [ attach ]) ]
@@ -478,13 +478,13 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
     let state1 =
         created
-        |> withDocumentState workspaceId Current Unparsed
-        |> withDocumentState directoryId Current Unparsed
+        |> withDocumentState workspaceId Unparsed
+        |> withDocumentState directoryId Unparsed
     assertUnparsedInvalid
         state1
         (Op.SetName(directoryId, "docs", "renamed"))
     let directoryCurrent =
-        withDocumentState directoryId Unparsed Current state1
+        withDocumentState directoryId Current state1
     assertUnparsedInvalid
         directoryCurrent
         (Op.SetName(directoryId, "docs", "renamed"))

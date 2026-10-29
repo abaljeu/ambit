@@ -65,8 +65,8 @@ let private makeDiskDir (dataDir: string) (relative: string) =
     Directory.CreateDirectory(full) |> ignore
     full
 
-let private setDocumentState nodeId oldState newState graph =
-    match GraphMutate.setDocumentState nodeId oldState newState graph with
+let private setDocumentState nodeId newState graph =
+    match GraphMutate.setDocumentState nodeId newState graph with
     | Ok next -> next
     | Error err -> failwith err
 
@@ -144,7 +144,7 @@ let ``disk-newer file below immediate children stays under its parent`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 = setDocumentState dirId Unparsed Current graph2
+        let graph3 = setDocumentState dirId Current graph2
         let normalId, graph4 = addNormal graph3 dirId "section"
         let fileId, graph5 = addFile graph4 normalId "deep.txt"
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -170,7 +170,7 @@ let ``disk-newer reconcile ops leave the file Current`` () =
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
         let fileId, graph3 = addFile graph2 dirId "note.txt"
-        let graph4 = setDocumentState fileId Unparsed Current graph3
+        let graph4 = setDocumentState fileId Current graph3
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         let graph5 = stamp graph4 fileId old
         let path = writeDisk dataDir "home/docs/note.txt" "newer"
@@ -187,7 +187,7 @@ let ``disk-newer directory stays Current and is not pushed`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 = setDocumentState dirId Unparsed Current graph2
+        let graph3 = setDocumentState dirId Current graph2
         let newerId, graph4 = addDirectory graph3 dirId "newer"
         let currentId, graph5 = addDirectory graph4 dirId "kept"
         let graph6 = withParsed (withParsed graph5 newerId) currentId
@@ -337,10 +337,10 @@ let ``missing directory attaches while the reconciled node is Unparsed`` () =
     try
         let wsId, graph1 = Graph.create () |> addWorkspace "home"
         let dirId, graph2 = addDirectory graph1 wsId "docs"
-        let graph3 = setDocumentState dirId Unparsed Current graph2
+        let graph3 = setDocumentState dirId Current graph2
         let normalId, graph4 = addNormal graph3 dirId "section"
         let fileId, graph5 = addFile graph4 normalId "note.txt"
-        let graph6 = setDocumentState dirId Current Unparsed graph5
+        let graph6 = setDocumentState dirId Unparsed graph5
         let old = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         let graph7 = stamp graph6 fileId old
         let filePath = writeDisk dataDir "home/docs/note.txt" "newer"

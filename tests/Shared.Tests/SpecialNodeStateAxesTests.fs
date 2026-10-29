@@ -46,7 +46,7 @@ let ``special node stores parse persist and pullingFile only inside DocumentStat
     let id = NodeId.New()
     let graph =
         apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
-        |> Graph.setDocumentState id Current Unparsed
+        |> Graph.setDocumentState id Unparsed
         |> requireOk
     let created = graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, created.documentState.parseState)
@@ -69,7 +69,7 @@ let ``special node stores parse persist and pullingFile only inside DocumentStat
     Assert.False(dirtyNode.documentState.pullingFile)
 
     let absent =
-        Graph.setDocumentState id Current PullingFile dirty |> requireOk
+        Graph.setDocumentState id PullingFile dirty |> requireOk
     let absentNode = absent.nodes.[id]
     Assert.True(absentNode.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, absentNode.documentState.parseState)
@@ -166,9 +166,9 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
     let created, wsId, dirId, fileId, childId = persistedOwnedFile ()
     let graph =
         created
-        |> Graph.setDocumentState dirId Current Unparsed
+        |> Graph.setDocumentState dirId Unparsed
         |> requireOk
-        |> Graph.setDocumentState wsId Current Unparsed
+        |> Graph.setDocumentState wsId Unparsed
         |> requireOk
     let edited = apply [ Op.SetText(childId, "body", "edited") ] graph
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileId].documentState.persistState)
@@ -197,7 +197,7 @@ let ``failed edit of an Unparsed special does not mark Unpersisted`` () =
     let id = NodeId.New()
     let graph =
         apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
-        |> Graph.setDocumentState id Current Unparsed
+        |> Graph.setDocumentState id Unparsed
         |> requireOk
     Assert.Equal(PersistState.Persisted, graph.nodes.[id].documentState.persistState)
     match Op.apply (Op.SetText(id, "file.txt", "changed")) (freshState graph) with
@@ -313,7 +313,7 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(PersistState.Persisted, edited.nodes.[wsId].documentState.persistState)
     Assert.Equal(ParseState.Parsed, edited.nodes.[ambId].documentState.parseState)
     let stated =
-        Graph.setDocumentState ambId Current Unparsed graph |> requireOk
+        Graph.setDocumentState ambId Unparsed graph |> requireOk
     Assert.Equal(Unparsed, stated.nodes.[ambId].documentState.AsEnum)
     Assert.Equal(ParseState.Unparsed, stated.nodes.[ambId].documentState.parseState)
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].documentState.persistState)

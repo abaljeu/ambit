@@ -188,11 +188,9 @@ module GraphMutate =
                             let edited = { graph with nodes = nodes }
                             Ok (finishPersist changedVersion nodeId edited)
 
-    /// `oldState` stays on the op for undo. Apply writes `newState`
-    /// even when the node already holds a different document state.
+    /// Write the document-state enum. An equal enum leaves the node unchanged.
     let setDocumentState
         (nodeId: NodeId)
-        (_oldState: DocumentStateEnum)
         (newState: DocumentStateEnum)
         (graph: Graph)
         : Result<Graph, string>

@@ -765,12 +765,15 @@ let private fileWithText () =
           eventId = EventId.zero }
     fileId, state
 
-let private editFileText (fileId: NodeId) : Ev =
+let private editText (nodeId: NodeId) oldText newText : Ev =
     { id = EventId.zero
       submissionId = Guid.NewGuid()
       authority = Authority "Browser"
       commandName = "Edit"
-      body = EventBody.Change [ Op.SetText(fileId, "hello", "edited") ] }
+      body = EventBody.Change [ Op.SetText(nodeId, oldText, newText) ] }
+
+let private editFileText (fileId: NodeId) : Ev =
+    editText fileId "hello" "edited"
 
 let private hostWithHandlers (handlers: PersistHandlers) =
     CoreMailbox.host
@@ -941,9 +944,7 @@ let private applyOrdinaryEdit (state: State ref) (event: Ev) (_graphOnly: bool) 
             state.Value <- { state.Value with graph = graph }
             Ok(CoreChanges.accepted event.id true [ event ] false)
 
-[<Fact>]
-let ``ordinary edit posts NodeUnpersisted`` () =
-    let fileId, initial = fileWithText ()
+let private runOrdinaryEdit (initial: State) (event: Ev) =
     let state = ref initial
     let handlers =
         { cannedHandlers
@@ -956,34 +957,97 @@ let ``ordinary edit posts NodeUnpersisted`` () =
     let context: CoreEventDispatch.Context = {
         persist = handlers
         eventLog = ref EventLog.empty
-        restartTip = EventId.zero
-    }
-    let event = editFileText fileId
-    match
-        CoreEventDispatch.postEvent context testCaller event false
-    with
-    | Error err -> Assert.Fail(err)
-    | Ok _ ->
-        let ordered = List.rev context.eventLog.Value.events
-        let changeAt =
-            ordered
-            |> List.findIndex (fun stored ->
-                match stored.body with
-                | EventBody.Change _ -> true
-                | _ -> false)
-        let noticeAt =
-            ordered
-            |> List.findIndex (fun stored ->
-                match stored.body with
-                | EventBody.Notice (Notice.NodeUnpersisted id) ->
-                    id = fileId
-                | _ -> false)
-        Assert.True(noticeAt > changeAt)
-        let node = state.Value.graph.nodes.[fileId]
-        Assert.Equal("edited", node.text)
-        Assert.Equal(
-            PersistState.Unpersisted,
-            node.documentState.persistState)
+        restartTip = EventId.zero }
+    match CoreEventDispatch.postEvent context testCaller event false with
+    | Error err -> failwith err
+    | Ok _ -> List.rev context.eventLog.Value.events, state.Value
+
+let private changeBeforeUnpersisted (ordered: Ev list) nodeId =
+    let changeAt =
+        ordered
+        |> List.findIndex (fun stored ->
+            match stored.body with
+            | EventBody.Change _ -> true
+            | _ -> false)
+    let noticeAt =
+        ordered
+        |> List.findIndex (fun stored ->
+            match stored.body with
+            | EventBody.Notice (Notice.NodeUnpersisted id) -> id = nodeId
+            | _ -> false)
+    Assert.True(noticeAt > changeAt)
+
+let private hasUnpersisted (ordered: Ev list) nodeId =
+    ordered
+    |> List.exists (fun stored ->
+        match stored.body with
+        | EventBody.Notice (Notice.NodeUnpersisted id) -> id = nodeId
+        | _ -> false)
+
+let private persistOf (state: State) nodeId =
+    state.graph.nodes.[nodeId].documentState.persistState
+
+let private namedSpecial id kind name =
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        kind = Special kind)
+
+let private attachOwner parentId childId graph =
+    match Graph.replace parentId 0 [] [ ChildNode.owner childId ] graph with
+    | Ok next -> next
+    | Error err -> failwith err
+
+/// Workspace, a directory, a directory under that, then a file and its body.
+let private nestedUnderDirectory () =
+    let wsId = NodeId.New()
+    let outerId = NodeId.New()
+    let innerId = NodeId.New()
+    let fileId = NodeId.New()
+    let bodyId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode (namedSpecial wsId Workspace "home")
+        |> Graph.addDetachedNode (namedSpecial outerId Directory "outer")
+        |> Graph.addDetachedNode (namedSpecial innerId Directory "inner")
+        |> Graph.addDetachedNode (namedSpecial fileId File "note.txt")
+        |> Graph.addDetachedNode (Node.Create(bodyId, text = "hello"))
+        |> attachOwner Graph.workspacesId wsId
+        |> attachOwner wsId outerId
+        |> attachOwner outerId innerId
+        |> attachOwner innerId fileId
+        |> attachOwner fileId bodyId
+    let nodes =
+        graph.nodes
+        |> Map.map (fun _ node ->
+            Node.withPersistState PersistState.Persisted node)
+    wsId, outerId, innerId, fileId, bodyId,
+    { graph = { graph with nodes = nodes }
+      eventId = EventId.zero }
+
+[<Fact>]
+let ``ordinary edit posts NodeUnpersisted`` () =
+    let fileId, initial = fileWithText ()
+    let ordered, after = runOrdinaryEdit initial (editFileText fileId)
+    changeBeforeUnpersisted ordered fileId
+    let node = after.graph.nodes.[fileId]
+    Assert.Equal("edited", node.text)
+    Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
+
+    let wsId, outerId, innerId, nestedFileId, bodyId, nested =
+        nestedUnderDirectory ()
+    let nestedOrdered, nestedAfter =
+        runOrdinaryEdit nested (editText bodyId "hello" "edited")
+    changeBeforeUnpersisted nestedOrdered nestedFileId
+    Assert.False(hasUnpersisted nestedOrdered wsId)
+    Assert.False(hasUnpersisted nestedOrdered outerId)
+    Assert.False(hasUnpersisted nestedOrdered innerId)
+    Assert.Equal("edited", nestedAfter.graph.nodes.[bodyId].text)
+    Assert.Equal(PersistState.Unpersisted, persistOf nestedAfter nestedFileId)
+    Assert.Equal(PersistState.Persisted, persistOf nestedAfter wsId)
+    Assert.Equal(PersistState.Persisted, persistOf nestedAfter outerId)
+    Assert.Equal(PersistState.Persisted, persistOf nestedAfter innerId)
 
 [<Fact>]
 let ``a graph-only change logs no NodeUnpersisted`` () =

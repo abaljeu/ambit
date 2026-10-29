@@ -280,7 +280,9 @@ let ``SetDocumentState leaves the Op list`` () =
     | Error _ -> ()
     | Ok _ -> Assert.Fail("SetDocumentState must not decode")
     let changeJson =
-        "{\"eventId\":0,\"submissionId\":\"00000000-0000-0000-0000-000000000001\",\"authority\":\"Browser\",\"commandName\":\"Edit\",\"body\":{\"kind\":\"change\",\"ops\":["
+        "{\"eventId\":0,\"submissionId\":\"00000000-0000-0000-0000-000000000001\","
+        + "\"authority\":\"Browser\",\"commandName\":\"Edit\",\"body\":{"
+        + "\"kind\":\"change\",\"ops\":["
         + opJson
         + "]}}"
     match Dec.fromString EventJson.decode changeJson with
