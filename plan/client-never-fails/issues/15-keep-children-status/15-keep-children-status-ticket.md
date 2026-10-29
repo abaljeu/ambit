@@ -2,7 +2,7 @@
 **Status**: 
 One job: The spec and arch say to keep `ChildrenStatus` and its cases `Loaded` and `Unloaded`, and to stop the generator side instead, so the Server always sends each Node with its child list. This is Alan's decision of 2026-10-29, which revises "remove Loaded and Unloaded".
 
-Type: doc
+Type: manual (Alan)
 Blockers: none
 
 ## Inputs
@@ -25,11 +25,7 @@ Blockers: none
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Rename spec story 13 to "Each Node with its child list". Keep the Server lines (`wantAnswer`, `visibleClosureWantAnswer`, `Api.nodesForRequest`, `installWantAnswer`). Delete the lines that remove `ChildrenStatus`, its helpers, the wire field and values, the `residencyText` children line, and the glossary entries. Add one line: `ChildrenStatus`, its cases, its wire values and its tests stay.
-3. [ ] Rename arch path 6 to match. Delete steps 7, 8, 11 and 12. Keep the other steps and renumber them.
-4. [ ] Change the "Alan step 4" note, order item 4, and the tracer-cut paragraph so none of them says the type is deleted.
-5. [ ] Delete Glossary proposals 1 and 2. Keep 3 and 4.
+1. [ ] Ask Alan to edit spec story 13 and arch path 6 so they keep `ChildrenStatus`, its cases `Loaded` and `Unloaded`, its wire values, and the children line in `residencyText`, and to drop Glossary proposals 1 and 2. No agent does this edit.
 
 ## Outputs
 
@@ -38,8 +34,7 @@ Blockers: none
 
 ## Stop when
 
-[ ] Stop when the edit needs a file outside Inputs, and ask Alan.
-[ ] Stop when the edit would change a ticket under `issues/`.
+[ ] Stop after asking Alan, and wait for him.
 
 ## Check
 
