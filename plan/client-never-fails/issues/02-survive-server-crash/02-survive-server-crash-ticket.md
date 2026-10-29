@@ -31,7 +31,6 @@ Blockers: [01 — Accept Notices](plan/client-never-fails/issues/01-accept-notic
 
 ### Reference
 
-[ ] Scope facts: [[plan/client-never-fails/reports/02-survive-server-crash-scope.md]]
 [ ] Story order in [[plan/client-never-fails/arch.md]]
 
 ## Do not load

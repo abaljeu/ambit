@@ -27,7 +27,6 @@ Blockers: none
 
 ### Reference
 
-[ ] Scope facts: [[plan/client-never-fails/reports/01-accept-notices-scope.md]]
 [ ] Story order in [[plan/client-never-fails/arch.md]]
 
 ## Do not load

@@ -24,7 +24,6 @@ Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-
 
 ### Reference
 
-[ ] Scope facts: [[plan/client-never-fails/reports/05-fill-placeholder-scope.md]]
 [ ] Story order in [[plan/client-never-fails/arch.md]]
 
 ## Do not load

@@ -14,10 +14,10 @@ Started: 2026-10-29
 - 2026-10-29 — Alan: cost accepted. Poll and child-id lists have no width limit. Parse holds the safety valve for size. The Load refusal `LoadRefuse.MultiWorkspace` stays; it is not residency Poll.
 - 2026-10-29 — Arch written: [[plan/client-never-fails/arch.md]]. Story paths and the slicing strategy follow Alan's seven steps, from Notices through the reload prompt. Direction: `tracer-cut`.
 - 2026-10-29 — Alan: the placeholder comes before the child-list step. Order: Notices, Event then Graph, placeholder, child list on each Node, Absent fetch, protocol then the one-second typing pause, reload prompt last.
-- 2026-10-29 — Slicing. Ticket folders are under [[plan/client-never-fails/issues/]], in that order. The size limit splits the Graph model test updates into 16 — Retarget model status tests through 25 — Delete ChildrenStatus, and the whole-Workspace flag into 27 — Retarget Load capture Workspace flag through 30 — Delete includeWorkspace. Each ticket `Status` stays at the empty template value. The worker sets the stage when it starts that stage. That note is in each ticket `CONTEXT.md`.
+- 2026-10-29 — Slicing revised. `ChildrenStatus` stays. The Server-sends-child-list ticket is 06 — Server sends each Node with its child list. `includeWorkspace` is one ticket, 07 — Delete includeWorkspace, blocked by 06. Ticket `Status` stays empty. The worker sets the stage when it starts that stage. Scope facts sit in each ticket. Count of ticket files plus reports is 30.
 
 ## Open questions
 
-- 08 — Apply Replace when parent Header is present also drops the `parent children not loaded` gate in `GraphMutate.replace`. The architecture names `applyOpAllowing` for that step. The gate is in this ticket so 25 — Delete ChildrenStatus has no Replace caller left.
-- The Graph model contract is 16 — Retarget model status tests through 25 — Delete ChildrenStatus because the status assertions are test functions and the limit is 4 tests. The whole-Workspace flag uses the same limit, so it is 27 — Retarget Load capture Workspace flag through 30 — Delete includeWorkspace.
-- 37 — Reload prompt has no existing test. The sentences live in the two view modules.
+- spec.md story 13 still says remove Loaded and Unloaded, including `ChildrenStatus`, the wire values, the `residencyText` children line, and the glossary entries.
+- arch.md path 6 still says this removes Loaded and Unloaded, and steps 6.8, 6.11, and 6.12 still delete the wire field and the type. Section 4 still proposes deleting the Loaded and Unloaded glossary entries.
+- arch.md path 7, Poll for nearby Absent Nodes, is not ticketed. The file count is at 30, and that path would change tests that build Unloaded Nodes.
