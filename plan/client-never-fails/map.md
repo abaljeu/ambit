@@ -10,7 +10,7 @@ The Browser Graph is three collections:
 - nodes: map from NodeId to Node
 - children: map from NodeId to NodeId list option
 
-A Resident Node is in nodes and in children. A Absent Node is in nodes and not in children. These names replace Loaded and Unloaded, which are confused with the Load process. A new case occurs: a NodeId is in a child list and not in nodes. Today the Browser refuses that case with "new child not found".
+A Resident Node is in nodes and in children. An Absent Node is in nodes and not in children. These names replace Loaded and Unloaded, which are confused with the Load process. A new case occurs: a NodeId is in a child list and not in nodes. Today the Browser refuses that case with "new child not found".
 
 The Browser refuses server data in these places:
 
@@ -26,7 +26,7 @@ The Browser refuses server data in these places:
 
 The Browser applies every server reply. Each fix removes a refusal where it starts.
 
-- New case display: a child NodeId that is not in nodes shows as a placeholder Bullet. It is drawn in color #444444. It expands like a Absent Node, it selects like any row, and it takes every Command except edit. When its Node arrives, the next render draws it as a normal row.
+- New case display: a child NodeId that is not in nodes shows as a placeholder Bullet. It is drawn in color #444444. It expands like an Absent Node, it selects like any row, and it takes every Command except edit. When its Node arrives, the next render draws it as a normal row.
 - New case Fetch: inserting a child NodeId that is not in nodes makes the Browser request that Node. Today the request looks only at children = None.
 - 1 — Notices: when the Browser has no pending changes, it accepts each Notice. It applies the Notice and takes its event id. A Notice never blocks the Browser, never sets DataOutdated, and never refuses a Load reply. A post reply applies its Notices too.
 - 2 — Moved child: the Browser accepts the child list as the Server sends it.

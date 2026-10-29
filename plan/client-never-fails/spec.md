@@ -7,7 +7,7 @@ Map: [[map.md]]
 1. Accept Notices — As an outliner, I want the Browser to apply each Notice and take its event id when it has no pending changes, and a post reply to apply its Notices too, so that parse and persist status never stops Sync while I type or expand.
 2. Never reload for server data — As an outliner, I want the Browser to apply every server reply, so that I never see "Data changed on server — click to reload".
 3. See a moved Node — As an outliner with a section open, I want a Node that another tab moves into that section to show as a placeholder Bullet drawn in color #444444, so that my view stays live.
-4. Use a placeholder — As an outliner, I want to expand, select, and run every Command except edit on a placeholder Bullet, so that it acts like a Absent Node.
+4. Use a placeholder — As an outliner, I want to expand, select, and run every Command except edit on a placeholder Bullet, so that it acts like an Absent Node.
 5. Fill a placeholder — As an outliner, I want the Browser to request a Node that is in a child list but not in nodes, and draw it as a normal row when it arrives, so that the placeholder fills in by itself.
 6. Poll with pending changes — As an outliner with changes not yet posted, I want a Poll to apply, and my changes to post after it, so that Sync continues.
 7. Merge in progress — As an outliner with more changes pending, I want the Browser to ignore a post reply with different changes, post the rest, and wait for a clean merge, so that Sync continues without a reload.
@@ -24,5 +24,5 @@ Map: [[map.md]]
     - the callers of `isLoaded` in `Want.fs`, `History.fs`, `GraphMutate.fs`, `ResidentProjection.fs`, `WorkspaceUploadStructure.fs`, and `UpdateHelpers.fs`
     - the wire values `"loaded"` and `"unloaded"` of field `childrenStatus` in `src/Shared/Serialization.fs`
     - the Bullet tip text in `ViewModelRowState.residencyText`
-    - the glossary entries Loaded, Unloaded, and Resident in [[GLOSSARY.md]]
+    - the glossary entries Loaded, Unloaded, Resident, and Absent in [[GLOSSARY.md]]
 14. Know about a new version — As an outliner, I want "New version available" to stay, so that I reload when the protocol changes.
