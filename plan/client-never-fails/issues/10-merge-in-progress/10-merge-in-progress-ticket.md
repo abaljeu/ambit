@@ -3,7 +3,7 @@
 One job: The outliner with more changes pending sees a different post reply ignored, then the Browser posts the rest and waits for a reply that matches. The story Merge in progress in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
-Blockers: [09 — Poll with pending changes](plan/client-never-fails/issues/09-poll-with-pending-changes/09-poll-with-pending-changes-ticket.md)
+Blockers: none
 
 ## Inputs
 
