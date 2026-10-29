@@ -1,6 +1,6 @@
 # Client never fails on server data
 
-Stage: spec
+Stage: arch
 Summary: The Browser takes in every Event and answer that the Server sends, and never asks the user to reload because of server data.
 Updated: 2026-10-29
 Started: 2026-10-29
@@ -12,7 +12,8 @@ Started: 2026-10-29
 - 2026-10-29 — Alan answered the open questions on the draft PR. The map and the spec hold the answers. A post reply applies Notices. The placeholder is drawn in color #444444. A merge in progress ignores the reply, posts the rest, and waits for a clean merge (rule for now). An edit posts after a one-second typing pause. A Poll that removes the edited Node ends edit mode. The Server writes the Event first, then the Graph, so the Browser needs no handling for an event id with no Events.
 - 2026-10-29 — Alan: remove Loaded and Unloaded. Each state return for a NodeId includes both its Header and its child list. Resident and Absent keep their glossary meaning; an Absent child is the placeholder. Findings: [[plan/client-never-fails/reports/remove-loaded-findings.md]].
 - 2026-10-29 — Alan: cost accepted. Poll and child-id lists have no width limit. Parse holds the safety valve for size. The Load refusal `LoadRefuse.MultiWorkspace` stays; it is not residency Poll.
+- 2026-10-29 — Arch written: [[plan/client-never-fails/arch.md]]. Story paths and the slicing strategy follow Alan's seven steps, from Notices through the reload prompt. Direction: `tracer-cut`.
 
 ## Open questions
 
-None. The spec is ready for Alan's review.
+1. **Absent row gap** — After **Remove Loaded and Unloaded**, the site map omits a child id with no Header. **See a moved Node** adds that row and draws the Bullet in color #444444. Confirm the outline shows no row for that id until the placeholder step.
