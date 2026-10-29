@@ -1,6 +1,6 @@
 # Client never fails on server data
 
-Stage: arch
+Stage: slicing
 Summary: The Browser takes in every Event and answer that the Server sends, and never asks the user to reload because of server data.
 Updated: 2026-10-29
 Started: 2026-10-29
@@ -14,7 +14,10 @@ Started: 2026-10-29
 - 2026-10-29 — Alan: cost accepted. Poll and child-id lists have no width limit. Parse holds the safety valve for size. The Load refusal `LoadRefuse.MultiWorkspace` stays; it is not residency Poll.
 - 2026-10-29 — Arch written: [[plan/client-never-fails/arch.md]]. Story paths and the slicing strategy follow Alan's seven steps, from Notices through the reload prompt. Direction: `tracer-cut`.
 - 2026-10-29 — Alan: the placeholder comes before the child-list step. Order: Notices, Event then Graph, placeholder, child list on each Node, Absent fetch, protocol then the one-second typing pause, reload prompt last.
+- 2026-10-29 — Slicing. Ticket folders are under [[plan/client-never-fails/issues/]], in that order. The size limit splits the Graph model test updates into 16 — Retarget model status tests through 25 — Delete ChildrenStatus, and the whole-Workspace flag into 27 — Retarget Load capture Workspace flag through 30 — Delete includeWorkspace. Each ticket `Status` stays at the empty template value. The worker sets the stage when it starts that stage. That note is in each ticket `CONTEXT.md`.
 
 ## Open questions
 
-None.
+- 08 — Apply Replace when parent Header is present also drops the `parent children not loaded` gate in `GraphMutate.replace`. The architecture names `applyOpAllowing` for that step. The gate is in this ticket so 25 — Delete ChildrenStatus has no Replace caller left.
+- The Graph model contract is 16 — Retarget model status tests through 25 — Delete ChildrenStatus because the status assertions are test functions and the limit is 4 tests. The whole-Workspace flag uses the same limit, so it is 27 — Retarget Load capture Workspace flag through 30 — Delete includeWorkspace.
+- 37 — Reload prompt has no existing test. The sentences live in the two view modules.
