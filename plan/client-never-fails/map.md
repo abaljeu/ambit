@@ -28,7 +28,7 @@ The Browser applies every server reply. Each fix removes a refusal where it star
 
 - New case display: a child NodeId that is not in nodes shows as a placeholder Bullet. It expands like an Unloaded Node, it selects like any row, and it takes every Command except edit. When its Node arrives, the next render draws it as a normal row.
 - New case Fetch: inserting a child NodeId that is not in nodes makes the Browser request that Node. Today the request looks only at children = None.
-- 1 — Notices: a Notice that would otherwise trip the Browser is ignored. A Notice never sets DataOutdated and never refuses a Load reply.
+- 1 — Notices: when the Browser has no pending changes, it accepts each Notice. It applies the Notice and takes its event id. A Notice never blocks the Browser, never sets DataOutdated, and never refuses a Load reply.
 - 2 — Moved child: the Browser accepts the child list as the Server sends it.
 - 3 — Protocol: the Browser posts every change. The Server merges and sends back revised Events. A post reply undoes the posted changes and replays the server Events. A Poll is the same with zero changes to undo, so a Poll always applies. A post reply with our own changes as Events is accepted. A post reply with different changes while more changes are pending is a merge in progress, not a reload.
 - 4 — Typing: the Browser posts the edit after a pause in typing. Edit mode stays on.

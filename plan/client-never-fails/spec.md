@@ -4,7 +4,7 @@ Map: [[map.md]]
 
 ## 1. User stories
 
-1. Ignore tripping Notices — As an outliner, I want a Notice that would otherwise trip the Browser to be ignored, so that parse and persist status never stops Sync while I type or expand.
+1. Accept Notices — As an outliner with no pending changes, I want the Browser to apply each Notice and take its event id, so that parse and persist status never stops Sync while I type or expand.
 2. Never reload for server data — As an outliner, I want the Browser to apply every server reply, so that I never see "Data changed on server — click to reload".
 3. See a moved Node — As an outliner with a section open, I want a Node that another tab moves into that section to show as a placeholder Bullet, so that my view stays live.
 4. Use a placeholder — As an outliner, I want to expand, select, and run every Command except edit on a placeholder Bullet, so that it acts like an Unloaded Node.

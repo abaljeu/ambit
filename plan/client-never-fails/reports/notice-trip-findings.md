@@ -23,6 +23,10 @@ Notices are a main cause of DataOutdated. A Notice is a logged Event, so it move
 
 Each Change inside a File Node Body makes the Server log Notices. `CoreEventDispatch.markForPersist` logs NodeUnpersisted. `PersistThread.runRequest` logs NodePersisting, then NodePersisted or PersistFailed. No delay was found before the persist run. So an outliner who commits a line in a File Node and types the next line in the next seconds gets a Notice-only Poll while the edit box is dirty. ParseThread and LazyLoadReconciliationServer add NodeParsing, NodeParsed, and NodeUnparsed when a File Node opens or is reconciled.
 
-## What ignoring a Notice loses
+## What a Notice writes
 
-Notices write only document state: parse state, persist state, persisted version, and Update Time (`NoticeGraph.writeGraph`). NodeParsing, NodePersisting, ParseFailed, and PersistFailed do not write the Graph. PersistFailed also shows its message (`SyncLogic.persistFailedMessage`). A Notice never writes text or Children, so it never conflicts with an edit. A skipped Notice leaves the Bullet and tip status stale until the next Notice for that Node. Applying the Notice without the block keeps the status and is equally safe.
+Notices write only document state: parse state, persist state, persisted version, and Update Time (`NoticeGraph.writeGraph`). NodeParsing, NodePersisting, ParseFailed, and PersistFailed do not write the Graph. PersistFailed also shows its message (`SyncLogic.persistFailedMessage`). A Notice never writes text or Children, so it never conflicts with an edit. So the Browser can apply a Notice while the edit box is dirty, with no block.
+
+## Notices with pending changes
+
+The Browser starts no Poll or Load while changes are pending (`SyncPlanner.tryStartPoll`, `SyncPlanner.tryStartLoad`). Notices then arrive only in a post reply. `SyncLogic.reconcileAck` drops them before it matches confirmations and takes the server event id. It does not apply their Graph writes, so parse and persist status can stay stale until a later Notice. A post reply that needs catch-up goes through `reconcileExternalAck`, and the catch-up Poll replays Notices through `foldProjectedEvents`.
