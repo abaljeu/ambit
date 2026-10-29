@@ -10,3 +10,4 @@ A person trusts the outline: ownership, parse and load state, UI seams, and the 
 - [[chapters/incremental-operations.md]]
 - [[chapters/rowview-layout-vs-behavior.md]]
 - [[chapters/move-nodes-with-files.md]]
+- [[chapters/client-never-fails.md]]
