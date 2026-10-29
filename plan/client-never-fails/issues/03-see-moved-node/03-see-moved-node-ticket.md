@@ -3,7 +3,7 @@
 One job: The outliner sees a Node another tab moves into an open section as a placeholder Bullet in color #444444. The story See a moved Node in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
-Blockers: [02 — Survive a Server crash](plan/client-never-fails/issues/02-survive-server-crash/02-survive-server-crash-ticket.md)
+Blockers: none
 
 ## Inputs
 

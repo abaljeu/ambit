@@ -3,7 +3,7 @@
 One job: The outliner can select a placeholder row, expand it, and run every Command except edit. The story Use a placeholder in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
-Blockers: [02 — Survive a Server crash](plan/client-never-fails/issues/02-survive-server-crash/02-survive-server-crash-ticket.md); [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-node/03-see-moved-node-ticket.md)
+Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-node/03-see-moved-node-ticket.md)
 
 ## Inputs
 
