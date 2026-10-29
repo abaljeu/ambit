@@ -8,7 +8,7 @@ This Project takes this sequence from [[plan/context/project-work.md]], ending w
 
 - map: [[plan/client-never-fails/map.md]]
 - spec: [[plan/client-never-fails/spec.md]]
-- arch
+- arch: [[plan/client-never-fails/arch.md]]
 - slicing: [[plan/context/slicing-work2.md]]
 
 Slicing makes one ticket folder per slice under `plan/client-never-fails/issues/`. Each ticket folder's `CONTEXT.md` names the rest of its steps.
