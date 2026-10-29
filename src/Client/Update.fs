@@ -66,56 +66,33 @@ let private reconcileSubmit
         response.externalChanges
         || not (SyncLogic.isConfirmationEcho submitted response.events)
     let state = clientSyncState model
-    let acknowledged =
-        SyncLogic.reconcileAck
-            submitted
-            response.events
-            response.eventId
-            state
-            model.syncInfo
     let outcome =
-        match acknowledged with
-        | AckReconcile.Ignored -> acknowledged
-        | _ when needsCatchUp ->
+        if needsCatchUp then
             SyncLogic.reconcileExternalAck
                 submitted response.eventId state model.syncInfo
-        | other -> other
+        else
+            SyncLogic.reconcileAck
+                submitted response.events response.eventId state model.syncInfo
     { outcome = outcome
       needsCatchUp = needsCatchUp }
 
-let private postRemainingPending
-    (submitted: Ev list)
-    (response: ChangeSuccessResponse)
-    (model: VM)
-    : VM * Effect list =
-    let nextSync, _, effects =
-        SyncPlanner.retireSubmittedPrefix
-            submitted.Length
-            response.eventId
-            model.syncInfo
-    { model with syncInfo = nextSync },
-    SavePendingQueue nextSync.pending :: effects
-
 let private applyIgnoredSubmitAnswer
-    (submitted: Ev list)
     (response: ChangeSuccessResponse)
     (model: VM)
     : VM * Effect list =
-    if SyncLogic.pendingExtendsSubmitted submitted model.syncInfo.pending then
-        postRemainingPending submitted response model
-    else
-        match SyncAnswer.applyChangeSuccess response (clientSyncState model) with
-        | Error _ ->
-            { model with
-                syncInfo =
-                    SyncInfo.withSyncState DataOutdated model.syncInfo },
-            []
-        | Ok answered ->
-            (withAppliedSync answered model
-             |> withSiteMap
-             |> adjustModeAfterServerApply model.graph,
-             [])
-            |> continueAutoWant (SyncLogic.changeSuccessToSync response)
+    match
+        SyncAnswer.applyChangeSuccess response (clientSyncState model)
+    with
+    | Error _ ->
+        { model with
+            syncInfo = SyncInfo.withSyncState DataOutdated model.syncInfo },
+        []
+    | Ok answered ->
+        (withAppliedSync answered model
+         |> withSiteMap
+         |> adjustModeAfterServerApply model.graph,
+         [])
+        |> continueAutoWant (SyncLogic.changeSuccessToSync response)
 
 let private finishAppliedSubmit
     (response: ChangeSuccessResponse)
@@ -216,8 +193,7 @@ let private applySubmitResponse
     | _ ->
         let reconciliation = reconcileSubmit submitted response model
         match reconciliation.outcome with
-        | AckReconcile.Ignored ->
-            applyIgnoredSubmitAnswer submitted response model
+        | AckReconcile.Ignored -> applyIgnoredSubmitAnswer response model
         | AckReconcile.Rejected detail -> rejectPending detail model
         | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
             consoleLog (

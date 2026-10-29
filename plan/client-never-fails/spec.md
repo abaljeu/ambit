@@ -10,7 +10,7 @@ Map: [[map.md]]
 4. Use a placeholder — As an outliner, I want to expand, select, and run every Command except edit on a placeholder Bullet, so that it acts like any row.
 5. Fill a placeholder — As an outliner, I want the Browser to draw an Absent child as a normal row when its Node arrives, so that the placeholder fills in by itself.
 6. Poll with pending changes — As an outliner with changes not yet posted, I want a Poll to apply, and my changes to post after it, so that Sync continues.
-7. Merge in progress — As an outliner with more changes pending, I want the Browser to ignore a post reply with different changes, post the rest, and wait for a clean merge, so that Sync continues without a reload.
+7. Merge in progress — As an outliner with more changes pending, I want a server success reply accepted and the rest of my changes posted, so that Sync continues without a reload. The wire is synchronous: a post gets the reply to that same post, so a reply with different changes cannot come from a normal success. A server reject keeps the existing reload message, and its code is not changed. A network error is not a server reject and is not part of this story.
 8. Type while others change — As an outliner in edit mode, I want my edit to post after a one-second pause in typing, with edit mode on, so that server changes apply while I type.
 9. Edited Node removed — As an outliner in edit mode, I want the Browser to leave edit mode when a Poll removes the Node I edit, and then render the view as usual, so that the view stays true to the Server.
 10. Edit during a Load — As an outliner, I want to edit while a Load is in flight, so that an expand never blocks my edit.
