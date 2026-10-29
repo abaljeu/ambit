@@ -1,4 +1,4 @@
-# 106 — Move Order beside EventBody, in Ev.fs
+# 106 — Move Order beside EventBody
 
 **Status:** `defined`
 **Trackers:** architecture
@@ -15,7 +15,7 @@
 
 ### Owner
 
-[ ] [History.fs](src/Shared/History.fs) owns `Op`, `Authority`, `ActorResult`, `ActorStart`, `Notice`, `EventBody`, and `Ev`
+[ ] [History.fs](src/Shared/History.fs) owns `Notice`, `EventBody`, and `Ev`, and the `ChangeValidation` module
 
 ### Source
 
@@ -33,8 +33,7 @@
 
 ### Compile order
 
-[ ] `History.fs` defines `Op`, `Authority`, `ActorResult`, `ActorStart`, `Notice`, `EventBody`, and `Ev`, then `State`, `ApplyResult`, and the `Op`, `Ev`, and `ChangeValidation` modules
-[ ] `History.fs` is overloaded
+[ ] `History.fs` defines `Op`, `ActorStart`, `Notice`, `EventBody`, and `Ev`
 [ ] `Order` is in `MailboxLog.fs`, after `History.fs`
 [ ] `Order.LoadSave` holds `LoadSavePath` and `LoadSaveCommandRequest`
 [ ] `LoadSavePath` is in `PathPick.fs`, after `History.fs`
@@ -46,35 +45,41 @@
 
 [ ] [107 — Add EventBody.Order](107-add-eventbody-order.md) adds `EventBody.Order of Order`
 [ ] `Order` must compile before `EventBody`
-[ ] Alan, 2026-10-29: the types go in a new file, `Ev.fs`, not in `History.fs`. `Ev.fs` holds all the types up to and including `Ev`.
+[ ] `History.fs` is overloaded. Alan, 2026-10-29: the types stay in `History.fs` and `Order` joins them there; the `ChangeValidation` module leaves for its own file.
 
 ## 5. Changes
 
 ### Change
 
-[ ] One refactor: move type definitions into a new `Ev.fs`, with no other edit
+[ ] One refactor: move type definitions and the `ChangeValidation` module, with no other edit
 
-### Ev.fs
+### History.fs
 
-[ ] New file `src/Shared/Ev.fs`, namespace `Gambol.Shared`
-[ ] It holds, in this order, with their attributes and doc comments: `Op`, `Authority`, `ActorResult`, `ActorStart`, `LoadSavePath`, `LoadSavePrePick`, `LoadSaveOperation`, `LoadSaveCommandRequest`, `Notice`, `PeerActorName`, `ChangeOrigin`, `Order`, `EventBody`, `Ev`
+[ ] Add `LoadSavePath`, `LoadSavePrePick`, and `LoadSaveOperation` after `ActorStart`, with their attributes
+[ ] Add `LoadSaveCommandRequest` after them
+[ ] Add `PeerActorName`, `ChangeOrigin`, and `Order` after `Notice` and before `EventBody`, with their attributes
+[ ] Remove the `ChangeValidation` module
+
+### ChangeValidation.fs
+
+[ ] New file `src/Shared/ChangeValidation.fs`, namespace `Gambol.Shared`
+[ ] It holds the `ChangeValidation` module from `History.fs`, unchanged, with its attributes and doc comments
 
 ### Gambol.Shared.fsproj
 
-[ ] Compile `Ev.fs` immediately before `History.fs`
+[ ] Compile `ChangeValidation.fs` immediately after `History.fs`
 
 ### Old homes
 
-[ ] Remove `Op`, `Authority`, `ActorResult`, `ActorStart`, `Notice`, `EventBody`, and `Ev` from `History.fs`; `State`, `ApplyResult`, and the modules stay
-[ ] Remove the three LoadSave unions from `PathPick.fs`
+[ ] Remove those three unions from `PathPick.fs`
 [ ] Remove `LoadSaveCommandRequest` from `LoadSaveCommand.fs`
 [ ] Remove `PeerActorName`, `ChangeOrigin`, and `Order` from `MailboxLog.fs`
-[ ] The modules and other types in `History.fs`, `PathPick.fs`, `LoadSaveCommand.fs`, and `MailboxLog.fs` stay
-[ ] No caller changes, because the namespace stays `Gambol.Shared`
+[ ] The modules in `PathPick.fs`, `LoadSaveCommand.fs`, and `MailboxLog.fs` stay
+[ ] No caller changes, because the namespace stays `Gambol.Shared` and `ChangeValidation` keeps its name
 
 ### Size
 
-[ ] 6 source files: `Ev.fs` (new), `Gambol.Shared.fsproj`, `History.fs`, `PathPick.fs`, `LoadSaveCommand.fs`, `MailboxLog.fs`
+[ ] 6 source files: `History.fs`, `ChangeValidation.fs` (new), `Gambol.Shared.fsproj`, `PathPick.fs`, `LoadSaveCommand.fs`, `MailboxLog.fs`
 [ ] 0 test files
 
 ## 6. Tests
@@ -87,6 +92,8 @@
 [ ] Filter: `StartPeerActor carries Shared PeerActorName`
 [ ] Filter: `PathPickTests`
 [ ] Filter: `LoadSaveCommandTests`
+[ ] Keep `HistoryTests`, which use `ChangeValidation`
+[ ] Filter: `HistoryTests`
 
 ## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
