@@ -129,6 +129,28 @@ module Layout =
                 | Some t -> indicator.setAttribute("title", t)
                 | None -> indicator.removeAttribute "title"
 
+    /// Indent, Bullet, text, name, file indicator, and Cancel button.
+    let private buildRowFrame (row: HTMLElement) (depth: int) (bullet: HTMLElement) =
+        for _ in 1 .. depth do
+            let indent = document.createElement "div"
+            indent.classList.add "amb-indent"
+            row.appendChild indent |> ignore
+        let textDiv = document.createElement "div"
+        textDiv.classList.add "amb-text"
+        let nameSpan = document.createElement "span"
+        nameSpan.classList.add "amb-node-guid"
+        let fileIndicator = document.createElement "span"
+        fileIndicator.classList.add "amb-file-indicator"
+        let cancelBtn = document.createElement "button"
+        cancelBtn.classList.add ActorLive.cancelControlClass
+        cancelBtn.setAttribute("type", "button")
+        cancelBtn.setAttribute("aria-label", "Cancel")
+        cancelBtn.title <- "Cancel"
+        cancelBtn.textContent <- "Cancel"
+        for el in [ bullet; textDiv; nameSpan; fileIndicator; cancelBtn ] do
+            row.appendChild el |> ignore
+        textDiv, nameSpan, fileIndicator
+
     /// Placeholder row for an Absent Header. Bullet color is #444444.
     let private buildAbsentRowElement
         (model: VM) (depth: int) (siteEntry: SiteEntry)
@@ -144,27 +166,10 @@ module Layout =
         if isEntryFocused model siteEntry then row.classList.add "amb-focused"
         if Set.contains nodeId model.actorLiveFocusIds then
             row.classList.add ActorLive.liveRowClass
-        for _ in 1 .. depth do
-            let indent = document.createElement "div"
-            indent.classList.add "amb-indent"
-            row.appendChild indent |> ignore
         let dot = document.createElement "span"
         dot.classList.add "amb-fold-toggle"
         dot.classList.add "amb-bullet-dot"
-        let textDiv = document.createElement "div"
-        textDiv.classList.add "amb-text"
-        let nameSpan = document.createElement "span"
-        nameSpan.classList.add "amb-node-guid"
-        let fileIndicator = document.createElement "span"
-        fileIndicator.classList.add "amb-file-indicator"
-        let cancelBtn = document.createElement "button"
-        cancelBtn.classList.add ActorLive.cancelControlClass
-        cancelBtn.setAttribute("type", "button")
-        cancelBtn.setAttribute("aria-label", "Cancel")
-        cancelBtn.title <- "Cancel"
-        cancelBtn.textContent <- "Cancel"
-        for el in [ dot; textDiv; nameSpan; fileIndicator; cancelBtn ] do
-            row.appendChild el |> ignore
+        let textDiv, _, _ = buildRowFrame row depth dot
         row, textDiv, dot, false,
         ViewModelChildrenIndicator.placeholderBulletIndicator
 
@@ -195,36 +200,27 @@ module Layout =
         | Some cls -> row.classList.add cls
         | None -> ()
 
-        for _ in 1 .. depth do
-            let indent = document.createElement "div"
-            indent.classList.add "amb-indent"
-            row.appendChild indent |> ignore
-
         let nodeBullet =
             match childrenIndicator with
             | RowChildrenIndicator.FoldChevron ->
                 let toggle = document.createElement "span"
                 toggle.classList.add "amb-fold-toggle"
                 toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
-                row.appendChild toggle |> ignore
                 toggle
             | RowChildrenIndicator.SolidCircle ->
                 let dot = document.createElement "span"
                 dot.classList.add "amb-fold-toggle"
                 dot.classList.add "amb-bullet-dot"
-                row.appendChild dot |> ignore
                 dot
             | RowChildrenIndicator.HollowCircle ->
                 let dot = document.createElement "span"
                 dot.classList.add "amb-fold-toggle"
                 dot.classList.add "amb-bullet-hollow"
-                row.appendChild dot |> ignore
                 dot
             | RowChildrenIndicator.SlashedHollowCircle ->
                 let dot = document.createElement "span"
                 dot.classList.add "amb-fold-toggle"
                 dot.classList.add "amb-bullet-hollow-slash"
-                row.appendChild dot |> ignore
                 dot
         let cssClasses = CssClass.toList node.cssClasses
         for cls in cssClasses do
@@ -232,8 +228,7 @@ module Layout =
         let tip = ViewModel.bulletTip formatLocalDateTime model node
         if tip <> "" then nodeBullet.setAttribute("title", tip)
 
-        let textDiv = document.createElement "div"
-        textDiv.classList.add "amb-text"
+        let textDiv, nameSpan, fileIndicator = buildRowFrame row depth nodeBullet
         for cls in cssClasses do
             textDiv.classList.add cls
         if isEditingEntry model siteEntry then
@@ -261,29 +256,12 @@ module Layout =
             textDiv.removeAttribute "id"
             textDiv.contentEditable <- "false"
             textDiv.textContent <- ViewModel.outlineDisplayText node
-        row.appendChild textDiv |> ignore
-
-        let nameSpan = document.createElement "span"
-        nameSpan.classList.add "amb-node-guid"
         nameSpan.textContent <- ViewModel.rowNameDisplayText node.name
-        row.appendChild nameSpan |> ignore
-
-        let fileIndicator = document.createElement "span"
-        fileIndicator.classList.add "amb-file-indicator"
         let display, title = ViewModel.rowFileIndicator model siteEntry node
         fileIndicator.textContent <- display
         match title with
         | Some t -> fileIndicator.setAttribute("title", t)
         | None -> fileIndicator.removeAttribute "title"
-        row.appendChild fileIndicator |> ignore
-
-        let cancelBtn = document.createElement "button"
-        cancelBtn.classList.add ActorLive.cancelControlClass
-        cancelBtn.setAttribute("type", "button")
-        cancelBtn.setAttribute("aria-label", "Cancel")
-        cancelBtn.title <- "Cancel"
-        cancelBtn.textContent <- "Cancel"
-        row.appendChild cancelBtn |> ignore
         row, textDiv, nodeBullet, hasChildren, childrenIndicator
 
     /// Row skeleton: classes, indents, fold/leaf, text, name, file indicator. No listeners.
