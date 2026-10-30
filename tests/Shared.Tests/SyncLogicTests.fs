@@ -881,8 +881,12 @@ let ``applySyncResponse refuses dangling Want edges`` () =
                 Map.ofList [ parentId, [ ChildNode.owner missingId ] ] }
             st
     with
-    | Ok _ -> failwith "Expected dangling edge refusal"
-    | Error msg -> Assert.Equal("dangling edge", msg)
+    | Error msg -> Assert.Fail(msg)
+    | Ok result ->
+        Assert.False(Map.containsKey missingId result.graph.nodes)
+        Assert.Equal<ChildNode list>(
+            [ ChildNode.owner missingId ],
+            Graph.children result.graph parentId)
 
 [<Fact>]
 let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` () =

@@ -129,14 +129,52 @@ module Layout =
                 | Some t -> indicator.setAttribute("title", t)
                 | None -> indicator.removeAttribute "title"
 
-    /// Row skeleton: classes, indents, fold/leaf, text, name, file indicator. No listeners.
-    let internal buildRowElement
+    /// Placeholder row for an Absent Header. Bullet color is #444444.
+    let private buildAbsentRowElement
         (model: VM) (depth: int) (siteEntry: SiteEntry)
         : HTMLElement * HTMLElement * HTMLElement * bool * RowChildrenIndicator =
         let nodeId = siteEntry.nodeId
-        let node = model.graph.nodes.[nodeId]
+        let row = document.createElement "div"
+        row.classList.add "amb-row"
+        row.classList.add (ViewModel.rowOwnershipClass model siteEntry)
+        row.classList.add "amb-row-absent"
+        row.setAttribute("data-node-id", nodeId.Value.ToString())
+        if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
+        if isEntrySelected model siteEntry then row.classList.add "amb-selected"
+        if isEntryFocused model siteEntry then row.classList.add "amb-focused"
+        if Set.contains nodeId model.actorLiveFocusIds then
+            row.classList.add ActorLive.liveRowClass
+        for _ in 1 .. depth do
+            let indent = document.createElement "div"
+            indent.classList.add "amb-indent"
+            row.appendChild indent |> ignore
+        let dot = document.createElement "span"
+        dot.classList.add "amb-fold-toggle"
+        dot.classList.add "amb-bullet-dot"
+        let textDiv = document.createElement "div"
+        textDiv.classList.add "amb-text"
+        let nameSpan = document.createElement "span"
+        nameSpan.classList.add "amb-node-guid"
+        let fileIndicator = document.createElement "span"
+        fileIndicator.classList.add "amb-file-indicator"
+        let cancelBtn = document.createElement "button"
+        cancelBtn.classList.add ActorLive.cancelControlClass
+        cancelBtn.setAttribute("type", "button")
+        cancelBtn.setAttribute("aria-label", "Cancel")
+        cancelBtn.title <- "Cancel"
+        cancelBtn.textContent <- "Cancel"
+        for el in [ dot; textDiv; nameSpan; fileIndicator; cancelBtn ] do
+            row.appendChild el |> ignore
+        row, textDiv, dot, false,
+        ViewModelChildrenIndicator.placeholderBulletIndicator
+
+    /// Row skeleton for a Resident Header.
+    let private buildResidentRowElement
+        (model: VM) (depth: int) (siteEntry: SiteEntry) (node: Node)
+        : HTMLElement * HTMLElement * HTMLElement * bool * RowChildrenIndicator =
+        let nodeId = siteEntry.nodeId
         let childrenIndicator =
-            ViewModel.rowChildrenIndicator model.graph node
+            ViewModelChildrenIndicator.rowChildrenIndicatorForId model.graph nodeId
         let hasChildren = childrenIndicator = RowChildrenIndicator.FoldChevron
         let row = document.createElement "div"
         row.classList.add "amb-row"
@@ -247,6 +285,14 @@ module Layout =
         cancelBtn.textContent <- "Cancel"
         row.appendChild cancelBtn |> ignore
         row, textDiv, nodeBullet, hasChildren, childrenIndicator
+
+    /// Row skeleton: classes, indents, fold/leaf, text, name, file indicator. No listeners.
+    let internal buildRowElement
+        (model: VM) (depth: int) (siteEntry: SiteEntry)
+        : HTMLElement * HTMLElement * HTMLElement * bool * RowChildrenIndicator =
+        match Map.tryFind siteEntry.nodeId model.graph.nodes with
+        | None -> buildAbsentRowElement model depth siteEntry
+        | Some node -> buildResidentRowElement model depth siteEntry node
 
 /// Listeners, scroll-defer / fold-toggle timers, dispatch wiring.
 module Behavior =

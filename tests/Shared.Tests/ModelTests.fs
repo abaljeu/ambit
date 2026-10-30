@@ -245,6 +245,23 @@ let ``Graph replace parent missing error ends with last 8 hex of parent id`` () 
     | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]
+let ``Graph.replace accepts new child id with no Header`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentIds = ModelBuilder.createNodes [ "section" ] graph0
+    let parentId = parentIds.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parentId ]) graph1
+        |> requireOk "parent"
+    let absentId = NodeId.New()
+    match Graph.replace parentId 0 [] (owned [ absentId ]) graph2 with
+    | Error msg -> Assert.Fail(msg)
+    | Ok graph3 ->
+        Assert.False(Map.containsKey absentId graph3.nodes)
+        Assert.Equal<ChildNode list>(
+            owned [ absentId ],
+            Graph.children graph3 parentId)
+
+[<Fact>]
 let ``Graph.replace rejects Unloaded parent`` () =
     let graph0 = Graph.create ()
     let id = NodeId.New()
@@ -263,7 +280,7 @@ let ``Graph.replace rejects Unloaded parent`` () =
 // replace: when old span matches, parent children are updated
 // replace: node count does not change
 // replace: errors when parent node id is missing
-// replace: errors when any new child id is missing
+// replace: a new child id with no Header stays on the parent list
 // replace: errors when index is out of bounds
 // replace: errors when old span does not match existing children at index
 // replace: supports insert (old ids empty) at index

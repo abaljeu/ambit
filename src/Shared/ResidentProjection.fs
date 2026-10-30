@@ -200,7 +200,8 @@ module ResidentProjection =
         : ApplyResult * string option =
         applyOpsForSyncAllowing true (Some EventId.zero) ops state sync
 
-    /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
+    /// Install Want-answer edges and pointed-at Nodes.
+    /// A child id with no Header stays on the edge.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
     /// is Loaded. Idempotent for the same package.
     let installWantAnswer
@@ -213,20 +214,11 @@ module ResidentProjection =
             |> List.fold
                 (fun acc node -> Map.add node.id node acc)
                 graph.nodes
-        let dangling =
+        let mergedChildMap =
             edges
-            |> Map.exists (fun _ kids ->
-                kids
-                |> List.exists (fun child ->
-                    not (Map.containsKey child.id mergedNodes)))
-        if dangling then
-            Error "dangling edge"
-        else
-            let mergedChildMap =
-                edges
-                |> Map.fold (fun acc key kids -> Map.add key kids acc)
-                    graph.childMap
-            Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
+            |> Map.fold (fun acc key kids -> Map.add key kids acc)
+                graph.childMap
+        Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
 
     /// Authoritative Children and pointed-at Nodes for Browser-supplied Want ids.
     /// Omit a parent edge when any target Header is absent.

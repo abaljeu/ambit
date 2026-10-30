@@ -179,10 +179,15 @@ let ``compose is empty when Included is Loaded`` () =
 let ``installWantAnswer refuses a dangling edge`` () =
     let graph, _, _, childIds = zoomWithChildren [ "a" ]
     let missing = NodeId.New()
-    let edges = Map.ofList [ childIds.[0], owned [ missing ] ]
+    let parentId = childIds.[0]
+    let edges = Map.ofList [ parentId, owned [ missing ] ]
     match ResidentProjection.installWantAnswer edges [] graph with
-    | Ok _ -> failwith "expected dangling refuse"
-    | Error msg -> Assert.Equal("dangling edge", msg)
+    | Error msg -> Assert.Fail(msg)
+    | Ok installed ->
+        Assert.False(Map.containsKey missing installed.nodes)
+        Assert.Equal<ChildNode list>(
+            owned [ missing ],
+            Graph.children installed parentId)
 
 [<Fact>]
 let ``installWantAnswer keeps absent key Unloaded and [] Loaded`` () =

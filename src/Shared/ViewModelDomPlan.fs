@@ -47,6 +47,44 @@ module ViewModelDomPlan =
             |> List.collect (fun id -> id :: visibleDescendantIds model.siteMap id)
             |> Set.ofList
 
+    let private placeholderRowClass (model: VM) (entry: SiteEntry) (sel: bool) (foc: bool) =
+        let isRoot = entry.instanceId = model.siteMap.rootId
+        "amb-row"
+        |> CssClass.add (rowOwnershipClass model entry)
+        |> CssClass.add "amb-row-absent"
+        |> CssClass.addIf isRoot "amb-view-root"
+        |> CssClass.addIf sel "amb-selected"
+        |> CssClass.addIf foc "amb-focused"
+        |> CssClass.addIf
+            (Set.contains entry.nodeId model.actorLiveFocusIds)
+            "amb-actor-live"
+
+    let private placeholderCachedMutation
+        (oldModel: VM) (newModel: VM) (entry: SiteEntry) (instId: SiteId) : RowMutation =
+        match Map.tryFind entry.nodeId oldModel.graph.nodes with
+        | Some _ -> RecreateRow instId
+        | None ->
+            let sel = isEntrySelected newModel entry
+            let foc = isEntryFocused newModel entry
+            let newClass = placeholderRowClass newModel entry sel foc
+            let oldEntry = Map.tryFind instId oldModel.siteMap.entries
+            let oldSel =
+                oldEntry
+                |> Option.map (isEntrySelected oldModel)
+                |> Option.defaultValue false
+            let oldFoc =
+                oldEntry
+                |> Option.map (isEntryFocused oldModel)
+                |> Option.defaultValue false
+            let oldClass =
+                match oldEntry with
+                | Some e -> placeholderRowClass oldModel e oldSel oldFoc
+                | None -> ""
+            let patches = [
+                if newClass <> oldClass then yield SetClassName newClass
+            ]
+            PatchRow (instId, patches)
+
     let private rowClassName (model: VM) (entry: SiteEntry) (node: Node) (sel: bool) (foc: bool) =
         let isRoot = entry.instanceId = model.siteMap.rootId
         let syncClass = rowWorkspacePathSyncClass model entry node
@@ -167,70 +205,91 @@ module ViewModelDomPlan =
                             |> Option.map (isEditingEntry oldModel)
                             |> Option.defaultValue false
                         let nowEditing = isEditingEntry newModel entry
-                        let newNode = newModel.graph.nodes.[entry.nodeId]
-                        let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
-                        let oldChildrenIndicator =
-                            oldNode
-                            |> Option.map (rowChildrenIndicator oldModel.graph)
-                            |> Option.defaultValue RowChildrenIndicator.SolidCircle
-                        let newChildrenIndicator =
-                            rowChildrenIndicator newModel.graph newNode
-                        let oldKind = oldNode |> Option.map (fun n -> n.kind)
-                        let newKind = newNode.kind
-                        let remoteArrived =
-                            oldModel.workspaceRemotes <> newModel.workspaceRemotes
-                            && match newNode.kind with
-                               | Special Workspace when newNode.id <> Graph.rootId ->
-                                   true
-                               | _ -> false
-                        if wasEditing <> nowEditing
-                           || oldChildrenIndicator <> newChildrenIndicator
-                           || oldKind <> Some newKind
-                           || remoteArrived then
-                            RecreateRow instId
-                        else
-                            let oldEntry = Map.tryFind instId oldModel.siteMap.entries
-                            let patches = [
-                                let sel = isEntrySelected newModel entry
-                                let foc = isEntryFocused newModel entry
-                                let newClass = rowClassName newModel entry newNode sel foc
-                                let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
-                                let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
-                                let oldClass =
-                                    match oldEntry, oldNode with
-                                    | Some e, Some n -> rowClassName oldModel e n oldSel oldFoc
-                                    | _ ->
-                                        "amb-row"
-                                        |> CssClass.add "amb-row-owned"
-                                        |> CssClass.addIf oldSel "amb-selected"
-                                        |> CssClass.addIf oldFoc "amb-focused"
-                                if newClass <> oldClass then yield SetClassName newClass
-                                let newFileIndicator, newTitle =
-                                    rowFileIndicator newModel entry newNode
-                                let oldFileIndicator, oldTitle =
-                                    match oldEntry, oldNode with
-                                    | Some e, Some n -> rowFileIndicator oldModel e n
-                                    | _ -> "", None
-                                if newFileIndicator <> oldFileIndicator || newTitle <> oldTitle then
-                                    yield SetFileIndicator (newFileIndicator, newTitle)
-                                // Sync row text on graph or filename changes (editing row included — e.g. paste).
-                                let newText = outlineDisplayText newNode
-                                let oldText =
-                                    oldNode |> Option.map outlineDisplayText |> Option.defaultValue ""
-                                if newText <> oldText then yield SetText newText
-                                let newName = rowNameDisplayText newNode.name
-                                let oldName =
-                                    oldNode |> Option.map (fun n -> rowNameDisplayText n.name) |> Option.defaultValue ""
-                                if newName <> oldName then yield SetNodeName newName
-                                let newClasses = newNode.cssClasses
-                                let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
-                                if newClasses <> oldClasses then yield SetTextClasses newClasses
-                                if newChildrenIndicator = RowChildrenIndicator.FoldChevron then
-                                    let oldExpanded = oldEntry |> Option.map (fun e -> e.expanded) |> Option.defaultValue false
-                                    if entry.expanded <> oldExpanded then
-                                        yield SetFoldArrow (if entry.expanded then "\u25BC" else "\u25B6")
-                            ]
-                            PatchRow (instId, patches)
+                        match Map.tryFind entry.nodeId newModel.graph.nodes with
+                        | None ->
+                            placeholderCachedMutation oldModel newModel entry instId
+                        | Some newNode ->
+                            let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
+                            let oldChildrenIndicator =
+                                rowChildrenIndicatorForId oldModel.graph entry.nodeId
+                            let newChildrenIndicator =
+                                rowChildrenIndicator newModel.graph newNode
+                            let oldKind = oldNode |> Option.map (fun n -> n.kind)
+                            let newKind = newNode.kind
+                            let remoteArrived =
+                                oldModel.workspaceRemotes <> newModel.workspaceRemotes
+                                && match newNode.kind with
+                                   | Special Workspace when newNode.id <> Graph.rootId ->
+                                       true
+                                   | _ -> false
+                            if wasEditing <> nowEditing
+                               || oldChildrenIndicator <> newChildrenIndicator
+                               || oldKind <> Some newKind
+                               || remoteArrived then
+                                RecreateRow instId
+                            else
+                                let oldEntry = Map.tryFind instId oldModel.siteMap.entries
+                                let patches = [
+                                    let sel = isEntrySelected newModel entry
+                                    let foc = isEntryFocused newModel entry
+                                    let newClass = rowClassName newModel entry newNode sel foc
+                                    let oldSel =
+                                        oldEntry
+                                        |> Option.map (isEntrySelected oldModel)
+                                        |> Option.defaultValue false
+                                    let oldFoc =
+                                        oldEntry
+                                        |> Option.map (isEntryFocused oldModel)
+                                        |> Option.defaultValue false
+                                    let oldClass =
+                                        match oldEntry, oldNode with
+                                        | Some e, Some n -> rowClassName oldModel e n oldSel oldFoc
+                                        | _ ->
+                                            "amb-row"
+                                            |> CssClass.add "amb-row-owned"
+                                            |> CssClass.addIf oldSel "amb-selected"
+                                            |> CssClass.addIf oldFoc "amb-focused"
+                                    if newClass <> oldClass then yield SetClassName newClass
+                                    let newFileIndicator, newTitle =
+                                        rowFileIndicator newModel entry newNode
+                                    let oldFileIndicator, oldTitle =
+                                        match oldEntry, oldNode with
+                                        | Some e, Some n -> rowFileIndicator oldModel e n
+                                        | _ -> "", None
+                                    if newFileIndicator <> oldFileIndicator
+                                       || newTitle <> oldTitle then
+                                        yield SetFileIndicator (newFileIndicator, newTitle)
+                                    // Sync row text when the graph or the filename changes.
+                                    let newText = outlineDisplayText newNode
+                                    let oldText =
+                                        oldNode
+                                        |> Option.map outlineDisplayText
+                                        |> Option.defaultValue ""
+                                    if newText <> oldText then yield SetText newText
+                                    let newName = rowNameDisplayText newNode.name
+                                    let oldName =
+                                        oldNode
+                                        |> Option.map (fun n -> rowNameDisplayText n.name)
+                                        |> Option.defaultValue ""
+                                    if newName <> oldName then yield SetNodeName newName
+                                    let newClasses = newNode.cssClasses
+                                    let oldClasses =
+                                        oldNode
+                                        |> Option.map (fun n -> n.cssClasses)
+                                        |> Option.defaultValue CssClass.empty
+                                    if newClasses <> oldClasses then
+                                        yield SetTextClasses newClasses
+                                    if newChildrenIndicator = RowChildrenIndicator.FoldChevron then
+                                        let oldExpanded =
+                                            oldEntry
+                                            |> Option.map (fun e -> e.expanded)
+                                            |> Option.defaultValue false
+                                        if entry.expanded <> oldExpanded then
+                                            let arrow =
+                                                if entry.expanded then "\u25BC" else "\u25B6"
+                                            yield SetFoldArrow arrow
+                                ]
+                                PatchRow (instId, patches)
                     else
                         CreateRow instId)
 
