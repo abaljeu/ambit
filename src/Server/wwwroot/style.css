@@ -265,6 +265,9 @@ body {
 .amb-row-ref .amb-fold-toggle {
     color: #44f;
 }
+.amb-row-absent .amb-fold-toggle {
+    color: #444444;
+}
 .amb-node-guid {
     flex-shrink: 0;
     font-size:1em;

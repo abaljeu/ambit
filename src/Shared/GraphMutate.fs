@@ -278,11 +278,6 @@ module GraphMutate =
                 Error "index out of bounds"
             elif index + oldCount > childCount then
                 Error "old span out of bounds"
-            elif
-                newChildren
-                |> List.exists (fun child -> not (graph.nodes.ContainsKey child.id))
-            then
-                Error "new child not found"
             else
                 let isFullListWireReplace = index = 0 && oldCount = childCount
 
@@ -299,15 +294,18 @@ module GraphMutate =
                 let workspacePlacementError =
                     introducedChildren
                     |> List.tryPick (fun child ->
-                        let childNode = graph.nodes.[child.id]
-
-                        match
-                            Node.childOwnership graph parentId child, childNode.kind
-                        with
-                        | Ownership.Owner, Special Workspace
-                            when parentId <> GraphBuild.workspacesId ->
-                            Some "Workspace nodes may only be placed under Workspaces"
-                        | _ -> None)
+                        match Map.tryFind child.id graph.nodes with
+                        | None -> None
+                        | Some childNode ->
+                            match
+                                Node.childOwnership graph parentId child,
+                                childNode.kind
+                            with
+                            | Ownership.Owner, Special Workspace
+                                when parentId <> GraphBuild.workspacesId ->
+                                Some
+                                    "Workspace nodes may only be placed under Workspaces"
+                            | _ -> None)
 
                 // One placement scan for the whole introduced list — per-child calls
                 // re-walked the owner chain for every NewNode in a parse tail Replace.
@@ -427,10 +425,12 @@ module GraphMutate =
                             // Add detached Special stubs. Normal outline children remain movable.
                             let isMoveIn id =
                                 match
-                                    graph.nodes.[id].kind,
+                                    Map.tryFind id graph.nodes,
                                     Map.tryFind id graph.ownerParentByChild
                                 with
-                                | Special _, Some p when p <> GraphBuild.systemId -> true
+                                | Some { kind = Special _ }, Some p
+                                    when p <> GraphBuild.systemId ->
+                                    true
                                 | _ -> false
                             if
                                 removed
