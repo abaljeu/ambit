@@ -1,9 +1,10 @@
 # Slicing work 2
 
-Follow [[plan/context/slicing-work.md]], with two changes:
+Follow [[plan/context/slicing-work.md]], with three changes:
 
 1. Make the folder `plan/<slug>/issues/` if it is missing.
 2. For each slice, the ticket-creator agent follows [[plan/context/ticket-work2.md]] instead of [[plan/context/ticket-work.md]], inside `issues/`.
+3. In each new ticket folder, make an empty `reports/` folder with a `.gitkeep` file, so extra reports have a place to go.
 
 The handback is the ticket folder that agent made.
 
