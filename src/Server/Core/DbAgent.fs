@@ -109,19 +109,42 @@ module DbAgent =
         loaded.state.Value <-
             { loaded.state.Value with graph = trim loaded.state.Value.graph }
 
+    let private readProjection loaded =
+        Database.tryLoadGraphFromProjection loaded.connectionString
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    let private projectionFailed e =
+        Error $"Startup projection sweep failed: {e}"
+
+    /// Another host may have committed a repair after this load.
+    /// Replay keeps events that are still ahead of that projection.
+    let private reloadRecovered loaded graph eventId =
+        let baseState =
+            { loaded.state.Value with
+                graph = graph
+                eventId = eventId }
+        loaded.state.Value <-
+            fst (EventLog.recover baseState loaded.eventLog.Value)
+
     let private applyMaintenance loaded
         (result: DatabaseProjection.ProjectionMaintenanceResult)
         =
+        let liveDb =
+            not (String.IsNullOrWhiteSpace loaded.connectionString)
         if result.requiresReload then
-            match
-                Database.tryLoadGraphFromProjection loaded.connectionString
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
-            with
+            match readProjection loaded with
             | Ok (graph, _) ->
-                loaded.state.Value <- { loaded.state.Value with graph = graph }
+                loaded.state.Value <-
+                    { loaded.state.Value with graph = graph }
                 Ok ()
-            | Error e -> Error $"Startup projection sweep failed: {e}"
+            | Error e -> projectionFailed e
+        elif liveDb then
+            match readProjection loaded with
+            | Ok (graph, eventId) ->
+                reloadRecovered loaded graph eventId
+                Ok ()
+            | Error e -> projectionFailed e
         else
             trimDeletedIds loaded result.deletedIds
             Ok ()
