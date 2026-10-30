@@ -186,8 +186,7 @@ module DbAgent =
                     Error "Unchanged submission is rejected."
                 | ApplyResult.Changed s' ->
                     let nextState = { s' with eventId = event.id }
-                    let applied =
-                        CoreMailboxEvents.withAppliedOps event appliedOps
+                    let applied = Ev.withOps event appliedOps
                     Ok(
                         nextState,
                         applied :: confirmations,
