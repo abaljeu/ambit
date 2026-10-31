@@ -49,8 +49,8 @@ module MailboxLog =
 
     let private historyBody (order: Order) =
         match order with
-        | Order.Change (ops, origin) ->
-            Ok (HistoryBody.Order (Order.Change(ops, origin)))
+        | Order.Change _ as change ->
+            Ok (HistoryBody.Order change)
         | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
         | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)

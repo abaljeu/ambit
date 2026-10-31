@@ -442,7 +442,7 @@ module Ev =
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
-        | EventBody.Order (Order.Change(ops, _)) -> Some ops
+        | EventBody.Change ops -> Some ops
         | EventBody.Order _ -> None
 
     let withOps (event: Ev) (ops: Op list) : Ev =

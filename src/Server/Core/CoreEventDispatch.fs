@@ -132,7 +132,7 @@ module internal CoreEventDispatch =
                         | _ ->
                             Gambol.Shared.EventBody.Redo(target, ops)
                     Ok { event with body = body }
-        | Gambol.Shared.EventBody.Change _
+        | Gambol.Shared.EventBody.Order (Order.Change _)
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.Notice _ ->
@@ -225,7 +225,7 @@ module internal CoreEventDispatch =
         (accepted: CoreChangesAccepted)
         : Result<unit, string> =
         match completed.body with
-        | Gambol.Shared.EventBody.Change _
+        | Gambol.Shared.EventBody.Order (Order.Change _)
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ ->
             match context.persist.getState () with
