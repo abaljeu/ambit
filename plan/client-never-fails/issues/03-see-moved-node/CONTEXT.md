@@ -8,4 +8,4 @@ This folder is ticket 03 — See a moved Node.
 
 ## Stage
 
-The worker sets the stage when it starts that stage.
+refactor

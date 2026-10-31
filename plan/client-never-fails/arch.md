@@ -210,7 +210,7 @@ The order is Alan's seven steps:
 
 1. **Notices** — path **Accept Notices**. Blockers: none.
 2. **Event then Graph** — path **Survive a Server crash**. Blocked by **Accept Notices**.
-3. **Placeholder** — path **See a moved Node**, then **Use a placeholder**, then **Fill a placeholder**. Blocked by **Survive a Server crash**. **Use a placeholder** and **Fill a placeholder** are also blocked by **See a moved Node**.
+3. **Placeholder** — path **See a moved Node**, then **Use a placeholder**, then **Fill a placeholder**. **Use a placeholder** and **Fill a placeholder** are also blocked by **See a moved Node**.
 4. **Child list on each Node** — path **Remove Loaded and Unloaded**. Blocked by **Fill a placeholder**. Each numbered step of that path is its own ticket, and each of those tickets is blocked by the step before it. Callers move while `ChildrenStatus` still builds. The **Graph model** contract is the last tickets of this step, four tests at a time, type delete last.
 5. **Absent fetch** — path **Poll for nearby Absent Nodes**, then **Delete the whole-Workspace request**, then **Load without a race**. Blocked by the last **Remove Loaded and Unloaded** ticket. Each of these paths is also blocked by the path before it in this step.
 6. **Protocol, then the typing pause** — path **Poll with pending changes**, then **Merge in progress**, then **Type while others change**, then **Edited Node removed**, then **Edit during a Load**. Blocked by **Load without a race**. Each of these paths is also blocked by the path before it in this step.

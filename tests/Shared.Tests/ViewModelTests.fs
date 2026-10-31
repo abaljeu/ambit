@@ -2180,6 +2180,41 @@ let ``planPatchDOM expand inserts correct child count`` () =
     Assert.Equal(2, creates.Length) // a1 and a2
 
 [<Fact>]
+let ``planPatchDOM CreateRow for visible Absent child id`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let nodes = Map.add parentId parent graph0.nodes
+    let oldGraph =
+        Graph.fromNodes graph0.root nodes (Map.add parentId [] graph0.childMap)
+    let newGraph =
+        Graph.fromNodes
+            graph0.root
+            nodes
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    let oldModel = emptyModelAt oldGraph parentId
+    let newSiteMap, newNextId = buildSiteMapFrom newGraph parentId (Sid 0)
+    let newModel =
+        { oldModel with
+            graph = newGraph
+            siteMap = newSiteMap
+            nextSiteId = newNextId }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let absentInstId =
+        newSiteMap.entries
+        |> Map.pick (fun _ entry ->
+            if entry.nodeId = absentId then Some entry.instanceId else None)
+    let creates =
+        mutations
+        |> List.choose (function
+            | CreateRow instId -> Some instId
+            | _ -> None)
+    Assert.Contains(absentInstId, creates)
+    Assert.False(Map.containsKey absentId newGraph.nodes)
+
+[<Fact>]
 let ``planPatchDOM collapse removes stale cache entries`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
