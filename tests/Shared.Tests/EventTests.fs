@@ -633,3 +633,18 @@ let ``no SetDocumentState message case`` () =
     match Dec.fromString EventJson.decode json with
     | Error _ -> ()
     | Ok _ -> Assert.Fail("a Notice cannot carry SetDocumentState")
+
+[<Fact>]
+let ``Ev.ops reads an Order.Change body`` () =
+    let nodeId = NodeId.New()
+    let ops = [ Op.SetText(nodeId, "old", "new") ]
+    let origin = ChangeOrigin.Parse
+    let ev =
+        event "Parse" (EventBody.Order(Order.Change(ops, origin)))
+    Assert.Equal(Some ops, Ev.ops ev)
+    let replaced = [ Op.SetText(nodeId, "new", "newer") ]
+    match (Ev.withOps ev replaced).body with
+    | EventBody.Order (Order.Change(next, kept)) ->
+        Assert.Equal<Op list>(replaced, next)
+        Assert.Equal(origin, kept)
+    | other -> failwithf "expected Order.Change, got %A" other
