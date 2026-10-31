@@ -35,21 +35,6 @@ module internal CoreMailboxEvents =
         else
             task.GetAwaiter().GetResult()
 
-    let withAppliedOps
-        (event: Gambol.Shared.Ev)
-        (ops: Op list)
-        : Gambol.Shared.Ev =
-        match event.body with
-        | EventBody.Change _ -> { event with body = EventBody.Change ops }
-        | EventBody.Undo(target, _) ->
-            { event with body = EventBody.Undo(target, ops) }
-        | EventBody.Redo(target, _) ->
-            { event with body = EventBody.Redo(target, ops) }
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
-        | EventBody.ActorStop _
-        | EventBody.Notice _ -> event
-
     let operationContext msg =
         match msg with
         | PostGraphOnly (_, event, _) ->

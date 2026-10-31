@@ -152,20 +152,9 @@ module internal CoreEventDispatch =
             accepted.events
             |> List.tryFind (fun stored ->
                 stored.submissionId = event.submissionId)
-        let confirmedOps =
-            confirmed
-            |> Option.bind Ev.ops
-        match confirmedOps, event.body with
-        | Some ops, Gambol.Shared.EventBody.Change _ ->
-            { event with
-                body = Gambol.Shared.EventBody.Change ops }
-        | Some ops, Gambol.Shared.EventBody.Undo(target, _) ->
-            { event with
-                body = Gambol.Shared.EventBody.Undo(target, ops) }
-        | Some ops, Gambol.Shared.EventBody.Redo(target, _) ->
-            { event with
-                body = Gambol.Shared.EventBody.Redo(target, ops) }
-        | _ -> event
+        match confirmed |> Option.bind Ev.ops with
+        | Some ops -> Ev.withOps event ops
+        | None -> event
 
     let private prepare
         (context: Context)
