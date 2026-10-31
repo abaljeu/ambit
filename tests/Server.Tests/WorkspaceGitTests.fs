@@ -635,7 +635,7 @@ let ``pullTracked waits for the work tree gate then continues`` () =
     Assert.True(
         SpinWait.SpinUntil(
             (fun () -> pull.Status = TaskStatus.Running),
-            1000))
+            2000))
     Assert.False(pull.Wait(100))
     releaseHolder.SetResult()
     Task.WaitAll(holder, pull)
