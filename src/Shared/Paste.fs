@@ -61,14 +61,20 @@ let serializeSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list
     let sb = Text.StringBuilder()
     let nl = Environment.NewLine
     let rec walk (depth: int) (nodeId: NodeId) =
-        let node = graph.nodes.[nodeId]
-        sb.Append(String.replicate depth "\t").Append(node.text).Append(nl) |> ignore
-        match Map.tryFind nodeId occIdx |> Option.bind List.tryHead
-              |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries) with
-        | Some entry when entry.expanded ->
-            entry.children |> List.iter (fun childInstId ->
-                walk (depth + 1) siteMap.entries.[childInstId].nodeId)
-        | _ -> ()
+        match Map.tryFind nodeId graph.nodes with
+        | None -> ()
+        | Some node ->
+            sb.Append(String.replicate depth "\t")
+                .Append(node.text)
+                .Append(nl)
+            |> ignore
+            match Map.tryFind nodeId occIdx |> Option.bind List.tryHead
+                  |> Option.bind (fun instId ->
+                      Map.tryFind instId siteMap.entries) with
+            | Some entry when entry.expanded ->
+                entry.children |> List.iter (fun childInstId ->
+                    walk (depth + 1) siteMap.entries.[childInstId].nodeId)
+            | _ -> ()
     topLevelIds |> List.iter (walk 0)
     sb.ToString()
 

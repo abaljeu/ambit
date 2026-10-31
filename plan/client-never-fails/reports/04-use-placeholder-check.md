@@ -2,27 +2,36 @@ pass
 
 ## 04 — Use a placeholder
 
-Branch `dev`. A missing Header leaves the mode unchanged. Expand still calls `expandEntry`. `Want.compose` stays as it is.
+Branch `cursor/placeholder-commands-unavailable-95b1`. Copy, Edit classes, and Exec return the same model when the focused or selected row has no Header. A missing Header is a value. The Command sets no error.
+
+## Before this change
+
+- Copy read `graph.nodes.[nodeId].text` in `serializeSubtree`. A missing Header threw.
+- Edit classes read `graph.nodes.[nid].cssClasses` in `initialUserClassesForSelection`. A missing Header threw.
+- Exec read `graph.nodes.[focusNodeId].text` in `AmbleRun.shouldExec` and `AmbleRun.runPlanOnNode`. A missing Header threw. `CommandRequest.tryStart` already used `Map.tryFind`.
 
 ## Files
 
-- `src/Shared/ViewModelRowState.fs`
+- `plan/client-never-fails/spec.md`
+- `src/Client/Commands.fs`
+- `src/Client/Controller.fs`
 - `src/Client/UpdateOps.fs`
-- `tests/Shared.Tests/ViewModelRowStateTests.fs`
-- `tests/Shared.Tests/WantTests.fs`
-- `tests/Shared.Tests/ViewModelTests.fs`
+- `src/Shared/Paste.fs`
+- `src/Shared/AmbleRun.fs`
+- `src/Shared/CssClassToggle.fs`
+- `src/Shared/CommandRequest.fs`
+- `tests/Shared.Tests/PasteTests.fs`
+- `tests/Shared.Tests/CssClassToggleTests.fs`
+- `tests/Shared.Tests/AmbleRunTests.fs`
 
 ## Facts
 
-- ``isEntrySelected is true for a placeholder SiteEntry with no Header`` builds a child whose id is absent from `graph.nodes`, places that SiteEntry in a `singleSelection` range, and asserts `isEntrySelected` is true.
-- ``expandEntry leaves a placeholder row expanded`` calls `expandEntry` on a collapsed row whose id has no child-list key and asserts that row's `expanded` is true.
-- ``compose wants a placeholder id with no child list after parent expand`` expands that id, then asserts `Want.compose` lists it.
-- ``startEditInstanceAtPos leaves Selecting when Header is absent`` uses a known non-root instance whose id has no Header and asserts the returned mode is Selecting.
+- ``Copy does nothing when the selected row Header is absent`` asserts `anyNodeHeaderIsAbsent` and `serializeSubtree` returns `""`.
+- ``Edit classes does nothing when the selected row Header is absent`` asserts `tryInitialUserClasses` is `None`, and a present Header with class `note` returns `Some "note"`.
+- ``Exec does nothing when the focused row Header is absent`` asserts `nodeHeaderIsAbsent`, `shouldExec` is false, and `runPlanOnNode` is `Ok` with an empty plan.
 
 ## Commands
 
-- `scripts/agent-test.sh` — Passed 235, Failed 0, in `tests/Shared.Tests`.
-- `scripts/agent-test.sh --filter "FullyQualifiedName~isEntrySelected is true for a placeholder SiteEntry with no Header" shared` — Passed 1.
-- `scripts/agent-test.sh --filter "FullyQualifiedName~expandEntry leaves a placeholder row expanded" shared` — Passed 1.
-- `scripts/agent-test.sh --filter "FullyQualifiedName~compose wants a placeholder id with no child list after parent expand" shared` — Passed 1.
-- `scripts/agent-test.sh --filter "FullyQualifiedName~startEditInstanceAtPos leaves Selecting when Header is absent" shared` — Passed 1.
+- `scripts/agent-test.sh` — Passed 67, Failed 0, in `tests/Shared.Tests`.
+- `scripts/agent-test.sh --filter` for the eight facts this ticket names — Passed 8, Failed 0, in `tests/Shared.Tests`.
+- `scripts/agent-test.sh --full` — `tests/Server.Tests` Passed 731, Skipped 1, Failed 0. `tests/Shared.Tests` Passed 1922, Skipped 3, Failed 0. Log `/tmp/ambit-full-suite-20261031-224535.log`.

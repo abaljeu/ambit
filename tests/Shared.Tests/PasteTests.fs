@@ -5,6 +5,7 @@ open Xunit
 open Gambol.Shared
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
+open GraphChildMapHelpers
 
 let private nl = Environment.NewLine
 let private owned = ChildNode.owners
@@ -238,3 +239,15 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
     let _, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     Assert.False(graph.nodes.ContainsKey oldId)
+
+[<Fact>]
+let ``Copy does nothing when the selected row Header is absent`` () =
+    let id = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> addUnder Graph.rootId (Node.Create(id, text = "gone"))
+        |> absentUnloaded id
+    Assert.False(graph.nodes.ContainsKey id)
+    Assert.True(CommandRequest.anyNodeHeaderIsAbsent graph [id])
+    let siteMap, _ = buildSiteMap (Graph.create ())
+    Assert.Equal("", serializeSubtree graph siteMap [id])

@@ -122,35 +122,44 @@ let private submitQuery
         Some (queueRun request committed commitEffects)
 
 let private execRunOp (model: VM) : VM * Effect list =
-    afterEditCommit model (fun committed commitEffects ->
-        match committed.selectedNodes with
-        | None -> committed, commitEffects
-        | Some sel ->
-            let focusId = focusedNodeId committed.graph sel
-            match submitQuery committed commitEffects focusId with
-            | Some ran -> ran
-            | None ->
-                let zoomId = committed.zoomRoot
-                if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
-                    execAmbleRunOp committed commitEffects focusId
-                else
-                    match
-                        CommandRequest.tryStart
-                            committed.graph
-                            committed.siteMap
-                            zoomId
-                            focusId
-                            committed.eventId with
-                    | Ok request ->
-                        queueRun request committed commitEffects
-                    | Error msg ->
-                        if AmbleRun.shouldExec committed.graph focusId then
-                            execAmbleRunOp committed commitEffects focusId
-                        else
-                            { committed with
-                                lastCmdResult =
-                                    Some (CmdLastResult.Error (Some "Run", msg)) },
-                            commitEffects)
+    match model.selectedNodes with
+    | Some sel when
+        CommandRequest.nodeHeaderIsAbsent
+            model.graph
+            (focusedNodeId model.graph sel) ->
+        model, []
+    | _ ->
+        afterEditCommit model (fun committed commitEffects ->
+            match committed.selectedNodes with
+            | None -> committed, commitEffects
+            | Some sel ->
+                let focusId = focusedNodeId committed.graph sel
+                match submitQuery committed commitEffects focusId with
+                | Some ran -> ran
+                | None ->
+                    let zoomId = committed.zoomRoot
+                    if CommandRequest.isAmbleScanStop
+                        committed.graph focusId zoomId then
+                        execAmbleRunOp committed commitEffects focusId
+                    else
+                        match
+                            CommandRequest.tryStart
+                                committed.graph
+                                committed.siteMap
+                                zoomId
+                                focusId
+                                committed.eventId with
+                        | Ok request ->
+                            queueRun request committed commitEffects
+                        | Error msg ->
+                            if AmbleRun.shouldExec committed.graph focusId then
+                                execAmbleRunOp committed commitEffects focusId
+                            else
+                                { committed with
+                                    lastCmdResult =
+                                        Some (
+                                            CmdLastResult.Error (Some "Run", msg)) },
+                                commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()
@@ -296,13 +305,15 @@ let copyOp (model: VM) : VM * Effect list =
     | None -> model, []
     | Some sel ->
         let selectedIds =
-            Graph.children model.graph sel.range.parent.nodeId
-            |> List.skip sel.range.start
-            |> List.take (sel.range.endd - sel.range.start)
+            rangeChildren model.graph sel.range
             |> List.map (fun child -> child.id)
-        let serialized = serializeSubtree model.graph model.siteMap selectedIds
-        writeClipboardText serialized ignore
-        copySelectionOp model
+        if CommandRequest.anyNodeHeaderIsAbsent model.graph selectedIds then
+            model, []
+        else
+            let serialized =
+                serializeSubtree model.graph model.siteMap selectedIds
+            writeClipboardText serialized ignore
+            copySelectionOp model
 
 let private downloadAvailable (model: VM) =
     DesktopCapabilities.canWorkspaceSync model.desktopCapabilities

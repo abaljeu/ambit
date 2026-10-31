@@ -411,3 +411,19 @@ let ``shouldExec is false for a non-statement line`` () =
         | Ok g -> g
         | Error e -> failwith e
     Assert.True(AmbleRun.shouldExec graph1 focusId)
+
+[<Fact>]
+let ``Exec does nothing when the focused row Header is absent`` () =
+    let focusId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> addUnder Graph.rootId (Node.Create(focusId, text = "= 1"))
+        |> absentUnloaded focusId
+    Assert.False(graph.nodes.ContainsKey focusId)
+    Assert.True(CommandRequest.nodeHeaderIsAbsent graph focusId)
+    Assert.False(AmbleRun.shouldExec graph focusId)
+    match AmbleRun.runPlanOnNode focusId graph with
+    | Ok plan ->
+        Assert.Empty(plan.ops)
+        Assert.False(plan.unfold)
+    | Error msg -> failwith msg
