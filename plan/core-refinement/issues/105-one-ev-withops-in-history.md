@@ -1,6 +1,6 @@
 # 105 — One Ev.withOps in History
 
-**Status:** `coded`
+**Status:** `done`
 **Note:** 2026-10-25 — Optional. Not needed to remove a type. Out of the type chain; no ticket waits on it.
 **Trackers:** architecture
 
