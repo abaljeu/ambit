@@ -100,6 +100,7 @@ type EventBody =
     | ActorStop of focusId: NodeId * result: ActorResult
     | Load of nodeId: NodeId
     | Cancel of focusId: NodeId
+    | Order of Order
     | Notice of Notice
 
 type Ev =
@@ -433,9 +434,14 @@ module Ev =
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
+        | EventBody.Order (Order.Change(ops, _)) -> Some ops
+        | EventBody.Order _ -> None
 
     let withOps (event: Ev) (ops: Op list) : Ev =
         match event.body with
+        | EventBody.Order (Order.Change(_, origin)) ->
+            { event with
+                body = EventBody.Order(Order.Change(ops, origin)) }
         | EventBody.Change _ ->
             { event with body = EventBody.Change ops }
         | EventBody.Undo(target, _) ->
@@ -445,6 +451,7 @@ module Ev =
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> event
+        | EventBody.Order _ -> event
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
 
@@ -456,6 +463,7 @@ module Ev =
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
+        | EventBody.Order _ -> None
 
     let inverseOps (event: Ev) : Op list option =
         ops event |> Option.map Op.invertAll

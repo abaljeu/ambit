@@ -262,3 +262,45 @@ let ``toWireBatch forces EventId.zero on a dirty new client Event`` () =
         Enc.toString 0 (EventJson.encodeEventBatch { events = wire })
     Assert.Contains("\"eventId\":0", json)
     Assert.DoesNotContain($"\"eventId\":{EventId.toJson dirty.id}", json)
+
+[<Fact>]
+let ``Ev JSON round-trips each EventBody.Order case`` () =
+    let nodeId =
+        NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let zoom =
+        NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
+    let commandId =
+        NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+    let start =
+        { zoomId = zoom
+          focusId = focusId
+          commandId = commandId
+          graphIds = [ zoom ]
+          eventId = EventIdFixtures.storedId 4 }
+    let peerName = PeerActorName "github-load"
+    let request =
+        { operation = LoadSaveOperation.Save
+          prePick = LoadSavePrePick.Desk
+          holdStack = true
+          start = start }
+    let ops = [ Op.SetText(nodeId, "old", "new") ]
+    let orders =
+        [ Order.Change(ops, ChangeOrigin.Parse)
+          Order.Change(ops, ChangeOrigin.Edit)
+          Order.Undo(EventIdFixtures.storedId 2)
+          Order.Redo(EventIdFixtures.storedId 3)
+          Order.StartActor start
+          Order.StartPeerActor(peerName, start)
+          Order.LoadSave(LoadSavePath.Git, peerName, request)
+          Order.LoadSave(LoadSavePath.Desk, peerName, request)
+          Order.Load nodeId
+          Order.Cancel focusId ]
+    orders
+    |> List.iter (fun order ->
+        let event =
+            { changeEvent with
+                commandName = ""
+                body = EventBody.Order order }
+        Assert.Equal(event, roundTrip event))

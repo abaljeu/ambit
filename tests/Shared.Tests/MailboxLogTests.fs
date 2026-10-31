@@ -111,3 +111,10 @@ let ``StartPeerActor carries Shared PeerActorName`` () =
         Assert.Equal(name, foundName)
         Assert.Equal(start, foundStart)
     | _ -> Assert.Fail("expected StartPeerActor")
+
+[<Fact>]
+let ``ofEv reads EventBody.Order`` () =
+    let ops = [ childOp () ]
+    let order = Order.Change(ops, ChangeOrigin.Parse)
+    let event = source "Parse" (EventBody.Order order)
+    Assert.Equal(order, (placed event).order)

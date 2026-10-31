@@ -47,6 +47,7 @@ module MailboxLog =
         | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
         | HistoryBody.ActorStop _
         | HistoryBody.Notice _ -> Error "unsupported"
+        | HistoryBody.Order order -> Ok order
 
     let private historyBody (order: Order) =
         match order with
