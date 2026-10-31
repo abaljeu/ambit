@@ -27,8 +27,7 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
 [ ] Source constructors of `EventBody.Change`: `ClientHistory` (104), `GraphOnlyChangePost` (14), `RunAgentActor` (119), `TestActor` (19, 86), `Ev.withOps`, `EventJson.decodeChangeBody`.
 [ ] Source patterns on `EventBody.Change`: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch` (135, 228), `CoreMailboxApi` (144, 218), `EventJson.encodeBody`, `MailboxLog.orderOfBody`.
 [ ] `EventBody.Change` appears 236 times in 63 test files.
-[ ] F# allows a module with the same name as a type. With `[<RequireQualifiedAccess>] module EventBody`, `EventBody.Change ops` calls the module function, and the pattern `EventBody.Change ops` uses the module's partial active pattern.
-[ ] `TreatWarningsAsErrors` is on, so an arm that can never match fails the build.
+[ ] `TreatWarningsAsErrors` is on in `Directory.Build.props`, so any warning fails the build.
 [ ] `EventLogFile.decodeEvent` and the `DbAgent` restore skip an entry that does not decode. `BootCache` fetches `/state` on a decode error.
 [ ] Alan, 2026-10-24: `origin` is logged. Old-form logs are dropped, not mapped.
 [ ] ``Ev JSON round-trips a Change`` and ``mintChange encodes eventId 0 on the wire`` in `tests/Shared.Tests/EventJsonTests.fs`.
@@ -51,23 +50,18 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Contract `src/Shared/History.fs`: remove `| Change of ops: Op list` from `EventBody`.
-3. [ ] Expand `src/Shared/History.fs`: add `[<RequireQualifiedAccess>] module EventBody` after the type. `EventBody.Change (ops: Op list) : EventBody` is `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`. `EventBody.(|Change|_|)` matches `EventBody.Order (Order.Change(ops, _))` and gives `ops`.
-4. [ ] Change `src/Shared/History.fs`: remove the `EventBody.Change` arms from `Ev.ops`, `Ev.target` and `Ev.withOps`. The `EventBody.Order` arms cover a Change.
-5. [ ] Contract `src/Shared/EventJson.fs`: remove the `EventBody.Change` arm from `encodeBody`, remove `decodeChangeBody`, and remove the `change` kind from `decodeBody`. A Change is written as `kind` `order`. An old `change` row does not decode.
-6. [ ] Change `src/Shared/MailboxLog.fs`: remove the `EventBody.Change` arm from `orderOfBody`. `historyBody` maps `Order.Change _` to `EventBody.Order order`, keeping `origin`.
-7. [ ] In the other source match sites, remove an `EventBody.Change` arm that the build rejects as never matching, and nothing else.
-8. [ ] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
-9. [ ] Change the `graphOnly` post so it logs its Change with origin `Parse`. The way it carries `origin` is the builder's choice.
-10. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
-11. [ ] Add ``a stored Parse Change keeps origin Parse`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`.
+2. [ ] The `EventBody.Change` case leaves the `EventBody` union in `src/Shared/History.fs`.
+3. [ ] Every Change is logged and written as `EventBody.Order` of `Order.Change` with its `origin`. Its JSON `kind` is `order`.
+4. [ ] An old `change` row is skipped on read.
+5. [ ] The build stays warning-free.
+6. [ ] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
+7. [ ] Change the `graphOnly` post so it logs its Change with origin `Parse`. The way it carries `origin` is the builder's choice. Every `graphOnly` post logs origin `Parse`.
+8. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
+9. [ ] Add ``a stored Parse Change keeps origin Parse`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`.
 
 ## Outputs
 
-[ ] `src/Shared/History.fs`
-[ ] `src/Shared/EventJson.fs`
-[ ] `src/Shared/MailboxLog.fs`
-[ ] Any other source file from steps 7 and 9, up to 8 source files in total
+[ ] `src/Shared/History.fs`, and the other source files the builder changes, up to 8 source files in total
 [ ] `tests/Shared.Tests/EventJsonTests.fs` — add ``An old change row is skipped on read``
 [ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit`` and ``a stored Parse Change keeps origin Parse``
 
@@ -76,8 +70,7 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
 [ ] Record the stop at `plan/core-refinement/reports/108-log-change-as-eventbody-order-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs.
 [ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
-[ ] Stop when a test file needs an edit beyond the two in Outputs.
-[ ] Stop when the edit needs more than 8 source files.
+[ ] Stop when the edit needs more than 8 source files or 4 test files.
 
 ## Check
 
