@@ -111,28 +111,73 @@ module internal CoreEventDispatch =
         target <> EventId.zero
         && EventId.value target <= EventId.value context.restartTip
 
-    let private completeAction (context: Context) (event: Ev) =
-        match event.body with
-        | Gambol.Shared.EventBody.Undo(target, _)
-        | Gambol.Shared.EventBody.Redo(target, _) when
-            targetBeforeRestart context target ->
+    [<RequireQualifiedAccess>]
+    type private UndoRedoCase =
+        | BodyUndo
+        | BodyRedo
+        | OrderUndo
+        | OrderRedo
+
+    let private undoRedoCase (body: Gambol.Shared.EventBody) =
+        match body with
+        | Gambol.Shared.EventBody.Undo(target, ops) ->
+            Some(target, ops, UndoRedoCase.BodyUndo)
+        | Gambol.Shared.EventBody.Redo(target, ops) ->
+            Some(target, ops, UndoRedoCase.BodyRedo)
+        | Gambol.Shared.EventBody.Order (Order.Undo(target, ops)) ->
+            Some(target, ops, UndoRedoCase.OrderUndo)
+        | Gambol.Shared.EventBody.Order (Order.Redo(target, ops)) ->
+            Some(target, ops, UndoRedoCase.OrderRedo)
+        | _ -> None
+
+    let private bodyWithOps
+        (case: UndoRedoCase)
+        (target: EventId)
+        (ops: Op list)
+        =
+        match case with
+        | UndoRedoCase.BodyUndo ->
+            Gambol.Shared.EventBody.Undo(target, ops)
+        | UndoRedoCase.BodyRedo ->
+            Gambol.Shared.EventBody.Redo(target, ops)
+        | UndoRedoCase.OrderUndo ->
+            Gambol.Shared.EventBody.Order(Order.Undo(target, ops))
+        | UndoRedoCase.OrderRedo ->
+            Gambol.Shared.EventBody.Order(Order.Redo(target, ops))
+
+    let private fillFromTarget
+        (context: Context)
+        (event: Ev)
+        (target: EventId)
+        (case: UndoRedoCase)
+        =
+        match EventLog.tryFind target context.eventLog.Value with
+        | None -> Error "target Event not found"
+        | Some targetEvent ->
+            match Ev.inverseOps targetEvent with
+            | None -> Error "target Event has no inverse Ops"
+            | Some ops ->
+                Ok { event with body = bodyWithOps case target ops }
+
+    let private completeUndoRedo
+        (context: Context)
+        (event: Ev)
+        (target: EventId)
+        (ops: Op list)
+        (case: UndoRedoCase)
+        =
+        if targetBeforeRestart context target then
             Error "target Event is from before the restart"
-        | Gambol.Shared.EventBody.Undo(target, [])
-        | Gambol.Shared.EventBody.Redo(target, []) ->
-            match EventLog.tryFind target context.eventLog.Value with
-            | None -> Error "target Event not found"
-            | Some targetEvent ->
-                match Ev.inverseOps targetEvent with
-                | None -> Error "target Event has no inverse Ops"
-                | Some ops ->
-                    let body =
-                        match event.body with
-                        | Gambol.Shared.EventBody.Undo _ ->
-                            Gambol.Shared.EventBody.Undo(target, ops)
-                        | _ ->
-                            Gambol.Shared.EventBody.Redo(target, ops)
-                    Ok { event with body = body }
-        | Gambol.Shared.EventBody.Order (Order.Change _)
+        elif List.isEmpty ops then
+            fillFromTarget context event target case
+        else
+            Ok event
+
+    /// Order.Change passes through. Other Order cases stay refused
+    /// until each one leaves its old EventBody arm.
+    let private completeOther (event: Ev) =
+        match event.body with
+        | Gambol.Shared.EventBody.Order (Order.Change _) -> Ok event
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.Notice _ ->
@@ -145,6 +190,12 @@ module internal CoreEventDispatch =
             Error "Actor lifecycle Events are mailbox-generated"
         | Gambol.Shared.EventBody.Order _ ->
             Error "Order Events are mailbox-generated"
+
+    let private completeAction (context: Context) (event: Ev) =
+        match undoRedoCase event.body with
+        | Some(target, ops, case) ->
+            completeUndoRedo context event target ops case
+        | None -> completeOther event
 
     let private withConfirmedOps
         (event: Ev)
@@ -226,6 +277,8 @@ module internal CoreEventDispatch =
         : Result<unit, string> =
         match completed.body with
         | Gambol.Shared.EventBody.Order (Order.Change _)
+        | Gambol.Shared.EventBody.Order (Order.Undo _)
+        | Gambol.Shared.EventBody.Order (Order.Redo _)
         | Gambol.Shared.EventBody.Undo _
         | Gambol.Shared.EventBody.Redo _ ->
             match context.persist.getState () with

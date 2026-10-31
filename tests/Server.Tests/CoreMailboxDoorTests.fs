@@ -1269,9 +1269,10 @@ let ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` () =
         let undoneAck = requireOk "undo" undone
         let! undoBody = storedBody host undo.submissionId
         match undoBody with
-        | Some (EventBody.Undo (target, _)) ->
+        | Some (EventBody.Order (Order.Undo (target, ops))) ->
             Assert.Equal(createdAck.eventId, target)
-        | other -> Assert.Fail($"stored body is Undo, got {other}")
+            Assert.NotEmpty(ops)
+        | other -> Assert.Fail($"stored body is Order.Undo, got {other}")
         let redo =
             postedBody "Redo" (EventBody.Redo(undoneAck.eventId, []))
         let! redone =
@@ -1280,9 +1281,10 @@ let ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` () =
         requireOk "redo" redone |> ignore
         let! redoBody = storedBody host redo.submissionId
         match redoBody with
-        | Some (EventBody.Redo (target, _)) ->
+        | Some (EventBody.Order (Order.Redo (target, ops))) ->
             Assert.Equal(undoneAck.eventId, target)
-        | other -> Assert.Fail($"stored body is Redo, got {other}")
+            Assert.NotEmpty(ops)
+        | other -> Assert.Fail($"stored body is Order.Redo, got {other}")
         let cancel =
             postedBody "Cancel" (EventBody.Cancel (NodeId.New()))
         let! cancelled =
@@ -1293,6 +1295,133 @@ let ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` () =
         Assert.Empty(cancelAck.events)
         let! cancelBody = storedBody host cancel.submissionId
         Assert.Equal(None, cancelBody)
+    })
+
+let private rootOwns (graph: Graph) (childId: NodeId) =
+    Graph.children graph Graph.rootId
+    |> List.exists (fun child -> child.id = childId)
+
+let private submissionOf (events: Ev list) (target: EventId) =
+    events
+    |> List.tryFind (fun event -> event.id = target)
+    |> Option.map (fun event -> event.submissionId)
+
+[<Fact>]
+let ``posted empty-op Undo logs Order.Undo and restores the Graph`` () =
+    withHost (fun host _ -> task {
+        let childId, change = addRootChildEvent "undo-order"
+        let! beforeState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let before = requireOk "before" beforeState
+        let beforeChildren = Graph.children before.graph Graph.rootId
+        let! posted =
+            CoreMailboxApi.postEvents host testCaller [ change ]
+            |> Async.StartAsTask
+        requireOk "change" posted |> ignore
+        let! changedState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let changed = requireOk "changed" changedState
+        Assert.True(rootOwns changed.graph childId)
+        let! since =
+            CoreMailboxApi.getEventsSince host EventId.zero
+            |> Async.StartAsTask
+        let storedChange =
+            since
+            |> List.find (fun event ->
+                event.submissionId = change.submissionId)
+        let undo =
+            postedBody "Undo" (EventBody.Undo(storedChange.id, []))
+        let! undone =
+            CoreMailboxApi.postEvents host testCaller [ undo ]
+            |> Async.StartAsTask
+        requireOk "undo" undone |> ignore
+        let! undoBody = storedBody host undo.submissionId
+        let expected =
+            Op.invertAll (Ev.ops change |> Option.defaultValue [])
+        match undoBody with
+        | Some (EventBody.Order (Order.Undo (target, ops))) ->
+            let! logged =
+                CoreMailboxApi.getEventsSince host EventId.zero
+                |> Async.StartAsTask
+            Assert.Equal(
+                Some change.submissionId,
+                submissionOf logged target)
+            Assert.Equal<Op list>(expected, ops)
+        | other ->
+            Assert.Fail($"stored Undo is Order.Undo, got {other}")
+        let! afterState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let after = requireOk "after undo" afterState
+        Assert.False(rootOwns after.graph childId)
+        Assert.Equal<ChildNode list>(
+            beforeChildren,
+            Graph.children after.graph Graph.rootId)
+    })
+
+[<Fact>]
+let ``posted empty-op Redo logs Order.Redo and restores the Change`` () =
+    withHost (fun host _ -> task {
+        let childId, change = addRootChildEvent "redo-order"
+        let! posted =
+            CoreMailboxApi.postEvents host testCaller [ change ]
+            |> Async.StartAsTask
+        requireOk "change" posted |> ignore
+        let! since =
+            CoreMailboxApi.getEventsSince host EventId.zero
+            |> Async.StartAsTask
+        let storedChange =
+            since
+            |> List.find (fun event ->
+                event.submissionId = change.submissionId)
+        let! changedState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let changed = requireOk "changed" changedState
+        let changedChildren = Graph.children changed.graph Graph.rootId
+        Assert.True(rootOwns changed.graph childId)
+        let undo =
+            postedBody "Undo" (EventBody.Undo(storedChange.id, []))
+        let! undone =
+            CoreMailboxApi.postEvents host testCaller [ undo ]
+            |> Async.StartAsTask
+        requireOk "undo" undone |> ignore
+        let! undoneState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let undoneGraph = requireOk "undone" undoneState
+        Assert.False(rootOwns undoneGraph.graph childId)
+        let! mid =
+            CoreMailboxApi.getEventsSince host EventId.zero
+            |> Async.StartAsTask
+        let storedUndo =
+            mid
+            |> List.find (fun event ->
+                event.submissionId = undo.submissionId)
+        let redo =
+            postedBody "Redo" (EventBody.Redo(storedUndo.id, []))
+        let! redone =
+            CoreMailboxApi.postEvents host testCaller [ redo ]
+            |> Async.StartAsTask
+        requireOk "redo" redone |> ignore
+        let! redoBody = storedBody host redo.submissionId
+        let postedOps = Ev.ops change |> Option.defaultValue []
+        let expected = Op.invertAll (Op.invertAll postedOps)
+        match redoBody with
+        | Some (EventBody.Order (Order.Redo (target, ops))) ->
+            let! logged =
+                CoreMailboxApi.getEventsSince host EventId.zero
+                |> Async.StartAsTask
+            Assert.Equal(
+                Some undo.submissionId,
+                submissionOf logged target)
+            Assert.Equal<Op list>(expected, ops)
+        | other ->
+            Assert.Fail($"stored Redo is Order.Redo, got {other}")
+        let! afterState =
+            CoreMailboxApi.getState host |> Async.StartAsTask
+        let after = requireOk "after redo" afterState
+        Assert.True(rootOwns after.graph childId)
+        Assert.Equal<ChildNode list>(
+            changedChildren,
+            Graph.children after.graph Graph.rootId)
     })
 
 [<Fact>]

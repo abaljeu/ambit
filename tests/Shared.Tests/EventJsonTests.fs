@@ -304,8 +304,8 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
     let orders =
         [ Order.Change(ops, ChangeOrigin.Parse)
           Order.Change(ops, ChangeOrigin.Edit)
-          Order.Undo(EventIdFixtures.storedId 2)
-          Order.Redo(EventIdFixtures.storedId 3)
+          Order.Undo(EventIdFixtures.storedId 2, ops)
+          Order.Redo(EventIdFixtures.storedId 3, ops)
           Order.StartActor start
           Order.StartPeerActor(peerName, start)
           Order.LoadSave(LoadSavePath.Git, peerName, request)

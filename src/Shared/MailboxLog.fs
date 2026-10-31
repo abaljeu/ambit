@@ -37,8 +37,10 @@ module MailboxLog =
 
     let private orderOfBody (body: HistoryBody) =
         match body with
-        | HistoryBody.Undo (target, _) -> Ok (Order.Undo target)
-        | HistoryBody.Redo (target, _) -> Ok (Order.Redo target)
+        | HistoryBody.Undo (target, ops) ->
+            Ok (Order.Undo(target, ops))
+        | HistoryBody.Redo (target, ops) ->
+            Ok (Order.Redo(target, ops))
         | HistoryBody.ActorStart start ->
             Ok (Order.StartActor start)
         | HistoryBody.Load nodeId -> Ok (Order.Load nodeId)
@@ -51,8 +53,10 @@ module MailboxLog =
         match order with
         | Order.Change _ as change ->
             Ok (HistoryBody.Order change)
-        | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
-        | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
+        | Order.Undo _ as undo ->
+            Ok (HistoryBody.Order undo)
+        | Order.Redo _ as redo ->
+            Ok (HistoryBody.Order redo)
         | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
         | Order.Load nodeId -> Ok (HistoryBody.Load nodeId)
         | Order.Cancel focusId -> Ok (HistoryBody.Cancel focusId)

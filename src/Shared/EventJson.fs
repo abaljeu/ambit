@@ -297,14 +297,16 @@ module EventJson =
                 [ "kind", Encode.string "change"
                   "ops", encodeOps ops
                   "origin", encodeChangeOrigin origin ]
-        | Order.Undo target ->
+        | Order.Undo(target, ops) ->
             Encode.object
                 [ "kind", Encode.string "undo"
-                  "target", encodeEventId target ]
-        | Order.Redo target ->
+                  "target", encodeEventId target
+                  "ops", encodeOps ops ]
+        | Order.Redo(target, ops) ->
             Encode.object
                 [ "kind", Encode.string "redo"
-                  "target", encodeEventId target ]
+                  "target", encodeEventId target
+                  "ops", encodeOps ops ]
         | Order.StartActor start ->
             Encode.object
                 [ "kind", Encode.string "startActor"
@@ -332,11 +334,15 @@ module EventJson =
 
     let private decodeOrderUndo: Decoder<Order> =
         Decode.object (fun get ->
-            Order.Undo(get.Required.Field "target" decodeEventId))
+            Order.Undo(
+                get.Required.Field "target" decodeEventId,
+                get.Required.Field "ops" decodeOps))
 
     let private decodeOrderRedo: Decoder<Order> =
         Decode.object (fun get ->
-            Order.Redo(get.Required.Field "target" decodeEventId))
+            Order.Redo(
+                get.Required.Field "target" decodeEventId,
+                get.Required.Field "ops" decodeOps))
 
     let private decodeOrderStartActor: Decoder<Order> =
         Decode.object (fun get ->
