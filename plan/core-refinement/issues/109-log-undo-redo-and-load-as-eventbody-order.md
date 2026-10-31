@@ -24,8 +24,8 @@
 
 ### Match sites and constructors
 
-[ ] `EventBody.Undo` and `EventBody.Redo` appear in 8 source files and 10 test files
-[ ] `EventBody.Load` appears in 7 source files and 3 test files
+[ ] `EventBody.Undo` and `EventBody.Redo` appear in 6 source files and 10 test files
+[ ] `EventBody.Load` appears in 5 source files and 3 test files
 [ ] `ClientHistory.undoEvent` and `ClientHistory.redoEvent` pass `EventBody.Undo` and `EventBody.Redo` as functions to `invertAs`
 [ ] `CoreMailboxLoad.replyLoad` builds `EventBody.Load subject`
 [ ] Patterns: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch.completeAction`, `CoreEventDispatch.pushChangeSpecials`, `SyncLogic.markUndoRedoVersion`, `ClientHistory.stampBody`, `EventJson.encodeBody`, `MailboxLog.orderOfBody`
@@ -34,7 +34,7 @@
 ### Tests this ticket names
 
 [ ] [EventJsonTests.fs](tests/Shared.Tests/EventJsonTests.fs) `Ev JSON round-trips name-only Undo`
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `Undo and Redo keep the target and the ops`, `Load keeps its node through EventJson and MailboxLog`
+[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) the Undo and Redo round trip (today `Undo and Redo keep the target and drop the ops`), `Load keeps its node through EventJson and MailboxLog`
 [ ] [MailboxExpandTests.fs](tests/Server.Tests/MailboxExpandTests.fs) `loadNode logs Order.Load`
 [ ] [Issue41CoreMailboxTests.fs](tests/Server.Tests/Issue41CoreMailboxTests.fs) `name-only Undo and Redo store completed Events with submission ids`
 
@@ -43,16 +43,17 @@
 ### Today
 
 [ ] [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md) added the `EventBody` module with `Change` and `(|Change|_|)`
-[ ] `Order.Undo` and `Order.Redo` hold `target * ops`
-[ ] `Ev.ops`, `Ev.target`, and `Ev.withOps` read `EventBody.Order` of `Order.Undo` and `Order.Redo`
-[ ] `historyBody` maps `Order.Undo`, `Order.Redo`, and `Order.Load` to the old cases
+[ ] After [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md), `Order.Undo` and `Order.Redo` hold the target and the Op list
+[ ] After 65, a placed Undo or Redo is logged as `EventBody.Order` of `Order.Undo` or `Order.Redo`
+[ ] After 65, nothing on the Server logs `EventBody.Undo` or `EventBody.Redo`; the cases stay for the wire and for old rows
+[ ] `historyBody` maps `Order.Load` to `EventBody.Load`
 [ ] An undecoded row is skipped on read, and `BootCache` fetches `/state` on a decode error
 
 ## 5. Changes
 
 ### Change
 
-[ ] One contract: `EventBody.Undo`, `EventBody.Redo`, and `EventBody.Load` leave, and those bodies are logged as `EventBody.Order`
+[ ] One contract: `EventBody.Undo`, `EventBody.Redo`, and `EventBody.Load` leave with their `undo`, `redo`, and `load` body kinds, and Load is logged as `EventBody.Order`
 
 ### History.fs
 
@@ -91,12 +92,12 @@
 ### Kept
 
 [ ] Keep `Ev JSON round-trips name-only Undo`
-[ ] Keep `Undo and Redo keep the target and the ops`
+[ ] Keep the Undo and Redo round trip in `MailboxLogTests.fs`
 [ ] Keep `Load keeps its node through EventJson and MailboxLog`
 [ ] Keep `loadNode logs Order.Load`
 [ ] Keep `name-only Undo and Redo store completed Events with submission ids`
 [ ] Filter: `Ev JSON round-trips name-only Undo`
-[ ] Filter: `Undo and Redo keep the target and the ops`
+[ ] Filter: the Undo and Redo round-trip name in `MailboxLogTests.fs`
 [ ] Filter: `Load keeps its node through EventJson and MailboxLog`
 [ ] Filter: `loadNode logs Order.Load`
 [ ] Filter: `name-only Undo and Redo store completed Events with submission ids`
