@@ -283,6 +283,18 @@ module internal CoreEventDispatch =
             | Some result ->
                 pushChangeSpecials context completed result
 
+    let private withParseOrigin (graphOnly: bool) (event: Ev) =
+        if not graphOnly then
+            event
+        else
+            match event.body with
+            | EventBody.Order (Order.Change (ops, _)) ->
+                { event with
+                    body =
+                        EventBody.Order(
+                            Order.Change(ops, ChangeOrigin.Parse)) }
+            | _ -> event
+
     let private persistNew
         (context: Context)
         (caller: Caller)
@@ -296,6 +308,7 @@ module internal CoreEventDispatch =
             match prepare context caller event with
             | Error error -> Error error
             | Ok completed ->
+                let completed = withParseOrigin graphOnly completed
                 match persist context completed graphOnly with
                 | Error error -> Error error
                 | Ok accepted ->

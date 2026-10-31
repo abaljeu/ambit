@@ -388,10 +388,6 @@ module EventJson =
 
     let private encodeBody (body: EventBody) =
         match body with
-        | EventBody.Change ops ->
-            Encode.object
-                [ "kind", Encode.string "change"
-                  "ops", encodeOps ops ]
         | EventBody.Undo(target, ops) ->
             Encode.object
                 [ "kind", Encode.string "undo"
@@ -412,10 +408,6 @@ module EventJson =
             Encode.object
                 [ "kind", Encode.string "order"
                   "order", encodeOrder order ]
-
-    let private decodeChangeBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Change(get.Required.Field "ops" decodeOps))
 
     let private decodeUndoBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -444,7 +436,6 @@ module EventJson =
         Decode.field "kind" Decode.string
         |> Decode.andThen (fun kind ->
             match kind with
-            | "change" -> decodeChangeBody
             | "undo" -> decodeUndoBody
             | "redo" -> decodeRedoBody
             | "actorStart" ->
