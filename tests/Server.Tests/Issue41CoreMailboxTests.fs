@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.Issue41CoreMailboxTests
 
 open System
+open System.IO
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -341,3 +342,67 @@ let ``two live client edits with EventId.zero are admitted`` () =
         let state = requireOk "state after edit" state
         Assert.Equal("after", state.graph.nodes.[childId].text)
     })
+
+[<Fact>]
+let ``a graphOnly post stores the Change without a document file write`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            admittedHostFile (FileAgent.create dataDir)
+        try
+            let wsId = NodeId.New()
+            let fileId = NodeId.New()
+            let bodyId = NodeId.New()
+            let event =
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = "Parse"
+                  body =
+                    EventBody.Change
+                        [ Op.NewSpecialNode(wsId, Workspace, "home")
+                          Op.Replace(
+                              Graph.workspacesId,
+                              [],
+                              [ ChildNode.owner wsId ])
+                          Op.NewSpecialNode(fileId, File, "readme.txt")
+                          Op.Replace(wsId, [], [ ChildNode.owner fileId ])
+                          Op.NewNode(bodyId, "stored-body")
+                          Op.Replace(
+                              fileId,
+                              [],
+                              [ ChildNode.owner bodyId ]) ] }
+            let! posted =
+                CoreMailboxApi.postMailboxChange
+                    host
+                    testCaller
+                    true
+                    [ event ]
+                |> Async.StartAsTask
+            requireOk "graphOnly" posted |> ignore
+            let! state =
+                CoreMailboxApi.getState host
+                |> Async.StartAsTask
+            let state = requireOk "state" state
+            Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
+            match
+                DocumentPersistPath.resolveArtifactPath
+                    dataDir
+                    state.graph
+                    fileId
+            with
+            | Error err -> Assert.Fail(err)
+            | Ok path -> Assert.False(File.Exists path)
+            let! history =
+                CoreMailboxApi.eventHistory host
+                |> Async.StartAsTask
+            let stored =
+                history.events
+                |> List.find (fun item ->
+                    item.submissionId = event.submissionId)
+            match stored.body with
+            | EventBody.Change _ -> ()
+            | _ -> Assert.Fail("expected stored Change")
+        finally
+            CoreMailboxApi.dispose host
+    }

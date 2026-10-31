@@ -205,6 +205,46 @@ module CoreMailboxApi =
         | _ ->
             Mailbox.CoreMsg(PostEvent(caller, event, channel))
 
+    let private changeMessage
+        (caller: Caller)
+        (graphOnly: bool)
+        (event: Ev)
+        (channel: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        if graphOnly then
+            Mailbox.CoreMsg(PostGraphOnly(caller, event, channel))
+        else
+            postedMailbox caller event channel
+
+    let private clientBatchError (events: Ev list) =
+        if List.isEmpty events then
+            Some "events must not be empty"
+        elif List.exists isClientActorStop events then
+            Some "ActorStop is not a client event type"
+        else
+            None
+
+    /// One mailbox Change post. graphOnly skips the document file write.
+    let postMailboxChange
+        (host: MailboxHost)
+        (caller: Caller)
+        (graphOnly: bool)
+        (events: Ev list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        match graphOnly, clientBatchError events with
+        | false, Some err -> async { return Error err }
+        | _ ->
+            let builds =
+                events
+                |> List.map (fun (event: Ev) ->
+                    fun channel ->
+                        changeMessage caller graphOnly event channel)
+            let waiting = MailboxHost.postForReplies host builds
+            async {
+                let! results = waiting
+                return! mergeIdReplies host events results
+            }
+
     /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
@@ -212,20 +252,7 @@ module CoreMailboxApi =
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        if List.isEmpty events then
-            async { return Error "events must not be empty" }
-        elif List.exists isClientActorStop events then
-            async { return Error "ActorStop is not a client event type" }
-        else
-            let builds =
-                events
-                |> List.map (fun (event: Ev) ->
-                    fun channel -> postedMailbox caller event channel)
-            let waiting = MailboxHost.postForReplies host builds
-            async {
-                let! results = waiting
-                return! mergeIdReplies host events results
-            }
+        postMailboxChange host caller false events
 
     /// Graph-only Ev: same flow as postEvents, skips file persist only.
     let postGraphOnly
@@ -233,15 +260,7 @@ module CoreMailboxApi =
         (caller: Caller)
         (event: Ev)
         : Async<Result<CoreChangesAccepted, string>> =
-        async {
-            let! result =
-                reply host (fun channel ->
-                    PostGraphOnly(caller, event, channel))
-            match result with
-            | Error err -> return Error err
-            | Ok eventId ->
-                return! acceptedFromIds host [ event ] [ eventId ]
-        }
+        postMailboxChange host caller true [ event ]
 
     let startActor
         (host: MailboxHost)

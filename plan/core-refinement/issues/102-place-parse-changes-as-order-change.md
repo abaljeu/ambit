@@ -1,5 +1,5 @@
 # 102 — Place Parse changes as Order.Change
-**Status**: `defined`
+**Status**: `coded`
 One job: The Server has one mailbox Change post with a `graphOnly` parameter, and `postEvents` and `postGraphOnly` become shells that call it with `graphOnly` `false` and `true`. The reason is decision 1 **Change** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`.
 
 Type: coding
@@ -51,15 +51,15 @@ Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Add one mailbox Change post with a `graphOnly` parameter in `src/Server/Core/CoreMailboxApi.fs`.
-3. [ ] Make `postEvents` and `postGraphOnly` shells that keep their signatures and call that post with `graphOnly` `false` and `true`.
-4. [ ] Add a test that a `graphOnly` post stores the Change without a document file write.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] Add one mailbox Change post with a `graphOnly` parameter in `src/Server/Core/CoreMailboxApi.fs`.
+3. [x] Make `postEvents` and `postGraphOnly` shells that keep their signatures and call that post with `graphOnly` `false` and `true`.
+4. [x] Add a test that a `graphOnly` post stores the Change without a document file write.
 
 ## Outputs
 
-[ ] `src/Server/Core/CoreMailboxApi.fs` — one mailbox Change post with a `graphOnly` parameter; `postEvents` and `postGraphOnly` call it
-[ ] One test in `tests/Server.Tests` that a `graphOnly` post stores the Change without a document file write
+[x] `src/Server/Core/CoreMailboxApi.fs` — one mailbox Change post with a `graphOnly` parameter; `postEvents` and `postGraphOnly` call it
+[x] One test in `tests/Server.Tests` that a `graphOnly` post stores the Change without a document file write
 
 ## Stop when
 
@@ -69,11 +69,11 @@ Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: the new `graphOnly` test name written in the test file
   - `tests/Server.Tests`: ``A graph-only change pushes nothing``
   - `tests/Server.Tests`: ``postGraphOnly updates Graph and EventLog without file write``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/102-place-parse-changes-as-order-change-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/102-place-parse-changes-as-order-change-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
