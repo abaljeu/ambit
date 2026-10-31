@@ -280,6 +280,16 @@ module EventJson =
     let private decodePeerActorName: Decoder<PeerActorName> =
         Decode.string |> Decode.map PeerActorName
 
+    let private encodeLoad nodeId =
+        Encode.object
+            [ "kind", Encode.string "load"
+              "nodeId", Serialization.encodeNodeId nodeId ]
+
+    let private encodeCancel focusId =
+        Encode.object
+            [ "kind", Encode.string "cancel"
+              "focusId", Serialization.encodeNodeId focusId ]
+
     let private encodeOrder (order: Order) =
         match order with
         | Order.Change(ops, origin) ->
@@ -311,14 +321,8 @@ module EventJson =
                   "peerName", encodePeerActorName peerName
                   "request",
                   encodeLoadSaveCommandRequest request ]
-        | Order.Load nodeId ->
-            Encode.object
-                [ "kind", Encode.string "load"
-                  "nodeId", Serialization.encodeNodeId nodeId ]
-        | Order.Cancel focusId ->
-            Encode.object
-                [ "kind", Encode.string "cancel"
-                  "focusId", Serialization.encodeNodeId focusId ]
+        | Order.Load nodeId -> encodeLoad nodeId
+        | Order.Cancel focusId -> encodeCancel focusId
 
     let private decodeOrderChange: Decoder<Order> =
         Decode.object (fun get ->
@@ -339,7 +343,7 @@ module EventJson =
             Order.StartActor(
                 get.Required.Field "start" decodeStartRequest))
 
-    let private decodeOrderStartPeer: Decoder<Order> =
+    let private decodeOrderStartPeerActor: Decoder<Order> =
         Decode.object (fun get ->
             Order.StartPeerActor(
                 get.Required.Field "peerName" decodePeerActorName,
@@ -376,7 +380,7 @@ module EventJson =
             | "undo" -> decodeOrderUndo
             | "redo" -> decodeOrderRedo
             | "startActor" -> decodeOrderStartActor
-            | "startPeerActor" -> decodeOrderStartPeer
+            | "startPeerActor" -> decodeOrderStartPeerActor
             | "loadSave" -> decodeOrderLoadSave
             | "load" -> decodeOrderLoad
             | "cancel" -> decodeOrderCancel
@@ -399,14 +403,8 @@ module EventJson =
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
         | EventBody.ActorStart start -> encodeActorStart start
-        | EventBody.Load nodeId ->
-            Encode.object
-                [ "kind", Encode.string "load"
-                  "nodeId", Serialization.encodeNodeId nodeId ]
-        | EventBody.Cancel focusId ->
-            Encode.object
-                [ "kind", Encode.string "cancel"
-                  "focusId", Serialization.encodeNodeId focusId ]
+        | EventBody.Load nodeId -> encodeLoad nodeId
+        | EventBody.Cancel focusId -> encodeCancel focusId
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
         | EventBody.Notice notice -> encodeNotice notice
