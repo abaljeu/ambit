@@ -74,6 +74,47 @@ module CoreMailboxApi =
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
+    let private placedOrder (event: Ev) =
+        match MailboxLog.ofEv event with
+        | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
+            Some placed
+        | _ -> None
+
+    let private isUndoOrRedo (event: Ev) =
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _ -> true
+        | _ -> false
+
+    let private sendsAsOrder (event: Ev) =
+        if isUndoOrRedo event then
+            true
+        else
+            match event.body with
+            | EventBody.Change _ -> event.id = EventId.zero
+            | _ -> false
+
+    let private messageForPosted
+        (caller: Caller)
+        (event: Ev)
+        (channel: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match sendsAsOrder event, placedOrder event with
+        | true, Some placed ->
+            Mailbox.placeForCaller placed caller channel
+        | _ -> Mailbox.CoreMsg(PostEvent(caller, event, channel))
+
+    let private acceptOne
+        (host: MailboxHost)
+        (caller: Caller)
+        (event: Ev)
+        =
+        match isUndoOrRedo event, placedOrder event with
+        | true, Some placed ->
+            MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                Mailbox.placeForCaller placed caller channel)
+        | _ -> postEventAccepted host caller event
+
     let private isClientActorStop (event: Ev) =
         match event.body with
         | EventBody.ActorStop _ -> true
@@ -179,7 +220,7 @@ module CoreMailboxApi =
         (event: Ev)
         : Async<Result<Ev, string>> =
         async {
-            let! result = postEventAccepted host caller event
+            let! result = acceptOne host caller event
             match result with
             | Error err -> return Error err
             | Ok eventId ->
@@ -212,17 +253,8 @@ module CoreMailboxApi =
                    (channel: AsyncReplyChannel<Result<EventId, string>>) ->
                 Mailbox.CoreMsg(PostGraphOnly(caller, event, channel)))
         | false, None ->
-            Ok(fun (event: Ev)
-                   (channel: AsyncReplyChannel<Result<EventId, string>>) ->
-                match event.body with
-                | EventBody.Change _ when event.id = EventId.zero ->
-                    match MailboxLog.ofEv event with
-                    | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-                        Mailbox.placeForCaller placed caller channel
-                    | _ ->
-                        Mailbox.CoreMsg(PostEvent(caller, event, channel))
-                | _ ->
-                    Mailbox.CoreMsg(PostEvent(caller, event, channel)))
+            Ok(fun (event: Ev) channel ->
+                messageForPosted caller event channel)
 
     /// One mailbox Change post. graphOnly skips the document file write.
     let postMailboxChange

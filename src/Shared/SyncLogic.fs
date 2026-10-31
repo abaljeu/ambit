@@ -527,7 +527,9 @@ module SyncLogic =
     let private markUndoRedoVersion (event: Ev) (graph: Graph) : Graph =
         match event.body with
         | EventBody.Undo _
-        | EventBody.Redo _ ->
+        | EventBody.Redo _
+        | EventBody.Order (Order.Undo _)
+        | EventBody.Order (Order.Redo _) ->
             match Op.persistMarkVersion event.commandName event.id with
             | None -> graph
             | Some version ->

@@ -58,15 +58,19 @@ let ``empty command name maps to None and returns as empty`` () =
     Assert.Equal(event, back)
 
 [<Fact>]
-let ``Undo and Redo keep the target and drop the ops`` () =
+let ``Undo and Redo keep the target and the ops`` () =
     let target = EventId.fromJson 4
     let ops = [ childOp () ]
     let undo = source "Undo" (EventBody.Undo(target, ops))
     let redo = source "Redo" (EventBody.Redo(target, ops))
-    Assert.Equal(Order.Undo target, (placed undo).order)
-    Assert.Equal(Order.Redo target, (placed redo).order)
-    Assert.Equal(EventBody.Undo(target, []), (restored (logged undo)).body)
-    Assert.Equal(EventBody.Redo(target, []), (restored (logged redo)).body)
+    Assert.Equal(Order.Undo(target, ops), (placed undo).order)
+    Assert.Equal(Order.Redo(target, ops), (placed redo).order)
+    Assert.Equal(
+        EventBody.Order(Order.Undo(target, ops)),
+        (restored (logged undo)).body)
+    Assert.Equal(
+        EventBody.Order(Order.Redo(target, ops)),
+        (restored (logged redo)).body)
 
 [<Fact>]
 let ``Load keeps its node through EventJson and MailboxLog`` () =
