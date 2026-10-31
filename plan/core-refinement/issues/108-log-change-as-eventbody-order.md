@@ -1,135 +1,87 @@
 # 108 — Log Change as EventBody.Order
+**Status**: `defined`
+One job: The Server logs every Change as `EventBody.Order` of `Order.Change`, holding the op list and its `origin`, and the `EventBody.Change` case leaves the union. The reason is decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): history `EventBody.Order` holds the placed `Order` unchanged.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is done)
 
-## 1. Type
+## Inputs
 
-[ ] `coding`
+### Working
 
-## 2. Blockers
+[ ] ``EventBody`` in `src/Shared/History.fs` has the case `Change of ops: Op list` and the case `Order of Order`.
+[ ] ``Ev.ops``, ``Ev.target`` and ``Ev.withOps`` in `src/Shared/History.fs` each have an `EventBody.Change` arm and an `EventBody.Order` arm.
+[ ] ``Ev.withOps`` keeps `origin` for `EventBody.Order (Order.Change(_, origin))`.
+[ ] ``encodeBody`` in `src/Shared/EventJson.fs` writes `EventBody.Change` as `kind` `change`.
+[ ] ``decodeChangeBody`` in `src/Shared/EventJson.fs` builds `EventBody.Change`; ``decodeBody`` selects it for `kind` `change`.
+[ ] ``orderOfBody`` in `src/Shared/MailboxLog.fs` maps `EventBody.Change ops` to `Order.Change(ops, ChangeOrigin.Edit)`, and `EventBody.Order order` to `order`.
+[ ] ``historyBody`` in `src/Shared/MailboxLog.fs` maps `Order.Change(ops, _)` to `EventBody.Change ops`, so the stored Change drops `origin`.
+[ ] ``editEvent`` in `src/Server/Core/CoreMailboxLoop.fs` builds the stored Ev through `MailboxLog.toEv` with `Order.Change(ops, ChangeOrigin.Edit)`. Read only.
+[ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.Change(_, ChangeOrigin.Parse)`. Read only.
+[ ] ``postGraphOnly`` in `src/Server/Core/CoreMailboxApi.fs` posts an Ev, not an Order. `GraphOnlyChangePost` builds that Ev with `EventBody.Change ops`. Read only.
+[ ] Nothing on staging stores a Change with origin `Parse`.
+[ ] Source constructors of `EventBody.Change`: `ClientHistory` (104), `GraphOnlyChangePost` (14), `RunAgentActor` (119), `TestActor` (19, 86), `Ev.withOps`, `EventJson.decodeChangeBody`.
+[ ] Source patterns on `EventBody.Change`: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch` (135, 228), `CoreMailboxApi` (144, 199), `EventJson.encodeBody`, `MailboxLog.orderOfBody`.
+[ ] `EventBody.Change` appears 235 times in 63 test files.
+[ ] F# allows a module with the same name as a type. With `[<RequireQualifiedAccess>] module EventBody`, `EventBody.Change ops` calls the module function, and the pattern `EventBody.Change ops` uses the module's partial active pattern.
+[ ] `TreatWarningsAsErrors` is on, so an arm that can never match fails the build.
+[ ] `EventLogFile.decodeEvent` and the `DbAgent` restore skip an entry that does not decode. `BootCache` fetches `/state` on a decode error.
+[ ] Alan, 2026-10-24: `origin` is logged. Old-form logs are dropped, not mapped.
+[ ] ``Ev JSON round-trips a Change`` and ``mintChange encodes eventId 0 on the wire`` in `tests/Shared.Tests/EventJsonTests.fs`.
+[ ] ``ofEv then toEv keeps a Change`` in `tests/Shared.Tests/MailboxLogTests.fs`.
+[ ] ``postEvents places Order.Change with origin Edit`` and ``a resubmitted Change replies the stored id`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] ``decideBootRead fetches /state on decode error`` in `tests/Shared.Tests/BootCacheTests.fs`.
 
-[ ] [107 — Add EventBody.Order](107-add-eventbody-order.md)
+### Reference
 
-## 3. Look at
+[ ] [Message shape](plan/core-refinement/cqrs-messages.md) §2 **Order** and §3 decisions 1, 4 and 18. They already say the logged Change holds `origin`.
 
-### Owner
+## Do not load
 
-[ ] [History.fs](src/Shared/History.fs) owns `EventBody.Change`, `Ev.withOps`
+[ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` stay. Their removal is [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md).
+[ ] Undo, Redo, Load, ActorStart and Cancel stay in their own cases.
+[ ] The 63 test files that use `EventBody.Change` stay as written.
 
-### Source
+## Process
 
-[ ] [EventJson.fs](src/Shared/EventJson.fs) `encodeBody`, `decodeBody`, `decodeChangeBody`
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `orderOfBody`, `historyBody`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `editEvent`, read only; it builds the stored Ev through `MailboxLog.toEv`
+1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+2. [ ] Contract `src/Shared/History.fs`: remove `| Change of ops: Op list` from `EventBody`.
+3. [ ] Expand `src/Shared/History.fs`: add `[<RequireQualifiedAccess>] module EventBody` after the type. `EventBody.Change (ops: Op list) : EventBody` is `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`. `EventBody.(|Change|_|)` matches `EventBody.Order (Order.Change(ops, _))` and gives `ops`.
+4. [ ] Change `src/Shared/History.fs`: remove the `EventBody.Change` arms from `Ev.ops`, `Ev.target` and `Ev.withOps`. The `EventBody.Order` arms cover a Change.
+5. [ ] Contract `src/Shared/EventJson.fs`: remove the `EventBody.Change` arm from `encodeBody`, remove `decodeChangeBody`, and remove the `change` kind from `decodeBody`. A Change is written as `kind` `order`. An old `change` row does not decode.
+6. [ ] Change `src/Shared/MailboxLog.fs`: remove the `EventBody.Change` arm from `orderOfBody`. `historyBody` maps `Order.Change _` to `EventBody.Order order`, keeping `origin`.
+7. [ ] In the other source match sites, remove an `EventBody.Change` arm that the build rejects as never matching, and nothing else.
+8. [ ] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
+9. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
 
-### Docs
+## Outputs
 
-[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 1 **Change** and decisions 1, 4, and 18, read only; they already say the logged Change holds `origin`
+[ ] `src/Shared/History.fs`
+[ ] `src/Shared/EventJson.fs`
+[ ] `src/Shared/MailboxLog.fs`
+[ ] Any other source file from step 7, up to 8 source files in total
+[ ] `tests/Shared.Tests/EventJsonTests.fs` — add ``An old change row is skipped on read``
+[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit``
 
-### Match sites and constructors
+## Stop when
 
-[ ] `EventBody.Change` appears in 13 source files and 63 test files
-[ ] Constructors in source: `ClientHistory.mintChange`, `ImportText` (3), `GraphOnlyChangePost`, `RunAgentActor`, `TestActor` (2), `Ev.withOps`, `EventJson.decodeChangeBody`, `MailboxLog.historyBody`
-[ ] Patterns in source: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch.completeAction`, `CoreEventDispatch.pushChangeSpecials`, `CoreMailboxApi.postedMailbox`, `CoreMailboxApi.cursorAfterDuplicateChange`, `Api.inferredNodeEvents`, `EventJson.encodeBody`, `MailboxLog.orderOfBody`
-[ ] Test files construct and match `EventBody.Change` 269 times
-[ ] The `EventBody.Change` helper module keeps every one of those sites as written
+[ ] Record the stop at `plan/core-refinement/reports/108-log-change-as-eventbody-order-stop.md`, then ask.
+[ ] Stop when the edit needs a file outside Inputs.
+[ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
+[ ] Stop when a test file needs an edit beyond the two in Outputs.
 
-### Tests this ticket names
+## Check
 
-[ ] [EventJsonTests.fs](tests/Shared.Tests/EventJsonTests.fs) `Ev JSON round-trips a Change`, `mintChange encodes eventId 0 on the wire`
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `ofEv then toEv keeps a Change`
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs) `postEvents places Order.Change with origin Edit`, `a resubmitted Change replies the stored id`
-[ ] [BootCacheTests.fs](tests/Shared.Tests/BootCacheTests.fs) `decideBootRead fetches /state on decode error`
-
-## 4. Context
-
-### Logged Change
-
-[ ] The stored Change is `EventBody.Change ops`
-[ ] `placeOrder` builds it through `MailboxLog.toEv`, and `historyBody` maps `Order.Change(ops, _)` to `EventBody.Change ops`
-[ ] The stored Change drops `origin`
-[ ] `Ev.withOps` already keeps `origin` for `EventBody.Order`
-
-### Origin is logged
-
-[ ] Alan, 2026-10-24: `origin` is logged; the log is not stripped of `origin`
-[ ] This matches [cqrs-messages.md](../cqrs-messages.md) decision 1 **Logged as placed** and choice (c): `EventBody.Order` holds the `Order`
-[ ] [cqrs-messages.md](../cqrs-messages.md) already says the logged Change holds the op list and the `origin`
-
-### Old logs
-
-[ ] `EventLogFile.readAllEvents` skips an entry that does not decode
-[ ] `DbAgent` restore skips a row that does not decode
-[ ] `BootCache` fetches `/state` on a decode error
-[ ] Alan, 2026-10-24: old-form logs are dropped, not mapped
-
-### Helper module
-
-[ ] F# allows a module with the same name as a type
-[ ] `EventBody.Change ops` then calls the module function
-[ ] A pattern `EventBody.Change ops` then uses the module's partial active pattern
-[ ] A match stays complete when it lists `EventBody.Order` and the other union cases
-[ ] `TreatWarningsAsErrors` is on, so an arm that can never match fails the build
-
-## 5. Changes
-
-### Change
-
-[ ] One contract: the `EventBody.Change` case leaves, and a Change is logged as `EventBody.Order` of `Order.Change`
-
-### History.fs
-
-[ ] Remove `| Change of ops: Op list` from `EventBody`
-[ ] Add `[<RequireQualifiedAccess>] module EventBody` after the type
-[ ] `EventBody.Change (ops: Op list) : EventBody` is `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`
-[ ] `EventBody.(|Change|_|)` matches `EventBody.Order (Order.Change(ops, _))` and gives `ops`
-[ ] Remove the `EventBody.Change` arm from `Ev.withOps`; the `EventBody.Order` arm keeps `origin`
-
-### EventJson.fs
-
-[ ] Remove the `EventBody.Change` arm from `encodeBody`
-[ ] `encodeBody` writes a Change as `kind` `order`
-[ ] Remove `decodeChangeBody` and the `change` body kind from `decodeBody`
-[ ] An old `change` row does not decode
-
-### MailboxLog.fs
-
-[ ] Remove the `HistoryBody.Change` arm from `orderOfBody`; the `HistoryBody.Order` arm reads it
-[ ] `historyBody` maps `Order.Change _` to `HistoryBody.Order order`
-[ ] `editEvent` then stores `EventBody.Order placed.order` with its `origin`
-
-### Size
-
-[ ] 3 source files: `History.fs`, `EventJson.fs`, `MailboxLog.fs`
-[ ] 2 test files: `EventJsonTests.fs`, `CoreMailboxDoorTests.fs`
-
-## 6. Tests
-
-### Parse origin
-
-[ ] Add `a stored Parse Change keeps origin Parse` in `CoreMailboxDoorTests.fs`
-[ ] `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`
-[ ] `postEvents` of a Change stores origin `Edit`
-[ ] Filter: `a stored Parse Change keeps origin Parse`
-
-### Old row
-
-[ ] Add `An old change row is skipped on read` in `EventJsonTests.fs`
-[ ] A JSON body with `kind` `change` fails `EventJson.decode`
-[ ] Filter: `An old change row is skipped on read`
-
-### Kept
-
-[ ] Keep `Ev JSON round-trips a Change`, `mintChange encodes eventId 0 on the wire`, `ofEv then toEv keeps a Change`, `postEvents places Order.Change with origin Edit`, `a resubmitted Change replies the stored id`, `decideBootRead fetches /state on decode error`
-[ ] Filter: `Ev JSON round-trips a Change`
-[ ] Filter: `mintChange encodes eventId 0 on the wire`
-[ ] Filter: `ofEv then toEv keeps a Change`
-[ ] Filter: `postEvents places Order.Change with origin Edit`
-[ ] Filter: `a resubmitted Change replies the stored id`
-[ ] Filter: `decideBootRead fetches /state on decode error`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Shared.Tests`: ``An old change row is skipped on read``
+  - `tests/Server.Tests`: ``a stored Edit Change keeps origin Edit``
+  - `tests/Shared.Tests`: ``Ev JSON round-trips a Change``
+  - `tests/Shared.Tests`: ``mintChange encodes eventId 0 on the wire``
+  - `tests/Shared.Tests`: ``ofEv then toEv keeps a Change``
+  - `tests/Server.Tests`: ``postEvents places Order.Change with origin Edit``
+  - `tests/Server.Tests`: ``a resubmitted Change replies the stored id``
+  - `tests/Shared.Tests`: ``decideBootRead fetches /state on decode error``
 [ ] All executed tests pass.
+[ ] Write the verdict to `plan/core-refinement/reports/108-log-change-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] A reader who reads only the One job line can say what the ticket builds.
