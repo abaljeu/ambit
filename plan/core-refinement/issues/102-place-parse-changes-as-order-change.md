@@ -1,122 +1,79 @@
 # 102 — Place Parse changes as Order.Change
+**Status**: `defined`
+One job: The Server has one mailbox Change post with a `graphOnly` parameter, and `postEvents` and `postGraphOnly` become shells that call it with `graphOnly` `false` and `true`. The reason is decision 1 **Change** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is-the-mailbox-envelope.md) and [107 — Add EventBody.Order](107-add-eventbody-order.md) are on staging)
 
-## 1. Type
+## Inputs
 
-[ ] `coding`
+### Working
 
-## 2. Blockers
+#### The two posts
 
-[ ] None. [104 — PlacedOrder is the mailbox envelope](104-placedorder-is-the-mailbox-envelope.md) is on staging.
+[ ] ``postEvents`` in `src/Server/Core/CoreMailboxApi.fs` takes `host`, `caller`, and an `Ev list`, and replies `Result<CoreChangesAccepted, string>`.
+[ ] ``postEvents`` sends each Change Ev with id zero as `Mailbox.PlaceOrder` through `postedMailbox`, and every other Ev as `CoreMsg.PostEvent`.
+[ ] ``postGraphOnly`` in `src/Server/Core/CoreMailboxApi.fs` takes `host`, `caller`, and one `Ev`, and replies `Result<CoreChangesAccepted, string>`.
+[ ] ``postGraphOnly`` sends `CoreMsg.PostGraphOnly(caller, event, channel)`.
+[ ] Both rebuild `CoreChangesAccepted` through `acceptedFromIds`.
+[ ] ``CoreDoor.postEvents`` and ``CoreDoor.postGraphOnly`` in `src/Server/Core/CoreDoor.fs` call them through `callIfReady`.
+[ ] No function named `postChange` exists on staging.
 
-## 3. Look at
+#### Where each is handled
 
-### Owner
+[ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` handles `Order.Change(_, ChangeOrigin.Edit)` through `replyEdit`, which calls `CoreEventDispatch.postEvent` with `graphOnly` `false`.
+[ ] ``placeOrder`` replies `Error "unsupported"` for `Order.Change(_, ChangeOrigin.Parse)`.
+[ ] ``runMsg`` in `src/Server/Core/CoreMailboxLoop.fs` handles `PostGraphOnly` through `CoreMailboxEvents.dispatchPostGraphOnly`, which calls `CoreEventDispatch.postEvent` with `graphOnly` `true`.
+[ ] `CoreMsg.PostGraphOnly` in `src/Server/Core/CoreMsg.fs` is matched in `CoreMailboxLoop.runMsg`, `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure`.
+[ ] ``CoreEventDispatch.postEvent`` in `src/Server/Core/CoreEventDispatch.fs` takes `graphOnly: bool`. `true` skips the document file write and the persist push. Read only.
 
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) owns `postGraphOnly`
+#### Callers
 
-### Source
+[ ] `CoreDoor.postEvents` is called from `Api.postEvents` in `src/Server/Api.fs`, `TestActor` in `src/Server/TestActor.fs`, and `RunAgentActor` in `src/Server/RunAgentActor.fs`.
+[ ] `CoreDoor.postGraphOnly` is called from `ParseThread.postParseOps` in `src/Server/ParseThread.fs` and from `LazyLoadReconciliationServer` in `src/Server/LazyLoadReconciliationServer.fs` through `GraphOnlyChangePost.postChunks`.
+[ ] 33 test files call `postEvents` or `postGraphOnly` on `CoreMailboxApi` or `CoreDoor`. They stay as written.
 
-[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `CoreMsg.PostGraphOnly`, `Mailbox.PlaceOrder`
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `PlacedOrder`, `ofEv`, read only
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder`, `editEvent`, `replyEdit`, `runMsg`, `messageCaller`
-[ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `dispatchPostGraphOnly`, `operationContext`, `replyFailure`
-[ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `postEvent`, read only
+#### Tests
 
-### Match sites and callers
+[ ] ``A graph-only change pushes nothing`` and ``a graph-only change logs no NodeUnpersisted`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] ``Graph-only post reads authority without repeated admission`` and ``Graph-only post with admitted Caller reaches persist`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] ``postGraphOnly updates Graph and EventLog without file write`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs`.
+[ ] ``Graph-only post does not repeat entry admission`` in `tests/Server.Tests/CoreRuntimeTests.fs`.
 
-[ ] `CoreMsg.PostGraphOnly` is built in `CoreMailboxApi.postGraphOnly`
-[ ] `CoreMsg.PostGraphOnly` is matched in `CoreMailboxLoad.runMsg`, `CoreMailboxLoad.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure`
-[ ] `placeOrder` replies `Error "unsupported"` on `Order.Change` with `ChangeOrigin.Parse`
-[ ] `CoreDoor.postGraphOnly` calls `CoreMailboxApi.postGraphOnly`
-[ ] `ParseThread`, `Api.applyParseFile`, and `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks` call `CoreDoor.postGraphOnly`
-[ ] 17 test files call `CoreMailboxApi.postGraphOnly`; its signature stays, so they stay
+### Reference
 
-### Tests this ticket names
+[ ] [Message shape](plan/core-refinement/cqrs-messages.md) §3 decisions 1 and 18.
 
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs) `A graph-only change pushes nothing`, `Graph-only post reads authority without repeated admission`, `Graph-only post with admitted Caller reaches persist`
-[ ] [Issue41CoreMailboxTests.fs](tests/Server.Tests/Issue41CoreMailboxTests.fs) `postGraphOnly updates Graph and EventLog without file write`
+## Do not load
 
-## 4. Context
+[ ] The callers of `postEvents` and `postGraphOnly` stay as written.
+[ ] Logging `origin` is [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md).
 
-### postGraphOnly
+## Process
 
-[ ] `postGraphOnly` takes `host`, `caller`, and a History `Ev`
-[ ] It posts `CoreMsg.PostGraphOnly` through `reply`
-[ ] The reply is `Result<EventId, string>`
-[ ] It rebuilds `CoreChangesAccepted` through `acceptedFromIds`
-[ ] `dispatchPostGraphOnly` calls `CoreEventDispatch.postEvent` with `graphOnly` true
-[ ] `graphOnly` true skips the document file and the persist push
+1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+2. [ ] Add one mailbox Change post with a `graphOnly` parameter in `src/Server/Core/CoreMailboxApi.fs`.
+3. [ ] Make `postEvents` and `postGraphOnly` shells that keep their signatures and call that post with `graphOnly` `false` and `true`.
+4. [ ] Add a test that a `graphOnly` post stores the Change without a document file write.
 
-### placeOrder
+## Outputs
 
-[ ] `placeOrder` takes the shared `PlacedOrder`, the `Caller`, and the reply, as `Mailbox.PlaceOrder` carries them
-[ ] `Order.Change` with `ChangeOrigin.Edit` calls `replyEdit`
-[ ] `replyEdit` builds the Ev through `editEvent`, calls `postEvent` with `graphOnly` false, and replies `Ok` of the stored id
-[ ] `postedMailbox` reads the shared `PlacedOrder` from an Ev through `MailboxLog.ofEv` and sets `authority = caller.authority`
+[ ] `src/Server/Core/CoreMailboxApi.fs` — one mailbox Change post with a `graphOnly` parameter; `postEvents` and `postGraphOnly` call it
+[ ] One test in `tests/Server.Tests` that a `graphOnly` post stores the Change without a document file write
 
-## 5. Changes
+## Stop when
 
-### Change
+[ ] Record the stop at `plan/core-refinement/reports/102-place-parse-changes-as-order-change-stop.md`, then ask.
+[ ] Stop when the edit needs a caller of `postEvents` or `postGraphOnly` to change.
+[ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
 
-[ ] One change: the parse door places `Order.Change` with origin `Parse`, and `CoreMsg.PostGraphOnly` leaves
+## Check
 
-### CoreMailboxApi.fs
-
-[ ] `postGraphOnly` keeps its signature
-[ ] It reads the ops with `Ev.ops event`
-[ ] An Ev with no ops returns `Error "graph-only post needs a Change"`
-[ ] It reads `placed` through `MailboxLog.ofEv event`, the way `postedMailbox` does
-[ ] It posts `Mailbox.PlaceOrder({ placed with authority = caller.authority; order = Order.Change(ops, ChangeOrigin.Parse) }, caller, channel)` through `MailboxHost.postMailboxAndAsyncReply`
-[ ] `orderId` and `commandName` come from `ofEv`: `OrderId event.submissionId` and the event's command name
-[ ] It rebuilds `CoreChangesAccepted` through `acceptedFromIds`, as today
-
-### CoreMailboxLoad.fs
-
-[ ] `replyEdit` becomes `replyChange context placed caller reply ops graphOnly`
-[ ] `Order.Change` with `ChangeOrigin.Edit` calls `replyChange` with `graphOnly` false
-[ ] `Order.Change` with `ChangeOrigin.Parse` calls `replyChange` with `graphOnly` true
-[ ] Remove the `PostGraphOnly` arm from `runMsg`
-[ ] Remove the `PostGraphOnly` arm from `messageCaller`
-
-### CoreMailboxEvents.fs
-
-[ ] Remove `dispatchPostGraphOnly`
-[ ] Remove the `PostGraphOnly` arms from `operationContext` and `replyFailure`
-
-### CoreMsg.fs
-
-[ ] Remove `CoreMsg.PostGraphOnly`
-
-### Size
-
-[ ] 4 source files: `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMsg.fs`
-[ ] 1 test file: `CoreMailboxDoorTests.fs`
-
-## 6. Tests
-
-### Parse order
-
-[ ] Add `postGraphOnly places Order.Change with origin Parse` in `CoreMailboxDoorTests.fs`
-[ ] `postGraphOnly` of a Change replies `Ok` with an accepted `eventId`
-[ ] `getEventsSince` holds the stored Change at that id
-[ ] No document file is written
-[ ] No persist request is pushed
-[ ] Filter: `postGraphOnly places Order.Change with origin Parse`
-
-### Kept
-
-[ ] Keep `A graph-only change pushes nothing`
-[ ] Keep `Graph-only post reads authority without repeated admission`
-[ ] Keep `Graph-only post with admitted Caller reaches persist`
-[ ] Keep `postGraphOnly updates Graph and EventLog without file write` in `Issue41CoreMailboxTests.fs`
-[ ] Filter: `A graph-only change pushes nothing`
-[ ] Filter: `Graph-only post`
-[ ] Filter: `postGraphOnly updates Graph and EventLog without file write`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Server.Tests`: the new `graphOnly` test name written in the test file
+  - `tests/Server.Tests`: ``A graph-only change pushes nothing``
+  - `tests/Server.Tests`: ``postGraphOnly updates Graph and EventLog without file write``
 [ ] All executed tests pass.
+[ ] Write the verdict to `plan/core-refinement/reports/102-place-parse-changes-as-order-change-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] A reader who reads only the One job line can say what the ticket builds.
