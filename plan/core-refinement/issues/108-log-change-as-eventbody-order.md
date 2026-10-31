@@ -1,5 +1,5 @@
 # 108 — Log Change as EventBody.Order
-**Status**: `defined`
+**Status**: `coded`
 One job: The Server logs every Change as `EventBody.Order` of `Order.Change`, holding the op list and its `origin`, and the `EventBody.Change` case leaves the union. A `graphOnly` post logs its Change with origin `Parse`, so a stored Change keeps its origin for both Edit and Parse. The reason is decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): history `EventBody.Order` holds the placed `Order` unchanged.
 
 Type: coding
@@ -49,21 +49,21 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] The `EventBody.Change` case leaves the `EventBody` union in `src/Shared/History.fs`.
-3. [ ] Every Change is logged and written as `EventBody.Order` of `Order.Change` with its `origin`. Its JSON `kind` is `order`.
-4. [ ] An old `change` row is skipped on read.
-5. [ ] The build stays warning-free.
-6. [ ] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
-7. [ ] Change the `graphOnly` post so it logs its Change with origin `Parse`. The way it carries `origin` is the builder's choice. Every `graphOnly` post logs origin `Parse`.
-8. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
-9. [ ] Add ``a stored Parse Change keeps origin Parse`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] The `EventBody.Change` case leaves the `EventBody` union in `src/Shared/History.fs`.
+3. [x] Every Change is logged and written as `EventBody.Order` of `Order.Change` with its `origin`. Its JSON `kind` is `order`.
+4. [x] An old `change` row is skipped on read.
+5. [x] The build stays warning-free.
+6. [x] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
+7. [x] Change the `graphOnly` post so it logs its Change with origin `Parse`. The way it carries `origin` is the builder's choice. Every `graphOnly` post logs origin `Parse`.
+8. [x] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
+9. [x] Add ``a stored Parse Change keeps origin Parse`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`.
 
 ## Outputs
 
-[ ] `src/Shared/History.fs`, and the other source files the builder changes, up to 8 source files in total
-[ ] `tests/Shared.Tests/EventJsonTests.fs` — add ``An old change row is skipped on read``
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit`` and ``a stored Parse Change keeps origin Parse``
+[x] `src/Shared/History.fs`, and the other source files the builder changes, up to 8 source files in total
+[x] `tests/Shared.Tests/EventJsonTests.fs` — add ``An old change row is skipped on read``
+[x] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit`` and ``a stored Parse Change keeps origin Parse``
 
 ## Stop when
 
@@ -74,8 +74,8 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: ``An old change row is skipped on read``
   - `tests/Server.Tests`: ``a stored Edit Change keeps origin Edit``
   - `tests/Server.Tests`: ``a stored Parse Change keeps origin Parse``
@@ -88,6 +88,6 @@ Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-ch
   - `tests/Server.Tests`: ``A graph-only change pushes nothing``
   - `tests/Server.Tests`: ``postGraphOnly updates Graph and EventLog without file write``
   - `tests/Server.Tests`: ``a graphOnly post stores the Change without a document file write``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/108-log-change-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/108-log-change-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

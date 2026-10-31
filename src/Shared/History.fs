@@ -93,7 +93,6 @@ type Order =
 
 [<RequireQualifiedAccess>]
 type EventBody =
-    | Change of ops: Op list
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
     | ActorStart of ActorStart
@@ -102,6 +101,16 @@ type EventBody =
     | Cancel of focusId: NodeId
     | Order of Order
     | Notice of Notice
+
+[<RequireQualifiedAccess>]
+module EventBody =
+    let Change (ops: Op list) : EventBody =
+        EventBody.Order(Order.Change(ops, ChangeOrigin.Edit))
+
+    let (|Change|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Change (ops, _)) -> Some ops
+        | _ -> None
 
 type Ev =
     { id: EventId
@@ -428,13 +437,12 @@ module Ev =
 
     let ops (event: Ev) : Op list option =
         match event.body with
-        | EventBody.Change ops
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
-        | EventBody.Order (Order.Change(ops, _)) -> Some ops
+        | EventBody.Change ops -> Some ops
         | EventBody.Order _ -> None
 
     let withOps (event: Ev) (ops: Op list) : Ev =
@@ -442,8 +450,6 @@ module Ev =
         | EventBody.Order (Order.Change(_, origin)) ->
             { event with
                 body = EventBody.Order(Order.Change(ops, origin)) }
-        | EventBody.Change _ ->
-            { event with body = EventBody.Change ops }
         | EventBody.Undo(target, _) ->
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
@@ -459,7 +465,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.Change _
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None

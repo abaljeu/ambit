@@ -1312,3 +1312,37 @@ let ``a resubmitted Change replies the stored id`` () =
         Assert.False(second.externalChanges)
         do! assertAckFromLog host [ event ] second |> Async.StartAsTask
     })
+
+let private assertStoredChange host event origin =
+    task {
+        let! body = storedBody host event.submissionId
+        let ops = Ev.ops event |> Option.defaultValue []
+        match body with
+        | Some (EventBody.Order (Order.Change (stored, found))) ->
+            Assert.Equal<Op list>(ops, stored)
+            Assert.Equal(origin, found)
+        | other ->
+            Assert.Fail($"stored Change keeps origin, got {other}")
+    }
+
+[<Fact>]
+let ``a stored Edit Change keeps origin Edit`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! posted =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        requireOk "place edit" posted |> ignore
+        do! assertStoredChange host event ChangeOrigin.Edit
+    })
+
+[<Fact>]
+let ``a stored Parse Change keeps origin Parse`` () =
+    withHost (fun host _ -> task {
+        let event = postedEvent ()
+        let! posted =
+            CoreMailboxApi.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        requireOk "place parse" posted |> ignore
+        do! assertStoredChange host event ChangeOrigin.Parse
+    })

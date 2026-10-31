@@ -134,6 +134,21 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
         Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
+let ``An old change row is skipped on read`` () =
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Set text\","
+              "\"body\":{\"kind\":\"change\",\"ops\":[]}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
 let ``An old nodeStamped row is skipped on read`` () =
     let legacy =
         String.concat
