@@ -34,7 +34,7 @@
 [x] `ActorLive.fs` `applyEvent`, `resultOf`
 [x] `CoreEventDispatch.fs` `completeAction`
 [x] [MailboxHistoryDurabilityTests.fs](tests/Server.Tests/MailboxHistoryDurabilityTests.fs) `bodyKind`
-[ ] These matches have a wildcard and stay: `Api.countsAsExternal`, `Api.inferredNodeEvents`, `CoreMailboxApi.isClientActorStop`, `CoreMailboxApi.expandStored`, `CoreMailboxActors.dispatchPostEvent`, `CoreEventDispatch.pushChangeSpecials`, `SyncLogic.isNoticeEvent`, `SyncLogic.markUndoRedoVersion`, `ClientHistory.stampBody`
+[x] These matches have a wildcard and stay: `Api.countsAsExternal`, `CoreMailboxApi.isClientActorStop`, `CoreMailboxApi.expandStored`, `CoreMailboxActors.dispatchPostEvent`, `CoreEventDispatch.pushChangeSpecials`, `SyncLogic.isNoticeEvent`, `SyncLogic.markUndoRedoVersion`, `ClientHistory.stampBody`
 [x] Nothing writes `EventBody.Order` in this ticket
 
 ### Tests this ticket names
@@ -58,7 +58,7 @@
 [x] `EventJson` is the server codec and the client codec
 [x] `EventLogFile`, `DbAgent`, `BootCache`, and the client poll decode through `EventJson.decode`
 [x] `encodeStartRequest` and `encodeLoadSaveCommandRequest` exist
-[ ] No codec for `LoadSavePath`, `PeerActorName`, or `ChangeOrigin` exists
+[x] `EventJson` has private codecs for `LoadSavePath`, `PeerActorName`, and `ChangeOrigin`, used by `encodeOrder` and `decodeOrder`
 
 ## 5. Changes
 
