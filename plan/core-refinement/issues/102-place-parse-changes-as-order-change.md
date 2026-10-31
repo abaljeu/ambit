@@ -1,6 +1,6 @@
 # 102 — Place Parse changes as Order.Change
 **Status**: `defined`
-One job: The Server has one Change post where today it has two, `postEvents` and `postGraphOnly`, and a `graphOnly` parameter on that post says which one a caller means. The reason is decision 1 **Change** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`.
+One job: The Server has one mailbox Change post with a `graphOnly` parameter, and `postEvents` and `postGraphOnly` become shells that call it with `graphOnly` `false` and `true`. The reason is decision 1 **Change** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`.
 
 Type: coding
 Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is-the-mailbox-envelope.md) and [107 — Add EventBody.Order](107-add-eventbody-order.md) are on staging)
@@ -31,7 +31,7 @@ Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is
 
 [ ] `CoreDoor.postEvents` is called from `Api.postEvents` in `src/Server/Api.fs`, `TestActor` in `src/Server/TestActor.fs`, and `RunAgentActor` in `src/Server/RunAgentActor.fs`.
 [ ] `CoreDoor.postGraphOnly` is called from `ParseThread.postParseOps` in `src/Server/ParseThread.fs` and from `LazyLoadReconciliationServer` in `src/Server/LazyLoadReconciliationServer.fs` through `GraphOnlyChangePost.postChunks`.
-[ ] 33 test files call `postEvents` or `postGraphOnly` on `CoreMailboxApi` or `CoreDoor`.
+[ ] 33 test files call `postEvents` or `postGraphOnly` on `CoreMailboxApi` or `CoreDoor`. They stay as written.
 
 #### Tests
 
@@ -46,24 +46,25 @@ Blockers: none ([104 — PlacedOrder is the mailbox envelope](104-placedorder-is
 
 ## Do not load
 
+[ ] The callers of `postEvents` and `postGraphOnly` stay as written.
 [ ] Logging `origin` is [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md).
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Merge `postEvents` and `postGraphOnly` into one Change post with a `graphOnly` parameter.
-3. [ ] Move the callers onto that post.
+2. [ ] Add one mailbox Change post with a `graphOnly` parameter in `src/Server/Core/CoreMailboxApi.fs`.
+3. [ ] Make `postEvents` and `postGraphOnly` shells that keep their signatures and call that post with `graphOnly` `false` and `true`.
 4. [ ] Add a test that a `graphOnly` post stores the Change without a document file write.
 
 ## Outputs
 
-[ ] One Change post with a `graphOnly` parameter in place of `postEvents` and `postGraphOnly`
+[ ] `src/Server/Core/CoreMailboxApi.fs` — one mailbox Change post with a `graphOnly` parameter; `postEvents` and `postGraphOnly` call it
 [ ] One test in `tests/Server.Tests` that a `graphOnly` post stores the Change without a document file write
 
 ## Stop when
 
 [ ] Record the stop at `plan/core-refinement/reports/102-place-parse-changes-as-order-change-stop.md`, then ask.
-[ ] Stop when the edit needs more than 8 source files or 4 test files.
+[ ] Stop when the edit needs a caller of `postEvents` or `postGraphOnly` to change.
 [ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
 
 ## Check
