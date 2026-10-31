@@ -2299,6 +2299,19 @@ let ``startEditInstanceAtPos ignores graph root node`` () =
     Assert.True(result.IsNone)
 
 [<Fact>]
+let ``startEditInstanceAtPos leaves Selecting when Header is absent`` () =
+    let graph0, cont, ids = buildFlat [ "alpha" ]
+    let graph = fromExisting graph0 (Map.remove ids.[0] graph0.nodes)
+    let model = modelWithSel graph cont 0 1 0
+    let instanceId = model.siteMap.entries.[model.siteMap.rootId].children.[0]
+    let result =
+        startEditInstanceAtPos instanceId 3 model
+        |> Option.defaultWith (fun () -> Assert.True(false); model)
+    match result.mode with
+    | Selecting -> Assert.Equal(Selecting, result.mode)
+    | _ -> Assert.True(false, "expected Selecting")
+
+[<Fact>]
 let ``planPatchDOM entering edit mode yields RecreateRow not SetText`` () =
     let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
     let oldModel = modelWithSel graph cont 0 1 0

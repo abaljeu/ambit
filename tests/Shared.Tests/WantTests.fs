@@ -93,6 +93,20 @@ let ``compose lists Included that miss Children first`` () =
     Assert.DoesNotContain(zoomId, want)
 
 [<Fact>]
+let ``compose wants a placeholder id with no child list after parent expand`` () =
+    let graph0, siteMap0, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
+    let placeholderId = childIds.[0]
+    let graph = absentUnloaded placeholderId graph0
+    let placeholderInst = findInstanceId placeholderId siteMap0
+    let siteMap, _ = expandEntry placeholderInst graph siteMap0 (Sid 100)
+    let want = Want.compose graph siteMap zoomId
+    Assert.False(GraphChildren.isLoaded graph placeholderId)
+    Assert.False(graph.nodes.ContainsKey placeholderId)
+    Assert.Equal<NodeId list>([ placeholderId ], want)
+    Assert.DoesNotContain(childIds.[1], want)
+    Assert.DoesNotContain(zoomId, want)
+
+[<Fact>]
 let ``compose then installWantAnswer loads wanted parents and children`` () =
     let graph0, siteMap, zoomId, childIds = zoomWithChildren [ "a" ]
     let parentId = childIds.[0]

@@ -154,6 +154,31 @@ let ``classifyDeleteForChildSpan is empty when the span has no Children`` () =
     Assert.Empty(
         ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 0)
 
+[<Fact>]
+let ``classifyDeleteForChildSpan moves a placeholder child with no Header to TRASH`` () =
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "gone")
+    let g0 = Graph.create ()
+    let g1 = Graph.addDetachedNode node g0
+    let g2 =
+        Graph.replace g1.root 0 [] (owned [ id ]) g1
+        |> ModelBuilder.requireOk "root->[placeholder]"
+    let graph = absentUnloaded id g2
+    Assert.False(graph.nodes.ContainsKey id)
+    let classified =
+        ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 1
+    Assert.Equal(ViewModelDeleteOps.DeleteAction.MoveToTrash, classified.[0].action)
+    let ops = ViewModelDeleteOps.planDeleteChildSpan graph classified
+    let change = SpecialNodeTestHelpers.changeEventZero "" ops
+    match SpecialNodeTestHelpers.applyChange change (stateOf graph) with
+    | ApplyResult.Changed s ->
+        Assert.False(s.graph.nodes.ContainsKey id)
+        let rootKids = Graph.children s.graph s.graph.root
+        Assert.False(rootKids |> List.exists (fun c -> c.id = id))
+        let trashKids = Graph.children s.graph Graph.trashId
+        Assert.True(trashKids |> List.exists (fun c -> c.id = id))
+    | r -> Assert.True(false, $"expected Changed: {r}")
+
 // ---------------------------------------------------------------------------
 // LocalDeleteWithPromotion
 // ---------------------------------------------------------------------------

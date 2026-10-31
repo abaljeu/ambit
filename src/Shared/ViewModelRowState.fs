@@ -158,23 +158,24 @@ module ViewModelRowState =
 
     /// Enter edit mode for a view-line instance in one model step (selection + Editing).
     /// Returns None for unknown instances or the graph root node.
+    /// A known instance with no Header keeps the current mode.
     let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM option =
         match Map.tryFind instanceId model.siteMap.entries with
         | None -> None
+        | Some entry when entry.nodeId = model.graph.root -> None
         | Some entry ->
-            if entry.nodeId = model.graph.root then
-                None
-            else
-                let text = model.graph.nodes.[entry.nodeId].text
-                let selectedNodes =
-                    if instanceId = model.siteMap.rootId then
-                        None
-                    else
-                        singleSelectionForInstance model.siteMap instanceId
+            let selectedNodes =
+                if instanceId = model.siteMap.rootId then
+                    None
+                else
+                    singleSelectionForInstance model.siteMap instanceId
+            match Map.tryFind entry.nodeId model.graph.nodes with
+            | None -> Some { model with selectedNodes = selectedNodes }
+            | Some node ->
                 Some
                     { model with
                         selectedNodes = selectedNodes
-                        mode = Editing (text, EditCaret.Utf16Index cursorPos) }
+                        mode = Editing (node.text, EditCaret.Utf16Index cursorPos) }
 
     let isActiveEntry (model: VM) (entry: SiteEntry) : bool =
         match model.selectedNodes with

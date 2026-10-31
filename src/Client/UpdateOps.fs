@@ -42,8 +42,8 @@ let cutSelectionOp (model: VM) : VM * Effect list =
     let m, effs = cutSelection model
     withSiteMap m, effs
 
-/// Op: Enter edit mode for the focused node, prefilled with its current text.
-let startEditOp (model: VM) : VM * Effect list =
+/// Enter Editing for the focused Node when its Header is present.
+let private startEditWithCaret (caret: EditCaret) (model: VM) : VM * Effect list =
     let targetId =
         match model.selectedNodes with
         | None -> viewRootNodeId model
@@ -51,20 +51,18 @@ let startEditOp (model: VM) : VM * Effect list =
     if targetId = model.graph.root then
         model, []
     else
-        let text = model.graph.nodes.[targetId].text
-        { model with mode = Editing (text, EditCaret.EndOfText) }, []
+        match Map.tryFind targetId model.graph.nodes with
+        | None -> model, []
+        | Some node ->
+            { model with mode = Editing (node.text, caret) }, []
+
+/// Op: Enter edit mode for the focused node, prefilled with its current text.
+let startEditOp (model: VM) : VM * Effect list =
+    startEditWithCaret EditCaret.EndOfText model
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
 let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
-    let targetId =
-        match model.selectedNodes with
-        | None -> viewRootNodeId model
-        | Some sel -> focusedNodeId model.graph sel
-    if targetId = model.graph.root then
-        model, []
-    else
-        let text = model.graph.nodes.[targetId].text
-        { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }, []
+    startEditWithCaret (EditCaret.Utf16Index cursorPos) model
 
 /// Op: Select a view-line instance and enter edit mode at once (double-click path).
 let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM * Effect list =

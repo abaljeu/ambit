@@ -35,7 +35,7 @@ Alan step 3, the placeholder. Loaded and Unloaded stay in place. The Graph accep
 4. **Use a placeholder**
    1. **Row state** — The row selects.
    2. **Edit start** — Expand leaves the row expanded. The id has no child list, so the current Want includes it on the next Poll.
-   3. **Edit start** — Every Command runs except edit. `startEditOp` leaves the mode as it is when the Header is absent.
+   3. **Edit start** — Every Command runs except edit. Copy, Edit classes, and Exec stay unchanged because each needs the Node text. `startEditOp` leaves the mode as it is when the Header is absent.
 
 5. **Fill a placeholder**
    1. **Resident projection** — `installWantAnswer` adds the Node when its Header arrives.

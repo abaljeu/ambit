@@ -24,6 +24,11 @@ let addDetachedMany (nodes: Node list) (graph: Graph) =
 let fromExisting (graph: Graph) (nodes: Map<NodeId, Node>) =
     Graph.fromNodes graph.root nodes graph.childMap
 
+/// Make `nodeId` Absent and Unloaded.
+let absentUnloaded (nodeId: NodeId) (graph: Graph) : Graph =
+    let unloaded = unload nodeId graph
+    fromExisting unloaded (Map.remove nodeId unloaded.nodes)
+
 /// Append `kids` to an already-Loaded parent list.
 let appendKids parentId kids (graph: Graph) =
     setChildren
