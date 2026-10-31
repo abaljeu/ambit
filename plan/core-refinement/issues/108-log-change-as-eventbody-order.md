@@ -1,9 +1,9 @@
 # 108 — Log Change as EventBody.Order
 **Status**: `defined`
-One job: The Server logs every Change as `EventBody.Order` of `Order.Change`, holding the op list and its `origin`, and the `EventBody.Change` case leaves the union. The reason is decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): history `EventBody.Order` holds the placed `Order` unchanged.
+One job: The Server logs every Change as `EventBody.Order` of `Order.Change`, holding the op list and its `origin`, and the `EventBody.Change` case leaves the union. A `graphOnly` post logs its Change with origin `Parse`, so a stored Change keeps its origin for both Edit and Parse. The reason is decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): history `EventBody.Order` holds the placed `Order` unchanged.
 
 Type: coding
-Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is done)
+Blockers: none ([102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md) and [107 — Add EventBody.Order](107-add-eventbody-order.md) are on staging)
 
 ## Inputs
 
@@ -18,11 +18,15 @@ Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is don
 [ ] ``historyBody`` in `src/Shared/MailboxLog.fs` maps `Order.Change(ops, _)` to `EventBody.Change ops`, so the stored Change drops `origin`.
 [ ] ``editEvent`` in `src/Server/Core/CoreMailboxLoop.fs` builds the stored Ev through `MailboxLog.toEv` with `Order.Change(ops, ChangeOrigin.Edit)`. Read only.
 [ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.Change(_, ChangeOrigin.Parse)`. Read only.
-[ ] ``postGraphOnly`` in `src/Server/Core/CoreMailboxApi.fs` posts an Ev, not an Order. `GraphOnlyChangePost` builds that Ev with `EventBody.Change ops`. Read only.
+[ ] ``postMailboxChange`` in `src/Server/Core/CoreMailboxApi.fs` takes `graphOnly: bool`. ``postEvents`` calls it with `false` and ``postGraphOnly`` with `true`.
+[ ] ``changeMessage`` in `src/Server/Core/CoreMailboxApi.fs` sends a `graphOnly` post as `CoreMsg.PostGraphOnly(caller, event, channel)`. It carries an Ev, with no `origin`.
+[ ] ``changeMessage`` sends a zero-id Change with `graphOnly` `false` as `Mailbox.PlaceOrder` of `Order.Change(ops, ChangeOrigin.Edit)`, read through `MailboxLog.ofEv`.
+[ ] ``dispatchPostGraphOnly`` in `src/Server/Core/CoreMailboxEvents.fs` stores the posted Ev through `CoreEventDispatch.postEvent` with `graphOnly` `true`.
+[ ] ``mint`` in `src/Server/GraphOnlyChangePost.fs` builds the parse Ev with `EventBody.Change ops`. `ParseThread` and `LazyLoadReconciliationServer` post it through `CoreDoor.postGraphOnly`.
 [ ] Nothing on staging stores a Change with origin `Parse`.
 [ ] Source constructors of `EventBody.Change`: `ClientHistory` (104), `GraphOnlyChangePost` (14), `RunAgentActor` (119), `TestActor` (19, 86), `Ev.withOps`, `EventJson.decodeChangeBody`.
-[ ] Source patterns on `EventBody.Change`: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch` (135, 228), `CoreMailboxApi` (144, 199), `EventJson.encodeBody`, `MailboxLog.orderOfBody`.
-[ ] `EventBody.Change` appears 235 times in 63 test files.
+[ ] Source patterns on `EventBody.Change`: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch` (135, 228), `CoreMailboxApi` (144, 218), `EventJson.encodeBody`, `MailboxLog.orderOfBody`.
+[ ] `EventBody.Change` appears 236 times in 63 test files.
 [ ] F# allows a module with the same name as a type. With `[<RequireQualifiedAccess>] module EventBody`, `EventBody.Change ops` calls the module function, and the pattern `EventBody.Change ops` uses the module's partial active pattern.
 [ ] `TreatWarningsAsErrors` is on, so an arm that can never match fails the build.
 [ ] `EventLogFile.decodeEvent` and the `DbAgent` restore skip an entry that does not decode. `BootCache` fetches `/state` on a decode error.
@@ -30,6 +34,8 @@ Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is don
 [ ] ``Ev JSON round-trips a Change`` and ``mintChange encodes eventId 0 on the wire`` in `tests/Shared.Tests/EventJsonTests.fs`.
 [ ] ``ofEv then toEv keeps a Change`` in `tests/Shared.Tests/MailboxLogTests.fs`.
 [ ] ``postEvents places Order.Change with origin Edit`` and ``a resubmitted Change replies the stored id`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] ``A graph-only change pushes nothing`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] ``postGraphOnly updates Graph and EventLog without file write`` and ``a graphOnly post stores the Change without a document file write`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs`.
 [ ] ``decideBootRead fetches /state on decode error`` in `tests/Shared.Tests/BootCacheTests.fs`.
 
 ### Reference
@@ -52,16 +58,18 @@ Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is don
 6. [ ] Change `src/Shared/MailboxLog.fs`: remove the `EventBody.Change` arm from `orderOfBody`. `historyBody` maps `Order.Change _` to `EventBody.Order order`, keeping `origin`.
 7. [ ] In the other source match sites, remove an `EventBody.Change` arm that the build rejects as never matching, and nothing else.
 8. [ ] Add ``An old change row is skipped on read`` in `tests/Shared.Tests/EventJsonTests.fs`: a JSON body with `kind` `change` fails `EventJson.decode`.
-9. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
+9. [ ] Change the `graphOnly` post so it logs its Change with origin `Parse`. The way it carries `origin` is the builder's choice.
+10. [ ] Add ``a stored Edit Change keeps origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postEvents` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Edit))`.
+11. [ ] Add ``a stored Parse Change keeps origin Parse`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`: `postGraphOnly` of a Change stores `EventBody.Order (Order.Change(ops, ChangeOrigin.Parse))`.
 
 ## Outputs
 
 [ ] `src/Shared/History.fs`
 [ ] `src/Shared/EventJson.fs`
 [ ] `src/Shared/MailboxLog.fs`
-[ ] Any other source file from step 7, up to 8 source files in total
+[ ] Any other source file from steps 7 and 9, up to 8 source files in total
 [ ] `tests/Shared.Tests/EventJsonTests.fs` — add ``An old change row is skipped on read``
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit``
+[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — add ``a stored Edit Change keeps origin Edit`` and ``a stored Parse Change keeps origin Parse``
 
 ## Stop when
 
@@ -69,6 +77,7 @@ Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is don
 [ ] Stop when the edit needs a file outside Inputs.
 [ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
 [ ] Stop when a test file needs an edit beyond the two in Outputs.
+[ ] Stop when the edit needs more than 8 source files.
 
 ## Check
 
@@ -76,12 +85,16 @@ Blockers: none ([107 — Add EventBody.Order](107-add-eventbody-order.md) is don
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: ``An old change row is skipped on read``
   - `tests/Server.Tests`: ``a stored Edit Change keeps origin Edit``
+  - `tests/Server.Tests`: ``a stored Parse Change keeps origin Parse``
   - `tests/Shared.Tests`: ``Ev JSON round-trips a Change``
   - `tests/Shared.Tests`: ``mintChange encodes eventId 0 on the wire``
   - `tests/Shared.Tests`: ``ofEv then toEv keeps a Change``
   - `tests/Server.Tests`: ``postEvents places Order.Change with origin Edit``
   - `tests/Server.Tests`: ``a resubmitted Change replies the stored id``
   - `tests/Shared.Tests`: ``decideBootRead fetches /state on decode error``
+  - `tests/Server.Tests`: ``A graph-only change pushes nothing``
+  - `tests/Server.Tests`: ``postGraphOnly updates Graph and EventLog without file write``
+  - `tests/Server.Tests`: ``a graphOnly post stores the Change without a document file write``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/core-refinement/reports/108-log-change-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
