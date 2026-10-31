@@ -190,32 +190,6 @@ module CoreMailboxApi =
                 | Ok _ -> return Error "stored Event not found"
         }
 
-    let private postedMailbox
-        (caller: Caller)
-        (event: Ev)
-        (channel: AsyncReplyChannel<Result<EventId, string>>)
-        =
-        match event.body with
-        | EventBody.Change _ when event.id = EventId.zero ->
-            match MailboxLog.ofEv event with
-            | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-                Mailbox.placeForCaller placed caller channel
-            | _ ->
-                Mailbox.CoreMsg(PostEvent(caller, event, channel))
-        | _ ->
-            Mailbox.CoreMsg(PostEvent(caller, event, channel))
-
-    let private changeMessage
-        (caller: Caller)
-        (graphOnly: bool)
-        (event: Ev)
-        (channel: AsyncReplyChannel<Result<EventId, string>>)
-        =
-        if graphOnly then
-            Mailbox.CoreMsg(PostGraphOnly(caller, event, channel))
-        else
-            postedMailbox caller event channel
-
     let private clientBatchError (events: Ev list) =
         if List.isEmpty events then
             Some "events must not be empty"
@@ -224,6 +198,32 @@ module CoreMailboxApi =
         else
             None
 
+    /// Reject a bad postEvents batch, or choose PlaceOrder, PostEvent,
+    /// or PostGraphOnly. graphOnly is decided only here.
+    let private changeMessage
+        (caller: Caller)
+        (graphOnly: bool)
+        (events: Ev list)
+        =
+        match graphOnly, clientBatchError events with
+        | false, Some err -> Error err
+        | true, _ ->
+            Ok(fun (event: Ev)
+                   (channel: AsyncReplyChannel<Result<EventId, string>>) ->
+                Mailbox.CoreMsg(PostGraphOnly(caller, event, channel)))
+        | false, None ->
+            Ok(fun (event: Ev)
+                   (channel: AsyncReplyChannel<Result<EventId, string>>) ->
+                match event.body with
+                | EventBody.Change _ when event.id = EventId.zero ->
+                    match MailboxLog.ofEv event with
+                    | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
+                        Mailbox.placeForCaller placed caller channel
+                    | _ ->
+                        Mailbox.CoreMsg(PostEvent(caller, event, channel))
+                | _ ->
+                    Mailbox.CoreMsg(PostEvent(caller, event, channel)))
+
     /// One mailbox Change post. graphOnly skips the document file write.
     let postMailboxChange
         (host: MailboxHost)
@@ -231,14 +231,13 @@ module CoreMailboxApi =
         (graphOnly: bool)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        match graphOnly, clientBatchError events with
-        | false, Some err -> async { return Error err }
-        | _ ->
+        match changeMessage caller graphOnly events with
+        | Error err -> async { return Error err }
+        | Ok build ->
             let builds =
                 events
                 |> List.map (fun (event: Ev) ->
-                    fun channel ->
-                        changeMessage caller graphOnly event channel)
+                    fun channel -> build event channel)
             let waiting = MailboxHost.postForReplies host builds
             async {
                 let! results = waiting

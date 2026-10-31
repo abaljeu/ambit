@@ -385,6 +385,9 @@ let ``a graphOnly post stores the Change without a document file write`` () =
                 |> Async.StartAsTask
             let state = requireOk "state" state
             Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
+            Assert.Equal(
+                PersistState.Persisted,
+                state.graph.nodes.[fileId].documentState.persistState)
             match
                 DocumentPersistPath.resolveArtifactPath
                     dataDir
