@@ -87,11 +87,12 @@ module CoreMailboxApi =
         | _ -> false
 
     let private sendsAsOrder (event: Ev) =
-        match event.body with
-        | EventBody.Undo _
-        | EventBody.Redo _ -> true
-        | EventBody.Change _ -> event.id = EventId.zero
-        | _ -> false
+        if isUndoOrRedo event then
+            true
+        else
+            match event.body with
+            | EventBody.Change _ -> event.id = EventId.zero
+            | _ -> false
 
     let private messageForPosted
         (caller: Caller)

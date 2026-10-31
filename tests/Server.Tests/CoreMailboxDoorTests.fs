@@ -1244,7 +1244,7 @@ let ``postEvents places Order.Change with origin Edit`` () =
     })
 
 [<Fact>]
-let ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` () =
+let ``Undo and Redo post as orders; ActorStart and Cancel still post as PostEvent`` () =
     withHost (fun host _ -> task {
         let start =
             postedBody "Run" (EventBody.ActorStart sampleRequest)
