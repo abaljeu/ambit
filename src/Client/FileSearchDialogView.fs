@@ -120,6 +120,18 @@ let private fileSearchRenderKeyMatches (left: FileSearchRenderKey) (right: FileS
     && left.selectedIndex = right.selectedIndex
     && LanguagePrimitives.PhysicalEquality left.graph right.graph
 
+/// The field leads the model by a debounce. A later render must not write the
+/// stale query back over keys still in the field.
+let private fileSearchInputHasFocus (input: HTMLInputElement) : bool =
+    not (isNull document.activeElement)
+    && System.Object.ReferenceEquals(document.activeElement, input)
+
+let private syncFileSearchQuery (wasOpen: bool) (query: string) (input: HTMLInputElement) : unit =
+    if not wasOpen then
+        input.value <- query
+    elif not (fileSearchInputHasFocus input) && input.value <> query then
+        input.value <- query
+
 let private focusNodeIdOpt (model: VM) : NodeId option =
     match model.selectedNodes with
     | None -> None
@@ -189,7 +201,7 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             ctx.textContent <- "Insert…"
             setDockAccent ctx (searchDialogDockCssClass "Insert…")
         let input = document.getElementById "file-search-dialog-input" :?> HTMLInputElement
-        if not wasOpen || input.value <> s.query then input.value <- s.query
+        syncFileSearchQuery wasOpen s.query input
         if not wasOpen then
             window.setTimeout((fun _ ->
                 focusPreventScroll input

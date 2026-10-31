@@ -139,6 +139,18 @@ let private searchRenderKeyMatches (left: SearchRenderKey) (right: SearchRenderK
     && left.selectedIndex = right.selectedIndex
     && LanguagePrimitives.PhysicalEquality left.graph right.graph
 
+/// The field leads the model by a debounce. Picture replies and other renders
+/// must not write the stale query back over keys still in the field.
+let private searchInputHasFocus (input: HTMLInputElement) : bool =
+    not (isNull document.activeElement)
+    && System.Object.ReferenceEquals(document.activeElement, input)
+
+let private syncSearchQuery (wasOpen: bool) (query: string) (input: HTMLInputElement) : unit =
+    if not wasOpen then
+        input.value <- query
+    elif not (searchInputHasFocus input) && input.value <> query then
+        input.value <- query
+
 let private wireSearchDialog (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
     if not searchDialogWired.Value then
         searchDialogWired.Value <- true
@@ -187,7 +199,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             ctx.textContent <- s.invokedCommand
             setDockAccent ctx (searchDialogDockCssClass s.invokedCommand)
         let input = document.getElementById "search-dialog-input" :?> HTMLInputElement
-        if not wasOpen || input.value <> s.query then input.value <- s.query
+        syncSearchQuery wasOpen s.query input
         if not wasOpen then
             window.setTimeout((fun _ ->
                 focusPreventScroll input
