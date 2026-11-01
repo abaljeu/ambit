@@ -93,9 +93,7 @@ type Order =
 
 [<RequireQualifiedAccess>]
 type EventBody =
-    | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
-    | Cancel of focusId: NodeId
     | Order of Order
     | Notice of Notice
 
@@ -133,6 +131,23 @@ module EventBody =
     let (|Load|_|) (body: EventBody) =
         match body with
         | EventBody.Order (Order.Load nodeId) -> Some nodeId
+        | _ -> None
+
+    let ActorStart (request: ActorStart) : EventBody =
+        EventBody.Order(Order.StartActor request)
+
+    let (|ActorStart|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.StartActor request) ->
+            Some request
+        | _ -> None
+
+    let Cancel (focusId: NodeId) : EventBody =
+        EventBody.Order(Order.Cancel focusId)
+
+    let (|Cancel|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Cancel focusId) -> Some focusId
         | _ -> None
 
 type Ev =
