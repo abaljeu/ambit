@@ -1228,19 +1228,15 @@ let ``postEvents places Order.Change with origin Edit`` () =
                 item.submissionId = event.submissionId)
         Assert.Equal(stored.id, accepted.eventId)
         Assert.True(EventId.isAccepted accepted.eventId)
-        match MailboxLog.ofEv stored with
+        match MailboxLog.placedOrderFromEvent stored with
         | Error err -> Assert.Fail(err)
-        | Ok logged ->
-            match logged.body with
-            | MailboxLog.MailboxEventBody.Order placed ->
-                match stored.body with
-                | EventBody.Change ops ->
-                    Assert.Equal(
-                        Order.Change(ops, ChangeOrigin.Edit),
-                        placed.order)
-                | _ -> Assert.Fail("stored body is a Change")
-            | MailboxLog.MailboxEventBody.Notice _ ->
-                Assert.Fail("stored body is an Order")
+        | Ok placed ->
+            match stored.body with
+            | EventBody.Change ops ->
+                Assert.Equal(
+                    Order.Change(ops, ChangeOrigin.Edit),
+                    placed.order)
+            | _ -> Assert.Fail("stored body is a Change")
     })
 
 [<Fact>]

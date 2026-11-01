@@ -75,10 +75,9 @@ module CoreMailboxApi =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
     let private placedOrder (event: Ev) =
-        match MailboxLog.ofEv event with
-        | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-            Some placed
-        | _ -> None
+        match MailboxLog.placedOrderFromEvent event with
+        | Ok placed -> Some placed
+        | Error _ -> None
 
     let private isUndoOrRedo (event: Ev) =
         match event.body with

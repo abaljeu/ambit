@@ -1,5 +1,5 @@
 # 116 — One EventBody type, and MailboxLog.Ev leaves
-**Status**: `defined`
+**Status**: `coded`
 One job: `MailboxEventBody`, `MailboxLog.Ev`, `MailboxLog.ofEv` and `MailboxLog.toEv` leave, and the mailbox reads a `PlacedOrder` from the History `Ev` and builds the History `Ev` from a `PlacedOrder` without them, with no change in behavior. The reason is decisions 9 **EventBody** and 14 **Leaves** in [Message shape](plan/core-refinement/cqrs-messages.md): `MailboxEventBody` and `EventBody` are one type, and `MailboxLog.Ev`, `ofEv` and `toEv` leave.
 
 Type: coding
@@ -48,19 +48,19 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` leave.
-3. [ ] The mailbox reads the `PlacedOrder` of a posted Ev, and builds the logged Ev from a `PlacedOrder`, without them.
-4. [ ] A logged order keeps its `submissionId`, `authority` and `commandName`, with `None` as `""`.
-5. [ ] Behavior does not change.
-6. [ ] The tests in Inputs that used `ofEv`, `toEv` or `MailboxEventBody` check the same facts without them, or leave when `EventJsonTests.fs` already checks the fact.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` leave.
+3. [x] The mailbox reads the `PlacedOrder` of a posted Ev, and builds the logged Ev from a `PlacedOrder`, without them.
+4. [x] A logged order keeps its `submissionId`, `authority` and `commandName`, with `None` as `""`.
+5. [x] Behavior does not change.
+6. [x] The tests in Inputs that used `ofEv`, `toEv` or `MailboxEventBody` check the same facts without them, or leave when `EventJsonTests.fs` already checks the fact.
 
 ## Outputs
 
-[ ] `src/Shared/MailboxLog.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, and any other source file the builder changes, up to 8
-[ ] `tests/Shared.Tests/MailboxLogTests.fs`
-[ ] `tests/Shared.Tests/EventTests.fs` — `fromOrder`
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — ``postEvents places Order.Change with origin Edit``
+[x] `src/Shared/MailboxLog.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, and any other source file the builder changes, up to 8
+[x] `tests/Shared.Tests/MailboxLogTests.fs`
+[x] `tests/Shared.Tests/EventTests.fs` — `fromOrder`
+[x] `tests/Server.Tests/CoreMailboxDoorTests.fs` — ``postEvents places Order.Change with origin Edit``
 
 ## Stop when
 
@@ -71,12 +71,12 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: `MailboxLogTests`
   - `tests/Shared.Tests`: ``Replay sets persistState Unpersisted and ignores persist Notices``
   - `tests/Shared.Tests`: ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion``
   - `tests/Server.Tests`: ``postEvents places Order.Change with origin Edit``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/116-one-eventbody-type-and-mailboxlog-ev-leaves-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/116-one-eventbody-type-and-mailboxlog-ev-leaves-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

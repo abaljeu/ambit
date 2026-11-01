@@ -520,15 +520,12 @@ let ``commandName is on the Ev`` () =
     | Some (undoEvent, _) -> Assert.Equal("Cut", undoEvent.commandName)
 
 let private fromOrder (id: EventId) (commandName: string) (order: Order) : Ev =
-    let message : MailboxLog.Ev = {
-        id = id
-        body =
-            MailboxLog.MailboxEventBody.Order {
-                orderId = OrderId.New()
-                authority = browser
-                commandName = Some commandName
-                order = order } }
-    match MailboxLog.toEv message with
+    let placed = {
+        orderId = OrderId.New()
+        authority = browser
+        commandName = Some commandName
+        order = order }
+    match MailboxLog.eventFromPlacedOrder id placed with
     | Ok stored -> stored
     | Error error -> failwith error
 

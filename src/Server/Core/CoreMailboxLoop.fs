@@ -145,9 +145,7 @@ module internal CoreMailboxLoop =
         let edited =
             { placed with
                 order = Order.Change(ops, ChangeOrigin.Edit) }
-        MailboxLog.toEv {
-            id = EventId.zero
-            body = MailboxLog.MailboxEventBody.Order edited }
+        MailboxLog.eventFromPlacedOrder (EventId.zero) edited
 
     let private replyPosted
         (context: MailboxContext)
@@ -182,11 +180,7 @@ module internal CoreMailboxLoop =
         (caller: Caller)
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         =
-        match
-            MailboxLog.toEv {
-                id = EventId.zero
-                body = MailboxLog.MailboxEventBody.Order placed }
-        with
+        match MailboxLog.eventFromPlacedOrder (EventId.zero) placed with
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
