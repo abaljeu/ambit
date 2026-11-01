@@ -44,10 +44,7 @@ module ActorLive =
         | EventBody.ActorStart start -> Set.add start.focusId live
         | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
         | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _
         | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.Notice _ -> live
         | EventBody.Order _ -> live
 
@@ -155,10 +152,7 @@ module ActorLive =
             | ActorCancelled ->
                 Some (CmdLastResult.Error (chip, "Actor cancelled."))
         | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _
         | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.Notice _ -> None
         | EventBody.Order _ -> None
 

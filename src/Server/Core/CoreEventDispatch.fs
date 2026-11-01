@@ -114,9 +114,7 @@ module internal CoreEventDispatch =
     let private undoRedoOf (body: Gambol.Shared.EventBody) =
         match body with
         | Gambol.Shared.EventBody.Undo(target, ops)
-        | Gambol.Shared.EventBody.Redo(target, ops)
-        | Gambol.Shared.EventBody.Order (Order.Undo(target, ops))
-        | Gambol.Shared.EventBody.Order (Order.Redo(target, ops)) ->
+        | Gambol.Shared.EventBody.Redo(target, ops) ->
             Some(target, ops)
         | _ -> None
 
@@ -150,8 +148,6 @@ module internal CoreEventDispatch =
     let private completeOther (event: Ev) =
         match event.body with
         | Gambol.Shared.EventBody.Order (Order.Change _) -> Ok event
-        | Gambol.Shared.EventBody.Undo _
-        | Gambol.Shared.EventBody.Redo _ -> Ok event
         | Gambol.Shared.EventBody.Notice _ ->
             Error "Notice is not a client event type"
         | Gambol.Shared.EventBody.Load _ ->
@@ -250,9 +246,7 @@ module internal CoreEventDispatch =
         match completed.body with
         | Gambol.Shared.EventBody.Order (Order.Change _)
         | Gambol.Shared.EventBody.Order (Order.Undo _)
-        | Gambol.Shared.EventBody.Order (Order.Redo _)
-        | Gambol.Shared.EventBody.Undo _
-        | Gambol.Shared.EventBody.Redo _ ->
+        | Gambol.Shared.EventBody.Order (Order.Redo _) ->
             match context.persist.getState () with
             | Error err -> Error err
             | Ok state ->

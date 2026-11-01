@@ -466,8 +466,6 @@ module Ev =
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Change ops -> Some ops
-        | EventBody.Order (Order.Undo(_, ops))
-        | EventBody.Order (Order.Redo(_, ops)) -> Some ops
         | EventBody.Order _ -> None
 
     let withOps (event: Ev) (ops: Op list) : Ev =
@@ -479,12 +477,6 @@ module Ev =
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
-        | EventBody.Order (Order.Undo(target, _)) ->
-            { event with
-                body = EventBody.Order(Order.Undo(target, ops)) }
-        | EventBody.Order (Order.Redo(target, _)) ->
-            { event with
-                body = EventBody.Order(Order.Redo(target, ops)) }
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> event
@@ -496,8 +488,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.Order (Order.Undo(target, _))
-        | EventBody.Order (Order.Redo(target, _)) -> Some target
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
