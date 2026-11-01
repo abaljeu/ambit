@@ -1,6 +1,6 @@
 # 04 — Use a placeholder
 **Status**: coded
-One job: The outliner can select a placeholder row, expand it, and run every Command except edit. Copy, Edit classes, and Exec do nothing when the focused or selected row is a placeholder, because each needs the Node text: no crash, no error, and the model stays the same. The story Use a placeholder in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
+One job: The outliner can select a placeholder row, expand it, and run every Command except edit. Copy, Cut, Edit classes, and Exec do nothing when the focused or selected row is a placeholder, because each needs the Node text: no crash, no error, and the model stays the same. The story Use a placeholder in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding
 Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-node/03-see-moved-node-ticket.md)
@@ -51,6 +51,7 @@ Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-
 6. [x] Change Copy so a missing Header on a selected row returns the same model and no effects. `serializeSubtree` reads each Header with `Map.tryFind`. A missing Header is a value.
 7. [x] Change Edit classes so a missing Header on a selected row returns the same model and no effects. The class seed reads each Header with `Map.tryFind`.
 8. [x] Change Exec so a missing Header on the focused row returns the same model and no effects. `shouldExec` and `runPlanOnNode` read the Header with `Map.tryFind`. A missing Header is a value, and the Command sets no error.
+9. [x] Change Cut so a missing Header on a selected row returns the same model and no effects. `collectSubtree` reads each Header with `Map.tryFind`. `onCut` and `cutSelection` return before effects when a Header is absent.
 
 ## Outputs
 
@@ -62,15 +63,16 @@ Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-
 [x] `src/Shared/ViewModelDeleteOps.fs`
 [x] `tests/Shared.Tests/DeleteOpsTests.fs` — add ``classifyDeleteForChildSpan moves a placeholder child with no Header to TRASH``
 [x] `src/Client/Commands.fs` — Copy and Exec return the same model when the Header is absent
-[x] `src/Client/Controller.fs` — DOM Copy returns before it reads Node text when the Header is absent
+[x] `src/Client/Controller.fs` — DOM Copy and `onCut` return before effects when the Header is absent
 [x] `src/Client/UpdateOps.fs` — Edit classes returns the same model when the Header is absent
-[x] `src/Shared/Paste.fs` — `serializeSubtree` reads the Header with `Map.tryFind`
+[x] `src/Shared/Paste.fs` — `serializeSubtree` and `collectSubtree` read the Header with `Map.tryFind`
 [x] `src/Shared/AmbleRun.fs` — `shouldExec` and `runPlanOnNode` read the Header with `Map.tryFind`
 [x] `src/Shared/CssClassToggle.fs` — `tryInitialUserClasses` returns `None` when a Header is absent
 [x] `src/Shared/CommandRequest.fs` — `anyNodeHeaderIsAbsent` is the shared gate
-[x] `tests/Shared.Tests/PasteTests.fs` — add ``Copy does nothing when the selected row Header is absent``
+[x] `tests/Shared.Tests/PasteTests.fs` — add ``Copy does nothing when the selected row Header is absent`` and ``Cut does nothing when the selected row Header is absent``
 [x] `tests/Shared.Tests/CssClassToggleTests.fs` — add ``Edit classes does nothing when the selected row Header is absent``
 [x] `tests/Shared.Tests/AmbleRunTests.fs` — add ``Exec does nothing when the focused row Header is absent``
+[x] `src/Client/UpdatePaste.fs` — `cutSelection` returns the same model and no effects when a Header is absent
 
 ## Stop when
 
@@ -90,6 +92,7 @@ Blockers: [03 — See a moved Node](plan/client-never-fails/issues/03-see-moved-
   - `tests/Shared.Tests`: ``Copy does nothing when the selected row Header is absent``
   - `tests/Shared.Tests`: ``Edit classes does nothing when the selected row Header is absent``
   - `tests/Shared.Tests`: ``Exec does nothing when the focused row Header is absent``
+  - `tests/Shared.Tests`: ``Cut does nothing when the selected row Header is absent``
 [x] Run `scripts/agent-test.sh --full`. Failed 0.
 [x] All executed tests pass.
 [x] Write the verdict to `plan/client-never-fails/reports/04-use-placeholder-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.

@@ -251,3 +251,18 @@ let ``Copy does nothing when the selected row Header is absent`` () =
     Assert.True(CommandRequest.anyNodeHeaderIsAbsent graph [id])
     let siteMap, _ = buildSiteMap (Graph.create ())
     Assert.Equal("", serializeSubtree graph siteMap [id])
+
+[<Fact>]
+let ``Cut does nothing when the selected row Header is absent`` () =
+    let id = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> addUnder Graph.rootId (Node.Create(id, text = "gone"))
+        |> absentUnloaded id
+    Assert.False(graph.nodes.ContainsKey id)
+    Assert.True(CommandRequest.anyNodeHeaderIsAbsent graph [id])
+    let siteMap, _ = buildSiteMap graph
+    let clip = collectSubtree graph siteMap [ ChildNode.owner id ]
+    Assert.Empty(clip.topLevelIds)
+    Assert.Empty(clip.nodes)
+    Assert.Empty(clip.childMap)

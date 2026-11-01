@@ -142,8 +142,15 @@ let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
+/// A placeholder row (no Header) is a no-op: no clipboard write, no dispatch.
 let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch cutSelectionOp true (Some "Cut")
+    match model.selectedNodes with
+    | Some sel when
+        CommandRequest.anyNodeHeaderIsAbsent
+            model.graph
+            (rangeNodeIds model.graph sel.range) ->
+        ()
+    | _ -> onCopyOrCut model ev dispatch cutSelectionOp true (Some "Cut")
 
 /// True when `#edit-input` has a non-collapsed text range (browser should own copy/cut).
 let editFieldHasTextRangeSelection () : bool =
