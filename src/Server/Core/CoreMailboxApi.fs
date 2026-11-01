@@ -74,12 +74,6 @@ module CoreMailboxApi =
         =
         reply host (fun channel -> PostEvent(caller, event, channel))
 
-    let private placedOrder (event: Ev) =
-        match MailboxLog.ofEv event with
-        | Ok { body = MailboxLog.MailboxEventBody.Order placed } ->
-            Some placed
-        | _ -> None
-
     let private isUndoOrRedo (event: Ev) =
         match event.body with
         | EventBody.Undo _
@@ -99,8 +93,8 @@ module CoreMailboxApi =
         (event: Ev)
         (channel: AsyncReplyChannel<Result<EventId, string>>)
         =
-        match sendsAsOrder event, placedOrder event with
-        | true, Some placed ->
+        match sendsAsOrder event, MailboxLog.placedOrderFromEvent event with
+        | true, Ok placed ->
             Mailbox.placeForCaller placed caller channel
         | _ -> Mailbox.CoreMsg(PostEvent(caller, event, channel))
 
@@ -109,8 +103,8 @@ module CoreMailboxApi =
         (caller: Caller)
         (event: Ev)
         =
-        match isUndoOrRedo event, placedOrder event with
-        | true, Some placed ->
+        match isUndoOrRedo event, MailboxLog.placedOrderFromEvent event with
+        | true, Ok placed ->
             MailboxHost.postMailboxAndAsyncReply host (fun channel ->
                 Mailbox.placeForCaller placed caller channel)
         | _ -> postEventAccepted host caller event
