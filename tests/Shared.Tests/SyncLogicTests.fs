@@ -940,6 +940,43 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
         Assert.Equal(wsChildId, (Graph.children result.graph wsId).[0].id)
 
 [<Fact>]
+let ``applySyncResponse nodes-only answer fills Absent child Header`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            (Map.add parentId parent graph0.nodes)
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    Assert.False(Map.containsKey absentId graph.nodes)
+    let st: ClientSyncState =
+        { graph = graph
+          history = ClientHistory.clear ()
+          eventId = EventIdFixtures.storedId 4
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [] }
+    let header = Node.Create(absentId, text = "arrived", owner = parentId)
+    match
+        SyncLogic.applySyncResponse
+            { events = []
+              nodes = [ header ]
+              childMap = Map.empty }
+            st
+    with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        match Map.tryFind absentId result.graph.nodes with
+        | None -> Assert.Fail("expected Header")
+        | Some node -> Assert.Equal("arrived", node.text)
+        Assert.Equal<ChildNode list>(
+            [ ChildNode.owner absentId ],
+            Graph.children result.graph parentId)
+
+[<Fact>]
 let ``changeSuccessToSync carries Want answer`` () =
     let parentId = NodeId.New()
     let childId = NodeId.New()

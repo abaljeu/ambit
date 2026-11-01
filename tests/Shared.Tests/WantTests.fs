@@ -235,6 +235,29 @@ let ``installWantAnswer accepts a Child already Resident`` () =
     Assert.True(installed.nodes.ContainsKey residentChild)
 
 [<Fact>]
+let ``installWantAnswer adds Header for Absent child already on parent list`` () =
+    let graph0, _, _, childIds = zoomWithChildren [ "a" ]
+    let parentId = childIds.[0]
+    let absentId = NodeId.New()
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            graph0.nodes
+            (Map.add parentId (owned [ absentId ]) graph0.childMap)
+    Assert.False(graph.nodes.ContainsKey absentId)
+    let header =
+        Node.Create(absentId, text = "arrived", owner = parentId)
+    match ResidentProjection.installWantAnswer Map.empty [ header ] graph with
+    | Error msg -> Assert.Fail(msg)
+    | Ok installed ->
+        match Map.tryFind absentId installed.nodes with
+        | None -> Assert.Fail("expected Header")
+        | Some node -> Assert.Equal("arrived", node.text)
+        Assert.Equal<ChildNode list>(
+            owned [ absentId ],
+            Graph.children installed parentId)
+
+[<Fact>]
 let ``wantAnswer returns wanted edges and pointed-at Nodes`` () =
     let graph, _, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
     let edges, nodes =
