@@ -37,19 +37,19 @@ module MailboxLog =
 
     let private orderOfBody (body: HistoryBody) =
         match body with
-        | HistoryBody.ActorStart start ->
-            Ok (Order.StartActor start)
-        | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
         | HistoryBody.ActorStop _
         | HistoryBody.Notice _ -> Error "unsupported"
         | HistoryBody.Order order -> Ok order
 
     let private historyBody (order: Order) =
         match order with
-        | (Order.Change _ | Order.Undo _ | Order.Redo _ | Order.Load _) as placed ->
+        | (Order.Change _
+            | Order.Undo _
+            | Order.Redo _
+            | Order.Load _
+            | Order.StartActor _
+            | Order.Cancel _) as placed ->
             Ok (HistoryBody.Order placed)
-        | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
-        | Order.Cancel focusId -> Ok (HistoryBody.Cancel focusId)
         | Order.StartPeerActor _
         | Order.LoadSave _ -> Error "unsupported"
 

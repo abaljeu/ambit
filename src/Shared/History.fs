@@ -93,9 +93,7 @@ type Order =
 
 [<RequireQualifiedAccess>]
 type EventBody =
-    | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
-    | Cancel of focusId: NodeId
     | Order of Order
     | Notice of Notice
 
@@ -133,6 +131,23 @@ module EventBody =
     let (|Load|_|) (body: EventBody) =
         match body with
         | EventBody.Order (Order.Load nodeId) -> Some nodeId
+        | _ -> None
+
+    let ActorStart (request: ActorStart) : EventBody =
+        EventBody.Order(Order.StartActor request)
+
+    let (|ActorStart|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.StartActor request) ->
+            Some request
+        | _ -> None
+
+    let Cancel (focusId: NodeId) : EventBody =
+        EventBody.Order(Order.Cancel focusId)
+
+    let (|Cancel|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Cancel focusId) -> Some focusId
         | _ -> None
 
 type Ev =
@@ -462,8 +477,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Change ops -> Some ops
         | EventBody.Order _ -> None
@@ -477,8 +490,6 @@ module Ev =
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> event
         | EventBody.Order _ -> event
 
@@ -488,8 +499,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Order _ -> None
 

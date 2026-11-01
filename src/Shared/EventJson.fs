@@ -55,11 +55,6 @@ module EventJson =
     let encodeStartRequest (start: ActorStart) =
         Encode.object (startRequestFields start)
 
-    let private encodeActorStart (start: ActorStart) =
-        Encode.object (
-            ("kind", Encode.string "actorStart")
-            :: startRequestFields start)
-
     let decodeStartRequest: Decoder<ActorStart> =
         Decode.object (fun get ->
             { zoomId = get.Required.Field "zoomId" Serialization.decodeNodeId
@@ -394,8 +389,6 @@ module EventJson =
 
     let private encodeBody (body: EventBody) =
         match body with
-        | EventBody.ActorStart start -> encodeActorStart start
-        | EventBody.Cancel focusId -> encodeCancel focusId
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
         | EventBody.Notice notice -> encodeNotice notice
@@ -419,14 +412,6 @@ module EventJson =
         Decode.field "kind" Decode.string
         |> Decode.andThen (fun kind ->
             match kind with
-            | "actorStart" ->
-                decodeStartRequest |> Decode.map EventBody.ActorStart
-            | "cancel" ->
-                Decode.object (fun get ->
-                    EventBody.Cancel(
-                        get.Required.Field
-                            "focusId"
-                            Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
             | "notice" -> decodeNoticeBody
             | "order" ->
