@@ -28,7 +28,12 @@ The Browser applies every server reply. Each fix removes a refusal where it star
 
 - Remove Loaded and Unloaded: each state return for a NodeId includes both its Header and its child list. A child list holds ids only. A Resident Node always has its child list, so Loaded and Unloaded go away.
 
-- Absent display: an Absent child shows as a placeholder Bullet drawn in color #444444. It selects like any row and takes every Command except edit. Copy, Edit classes, and Exec stay unchanged because each needs the Node text. Expand of a placeholder requests its Node. When its Node arrives, the next render draws it as a normal row.
+- Absent display: an Absent child shows as a placeholder Bullet drawn in color #444444. It selects like any row. Expand of a placeholder requests its Node. When its Node arrives, the next render draws it as a normal row. Commands that won't run with an absent node:
+  - Edit
+  - Copy
+  - Cut
+  - Edit classes
+  - Exec
 - Absent Fetch: Poll is the one mechanism that gets data. The active process that looks for nearby Nodes looks for Absent ids, not Unloaded Nodes. Expand of a Node makes its Absent children nearby. The whole-Workspace request is unhooked and deleted.
 - 1 — Notices: when the Browser has no pending changes, it accepts each Notice. It applies the Notice and takes its event id. A Notice never blocks the Browser, never sets DataOutdated, and never refuses a Load reply. A post reply applies its Notices too.
 - 2 — Moved child: the Browser accepts the child list as the Server sends it. Its Absent children show as placeholders.
