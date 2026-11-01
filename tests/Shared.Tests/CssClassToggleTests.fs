@@ -113,3 +113,28 @@ let ``Edit classes does nothing when the selected row Header is absent`` () =
     Assert.Equal(
         Some "note",
         CssClassToggle.tryInitialUserClasses present [presentId])
+
+[<Fact>]
+let ``tryInitialUserClasses keeps first-seen user class order`` () =
+    let firstId = NodeId.New()
+    let secondId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> addUnder
+            Graph.rootId
+            (Node.Create(
+                firstId,
+                text = "a",
+                cssClasses = CssClass.ofList [ "a"; "b"; "amb-x" ]))
+        |> addUnder
+            Graph.rootId
+            (Node.Create(
+                secondId,
+                text = "c",
+                cssClasses = CssClass.ofList [ "b"; "c" ]))
+    Assert.Equal(
+        Some "a b c",
+        CssClassToggle.tryInitialUserClasses graph [ firstId; secondId ])
+    Assert.Equal(
+        None,
+        CssClassToggle.tryInitialUserClasses graph [ firstId; NodeId.New() ])

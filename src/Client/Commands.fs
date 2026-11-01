@@ -304,9 +304,7 @@ let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let selectedIds =
-            rangeChildren model.graph sel.range
-            |> List.map (fun child -> child.id)
+        let selectedIds = rangeNodeIds model.graph sel.range
         if CommandRequest.anyNodeHeaderIsAbsent model.graph selectedIds then
             model, []
         else

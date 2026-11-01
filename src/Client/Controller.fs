@@ -136,8 +136,7 @@ let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     | Some sel when
         CommandRequest.anyNodeHeaderIsAbsent
             model.graph
-            (rangeChildren model.graph sel.range
-             |> List.map (fun child -> child.id)) ->
+            (rangeNodeIds model.graph sel.range) ->
         ()
     | _ -> onCopyOrCut model ev dispatch copySelectionOp false None
 

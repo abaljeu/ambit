@@ -32,13 +32,17 @@ module CssClassToggle =
         : string option =
         let rec read acc remaining =
             match remaining with
-            | [] ->
-                acc
-                |> List.distinct
-                |> String.concat " "
-                |> Some
+            | [] -> Some acc
             | nid :: rest ->
                 match Map.tryFind nid graph.nodes with
                 | None -> None
-                | Some node -> read (acc @ userClassNames node) rest
-        read [] nodeIds
+                | Some node -> read (userClassNames node :: acc) rest
+        match read [] nodeIds with
+        | None -> None
+        | Some revGroups ->
+            revGroups
+            |> List.rev
+            |> List.concat
+            |> List.distinct
+            |> String.concat " "
+            |> Some

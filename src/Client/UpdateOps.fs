@@ -505,8 +505,8 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             withSiteMap { m with selectedNodes = newSel }, effects
 
-let private selectedNodeIds (model: VM) (sel: Selection) : NodeId list =
-    rangeChildren model.graph sel.range
+let rangeNodeIds (graph: Graph) (range: SiteNodeRange) : NodeId list =
+    rangeChildren graph range
     |> List.map (fun child -> child.id)
 
 /// Op: Open the CSS class prompt overlay, pre-filled with current user classes (amb- excluded).
@@ -514,7 +514,7 @@ let openCssClassPromptOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let ids = selectedNodeIds model sel
+        let ids = rangeNodeIds model.graph sel.range
         match CssClassToggle.tryInitialUserClasses model.graph ids with
         | None -> model, []
         | Some classes ->
@@ -560,7 +560,7 @@ let private readCssClassPromptValue () : string =
 let submitCssClassPromptOp (model: VM) : VM * Effect list =
     match model.mode, model.selectedNodes with
     | CssClassPrompt (ret, _), Some sel ->
-        let selectedIds = selectedNodeIds model sel
+        let selectedIds = rangeNodeIds model.graph sel.range
         if CommandRequest.anyNodeHeaderIsAbsent model.graph selectedIds then
             model, []
         else
