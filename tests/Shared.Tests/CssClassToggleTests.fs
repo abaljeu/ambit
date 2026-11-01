@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.CssClassToggleTests
 
 open Xunit
 open Gambol.Shared
+open GraphChildMapHelpers
 
 let private apply (ops: Op list) (state: State) : State =
     match ChangeValidation.applyOps ops state with
@@ -90,3 +91,25 @@ let ``toggle plus SetClasses preserves reserved amb- classes`` () =
     Assert.Equal(
         CssClass.ofList [ "amb-x"; "i" ],
         afterOn.graph.nodes.[nodeId].cssClasses)
+
+[<Fact>]
+let ``Edit classes does nothing when the selected row Header is absent`` () =
+    let id = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> addUnder Graph.rootId (Node.Create(id, text = "gone"))
+        |> absentUnloaded id
+    Assert.False(graph.nodes.ContainsKey id)
+    Assert.Equal(None, CssClassToggle.tryInitialUserClasses graph [id])
+    let presentId = NodeId.New()
+    let present =
+        Graph.create ()
+        |> addUnder
+            Graph.rootId
+            (Node.Create(
+                presentId,
+                text = "keep",
+                cssClasses = CssClass.ofList [ "note"; "amb-x" ]))
+    Assert.Equal(
+        Some "note",
+        CssClassToggle.tryInitialUserClasses present [presentId])

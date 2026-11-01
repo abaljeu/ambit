@@ -132,7 +132,14 @@ let private onCopyOrCut
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch copySelectionOp false None
+    match model.selectedNodes with
+    | Some sel when
+        CommandRequest.anyNodeHeaderIsAbsent
+            model.graph
+            (rangeChildren model.graph sel.range
+             |> List.map (fun child -> child.id)) ->
+        ()
+    | _ -> onCopyOrCut model ev dispatch copySelectionOp false None
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.

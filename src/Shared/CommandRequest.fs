@@ -153,6 +153,16 @@ module CommandRequest =
                     graph siteMap zoomId focusId focusId eventId)
         | _ -> None
 
+    /// True when `id` has no Header. Copy, Edit classes, and Exec need that text.
+    let nodeHeaderIsAbsent (graph: Graph) (id: NodeId) : bool =
+        match Map.tryFind id graph.nodes with
+        | None -> true
+        | Some _ -> false
+
+    /// True when any id in `ids` has no Header.
+    let anyNodeHeaderIsAbsent (graph: Graph) (ids: NodeId list) : bool =
+        List.exists (nodeHeaderIsAbsent graph) ids
+
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart
         (graph: Graph)

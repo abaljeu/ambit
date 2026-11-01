@@ -8,4 +8,4 @@ This folder is ticket 04 — Use a placeholder.
 
 ## Stage
 
-refactor
+build
