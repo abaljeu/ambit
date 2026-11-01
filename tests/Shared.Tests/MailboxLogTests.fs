@@ -39,7 +39,6 @@ let ``placed order then logged event keeps a Change`` () =
     Assert.Equal(Some "Set text", order.commandName)
     Assert.Equal(Order.Change(ops, ChangeOrigin.Edit), order.order)
     let back = restored event
-    Assert.Equal(event.id, back.id)
     Assert.Equal(event, back)
 
 [<Fact>]

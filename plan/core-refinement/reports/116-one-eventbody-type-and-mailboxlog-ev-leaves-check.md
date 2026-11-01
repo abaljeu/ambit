@@ -7,8 +7,7 @@ pass
 
 ## Commands
 
-- `scripts/agent-test.sh` passed CoreMailboxDoorTests (38) and EventTests plus MailboxLogTests (44)
-- `scripts/agent-test.sh --full` passed both projects
+- `scripts/agent-test.sh --full` passed Server.Tests (733 passed, 0 failed, 1 skipped) and Shared.Tests (1929 passed, 0 failed, 3 skipped)
 - Shared filter `MailboxLogTests` passed 6
 - Shared filter `Replay sets persistState Unpersisted and ignores persist Notices` passed 1
 - Shared filter `Replay of Parse sets persistState Unpersisted and leaves persistedVersion` passed 1
