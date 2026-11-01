@@ -78,6 +78,10 @@ let serializeSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list
     topLevelIds |> List.iter (walk 0)
     sb.ToString()
 
+/// Header for a clipboard node. A missing Header is None.
+let private readClipboardNode (graph: Graph) (nodeId: NodeId) : Node option =
+    Map.tryFind nodeId graph.nodes
+
 /// Collect selected nodes and their visible children into a self-contained
 /// ClipboardContent. Receives top-level children directly from a parent.children slice.
 /// Each node's children list is trimmed to only the visible (unfolded) children.
@@ -95,23 +99,25 @@ let collectSubtree (graph: Graph) (siteMap: SiteMap)
         (visibleChildren: ChildNode list)
         (visibleChildInstIds: SiteId list)
         =
-        let node = graph.nodes.[nodeId]
-        let accNodes = accNodes |> Map.add nodeId node
-        let accChildMap = accChildMap |> Map.add nodeId visibleChildren
-        visibleChildInstIds |> List.fold (fun (accNodes, accChildMap) childInstId ->
-            let childEntry = siteMap.entries.[childInstId]
-            let grandchildren = if childEntry.expanded then childEntry.children else []
-            let visibleGrandchildren =
-                if childEntry.expanded then
-                    Graph.children graph childEntry.nodeId
-                else
-                    []
-            walk
-                accNodes
-                accChildMap
-                childEntry.nodeId
-                visibleGrandchildren
-                grandchildren) (accNodes, accChildMap)
+        match readClipboardNode graph nodeId with
+        | None -> accNodes, accChildMap
+        | Some node ->
+            let accNodes = accNodes |> Map.add nodeId node
+            let accChildMap = accChildMap |> Map.add nodeId visibleChildren
+            visibleChildInstIds |> List.fold (fun (accNodes, accChildMap) childInstId ->
+                let childEntry = siteMap.entries.[childInstId]
+                let grandchildren = if childEntry.expanded then childEntry.children else []
+                let visibleGrandchildren =
+                    if childEntry.expanded then
+                        Graph.children graph childEntry.nodeId
+                    else
+                        []
+                walk
+                    accNodes
+                    accChildMap
+                    childEntry.nodeId
+                    visibleGrandchildren
+                    grandchildren) (accNodes, accChildMap)
     let nodes, childMap =
         topLevelChildren |> List.fold (fun (accNodes, accChildMap) topChild ->
             let topId = topChild.id
@@ -122,10 +128,17 @@ let collectSubtree (graph: Graph) (siteMap: SiteMap)
                     if topEntry.expanded then Graph.children graph topId else []
                 walk accNodes accChildMap topId visibleChildren children
             | None ->
-                accNodes |> Map.add topId graph.nodes.[topId],
-                accChildMap |> Map.add topId []
+                match readClipboardNode graph topId with
+                | None -> accNodes, accChildMap
+                | Some node ->
+                    Map.add topId node accNodes,
+                    Map.add topId [] accChildMap
         ) (Map.empty, Map.empty)
-    { topLevelIds = topLevelChildren |> List.map (fun child -> child.id)
+    let topLevelIds =
+        topLevelChildren
+        |> List.map (fun child -> child.id)
+        |> List.filter (fun id -> Map.containsKey id nodes)
+    { topLevelIds = topLevelIds
       nodes = nodes
       childMap = childMap }
 

@@ -153,7 +153,7 @@ module CommandRequest =
                     graph siteMap zoomId focusId focusId eventId)
         | _ -> None
 
-    /// True when `id` has no Header. Copy, Edit classes, and Exec need that text.
+    /// True when `id` has no Header. Copy, Cut, Edit classes, and Exec need that text.
     let nodeHeaderIsAbsent (graph: Graph) (id: NodeId) : bool =
         match Map.tryFind id graph.nodes with
         | None -> true
