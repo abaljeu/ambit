@@ -394,18 +394,7 @@ module EventJson =
 
     let private encodeBody (body: EventBody) =
         match body with
-        | EventBody.Undo(target, ops) ->
-            Encode.object
-                [ "kind", Encode.string "undo"
-                  "target", encodeEventId target
-                  "ops", encodeOps ops ]
-        | EventBody.Redo(target, ops) ->
-            Encode.object
-                [ "kind", Encode.string "redo"
-                  "target", encodeEventId target
-                  "ops", encodeOps ops ]
         | EventBody.ActorStart start -> encodeActorStart start
-        | EventBody.Load nodeId -> encodeLoad nodeId
         | EventBody.Cancel focusId -> encodeCancel focusId
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
@@ -414,18 +403,6 @@ module EventJson =
             Encode.object
                 [ "kind", Encode.string "order"
                   "order", encodeOrder order ]
-
-    let private decodeUndoBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Undo(
-                get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
-
-    let private decodeRedoBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Redo(
-                get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
 
     let private decodeActorStopBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -442,16 +419,8 @@ module EventJson =
         Decode.field "kind" Decode.string
         |> Decode.andThen (fun kind ->
             match kind with
-            | "undo" -> decodeUndoBody
-            | "redo" -> decodeRedoBody
             | "actorStart" ->
                 decodeStartRequest |> Decode.map EventBody.ActorStart
-            | "load" ->
-                Decode.object (fun get ->
-                    EventBody.Load(
-                        get.Required.Field
-                            "nodeId"
-                            Serialization.decodeNodeId))
             | "cancel" ->
                 Decode.object (fun get ->
                     EventBody.Cancel(

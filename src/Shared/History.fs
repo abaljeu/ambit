@@ -93,11 +93,8 @@ type Order =
 
 [<RequireQualifiedAccess>]
 type EventBody =
-    | Undo of target: EventId * ops: Op list
-    | Redo of target: EventId * ops: Op list
     | ActorStart of ActorStart
     | ActorStop of focusId: NodeId * result: ActorResult
-    | Load of nodeId: NodeId
     | Cancel of focusId: NodeId
     | Order of Order
     | Notice of Notice
@@ -110,6 +107,32 @@ module EventBody =
     let (|Change|_|) (body: EventBody) =
         match body with
         | EventBody.Order (Order.Change (ops, _)) -> Some ops
+        | _ -> None
+
+    let Undo (target: EventId, ops: Op list) : EventBody =
+        EventBody.Order(Order.Undo(target, ops))
+
+    let (|Undo|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Undo (target, ops)) ->
+            Some(target, ops)
+        | _ -> None
+
+    let Redo (target: EventId, ops: Op list) : EventBody =
+        EventBody.Order(Order.Redo(target, ops))
+
+    let (|Redo|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Redo (target, ops)) ->
+            Some(target, ops)
+        | _ -> None
+
+    let Load (nodeId: NodeId) : EventBody =
+        EventBody.Order(Order.Load nodeId)
+
+    let (|Load|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Load nodeId) -> Some nodeId
         | _ -> None
 
 type Ev =
@@ -443,8 +466,6 @@ module Ev =
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Change ops -> Some ops
-        | EventBody.Order (Order.Undo(_, ops))
-        | EventBody.Order (Order.Redo(_, ops)) -> Some ops
         | EventBody.Order _ -> None
 
     let withOps (event: Ev) (ops: Op list) : Ev =
@@ -456,12 +477,6 @@ module Ev =
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
-        | EventBody.Order (Order.Undo(target, _)) ->
-            { event with
-                body = EventBody.Order(Order.Undo(target, ops)) }
-        | EventBody.Order (Order.Redo(target, _)) ->
-            { event with
-                body = EventBody.Order(Order.Redo(target, ops)) }
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> event
@@ -473,8 +488,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.Order (Order.Undo(target, _))
-        | EventBody.Order (Order.Redo(target, _)) -> Some target
         | EventBody.ActorStart _ | EventBody.Cancel _
         | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None

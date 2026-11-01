@@ -1,5 +1,5 @@
 # 109 — Log Undo, Redo, and Load as EventBody.Order
-**Status**: `defined`
+**Status**: `coded`
 One job: The `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` cases leave History with their `undo`, `redo` and `load` body kinds, and the Server logs a Load as `EventBody.Order` of `Order.Load`. The reason is decision 9 **EventBody** and decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): the old cases leave one at a time, and the logged order is the placed order.
 
 Type: coding
@@ -66,18 +66,18 @@ Blockers: none ([65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] The `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` cases leave the `EventBody` union.
-3. [ ] The Server logs a Load as `EventBody.Order` of `Order.Load`.
-4. [ ] JSON has no `undo`, `redo` or `load` body kind. An old row of those kinds is skipped on read.
-5. [ ] Test files that write `EventBody.Undo`, `EventBody.Redo` or `EventBody.Load` stay as written, except the ones in Outputs.
-6. [ ] The build stays warning-free.
-7. [ ] Add a test that a JSON body with `kind` `undo`, `redo` or `load` fails `EventJson.decode`.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] The `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` cases leave the `EventBody` union.
+3. [x] The Server logs a Load as `EventBody.Order` of `Order.Load`.
+4. [x] JSON has no `undo`, `redo` or `load` body kind. An old row of those kinds is skipped on read.
+5. [x] Test files that write `EventBody.Undo`, `EventBody.Redo` or `EventBody.Load` stay as written, except the ones in Outputs.
+6. [x] The build stays warning-free.
+7. [x] Add a test that a JSON body with `kind` `undo`, `redo` or `load` fails `EventJson.decode`.
 
 ## Outputs
 
-[ ] The source files the builder changes, up to 8
-[ ] `tests/Shared.Tests/EventJsonTests.fs` — the step 7 test
+[x] The source files the builder changes, up to 8
+[x] `tests/Shared.Tests/EventJsonTests.fs` — the step 7 test
 
 ## Stop when
 
@@ -88,8 +88,8 @@ Blockers: none ([65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: the step 7 test name written in the test file
   - `tests/Shared.Tests`: ``Ev JSON round-trips name-only Undo``
   - `tests/Shared.Tests`: ``Undo and Redo keep the target and the ops``
@@ -97,6 +97,6 @@ Blockers: none ([65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-
   - `tests/Server.Tests`: ``loadNode logs Order.Load``
   - `tests/Server.Tests`: ``name-only Undo and Redo store completed Events with submission ids``
   - `tests/Server.Tests`: ``Undo after restart refuses a target from before the restart``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/109-log-undo-redo-and-load-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/109-log-undo-redo-and-load-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
