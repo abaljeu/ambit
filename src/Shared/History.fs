@@ -477,8 +477,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Change ops -> Some ops
         | EventBody.Order _ -> None
@@ -492,8 +490,6 @@ module Ev =
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> event
         | EventBody.Order _ -> event
 
@@ -503,8 +499,6 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.Load _
         | EventBody.ActorStop _ | EventBody.Notice _ -> None
         | EventBody.Order _ -> None
 
