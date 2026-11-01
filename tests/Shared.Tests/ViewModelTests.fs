@@ -2215,6 +2215,35 @@ let ``planPatchDOM CreateRow for visible Absent child id`` () =
     Assert.False(Map.containsKey absentId newGraph.nodes)
 
 [<Fact>]
+let ``planPatchDOM recreates row when placeholder gains Header`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let nodes = Map.add parentId parent graph0.nodes
+    let oldGraph =
+        Graph.fromNodes
+            graph0.root
+            nodes
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    Assert.False(Map.containsKey absentId oldGraph.nodes)
+    let oldModel = emptyModelAt oldGraph parentId
+    let header = Node.Create(absentId, text = "arrived", owner = parentId)
+    let newModel =
+        { oldModel with graph = Graph.addDetachedNode header oldGraph }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let absentInstId =
+        oldModel.siteMap.entries
+        |> Map.pick (fun _ entry ->
+            if entry.nodeId = absentId then Some entry.instanceId else None)
+    Assert.True(
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = absentInstId
+            | _ -> false))
+
+[<Fact>]
 let ``planPatchDOM collapse removes stale cache entries`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
