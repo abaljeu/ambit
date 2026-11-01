@@ -1,5 +1,5 @@
 # 06 — Server sends each Node with its child list
-**Status**: 
+**Status**: build
 One job: The Server returns every NodeId with its Header and its child list of ids. `ChildrenStatus` stays, and tests that build Unloaded Nodes stay as they are. The story Remove Loaded and Unloaded in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason for the child list on each state return.
 
 Type: coding
@@ -52,10 +52,10 @@ Blockers: [05 — Fill a placeholder](plan/client-never-fails/issues/05-fill-pla
 
 ## Stop when
 
-[ ] Record the stop at `plan/client-never-fails/reports/06-server-sends-child-list-stop.md`, then ask.
-[ ] Stop when the edit needs a file outside Inputs.
+[x] Record the stop at `plan/client-never-fails/reports/06-server-sends-child-list-stop.md`, then ask.
+[x] Stop when the edit needs a file outside Inputs.
 [ ] Stop when the edit contradicts the Spec story named in the One job line.
-[ ] Stop when a test that builds an Unloaded Node must change. Leave that test as it is and name it in the stop report.
+[x] Stop when a test that builds an Unloaded Node must change. Leave that test as it is and name it in the stop report.
 
 ## Check
 
