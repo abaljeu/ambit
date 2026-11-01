@@ -149,6 +149,34 @@ let ``An old change row is skipped on read`` () =
         failwith $"expected Error, got {decoded}"
 
 [<Fact>]
+let ``An old undo redo or load row is skipped on read`` () =
+    let nodeId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    let rows =
+        [ "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Undo\","
+          + "\"body\":{\"kind\":\"undo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Redo\","
+          + "\"body\":{\"kind\":\"redo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"\","
+          + "\"body\":{\"kind\":\"load\",\"nodeId\":\""
+          + nodeId
+          + "\"}}" ]
+    rows
+    |> List.iter (fun legacy ->
+        match Dec.fromString EventJson.decode legacy with
+        | Error _ -> ()
+        | Ok decoded ->
+            failwith $"expected Error, got {decoded}")
+
+[<Fact>]
 let ``An old nodeStamped row is skipped on read`` () =
     let legacy =
         String.concat
