@@ -1,103 +1,82 @@
 # 116 — One EventBody type, and MailboxLog.Ev leaves
+**Status**: `defined`
+One job: `MailboxEventBody`, `MailboxLog.Ev`, `MailboxLog.ofEv` and `MailboxLog.toEv` leave, and the mailbox reads a `PlacedOrder` from the History `Ev` and builds the History `Ev` from a `PlacedOrder` without them, with no change in behavior. The reason is decisions 9 **EventBody** and 14 **Leaves** in [Message shape](plan/core-refinement/cqrs-messages.md): `MailboxEventBody` and `EventBody` are one type, and `MailboxLog.Ev`, `ofEv` and `toEv` leave.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-redo-and-load-as-eventbody-order.md), [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md). [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md) is on staging.
 
-## 1. Type
+## Inputs
 
-[ ] `coding`
+### Working
 
-## 2. Blockers
+#### MailboxLog
 
-[ ] [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md)
-[ ] [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-redo-and-load-as-eventbody-order.md)
-[ ] [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md)
+[ ] `src/Shared/MailboxLog.fs` holds the shared `PlacedOrder` record `{ orderId; authority; commandName; order }`, outside the `MailboxLog` module.
+[ ] ``MailboxEventBody`` in `src/Shared/MailboxLog.fs` is `Order of PlacedOrder | Notice of Notice`.
+[ ] ``MailboxLog.Ev`` in `src/Shared/MailboxLog.fs` is `{ id: EventId; body: MailboxEventBody }`.
+[ ] ``ofEv`` in `src/Shared/MailboxLog.fs` maps a History `Ev` to `MailboxLog.Ev` through `orderOfBody` and `placedOrder`. It moves `submissionId`, `authority` and `commandName` into the `PlacedOrder`.
+[ ] ``toEv`` in `src/Shared/MailboxLog.fs` maps `MailboxLog.Ev` back through `historyBody`. It refuses `MailboxEventBody.Notice`.
+[ ] ``commandFromText`` and ``commandToText`` in `src/Shared/MailboxLog.fs` map `""` to `None` and back. They are private.
+[ ] `orderOfBody` and `historyBody` map the old `EventBody` cases to orders and back. After 109 and 110, the only old case left is `EventBody.ActorStop`, which `orderOfBody` refuses.
 
-## 3. Look at
+#### Callers
 
-### Owner
+[ ] ``placedOrder`` in `src/Server/Core/CoreMailboxApi.fs` calls `MailboxLog.ofEv` and matches `MailboxLog.MailboxEventBody.Order`. `messageForPosted` and `acceptOne` use it to place a posted Ev.
+[ ] ``editEvent`` in `src/Server/Core/CoreMailboxLoop.fs` builds a `MailboxLog.Ev` and calls `MailboxLog.toEv`.
+[ ] ``replyPlaced`` in `src/Server/Core/CoreMailboxLoop.fs` builds a `MailboxLog.Ev` and calls `MailboxLog.toEv`.
+[ ] `Mailbox.PlaceOrder` in `src/Server/Core/CoreMsg.fs` carries `PlacedOrder * Caller * reply`. Read only.
+[ ] No file opens `MailboxLog`. Every use is qualified.
+[ ] The History `Ev` in `src/Shared/History.fs` keeps `id`, `submissionId`, `authority`, `commandName` and `body`. Read only.
 
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) owns `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, `placedOrder`, `commandFromText`, `commandToText`, and the shared `PlacedOrder`
+#### Tests
 
-### Source
+[ ] `tests/Shared.Tests/MailboxLogTests.fs` calls `ofEv` and `toEv` through its helpers `logged`, `restored` and `placed`.
+[ ] ``empty command name maps to None and returns as empty`` in `tests/Shared.Tests/MailboxLogTests.fs`.
+[ ] `fromOrder` in `tests/Shared.Tests/EventTests.fs` builds a `MailboxLog.Ev` and calls `toEv`. ``Replay sets persistState Unpersisted and ignores persist Notices`` and ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`` use it.
+[ ] ``postEvents places Order.Change with origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` calls `MailboxLog.ofEv` and matches `MailboxEventBody`.
 
-[ ] [History.fs](src/Shared/History.fs) `EventBody`, `Ev`
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `postedMailbox`, `postGraphOnly`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `orderEvent`
+### Reference
 
-### Match sites and constructors
+[ ] [Message shape](plan/core-refinement/cqrs-messages.md) §3 decisions 9, 10 and 14, and decision 1 **Logged as placed**.
+[ ] 2026-10-25: this ticket deletes `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv`. It is not a rename.
 
-[ ] `MailboxLog.ofEv` is called in `postedMailbox`, in `postGraphOnly` after 102, and in `CoreMailboxDoorTests.fs`
-[ ] `MailboxLog.toEv` is called in `orderEvent`
-[ ] `MailboxEventBody` is named in `MailboxLog.fs`, `MailboxLogTests.fs`, and the two callers above
-[ ] `MailboxLog.Ev` is built only by `ofEv` and in `orderEvent` (the record passed to `toEv`); it is read only in `postedMailbox`, `postGraphOnly`, `MailboxLogTests.fs`, and `CoreMailboxDoorTests.fs`
-[ ] No file opens `MailboxLog`; every use is qualified
+## Do not load
 
-### Tests this ticket names
+[ ] The shared `PlacedOrder` stays, as the `Mailbox.PlaceOrder` payload.
+[ ] `EventBody.ActorStop` stays. Its removal is [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md).
+[ ] `Notice` as a mailbox case is [115 — Notice is a Mailbox case](115-notice-is-a-mailbox-case.md).
 
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs), every test
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs), the test that calls `MailboxLog.ofEv`
+## Process
 
-## 4. Context
+1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+2. [ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` leave.
+3. [ ] The mailbox reads the `PlacedOrder` of a posted Ev, and builds the logged Ev from a `PlacedOrder`, without them.
+4. [ ] A logged order keeps its `submissionId`, `authority` and `commandName`, with `None` as `""`.
+5. [ ] Behavior does not change.
+6. [ ] The tests in Inputs that used `ofEv`, `toEv` or `MailboxEventBody` check the same facts without them, or leave when `EventJsonTests.fs` already checks the fact.
 
-### Today
+## Outputs
 
-[ ] After 108, 109, and 110, every order body is `EventBody.Order`; `EventBody.ActorStop` may stay until 81, and `ofEv` never accepted it
-[ ] The History `Ev` keeps `submissionId`, `authority`, and `commandName` (choice (c))
-[ ] `MailboxEventBody` is `Order of PlacedOrder | Notice of Notice`; the shared `PlacedOrder` is `{ orderId; authority; commandName; order }` and stays (104)
-[ ] `MailboxLog.Ev` is `{ id: EventId; body: MailboxEventBody }`
-[ ] `ofEv` moves `submissionId`, `authority`, and `commandName` from the History `Ev` into the shared `PlacedOrder`; `toEv` moves them back
-[ ] So `MailboxLog.Ev` is the History `Ev` with the envelope fields moved into the body; it carries nothing the History `Ev` lacks
-[ ] `Mailbox.PlaceOrder` is `PlacedOrder * Caller * reply` (104); `postedMailbox` and `postGraphOnly` need a shared `PlacedOrder` from a History `Ev`, and `orderEvent` needs a History `Ev` from a shared `PlacedOrder`
+[ ] `src/Shared/MailboxLog.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, and any other source file the builder changes, up to 8
+[ ] `tests/Shared.Tests/MailboxLogTests.fs`
+[ ] `tests/Shared.Tests/EventTests.fs` — `fromOrder`
+[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — ``postEvents places Order.Change with origin Edit``
 
-### Decisions
+## Stop when
 
-[ ] 2026-10-25: this ticket deletes `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, and `toEv`; it is not a rename
-[ ] Alan, 2026-10-24: this ticket also removes `MailboxLog.Ev`; its users take the History `Ev`, and `ofEv` and `toEv` leave
+[ ] Record the stop at `plan/core-refinement/reports/116-one-eventbody-type-and-mailboxlog-ev-leaves-stop.md`, then ask.
+[ ] Stop when the edit needs a file outside Inputs.
+[ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
+[ ] Stop when the edit needs more than 8 source files or 4 test files.
 
-## 5. Changes
+## Check
 
-### Change
-
-[ ] One deletion: `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, and `toEv` leave; their users use `EventBody` and `Ev`
-[ ] The shared `PlacedOrder` stays, as the `Mailbox.PlaceOrder` payload
-[ ] No behavior changes
-
-### MailboxLog.fs
-
-[ ] Remove `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, `toEv`, `orderOfBody`, and `historyBody`
-[ ] `placedOrder` becomes public as `MailboxLog.placedOrder (event: Ev) (order: Order) : PlacedOrder`
-[ ] `commandToText` becomes public as `MailboxLog.commandText`
-[ ] `commandFromText` stays private; `placedOrder` uses it
-
-### Callers
-
-[ ] `postedMailbox` matches `event.body` as `EventBody.Order order` and builds `MailboxLog.placedOrder event order` with `authority = caller.authority`, with no `ofEv` call
-[ ] `postGraphOnly` builds its shared `PlacedOrder` the same way, with no `ofEv` call
-[ ] `orderEvent` builds the History `Ev` directly: `submissionId = placed.orderId.Value`, `authority = placed.authority`, `commandName = MailboxLog.commandText placed.commandName`, `body = EventBody.Order placed.order`, with no `toEv` call
-[ ] No `Result` from `ofEv` or `toEv` is left to handle; remove the `Error` arms that handled it
-
-### Size
-
-[ ] 3 source files: `MailboxLog.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`
-[ ] 2 test files: `MailboxLogTests.fs`, `CoreMailboxDoorTests.fs`
-[ ] Within the limits; no follow-on ticket
-
-## 6. Tests
-
-### Removed
-
-[ ] Remove each `MailboxLogTests.fs` test that maps through `ofEv` or `toEv`, and its `ofEv`, `toEv`, and `MailboxEventBody` helpers
-[ ] A test that read the `PlacedOrder` through `placed` reads `EventBody.Order` from the History `Ev` instead, when it still checks something `EventJsonTests.fs` does not
-[ ] `empty command name maps to None and returns as empty` checks `MailboxLog.placedOrder` gives `commandName = None` for `""` and `MailboxLog.commandText None` is `""`
-[ ] Filter: `MailboxLogTests`
-
-### Callers
-
-[ ] The `CoreMailboxDoorTests.fs` test that calls `ofEv` matches `stored.body` as `EventBody.Order` instead of `MailboxLog.MailboxEventBody.Order`
-[ ] Filter: `CoreMailboxDoorTests`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Shared.Tests`: `MailboxLogTests`
+  - `tests/Shared.Tests`: ``Replay sets persistState Unpersisted and ignores persist Notices``
+  - `tests/Shared.Tests`: ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion``
+  - `tests/Server.Tests`: ``postEvents places Order.Change with origin Edit``
 [ ] All executed tests pass.
+[ ] Write the verdict to `plan/core-refinement/reports/116-one-eventbody-type-and-mailboxlog-ev-leaves-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] A reader who reads only the One job line can say what the ticket builds.

@@ -1,108 +1,102 @@
 # 109 — Log Undo, Redo, and Load as EventBody.Order
+**Status**: `defined`
+One job: The `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` cases leave History with their `undo`, `redo` and `load` body kinds, and the Server logs a Load as `EventBody.Order` of `Order.Load`. The reason is decision 9 **EventBody** and decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): the old cases leave one at a time, and the logged order is the placed order.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: none ([65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md) is on staging)
 
-## 1. Type
+## Inputs
 
-[ ] `coding`
+### Working
 
-## 2. Blockers
+#### History
 
-[ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
+[ ] ``EventBody`` in `src/Shared/History.fs` has the cases `Undo of target: EventId * ops: Op list`, `Redo of target: EventId * ops: Op list` and `Load of nodeId: NodeId`, beside `Order of Order`.
+[ ] ``Order`` in `src/Shared/History.fs` has `Undo of target: EventId * ops: Op list`, `Redo of target: EventId * ops: Op list` and `Load of nodeId: NodeId`.
+[ ] ``Ev.ops``, ``Ev.withOps`` and ``Ev.target`` in `src/Shared/History.fs` each have arms for `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load`.
+[ ] The `EventBody` module in `src/Shared/History.fs` has `Change` and `(|Change|_|)` from [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md). Test files kept writing `EventBody.Change` after the `Change` case left.
 
-## 3. Look at
+#### Logging
 
-### Owner
+[ ] A posted Undo or Redo is placed through `placeOrder` and logged as `EventBody.Order` of `Order.Undo` or `Order.Redo`.
+[ ] ``replyLoad`` in `src/Server/Core/CoreMailboxLoad.fs` logs `EventBody.Load subject` through `CoreEventDispatch.appendLifecycle`.
+[ ] ``historyBody`` in `src/Shared/MailboxLog.fs` maps `Order.Load` to `EventBody.Load`, and `Order.Change`, `Order.Undo` and `Order.Redo` to `EventBody.Order`.
+[ ] ``orderOfBody`` in `src/Shared/MailboxLog.fs` maps `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` to their orders.
+[ ] ``postGraphOnly`` in `src/Server/Core/CoreMailboxApi.fs` sends any Ev as `CoreMsg.PostGraphOnly`. ``dispatchPostGraphOnly`` in `src/Server/Core/CoreMailboxEvents.fs` passes it to `CoreEventDispatch.postEvent` unplaced, so an old `EventBody.Undo` or `EventBody.Redo` body can still be stored this way. That path disappears with the cases.
 
-[ ] [History.fs](src/Shared/History.fs) owns `EventBody.Undo`, `EventBody.Redo`, `EventBody.Load`, the `EventBody` module, `Ev.withOps`
+#### JSON
 
-### Source
+[ ] ``encodeBody`` in `src/Shared/EventJson.fs` writes `EventBody.Undo` and `EventBody.Redo` as `kind` `undo` and `redo` with `target` and `ops`, and `EventBody.Load` as `kind` `load` through `encodeLoad`.
+[ ] ``decodeBody`` in `src/Shared/EventJson.fs` reads `kind` `undo`, `redo` and `load` through `decodeUndoBody`, `decodeRedoBody` and an inline `load` decoder.
+[ ] ``encodeOrder`` and ``decodeOrder`` in `src/Shared/EventJson.fs` write and read `Order.Undo`, `Order.Redo` and `Order.Load`.
+[ ] `EventLogFile.decodeEvent` and the `DbAgent` restore skip an entry that does not decode. `BootCache` fetches `/state` on a decode error.
 
-[ ] [EventJson.fs](src/Shared/EventJson.fs) `encodeBody`, `decodeBody`, `decodeUndoBody`, `decodeRedoBody`
-[ ] [MailboxLog.fs](src/Shared/MailboxLog.fs) `orderOfBody`, `historyBody`
+#### Match sites
 
-### Match sites and constructors
+[ ] Source sites that name `EventBody.Undo`, `EventBody.Redo` or `EventBody.Load`:
+  - `src/Shared/History.fs`: `Ev.ops`, `Ev.withOps`, `Ev.target`
+  - `src/Shared/EventJson.fs`: `encodeBody`, `decodeUndoBody`, `decodeRedoBody`, `decodeBody`
+  - `src/Shared/MailboxLog.fs`: `orderOfBody`, `historyBody`
+  - `src/Shared/ActorLive.fs`: `applyEvent`, `resultOf`
+  - `src/Shared/ClientHistory.fs`: `undoEvent`, `redoEvent`, `stampBody`
+  - `src/Shared/SyncLogic.fs`: `markUndoRedoVersion`
+  - `src/Server/Core/CoreEventDispatch.fs`: `undoRedoOf`, `completeOther`, `pushChangeSpecials`
+  - `src/Server/Core/CoreMailboxApi.fs`: `isUndoOrRedo`
+  - `src/Server/Core/CoreMailboxLoad.fs`: `replyLoad`
+[ ] `undoRedoOf`, `pushChangeSpecials` and `markUndoRedoVersion` already have `Order.Undo` and `Order.Redo` arms beside the old ones.
+[ ] 11 test files name `EventBody.Undo`, `EventBody.Redo` or `EventBody.Load`.
+[ ] `TreatWarningsAsErrors` is on in `Directory.Build.props`, so any warning fails the build.
 
-[ ] `EventBody.Undo` and `EventBody.Redo` appear in 6 source files and 10 test files
-[ ] `EventBody.Load` appears in 5 source files and 3 test files
-[ ] `ClientHistory.undoEvent` and `ClientHistory.redoEvent` pass `EventBody.Undo` and `EventBody.Redo` as functions to `invertAs`
-[ ] `CoreMailboxLoad.replyLoad` builds `EventBody.Load subject`
-[ ] Patterns: `Ev.ops`, `Ev.target`, `Ev.withOps`, `ActorLive.applyEvent`, `ActorLive.resultOf`, `CoreEventDispatch.completeAction`, `CoreEventDispatch.pushChangeSpecials`, `SyncLogic.markUndoRedoVersion`, `ClientHistory.stampBody`, `EventJson.encodeBody`, `MailboxLog.orderOfBody`
-[ ] The `EventBody` module functions and patterns keep each site as written
+#### Tests
 
-### Tests this ticket names
+[ ] ``Ev JSON round-trips name-only Undo`` in `tests/Shared.Tests/EventJsonTests.fs`.
+[ ] ``Undo and Redo keep the target and the ops`` and ``Load keeps its node through EventJson and MailboxLog`` in `tests/Shared.Tests/MailboxLogTests.fs`.
+[ ] ``loadNode logs Order.Load`` in `tests/Server.Tests/MailboxExpandTests.fs` asserts the stored body equals `EventBody.Load fileId`.
+[ ] ``name-only Undo and Redo store completed Events with submission ids`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs`.
+[ ] ``Undo after restart refuses a target from before the restart`` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs`.
 
-[ ] [EventJsonTests.fs](tests/Shared.Tests/EventJsonTests.fs) `Ev JSON round-trips name-only Undo`
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) the Undo and Redo round trip (today `Undo and Redo keep the target and drop the ops`), `Load keeps its node through EventJson and MailboxLog`
-[ ] [MailboxExpandTests.fs](tests/Server.Tests/MailboxExpandTests.fs) `loadNode logs Order.Load`
-[ ] [Issue41CoreMailboxTests.fs](tests/Server.Tests/Issue41CoreMailboxTests.fs) `name-only Undo and Redo store completed Events with submission ids`
+### Reference
 
-## 4. Context
+[ ] [Message shape](plan/core-refinement/cqrs-messages.md) §3 decisions 2, 6 and 9, and decision 1 **Logged as placed**.
 
-### Today
+## Do not load
 
-[ ] [108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md) added the `EventBody` module with `Change` and `(|Change|_|)`
-[ ] After [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md), `Order.Undo` and `Order.Redo` hold the target and the Op list
-[ ] After 65, a placed Undo or Redo is logged as `EventBody.Order` of `Order.Undo` or `Order.Redo`
-[ ] After 65, nothing on the Server logs `EventBody.Undo` or `EventBody.Redo`; the cases stay for the wire and for old rows
-[ ] `historyBody` maps `Order.Load` to `EventBody.Load`
-[ ] An undecoded row is skipped on read, and `BootCache` fetches `/state` on a decode error
+[ ] `EventBody.ActorStart` and `EventBody.Cancel` stay. Their removal is [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md).
+[ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` stay. Their removal is [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md).
 
-## 5. Changes
+## Process
 
-### Change
+1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+2. [ ] The `EventBody.Undo`, `EventBody.Redo` and `EventBody.Load` cases leave the `EventBody` union.
+3. [ ] The Server logs a Load as `EventBody.Order` of `Order.Load`.
+4. [ ] JSON has no `undo`, `redo` or `load` body kind. An old row of those kinds is skipped on read.
+5. [ ] Test files that write `EventBody.Undo`, `EventBody.Redo` or `EventBody.Load` stay as written, except the ones in Outputs.
+6. [ ] The build stays warning-free.
+7. [ ] Add a test that a JSON body with `kind` `undo`, `redo` or `load` fails `EventJson.decode`.
 
-[ ] One contract: `EventBody.Undo`, `EventBody.Redo`, and `EventBody.Load` leave with their `undo`, `redo`, and `load` body kinds, and Load is logged as `EventBody.Order`
+## Outputs
 
-### History.fs
+[ ] The source files the builder changes, up to 8
+[ ] `tests/Shared.Tests/EventJsonTests.fs` — the step 7 test
 
-[ ] Remove `Undo`, `Redo`, and `Load` from `EventBody`
-[ ] The `EventBody` module gains `Undo (target: EventId, ops: Op list)`, which is `EventBody.Order (Order.Undo(target, ops))`
-[ ] The module gains `Redo (target: EventId, ops: Op list)`, which is `EventBody.Order (Order.Redo(target, ops))`
-[ ] The module gains `Load (nodeId: NodeId)`, which is `EventBody.Order (Order.Load nodeId)`
-[ ] The module gains `(|Undo|_|)`, `(|Redo|_|)`, and `(|Load|_|)` over those orders
-[ ] Remove the `EventBody.Undo` and `EventBody.Redo` arms from `Ev.withOps`
+## Stop when
 
-### EventJson.fs
+[ ] Record the stop at `plan/core-refinement/reports/109-log-undo-redo-and-load-as-eventbody-order-stop.md`, then ask.
+[ ] Stop when the edit needs a file outside Inputs.
+[ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
+[ ] Stop when the edit needs more than 8 source files or 4 test files.
 
-[ ] Remove the `undo`, `redo`, and `load` body kinds from `encodeBody` and `decodeBody`
-[ ] Remove `decodeUndoBody` and `decodeRedoBody`
+## Check
 
-### MailboxLog.fs
-
-[ ] Remove the `Undo`, `Redo`, and `Load` arms from `orderOfBody`
-[ ] `historyBody` maps `Order.StartActor` and `Order.Cancel` to the old cases
-[ ] `historyBody` replies `Error "unsupported"` for `Order.StartPeerActor` and `Order.LoadSave`
-[ ] `historyBody` maps every other order to `HistoryBody.Order order`
-
-### Size
-
-[ ] 3 source files: `History.fs`, `EventJson.fs`, `MailboxLog.fs`
-[ ] 1 test file: `EventJsonTests.fs`
-
-## 6. Tests
-
-### Old rows
-
-[ ] Add `An old undo, redo, or load row is skipped on read` in `EventJsonTests.fs`
-[ ] A JSON body with `kind` `undo`, `redo`, or `load` fails `EventJson.decode`
-[ ] Filter: `An old undo, redo, or load row is skipped on read`
-
-### Kept
-
-[ ] Keep `Ev JSON round-trips name-only Undo`
-[ ] Keep the Undo and Redo round trip in `MailboxLogTests.fs`
-[ ] Keep `Load keeps its node through EventJson and MailboxLog`
-[ ] Keep `loadNode logs Order.Load`
-[ ] Keep `name-only Undo and Redo store completed Events with submission ids`
-[ ] Filter: `Ev JSON round-trips name-only Undo`
-[ ] Filter: the Undo and Redo round-trip name in `MailboxLogTests.fs`
-[ ] Filter: `Load keeps its node through EventJson and MailboxLog`
-[ ] Filter: `loadNode logs Order.Load`
-[ ] Filter: `name-only Undo and Redo store completed Events with submission ids`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Shared.Tests`: the step 7 test name written in the test file
+  - `tests/Shared.Tests`: ``Ev JSON round-trips name-only Undo``
+  - `tests/Shared.Tests`: ``Undo and Redo keep the target and the ops``
+  - `tests/Shared.Tests`: ``Load keeps its node through EventJson and MailboxLog``
+  - `tests/Server.Tests`: ``loadNode logs Order.Load``
+  - `tests/Server.Tests`: ``name-only Undo and Redo store completed Events with submission ids``
+  - `tests/Server.Tests`: ``Undo after restart refuses a target from before the restart``
 [ ] All executed tests pass.
+[ ] Write the verdict to `plan/core-refinement/reports/109-log-undo-redo-and-load-as-eventbody-order-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] A reader who reads only the One job line can say what the ticket builds.
