@@ -90,13 +90,16 @@ let private getStateJsonFull (client: HttpClient) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private readState (client: HttpClient) = task {
-    let! json = getStateJson client
+let private readFullState (client: HttpClient) = task {
+    let! json = getStateJsonFull client
     return decodeEventId json, decodeGraph json
 }
 
-let private readFullState (client: HttpClient) = task {
-    let! json = getStateJsonFull client
+/// Stored Headers. A default GET returns child ids and leaves those Headers out.
+let private readState (client: HttpClient) = readFullState client
+
+let private readClosure (client: HttpClient) = task {
+    let! json = getStateJson client
     return decodeEventId json, decodeGraph json
 }
 
@@ -1163,9 +1166,13 @@ let ``New server uses snapshot + log replay`` () = task {
 let ``GET state default returns ROOT closure excluding nested workspace contents`` () =
     withClient (fun client -> task {
         let! wsId, innerId = addNestedWorkspace client
-        let! _, graph = readState client
-        Assert.True(graph.nodes.ContainsKey wsId)
+        let! _, graph = readClosure client
+        Assert.False(graph.nodes.ContainsKey wsId)
         Assert.Equal(Unloaded, Graph.childrenStatus graph wsId)
+        Assert.Contains(
+            wsId,
+            Graph.children graph Graph.workspacesId
+            |> List.map (fun child -> child.id))
         Assert.False(graph.nodes.ContainsKey innerId)
     })
 

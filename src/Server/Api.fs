@@ -276,9 +276,9 @@ module Api =
             | Error err -> return agentErrorResult err
     }
 
+    /// Each requested id that has a Header, with that Node's child-id list.
     let private nodesForRequest (graph: Graph) (graphIds: NodeId list) =
-        graphIds
-        |> List.choose (fun id -> Map.tryFind id graph.nodes)
+        ResidentProjection.wantAnswer graph graphIds
 
     let private latestEventId (events: Ev list) persistId =
         events
@@ -288,13 +288,14 @@ module Api =
     let private universalResponseFromHandle
         (handle: CoreChangesDoor)
         (after: EventId)
-        (nodes: Node list)
+        (childMap: Map<NodeId, ChildNode list>, nodes: Node list)
         : Async<UniversalResponse> =
         async {
             let! events = CoreDoor.getEventsSince handle after
             let! persistId = CoreDoor.getEventId handle
             return
                 { nodes = nodes
+                  childMap = childMap
                   events = events
                   latestId = latestEventId events persistId }
         }
@@ -329,13 +330,13 @@ module Api =
                                     LoadSavePath.Desk
                                     None
                         | Ok () ->
-                            let nodes =
-                                nodesForRequest state.graph request.start.graphIds
                             let! command =
                                 universalResponseFromHandle
                                     handle
                                     request.start.eventId
-                                    nodes
+                                    (nodesForRequest
+                                        state.graph
+                                        request.start.graphIds)
                             return
                                 loadSaveSuccessResult
                                     LoadSavePath.Git
