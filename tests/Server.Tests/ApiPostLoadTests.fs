@@ -136,7 +136,8 @@ let ``postLoad Want answer when includeWorkspace true`` () = task {
             Assert.Equal(EventIdFixtures.storedId 7, response.eventId)
             Assert.Empty(response.events)
             let byId = response.nodes |> List.map (fun n -> n.id, n) |> Map.ofList
-            Assert.True(byId.ContainsKey fileId)
+            Assert.True(byId.ContainsKey dirId)
+            Assert.False(byId.ContainsKey fileId)
             Assert.Equal<ChildNode list>(
                 owned [ fileId ],
                 response.childMap.[dirId])
@@ -198,7 +199,11 @@ let ``postLoad shares one event id for Events and Nodes`` () = task {
         | Ok (response: LoadResponse) ->
             Assert.Equal(EventIdFixtures.storedId 9, response.eventId)
             Assert.Equal(1, response.events.Length)
-            Assert.True(response.nodes |> List.exists (fun n -> n.id = fileId))
+            Assert.True(response.nodes |> List.exists (fun n -> n.id = dirId))
+            Assert.False(response.nodes |> List.exists (fun n -> n.id = fileId))
+            Assert.Equal<ChildNode list>(
+                owned [ fileId ],
+                response.childMap.[dirId])
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

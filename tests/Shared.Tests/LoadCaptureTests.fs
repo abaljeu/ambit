@@ -98,7 +98,7 @@ let ``wantAnswerForTargets without residency intent returns empty`` () =
         Assert.Empty(nodes)
 
 [<Fact>]
-let ``wantAnswerForTargets returns direct Children and pointed-at Nodes`` () =
+let ``wantAnswerForTargets returns the target Header and its child list`` () =
     let graph, _, dirId, fileId = graphWithNestedWorkspace ()
     match
         ResidentProjection.wantAnswerForTargets
@@ -109,7 +109,7 @@ let ``wantAnswerForTargets returns direct Children and pointed-at Nodes`` () =
     | Ok (childMap, nodes) ->
         Assert.Equal(1, childMap.Count)
         Assert.Equal<ChildNode list>(owned [ fileId ], childMap.[dirId])
-        Assert.Equal<NodeId list>([ fileId ], nodes |> List.map (_.id))
+        Assert.Equal<NodeId list>([ dirId ], nodes |> List.map (_.id))
 
 [<Fact>]
 let ``wantAnswerForTargets missing target returns empty`` () =
@@ -160,8 +160,9 @@ let ``captureLoadResponse shares event id for Changes and Nodes`` () =
         Assert.Equal(200, response.pageBuildEpochSec)
         Assert.True(response.isReady)
         Assert.Equal(1, response.events.Length)
-        Assert.Empty(response.nodes)
+        Assert.Equal<NodeId list>([ fileId ], response.nodes |> List.map (_.id))
         Assert.True(Map.containsKey fileId response.childMap)
+        Assert.Empty(response.childMap.[fileId])
 
 [<Fact>]
 let ``LoadResponse toSyncResponse preserves Changes and Nodes`` () =
