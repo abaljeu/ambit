@@ -56,7 +56,8 @@ These are exclusions from this map, not product-wide exclusions. See [[doc/agent
 
 ## 6. Order
 
-[ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes `CoreMsg.StartLoadSaveCommand` with `Order.StartActor` and `Order.LoadSave`. [10 — Dispatch git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) moves git Load and Save onto the dispatcher before that delete.
+[ ] [10 — Dispatch git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After that ticket, nothing sends `StartLoadSaveCommand`.
+[ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes that message, with `Order.StartActor` and `Order.LoadSave`.
 [ ] [09 — Dispatch the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. The search-start log is `Order.RunActor`.
 [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is owned by Ambot2. It shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
 [ ] Ambot2 is writing the `CoreMsg.PostGraphOnly` removal now. That ticket is built before the cutover builds [06 — Log Order.RunActor](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) through 15 — Delete the old Actor starts.

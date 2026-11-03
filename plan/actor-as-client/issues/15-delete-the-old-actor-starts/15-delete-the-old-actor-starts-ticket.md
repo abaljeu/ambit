@@ -3,7 +3,7 @@
 One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `CoreMsg.StartLoadSaveCommand`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` are gone.
 
 [ ] `startFunction` stays. Alan, 2026-11-03.
-[ ] Alan, 2026-11-03: this ticket deletes `CoreMsg.StartLoadSaveCommand` with `Order.StartActor` and `Order.LoadSave`. 10 — Dispatch git Load and Save moves git Load and Save onto the dispatcher before that delete.
+[ ] Alan, 2026-11-03: 10 — Dispatch git Load and Save converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After that ticket, nothing sends `StartLoadSaveCommand`. This ticket deletes the message, with `Order.StartActor` and `Order.LoadSave`.
 [ ] `runSchedule` is renamed `launchPending`. It takes the Actor's pending work out of the live table and `Async.Start`s it on the thread pool with the row's cancel token.
 [ ] The named outputs below are 9 source files and 2 test files. The size limit is 8 source files and 4 test files. The ninth source file stays so the `CoreMsg` matches leave in one ticket.
 [ ] `CoreMailboxLoad.fs` is 75 lines. It joins the outputs when `dispatchStartLoadSaveCommand` has no caller left. That count is 10 source files and 2 test files.
@@ -34,7 +34,7 @@ Blockers:
 [ ] `CoreMailboxEvents.operationContext` matches `StartLoadSaveCommand` at lines 46-47. `replyFailure` matches it at lines 64-65.
 [ ] On staging, 2026-11-03, `CoreMailboxApi.startLoadSaveCommand` builds that case at `src/Server/Core/CoreMailboxApi.fs` lines 325-338. That function is the only constructor.
 [ ] Callers of that function on staging are `src/Server/RouteRegistration.fs` line 349, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/ParseThreadLoadTests.fs`.
-[ ] This ticket starts after 10 — Dispatch git Load and Save and 80 — Place Actor starts through PlaceOrder. Those tickets move git and Desk off that constructor. A constructor that remains is a stop.
+[ ] This ticket starts after 10 — Dispatch git Load and Save. That ticket owns the caller conversion. After it, nothing sends `StartLoadSaveCommand`. A send that remains is a stop.
 [ ] `CoreMailboxLoad.dispatchStartLoadSaveCommand` is `src/Server/Core/CoreMailboxLoad.fs` lines 34-55. Its only caller is the `runMsg` arm at lines 22-24.
 [ ] `src/Server/Core/CoreActorPool.fs` is 417 lines.
 [ ] `src/Server/Core/CoreMsg.fs` is 116 lines.
@@ -97,7 +97,7 @@ Blockers:
 [ ] Stop when the edit keeps a reader for an old `Order.StartActor` row or an old `Order.LoadSave` row.
 [ ] Stop when the edit adds a `CoreMsg` case.
 [ ] Stop when the edit adds an `Order` case.
-[ ] Stop when `CoreMailboxApi.startLoadSaveCommand` still builds `CoreMsg.StartLoadSaveCommand`. `ParseThreadLoadTests.fs` calls that function and sits outside Outputs.
+[ ] Stop when a send of `StartLoadSaveCommand` remains. 10 — Dispatch git Load and Save owns that conversion, including `ParseThreadLoadTests.fs`.
 
 ## Check
 

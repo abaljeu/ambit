@@ -37,7 +37,7 @@ Alan, 2026-11-03.
 [ ] 07 — Dispatch the test command. Does not write `Order.StartActor`.
 [ ] 08 — Dispatch the AI Actor. Does not write `Order.StartActor`.
 [ ] 09 — Dispatch the query command. Find and Move `recordSearchStart` logs `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart` and its arms in `CoreMailboxLoop` and `CoreMailboxEvents`. It adds no `Order`.
-[ ] 10 — Dispatch git Load and Save. Logs `Order.RunActor`. Does not write `Order.LoadSave`.
+[ ] 10 — Dispatch git Load and Save. This ticket converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After this ticket, nothing sends `StartLoadSaveCommand`. It logs `Order.RunActor`. It does not write `Order.LoadSave`. The source files are 6 and the test files are 4.
 [ ] 11 — Move door and case tests.
 [ ] 12 — Move pool and issue tests.
 [ ] 13 — Move persist and command tests.
@@ -91,4 +91,4 @@ Counts are file lengths on staging. Line numbers are the `RecordSearchStart` and
 ## Open questions
 
 [ ] `CoreEventDispatch.actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. Its only caller is the `RecordSearchStart` arm. 09 — Dispatch the query command deletes that arm and leaves the function. No ticket in this Project deletes `actorStart`.
-[ ] 15 — Delete the old Actor starts stops while `CoreMailboxApi.startLoadSaveCommand` still builds `CoreMsg.StartLoadSaveCommand`, because `ParseThreadLoadTests.fs` calls that function and sits outside the ticket outputs. 10 — Dispatch git Load and Save, as written, changes the pool git arm and leaves that constructor. Which of 10 or 80 — Place Actor starts through PlaceOrder removes the constructor is unset.
+[x] 10 — Dispatch git Load and Save owns the caller conversion. After that ticket, nothing sends `StartLoadSaveCommand`. 15 — Delete the old Actor starts deletes the message. Alan, 2026-11-03.
