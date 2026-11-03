@@ -86,7 +86,10 @@ let private graphWithWorkspaceAndRootNote
 [<Fact>]
 let ``compose lists Included that miss Children first`` () =
     let graph0, siteMap, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
-    let graph = unload childIds.[0] graph0
+    let keptHeader = unload childIds.[0] graph0
+    let keptWant = Want.compose keptHeader siteMap zoomId
+    Assert.Equal<NodeId list>([], keptWant)
+    let graph = absentUnloaded childIds.[0] graph0
     let want = Want.compose graph siteMap zoomId
     Assert.Equal<NodeId list>([ childIds.[0] ], want)
     Assert.DoesNotContain(childIds.[1], want)
@@ -110,18 +113,38 @@ let ``compose wants a placeholder id with no child list after parent expand`` ()
 let ``compose then installWantAnswer loads wanted parents and children`` () =
     let graph0, siteMap, zoomId, childIds = zoomWithChildren [ "a" ]
     let parentId = childIds.[0]
+    let parentNode = graph0.nodes.[parentId]
     let grandId = NodeId.New()
     let grand =
         Node.Create(grandId, text = "grand", owner = parentId)
-    let graph = unload parentId graph0
+    let keptHeader = unload parentId graph0
+    let keptWant = Want.compose keptHeader siteMap zoomId
+    Assert.DoesNotContain(parentId, keptWant)
+    let graph = absentUnloaded parentId graph0
     let want = Want.compose graph siteMap zoomId
     Assert.Equal<NodeId list>([ parentId ], want)
     let edges = Map.ofList [ parentId, owned [ grandId ] ]
+    let withHeader =
+        ResidentProjection.installWantAnswer
+            edges
+            [ parentNode; grand ]
+            graph
+        |> requireOk "header"
+    Assert.True(GraphChildren.isLoaded withHeader parentId)
+    Assert.True(withHeader.nodes.ContainsKey grandId)
+    Assert.False(GraphChildren.isLoaded withHeader grandId)
+    let siteHeader, nextHeader =
+        buildSiteMapFrom withHeader zoomId (Sid 0)
+    let parentHeaderInst = findInstanceId parentId siteHeader
+    let siteHeader2, _ =
+        expandEntry parentHeaderInst withHeader siteHeader nextHeader
+    let wantHeader = Want.compose withHeader siteHeader2 zoomId
+    Assert.DoesNotContain(grandId, wantHeader)
     let installed =
-        ResidentProjection.installWantAnswer edges [ grand ] graph
+        ResidentProjection.installWantAnswer edges [ parentNode ] graph
         |> requireOk "install"
     Assert.True(GraphChildren.isLoaded installed parentId)
-    Assert.True(installed.nodes.ContainsKey grandId)
+    Assert.False(installed.nodes.ContainsKey grandId)
     Assert.False(GraphChildren.isLoaded installed grandId)
     let siteMap1, nextId = buildSiteMapFrom installed zoomId (Sid 0)
     let parentInst = findInstanceId parentId siteMap1
@@ -150,7 +173,11 @@ let ``compose wants unloaded children of folded members`` () =
         Graph.replace midId 0 [] (owned [ hiddenId ]) g5
         |> requireOk "fold.mid"
     let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
-    let want = Want.compose (unload hiddenId graph) siteMap zoomId
+    let keptHeader = unload hiddenId graph
+    let keptWant = Want.compose keptHeader siteMap zoomId
+    Assert.Equal<NodeId list>([], keptWant)
+    let want =
+        Want.compose (absentUnloaded hiddenId graph) siteMap zoomId
     Assert.Equal<NodeId list>([ hiddenId ], want)
     Assert.DoesNotContain(zoomId, want)
     Assert.DoesNotContain(midId, want)
@@ -179,7 +206,11 @@ let ``compose wants one rank past a folded loaded child`` () =
         Graph.replace hiddenId 0 [] (owned [ grandId ]) g7
         |> requireOk "deep.hidden"
     let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
-    let want = Want.compose (unload grandId graph) siteMap zoomId
+    let keptHeader = unload grandId graph
+    let keptWant = Want.compose keptHeader siteMap zoomId
+    Assert.Equal<NodeId list>([], keptWant)
+    let want =
+        Want.compose (absentUnloaded grandId graph) siteMap zoomId
     Assert.Equal<NodeId list>([ grandId ], want)
     Assert.DoesNotContain(hiddenId, want)
 

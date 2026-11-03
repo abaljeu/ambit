@@ -1,13 +1,13 @@
 namespace Gambol.Shared
 
 /// Auto-want for one Poll. No durable state. Empty list is allowed.
-/// Unloaded members of the Included walk, then two ranks of children,
+/// Absent ids on the Included walk, then two ranks of children,
 /// including children of folded members. No reserved or Zoom tier.
 [<RequireQualifiedAccess>]
 module Want =
 
-    /// Unloaded members of the walk, then two ranks of their children.
-    /// Fold stops the walk; those children are still wanted. No throttle.
+    /// Ids on that walk whose Header is absent. Fold stops the Included
+    /// walk. The two child ranks still run. No throttle.
     let compose
         (graph: Graph)
         (siteMap: SiteMap)
@@ -18,6 +18,10 @@ module Want =
                 graph
                 siteMap
                 zoomRoot
+        let headerIsAbsent id =
+            match Map.tryFind id graph.nodes with
+            | None -> true
+            | Some _ -> false
         IncludedDescendantIds.plusChildrenOfEach graph included
         |> IncludedDescendantIds.plusChildrenOfEach graph
-        |> List.filter (fun id -> not (GraphChildren.isLoaded graph id))
+        |> List.filter headerIsAbsent
