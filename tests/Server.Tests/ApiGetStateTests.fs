@@ -198,7 +198,11 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
             Assert.Equal(Loaded, Graph.childrenStatus response.graph wsId)
-            Assert.True(response.graph.nodes.ContainsKey fileId)
+            Assert.False(response.graph.nodes.ContainsKey fileId)
+            Assert.Contains(
+                fileId,
+                Graph.children response.graph dirId
+                |> List.map (fun child -> child.id))
             Assert.False(response.graph.nodes.ContainsKey grandId)
             Assert.True(EventId.isAccepted response.eventId)
     | other ->
@@ -217,8 +221,12 @@ let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
         match decodeStateResponse content.ResponseContent with
         | Error err -> failwith err
         | Ok response ->
-            Assert.True(response.graph.nodes.ContainsKey wsId)
+            Assert.False(response.graph.nodes.ContainsKey wsId)
             Assert.Equal(Unloaded, Graph.childrenStatus response.graph wsId)
+            Assert.Contains(
+                wsId,
+                Graph.children response.graph Graph.workspacesId
+                |> List.map (fun child -> child.id))
             Assert.False(response.graph.nodes.ContainsKey dirId)
             Assert.False(response.graph.nodes.ContainsKey fileId)
             Assert.False(response.graph.nodes.ContainsKey grandId)

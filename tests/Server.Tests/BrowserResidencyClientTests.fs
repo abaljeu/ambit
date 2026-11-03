@@ -98,18 +98,26 @@ let ``Poll answer chains the next Included residency Want`` () =
                 fixture.nextSiteId
                 fixture.browser.root)
     let nextWant = Want.compose next.graph next.siteMap next.zoomRoot
-    Assert.True(Map.containsKey fixture.childId next.graph.nodes)
+    Assert.True(Map.containsKey fixture.parentId next.graph.nodes)
+    Assert.True(GraphChildren.isLoaded next.graph fixture.parentId)
+    Assert.Contains(
+        fixture.childId,
+        Graph.children next.graph fixture.parentId
+        |> List.map (fun child -> child.id))
+    Assert.False(Map.containsKey fixture.childId next.graph.nodes)
     Assert.Equal<NodeId list>([ fixture.childId ], nextWant)
     Assert.Contains(effects, function | PollServer _ -> true | _ -> false)
 
 [<Fact>]
 let ``PollDone leaves Sync Idle when the edit box holds new text`` () =
     let fixture = residencyFixture ()
+    let siteMap, nextId =
+        ViewModel.buildSiteMapFrom fixture.server fixture.parentId (Sid 0)
     let model =
         { modelFor
-            fixture.browser
-            fixture.siteMap
-            fixture.nextSiteId
+            fixture.server
+            siteMap
+            nextId
             fixture.parentId
           with mode = Editing ("parent new", EditCaret.EndOfText) }
     Assert.Empty(model.syncInfo.pending)

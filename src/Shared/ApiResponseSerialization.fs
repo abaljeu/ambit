@@ -228,6 +228,8 @@ module ApiResponseSerialization =
               response.nodes
               |> List.map Serialization.encodeNode
               |> Encode.list
+              "childMap",
+              Serialization.encodeChildMap response.childMap
               "events",
               response.events
               |> List.map Gambol.Shared.EventJson.encode
@@ -241,6 +243,10 @@ module ApiResponseSerialization =
                 get.Required.Field
                     "nodes"
                     (Decode.list Serialization.decodeNode)
+              childMap =
+                get.Required.Field
+                    "childMap"
+                    Serialization.decodeChildMap
               events =
                 get.Required.Field
                     "events"

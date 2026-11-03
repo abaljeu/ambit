@@ -826,8 +826,10 @@ let ``UniversalResponse round-trips nodes events and latestId`` () =
           authority = Authority "Browser"
           commandName = "Exec"
           body = EventBody.Change [] }
+    let childId = NodeId.New()
     let response: UniversalResponse =
         { nodes = [ node ]
+          childMap = Map.ofList [ node.id, [ ChildNode.owner childId ] ]
           events = [ event ]
           latestId = EventId.fromJson 2 }
     let decoded =
@@ -838,5 +840,8 @@ let ``UniversalResponse round-trips nodes events and latestId`` () =
     Assert.Equal(response.latestId, decoded.latestId)
     Assert.Equal(1, decoded.nodes.Length)
     Assert.Equal(node.id, decoded.nodes.[0].id)
+    Assert.Equal<ChildNode list>(
+        [ ChildNode.owner childId ],
+        decoded.childMap.[node.id])
     Assert.Equal(1, decoded.events.Length)
     Assert.Equal(event.id, decoded.events.[0].id)

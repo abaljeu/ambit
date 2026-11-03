@@ -200,7 +200,7 @@ module ResidentProjection =
         : ApplyResult * string option =
         applyOpsForSyncAllowing true (Some EventId.zero) ops state sync
 
-    /// Install Want-answer edges and pointed-at Nodes.
+    /// Install a Want answer: each returned Header and its child-id list.
     /// A child id with no Header stays on the edge.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
     /// is Loaded. Idempotent for the same package.
@@ -220,33 +220,27 @@ module ResidentProjection =
                 graph.childMap
         Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
 
-    /// Authoritative Children and pointed-at Nodes for Browser-supplied Want ids.
-    /// Omit a parent edge when any target Header is absent.
+    /// Header and child-id list for each requested id that has a Header.
+    /// The list is ids only. A child id with no Header stays in the list.
+    /// The returned nodes are those Headers.
     let wantAnswer
         (graph: Graph)
         (want: NodeId list)
         : Map<NodeId, ChildNode list> * Node list =
-        let completeEdge parentId =
-            GraphChildren.tryGet graph parentId
-            |> Option.bind (fun children ->
-                let nodes =
-                    children
-                    |> List.choose (fun child ->
-                        Map.tryFind child.id graph.nodes)
-                if List.length nodes = List.length children then
-                    Some(parentId, children, nodes)
-                else
-                    None)
-        let answers = want |> List.distinct |> List.choose completeEdge
+        let package id =
+            match Map.tryFind id graph.nodes with
+            | None -> None
+            | Some node ->
+                let kids =
+                    GraphChildren.tryGet graph id
+                    |> Option.defaultValue []
+                Some(node, kids)
+        let answers = want |> List.distinct |> List.choose package
         let edges =
             answers
-            |> List.map (fun (parentId, children, _) ->
-                parentId, children)
+            |> List.map (fun (node, kids) -> node.id, kids)
             |> Map.ofList
-        let nodes =
-            answers
-            |> List.collect (fun (_, _, children) -> children)
-            |> List.distinctBy (_.id)
+        let nodes = answers |> List.map fst
         edges, nodes
 
     let private reservedParentIds : NodeId list =
@@ -282,31 +276,12 @@ module ResidentProjection =
         |> List.distinct
         |> List.filter (fun id -> Map.containsKey id graph.nodes)
 
-    /// Visible-closure edges plus Nodes. Same package as installWantAnswer.
+    /// Reserved parents, Zoom ancestors, and Zoom. Same package as wantAnswer.
     let visibleClosureWantAnswer
         (savedZoom: NodeId option)
         (graph: Graph)
         : Map<NodeId, ChildNode list> * Node list =
-        let parents = loadedParentIds savedZoom graph
-        let edges =
-            parents
-            |> List.choose (fun id ->
-                GraphChildren.tryGet graph id
-                |> Option.map (fun kids -> id, kids))
-            |> Map.ofList
-        let childIds =
-            edges
-            |> Map.toList
-            |> List.collect (fun (_, kids) ->
-                kids |> List.map (fun child -> child.id))
-        let residentIds =
-            parents @ childIds
-            |> List.distinct
-            |> List.filter (fun id -> Map.containsKey id graph.nodes)
-        let nodes =
-            residentIds
-            |> List.map (fun id -> graph.nodes.[id])
-        edges, nodes
+        wantAnswer graph (loadedParentIds savedZoom graph)
 
     /// Visible-closure Graph beside complete-Workspace `rootBootstrapGraph`.
     /// Missing or stale Zoom uses ROOT. Does not widen to a Workspace.
