@@ -1,6 +1,6 @@
 # 13 — Move persist and command tests
 **Status**: defined
-One job: The persist-handler tests and the command-post tests start an Actor with a function and a FocusId.
+One job: The persist-handler tests and the command-post tests start an Actor with `startFunction`.
 
 [ ] Four test files. Same split as [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md).
 
@@ -10,7 +10,7 @@ Type:
 
 Blockers:
 
-[ ] [06 — Add the function-and-focus start](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
+[ ] [06 — Log Order.RunActor](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
 
 ## Inputs
 
@@ -33,7 +33,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a started Actor uses the function-and-focus start, or the dispatcher when the test boots Core with a command name.
+2. [ ] Change each named file so a started Actor uses `startFunction`, or the dispatcher when the test boots Core with a command name.
 3. [ ] Keep old pool fields until 15 — Delete the old Actor starts.
 
 ## Outputs

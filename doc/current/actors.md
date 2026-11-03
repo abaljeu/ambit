@@ -18,11 +18,11 @@ An Actor is a function outside Core.
 [x] Off-queue function. Runs off the mailbox queue and posts fast messages back to the mailbox.
 [x] An Actor receives a Graph and posts messages to the mailbox. Core does not own the Actor body.
 [o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
-[x] `startFunction` posts a function. `FunctionStart` also carries `getGraph` and `commandId`.
-[o] The mailbox calls `startActor`, records `ActorStart`, and does not wait for the body. The pool schedules the body. Detail: Mailbox.
-[o] `startPeerActor` uses a second name table. `Order.StartPeerActor` is the second start order.
-[ ] A dispatcher outside Core maps a command name to a function. The pool start takes that function and the FocusId. Graph ids, the session id, and the command node are in the closure. The pool runs the function on the .NET thread pool. Detail: [Actor as client](../../plan/actor-as-client/project.md).
-[ ] The mailbox places that start and records the Order. Detail: Mailbox.
+[x] `startFunction` is the pool start. The function input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id and runs the function on the .NET thread pool.
+[o] The mailbox calls `startActor` through `CoreMsg.StartActor`. Detail: Mailbox.
+[o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path. `Order.StartPeerActor` is that second order.
+[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
+[ ] A dispatcher outside Core maps a command name to the function. `Order.RunActor` stores the command name and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 [o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.

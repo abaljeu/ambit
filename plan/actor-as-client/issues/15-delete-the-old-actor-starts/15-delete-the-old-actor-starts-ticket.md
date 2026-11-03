@@ -1,8 +1,9 @@
 # 15 — Delete the old Actor starts
 **Status**: defined
-One job: The pool has one start. The old name tables, `startActor`, `startPeerActor`, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `Order.StartPeerActor` are gone.
+One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `Order.StartPeerActor` are gone.
 
-[ ] `startFunction` leaves in the same delete. It is a second function start, and its record still carries `getGraph` and `commandId`. Alan's delete list did not name it. This ticket includes it because the decision is one start. Stop if Alan keeps it.
+[ ] `startFunction` stays. Alan, 2026-11-03.
+[ ] `runSchedule` is renamed `launchPending`. It takes the Actor's pending work out of the live table and `Async.Start`s it on the thread pool with the row's cancel token.
 
 Type:
 
@@ -31,22 +32,25 @@ Blockers:
 ### Reference
 
 [ ] [Actor as client](../../project.md) cutover step three.
-[ ] [Size limit](../../context/size-limit.md). The delete touches the same exhaustive matches as ticket 06. It stays one ticket so the tree builds.
+[ ] [Size limit](../../context/size-limit.md). Deleting `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` updates every match of those cases. It stays one ticket so the tree builds. `startFunction` is not deleted.
 
 ## Do not load
 
+[ ] `startFunction`. It is the target start.
 [ ] `Order.StartActor`. Alan's delete list does not name it.
+[ ] `Order.RunActor`. Ticket 06 adds it.
 [ ] `CoreMsg.StartLoadSaveCommand` and `Order.LoadSave`.
 [ ] Find and Move `RecordSearchStart`.
+[ ] Do not add a `CoreMsg` case.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Delete `startActor`, `startPeerActor`, `register`, `registerPeer`, and the two name tables.
-3. [ ] Delete `startFunction` and `FunctionStart` when no caller remains.
-4. [ ] Delete `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` and their match arms.
-5. [ ] Delete `Order.StartPeerActor` and its codec and log arms.
-6. [ ] Search `src/` and `tests/` for `startActor`, `startPeerActor`, `registerPeer`, `StartPeerActor`, and `startFunction`. The search is empty.
+2. [ ] Delete `startActor`, `startPeerActor`, `register`, `registerPeer`, and the two name tables. Leave `startFunction`.
+3. [ ] Rename `runSchedule` to `launchPending`. The body still takes the pending work off the live row and `Async.Start`s it on the row cancel token.
+4. [ ] Delete `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` and their match arms. Add no `CoreMsg` case.
+5. [ ] Delete `Order.StartPeerActor` and its codec and log arms. Leave `Order.RunActor`.
+6. [ ] Search `src/` and `tests/` for `startActor`, `startPeerActor`, `registerPeer`, and `StartPeerActor`. The search is empty. `startFunction` remains.
 
 ## Outputs
 
@@ -66,8 +70,9 @@ Blockers:
 
 [ ] Record the stop at `plan/actor-as-client/reports/15-delete-the-old-actor-starts-stop.md`, then ask.
 [ ] Stop when a search hit remains outside Outputs.
-[ ] Stop when Alan keeps `startFunction`.
+[ ] Stop when the edit deletes `startFunction` or `Order.RunActor`.
 [ ] Stop when the edit deletes `Order.StartActor` or `Order.LoadSave`.
+[ ] Stop when the edit adds a `CoreMsg` case.
 
 ## Check
 

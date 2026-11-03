@@ -1,6 +1,6 @@
 # 07 — Dispatch the test command
 **Status**: defined
-One job: A dispatcher outside Core maps the command name `test` to the TestActor function, and that function starts with the FocusId.
+One job: A dispatcher outside Core maps the command name `test` to the TestActor function, and that function is `startFunction`.
 
 [ ] `startActor` still starts the other command names. The split keeps this ticket inside the size limit. The AI Actor, the query command, and git Load and Save are the next tickets.
 
@@ -10,7 +10,7 @@ Type:
 
 Blockers:
 
-[ ] [06 — Add the function-and-focus start](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
+[ ] [06 — Log Order.RunActor](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
 
 ## Inputs
 
@@ -35,9 +35,10 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Add `src/Server/ActorDispatch.fs`. It maps the command name `test` to a function. The module is outside `src/Server/Core`.
-3. [ ] The function closes over the Graph carrier and the command node. The start call passes that function and the FocusId.
+3. [ ] The function closes over anything it needs beyond `FunctionRun` and `CoreChangesDoor`. The call is `pool.startFunction`.
 4. [ ] `startChosen` uses the dispatcher for `test`. Any other non-query name still calls `pool.startActor`.
-5. [ ] Remove the `test` pair from the `pool.register` list in `RouteRegistration.fs`.
+5. [ ] The logged order for this command is `Order.RunActor` of the command name and the FocusId. Placing that order is 80 — Place Actor starts through PlaceOrder.
+6. [ ] Remove the `test` pair from the `pool.register` list in `RouteRegistration.fs`.
 
 ## Outputs
 

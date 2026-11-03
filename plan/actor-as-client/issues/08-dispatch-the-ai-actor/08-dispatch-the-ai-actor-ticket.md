@@ -1,8 +1,8 @@
 # 08 — Dispatch the AI Actor
 **Status**: defined
-One job: The dispatcher maps the command name `ai` to the AI Actor function, and that function's closure holds the session id.
+One job: The dispatcher maps the command name `ai` to the AI Actor function. The closure holds the LLM HTTP session. The Actor session id stays minted by the pool.
 
-[ ] The session id is not a field of the function input and not an argument of the start.
+[ ] The function input stays `FunctionRun` and `CoreChangesDoor`. The call is `pool.startFunction`.
 
 Type:
 
@@ -17,25 +17,27 @@ Blockers:
 ### Working
 
 [ ] `RouteRegistration.fs` registers `ActorName "ai"` as `RunAgentActor.actorFn`.
-[ ] `RunAgentActor.actorFn` is an `ActorFn`. It reads `input.sessionId`, `input.graph`, `input.focusId`, `input.zoomId`, and `input.commandId`.
-[ ] `deliver` and `takeInbox` on `CoreActorPool` key the live row by that session id.
-[ ] `putActorStart` and `putFunctionStart` mint `sessionId` with `Guid.NewGuid` inside the pool.
+[ ] `RunAgentActor.actorFn` is an `ActorFn`. It reads `input.sessionId` and passes that string to the Grok wake and to `requestGrokCancel`.
+[ ] `putFunctionStart` mints the Actor `sessionId` with `Guid.NewGuid` and stores it on the live row.
+[ ] `deliver` and `takeInbox` key the live row by that Actor session id.
 
 ### Reference
 
-[ ] [Actor as client](../../project.md). Alan, 2026-11-03: the dispatcher captures the session id in the closure.
+[ ] [Actor as client](../../project.md). Alan, 2026-11-03: the pool mints the Actor session id. The closure holds the LLM HTTP session. That earlier closure note was not the Actor session id.
 
 ## Do not load
 
 [ ] The git Load and Save names.
-[ ] `CoreMsg.StartPeerActor`.
+[ ] Do not add a `CoreMsg` case.
+[ ] Do not add the Actor session id to `FunctionRun` or to the closure.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Stop before editing, and ask, when the dispatcher must mint the session id. The pool mints it today, and the new start accepts only the function and the FocusId, so the live table cannot learn that id from a start argument.
-3. [ ] After that answer: map `ai` in `ActorDispatch.fs`. The closure holds the session id. `startChosen` uses that function and the FocusId.
-4. [ ] Remove the `ai` pair from `pool.register`.
+2. [ ] Map `ai` in `ActorDispatch.fs`. The closure holds the LLM HTTP session. The wake and cancel use that session.
+3. [ ] `startChosen` calls `pool.startFunction` for `ai`. The function input is `FunctionRun` and `CoreChangesDoor`.
+4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
+5. [ ] Remove the `ai` pair from `pool.register`.
 
 ## Outputs
 
@@ -48,8 +50,8 @@ Blockers:
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/08-dispatch-the-ai-actor-stop.md`, then ask.
-[ ] Stop on process step 2 until Alan says where the session id is minted.
-[ ] Stop when the edit adds `sessionId` to the function input or to the start arguments.
+[ ] Stop when the edit mints the Actor session id in the dispatcher, or stores it in the closure.
+[ ] Stop when the edit adds the Actor session id to the function input.
 [ ] Stop when a test file outside Outputs must change.
 
 ## Check

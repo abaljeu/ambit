@@ -15,7 +15,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 ## 2. Notes
 
-1. **Unparked 2026-11-03** — Alan. One start takes a function and the FocusId. The decisions and the cutover tickets are on [Actor as client](project.md). The 2026-09-27 park is [o].
+1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. `Order.RunActor` stores the command name and the FocusId. The decisions and the cutover tickets are on [Actor as client](project.md). The 2026-09-27 park is [o].
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.

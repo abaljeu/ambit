@@ -1,6 +1,6 @@
 # 10 — Dispatch git Load and Save
 **Status**: defined
-One job: The dispatcher maps git Load and git Save to the GitHub transport function, and the pool starts that function with the FocusId.
+One job: The dispatcher maps git Load and git Save to the GitHub transport function, and the pool starts it with `startFunction`.
 
 [ ] A Desk Load or Save still runs no Actor.
 
@@ -35,9 +35,10 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Map `github-load` and `github-save` in `ActorDispatch.fs`. Each closure holds the path and the command node.
-3. [ ] The Git arm of `startLoadSaveCommand` starts that function with the FocusId. The Desk arm stays `Ok None`.
-4. [ ] `GithubTransportActor.start` uses the same function start. It does not post `StartPeerActor`.
-5. [ ] Remove the two `registerPeer` calls.
+3. [ ] The Git arm of `startLoadSaveCommand` calls `pool.startFunction`. The closure holds the path and the command node. The Desk arm stays `Ok None`.
+4. [ ] `GithubTransportActor.start` uses `startFunction`. It does not post `CoreMsg.StartPeerActor`.
+5. [ ] The logged order is `Order.RunActor` of the command name and the FocusId.
+6. [ ] Remove the two `registerPeer` calls.
 
 ## Outputs
 

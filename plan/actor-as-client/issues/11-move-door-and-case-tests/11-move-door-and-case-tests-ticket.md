@@ -1,6 +1,6 @@
 # 11 — Move door and case tests
 **Status**: defined
-One job: The mailbox door tests and the actor-case tests start an Actor with a function and a FocusId.
+One job: The mailbox door tests and the actor-case tests start an Actor with `startFunction`.
 
 [ ] This batch is four test files. The caller move is larger than the size limit, so the Server test files are split across 11, 12, 13, and 14.
 
@@ -34,7 +34,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a started Actor uses the function-and-focus start.
+2. [ ] Change each named file so a started Actor uses `startFunction`. The function input is `FunctionRun` and `CoreChangesDoor`.
 3. [ ] A test that only needs the name `test` goes through the dispatcher.
 4. [ ] Leave `startPeerActor` and `registerPeer` to the batch that owns that file.
 

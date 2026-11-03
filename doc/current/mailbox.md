@@ -57,9 +57,9 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 [ ] `Notice.NodePersisted` of `nodeId: NodeId * version: EventId`. The notice function posts that `Notice` onto `CoreQueue`. Holding the notice function is the permission. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone and decision 15 Notice has its own door.
 
 ## Messages
-[o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
-[o] `StartPeerActor` is a fast Actor message on this loop.
-[ ] Fast Actor messages on this loop: the function-and-focus start, and `Notice.ActorStopped`. The pool runs that function on the .NET thread pool. Detail: [Actor as client](../../plan/actor-as-client/project.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[o] Fast Actor messages on this loop: `CoreMsg.StartActor` and `ActorStop`.
+[o] `CoreMsg.StartPeerActor` is a fast Actor message on this loop.
+[ ] Fast Actor messages on this loop: `Order.RunActor` of the command name and the FocusId, and `Notice.ActorStopped`. The pool start is `startFunction`, on the .NET thread pool. Detail: [Actor as client](../../plan/actor-as-client/project.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
 [o] `Notice`: Shared type in [History](../../src/Shared/History.fs). Not an Op. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.

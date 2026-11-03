@@ -26,7 +26,7 @@ One Event source means one ordered stream. Connected Events are queued in order,
 6. [o] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. On ActorStart, a refusal and a fail are the same stored pair (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
 7. [ ] Credential only — The route checks the logged-in user before `PlaceOrder`. A client places `Order.StartActor` and `Order.Cancel`. A holder of the notice function posts `Notice.ActorStopped`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry and §2 Cancel.
 8. [o] A missing Actor name fails in the pool as `unknown actor`.
-9. [ ] The dispatcher outside Core maps the command name to a function. The pool start takes that function and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+9. [ ] The dispatcher outside Core maps the command name to a function. The pool start is `startFunction`. `Order.RunActor` stores the command name and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 
 ## Parties
 

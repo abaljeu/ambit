@@ -1,6 +1,6 @@
 # 14 — Move runtime and session tests
 **Status**: defined
-One job: The Core boot tests and the session tests start an Actor with a function and a FocusId.
+One job: The Core boot tests and the session tests start an Actor with `startFunction`.
 
 [ ] Two test files. They are the remainder after the four-file batches.
 
@@ -31,7 +31,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a booted command name is dispatched, and a direct pool start uses the function and the FocusId.
+2. [ ] Change each named file so a booted command name is dispatched, and a direct pool start calls `startFunction`.
 3. [ ] Keep old pool fields until 15 — Delete the old Actor starts.
 
 ## Outputs

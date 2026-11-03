@@ -7,7 +7,7 @@
 
 [ ] Cancel stays `Order.Cancel` of the FocusId.
 [ ] The one start keeps that FocusId as the pool key, so the cancel target does not change.
-[ ] 112 shares `CoreMailboxLoop`, `CoreMailboxActors`, and `CoreMailboxEvents` with the cutover. The cancel arms stay. The start arms move under [06 — Add the function-and-focus start](../issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) and [15 — Delete the old Actor starts](../issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md).
+[ ] 112 shares `CoreMailboxLoop`, `CoreMailboxActors`, and `CoreMailboxEvents` with the cutover. The cancel arms stay. `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` leave under [15 — Delete the old Actor starts](../issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md). No new `CoreMsg` case. [06 — Log Order.RunActor](../issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) adds the log order only.
 
 ## 113 — Actors return their ActorResult
 
@@ -18,5 +18,6 @@
 ## 117 — The pool posts Notice.ActorStopped when an Actor ends
 
 [ ] 117 edits `runSchedule`, which starts the body with `Async.Start`.
-[ ] After the contract, that function runs the one start. The id-bag arm is gone.
+[ ] 15 — Delete the old Actor starts renames `runSchedule` to `launchPending` before 117. 117 uses that name.
+[ ] After the contract, that function runs `startFunction`'s pending work. The id-bag arm is gone.
 [ ] 117 stays blocked by 113 — Actors return their ActorResult, so it follows the same merge.

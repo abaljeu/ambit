@@ -53,7 +53,7 @@ A single Graph modification, to a Node Header or to its Children.
 [o] ActorStart and ActorStop: an Actor record. No Op list.
 [ ] `Order.StartActor` carries `ActorStart`. `Notice.ActorStopped` carries `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [o] `Order.StartPeerActor` is a second logged start.
-[ ] The pool start takes a function and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[ ] `Order.RunActor` stores the command name and the FocusId. The pool start is `startFunction`. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 
 ## Explanation
 

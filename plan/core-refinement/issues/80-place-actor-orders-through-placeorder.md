@@ -1,8 +1,9 @@
 # 80 — Place Actor starts through PlaceOrder
 **Status**: defined
-One job: The Server places the function-and-focus start through `Mailbox.PlaceOrder`. `Order.StartPeerActor` is not that path.
+One job: The Server places `Order.RunActor` through `Mailbox.PlaceOrder`. The handler calls `startFunction`. `Order.StartPeerActor` is not that path.
 
-[ ] The accepted start is logged as today, as an `EventBody.Order`, and the reply stays `Result<unit, string>` at `CoreMailboxApi`.
+[ ] `Order.RunActor` stores the command name and the FocusId. It does not store a function.
+[o] `CoreMsg` is the start path for this order.
 
 Type:
 
@@ -10,7 +11,8 @@ Type:
 
 Blockers:
 
-[ ] [06 — Add the function-and-focus start](../../actor-as-client/issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
+[ ] [06 — Log Order.RunActor](../../actor-as-client/issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
+[ ] 07 — Dispatch the test command. The handler asks that dispatcher.
 
 ## Inputs
 
@@ -18,7 +20,7 @@ Blockers:
 
 [ ] `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand` are built in `CoreMailboxApi` (`startActor`, `startPeerActor`, `startLoadSaveCommand`).
 [ ] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave`, and `Order.Cancel`.
-[ ] 06 — Add the function-and-focus start adds the function-and-focus message and its Order beside those cases.
+[ ] 06 — Log Order.RunActor adds `Order.RunActor` of the command name and the FocusId. It adds no `CoreMsg` case.
 [ ] A Desk Load or Save runs no Actor. `startLoadSaveCommand` in `src/Server/Core/CoreActorPool.fs` returns `Ok None` for `LoadSavePath.Desk`.
 [ ] `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/CoreMailboxDoorTests.fs` `CoreMailboxApi.startActor appends ActorStart to lifecycle events`.
 
@@ -37,8 +39,8 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change `CoreMailboxApi` so the function-and-focus start places the new Order through `Mailbox.PlaceOrder`.
-3. [ ] `placeOrder` sends that Order to the handler the new message uses. The handler uses `placed.orderId` as the submission id.
+2. [ ] Change the Actor start door so it places `Order.RunActor` of the command name and the FocusId through `Mailbox.PlaceOrder`. Add no `CoreMsg` case.
+3. [ ] `placeOrder` sends `Order.RunActor` to the handler. The handler asks the dispatcher for that command name and calls `startFunction`. It uses `placed.orderId` as the submission id.
 4. [ ] A Desk Load or Save that runs no Actor still logs its start and then `Notice.ActorStopped` of its focus and `ActorSucceeded`. It does not call `startPeerActor`.
 5. [ ] Leave `Order.StartPeerActor` unsupported. Do not add a handler that keeps it.
 
@@ -47,7 +49,7 @@ Blockers:
 [ ] `src/Server/Core/CoreMailboxApi.fs`
 [ ] `src/Server/Core/CoreMailboxLoop.fs`
 [ ] `src/Server/Core/CoreMailboxActors.fs`
-[ ] `tests/Server.Tests/CoreMsgActorCasesTests.fs` — `function start places its Order`
+[ ] `tests/Server.Tests/CoreMsgActorCasesTests.fs` — `RunActor places Order.RunActor`
 [ ] `tests/Server.Tests/LoadSaveCommandTests.fs` — `Desk load-save places its order and runs no Actor`
 [ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — keep `CoreMailboxApi.startActor appends ActorStart to lifecycle events`
 
@@ -55,14 +57,15 @@ Blockers:
 
 [ ] Record the stop at `plan/core-refinement/reports/80-place-actor-orders-through-placeorder-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when the new Order must store the function. A function is not a log value. Ask.
+[ ] Stop when `Order.RunActor` must store more than the command name and the FocusId.
+[ ] Stop when the edit adds a `CoreMsg` case.
 [ ] Stop when the edit places `Order.StartPeerActor`.
 
 ## Check
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
-  - `tests/Server.Tests`: ``function start places its Order``
+  - `tests/Server.Tests`: ``RunActor places Order.RunActor``
   - `tests/Server.Tests`: ``Desk load-save places its order and runs no Actor``
   - `tests/Server.Tests`: ``CoreMailboxApi.startActor appends ActorStart to lifecycle events``
 [ ] All executed tests pass.

@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 06 — Add the function-and-focus start.
+This folder is ticket 06 — Log Order.RunActor.
 
 ## Sequence
 

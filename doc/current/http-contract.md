@@ -296,7 +296,8 @@ sequenceDiagram
 8. [o] **Apply order.** `postEvents` pushes the list onto the mailbox queue back to back. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message. The HTTP result is success.
 9. [ ] **Apply order.** The route checks the logged-in user, then `PlaceOrder` pushes each `Order` onto the mailbox queue back to back. The server applies it in order. The reply is `Result<EventId, string>`. A holder of the notice function posts `Notice.ActorStopped`. `Order.StartActor` and `Order.Cancel` are orders. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 9 Admission at the entry.
 [o] `UnknownActor` is a miss in the pool name table.
-[ ] The dispatcher outside Core maps the command name to a function before the pool start. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[ ] The dispatcher outside Core maps the command name to a function. The pool start is `startFunction`. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[o] `CoreMsg` is the start path.
 10. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
 11. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
 

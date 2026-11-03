@@ -1,8 +1,8 @@
 # 09 — Dispatch the query command
 **Status**: defined
-One job: The dispatcher maps a query Run to the query function, and that start is the function and the FocusId.
+One job: The dispatcher maps a query Run to the query function, and that call is `startFunction`.
 
-[ ] `startFunction` stays for any caller this ticket does not move. One start is the contract ticket.
+[ ] `startFunction` is the pool start. This ticket does not replace it.
 
 Type:
 
@@ -18,7 +18,8 @@ Blockers:
 
 [ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true.
 [ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`.
-[ ] `FunctionStart` is the wider start. The new start takes the function and the FocusId only.
+[x] The function input is `FunctionRun` and `CoreChangesDoor`.
+[o] The query start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 
 ### Reference
 
@@ -32,9 +33,9 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] The dispatcher builds the query function. The closure holds `getGraph` and the command node.
-3. [ ] `startChosen` starts that function with the FocusId. It does not call `pool.startFunction` for a query Run.
-4. [ ] Leave `startFunction` on the pool.
+2. [ ] The dispatcher builds the query function. The closure holds anything beyond `FunctionRun` and `CoreChangesDoor`, including the command node.
+3. [ ] `startChosen` calls `pool.startFunction` for a query Run.
+4. [ ] Leave `startFunction` as the pool start. The logged order is `Order.RunActor` of the command name and the FocusId.
 
 ## Outputs
 
