@@ -15,7 +15,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 ## 2. Notes
 
-1. **Deferred 2026-09-27** — This Feature-set is parked pending the reframing of Actors as functions that can take all kinds of parameters. It may resume around steps five or six; the intervening gaps are unknown. Keep this map and its tickets.
+1. **Unparked 2026-11-03** — Alan. One start takes a function and the FocusId. The decisions and the cutover tickets are on [Actor as client](project.md). The 2026-09-27 park is [o].
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.
@@ -26,7 +26,10 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 9. **Today's start** — In-process start posts a curried function; it is not a named ActorFn registry lookup. CoreActorPool remains and cancels via focus ID and name on the function. Named registry stays fog. Locked on [04 — Start surface](issues/04-start-surface.md).
 10. **Step-two hypothesis** — After function-passing ships, next seam may be flexibility across Actor types (dispatch chooses the function shape; polymorphism in signatures, not the pool). Working hypothesis only on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md). Not a Decision.
 11. **Slice one expand-alongside** — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) Status `coded` (historical). `startFunction` posts a function; the Actor calls `getGraph`; ID-bag `startActor` remains. Further slices are deferred with this Feature-set.
-12. **2026-09-28 Server description** — [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations. This Feature-set stays concept-only. No new implement tickets.
+12. **2026-09-28 Server description** — [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations.
+
+[o] This Feature-set stays concept-only. No new implement tickets.
+[ ] The cutover tickets named on the Project file are the implement path. Alan, 2026-11-03.
 
 ## 3. Decisions so far
 
@@ -36,7 +39,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 ## 4. Not yet specified
 
 1. **Remote or cross-process start** — Named ActorFn registry stays fog ([04 — Start surface](issues/04-start-surface.md)). How a Command reaches a worker in another process stays open.
-2. **Existing Actor migration** — how TestActor, AI, and GitHub Peer Actor adopt the new host without a one-shot rewrite.
+2. **Existing Actor migration** — The Project file's tickets move TestActor, the AI Actor, the query command, and git Load and Save onto the one start, then delete the old starts.
 3. **Lifecycle Events after remake** — ActorStart records focus ID and name for cancel and drops `graphIds` ([04 — Start surface](issues/04-start-surface.md)). What ActorStop and any other Event fields must still record stays open.
 4. **Worker isolation** — whether filesystem and database workers stay in-process with Core or later move out.
 5. **Graph handoff remainder** — live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).

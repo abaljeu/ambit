@@ -36,6 +36,8 @@ After function-passing at pool construction ships (step one):
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
 
+[o] This hypothesis. Alan, 2026-11-03: one function, and a dispatcher outside Core maps the command name. The pool name tables leave.
+
 ## 3. Lock: hard-cut contract
 
 Alan 2026-09-27 voice. Settled lock on this ticket. The ticket stays Status `defined`. This is not the whole-ticket Answer and is not a map Decision so far.
@@ -43,6 +45,8 @@ Alan 2026-09-27 voice. Settled lock on this ticket. The ticket stays Status `def
 **Contract flip is a hard cut.** No draining in-flight messages on the old ID-bag path. Once the function-shaped start is proven, switch everything over at once and drop the old path. **No dual-lifetime management.**
 
 Expand-alongside during the prove phase stays accurate: the pool can accept or register a function-shaped start alongside today’s ID-bag ActorStart path while proving. Contract is a hard flip when proven — not a gradual drain of the old path.
+
+[o] That hard cut. Alan, 2026-11-03, replaces it with a cutover that keeps both messages until the callers move. The old message requires its fields. The new message requires the function and the FocusId. Detail: [Actor as client](../project.md).
 
 ## 4. Lock: TestActor is the pilot
 
@@ -56,6 +60,23 @@ Alan 2026-09-27 voice. Settled lock on this ticket (data model). The ticket stay
 
 The Graph is the universal carrier. Any particular function constructs a Graph and passes it in. The Graph can hold any information needed (full Graph, subgraph, key Nodes, etc.). The receiving function has a specific job to do with that Graph and can simulate any generic function an Actor might want. The **pool and dispatch layer stay dumb** — they just move the Graph. Tests can simulate future Actor shapes by building different Graphs.
 
+[o] The dispatch layer stays dumb and only moves a Graph. Alan, 2026-11-03: the dispatcher outside Core maps a command name to a function. Graph ids are in that function's closure.
+
+## Decisions 2026-11-03
+
+[x] `startFunction` exists. `FunctionStart` also carries `getGraph` and `commandId`.
+[o] `startActor` looks up a name table.
+[o] `startPeerActor` looks up a second name table. The caller passes the name.
+[ ] One start takes a function and the FocusId only.
+[ ] Graph ids, the session id, and the command node are captured in that function's closure.
+[ ] A dispatcher outside Core maps a command name to a function. The pool name tables leave.
+[ ] The AI Actor session id is captured in that closure. It is not a function-input field.
+[x] The pool runs the function on the .NET thread pool.
+[ ] Cutover: add the new start message and its Order beside the old starts.
+[ ] Cutover: move every caller onto that start.
+[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `Order.StartPeerActor`.
+[o] The hard cut in section 3. Both messages stay until the callers move.
+
 ## Comments
 
 - 2026-09-27 — Filed as next-pass sequencing after the first grillset. Status `defined`.
@@ -66,6 +87,7 @@ The Graph is the universal carrier. Any particular function constructs a Graph a
 - 2026-09-27 — Alan voice lock: Graph is the universal carrier. Functions construct and pass a Graph; pool and dispatch stay dumb. Status stays `defined`.
 - 2026-09-27 — Slice one implemented: `startFunction` expand-alongside; TestActor `functionActor` hello/ping; ID-bag `startActor` kept. Hard cut and HTTP polymorphism not done. Status `coded`. Report: [Slice one: function-passing pool start](../reports/slice-one-function-start.md).
 - 2026-09-27 — Alan accepted land. Status `done`. Further slices remain deferred with the Feature-set park.
+- 2026-11-03 — Alan unparked the Project. The hard cut and the step-two hypothesis are obsolescent. Status of this grill stays `done`. The cutover tickets are the further slices.
 
 ## Time
 

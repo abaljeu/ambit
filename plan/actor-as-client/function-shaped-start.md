@@ -1,7 +1,10 @@
 # Function-shaped Actor start
 
-Look up new Actor creation here. The ID-bag `ActorStart` / `graphIds` path stays as written on [[plan/core-creation/arch.md]].
+Look up new Actor creation here. Decisions: [Actor as client](project.md). Code: [[src/Server/Core/CoreActorPool.fs]].
 
-The pool receives a function (`startFunction`). The Actor calls `getGraph` to obtain a Graph carrier. The pool does not supply a Graph or ids bag. TestActor is the pilot dispatcher (`hello` / `ping`).
-
-Code: [[src/Server/Core/CoreActorPool.fs]] `startFunction`; [[src/Server/TestActor.fs]] `functionActor`. Locks and expand-alongside: [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md).
+[x] `startFunction` posts a function. The Actor calls `getGraph`. TestActor has `functionActor`.
+[o] `FunctionStart` also carries `getGraph` and `commandId`.
+[o] `startActor` looks up a name table. `startPeerActor` looks up a second name table.
+[ ] One start takes a function and the FocusId only.
+[ ] A dispatcher outside Core maps a command name to that function. The pool name tables leave.
+[x] The pool runs the function on the .NET thread pool.

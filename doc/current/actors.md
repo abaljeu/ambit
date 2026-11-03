@@ -16,9 +16,13 @@ An Actor is a function outside Core.
 ## Job
 
 [x] Off-queue function. Runs off the mailbox queue and posts fast messages back to the mailbox.
-[x] An Actor receives a Graph and posts messages to the mailbox. Core does not own the Actor body. Callers register an `ActorFn` on Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
+[x] An Actor receives a Graph and posts messages to the mailbox. Core does not own the Actor body.
+[o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
+[x] `startFunction` posts a function. `FunctionStart` also carries `getGraph` and `commandId`.
 [o] The mailbox calls `startActor`, records `ActorStart`, and does not wait for the body. The pool schedules the body. Detail: Mailbox.
-[ ] The mailbox places `Order.StartActor` and records that `Order`. The pool schedules the body. Detail: Mailbox. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor.
+[o] `startPeerActor` uses a second name table. `Order.StartPeerActor` is the second start order.
+[ ] A dispatcher outside Core maps a command name to a function. The pool start takes that function and the FocusId. Graph ids, the session id, and the command node are in the closure. The pool runs the function on the .NET thread pool. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[ ] The mailbox places that start and records the Order. Detail: Mailbox.
 [o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.
@@ -32,4 +36,5 @@ An Actor is a function outside Core.
 ## Pool
 
 [x] `CoreActorPool` keeps the live table: public Actor identity, secret, termination handle, and Focus. The mailbox is the only thread that reads or writes that table.
+[o] The pool keeps a name table for `startActor` and a second name table for `startPeerActor`.
 [x] Persist thread: a thread. Detail: Parse and persist.

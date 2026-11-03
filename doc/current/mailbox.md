@@ -58,7 +58,8 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 ## Messages
 [o] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
-[ ] Fast Actor messages on this loop: `Order.StartActor` and `Notice.ActorStopped`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[o] `StartPeerActor` is a fast Actor message on this loop.
+[ ] Fast Actor messages on this loop: the function-and-focus start, and `Notice.ActorStopped`. The pool runs that function on the .NET thread pool. Detail: [Actor as client](../../plan/actor-as-client/project.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
 [o] `Notice`: Shared type in [History](../../src/Shared/History.fs). Not an Op. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
@@ -87,7 +88,9 @@ The one mailbox queue is the Event Source order on the server. The puller handle
 [o] `postEvents` pushes that list onto the queue as one `PostEvent` after another.
 [ ] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
-On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message.
+[x] On ActorStart, a refusal and a fail are the same stored pair: the start and a failed stop.
+[o] A pool name-table miss uses `unknown actor`. `Rejected` uses that message.
+
 How a route or an Event body changes is [API expansion](api.md#api-expansion). This page does not define a second change protocol.
 
 [o] The parse thread and the persist thread finish off the loop. An `Notice` brings that finish back onto the same queue. The puller hands it to the Notice handler. The handler writes the axis.
