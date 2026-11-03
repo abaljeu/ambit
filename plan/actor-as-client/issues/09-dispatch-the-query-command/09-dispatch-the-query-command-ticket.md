@@ -1,9 +1,11 @@
 # 09 — Dispatch the query command
 **Status**: defined
-One job: The dispatcher maps a query Run to the query actor function, and that call is `startFunction`. Find and Move `recordSearchStart` logs `Order.RunActor` and does not write `Order.StartActor`.
+One job: The dispatcher maps a query Run to the query actor function, and that call is `startFunction`. Find and Move `recordSearchStart` logs `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`.
 
-[ ] `startFunction` is the pool start. This ticket does not replace it.
-[ ] Find and Move stays inside this ticket. The added files are `CoreMailboxApi.fs` and `SearchActorTests.fs`. That is 4 source files and 3 test files, inside the size limit.
+[ ] `startFunction` is the pool start. This ticket keeps it.
+[ ] Alan, 2026-11-03: the search-start log is `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`.
+[ ] This ticket deletes `CoreEventDispatch.actorStart` along with the `RecordSearchStart` arm. `actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. That arm is its only caller.
+[ ] The source files are 8. The test files are 3. The size limit is 8 source files and 4 test files.
 
 Type:
 
@@ -17,12 +19,30 @@ Blockers:
 
 ### Working
 
-[ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true.
-[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`.
+[ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is `src/Server/Core/CoreMailboxActors.fs` lines 82-94.
+[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`. It is `src/Server/SearchActor.fs` lines 71-90.
 [x] The actor function's input is `FunctionRun` and `CoreChangesDoor`.
 [o] The query start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. `CoreMailboxLoop` calls `CoreEventDispatch.actorStart`, which logs `Order.StartActor`.
-[ ] `RouteRegistration.fs` calls `CoreMailboxApi.recordSearchStart`. `tests/Server.Tests/SearchActorTests.fs` calls it too.
+[ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` lines 308-314 posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
+[ ] `CoreMailboxLoop.runMsg` lines 25-27 call `CoreEventDispatch.actorStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActor`. `actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. That `runMsg` arm is its only caller.
+[ ] `CoreMailboxLoop.messageCaller` matches `RecordSearchStart` at line 73.
+[ ] `CoreMailboxEvents.operationContext` matches `RecordSearchStart` at line 48.
+[ ] `CoreMailboxEvents.replyFailure` matches `RecordSearchStart` at lines 66-67.
+[ ] `CoreMsg.RecordSearchStart` is `src/Server/Core/CoreMsg.fs` lines 26-29. The comment on line 25 names that case.
+[ ] `RouteRegistration.searchDoor` calls `recordSearchStart` at `src/Server/RouteRegistration.fs` line 229.
+[ ] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart` at line 234.
+[ ] `src/Server/SearchActor.fs` is 90 lines.
+[ ] `src/Server/Core/CoreMailboxActors.fs` is 258 lines.
+[ ] `src/Server/Core/CoreMailboxApi.fs` is 400 lines.
+[ ] `src/Server/Core/CoreMsg.fs` is 116 lines.
+[ ] `src/Server/Core/CoreMailboxLoop.fs` is 464 lines.
+[ ] `src/Server/Core/CoreMailboxEvents.fs` is 138 lines.
+[ ] `src/Server/Core/CoreEventDispatch.fs` is 349 lines.
+[ ] `src/Server/ActorDispatch.fs` is absent on staging. This ticket adds it.
+[ ] `tests/Server.Tests/QueryActorTests.fs` is 333 lines.
+[ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` is 152 lines.
+[ ] `tests/Server.Tests/SearchActorTests.fs` is 288 lines.
+[ ] `RouteRegistration.searchDoor` and `SearchActorTests` call `recordSearchStart`. They build no `CoreMsg` case. Deleting the case here leaves those callers on the function. 15 — Delete the old Actor starts leaves this case to this ticket.
 
 ### Reference
 
@@ -31,14 +51,17 @@ Blockers:
 ## Do not load
 
 [ ] `RunAgentActor.fs`.
-[ ] `CoreEventDispatch.fs`. The old arm stays until 15 — Delete the old Actor starts. This ticket stops calling it.
+[ ] `SearchActor.actorStart`. That function builds an `ActorStart`. It is not `CoreEventDispatch.actorStart`.
+[ ] `RouteRegistration.fs`. The call to `recordSearchStart` stays.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] The dispatcher builds the query actor function. The closure holds anything beyond `FunctionRun` and `CoreChangesDoor`, including the command node.
-3. [ ] `startChosen` calls `pool.startFunction` for a query Run. The log line is `Order.RunActor`. This ticket does not write `Order.StartActor`.
-4. [ ] `recordSearchStart` places `Order.RunActor` of the command name and the FocusId. It does not post `CoreMsg.RecordSearchStart`. It does not write `Order.StartActor`. Find and Move does not call `startFunction`.
+3. [ ] `startChosen` calls `pool.startFunction` for a query Run. The log line is `Order.RunActor`.
+4. [ ] `recordSearchStart` places `Order.RunActor` of the command name and the FocusId. Find and Move stays on `recordSearchStart`. The query Run is the path that calls `startFunction`.
+5. [ ] Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
+6. [ ] The search-start log is `Order.RunActor`. The `Order` cases in `src/Shared/History.fs` stay as they are.
 
 ## Outputs
 
@@ -46,6 +69,10 @@ Blockers:
 [ ] `src/Server/SearchActor.fs`
 [ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/Core/CoreMailboxApi.fs`
+[ ] `src/Server/Core/CoreMsg.fs`
+[ ] `src/Server/Core/CoreMailboxLoop.fs`
+[ ] `src/Server/Core/CoreMailboxEvents.fs`
+[ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
 [ ] `tests/Server.Tests/QueryActorTests.fs` — the existing query start tests
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — keep the `startFunction` tests green
 [ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move logs `Order.RunActor`
@@ -54,6 +81,8 @@ Blockers:
 
 [ ] Record the stop at `plan/actor-as-client/reports/09-dispatch-the-query-command-stop.md`, then ask.
 [ ] Stop when this ticket writes `Order.StartActor`.
+[ ] Stop when this ticket adds an `Order` case.
+[ ] Stop when a constructor of `CoreMsg.RecordSearchStart` sits outside `CoreMailboxApi.recordSearchStart`.
 [ ] Stop when a test file outside Outputs must change.
 
 ## Check

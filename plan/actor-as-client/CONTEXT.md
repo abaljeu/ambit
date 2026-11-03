@@ -25,10 +25,14 @@ This folder is the Project [Actor as client](project.md).
 [o] An Actor is the actor function.
 [ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
 [ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
-[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
+[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `CoreMsg.StartLoadSaveCommand`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
 [o] `Order.StartActor` is a logged start.
 [o] `Order.LoadSave` is the git Load and Save log.
-[ ] Find and Move `recordSearchStart` logs `Order.RunActor`.
+[ ] Find and Move `recordSearchStart` logs `Order.RunActor`. 09 — Dispatch the query command deletes `CoreMsg.RecordSearchStart`. The search-start log is `Order.RunActor`.
+[ ] 111 — Place search start as an order, and post SearchStopped shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. Ambot2 owns it. It runs after 15 — Delete the old Actor starts.
+[ ] Ambot2 is writing the `CoreMsg.PostGraphOnly` removal now. That ticket is built before the cutover builds 06 — Log Order.RunActor through 15 — Delete the old Actor starts.
+[ ] 112 — Place Cancel through PlaceOrder is being rewritten as a ticket only. It is not ready to build. Its place is after Record the one function Actor start (PR #514).
+[ ] Map section 6 records that order. This Project does not edit tickets 111 through 118 in core-refinement.
 [o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover.
 [ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 [ ] Remote or cross-process start is out of scope for this cutover.

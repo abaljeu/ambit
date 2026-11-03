@@ -53,3 +53,13 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 5. **Product code on this chart** — The map finds the way. It does not implement CoreActorPool or mailbox F#.
 
 These are exclusions from this map, not product-wide exclusions. See [[doc/agents/scope-vs-commitment.md]].
+
+## 6. Order
+
+[ ] [10 — Dispatch git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After that ticket, nothing sends `StartLoadSaveCommand`.
+[ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes that message, with `Order.StartActor` and `Order.LoadSave`.
+[ ] [09 — Dispatch the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. The search-start log is `Order.RunActor`.
+[ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is owned by Ambot2. It shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
+[ ] Ambot2 is writing the `CoreMsg.PostGraphOnly` removal now. That ticket is built before the cutover builds [06 — Log Order.RunActor](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) through 15 — Delete the old Actor starts.
+[ ] [112 — Place Cancel through PlaceOrder](../core-refinement/issues/112-place-cancel-through-placeorder.md) is being rewritten as a ticket only. It is not ready to build. Its place is after [Record the one function Actor start](https://github.com/abaljeu/ambit/pull/514) (PR #514).
+[ ] This Project does not edit tickets 111 through 118 in core-refinement. The order is recorded here.
