@@ -59,7 +59,7 @@ Blockers:
 [ ] `startFunction`. It is the target start.
 [ ] `Order.RunActor`. 06 — Log Order.RunActor adds it.
 [ ] `CoreMsg.RecordSearchStart`. 09 — Dispatch the query command deletes that case.
-[ ] `CoreEventDispatch.actorStart`. 09 — Dispatch the query command deletes its only caller and leaves the function.
+[ ] `CoreEventDispatch.actorStart`. 09 — Dispatch the query command deletes that function with the `RecordSearchStart` arm.
 [ ] A new `CoreMsg` case.
 [ ] A reader for an old `Order.StartActor` row or an old `Order.LoadSave` row.
 

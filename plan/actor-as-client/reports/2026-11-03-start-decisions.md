@@ -26,7 +26,7 @@ Alan, 2026-11-03.
 [ ] Remote or cross-process start is out of scope for this cutover. The later question is on the map: how a command reaches a worker in another process.
 [x] An Actor is a thread from the .NET thread pool. It runs an actor function. Alan's words: "The Actor is the thread. It runs an actor function."
 [o] An Actor is the actor function.
-[ ] Find and Move `recordSearchStart` logs `Order.RunActor`. 09 — Dispatch the query command deletes `CoreMsg.RecordSearchStart`. The search-start log is `Order.RunActor`. That ticket is 7 source files and 3 test files. The size limit is 8 source files and 4 test files.
+[ ] Find and Move `recordSearchStart` logs `Order.RunActor`. 09 — Dispatch the query command deletes `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`. The search-start log is `Order.RunActor`. That ticket is 8 source files and 3 test files. The size limit is 8 source files and 4 test files.
 [o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover. It stays for this cutover.
 [ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 [x] The dispatcher module is `src/Server/ActorDispatch.fs`.
@@ -36,7 +36,7 @@ Alan, 2026-11-03.
 [ ] 06 — Log Order.RunActor. Folder name stays `06-add-the-function-and-focus-start`.
 [ ] 07 — Dispatch the test command. Does not write `Order.StartActor`.
 [ ] 08 — Dispatch the AI Actor. Does not write `Order.StartActor`.
-[ ] 09 — Dispatch the query command. Find and Move `recordSearchStart` logs `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart` and its arms in `CoreMailboxLoop` and `CoreMailboxEvents`. It adds no `Order`.
+[ ] 09 — Dispatch the query command. Find and Move `recordSearchStart` logs `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`, its arms in `CoreMailboxLoop` and `CoreMailboxEvents`, and `CoreEventDispatch.actorStart`. It adds no `Order`. The source files are 8 and the test files are 3.
 [ ] 10 — Dispatch git Load and Save. This ticket converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After this ticket, nothing sends `StartLoadSaveCommand`. It logs `Order.RunActor`. It does not write `Order.LoadSave`. The source files are 6 and the test files are 4.
 [ ] 11 — Move door and case tests.
 [ ] 12 — Move pool and issue tests.
@@ -67,6 +67,7 @@ Counts are file lengths on staging. Line numbers are the `RecordSearchStart` and
 [ ] `src/Server/Core/CoreMsg.fs` is 116 lines. `StartLoadSaveCommand` is lines 19-24. `RecordSearchStart` is lines 26-29.
 [ ] `src/Server/Core/CoreMailboxLoop.fs` is 464 lines. `StartLoadSaveCommand` is lines 22-24 and line 72. `RecordSearchStart` is lines 25-27 and line 73.
 [ ] `src/Server/Core/CoreMailboxEvents.fs` is 138 lines. `StartLoadSaveCommand` is lines 46-47 and 64-65. `RecordSearchStart` is line 48 and lines 66-67.
+[ ] `src/Server/Core/CoreEventDispatch.fs` is 349 lines. `actorStart` is lines 72-77.
 [ ] `src/Server/Core/CoreMailboxLoad.fs` is 75 lines. `dispatchStartLoadSaveCommand` is lines 34-55.
 [ ] `src/Server/Core/CoreActorPool.fs` is 417 lines.
 [ ] `src/Shared/History.fs` is 571 lines.
@@ -90,5 +91,4 @@ Counts are file lengths on staging. Line numbers are the `RecordSearchStart` and
 
 ## Open questions
 
-[ ] `CoreEventDispatch.actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. Its only caller is the `RecordSearchStart` arm. 09 — Dispatch the query command deletes that arm and leaves the function. No ticket in this Project deletes `actorStart`.
-[x] 10 — Dispatch git Load and Save owns the caller conversion. After that ticket, nothing sends `StartLoadSaveCommand`. 15 — Delete the old Actor starts deletes the message. Alan, 2026-11-03.
+[x] None.

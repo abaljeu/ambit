@@ -4,7 +4,8 @@ One job: The dispatcher maps a query Run to the query actor function, and that c
 
 [ ] `startFunction` is the pool start. This ticket keeps it.
 [ ] Alan, 2026-11-03: the search-start log is `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`.
-[ ] The source files are 7. The test files are 3. The size limit is 8 source files and 4 test files.
+[ ] This ticket deletes `CoreEventDispatch.actorStart` along with the `RecordSearchStart` arm. `actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. That arm is its only caller.
+[ ] The source files are 8. The test files are 3. The size limit is 8 source files and 4 test files.
 
 Type:
 
@@ -36,6 +37,7 @@ Blockers:
 [ ] `src/Server/Core/CoreMsg.fs` is 116 lines.
 [ ] `src/Server/Core/CoreMailboxLoop.fs` is 464 lines.
 [ ] `src/Server/Core/CoreMailboxEvents.fs` is 138 lines.
+[ ] `src/Server/Core/CoreEventDispatch.fs` is 349 lines.
 [ ] `src/Server/ActorDispatch.fs` is absent on staging. This ticket adds it.
 [ ] `tests/Server.Tests/QueryActorTests.fs` is 333 lines.
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` is 152 lines.
@@ -49,7 +51,7 @@ Blockers:
 ## Do not load
 
 [ ] `RunAgentActor.fs`.
-[ ] `CoreEventDispatch.fs`. This ticket deletes the `RecordSearchStart` arm and leaves `actorStart`.
+[ ] `SearchActor.actorStart`. That function builds an `ActorStart`. It is not `CoreEventDispatch.actorStart`.
 [ ] `RouteRegistration.fs`. The call to `recordSearchStart` stays.
 
 ## Process
@@ -58,7 +60,7 @@ Blockers:
 2. [ ] The dispatcher builds the query actor function. The closure holds anything beyond `FunctionRun` and `CoreChangesDoor`, including the command node.
 3. [ ] `startChosen` calls `pool.startFunction` for a query Run. The log line is `Order.RunActor`.
 4. [ ] `recordSearchStart` places `Order.RunActor` of the command name and the FocusId. Find and Move stays on `recordSearchStart`. The query Run is the path that calls `startFunction`.
-5. [ ] Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm.
+5. [ ] Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
 6. [ ] The search-start log is `Order.RunActor`. The `Order` cases in `src/Shared/History.fs` stay as they are.
 
 ## Outputs
@@ -70,6 +72,7 @@ Blockers:
 [ ] `src/Server/Core/CoreMsg.fs`
 [ ] `src/Server/Core/CoreMailboxLoop.fs`
 [ ] `src/Server/Core/CoreMailboxEvents.fs`
+[ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
 [ ] `tests/Server.Tests/QueryActorTests.fs` — the existing query start tests
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — keep the `startFunction` tests green
 [ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move logs `Order.RunActor`
