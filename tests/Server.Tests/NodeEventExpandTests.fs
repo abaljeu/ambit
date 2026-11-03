@@ -133,16 +133,17 @@ let private assertParsingThenFailed host nodeId message =
 let private startParseOn writable dataDir host =
     let push, consumer = ParseStack.create ()
     let parseHandle = CoreDoor.create writable host testCaller
+    let postNotice = CoreMailboxApi.postNotice host
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
+          postOps = ParseThread.postParseOps postNotice parseHandle
           markUnparsed = ignore
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId) }
+                postNotice (Notice.NodeParsed nodeId) }
     push
 
 let private startParse dataDir host =

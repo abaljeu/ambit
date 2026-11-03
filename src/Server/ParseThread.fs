@@ -26,13 +26,6 @@ module ParseThread =
           postOps: NodeId -> Op list -> Async<Result<unit, string>>
           finishParse: NodeId -> unit }
 
-    let private postContent
-        (deps: InnerDeps)
-        (nodeId: NodeId)
-        (ops: Op list)
-        =
-        deps.postOps nodeId ops
-
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
 
@@ -97,7 +90,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps fileId ops
+                let! posted = deps.postOps fileId ops
                 return afterPost deps fileId [] posted
         }
 
@@ -117,7 +110,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
-                let! posted = postContent deps directoryId planned.ops
+                let! posted = deps.postOps directoryId planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 

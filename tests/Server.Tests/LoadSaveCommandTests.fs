@@ -699,20 +699,19 @@ let private fileLoadHost (dataDir: string) =
             admittedCredentials
             push
     let handle = CoreDoor.create true host testCaller
+    let postNotice = CoreMailboxApi.postNotice host
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) handle
+          postOps = ParseThread.postParseOps postNotice handle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
+                postNotice (Notice.NodeUnparsed nodeId)
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.postNotice
-                    host
-                    (Notice.NodeParsed nodeId) }
+                postNotice (Notice.NodeParsed nodeId) }
     let router =
         { resolvePath = LoadSaveRouting.resolvePath dataDir
           startCommand =
