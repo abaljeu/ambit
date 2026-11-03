@@ -42,11 +42,13 @@ type PendingBody =
     | FunctionPending of actor: FunctionActor * getGraph: GraphCarrier * secret: Credential
 ```
 
-[ ] `FunctionHandoff` holds a `FunctionStart` and the command name in memory.
+[ ] `ActorOrder` is the order on the mailbox queue.
 
 ```fsharp
-type FunctionHandoff =
-    { start: FunctionStart
+type ActorOrder =
+    { actor: FunctionActor
+      getGraph: GraphCarrier
+      focusId: NodeId
       commandName: string }
 ```
 
@@ -105,6 +107,14 @@ putFunctionStart : (Credential -> NodeId -> NodeId -> string -> PendingBody -> u
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
 ```
 
+### MailboxHost
+
+[ ] `postActorOrder` puts one `ActorOrder` on the mailbox queue.
+
+```fsharp
+postActorOrder : ActorOrder -> unit
+```
+
 ### CoreMailboxActors
 
 [o] `dispatchStartActor` calls `startActor`. [o] `dispatchStartPeerActor` calls `startPeerActor`.
@@ -136,13 +146,12 @@ startChosen : MailboxContext -> ActorStart -> (unit -> Graph) -> Result<Credenti
 
 1. **Run an actor function**
 
-[ ] The function is in memory on `FunctionHandoff`. The log stores `commandName` and `focusId` only.
+[ ] The mailbox pull runs the actor function on the .NET thread pool.
 
 ```fsharp
-functionStart request getGraph
-startFunction handoff.start
-schedule secret coreChanges
-runSchedule takePendingBody secret coreChanges
+ActorOrder actor getGraph focusId commandName
+postActorOrder order
+Async.Start (actor { getGraph = getGraph; secret = secret } coreChanges)
 ```
 
 2. **Query start today**
@@ -171,6 +180,7 @@ schedule secret coreChanges
 
 [x] SearchActor is the module in `src/Server/SearchActor.fs`. `functionStart` builds the query closure.
 [x] RunAgentActor is the module in `src/Server/RunAgentActor.fs`. `actorFn` builds the closure that holds `GrokBotBinding`.
+[x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
 [x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
 [x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
 
@@ -180,8 +190,6 @@ schedule secret coreChanges
 
 ## 7. Open questions
 
-open — The in-memory carrier must not be a new `CoreMsg` case. `CoreMsg` is obsolete. How the function reaches the mailbox is open. One example is `PlaceOrder` with an in-memory payload.
+open — `Order.RunActor of commandName: string * focusId: NodeId` is the logged case. `ActorOrder` is the queue order and holds the actor function. Alan has questioned `Order.RunActor`.
 
-open — `Order.RunActor of commandName: string * focusId: NodeId`. Tickets add that case. Alan has questioned it.
-
-open — `src/Server/ActorDispatch.fs` maps `commandName` to a function. Alan has questioned that map.
+open — `src/Server/ActorDispatch.fs` maps a command name to the actor function that `ActorOrder` holds. Alan has questioned that map.

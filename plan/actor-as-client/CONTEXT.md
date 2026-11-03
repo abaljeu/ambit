@@ -18,6 +18,7 @@ This folder is the Project [Actor as client](project.md).
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
 [ ] `Order.RunActor` stores the command name and the FocusId.
 [o] A new `CoreMsg` case is the start path.
+[x] `ActorOrder` includes the actor function. `postActorOrder` puts that order on the mailbox queue. Alan, 2026-11-03.
 [x] The pool mints the Actor session id.
 [ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
 [ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
