@@ -15,7 +15,7 @@
 [ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
 [ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
 [ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
-[ ] [115 — Notice is a Mailbox case](115-notice-is-a-mailbox-case.md)
+[ ] [115 — The CoreQueue post is private](115-the-corequeue-post-is-private.md)
 [ ] [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md)
 
 ## 3. Look at
