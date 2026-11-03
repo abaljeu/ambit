@@ -90,15 +90,78 @@ let private getStateJsonFull (client: HttpClient) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private readFullState (client: HttpClient) = task {
+let internal readFullState (client: HttpClient) = task {
     let! json = getStateJsonFull client
     return decodeEventId json, decodeGraph json
 }
 
-/// Stored Headers. A default GET returns child ids and leaves those Headers out.
-let private readState (client: HttpClient) = readFullState client
+let private clientPullCap = 5
 
-let private readClosure (client: HttpClient) = task {
+let private siteMapAtRoot (graph: Graph) =
+    let siteMap, _ =
+        ViewModel.buildSiteMapFrom graph graph.root (Sid 0)
+    siteMap
+
+let private absentChildWant (graph: Graph) =
+    Want.compose graph (siteMapAtRoot graph) graph.root
+
+let private installPollAnswer
+    (graph: Graph)
+    (answer: ChangeSuccessResponse)
+    =
+    match
+        ResidentProjection.installWantAnswer
+            answer.childMap
+            answer.nodes
+            graph
+    with
+    | Ok next -> next
+    | Error message ->
+        failwith $"installWantAnswer failed: {message}"
+
+let private postPollWant (client: HttpClient) eventId want = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = eventId; want = want })
+    use content =
+        new StringContent(body, Encoding.UTF8, "application/json")
+    let! response = client.PostAsync("/ambit/poll", content)
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    let! json = response.Content.ReadAsStringAsync()
+    return decodePoll json
+}
+
+let rec private pullAbsentChildren
+    (client: HttpClient)
+    (eventId: EventId)
+    (graph: Graph)
+    (round: int)
+    =
+    task {
+        let want = absentChildWant graph
+        if List.isEmpty want then
+            return graph
+        elif round >= clientPullCap then
+            return
+                failwith
+                    $"client pull stopped with {List.length want} ids still wanted"
+        else
+            let! answer = postPollWant client eventId want
+            let next = installPollAnswer graph answer
+            return! pullAbsentChildren client eventId next (round + 1)
+    }
+
+/// Default GET, then Poll until Want.compose is empty.
+let internal readState (client: HttpClient) = task {
+    let! json = getStateJson client
+    let eventId = decodeEventId json
+    let! graph =
+        pullAbsentChildren client eventId (decodeGraph json) 0
+    return eventId, graph
+}
+
+let internal readClosure (client: HttpClient) = task {
     let! json = getStateJson client
     return decodeEventId json, decodeGraph json
 }
@@ -309,7 +372,7 @@ let private withDbClient (body: string -> HttpClient -> Task<unit>) =
     })
 
 /// Fresh Database HTTP client for state and Change facts.
-let private withClient (body: HttpClient -> Task<unit>) =
+let internal withClient (body: HttpClient -> Task<unit>) =
     withDbClient (fun _ client -> body client)
 
 let private isNodePersisted (event: Ev) =
@@ -353,7 +416,7 @@ let private waitForPersisted host minimum =
         (fun events ->
             events |> List.filter isNodePersisted |> List.length >= minimum)
 
-let private addNestedWorkspace (client: HttpClient) = task {
+let internal addNestedWorkspace (client: HttpClient) = task {
     let wsId = NodeId.New()
     let innerId = NodeId.New()
     let createWorkspace =
@@ -390,24 +453,6 @@ let ``unavailable Database serves read-only file fallback and ignores Persistenc
     if File.Exists ambPath then
         Assert.DoesNotContain("startup-file-fallback", File.ReadAllText ambPath)
 }
-
-[<Fact>]
-let ``GET state returns revision 0 for fresh server`` () =
-    withClient (fun client -> task {
-        let! eventId, _ = readState client
-        Assert.Equal(EventId.fromJson 0, eventId)
-    })
-
-[<Fact>]
-let ``GET state returns valid graph with root node`` () =
-    withClient (fun client -> task {
-        let! _, graph = readState client
-        Assert.Equal(0, userNodeCount graph)
-        Assert.True(graph.nodes.ContainsKey graph.root)
-        let root = graph.nodes.[graph.root]
-        Assert.Equal("ROOT", root.text)
-        Assert.Empty(userRootChildren graph)
-    })
 
 [<Fact>]
 let ``user css is served from canonical SYSTEM path`` () = task {
@@ -777,7 +822,7 @@ let ``POST concurrent stale text Changes amend second as amb-conflict child`` ()
         assertAckWithinSettled baseline revision settled
         Assert.Equal<Guid list>([ changeB.submissionId ], decodeAckChangeIds rBText)
         Assert.True(decodeSuccessExternalChanges rBText)
-        let! eventId, graph = readFullState client
+        let! eventId, graph = readState client
         Assert.Equal(settled, eventId)
         Assert.Equal("xA", graph.nodes.[nodeX].text)
         assertAmbConflictFirstChild graph nodeX "xB"
@@ -800,7 +845,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child`` ()
         let! rB = postChangeOk client changeB
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
-        let! _, graph = readFullState client
+        let! _, graph = readState client
         Assert.Equal(
             "nameA",
             Filename.tryValue graph.nodes.[nodeId].name |> Option.get)
@@ -870,7 +915,7 @@ let ``POST unrelated structural edits with stale revision both succeed`` () =
         let! rB = postChangeOk client changeB
         let! _, settled =
             assertAckForSubmission client baseline rB changeB.submissionId
-        let! eventId, graph = readFullState client
+        let! eventId, graph = readState client
         Assert.Equal(settled, eventId)
         Assert.Equal<ChildNode list>(ownedChild childA, Graph.children graph parentP1)
         Assert.Equal<ChildNode list>(ownedChild childB, Graph.children graph parentP2)
@@ -906,7 +951,7 @@ let ``POST same-parent structural collision amends and succeeds`` () =
         let! postBody = rB.Content.ReadAsStringAsync()
         Assert.True(decodeSuccessExternalChanges postBody)
         let! settled = waitUntilPersistSettled client
-        let! eventId, graph = readFullState client
+        let! eventId, graph = readState client
         Assert.Equal(settled, eventId)
         let children = Graph.children graph parentP
         Assert.Equal(2, children.Length)
@@ -1161,26 +1206,3 @@ let ``New server uses snapshot + log replay`` () = task {
                 Assert.Equal(highest, state.eventId)
         })
 }
-
-[<Fact>]
-let ``GET state default returns ROOT closure excluding nested workspace contents`` () =
-    withClient (fun client -> task {
-        let! wsId, innerId = addNestedWorkspace client
-        let! _, graph = readClosure client
-        Assert.False(graph.nodes.ContainsKey wsId)
-        Assert.Equal(Unloaded, Graph.childrenStatus graph wsId)
-        Assert.Contains(
-            wsId,
-            Graph.children graph Graph.workspacesId
-            |> List.map (fun child -> child.id))
-        Assert.False(graph.nodes.ContainsKey innerId)
-    })
-
-[<Fact>]
-let ``GET state scope full returns canonical graph for tests`` () =
-    withClient (fun client -> task {
-        let! wsId, innerId = addNestedWorkspace client
-        let! _, graph = readFullState client
-        Assert.True(graph.nodes.ContainsKey wsId)
-        Assert.True(graph.nodes.ContainsKey innerId)
-    })
