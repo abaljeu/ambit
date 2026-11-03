@@ -1,5 +1,5 @@
 # 81 — Log Actor stops as Notices
-**Status**: `defined`
+**Status**: `coded`
 One job: The Server logs every Actor stop as `Notice.ActorStopped`, so History `EventBody` is `Order | Notice` with no third case. The Browser drops the stopped focus from its live set the way it handles any Notice, and a poll that holds only a stop starts no catch-up. The reason is decision 9 **EventBody** in [Message shape](plan/core-refinement/cqrs-messages.md): `EventBody` is `Order of Order | Notice of Notice`. This ticket finishes the goal of [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md).
 
 Type: coding
@@ -78,32 +78,32 @@ The build treats warnings as errors (`Directory.Build.props`), so an incomplete 
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] `Notice` gains `ActorStopped of focusId: NodeId * result: ActorResult`.
-3. [ ] `ActorStop` leaves the `EventBody` union. `EventBody` is `Order of Order | Notice of Notice`.
-4. [ ] `EventBody.ActorStop (focusId, result)` and `EventBody.(|ActorStop|_|)` stay as thin shells over `EventBody.Notice (Notice.ActorStopped (focusId, result))`, so the sites in Inputs that build or match a stop keep their code.
-5. [ ] Every exhaustive `Notice` match in Inputs handles `Notice.ActorStopped`. It writes no row, changes no document state, and leaves the graph unchanged.
-6. [ ] JSON writes and reads a stop as a Notice with its focus and result fields. The `actorStop` body kind leaves. An old `actorStop` row fails decode and is skipped on read.
-7. [ ] Every stop the Server logs today is logged as `Notice.ActorStopped`, with the same focus, result and caller fields. That covers a done Actor, a Cancel, a failed start and a search stop.
-8. [ ] The Browser removes the focus from `actorLiveFocusIds` when it applies a logged `Notice.ActorStopped`, on the Notice path. It leaves the live set alone for every other Notice.
-9. [ ] A poll that holds only stop Notices gives `externalChanges` false, so no catch-up starts. `isNoticeEvent` and `countsAsExternal` keep treating every Notice alike.
-10. [ ] The last command result for a stop is the same as today.
-11. [ ] Posted ActorStops are still refused.
-12. [ ] Change ``ActorStop failed without message decodes as empty`` to decode a Notice of the new kind, failed with no message, as an empty `ActorFailed`.
-13. [ ] Add `Notice.ActorStopped` to ``Notice JSON round trip``.
-14. [ ] Add ``An old actorStop row is skipped on read`` to `tests/Shared.Tests/EventJsonTests.fs`.
-15. [ ] Add ``a stop-only poll removes the live focus and starts no catch-up`` to `tests/Shared.Tests/ActorLiveTests.fs`, not `SyncLogicTests.fs`. The state has a live focus, and the poll holds only `Notice.ActorStopped` of that focus. `applyServerTail` removes the focus from `actorLiveFocusIds`, and `loadResponseToPoll` gives `externalChanges` false. The test does not count events, assert event ids, or use time.
-16. [ ] Keep ``Ev JSON round-trips ActorStart and ActorStop``, ``ActorStart adds and ActorStop removes a live Focus``, ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` and ``postSearch records ActorStart at the root`` as written.
-17. [ ] Update [Spec](plan/core-refinement/spec.md) §4 item 1 so `placedOrderFromEvent` refuses only `EventBody.Notice`.
-18. [ ] Run the full suite to check these behaviors, which this ticket does not test directly:
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] `Notice` gains `ActorStopped of focusId: NodeId * result: ActorResult`.
+3. [x] `ActorStop` leaves the `EventBody` union. `EventBody` is `Order of Order | Notice of Notice`.
+4. [x] `EventBody.ActorStop (focusId, result)` and `EventBody.(|ActorStop|_|)` stay as thin shells over `EventBody.Notice (Notice.ActorStopped (focusId, result))`, so the sites in Inputs that build or match a stop keep their code.
+5. [x] Every exhaustive `Notice` match in Inputs handles `Notice.ActorStopped`. It writes no row, changes no document state, and leaves the graph unchanged.
+6. [x] JSON writes and reads a stop as a Notice with its focus and result fields. The `actorStop` body kind leaves. An old `actorStop` row fails decode and is skipped on read.
+7. [x] Every stop the Server logs today is logged as `Notice.ActorStopped`, with the same focus, result and caller fields. That covers a done Actor, a Cancel, a failed start and a search stop.
+8. [x] The Browser removes the focus from `actorLiveFocusIds` when it applies a logged `Notice.ActorStopped`, on the Notice path. It leaves the live set alone for every other Notice.
+9. [x] A poll that holds only stop Notices gives `externalChanges` false, so no catch-up starts. `isNoticeEvent` and `countsAsExternal` keep treating every Notice alike.
+10. [x] The last command result for a stop is the same as today.
+11. [x] Posted ActorStops are still refused.
+12. [x] Change ``ActorStop failed without message decodes as empty`` to decode a Notice of the new kind, failed with no message, as an empty `ActorFailed`.
+13. [x] Add `Notice.ActorStopped` to ``Notice JSON round trip``.
+14. [x] Add ``An old actorStop row is skipped on read`` to `tests/Shared.Tests/EventJsonTests.fs`.
+15. [x] Add ``a stop-only poll removes the live focus and starts no catch-up`` to `tests/Shared.Tests/ActorLiveTests.fs`, not `SyncLogicTests.fs`. The state has a live focus, and the poll holds only `Notice.ActorStopped` of that focus. `applyServerTail` removes the focus from `actorLiveFocusIds`, and `loadResponseToPoll` gives `externalChanges` false. The test does not count events, assert event ids, or use time.
+16. [x] Keep ``Ev JSON round-trips ActorStart and ActorStop``, ``ActorStart adds and ActorStop removes a live Focus``, ``applyServerTail ActorStart adds and ActorStop removes a live Focus`` and ``postSearch records ActorStart at the root`` as written.
+17. [x] Update [Spec](plan/core-refinement/spec.md) §4 item 1 so `placedOrderFromEvent` refuses only `EventBody.Notice`.
+18. [x] Run the full suite to check these behaviors, which this ticket does not test directly:
     - `changesOnly` in `tests/Server.Tests/TestBackend.fs` and `commandNames` in `tests/Server.Tests/OrderedEventStreamTests.fs` drop every Notice, so a stop leaves their lists.
     - In `src/Shared/SyncLogic.fs`, a stop no longer counts as substantive in the answer-only check of `applyLoadResponse`, and `dropNotices` drops it.
 
 ## Outputs
 
-[ ] `src/Shared/History.fs`, `src/Shared/EventJson.fs`, `src/Server/Database.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Shared/NoticeGraph.fs`, `src/Shared/EventLog.fs`, `src/Shared/SyncLogic.fs`, `src/Shared/ActorLive.fs`. 8 source files.
-[ ] `tests/Shared.Tests/EventJsonTests.fs` and `tests/Shared.Tests/ActorLiveTests.fs`, and any other test file the full suite needs, up to 4.
-[ ] `plan/core-refinement/spec.md` §4.
+[x] `src/Shared/History.fs`, `src/Shared/EventJson.fs`, `src/Server/Database.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Shared/NoticeGraph.fs`, `src/Shared/EventLog.fs`, `src/Shared/SyncLogic.fs`, `src/Shared/ActorLive.fs`. 8 source files.
+[x] `tests/Shared.Tests/EventJsonTests.fs` and `tests/Shared.Tests/ActorLiveTests.fs`, and any other test file the full suite needs, up to 4.
+[x] `plan/core-refinement/spec.md` §4.
 
 ## Stop when
 
@@ -115,8 +115,8 @@ The build treats warnings as errors (`Directory.Build.props`), so an incomplete 
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: ``ActorStop failed without message decodes as empty``
   - `tests/Shared.Tests`: ``Notice JSON round trip``
   - `tests/Shared.Tests`: ``An old actorStop row is skipped on read``
@@ -124,6 +124,6 @@ The build treats warnings as errors (`Directory.Build.props`), so an incomplete 
   - `tests/Shared.Tests`: ``Ev JSON round-trips ActorStart and ActorStop``
   - `tests/Shared.Tests`: ``ActorStop removes a live Focus``
   - `tests/Server.Tests`: ``postSearch records ActorStart at the root``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/81-log-actor-and-search-stops-as-notices-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/81-log-actor-and-search-stops-as-notices-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

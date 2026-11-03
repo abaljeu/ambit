@@ -125,9 +125,10 @@ module EventJson =
     let private encodeNodeIds ids =
         ids |> List.map Serialization.encodeNodeId |> Encode.list
 
-    let private encodeActorStop focusId result =
+    let private encodeActorStopped focusId result =
         let fields =
-            [ "kind", Encode.string "actorStop"
+            [ "kind", Encode.string "notice"
+              "notice", Encode.string "actorStopped"
               "focusId", Serialization.encodeNodeId focusId
               "result", encodeActorResult result ]
         match result with
@@ -186,6 +187,8 @@ module EventJson =
             encodeFailedNotice "persistFailed" nodeId message
         | Notice.ParseFailed (nodeId, message) ->
             encodeFailedNotice "parseFailed" nodeId message
+        | Notice.ActorStopped (focusId, result) ->
+            encodeActorStopped focusId result
 
     let private noticeFrom tag nodeId =
         match tag with
@@ -227,6 +230,17 @@ module EventJson =
                 get.Required.Field "nodeId" Serialization.decodeNodeId,
                 get.Required.Field "message" Decode.string))
 
+    let private decodeActorStopped: Decoder<Notice> =
+        Decode.object (fun get ->
+            Notice.ActorStopped(
+                get.Required.Field "focusId" Serialization.decodeNodeId,
+                actorResultFrom
+                    (get.Required.Field "result" decodeActorResultTag)
+                    (get.Optional.Field "message" Decode.string)
+                    (get.Optional.Field
+                        "ids"
+                        (Decode.list Serialization.decodeNodeId))))
+
     let private decodeNoticeBody: Decoder<EventBody> =
         Decode.field "notice" Decode.string
         |> Decode.andThen (fun tag ->
@@ -240,6 +254,8 @@ module EventJson =
             | "parseFailed" ->
                 decodeFailedNotice Notice.ParseFailed
                 |> Decode.map EventBody.Notice
+            | "actorStopped" ->
+                decodeActorStopped |> Decode.map EventBody.Notice
             | _ ->
                 decodeSingleNotice |> Decode.map EventBody.Notice)
 
@@ -389,30 +405,16 @@ module EventJson =
 
     let private encodeBody (body: EventBody) =
         match body with
-        | EventBody.ActorStop(focusId, result) ->
-            encodeActorStop focusId result
         | EventBody.Notice notice -> encodeNotice notice
         | EventBody.Order order ->
             Encode.object
                 [ "kind", Encode.string "order"
                   "order", encodeOrder order ]
 
-    let private decodeActorStopBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.ActorStop(
-                get.Required.Field "focusId" Serialization.decodeNodeId,
-                actorResultFrom
-                    (get.Required.Field "result" decodeActorResultTag)
-                    (get.Optional.Field "message" Decode.string)
-                    (get.Optional.Field
-                        "ids"
-                        (Decode.list Serialization.decodeNodeId))))
-
     let private decodeBody: Decoder<EventBody> =
         Decode.field "kind" Decode.string
         |> Decode.andThen (fun kind ->
             match kind with
-            | "actorStop" -> decodeActorStopBody
             | "notice" -> decodeNoticeBody
             | "order" ->
                 Decode.field "order" decodeOrder

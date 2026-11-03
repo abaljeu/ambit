@@ -67,6 +67,7 @@ type Notice =
     | NodeUnpersisted of nodeId: NodeId
     | PersistFailed of nodeId: NodeId * message: string
     | ParseFailed of nodeId: NodeId * message: string
+    | ActorStopped of focusId: NodeId * result: ActorResult
 
 type PeerActorName = PeerActorName of string
 
@@ -93,7 +94,6 @@ type Order =
 
 [<RequireQualifiedAccess>]
 type EventBody =
-    | ActorStop of focusId: NodeId * result: ActorResult
     | Order of Order
     | Notice of Notice
 
@@ -148,6 +148,15 @@ module EventBody =
     let (|Cancel|_|) (body: EventBody) =
         match body with
         | EventBody.Order (Order.Cancel focusId) -> Some focusId
+        | _ -> None
+
+    let ActorStop (focusId: NodeId, result: ActorResult) : EventBody =
+        EventBody.Notice(Notice.ActorStopped(focusId, result))
+
+    let (|ActorStop|_|) (body: EventBody) =
+        match body with
+        | EventBody.Notice (Notice.ActorStopped (focusId, result)) ->
+            Some(focusId, result)
         | _ -> None
 
 type Ev =
@@ -537,7 +546,8 @@ module Ev =
         | Notice.NodeUnpersisted _
         | Notice.PersistFailed _
         | Notice.ParseFailed _
-        | Notice.NodePersisted _ -> None
+        | Notice.NodePersisted _
+        | Notice.ActorStopped _ -> None
 
     let private applyNotice (notice: Notice) (state: State) : ApplyResult =
         match documentStateFromNotice notice with

@@ -86,6 +86,7 @@ module SyncLogic =
         | Notice.ParseFailed (nodeId, _) ->
             nodeId
         | Notice.NodePersisted (nodeId, _, _) -> nodeId
+        | Notice.ActorStopped (focusId, _) -> focusId
 
     /// NoticeGraph.writeGraph. An absent node stays absent.
     /// A writeGraph error leaves the graph unchanged.
@@ -104,7 +105,13 @@ module SyncLogic =
         else
             match event.body with
             | EventBody.Notice notice ->
-                { applyNoticeGraph notice st with eventId = event.id }
+                let applied = applyNoticeGraph notice st
+                { applied with
+                    eventId = event.id
+                    actorLiveFocusIds =
+                        ActorLive.applyEvent
+                            event
+                            applied.actorLiveFocusIds }
             | _ -> { st with eventId = event.id }
 
     let private applyLoggedNotice

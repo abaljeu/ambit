@@ -46,5 +46,5 @@ The path is Graph change on [core-refinement architecture](arch.md). Each step l
 
 `MailboxLog.placedOrderFromEvent` reads a `PlacedOrder` from a History `Ev`. `MailboxLog.eventFromPlacedOrder` builds the logged `Ev`. Both return `Result`.
 
-1. **Read** — `placedOrderFromEvent` reads `EventBody.Order`. `submissionId` maps to `orderId`. `authority` maps onto `PlacedOrder`. `commandName` `""` maps to `None`, and any other string maps to `Some`. `EventBody.ActorStop` and `EventBody.Notice` return `Error "unsupported"`.
+1. **Read** — `placedOrderFromEvent` reads `EventBody.Order`. `submissionId` maps to `orderId`. `authority` maps onto `PlacedOrder`. `commandName` `""` maps to `None`, and any other string maps to `Some`. `EventBody.Notice` returns `Error "unsupported"`.
 2. **Log** — `eventFromPlacedOrder` takes the stored `EventId` and writes `EventBody.Order` for `Change`, `Undo`, `Redo`, `Load`, `StartActor`, and `Cancel`. `orderId` maps to `submissionId`. `None` maps to `""`. `Order.Change` keeps `ops` and `origin`. [64 — Place Edit changes as Order.Change](issues/64-merge-postevent-and-postgraphonly-into-change.md) places that `origin`. `StartPeerActor` and `LoadSave` return `Error "unsupported"`.

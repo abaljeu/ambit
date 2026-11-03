@@ -396,3 +396,35 @@ let ``equals form with no name token uses generic not ? ancestor`` () =
     Assert.Equal(
         Some (CmdLastResult.Detail (None, "Actor succeeded.")),
         ActorLive.lastCmdResult graph commandId [ stopped ])
+
+[<Fact>]
+let ``a stop-only poll removes the live focus and starts no catch-up`` () =
+    let focusId = NodeId.New()
+    let state =
+        { ClientSyncState.create
+            (Graph.create ())
+            (EventIdFixtures.storedId 5)
+            (ClientHistory.clear ()) with
+            actorLiveFocusIds = Set.singleton focusId }
+    let stopped =
+        { id = EventIdFixtures.storedId 6
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body =
+            EventBody.Notice(
+                Notice.ActorStopped(focusId, ActorSucceeded)) }
+    match SyncLogic.applyServerTail [ stopped ] state with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok after ->
+        Assert.False(Set.contains focusId after.actorLiveFocusIds)
+        let poll: LoadResponse =
+            { eventId = EventIdFixtures.storedId 6
+              buildEpochSec = 0
+              pageBuildEpochSec = 0
+              apiVersion = 0
+              isReady = true
+              events = [ stopped ]
+              nodes = []
+              childMap = Map.empty }
+        Assert.False((SyncLogic.loadResponseToPoll poll).externalChanges)

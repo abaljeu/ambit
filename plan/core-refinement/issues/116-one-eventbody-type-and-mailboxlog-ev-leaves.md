@@ -43,7 +43,7 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 ## Do not load
 
 [ ] The shared `PlacedOrder` stays, as the `Mailbox.PlaceOrder` payload.
-[ ] `EventBody.ActorStop` stays. Its removal is [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md).
+[ ] `EventBody.ActorStop` stays. Its removal is [81 — Log Actor stops as Notices](81-log-actor-and-search-stops-as-notices.md).
 
 ## Process
 
