@@ -26,13 +26,6 @@ module ParseThread =
           postOps: NodeId -> Op list -> Async<Result<unit, string>>
           finishParse: NodeId -> unit }
 
-    let private postContent
-        (deps: InnerDeps)
-        (nodeId: NodeId)
-        (ops: Op list)
-        =
-        deps.postOps nodeId ops
-
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
 
@@ -97,7 +90,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps fileId ops
+                let! posted = deps.postOps fileId ops
                 return afterPost deps fileId [] posted
         }
 
@@ -117,7 +110,7 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok planned ->
-                let! posted = postContent deps directoryId planned.ops
+                let! posted = deps.postOps directoryId planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 
@@ -170,15 +163,15 @@ module ParseThread =
               finishParse = deps.finishParse }
 
     /// Posts NodeParsing for this node, then the graph Change.
+    /// Notices go through postNotice, which boot hands in.
     let postParseOps
+        (postNotice: Notice -> unit)
         (handle: CoreChangesDoor)
         (nodeId: NodeId)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
-            CoreMailboxApi.postNotice
-                handle.host
-                (Notice.NodeParsing nodeId)
+            postNotice (Notice.NodeParsing nodeId)
             if List.isEmpty ops then
                 return Ok ()
             else
@@ -186,9 +179,7 @@ module ParseThread =
                 match! CoreDoor.postGraphOnly handle event with
                 | Ok _ -> return Ok ()
                 | Error err ->
-                    CoreMailboxApi.postNotice
-                        handle.host
-                        (Notice.ParseFailed(nodeId, err))
+                    postNotice (Notice.ParseFailed(nodeId, err))
                     return Error err
         }
 
@@ -208,15 +199,14 @@ module ParseThread =
         let core, push = CoreRuntime.createPublishing coreBoot rawPush
         let parseHandle =
             CoreDoor.create true core.host core.parseCaller
+        let postNotice = CoreMailboxApi.postNotice core.host
         startInner
             { dataDir = coreBoot.DataDir
               consumer = consumer
               push = push
               getGraph = graphFromHost core.host
-              postOps = postParseOps parseHandle
+              postOps = postParseOps postNotice parseHandle
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        core.host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         core
