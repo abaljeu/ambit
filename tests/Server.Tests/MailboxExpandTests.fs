@@ -287,3 +287,9 @@ let ``SetDocumentState leaves the Op list`` () =
     match Dec.fromString EventJson.decode changeJson with
     | Error _ -> ()
     | Ok _ -> Assert.Fail("a CoreMsg Change cannot carry SetDocumentState")
+
+[<Fact>]
+let ``CoreMsg has no PostGraphOnly case`` () =
+    Assert.DoesNotContain(
+        "PostGraphOnly",
+        unionCaseNames typeof<CoreMsg>)

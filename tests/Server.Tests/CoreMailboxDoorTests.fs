@@ -958,7 +958,7 @@ let private runOrdinaryEdit (initial: State) (event: Ev) =
         persist = handlers
         eventLog = ref EventLog.empty
         restartTip = EventId.zero }
-    match CoreEventDispatch.postEvent context testCaller event false with
+    match CoreEventDispatch.postEvent context testCaller event with
     | Error err -> failwith err
     | Ok _ -> List.rev context.eventLog.Value.events, state.Value
 
