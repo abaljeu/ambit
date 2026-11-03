@@ -138,7 +138,7 @@ let private startParseOn writable dataDir host =
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps parseHandle
+          postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
           markUnparsed = ignore
           finishParse =
             fun nodeId ->

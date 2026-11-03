@@ -431,7 +431,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
@@ -484,7 +484,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
@@ -567,7 +567,7 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
@@ -619,7 +619,7 @@ let ``File Load push parses when the parse thread pops it`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
@@ -683,7 +683,7 @@ let ``second Load of a Parsed File is parsed again`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
@@ -763,7 +763,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
@@ -834,7 +834,7 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed =
                 fun nodeId ->
                     CoreMailboxApi.postNotice
@@ -902,7 +902,7 @@ let private openParse (dataDir: string) =
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps parseHandle
+          postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
           markUnparsed =
             fun nodeId ->
                 CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
@@ -1115,7 +1115,7 @@ let private loadRig (dataDir: string) =
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) parseHandle
               markUnparsed =
                 fun nodeId ->
                     CoreMailboxApi.postNotice

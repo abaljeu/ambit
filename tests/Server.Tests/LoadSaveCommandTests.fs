@@ -704,7 +704,7 @@ let private fileLoadHost (dataDir: string) =
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps handle
+          postOps = ParseThread.postParseOps (CoreMailboxApi.postNotice host) handle
           markUnparsed =
             fun nodeId ->
                 CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)

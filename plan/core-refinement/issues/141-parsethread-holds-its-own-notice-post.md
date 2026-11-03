@@ -1,6 +1,6 @@
 # 141 — ParseThread holds its own Notice post
 
-**Status:** `defined`
+**Status:** `coded`
 **Trackers:** architecture
 
 ## 1. Type
@@ -40,21 +40,21 @@
 
 ### Change
 
-[ ] One change: ParseThread posts its Notices through a Notice post it receives at boot, not through `handle.host`
+[x] One change: ParseThread posts its Notices through a Notice post it receives at boot, not through `handle.host`
 
 ### Rules
 
-[ ] `postParseOps` reads no `host` from its `CoreChangesDoor` to post a Notice
-[ ] The Notices posted and their order are unchanged: `NodeParsing`, the Change, then `NodeParsed`, or `ParseFailed` on error
+[x] `postParseOps` reads no `host` from its `CoreChangesDoor` to post a Notice
+[x] The Notices posted and their order are unchanged: `NodeParsing`, the Change, then `NodeParsed`, or `ParseFailed` on error
 
 ## 6. Tests
 
 ### Kept
 
-[ ] Keep the tests in [ParseThreadLoadTests.fs](tests/Server.Tests/ParseThreadLoadTests.fs)
-[ ] Filter: `ParseThreadLoadTests`
+[x] Keep the tests in [ParseThreadLoadTests.fs](tests/Server.Tests/ParseThreadLoadTests.fs)
+[x] Filter: `ParseThreadLoadTests`
 
 ## 7. Done
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
-[ ] All executed tests pass.
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[x] All executed tests pass.
