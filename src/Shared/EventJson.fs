@@ -55,11 +55,6 @@ module EventJson =
     let encodeStartRequest (start: ActorStart) =
         Encode.object (startRequestFields start)
 
-    let private encodeActorStart (start: ActorStart) =
-        Encode.object (
-            ("kind", Encode.string "actorStart")
-            :: startRequestFields start)
-
     let decodeStartRequest: Decoder<ActorStart> =
         Decode.object (fun get ->
             { zoomId = get.Required.Field "zoomId" Serialization.decodeNodeId
@@ -248,50 +243,159 @@ module EventJson =
             | _ ->
                 decodeSingleNotice |> Decode.map EventBody.Notice)
 
-    let private encodeBody (body: EventBody) =
-        match body with
-        | EventBody.Change ops ->
+    let private encodeChangeOrigin (origin: ChangeOrigin) =
+        match origin with
+        | ChangeOrigin.Edit -> Encode.string "edit"
+        | ChangeOrigin.Parse -> Encode.string "parse"
+
+    let private decodeChangeOrigin: Decoder<ChangeOrigin> =
+        Decode.string
+        |> Decode.andThen (function
+            | "edit" -> Decode.succeed ChangeOrigin.Edit
+            | "parse" -> Decode.succeed ChangeOrigin.Parse
+            | other ->
+                Decode.fail ("Unknown change origin: " + other))
+
+    let private encodeLoadSavePath (path: LoadSavePath) =
+        match path with
+        | LoadSavePath.Git -> Encode.string "git"
+        | LoadSavePath.Desk -> Encode.string "desk"
+
+    let private decodeLoadSavePath: Decoder<LoadSavePath> =
+        Decode.string
+        |> Decode.andThen (function
+            | "git" -> Decode.succeed LoadSavePath.Git
+            | "desk" -> Decode.succeed LoadSavePath.Desk
+            | other ->
+                Decode.fail ("Unknown load/save path: " + other))
+
+    let private encodePeerActorName (PeerActorName name) =
+        Encode.string name
+
+    let private decodePeerActorName: Decoder<PeerActorName> =
+        Decode.string |> Decode.map PeerActorName
+
+    let private encodeLoad nodeId =
+        Encode.object
+            [ "kind", Encode.string "load"
+              "nodeId", Serialization.encodeNodeId nodeId ]
+
+    let private encodeCancel focusId =
+        Encode.object
+            [ "kind", Encode.string "cancel"
+              "focusId", Serialization.encodeNodeId focusId ]
+
+    let private encodeOrder (order: Order) =
+        match order with
+        | Order.Change(ops, origin) ->
             Encode.object
                 [ "kind", Encode.string "change"
-                  "ops", encodeOps ops ]
-        | EventBody.Undo(target, ops) ->
+                  "ops", encodeOps ops
+                  "origin", encodeChangeOrigin origin ]
+        | Order.Undo(target, ops) ->
             Encode.object
                 [ "kind", Encode.string "undo"
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
-        | EventBody.Redo(target, ops) ->
+        | Order.Redo(target, ops) ->
             Encode.object
                 [ "kind", Encode.string "redo"
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
-        | EventBody.ActorStart start -> encodeActorStart start
-        | EventBody.Load nodeId ->
+        | Order.StartActor start ->
             Encode.object
-                [ "kind", Encode.string "load"
-                  "nodeId", Serialization.encodeNodeId nodeId ]
-        | EventBody.Cancel focusId ->
+                [ "kind", Encode.string "startActor"
+                  "start", encodeStartRequest start ]
+        | Order.StartPeerActor(peerName, start) ->
             Encode.object
-                [ "kind", Encode.string "cancel"
-                  "focusId", Serialization.encodeNodeId focusId ]
+                [ "kind", Encode.string "startPeerActor"
+                  "peerName", encodePeerActorName peerName
+                  "start", encodeStartRequest start ]
+        | Order.LoadSave(path, peerName, request) ->
+            Encode.object
+                [ "kind", Encode.string "loadSave"
+                  "path", encodeLoadSavePath path
+                  "peerName", encodePeerActorName peerName
+                  "request",
+                  encodeLoadSaveCommandRequest request ]
+        | Order.Load nodeId -> encodeLoad nodeId
+        | Order.Cancel focusId -> encodeCancel focusId
+
+    let private decodeOrderChange: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.Change(
+                get.Required.Field "ops" decodeOps,
+                get.Required.Field "origin" decodeChangeOrigin))
+
+    let private decodeOrderUndo: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.Undo(
+                get.Required.Field "target" decodeEventId,
+                get.Required.Field "ops" decodeOps))
+
+    let private decodeOrderRedo: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.Redo(
+                get.Required.Field "target" decodeEventId,
+                get.Required.Field "ops" decodeOps))
+
+    let private decodeOrderStartActor: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.StartActor(
+                get.Required.Field "start" decodeStartRequest))
+
+    let private decodeOrderStartPeerActor: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.StartPeerActor(
+                get.Required.Field "peerName" decodePeerActorName,
+                get.Required.Field "start" decodeStartRequest))
+
+    let private decodeOrderLoadSave: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.LoadSave(
+                get.Required.Field "path" decodeLoadSavePath,
+                get.Required.Field "peerName" decodePeerActorName,
+                get.Required.Field
+                    "request"
+                    decodeLoadSaveCommandRequest))
+
+    let private decodeOrderLoad: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.Load(
+                get.Required.Field
+                    "nodeId"
+                    Serialization.decodeNodeId))
+
+    let private decodeOrderCancel: Decoder<Order> =
+        Decode.object (fun get ->
+            Order.Cancel(
+                get.Required.Field
+                    "focusId"
+                    Serialization.decodeNodeId))
+
+    let private decodeOrder: Decoder<Order> =
+        Decode.field "kind" Decode.string
+        |> Decode.andThen (fun kind ->
+            match kind with
+            | "change" -> decodeOrderChange
+            | "undo" -> decodeOrderUndo
+            | "redo" -> decodeOrderRedo
+            | "startActor" -> decodeOrderStartActor
+            | "startPeerActor" -> decodeOrderStartPeerActor
+            | "loadSave" -> decodeOrderLoadSave
+            | "load" -> decodeOrderLoad
+            | "cancel" -> decodeOrderCancel
+            | other -> Decode.fail ("Unknown order: " + other))
+
+    let private encodeBody (body: EventBody) =
+        match body with
         | EventBody.ActorStop(focusId, result) ->
             encodeActorStop focusId result
         | EventBody.Notice notice -> encodeNotice notice
-
-    let private decodeChangeBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Change(get.Required.Field "ops" decodeOps))
-
-    let private decodeUndoBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Undo(
-                get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
-
-    let private decodeRedoBody: Decoder<EventBody> =
-        Decode.object (fun get ->
-            EventBody.Redo(
-                get.Required.Field "target" decodeEventId,
-                get.Required.Field "ops" decodeOps))
+        | EventBody.Order order ->
+            Encode.object
+                [ "kind", Encode.string "order"
+                  "order", encodeOrder order ]
 
     let private decodeActorStopBody: Decoder<EventBody> =
         Decode.object (fun get ->
@@ -308,25 +412,11 @@ module EventJson =
         Decode.field "kind" Decode.string
         |> Decode.andThen (fun kind ->
             match kind with
-            | "change" -> decodeChangeBody
-            | "undo" -> decodeUndoBody
-            | "redo" -> decodeRedoBody
-            | "actorStart" ->
-                decodeStartRequest |> Decode.map EventBody.ActorStart
-            | "load" ->
-                Decode.object (fun get ->
-                    EventBody.Load(
-                        get.Required.Field
-                            "nodeId"
-                            Serialization.decodeNodeId))
-            | "cancel" ->
-                Decode.object (fun get ->
-                    EventBody.Cancel(
-                        get.Required.Field
-                            "focusId"
-                            Serialization.decodeNodeId))
             | "actorStop" -> decodeActorStopBody
             | "notice" -> decodeNoticeBody
+            | "order" ->
+                Decode.field "order" decodeOrder
+                |> Decode.map EventBody.Order
             | other -> Decode.fail ("Unknown event body: " + other))
 
     let encode (event: Ev) =

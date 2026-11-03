@@ -42,8 +42,8 @@ let cutSelectionOp (model: VM) : VM * Effect list =
     let m, effs = cutSelection model
     withSiteMap m, effs
 
-/// Op: Enter edit mode for the focused node, prefilled with its current text.
-let startEditOp (model: VM) : VM * Effect list =
+/// Enter Editing for the focused Node when its Header is present.
+let private startEditWithCaret (caret: EditCaret) (model: VM) : VM * Effect list =
     let targetId =
         match model.selectedNodes with
         | None -> viewRootNodeId model
@@ -51,20 +51,18 @@ let startEditOp (model: VM) : VM * Effect list =
     if targetId = model.graph.root then
         model, []
     else
-        let text = model.graph.nodes.[targetId].text
-        { model with mode = Editing (text, EditCaret.EndOfText) }, []
+        match Map.tryFind targetId model.graph.nodes with
+        | None -> model, []
+        | Some node ->
+            { model with mode = Editing (node.text, caret) }, []
+
+/// Op: Enter edit mode for the focused node, prefilled with its current text.
+let startEditOp (model: VM) : VM * Effect list =
+    startEditWithCaret EditCaret.EndOfText model
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
 let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
-    let targetId =
-        match model.selectedNodes with
-        | None -> viewRootNodeId model
-        | Some sel -> focusedNodeId model.graph sel
-    if targetId = model.graph.root then
-        model, []
-    else
-        let text = model.graph.nodes.[targetId].text
-        { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }, []
+    startEditWithCaret (EditCaret.Utf16Index cursorPos) model
 
 /// Op: Select a view-line instance and enter edit mode at once (double-click path).
 let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM * Effect list =
@@ -507,27 +505,20 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             withSiteMap { m with selectedNodes = newSel }, effects
 
-/// Union of user classes (non-amb-) across selected nodes, as space-separated string.
-let private initialUserClassesForSelection (model: VM) (sel: Selection) : string =
-    let selectedIds =
-        Graph.children model.graph sel.range.parent.nodeId
-        |> List.skip sel.range.start
-        |> List.take (sel.range.endd - sel.range.start)
-        |> List.map (fun child -> child.id)
-    selectedIds
-    |> List.collect (fun nid ->
-        model.graph.nodes.[nid].cssClasses
-        |> CssClass.toList
-        |> List.filter (fun c -> not (c.StartsWith("amb-"))))
-    |> List.distinct
-    |> String.concat " "
+let rangeNodeIds (graph: Graph) (range: SiteNodeRange) : NodeId list =
+    rangeChildren graph range
+    |> List.map (fun child -> child.id)
 
 /// Op: Open the CSS class prompt overlay, pre-filled with current user classes (amb- excluded).
 let openCssClassPromptOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        { model with mode = CssClassPrompt (model.mode, initialUserClassesForSelection model sel) }, []
+        let ids = rangeNodeIds model.graph sel.range
+        match CssClassToggle.tryInitialUserClasses model.graph ids with
+        | None -> model, []
+        | Some classes ->
+            { model with mode = CssClassPrompt (model.mode, classes) }, []
 
 /// Op: Close the CSS class prompt without applying.
 let closeCssClassPromptOp (model: VM) : VM * Effect list =
@@ -569,30 +560,38 @@ let private readCssClassPromptValue () : string =
 let submitCssClassPromptOp (model: VM) : VM * Effect list =
     match model.mode, model.selectedNodes with
     | CssClassPrompt (ret, _), Some sel ->
-        let input = readCssClassPromptValue ()
-        let newUserClasses = CssClass.parseUserClasses (if isNull input then "" else input)
-        let result = { model with mode = ret }
-        let selectedIds =
-            Graph.children model.graph sel.range.parent.nodeId
-            |> List.skip sel.range.start
-            |> List.take (sel.range.endd - sel.range.start)
-            |> List.map (fun child -> child.id)
-        let ops =
-            selectedIds
-            |> List.choose (fun nid ->
-                let node = model.graph.nodes.[nid]
-                let oldClasses = node.cssClasses
-                let ambClasses = CssClass.ambOnly oldClasses
-                let newClasses = CssClass.toList ambClasses @ CssClass.toList newUserClasses |> CssClass.ofList
-                if oldClasses = newClasses then None
-                else Some (Op.SetClasses(nid, oldClasses, newClasses)))
-        if ops.IsEmpty then result, []
+        let selectedIds = rangeNodeIds model.graph sel.range
+        if CommandRequest.anyNodeHeaderIsAbsent model.graph selectedIds then
+            model, []
         else
-            match applyAndPost (displayName EditClasses) ops result with
-            | Ok (m, effects) -> m, effects
-            | Error msg ->
-                consoleLog msg
-                { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
+            let input = readCssClassPromptValue ()
+            let raw = if isNull input then "" else input
+            let newUserClasses = CssClass.parseUserClasses raw
+            let result = { model with mode = ret }
+            let ops =
+                selectedIds
+                |> List.choose (fun nid ->
+                    match Map.tryFind nid model.graph.nodes with
+                    | None -> None
+                    | Some node ->
+                        let oldClasses = node.cssClasses
+                        let ambClasses = CssClass.ambOnly oldClasses
+                        let newClasses =
+                            CssClass.toList ambClasses
+                            @ CssClass.toList newUserClasses
+                            |> CssClass.ofList
+                        if oldClasses = newClasses then None
+                        else Some (Op.SetClasses(nid, oldClasses, newClasses)))
+            if ops.IsEmpty then result, []
+            else
+                match applyAndPost (displayName EditClasses) ops result with
+                | Ok (m, effects) -> m, effects
+                | Error msg ->
+                    consoleLog msg
+                    { result with
+                        lastCmdResult =
+                            Some (CmdLastResult.Error (None, msg)) },
+                    []
     | _ -> model, []
 
 /// Op: Toggle one user class on every Node in the current Selection.

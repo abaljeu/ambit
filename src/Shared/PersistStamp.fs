@@ -36,18 +36,10 @@ module PersistStamp =
         if stampOps.IsEmpty then
             event
         else
-            match event.body with
-            | EventBody.Change ops ->
-                { event with body = EventBody.Change(appendToOps ops stampOps) }
-            | EventBody.Undo(target, ops) ->
-                { event with
-                    body = EventBody.Undo(target, appendToOps ops stampOps) }
-            | EventBody.Redo(target, ops) ->
-                { event with
-                    body = EventBody.Redo(target, appendToOps ops stampOps) }
-            | EventBody.ActorStart _ | EventBody.Cancel _
-            | EventBody.Load _
-            | EventBody.ActorStop _ | EventBody.Notice _ -> event
+            match Ev.ops event with
+            | Some ops ->
+                Ev.withOps event (appendToOps ops stampOps)
+            | None -> event
 
     let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
         if stampOps.IsEmpty || events.IsEmpty then

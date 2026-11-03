@@ -129,15 +129,20 @@ module AmbleRun =
         (focusNodeId: NodeId)
         (graph: Graph)
         : Result<ExprRun.Plan, string> =
-        runPlan focusNodeId graph graph.nodes.[focusNodeId].text
+        match Map.tryFind focusNodeId graph.nodes with
+        | None -> Ok emptyPlan
+        | Some node -> runPlan focusNodeId graph node.text
 
     let shouldExec (graph: Graph) (focusNodeId: NodeId) : bool =
         if isSpecialFocus graph focusNodeId then
             false
         else
-            let line = graph.nodes.[focusNodeId].text
-            ExprRun.isRunStatement line
-            || line.TrimStart().StartsWith(">")
+            match Map.tryFind focusNodeId graph.nodes with
+            | None -> false
+            | Some node ->
+                let line = node.text
+                ExprRun.isRunStatement line
+                || line.TrimStart().StartsWith(">")
 
     /// Unfold the query node's instance one level (spec: unfold that Node).
     let applyUnfold

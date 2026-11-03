@@ -1,21 +1,5 @@
 namespace Gambol.Shared
 
-[<RequireQualifiedAccess>]
-type LoadSavePath =
-    | Git
-    | Desk
-
-[<RequireQualifiedAccess>]
-type LoadSavePrePick =
-    | Plain
-    | Git
-    | Desk
-
-[<RequireQualifiedAccess>]
-type LoadSaveOperation =
-    | Load
-    | Save
-
 /// Load subject. A node that is none of these is not a Load subject.
 [<RequireQualifiedAccess>]
 type LoadSubject =

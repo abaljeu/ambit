@@ -14,59 +14,57 @@ let private source commandName body : Ev = {
     commandName = commandName
     body = body }
 
-let private logged event =
-    match MailboxLog.ofEv event with
+let private readOrder (posted: Ev) =
+    match MailboxLog.placedOrderFromEvent posted with
     | Ok value -> value
     | Error err ->
         Assert.Fail(err)
         Unchecked.defaultof<_>
 
-let private restored event =
-    match MailboxLog.toEv event with
+let private restored (posted: Ev) =
+    let order = readOrder posted
+    match MailboxLog.eventFromPlacedOrder (posted.id) order with
     | Ok value -> value
     | Error err ->
         Assert.Fail(err)
-        Unchecked.defaultof<_>
-
-let private placed event =
-    match (logged event).body with
-    | MailboxLog.MailboxEventBody.Order value -> value
-    | MailboxLog.MailboxEventBody.Notice _ ->
-        Assert.Fail("expected Order")
         Unchecked.defaultof<_>
 
 [<Fact>]
-let ``ofEv then toEv keeps a Change`` () =
+let ``placed order then logged event keeps a Change`` () =
     let ops = [ childOp () ]
     let event = source "Set text" (EventBody.Change ops)
-    let order = placed event
-    Assert.Equal(event.id, (logged event).id)
+    let order = readOrder event
     Assert.Equal(OrderId event.submissionId, order.orderId)
     Assert.Equal(event.authority, order.authority)
     Assert.Equal(Some "Set text", order.commandName)
     Assert.Equal(Order.Change(ops, ChangeOrigin.Edit), order.order)
-    Assert.Equal(event, restored (logged event))
+    let back = restored event
+    Assert.Equal(event, back)
 
 [<Fact>]
 let ``empty command name maps to None and returns as empty`` () =
     let ops = [ childOp () ]
     let event = source "" (EventBody.Change ops)
-    let order = placed event
+    let order = readOrder event
     Assert.Equal(None, order.commandName)
-    let back = restored (logged event)
+    let back = restored event
     Assert.Equal("", back.commandName)
     Assert.Equal(event, back)
 
 [<Fact>]
-let ``Undo and Redo keep the target and drop the ops`` () =
+let ``Undo and Redo keep the target and the ops`` () =
     let target = EventId.fromJson 4
     let ops = [ childOp () ]
     let undo = source "Undo" (EventBody.Undo(target, ops))
     let redo = source "Redo" (EventBody.Redo(target, ops))
-    Assert.Equal(Order.Undo target, (placed undo).order)
-    Assert.Equal(Order.Redo target, (placed redo).order)
-    Assert.Equal(EventBody.Undo(target, []), (restored (logged undo)).body)
-    Assert.Equal(EventBody.Redo(target, []), (restored (logged redo)).body)
+    Assert.Equal(Order.Undo(target, ops), (readOrder undo).order)
+    Assert.Equal(Order.Redo(target, ops), (readOrder redo).order)
+    Assert.Equal(
+        EventBody.Order(Order.Undo(target, ops)),
+        (restored undo).body)
+    Assert.Equal(
+        EventBody.Order(Order.Redo(target, ops)),
+        (restored redo).body)
 
 [<Fact>]
 let ``Load keeps its node through EventJson and MailboxLog`` () =
@@ -79,8 +77,8 @@ let ``Load keeps its node through EventJson and MailboxLog`` () =
     match Thoth.Json.Newtonsoft.Decode.fromString EventJson.decode json with
     | Error err -> Assert.Fail(err)
     | Ok decoded -> Assert.Equal(event, decoded)
-    Assert.Equal(Order.Load nodeId, (placed event).order)
-    Assert.Equal(EventBody.Load nodeId, (restored (logged event)).body)
+    Assert.Equal(Order.Load nodeId, (readOrder event).order)
+    Assert.Equal(EventBody.Load nodeId, (restored event).body)
     let change =
         { source "Edit" (EventBody.Change [ childOp () ]) with
             id = EventId.fromJson 2 }
@@ -111,3 +109,10 @@ let ``StartPeerActor carries Shared PeerActorName`` () =
         Assert.Equal(name, foundName)
         Assert.Equal(start, foundStart)
     | _ -> Assert.Fail("expected StartPeerActor")
+
+[<Fact>]
+let ``placed order reads EventBody.Order`` () =
+    let ops = [ childOp () ]
+    let order = Order.Change(ops, ChangeOrigin.Parse)
+    let event = source "Parse" (EventBody.Order order)
+    Assert.Equal(order, (readOrder event).order)

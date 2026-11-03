@@ -881,8 +881,12 @@ let ``applySyncResponse refuses dangling Want edges`` () =
                 Map.ofList [ parentId, [ ChildNode.owner missingId ] ] }
             st
     with
-    | Ok _ -> failwith "Expected dangling edge refusal"
-    | Error msg -> Assert.Equal("dangling edge", msg)
+    | Error msg -> Assert.Fail(msg)
+    | Ok result ->
+        Assert.False(Map.containsKey missingId result.graph.nodes)
+        Assert.Equal<ChildNode list>(
+            [ ChildNode.owner missingId ],
+            Graph.children result.graph parentId)
 
 [<Fact>]
 let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` () =
@@ -934,6 +938,43 @@ let ``applySyncResponse Load Fetch answer installs through installWantAnswer`` (
         Assert.Equal(wantChildId, (Graph.children result.graph wantParentId).[0].id)
         Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
         Assert.Equal(wsChildId, (Graph.children result.graph wsId).[0].id)
+
+[<Fact>]
+let ``applySyncResponse nodes-only answer fills Absent child Header`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            (Map.add parentId parent graph0.nodes)
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    Assert.False(Map.containsKey absentId graph.nodes)
+    let st: ClientSyncState =
+        { graph = graph
+          history = ClientHistory.clear ()
+          eventId = EventIdFixtures.storedId 4
+          eventLog = EventLog.empty
+          actorLiveFocusIds = Set.empty
+          applyDetail = None
+          pending = [] }
+    let header = Node.Create(absentId, text = "arrived", owner = parentId)
+    match
+        SyncLogic.applySyncResponse
+            { events = []
+              nodes = [ header ]
+              childMap = Map.empty }
+            st
+    with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        match Map.tryFind absentId result.graph.nodes with
+        | None -> Assert.Fail("expected Header")
+        | Some node -> Assert.Equal("arrived", node.text)
+        Assert.Equal<ChildNode list>(
+            [ ChildNode.owner absentId ],
+            Graph.children result.graph parentId)
 
 [<Fact>]
 let ``changeSuccessToSync carries Want answer`` () =
@@ -1368,12 +1409,13 @@ let ``PersistFailed leaves the graph`` () =
         Assert.Equal(Some "disk full", SyncLogic.persistFailedMessage [ failed ])
 
 [<Fact>]
-let ``NodePersisted on a normal node is rejected`` () =
+let ``writeGraph Error of a string leaves the graph and stores the event id`` () =
     let st, nodeId = stateWithNode "before"
-    let before = st.graph.nodes.[nodeId].updateTime
-    let fileTime = before.AddMinutes(4.0)
+    let beforeNode = st.graph.nodes.[nodeId]
+    let noticeId = EventIdFixtures.storedId 8
+    let fileTime = beforeNode.updateTime.AddMinutes(4.0)
     let persisted =
-        { id = EventIdFixtures.storedId 3
+        { id = noticeId
           submissionId = System.Guid.NewGuid()
           authority = Authority ""
           commandName = ""
@@ -1381,13 +1423,10 @@ let ``NodePersisted on a normal node is rejected`` () =
             EventBody.Notice(
                 Notice.NodePersisted(nodeId, EventId.zero, fileTime)) }
     match applyTail [ persisted ] st with
-    | Ok _ ->
-        failwith "expected NodePersisted on a normal node to fail"
-    | Error msg ->
-        Assert.Equal(
-            "normal nodes do not have parse or persist state",
-            msg)
-        Assert.Equal(before, st.graph.nodes.[nodeId].updateTime)
+    | Error msg -> failwith msg
+    | Ok afterFail ->
+        Assert.Equal(beforeNode, afterFail.graph.nodes.[nodeId])
+        Assert.Equal(noticeId, afterFail.eventId)
 
 [<Fact>]
 let ``logged NodePersisted for an older version leaves the client node Unpersisted`` () =

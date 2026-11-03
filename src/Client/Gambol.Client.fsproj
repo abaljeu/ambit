@@ -36,6 +36,7 @@
     <Compile Include="Update.fs" />
     <Compile Include="Commands.fs" />
     <Compile Include="Controller.fs" />
+    <Compile Include="SearchDialogChrome.fs" />
     <Compile Include="SearchDialogView.fs" />
     <Compile Include="FileSearchDialogView.fs" />
     <Compile Include="StatusView.fs" />

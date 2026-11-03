@@ -145,9 +145,23 @@ module internal CoreMailboxLoop =
         let edited =
             { placed with
                 order = Order.Change(ops, ChangeOrigin.Edit) }
-        MailboxLog.toEv {
-            id = EventId.zero
-            body = MailboxLog.MailboxEventBody.Order edited }
+        MailboxLog.eventFromPlacedOrder (EventId.zero) edited
+
+    let private replyPosted
+        (context: MailboxContext)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (event: Ev)
+        =
+        match
+            CoreEventDispatch.postEvent
+                (CoreMailboxEvents.eventDispatchContext context)
+                caller
+                event
+                false
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok (stored, _) -> reply.Reply(Ok stored.id)
 
     let private replyEdit
         (context: MailboxContext)
@@ -158,16 +172,17 @@ module internal CoreMailboxLoop =
         =
         match editEvent placed ops with
         | Error err -> reply.Reply(Error err)
-        | Ok event ->
-            match
-                CoreEventDispatch.postEvent
-                    (CoreMailboxEvents.eventDispatchContext context)
-                    caller
-                    event
-                    false
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok (stored, _) -> reply.Reply(Ok stored.id)
+        | Ok event -> replyPosted context caller reply event
+
+    let private replyPlaced
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        =
+        match MailboxLog.eventFromPlacedOrder (EventId.zero) placed with
+        | Error err -> reply.Reply(Error err)
+        | Ok event -> replyPosted context caller reply event
 
     let private placeOrder
         (context: MailboxContext)
@@ -181,9 +196,10 @@ module internal CoreMailboxLoop =
                 context placed caller reply subject
         | Order.Change (ops, ChangeOrigin.Edit) ->
             replyEdit context placed caller reply ops
-        | Order.Change (_, ChangeOrigin.Parse)
         | Order.Undo _
-        | Order.Redo _
+        | Order.Redo _ ->
+            replyPlaced context placed caller reply
+        | Order.Change (_, ChangeOrigin.Parse)
         | Order.StartActor _
         | Order.StartPeerActor _
         | Order.LoadSave _

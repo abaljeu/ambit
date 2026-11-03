@@ -93,6 +93,20 @@ let ``compose lists Included that miss Children first`` () =
     Assert.DoesNotContain(zoomId, want)
 
 [<Fact>]
+let ``compose wants a placeholder id with no child list after parent expand`` () =
+    let graph0, siteMap0, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
+    let placeholderId = childIds.[0]
+    let graph = absentUnloaded placeholderId graph0
+    let placeholderInst = findInstanceId placeholderId siteMap0
+    let siteMap, _ = expandEntry placeholderInst graph siteMap0 (Sid 100)
+    let want = Want.compose graph siteMap zoomId
+    Assert.False(GraphChildren.isLoaded graph placeholderId)
+    Assert.False(graph.nodes.ContainsKey placeholderId)
+    Assert.Equal<NodeId list>([ placeholderId ], want)
+    Assert.DoesNotContain(childIds.[1], want)
+    Assert.DoesNotContain(zoomId, want)
+
+[<Fact>]
 let ``compose then installWantAnswer loads wanted parents and children`` () =
     let graph0, siteMap, zoomId, childIds = zoomWithChildren [ "a" ]
     let parentId = childIds.[0]
@@ -179,10 +193,15 @@ let ``compose is empty when Included is Loaded`` () =
 let ``installWantAnswer refuses a dangling edge`` () =
     let graph, _, _, childIds = zoomWithChildren [ "a" ]
     let missing = NodeId.New()
-    let edges = Map.ofList [ childIds.[0], owned [ missing ] ]
+    let parentId = childIds.[0]
+    let edges = Map.ofList [ parentId, owned [ missing ] ]
     match ResidentProjection.installWantAnswer edges [] graph with
-    | Ok _ -> failwith "expected dangling refuse"
-    | Error msg -> Assert.Equal("dangling edge", msg)
+    | Error msg -> Assert.Fail(msg)
+    | Ok installed ->
+        Assert.False(Map.containsKey missing installed.nodes)
+        Assert.Equal<ChildNode list>(
+            owned [ missing ],
+            Graph.children installed parentId)
 
 [<Fact>]
 let ``installWantAnswer keeps absent key Unloaded and [] Loaded`` () =
@@ -216,19 +235,43 @@ let ``installWantAnswer accepts a Child already Resident`` () =
     Assert.True(installed.nodes.ContainsKey residentChild)
 
 [<Fact>]
-let ``wantAnswer returns wanted edges and pointed-at Nodes`` () =
+let ``installWantAnswer adds Header for Absent child already on parent list`` () =
+    let graph0, _, _, childIds = zoomWithChildren [ "a" ]
+    let parentId = childIds.[0]
+    let absentId = NodeId.New()
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            graph0.nodes
+            (Map.add parentId (owned [ absentId ]) graph0.childMap)
+    Assert.False(graph.nodes.ContainsKey absentId)
+    let header =
+        Node.Create(absentId, text = "arrived", owner = parentId)
+    match ResidentProjection.installWantAnswer Map.empty [ header ] graph with
+    | Error msg -> Assert.Fail(msg)
+    | Ok installed ->
+        match Map.tryFind absentId installed.nodes with
+        | None -> Assert.Fail("expected Header")
+        | Some node -> Assert.Equal("arrived", node.text)
+        Assert.Equal<ChildNode list>(
+            owned [ absentId ],
+            Graph.children installed parentId)
+
+[<Fact>]
+let ``wantAnswer returns the requested Header and its child list`` () =
     let graph, _, zoomId, childIds = zoomWithChildren [ "a"; "b" ]
     let edges, nodes =
         ResidentProjection.wantAnswer graph [ zoomId ]
     Assert.Equal<ChildNode list>(owned childIds, edges.[zoomId])
-    Assert.Equal<Set<NodeId>>(Set.ofList childIds, nodes |> List.map (_.id) |> Set.ofList)
+    Assert.Equal<NodeId list>([ zoomId ], nodes |> List.map (_.id))
+    Assert.DoesNotContain(nodes, fun node -> List.contains node.id childIds)
     let emptyEdges, emptyNodes =
         ResidentProjection.wantAnswer graph []
     Assert.Empty(emptyEdges)
     Assert.Empty(emptyNodes)
 
 [<Fact>]
-let ``wantAnswer omits an edge with an absent target Node`` () =
+let ``wantAnswer keeps a child id when that Header is absent`` () =
     let graph0, _, zoomId, _ = zoomWithChildren [ "resident" ]
     let missingId = NodeId.New()
     let graph =
@@ -238,8 +281,9 @@ let ``wantAnswer omits an edge with an absent target Node`` () =
             (Map.add zoomId (owned [ missingId ]) graph0.childMap)
     let edges, nodes =
         ResidentProjection.wantAnswer graph [ zoomId ]
-    Assert.False(Map.containsKey zoomId edges)
-    Assert.Empty(nodes)
+    Assert.Equal<ChildNode list>(owned [ missingId ], edges.[zoomId])
+    Assert.Equal<NodeId list>([ zoomId ], nodes |> List.map (_.id))
+    Assert.False(nodes |> List.exists (fun node -> node.id = missingId))
 
 [<Fact>]
 let ``visibleClosureGraph loads reserved Children and Zoom ancestors`` () =
@@ -254,7 +298,11 @@ let ``visibleClosureGraph loads reserved Children and Zoom ancestors`` () =
     Assert.True(GraphChildren.isLoaded scoped wsId)
     Assert.True(GraphChildren.isLoaded scoped dirId)
     Assert.True(scoped.nodes.ContainsKey fileId)
-    Assert.True(scoped.nodes.ContainsKey buriedId)
+    Assert.Equal(Loaded, Graph.childrenStatus scoped fileId)
+    Assert.False(scoped.nodes.ContainsKey buriedId)
+    Assert.Contains(
+        buriedId,
+        Graph.children scoped dirId |> List.map (fun child -> child.id))
     Assert.False(scoped.nodes.ContainsKey grandId)
     Assert.Equal(Loaded, Graph.childrenStatus scoped dirId)
     Assert.Equal(Unloaded, Graph.childrenStatus scoped buriedId)
@@ -266,8 +314,12 @@ let ``visibleClosureGraph bad Zoom stays inside reserved set`` () =
     let missing = NodeId.New()
     let scoped =
         ResidentProjection.visibleClosureGraph (Some missing) graph
-    Assert.True(scoped.nodes.ContainsKey wsId)
+    Assert.False(scoped.nodes.ContainsKey wsId)
     Assert.False(GraphChildren.isLoaded scoped wsId)
+    Assert.Contains(
+        wsId,
+        Graph.children scoped Graph.workspacesId
+        |> List.map (fun child -> child.id))
     Assert.False(scoped.nodes.ContainsKey dirId)
     Assert.False(scoped.nodes.ContainsKey fileId)
     Assert.False(scoped.nodes.ContainsKey buriedId)

@@ -1,11 +1,5 @@
 namespace Gambol.Shared
 
-type LoadSaveCommandRequest =
-    { operation: LoadSaveOperation
-      prePick: LoadSavePrePick
-      holdStack: bool
-      start: ActorStart }
-
 type LoadSaveCommandResponse =
     { path: LoadSavePath
       command: UniversalResponse option }

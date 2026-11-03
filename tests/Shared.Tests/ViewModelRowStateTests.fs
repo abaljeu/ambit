@@ -879,3 +879,42 @@ let ``planPatchDOM recreates a workspace row when remotes arrive`` () =
             | _ -> None)
     Assert.Contains(workspaceEntry.instanceId, recreated)
     Assert.DoesNotContain(fileEntry.instanceId, recreated)
+
+let private placeholderChildUnderRoot () =
+    let graph0 = Graph.create ()
+    let placeholderId = NodeId.New()
+    let placeholder = Node.Create(placeholderId, text = "gone")
+    let graph =
+        graph0
+        |> Graph.addDetachedNode placeholder
+        |> addChild Graph.rootId placeholderId
+        |> absentUnloaded placeholderId
+    graph, placeholderId
+
+[<Fact>]
+let ``isEntrySelected is true for a placeholder SiteEntry with no Header`` () =
+    let graph, placeholderId = placeholderChildUnderRoot ()
+    let model0 = emptyModelAt graph Graph.rootId
+    let entry = entryUnderParentNode Graph.rootId placeholderId model0
+    Assert.False(graph.nodes.ContainsKey placeholderId)
+    match singleSelection graph model0.siteMap placeholderId with
+    | None -> Assert.True(false, "expected selection")
+    | Some sel ->
+        let model = { model0 with selectedNodes = Some sel }
+        Assert.True(isEntrySelected model entry)
+
+[<Fact>]
+let ``expandEntry leaves a placeholder row expanded`` () =
+    let graph, placeholderId = placeholderChildUnderRoot ()
+    let model = modelFromGraph graph
+    let before = entryUnderParentNode Graph.rootId placeholderId model
+    Assert.False(before.expanded)
+    Assert.False(GraphChildren.isLoaded graph placeholderId)
+    let siteMap, nextId =
+        expandEntry before.instanceId model.graph model.siteMap model.nextSiteId
+    let after =
+        entryUnderParentNode
+            Graph.rootId
+            placeholderId
+            { model with siteMap = siteMap; nextSiteId = nextId }
+    Assert.True(after.expanded)

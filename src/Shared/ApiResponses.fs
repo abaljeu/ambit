@@ -81,6 +81,8 @@ type LoadResponse =
 /// Universal Command response. Either collection may be empty.
 type UniversalResponse =
     { nodes: Node list
+      /// Child-id list for each returned Node. A present key is Loaded.
+      childMap: Map<NodeId, ChildNode list>
       events: Ev list
       latestId: EventId }
 

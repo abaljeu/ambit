@@ -1,28 +1,5 @@
 namespace Gambol.Shared
 
-type PeerActorName = PeerActorName of string
-
-[<RequireQualifiedAccess>]
-type ChangeOrigin =
-    | Edit
-    | Parse
-
-[<RequireQualifiedAccess>]
-type Order =
-    | Change of ops: Op list * origin: ChangeOrigin
-    | Undo of target: EventId
-    | Redo of target: EventId
-    | StartActor of ActorStart
-    | StartPeerActor of
-        peerName: PeerActorName *
-        request: ActorStart
-    | LoadSave of
-        path: LoadSavePath *
-        peerName: PeerActorName *
-        request: LoadSaveCommandRequest
-    | Load of nodeId: NodeId
-    | Cancel of focusId: NodeId
-
 type PlacedOrder = {
     orderId: OrderId
     authority: Authority
@@ -32,18 +9,6 @@ type PlacedOrder = {
 [<RequireQualifiedAccess>]
 module MailboxLog =
 
-    type private HistoryEv = Gambol.Shared.Ev
-    type private HistoryBody = Gambol.Shared.EventBody
-
-    [<RequireQualifiedAccess>]
-    type MailboxEventBody =
-        | Order of PlacedOrder
-        | Notice of Notice
-
-    type Ev = {
-        id: EventId
-        body: MailboxEventBody }
-
     let private commandFromText (name: string) =
         if name = "" then None else Some name
 
@@ -52,54 +17,44 @@ module MailboxLog =
         | None -> ""
         | Some text -> text
 
-    let private placedOrder (event: HistoryEv) (order: Order) = {
-        orderId = OrderId event.submissionId
-        authority = event.authority
-        commandName = commandFromText event.commandName
-        order = order }
-
-    let private orderOfBody (body: HistoryBody) =
+    let private orderOfBody (body: EventBody) =
         match body with
-        | HistoryBody.Change ops ->
-            Ok (Order.Change(ops, ChangeOrigin.Edit))
-        | HistoryBody.Undo (target, _) -> Ok (Order.Undo target)
-        | HistoryBody.Redo (target, _) -> Ok (Order.Redo target)
-        | HistoryBody.ActorStart start ->
-            Ok (Order.StartActor start)
-        | HistoryBody.Load nodeId -> Ok (Order.Load nodeId)
-        | HistoryBody.Cancel focusId -> Ok (Order.Cancel focusId)
-        | HistoryBody.ActorStop _
-        | HistoryBody.Notice _ -> Error "unsupported"
+        | EventBody.ActorStop _
+        | EventBody.Notice _ -> Error "unsupported"
+        | EventBody.Order order -> Ok order
 
     let private historyBody (order: Order) =
         match order with
-        | Order.Change (ops, _) -> Ok (HistoryBody.Change ops)
-        | Order.Undo target -> Ok (HistoryBody.Undo(target, []))
-        | Order.Redo target -> Ok (HistoryBody.Redo(target, []))
-        | Order.StartActor start -> Ok (HistoryBody.ActorStart start)
-        | Order.Load nodeId -> Ok (HistoryBody.Load nodeId)
-        | Order.Cancel focusId -> Ok (HistoryBody.Cancel focusId)
+        | Order.Change _
+        | Order.Undo _
+        | Order.Redo _
+        | Order.Load _
+        | Order.StartActor _
+        | Order.Cancel _ ->
+            Ok (EventBody.Order order)
         | Order.StartPeerActor _
         | Order.LoadSave _ -> Error "unsupported"
 
-    let ofEv (event: HistoryEv) : Result<Ev, string> =
+    let placedOrderFromEvent (event: Ev) : Result<PlacedOrder, string> =
         match orderOfBody event.body with
         | Error err -> Error err
         | Ok order ->
             Ok {
-                id = event.id
-                body = MailboxEventBody.Order (placedOrder event order) }
+                orderId = OrderId event.submissionId
+                authority = event.authority
+                commandName = commandFromText event.commandName
+                order = order }
 
-    let toEv (event: Ev) : Result<HistoryEv, string> =
-        match event.body with
-        | MailboxEventBody.Notice _ -> Error "unsupported"
-        | MailboxEventBody.Order placed ->
-            match historyBody placed.order with
-            | Error err -> Error err
-            | Ok body ->
-                Ok {
-                    id = event.id
-                    submissionId = placed.orderId.Value
-                    authority = placed.authority
-                    commandName = commandToText placed.commandName
-                    body = body }
+    let eventFromPlacedOrder
+        (id: EventId)
+        (placed: PlacedOrder)
+        : Result<Ev, string> =
+        match historyBody placed.order with
+        | Error err -> Error err
+        | Ok body ->
+            Ok {
+                id = id
+                submissionId = placed.orderId.Value
+                authority = placed.authority
+                commandName = commandToText placed.commandName
+                body = body }

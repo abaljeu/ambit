@@ -25,6 +25,10 @@ Mock only what you don't control:
 
 Pass those dependencies in.
 
+## No time as a mechanism
+
+A test uses no timeout, time limit, sleep, delay, or spin-wait unless the spec names that time. Order concurrent steps with signals the test controls, such as a `TaskCompletionSource` or a gate. Assert on state the code reaches, never on how soon a task is scheduled or runs.
+
 ```fsharp
 [<Fact>]
 let ``total sums line item prices`` () =

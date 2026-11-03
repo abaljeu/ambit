@@ -107,6 +107,7 @@ let private bodyKind (event: Ev) =
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
     | EventBody.Notice _ -> "notice"
+    | EventBody.Order _ -> "order"
 
 let private assertBodiesMatch (history: EventLog) (since: Ev list) =
     Assert.Equal<string list>(

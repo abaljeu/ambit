@@ -107,6 +107,7 @@ let private gitResponse =
       command =
         Some
             { nodes = []
+              childMap = Map.empty
               events = []
               latestId = EventId.zero } }
     |> ApiResponseSerialization.encodeLoadSaveCommandResponse

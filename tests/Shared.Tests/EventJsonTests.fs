@@ -134,6 +134,82 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
         Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
+let ``An old change row is skipped on read`` () =
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Set text\","
+              "\"body\":{\"kind\":\"change\",\"ops\":[]}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
+let ``An old undo redo or load row is skipped on read`` () =
+    let nodeId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    let rows =
+        [ "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Undo\","
+          + "\"body\":{\"kind\":\"undo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Redo\","
+          + "\"body\":{\"kind\":\"redo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"\","
+          + "\"body\":{\"kind\":\"load\",\"nodeId\":\""
+          + nodeId
+          + "\"}}" ]
+    rows
+    |> List.iter (fun legacy ->
+        match Dec.fromString EventJson.decode legacy with
+        | Error _ -> ()
+        | Ok decoded ->
+            failwith $"expected Error, got {decoded}")
+
+[<Fact>]
+let ``An old actorStart or cancel row is skipped on read`` () =
+    let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    let zoom = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    let commandId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    let rows =
+        [ "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"\","
+          + "\"body\":{\"kind\":\"actorStart\",\"zoomId\":\""
+          + zoom
+          + "\",\"focusId\":\""
+          + focusId
+          + "\",\"commandId\":\""
+          + commandId
+          + "\",\"graphIds\":[\""
+          + zoom
+          + "\"],\"eventId\":4}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Cancel\","
+          + "\"body\":{\"kind\":\"cancel\",\"focusId\":\""
+          + focusId
+          + "\"}}" ]
+    rows
+    |> List.iter (fun legacy ->
+        match Dec.fromString EventJson.decode legacy with
+        | Error _ -> ()
+        | Ok decoded ->
+            failwith $"expected Error, got {decoded}")
+
+[<Fact>]
 let ``An old nodeStamped row is skipped on read`` () =
     let legacy =
         String.concat
@@ -262,3 +338,45 @@ let ``toWireBatch forces EventId.zero on a dirty new client Event`` () =
         Enc.toString 0 (EventJson.encodeEventBatch { events = wire })
     Assert.Contains("\"eventId\":0", json)
     Assert.DoesNotContain($"\"eventId\":{EventId.toJson dirty.id}", json)
+
+[<Fact>]
+let ``Ev JSON round-trips each EventBody.Order case`` () =
+    let nodeId =
+        NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let zoom =
+        NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
+    let commandId =
+        NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+    let start =
+        { zoomId = zoom
+          focusId = focusId
+          commandId = commandId
+          graphIds = [ zoom ]
+          eventId = EventIdFixtures.storedId 4 }
+    let peerName = PeerActorName "github-load"
+    let request =
+        { operation = LoadSaveOperation.Save
+          prePick = LoadSavePrePick.Desk
+          holdStack = true
+          start = start }
+    let ops = [ Op.SetText(nodeId, "old", "new") ]
+    let orders =
+        [ Order.Change(ops, ChangeOrigin.Parse)
+          Order.Change(ops, ChangeOrigin.Edit)
+          Order.Undo(EventIdFixtures.storedId 2, ops)
+          Order.Redo(EventIdFixtures.storedId 3, ops)
+          Order.StartActor start
+          Order.StartPeerActor(peerName, start)
+          Order.LoadSave(LoadSavePath.Git, peerName, request)
+          Order.LoadSave(LoadSavePath.Desk, peerName, request)
+          Order.Load nodeId
+          Order.Cancel focusId ]
+    orders
+    |> List.iter (fun order ->
+        let event =
+            { changeEvent with
+                commandName = ""
+                body = EventBody.Order order }
+        Assert.Equal(event, roundTrip event))

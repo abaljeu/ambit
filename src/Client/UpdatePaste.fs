@@ -282,6 +282,12 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
 let cutSelection (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
+    | Some sel when
+        CommandRequest.anyNodeHeaderIsAbsent
+            model.graph
+            (rangeChildren model.graph sel.range
+             |> List.map (fun child -> child.id)) ->
+        model, []
     | Some sel ->
         let parentId = sel.range.parent.nodeId
         let parentChildren = Graph.children model.graph parentId

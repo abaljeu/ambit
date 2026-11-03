@@ -2180,6 +2180,70 @@ let ``planPatchDOM expand inserts correct child count`` () =
     Assert.Equal(2, creates.Length) // a1 and a2
 
 [<Fact>]
+let ``planPatchDOM CreateRow for visible Absent child id`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let nodes = Map.add parentId parent graph0.nodes
+    let oldGraph =
+        Graph.fromNodes graph0.root nodes (Map.add parentId [] graph0.childMap)
+    let newGraph =
+        Graph.fromNodes
+            graph0.root
+            nodes
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    let oldModel = emptyModelAt oldGraph parentId
+    let newSiteMap, newNextId = buildSiteMapFrom newGraph parentId (Sid 0)
+    let newModel =
+        { oldModel with
+            graph = newGraph
+            siteMap = newSiteMap
+            nextSiteId = newNextId }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let absentInstId =
+        newSiteMap.entries
+        |> Map.pick (fun _ entry ->
+            if entry.nodeId = absentId then Some entry.instanceId else None)
+    let creates =
+        mutations
+        |> List.choose (function
+            | CreateRow instId -> Some instId
+            | _ -> None)
+    Assert.Contains(absentInstId, creates)
+    Assert.False(Map.containsKey absentId newGraph.nodes)
+
+[<Fact>]
+let ``planPatchDOM recreates row when placeholder gains Header`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let absentId = NodeId.New()
+    let parent = Node.Create(parentId, text = "section", owner = graph0.root)
+    let nodes = Map.add parentId parent graph0.nodes
+    let oldGraph =
+        Graph.fromNodes
+            graph0.root
+            nodes
+            (Map.add parentId [ ChildNode.owner absentId ] graph0.childMap)
+    Assert.False(Map.containsKey absentId oldGraph.nodes)
+    let oldModel = emptyModelAt oldGraph parentId
+    let header = Node.Create(absentId, text = "arrived", owner = parentId)
+    let newModel =
+        { oldModel with graph = Graph.addDetachedNode header oldGraph }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let absentInstId =
+        oldModel.siteMap.entries
+        |> Map.pick (fun _ entry ->
+            if entry.nodeId = absentId then Some entry.instanceId else None)
+    Assert.True(
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = absentInstId
+            | _ -> false))
+
+[<Fact>]
 let ``planPatchDOM collapse removes stale cache entries`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
@@ -2262,6 +2326,19 @@ let ``startEditInstanceAtPos ignores graph root node`` () =
     let model = emptyModel graph
     let result = startEditInstanceAtPos model.siteMap.rootId 0 model
     Assert.True(result.IsNone)
+
+[<Fact>]
+let ``startEditInstanceAtPos leaves Selecting when Header is absent`` () =
+    let graph0, cont, ids = buildFlat [ "alpha" ]
+    let graph = fromExisting graph0 (Map.remove ids.[0] graph0.nodes)
+    let model = modelWithSel graph cont 0 1 0
+    let instanceId = model.siteMap.entries.[model.siteMap.rootId].children.[0]
+    let result =
+        startEditInstanceAtPos instanceId 3 model
+        |> Option.defaultWith (fun () -> Assert.True(false); model)
+    match result.mode with
+    | Selecting -> Assert.Equal(Selecting, result.mode)
+    | _ -> Assert.True(false, "expected Selecting")
 
 [<Fact>]
 let ``planPatchDOM entering edit mode yields RecreateRow not SetText`` () =
