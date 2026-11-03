@@ -30,6 +30,7 @@ Blockers:
 
 [ ] Do not delete `registerPeer` or `startPeerActor` while another caller remains.
 [ ] Find and Move `recordSearchStart`.
+[ ] `CoreMsg.StartLoadSaveCommand`. 15 — Delete the old Actor starts deletes that case. This ticket moves git Load and Save onto the dispatcher.
 
 ## Process
 
