@@ -233,42 +233,84 @@ module CoreMailboxApi =
         else
             None
 
-    /// Reject a bad postEvents batch, or choose PlaceOrder, PostEvent,
-    /// or PostGraphOnly. graphOnly is decided only here.
-    let private changeMessage
-        (caller: Caller)
-        (graphOnly: bool)
-        (events: Ev list)
-        =
-        match graphOnly, clientBatchError events with
-        | false, Some err -> Error err
-        | true, _ ->
-            Ok(fun (event: Ev)
-                   (channel: AsyncReplyChannel<Result<EventId, string>>) ->
-                Mailbox.CoreMsg(PostGraphOnly(caller, event, channel)))
-        | false, None ->
-            Ok(fun (event: Ev) channel ->
+    let private zeroChange (event: Ev) =
+        match event.body with
+        | EventBody.Order (Order.Change (ops, origin))
+            when event.id = EventId.zero ->
+            Some(ops, origin)
+        | _ -> None
+
+    let private placedParse (event: Ev) (ops: Op list) =
+        MailboxLog.placedOrderFromEvent event
+        |> Result.map (fun placed ->
+            { placed with
+                order = Order.Change(ops, ChangeOrigin.Parse) })
+
+    let private parseBuild (caller: Caller) (event: Ev) =
+        if event.id <> EventId.zero then
+            Error "posted EventId must be zero"
+        else
+            match zeroChange event with
+            | None -> Error "unsupported"
+            | Some(ops, _) ->
+                match placedParse event ops with
+                | Error err -> Error err
+                | Ok placed ->
+                    Ok(fun channel ->
+                        Mailbox.placeForCaller placed caller channel)
+
+    let private editBuild (caller: Caller) (event: Ev) =
+        match zeroChange event with
+        | Some(_, ChangeOrigin.Parse) -> Error "unsupported"
+        | _ ->
+            Ok(fun channel ->
                 messageForPosted caller event channel)
 
-    /// One mailbox Change post. graphOnly skips the document file write.
+    let private oneBuild caller origin event =
+        match origin with
+        | ChangeOrigin.Parse -> parseBuild caller event
+        | ChangeOrigin.Edit -> editBuild caller event
+
+    let private zipReplies prepared sent =
+        let rec take acc prepared sent =
+            match prepared, sent with
+            | [], _ -> List.rev acc
+            | Error err :: rest, _ ->
+                take (Error err :: acc) rest sent
+            | Ok _ :: rest, reply :: more ->
+                take (reply :: acc) rest more
+            | Ok _ :: _, [] ->
+                List.rev (Error "short reply" :: acc)
+        take [] prepared sent
+
+    let private postPrepared host events prepared =
+        let sends =
+            prepared
+            |> List.choose (function
+                | Ok build -> Some build
+                | Error _ -> None)
+        async {
+            let! sent =
+                if List.isEmpty sends then
+                    async.Return []
+                else
+                    MailboxHost.postForReplies host sends
+            return! mergeIdReplies host events (zipReplies prepared sent)
+        }
+
+    /// One mailbox Change post. Origin Parse skips the file write.
     let postMailboxChange
         (host: MailboxHost)
         (caller: Caller)
-        (graphOnly: bool)
+        (origin: ChangeOrigin)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        match changeMessage caller graphOnly events with
-        | Error err -> async { return Error err }
-        | Ok build ->
-            let builds =
-                events
-                |> List.map (fun (event: Ev) ->
-                    fun channel -> build event channel)
-            let waiting = MailboxHost.postForReplies host builds
-            async {
-                let! results = waiting
-                return! mergeIdReplies host events results
-            }
+        match origin, clientBatchError events with
+        | ChangeOrigin.Edit, Some err -> async { return Error err }
+        | _ ->
+            events
+            |> List.map (oneBuild caller origin)
+            |> postPrepared host events
 
     /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
@@ -277,7 +319,7 @@ module CoreMailboxApi =
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        postMailboxChange host caller false events
+        postMailboxChange host caller ChangeOrigin.Edit events
 
     /// Graph-only Ev: same flow as postEvents, skips file persist only.
     let postGraphOnly
@@ -285,7 +327,7 @@ module CoreMailboxApi =
         (caller: Caller)
         (event: Ev)
         : Async<Result<CoreChangesAccepted, string>> =
-        postMailboxChange host caller true [ event ]
+        postMailboxChange host caller ChangeOrigin.Parse [ event ]
 
     let startActor
         (host: MailboxHost)

@@ -3,10 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | PostGraphOnly of
-        caller: Caller *
-        event: Ev *
-        AsyncReplyChannel<Result<EventId, string>>
     | StartActor of
         caller: Caller *
         request: Gambol.Shared.ActorStart *

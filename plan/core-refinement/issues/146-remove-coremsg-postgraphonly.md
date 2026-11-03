@@ -1,5 +1,5 @@
 # 146 — Remove CoreMsg.PostGraphOnly
-**Status**: `defined`
+**Status**: `coded`
 One job: The Server places every graph-only Change, the Changes that ParseThread and reconcile post, as `Order.Change` with origin `Parse` through `Mailbox.PlaceOrder`, and `CoreMsg.PostGraphOnly` is gone. The core dispatch reads the Change's `ChangeOrigin` to choose the graph-only behaviour, so the `graphOnly` flag leaves the mailbox post and `CoreEventDispatch`. `postGraphOnly` and `postEvents` stay as thin shells over the one mailbox Change post. The reason is decision 1 **Change** and decision 18 **ChangeOrigin** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Change` replaces `CoreMsg.PostGraphOnly`, `CoreEventDispatch` reads the `origin`, and origin `Parse` keeps the file skip `PostGraphOnly` uses today.
 
 Type: coding
@@ -75,30 +75,30 @@ Blockers: none. [102 — Place Parse changes as Order.Change](102-place-parse-ch
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] `CoreEventDispatch.postEvent` takes no `graphOnly` argument. For a Change it reads the Change's `ChangeOrigin`. Origin `Parse` skips the document file write, the `NodeUnpersisted` mark and the persist push, as `graphOnly` `true` does today. Origin `Edit`, an Undo and a Redo keep today's `graphOnly` `false` behaviour. The stored Change keeps the origin it arrived with. `withParseOrigin` leaves.
-3. [ ] Every caller of `CoreEventDispatch.postEvent` drops the argument: `replyPosted` in `CoreMailboxLoop.fs`, `dispatchPostEvent` in `CoreMailboxActors.fs`, and `runOrdinaryEdit` in `CoreMailboxDoorTests.fs`.
-4. [ ] `postMailboxChange` takes a `ChangeOrigin` in place of `graphOnly`. `postEvents` passes `ChangeOrigin.Edit` and `postGraphOnly` passes `ChangeOrigin.Parse`. Both keep their names and signatures and stay thin shells. The call in `Issue41CoreMailboxTests.fs:376` passes `ChangeOrigin.Parse` in place of `true`; that test keeps its name and assertions.
-5. [ ] A post of origin `Parse` places each Ev that is a Change with id zero as `Mailbox.PlaceOrder` of `Order.Change(ops, ChangeOrigin.Parse)`, with the Ev's `submissionId` as the order id and the caller's authority.
-6. [ ] `placeOrder` stores `Order.Change(_, ChangeOrigin.Parse)` through `CoreEventDispatch.postEvent`, as it stores origin `Edit`. A resubmitted `submissionId` replies the stored id. It replies the stored `EventId`.
-7. [ ] A post of origin `Parse` of an Ev that is not a Change with id zero is refused with an `Error` and stores nothing. A non-zero id is refused with `"posted EventId must be zero"`, as today. A Notice, an Undo, a Redo, or any other Order is refused. This refusal may change later.
-8. [ ] A post of origin `Edit` of a Change whose body carries origin `Parse` is refused and stores nothing, as today. Only `postGraphOnly` places origin `Parse`.
-9. [ ] A graph-only post from a caller whose authority was dropped is refused with `"authority dropped"`, as today.
-10. [ ] `CoreMsg.PostGraphOnly` leaves `CoreMsg`, with its arms in `runMsg`, `messageCaller`, `operationContext` and `replyFailure`, and `CoreMailboxEvents.dispatchPostGraphOnly`. No `CoreMsg` case is added.
-11. [ ] Add ``dispatch takes the graph-only round from origin Parse`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It calls `CoreEventDispatch.postEvent` directly with a `CoreEventDispatch.Context` built from `TestBackend.cannedHandlers` that records the `bool` given to `applyEvent` and every `pushPersist`. An Ev of `Order.Change(ops, ChangeOrigin.Parse)` editing a File's text gives `applyEvent` `true` and pushes nothing. The same edit with origin `Edit` gives `applyEvent` `false`.
-12. [ ] Add ``a placed Parse Change is stored without a document file write`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts `Mailbox.PlaceOrder` of `Order.Change(ops, ChangeOrigin.Parse)` through `MailboxHost.postMailboxAndAsyncReply`. The reply is `Ok`, the stored Change with that `submissionId` keeps origin `Parse`, the graph holds the new text, and the File's document file does not exist.
-13. [ ] Add ``a graph-only post of a Notice is refused and stores nothing`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts an Ev of `Notice.ActorStopped` through `postGraphOnly`. The reply is `Error`, and the log holds no Ev with that `submissionId`.
-14. [ ] Add ``a graph-only post with a non-zero EventId is refused`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. The reply is `Error "posted EventId must be zero"`.
-15. [ ] Add ``postEvents refuses a Change of origin Parse`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts through `postEvents` an Ev whose body is `Order.Change(ops, ChangeOrigin.Parse)`. The reply is `Error`, and the log holds no Ev with that `submissionId`.
-16. [ ] Add ``CoreMsg has no PostGraphOnly case`` to `tests/Server.Tests/MailboxExpandTests.fs`, through ``unionCaseNames``.
-17. [ ] The new tests do not count events, assert event ids, or use time. Existing tests keep their names and assertions.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] `CoreEventDispatch.postEvent` takes no `graphOnly` argument. For a Change it reads the Change's `ChangeOrigin`. Origin `Parse` skips the document file write, the `NodeUnpersisted` mark and the persist push, as `graphOnly` `true` does today. Origin `Edit`, an Undo and a Redo keep today's `graphOnly` `false` behaviour. The stored Change keeps the origin it arrived with. `withParseOrigin` leaves.
+3. [x] Every caller of `CoreEventDispatch.postEvent` drops the argument: `replyPosted` in `CoreMailboxLoop.fs`, `dispatchPostEvent` in `CoreMailboxActors.fs`, and `runOrdinaryEdit` in `CoreMailboxDoorTests.fs`.
+4. [x] `postMailboxChange` takes a `ChangeOrigin` in place of `graphOnly`. `postEvents` passes `ChangeOrigin.Edit` and `postGraphOnly` passes `ChangeOrigin.Parse`. Both keep their names and signatures and stay thin shells. The call in `Issue41CoreMailboxTests.fs:376` passes `ChangeOrigin.Parse` in place of `true`; that test keeps its name and assertions.
+5. [x] A post of origin `Parse` places each Ev that is a Change with id zero as `Mailbox.PlaceOrder` of `Order.Change(ops, ChangeOrigin.Parse)`, with the Ev's `submissionId` as the order id and the caller's authority.
+6. [x] `placeOrder` stores `Order.Change(_, ChangeOrigin.Parse)` through `CoreEventDispatch.postEvent`, as it stores origin `Edit`. A resubmitted `submissionId` replies the stored id. It replies the stored `EventId`.
+7. [x] A post of origin `Parse` of an Ev that is not a Change with id zero is refused with an `Error` and stores nothing. A non-zero id is refused with `"posted EventId must be zero"`, as today. A Notice, an Undo, a Redo, or any other Order is refused. This refusal may change later.
+8. [x] A post of origin `Edit` of a Change whose body carries origin `Parse` is refused and stores nothing, as today. Only `postGraphOnly` places origin `Parse`.
+9. [x] A graph-only post from a caller whose authority was dropped is refused with `"authority dropped"`, as today.
+10. [x] `CoreMsg.PostGraphOnly` leaves `CoreMsg`, with its arms in `runMsg`, `messageCaller`, `operationContext` and `replyFailure`, and `CoreMailboxEvents.dispatchPostGraphOnly`. No `CoreMsg` case is added.
+11. [x] Add ``dispatch takes the graph-only round from origin Parse`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It calls `CoreEventDispatch.postEvent` directly with a `CoreEventDispatch.Context` built from `TestBackend.cannedHandlers` that records the `bool` given to `applyEvent` and every `pushPersist`. An Ev of `Order.Change(ops, ChangeOrigin.Parse)` editing a File's text gives `applyEvent` `true` and pushes nothing. The same edit with origin `Edit` gives `applyEvent` `false`.
+12. [x] Add ``a placed Parse Change is stored without a document file write`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts `Mailbox.PlaceOrder` of `Order.Change(ops, ChangeOrigin.Parse)` through `MailboxHost.postMailboxAndAsyncReply`. The reply is `Ok`, the stored Change with that `submissionId` keeps origin `Parse`, the graph holds the new text, and the File's document file does not exist.
+13. [x] Add ``a graph-only post of a Notice is refused and stores nothing`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts an Ev of `Notice.ActorStopped` through `postGraphOnly`. The reply is `Error`, and the log holds no Ev with that `submissionId`.
+14. [x] Add ``a graph-only post with a non-zero EventId is refused`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. The reply is `Error "posted EventId must be zero"`.
+15. [x] Add ``postEvents refuses a Change of origin Parse`` to `tests/Server.Tests/Issue41CoreMailboxTests.fs`. It posts through `postEvents` an Ev whose body is `Order.Change(ops, ChangeOrigin.Parse)`. The reply is `Error`, and the log holds no Ev with that `submissionId`.
+16. [x] Add ``CoreMsg has no PostGraphOnly case`` to `tests/Server.Tests/MailboxExpandTests.fs`, through ``unionCaseNames``.
+17. [x] The new tests do not count events, assert event ids, or use time. Existing tests keep their names and assertions.
 
 ## Outputs
 
-[ ] `src/Server/Core/CoreEventDispatch.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxActors.fs`, `src/Server/Core/CoreMsg.fs`. 6 source files.
-[ ] `tests/Server.Tests/Issue41CoreMailboxTests.fs` — ``dispatch takes the graph-only round from origin Parse``, ``a placed Parse Change is stored without a document file write``, ``a graph-only post of a Notice is refused and stores nothing``, ``a graph-only post with a non-zero EventId is refused``, ``postEvents refuses a Change of origin Parse``; the `postMailboxChange` argument at line 376.
-[ ] `tests/Server.Tests/MailboxExpandTests.fs` — ``CoreMsg has no PostGraphOnly case``.
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` — the `CoreEventDispatch.postEvent` call in ``runOrdinaryEdit`` drops its argument. 3 test files.
+[x] `src/Server/Core/CoreEventDispatch.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxActors.fs`, `src/Server/Core/CoreMsg.fs`. 6 source files.
+[x] `tests/Server.Tests/Issue41CoreMailboxTests.fs` — ``dispatch takes the graph-only round from origin Parse``, ``a placed Parse Change is stored without a document file write``, ``a graph-only post of a Notice is refused and stores nothing``, ``a graph-only post with a non-zero EventId is refused``, ``postEvents refuses a Change of origin Parse``; the `postMailboxChange` argument at line 376.
+[x] `tests/Server.Tests/MailboxExpandTests.fs` — ``CoreMsg has no PostGraphOnly case``.
+[x] `tests/Server.Tests/CoreMailboxDoorTests.fs` — the `CoreEventDispatch.postEvent` call in ``runOrdinaryEdit`` drops its argument. 3 test files.
 
 ## Stop when
 
@@ -112,8 +112,8 @@ Blockers: none. [102 — Place Parse changes as Order.Change](102-place-parse-ch
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: ``dispatch takes the graph-only round from origin Parse``
   - `tests/Server.Tests`: ``a placed Parse Change is stored without a document file write``
   - `tests/Server.Tests`: ``a graph-only post of a Notice is refused and stores nothing``
@@ -129,6 +129,6 @@ Blockers: none. [102 — Place Parse changes as Order.Change](102-place-parse-ch
   - `tests/Server.Tests`: ``a stored Parse Change keeps origin Parse``
   - `tests/Server.Tests`: ``a stored Edit Change keeps origin Edit``
   - `tests/Server.Tests`: ``Graph-only post does not repeat entry admission``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/core-refinement/reports/146-remove-coremsg-postgraphonly-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/146-remove-coremsg-postgraphonly-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
