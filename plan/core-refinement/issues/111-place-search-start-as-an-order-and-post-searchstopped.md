@@ -10,7 +10,7 @@
 ## 2. Blockers
 
 [ ] [110 — Log ActorStart and Cancel as EventBody.Order](110-log-actorstart-and-cancel-as-eventbody-order.md)
-[ ] [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
+[ ] [81 — Log Actor stops as Notices](81-log-actor-and-search-stops-as-notices.md)
 
 ## 3. Look at
 
@@ -37,7 +37,7 @@
 
 ### Tests this ticket names
 
-[ ] [SearchActorTests.fs](tests/Server.Tests/SearchActorTests.fs) `postSearch records ActorStart at the root`, `recordSearchStop logs SearchStopped`
+[ ] [SearchActorTests.fs](tests/Server.Tests/SearchActorTests.fs) `postSearch records ActorStart at the root`
 [ ] [EventJsonTests.fs](tests/Shared.Tests/EventJsonTests.fs) the order round-trip test from 107
 
 ## 4. Context
@@ -45,7 +45,7 @@
 ### Today
 
 [ ] `CoreMsg.RecordSearchStart` appends `EventBody.ActorStart` of the request and does not call `pool.startActor`
-[ ] After 81, `CoreMsg.RecordSearchStop` appends `Notice.SearchStopped` of the root id
+[ ] After 81, `CoreMsg.RecordSearchStop` appends `Notice.ActorStopped` of the root id and `ActorSucceeded`. 81 does not add `Notice.SearchStopped`; this ticket adds it
 [ ] The search route sends that stop as a message with the Browser caller when the walk ends
 [ ] The walk runs inside the search route; no pool row exists for a search
 [ ] No client cancels a search today
@@ -66,12 +66,14 @@
 ### History.fs
 
 [ ] Add `Order.StartSearch of ActorStart`
+[ ] Add `Notice.SearchStopped of rootId: NodeId`, with an arm in every exhaustive `Notice` match
 [ ] `EventBody.(|ActorStart|_|)` also gives `start` for `Order.StartSearch start`
 [ ] `Ev.withOps` leaves it unchanged
 
 ### EventJson.fs
 
 [ ] Add the order kind `startSearch`
+[ ] Add the Notice kind `searchStopped` with `rootId`
 
 ### Server
 
@@ -93,7 +95,7 @@
 [ ] Add `recordSearchStart places Order.StartSearch` in `SearchActorTests.fs`
 [ ] The log holds the start, and the pool has no new run
 [ ] Filter: `recordSearchStart places Order.StartSearch`
-[ ] Rename `recordSearchStop logs SearchStopped` to `a search that ends posts SearchStopped`
+[ ] Add `a search that ends posts SearchStopped`
 [ ] Its door's `recordStop` calls `searchStopped`; the log holds the start, then `Notice.SearchStopped` of the root id
 [ ] Filter: `a search that ends posts SearchStopped`
 

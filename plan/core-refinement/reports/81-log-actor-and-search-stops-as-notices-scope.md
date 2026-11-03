@@ -1,5 +1,7 @@
 # 81 — Log Actor and search stops as Notices — scope (implement)
 
+**Superseded 2026-11-03.** This report was checked on branch `dev` and still covers the search stop, which 81 no longer changes. [81 — Log Actor stops as Notices](../issues/81-log-actor-and-search-stops-as-notices.md) is checked against staging and is the current scope.
+
 Scope for [81 — Log Actor and search stops as Notices](../issues/81-log-actor-and-search-stops-as-notices.md). Code state verified on branch `dev`. No source edits in this pass.
 
 ### Signatures
