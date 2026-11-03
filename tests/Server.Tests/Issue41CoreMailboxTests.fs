@@ -466,6 +466,7 @@ let ``dispatch takes the graph-only round from origin Parse`` () =
     | Error err -> Assert.Fail(err)
     | Ok _ ->
         Assert.Equal<bool list>([ true; false ], List.ofSeq flags)
+        Assert.Equal<NodeId list>([ fileId ], List.ofSeq pushed)
 
 [<Fact>]
 let ``a placed Parse Change is stored without a document file write`` () =

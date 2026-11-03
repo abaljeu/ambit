@@ -241,13 +241,10 @@ module CoreMailboxApi =
         | _ -> None
 
     let private placedParse (event: Ev) (ops: Op list) =
-        match MailboxLog.placedOrderFromEvent event with
-        | Error err -> Error err
-        | Ok placed ->
-            Ok {
-                placed with
-                    order = Order.Change(ops, ChangeOrigin.Parse)
-            }
+        MailboxLog.placedOrderFromEvent event
+        |> Result.map (fun placed ->
+            { placed with
+                order = Order.Change(ops, ChangeOrigin.Parse) })
 
     let private parseBuild (caller: Caller) (event: Ev) =
         if event.id <> EventId.zero then
@@ -282,7 +279,8 @@ module CoreMailboxApi =
                 take (Error err :: acc) rest sent
             | Ok _ :: rest, reply :: more ->
                 take (reply :: acc) rest more
-            | Ok _ :: _, [] -> List.rev acc
+            | Ok _ :: _, [] ->
+                List.rev (Error "short reply" :: acc)
         take [] prepared sent
 
     let private postPrepared host events prepared =
