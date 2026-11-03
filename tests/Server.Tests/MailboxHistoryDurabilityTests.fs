@@ -79,10 +79,9 @@ let private mixedIds (history: EventLog) =
         history.events
         |> List.filter (fun event ->
             match event.body with
-            | EventBody.ActorStop _
-            | EventBody.Change _
-            | EventBody.ActorStart _ -> true
-            | _ -> false)
+            | EventBody.ActorStop _ -> true
+            | EventBody.Notice _ -> false
+            | _ -> true)
     match kept with
     | stop :: change :: start :: [] ->
         match stop.body, change.body, start.body with

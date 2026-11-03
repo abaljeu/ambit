@@ -486,7 +486,7 @@ module Ev =
         match event.body with
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStop _ | EventBody.Notice _ -> None
+        | EventBody.Notice _ -> None
         | EventBody.Change ops -> Some ops
         | EventBody.Order _ -> None
 
@@ -499,7 +499,7 @@ module Ev =
             { event with body = EventBody.Undo(target, ops) }
         | EventBody.Redo(target, _) ->
             { event with body = EventBody.Redo(target, ops) }
-        | EventBody.ActorStop _ | EventBody.Notice _ -> event
+        | EventBody.Notice _ -> event
         | EventBody.Order _ -> event
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
@@ -508,7 +508,7 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.ActorStop _ | EventBody.Notice _ -> None
+        | EventBody.Notice _ -> None
         | EventBody.Order _ -> None
 
     let inverseOps (event: Ev) : Op list option =
