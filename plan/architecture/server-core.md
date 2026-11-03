@@ -16,8 +16,16 @@ This page is the compact description of the Server Core target Alan locked on 20
 2. **Graph** — The Graph stores on the database. The mailbox modifies the Graph.
 3. **Events** — Events store on the database. The mailbox creates Events. The Event sequence is the event source. An Event notes Graph ops, Actor events, file events, and git actions.
 4. **File system** — File-system objects correspond to Graph objects. Before a file update and after a file update, the Graph must signal which elements that work uses. File work may take time, but the time is not unlimited. An extended process delays file work until the work is certain. Then it sends a message to the mailbox. Only Core changes files, and only Core changes the graph.
-5. **Git** — Git use is Core. Core performs and controls git Load, git Save, pull, push, and commit as the Server uses them. An Actor may request git work by posting to the mailbox. Core performs that work. This is the same pattern as the file system. A Server git Actor is an external function that posts the request. It does not perform git mutations itself.
-6. **Actors** — Actors are functions defined outside Core. An Actor receives a Graph. An Actor runs on a thread. An Actor sends messages to the mailbox.
+5. **Git** — Git use is Core. Core performs and controls git Load, git Save, pull, push, and commit as the Server uses them. An Actor may request git work by posting to the mailbox. Core performs that work. This is the same pattern as the file system. A Server git Actor runs an actor function that posts the request. The actor function does not perform git mutations.
+6. **Actors**
+
+[x] An Actor is a thread from the .NET thread pool. Alan, 2026-11-03.
+[x] An Actor runs an actor function. The actor function is defined outside Core.
+[o] An Actor is the actor function.
+[x] The actor function receives a Graph.
+[o] An Actor runs on a dedicated thread.
+[x] An Actor sends messages to the mailbox.
+
 7. **Mailbox** — The mailbox controls access to the Graph, Events, files, git, and Actors. It receives messages. It converts each message to Events by actioning that message. Message processing is fast. Graph modifications are simple and synchronous. Other work, including git work, runs in the background and may have an end Event. The mailbox sends an immediate response.
 
 
@@ -39,7 +47,7 @@ Compact markers that match the master. Detail and catch-up sequence stay on [cor
 1. **Map** — [[map.md]]
 2. **Core seam master** — [core-refinement architecture](plan/core-refinement/arch.md) — sole authority; expand-contract (§3), axes (§1), locking model (§6).
 3. **Core inventory** — [135 core inventory](plan/core-refinement/reports/135-core-inventory.md), from [135](plan/core-refinement/issues/135-backend-infers-document-state-notices-from-ops.md) — which files are core, and which code posts Notices today.
-3. **Actor as client** — [[plan/actor-as-client/project.md]] — concept-only; this description confirms privilege-less Actors that only post to the mailbox.
+3. **Actor as client** — [[plan/actor-as-client/project.md]] — `startFunction` is the pool start. `Order.RunActor` stores the command name and the FocusId. This page keeps privilege-less Actors that post to the mailbox.
 4. **Core creation** — [[plan/core-creation/project.md]] — existing Core baseline.
 5. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]]
 6. **Step 1 implement** — [20 — State axes on special nodes](plan/github-transport/issues/20-state-axes-on-special-nodes.md). Further Core revision: [[plan/core-refinement/project.md]]. Git use stays Core on this page.

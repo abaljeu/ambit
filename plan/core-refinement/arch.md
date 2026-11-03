@@ -20,6 +20,10 @@ Commitment 2026-09-28 (Alan). Compact description of that same target: [[plan/ar
 3. **2026-09-30 sole authority** — Alan: one home for the Core seam, not a reading path or index across several plan homes. This Project owns that future. The compact description stays on [[plan/architecture/server-core.md]].
 4. **2026-10-17 graph monad** — Alan: the graph is in a monad. Production code modifies the graph only through the mailbox's monadic functions. The graph can be read. A constructor from a graph may exist for tests and for startup seeding. That constructor is not a path for runtime updates. Graph change Expand, Persist stack, Stack pull, Change, and Contract point at this end state.
 5. **2026-10-19 message shape** — [Message shape](cqrs-messages.md) is the target for the mailbox and the event log.
+6. **2026-11-03 thread pool** — Alan. The compact page is the Server Core link above.
+
+[x] An Actor runs on the .NET thread pool.
+[o] An Actor runs on a thread.
 
 ## 1. Special-node Parse and Persist axes
 
