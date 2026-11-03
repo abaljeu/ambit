@@ -1,7 +1,16 @@
 # Function-shaped Actor start
 
-Look up new Actor creation here. The ID-bag `ActorStart` / `graphIds` path stays as written on [[plan/core-creation/arch.md]].
+Look up new Actor creation here. Decisions: [Actor as client](project.md). Code: [[src/Server/Core/CoreActorPool.fs]].
 
-The pool receives a function (`startFunction`). The Actor calls `getGraph` to obtain a Graph carrier. The pool does not supply a Graph or ids bag. TestActor is the pilot dispatcher (`hello` / `ping`).
-
-Code: [[src/Server/Core/CoreActorPool.fs]] `startFunction`; [[src/Server/TestActor.fs]] `functionActor`. Locks and expand-alongside: [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md).
+[x] `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool. It runs an actor function.
+[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+[o] An Actor is the actor function.
+[o] `startActor` is the original start.
+[o] `startPeerActor` was never supposed to exist.
+[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
+[ ] `Order.RunActor` stores the command name and the FocusId. No new `CoreMsg` case.
+[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. Anything else the actor function needs is in that closure.
+[x] The pool mints the Actor session id.
+[o] `Order.StartActor` and `Order.LoadSave` are logged starts.
+[o] The browser `ActorStart` payload changes in this cutover.
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.

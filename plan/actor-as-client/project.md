@@ -1,15 +1,41 @@
 # Actor as client
 
 Stage: build
-Parked: deferred 2026-09-27
-Summary: Remake Server Actor hosting and mailbox orchestration so an Actor is a Core client like the Browser: it owns internal behavior, talks Core for Graph, Events, and Changes, and starts from a full Graph plus start ids under thin mailbox routing.
-Updated: 2026-09-28
+Summary: `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool and runs an actor function. `Order.RunActor` stores the command name and the FocusId.
+Updated: 2026-11-03
 Started: 2026-09-27
 Actual: 2h
 
 **Part of:** [[plan/roadmap/epics/chapters/actors-supported.md]]
 
 ## Notes
+
+- 2026-11-03 — Alan unparked this Project. Decisions:
+
+[x] `startFunction` is the one pool start. Alan, 2026-11-03.
+[o] `startActor` is the original start.
+[o] `startPeerActor` was never supposed to exist.
+[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
+[o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
+[ ] `Order.RunActor` stores the command name and the FocusId.
+[o] A new `CoreMsg` case is the start path.
+[x] The pool mints the Actor session id.
+[ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
+[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
+[ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
+[x] An Actor is a thread from the .NET thread pool. It runs an actor function.
+[o] An Actor is the actor function.
+[ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
+[ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
+[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays. The `Order.StartActor` delete keeps no reader for old rows.
+[o] `Order.StartActor` is a logged start. Tickets 07, 08, 09, 10, and 80 write `Order.RunActor` and do not write `Order.StartActor`.
+[o] `Order.LoadSave` is the git Load and Save log. Git Load and Save log `Order.RunActor`.
+[ ] Find and Move `recordSearchStart` logs `Order.RunActor`.
+[o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover.
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
+[ ] Remote or cross-process start is out of scope for this cutover. The later question is on the map.
+[o] The 2026-09-27 hard cut, and the 2026-09-28 "no new implement tickets" note.
 
 - 2026-09-28 — Alan Server description on [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations. This Feature-set stays concept-only. No new implement tickets from this lock.
 - 2026-09-27 — Deferred pending the reframing of Actors as functions that can take all kinds of parameters. It may land around step five or six; the gaps in between are unknown. Keep the project, map, tickets, and chapter link. Slice one on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) stays `coded` as historical progress; further slices wait.
