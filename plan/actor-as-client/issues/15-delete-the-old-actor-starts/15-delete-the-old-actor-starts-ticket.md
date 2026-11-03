@@ -1,6 +1,6 @@
 # 15 — Delete the old Actor starts
 **Status**: defined
-One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `Order.StartPeerActor` are gone.
+One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` are gone.
 
 [ ] `startFunction` stays. Alan, 2026-11-03.
 [ ] `runSchedule` is renamed `launchPending`. It takes the Actor's pending work out of the live table and `Async.Start`s it on the thread pool with the row's cancel token.
@@ -37,11 +37,10 @@ Blockers:
 ## Do not load
 
 [ ] `startFunction`. It is the target start.
-[ ] `Order.StartActor`. Alan's delete list does not name it.
 [ ] `Order.RunActor`. Ticket 06 adds it.
-[ ] `CoreMsg.StartLoadSaveCommand` and `Order.LoadSave`.
-[ ] Find and Move `RecordSearchStart`.
+[ ] `CoreMsg.StartLoadSaveCommand` and `CoreMsg.RecordSearchStart`. Their orders are already `Order.RunActor`. This ticket deletes the log cases, not those `CoreMsg` cases, unless a match must drop because the `Order` case is gone.
 [ ] Do not add a `CoreMsg` case.
+[ ] Do not keep a reader for an old `Order.StartActor` row or an old `Order.LoadSave` row.
 
 ## Process
 
@@ -49,8 +48,9 @@ Blockers:
 2. [ ] Delete `startActor`, `startPeerActor`, `register`, `registerPeer`, and the two name tables. Leave `startFunction`.
 3. [ ] Rename `runSchedule` to `launchPending`. The body still takes the pending work off the live row and `Async.Start`s it on the row cancel token.
 4. [ ] Delete `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` and their match arms. Add no `CoreMsg` case.
-5. [ ] Delete `Order.StartPeerActor` and its codec and log arms. Leave `Order.RunActor`.
-6. [ ] Search `src/` and `tests/` for `startActor`, `startPeerActor`, `registerPeer`, and `StartPeerActor`. The search is empty. `startFunction` remains.
+5. [ ] Delete `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`, and their codec and log arms. Leave `Order.RunActor`. Delete `PeerActorName` when no case carries it.
+6. [ ] The decoder does not read an old `Order.StartActor` row or an old `Order.LoadSave` row.
+7. [ ] Search `src/` and `tests/` for `startActor`, `startPeerActor`, `registerPeer`, `StartPeerActor`, `Order.StartActor`, and `Order.LoadSave`. The search is empty. `startFunction` remains.
 
 ## Outputs
 
@@ -71,7 +71,7 @@ Blockers:
 [ ] Record the stop at `plan/actor-as-client/reports/15-delete-the-old-actor-starts-stop.md`, then ask.
 [ ] Stop when a search hit remains outside Outputs.
 [ ] Stop when the edit deletes `startFunction` or `Order.RunActor`.
-[ ] Stop when the edit deletes `Order.StartActor` or `Order.LoadSave`.
+[ ] Stop when the edit keeps a reader for an old `Order.StartActor` row or an old `Order.LoadSave` row.
 [ ] Stop when the edit adds a `CoreMsg` case.
 
 ## Check

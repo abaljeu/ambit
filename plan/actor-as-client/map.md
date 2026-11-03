@@ -38,7 +38,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 ## 4. Not yet specified
 
-1. **Remote or cross-process start** — Named ActorFn registry stays fog ([04 — Start surface](issues/04-start-surface.md)). How a Command reaches a worker in another process stays open.
+1. **Remote or cross-process start** — Out of scope for this cutover. Later question: how a command reaches a worker in another process. The 2026-09-27 named-registry fog is [o] for this cutover. [04 — Start surface](issues/04-start-surface.md).
 2. **Existing Actor migration** — The Project file's tickets move TestActor, the AI Actor, the query command, and git Load and Save onto the one start, then delete the old starts.
 3. **Lifecycle Events after remake** — ActorStart records focus ID and name for cancel and drops `graphIds` ([04 — Start surface](issues/04-start-surface.md)). What ActorStop and any other Event fields must still record stays open.
 4. **Worker isolation** — whether filesystem and database workers stay in-process with Core or later move out.

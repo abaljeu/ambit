@@ -88,8 +88,12 @@ A Graph-changing Event: a Change, an Undo, or a Redo.
 _Avoid_: operation, lifecycle Event
 
 **Actor**:
-A Core-managed execution thread for a specific long-running task. Its public identity is durable, while its secret identity exists only while it is live.
-_Avoid_: Agent, job, task, Peer Actor, Server Actor
+A thread from the .NET thread pool that runs an actor function. Its public identity is durable, while its secret identity exists only while it is live.
+_Avoid_: Agent, job, task, Peer Actor, Server Actor. Calling the actor function an Actor.
+
+**Actor function**:
+The function an Actor runs. It is defined outside Core. `startFunction` starts it. Its input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+_Avoid_: Actor (for this function)
 
 **Agent**:
 An external worker that an AI Actor runs. Not an Ambit Actor. Cursor is the name of one Agent.

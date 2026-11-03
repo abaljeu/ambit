@@ -30,19 +30,26 @@ Alan, 2026-11-03. Detail and the cutover tickets: [Actor as client](../project.m
 [o] `startPeerActor` was never supposed to exist.
 [o] The pool cancel path requires a name on the function. Answer 2.
 [o] A named registry for in-process start stays fog. Answer 3.
-[x] The function input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
 [ ] `Order.RunActor` stores the command name and the FocusId.
 [o] A new `CoreMsg` case is the start path.
 [x] The pool mints the Actor session id.
 [ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
-[ ] A dispatcher outside Core maps a command name to a function. The pool name tables leave.
-[ ] Anything else the Actor needs is in that closure. That includes graph ids and the command node.
-[x] The pool runs the function on the .NET thread pool.
+[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
+[ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
+[x] An Actor is a thread from the .NET thread pool. It runs an actor function.
+[o] An Actor is the actor function.
+[o] A named registry for remote or cross-process start is in this cutover. Answer 3.
+[ ] Remote or cross-process start is out of scope for this cutover.
 [ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
 [ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
-[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `Order.StartPeerActor`. `startFunction` stays.
+[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
+[o] `Order.StartActor` is a logged start.
+[o] `Order.LoadSave` is the git Load and Save log.
+[o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover.
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 
 ## Comments
 

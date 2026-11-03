@@ -4,7 +4,7 @@ Docs only. No `src/` or `tests/` edits.
 
 ## Decisions
 
-Alan, 2026-11-03, answering the open questions from the first pass.
+Alan, 2026-11-03.
 
 [x] `startFunction` is the one pool start.
 [o] `startActor` is the original start.
@@ -12,28 +12,38 @@ Alan, 2026-11-03, answering the open questions from the first pass.
 [ ] 15 — Delete the old Actor starts deletes `startActor` and `startPeerActor` only. `startFunction` stays.
 [ ] `Order.RunActor` stores the command name and the FocusId.
 [o] A new `CoreMsg` case is the start path.
-[x] The function input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[ ] Anything else the Actor needs is in the closure the dispatcher builds.
+[ ] Anything else the actor function needs is in the closure the dispatcher builds.
 [x] The pool mints the Actor session id, as today.
 [ ] The LLM HTTP session is in the AI Actor closure. 08 — Dispatch the AI Actor is unblocked on that split.
-[ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts. It launches pending work with `Async.Start` on the row cancel token.
+[ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
+[o] `Order.StartActor` is a logged start. 15 — Delete the old Actor starts deletes it completely. No reader keeps an old row.
+[ ] Tickets 07, 08, 09, 10, and 80 do not write `Order.StartActor`. They write `Order.RunActor`.
+[o] `Order.LoadSave` is the git Load and Save log. Git Load and Save log `Order.RunActor`.
+[ ] Nothing writes `Order.LoadSave` before 15. 15 deletes `Order.LoadSave` and its `PeerActorName`.
+[ ] A Desk Load or Save logs `Order.RunActor` and runs no actor function.
+[ ] Remote or cross-process start is out of scope for this cutover. The later question is on the map: how a command reaches a worker in another process.
+[x] An Actor is a thread from the .NET thread pool. It runs an actor function. Alan's words: "The Actor is the thread. It runs an actor function."
+[o] An Actor is the actor function.
+[ ] Find and Move `recordSearchStart` logs `Order.RunActor`. It is in 09 — Dispatch the query command. That ticket stays inside the size limit: 4 source files and 3 test files.
+[o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover. It stays for this cutover.
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
+[x] The dispatcher module is `src/Server/ActorDispatch.fs`.
 
 ## Tickets
 
-[ ] 06 — Log Order.RunActor. The folder name stays `06-add-the-function-and-focus-start`. It no longer adds a pool start or a `CoreMsg` case. It was not merged: the Order is shared by the dispatcher tickets and by 80 — Place Actor starts through PlaceOrder. Four source files, inside the size limit.
-[ ] 07 — Dispatch the test command. Calls `startFunction`.
-[ ] 08 — Dispatch the AI Actor. Unblocked. The closure holds the LLM HTTP session. The Actor session id stays pool-minted.
-[ ] 09 — Dispatch the query command. Keeps `startFunction`.
-[ ] 10 — Dispatch git Load and Save. Calls `startFunction`.
+[ ] 06 — Log Order.RunActor. Folder name stays `06-add-the-function-and-focus-start`.
+[ ] 07 — Dispatch the test command. Does not write `Order.StartActor`.
+[ ] 08 — Dispatch the AI Actor. Does not write `Order.StartActor`.
+[ ] 09 — Dispatch the query command. Scope now includes Find and Move `recordSearchStart` as `Order.RunActor`.
+[ ] 10 — Dispatch git Load and Save. Logs `Order.RunActor`. Does not write `Order.LoadSave`.
 [ ] 11 — Move door and case tests.
 [ ] 12 — Move pool and issue tests.
 [ ] 13 — Move persist and command tests.
 [ ] 14 — Move runtime and session tests.
-[ ] 15 — Delete the old Actor starts. Does not delete `startFunction`. Renames `runSchedule` to `launchPending`.
-[ ] 80 — Place Actor starts through PlaceOrder. Places `Order.RunActor`. Adds no `CoreMsg` case.
-
-The caller move stays split because [Size limit](../../context/size-limit.md) is 8 source files and 4 test files.
+[ ] 15 — Delete the old Actor starts. Also deletes `Order.StartActor` and `Order.LoadSave`, with no reader for old rows. Renames `runSchedule` to `launchPending`.
+[ ] 80 — Place Actor starts through PlaceOrder. Places `Order.RunActor`. Does not write `Order.StartActor` or `Order.LoadSave`.
 
 ## doc/current files changed
 
@@ -47,11 +57,3 @@ The caller move stays split because [Size limit](../../context/size-limit.md) is
 [ ] `doc/current/search-actor.md`
 
 ## Open questions
-
-[ ] `Order.StartActor` is not on the delete list. Alan added `Order.RunActor` and did not say `Order.StartActor` leaves.
-[ ] `Order.LoadSave` still carries `PeerActorName`. A Desk Load or Save that runs no Actor stays on 80 — Place Actor starts through PlaceOrder. Alan did not say whether `Order.LoadSave` remains.
-[ ] A named registry for remote or cross-process start was left as fog on 2026-09-27. Alan decided the in-process dispatcher. He did not mention a remote start.
-[ ] `GLOSSARY.md` still says an Actor is "a Core-managed execution thread". This pass did not edit the glossary.
-[ ] Find and Move `RecordSearchStart` is bookkeeping and does not run the pool. Alan named browser Run and git Load and Save. 09 — Dispatch the query command does not move `recordSearchStart`.
-[ ] The browser still posts an `ActorStart` record, including `graphIds`. Alan did not say the browser payload drops `graphIds`.
-[ ] The dispatcher file in the tickets is `src/Server/ActorDispatch.fs`. Alan did not name the file.

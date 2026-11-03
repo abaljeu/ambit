@@ -35,13 +35,8 @@ type Order =
     | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
-    | StartActor of ActorStart
     | RunActor of commandName: string * focusId: NodeId
     | StartSearch of ActorStart
-    | LoadSave of
-        path: LoadSavePath *
-        peerName: PeerActorName *
-        request: LoadSaveCommandRequest
     | Load of nodeId: NodeId
     | Save of nodeId: NodeId
     | Cancel of focusId: NodeId
@@ -111,8 +106,9 @@ type internal CoreQueue =
 3. **StartActor** — `Order.StartActor` of `ActorStart` replaces `CoreMsg.StartActor`. `Order.StartSearch` of `ActorStart` replaces `CoreMsg.RecordSearchStart`. `StartSearch` records the start and does not run the walk.
 
 [o] `Order.StartActor` of `ActorStart` is the pool start. `CoreMsg.StartActor` is that start path.
-[x] The pool start is `startFunction`. Alan, 2026-11-03.
-[ ] `Order.RunActor` stores the command name and the FocusId. Detail: item 4 **StartPeerActor**.
+[o] `Order.StartActor` remains in the log. Alan, 2026-11-03: 15 — Delete the old Actor starts deletes it completely. No reader keeps an old row.
+[x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
+[ ] `Order.RunActor` stores the command name and the FocusId. Find and Move log that same order. Detail: item 4 **StartPeerActor**.
 
 4. **StartPeerActor**
 
@@ -121,7 +117,10 @@ type internal CoreQueue =
 [ ] `Order.RunActor` stores the command name and the FocusId. The pool start is `startFunction`. Alan, 2026-11-03. Detail: [Actor as client](../actor-as-client/project.md).
 [ ] `Order.StartPeerActor` leaves when that cutover deletes the old starts. No new `CoreMsg` case.
 
-5. **LoadSave** — `Order.LoadSave` replaces `CoreMsg.StartLoadSaveCommand`. It carries `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`. A Desk Load or Save runs no Actor. Its handler logs the start, then `Notice.ActorStopped` of its focus and `ActorSucceeded`. That stays as [80 — Place Actor starts through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md) has it until a Desk start and stop runs through an Actor.
+5. **LoadSave**
+
+[o] `Order.LoadSave` replaces `CoreMsg.StartLoadSaveCommand`. It carries `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`.
+[ ] Git Load and Save, and a Desk Load or Save, log `Order.RunActor`. Nothing writes `Order.LoadSave` before 15 — Delete the old Actor starts. That ticket deletes `Order.LoadSave` and its `PeerActorName`. A Desk Load or Save runs no actor function. Detail: [80 — Place Actor starts through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md).
 6. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. `Order.Save` of `NodeId` is git Save ([79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md)).
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice

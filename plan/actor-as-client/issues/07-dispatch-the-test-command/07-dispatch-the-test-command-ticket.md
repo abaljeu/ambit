@@ -37,7 +37,7 @@ Blockers:
 2. [ ] Add `src/Server/ActorDispatch.fs`. It maps the command name `test` to a function. The module is outside `src/Server/Core`.
 3. [ ] The function closes over anything it needs beyond `FunctionRun` and `CoreChangesDoor`. The call is `pool.startFunction`.
 4. [ ] `startChosen` uses the dispatcher for `test`. Any other non-query name still calls `pool.startActor`.
-5. [ ] The logged order for this command is `Order.RunActor` of the command name and the FocusId. Placing that order is 80 — Place Actor starts through PlaceOrder.
+5. [ ] The logged order for this command is `Order.RunActor` of the command name and the FocusId. Placing that order is 80 — Place Actor starts through PlaceOrder. This ticket does not write `Order.StartActor`.
 6. [ ] Remove the `test` pair from the `pool.register` list in `RouteRegistration.fs`.
 
 ## Outputs

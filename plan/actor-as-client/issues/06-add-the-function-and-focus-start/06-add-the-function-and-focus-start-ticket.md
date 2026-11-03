@@ -33,7 +33,8 @@ Blockers:
 [ ] Do not add a pool field. Do not change `startFunction`'s arguments.
 [ ] Do not move a caller. That is 07 — Dispatch the test command and the tickets after it.
 [ ] Do not delete `startActor` or `startPeerActor`. That is 15 — Delete the old Actor starts.
-[ ] Closed: `src/Client`. The browser payload is an open question.
+[ ] Closed: `src/Client`. The browser `ActorStart` payload stays for this cutover. It is [o].
+[ ] Per-run endpoints are later: the endpoint varies by what is being run, each with its own payload.
 
 ## Process
 

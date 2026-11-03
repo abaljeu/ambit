@@ -2,7 +2,7 @@
 **Status**: defined
 One job: The dispatcher maps the command name `ai` to the AI Actor function. The closure holds the LLM HTTP session. The Actor session id stays minted by the pool.
 
-[ ] The function input stays `FunctionRun` and `CoreChangesDoor`. The call is `pool.startFunction`.
+[ ] The actor function's input stays `FunctionRun` and `CoreChangesDoor`. The call is `pool.startFunction`.
 
 Type:
 
@@ -35,7 +35,7 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Map `ai` in `ActorDispatch.fs`. The closure holds the LLM HTTP session. The wake and cancel use that session.
-3. [ ] `startChosen` calls `pool.startFunction` for `ai`. The function input is `FunctionRun` and `CoreChangesDoor`.
+3. [ ] `startChosen` calls `pool.startFunction` for `ai`. The actor function's input is `FunctionRun` and `CoreChangesDoor`. The log line is `Order.RunActor`. This ticket does not write `Order.StartActor`.
 4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
 5. [ ] Remove the `ai` pair from `pool.register`.
 

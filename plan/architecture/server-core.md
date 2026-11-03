@@ -16,13 +16,14 @@ This page is the compact description of the Server Core target Alan locked on 20
 2. **Graph** — The Graph stores on the database. The mailbox modifies the Graph.
 3. **Events** — Events store on the database. The mailbox creates Events. The Event sequence is the event source. An Event notes Graph ops, Actor events, file events, and git actions.
 4. **File system** — File-system objects correspond to Graph objects. Before a file update and after a file update, the Graph must signal which elements that work uses. File work may take time, but the time is not unlimited. An extended process delays file work until the work is certain. Then it sends a message to the mailbox. Only Core changes files, and only Core changes the graph.
-5. **Git** — Git use is Core. Core performs and controls git Load, git Save, pull, push, and commit as the Server uses them. An Actor may request git work by posting to the mailbox. Core performs that work. This is the same pattern as the file system. A Server git Actor is an external function that posts the request. It does not perform git mutations itself.
+5. **Git** — Git use is Core. Core performs and controls git Load, git Save, pull, push, and commit as the Server uses them. An Actor may request git work by posting to the mailbox. Core performs that work. This is the same pattern as the file system. A Server git Actor runs an actor function that posts the request. The actor function does not perform git mutations.
 6. **Actors**
 
-[x] Actors are functions defined outside Core.
-[x] An Actor receives a Graph.
-[x] An Actor runs on the .NET thread pool. Alan, 2026-11-03.
-[o] An Actor runs on a thread.
+[x] An Actor is a thread from the .NET thread pool. Alan, 2026-11-03.
+[x] An Actor runs an actor function. The actor function is defined outside Core.
+[o] An Actor is the actor function.
+[x] The actor function receives a Graph.
+[o] An Actor runs on a dedicated thread.
 [x] An Actor sends messages to the mailbox.
 
 7. **Mailbox** — The mailbox controls access to the Graph, Events, files, git, and Actors. It receives messages. It converts each message to Events by actioning that message. Message processing is fast. Graph modifications are simple and synchronous. Other work, including git work, runs in the background and may have an end Event. The mailbox sends an immediate response.

@@ -11,18 +11,23 @@ See Also:
 [Search Actor](search-actor.md)
 [Query Actor](query-actor.md)
 
-An Actor is a function outside Core.
+An Actor is a thread from the .NET thread pool. It runs an actor function.
 
 ## Job
 
 [x] Off-queue function. Runs off the mailbox queue and posts fast messages back to the mailbox.
-[x] An Actor receives a Graph and posts messages to the mailbox. Core does not own the Actor body.
+[x] The actor function receives a Graph and posts messages to the mailbox. Core does not own the actor function.
+[o] An Actor is the actor function.
 [o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
-[x] `startFunction` is the pool start. The function input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id and runs the function on the .NET thread pool.
+[x] `startFunction` is the pool start. The actor function's input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id.
 [o] The mailbox calls `startActor` through `CoreMsg.StartActor`. Detail: Mailbox.
 [o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path. `Order.StartPeerActor` is that second order.
+[o] `Order.StartActor` is a logged start.
+[o] `Order.LoadSave` is the git Load and Save log.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[ ] A dispatcher outside Core maps a command name to the function. `Order.RunActor` stores the command name and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[o] The browser `ActorStart` payload changes in this cutover.
+[ ] A dispatcher outside Core, `src/Server/ActorDispatch.fs`, maps a command name to an actor function. `Order.RunActor` stores the command name and the FocusId. Find and Move use that same order. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 [o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.

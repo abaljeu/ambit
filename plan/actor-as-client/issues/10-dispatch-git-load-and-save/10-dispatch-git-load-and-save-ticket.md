@@ -37,7 +37,7 @@ Blockers:
 2. [ ] Map `github-load` and `github-save` in `ActorDispatch.fs`. Each closure holds the path and the command node.
 3. [ ] The Git arm of `startLoadSaveCommand` calls `pool.startFunction`. The closure holds the path and the command node. The Desk arm stays `Ok None`.
 4. [ ] `GithubTransportActor.start` uses `startFunction`. It does not post `CoreMsg.StartPeerActor`.
-5. [ ] The logged order is `Order.RunActor` of the command name and the FocusId.
+5. [ ] Git Load and Save log `Order.RunActor` of the command name and the FocusId. This ticket does not write `Order.LoadSave` or `Order.StartActor`.
 6. [ ] Remove the two `registerPeer` calls.
 
 ## Outputs
@@ -56,7 +56,8 @@ Blockers:
 [ ] Record the stop at `plan/actor-as-client/reports/10-dispatch-git-load-and-save-stop.md`, then ask.
 [ ] Stop when Desk must start an Actor.
 [ ] Stop when a test file outside Outputs must change.
-[ ] Stop when `Order.LoadSave` must drop `PeerActorName`. Alan did not say that.
+[ ] Stop when this ticket writes `Order.LoadSave` or `Order.StartActor`.
+[ ] Deleting `Order.LoadSave` is 15 — Delete the old Actor starts.
 
 ## Check
 

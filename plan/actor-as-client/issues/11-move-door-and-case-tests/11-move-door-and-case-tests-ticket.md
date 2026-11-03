@@ -34,7 +34,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a started Actor uses `startFunction`. The function input is `FunctionRun` and `CoreChangesDoor`.
+2. [ ] Change each named file so a started Actor uses `startFunction`. The actor function's input is `FunctionRun` and `CoreChangesDoor`.
 3. [ ] A test that only needs the name `test` goes through the dispatcher.
 4. [ ] Leave `startPeerActor` and `registerPeer` to the batch that owns that file.
 

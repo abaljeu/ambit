@@ -2,8 +2,9 @@
 **Status**: defined
 One job: The Server places `Order.RunActor` through `Mailbox.PlaceOrder`. The handler calls `startFunction`. `Order.StartPeerActor` is not that path.
 
-[ ] `Order.RunActor` stores the command name and the FocusId. It does not store a function.
+[ ] `Order.RunActor` stores the command name and the FocusId. It does not store an actor function.
 [o] `CoreMsg` is the start path for this order.
+[o] This ticket writes `Order.StartActor` or `Order.LoadSave`.
 
 Type:
 
@@ -21,7 +22,7 @@ Blockers:
 [ ] `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand` are built in `CoreMailboxApi` (`startActor`, `startPeerActor`, `startLoadSaveCommand`).
 [ ] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave`, and `Order.Cancel`.
 [ ] 06 — Log Order.RunActor adds `Order.RunActor` of the command name and the FocusId. It adds no `CoreMsg` case.
-[ ] A Desk Load or Save runs no Actor. `startLoadSaveCommand` in `src/Server/Core/CoreActorPool.fs` returns `Ok None` for `LoadSavePath.Desk`.
+[ ] A Desk Load or Save runs no actor function. `startLoadSaveCommand` in `src/Server/Core/CoreActorPool.fs` returns `Ok None` for `LoadSavePath.Desk`. Git Load and Save log `Order.RunActor` in 10 — Dispatch git Load and Save.
 [ ] `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/CoreMailboxDoorTests.fs` `CoreMailboxApi.startActor appends ActorStart to lifecycle events`.
 
 ### Reference
@@ -41,8 +42,8 @@ Blockers:
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Change the Actor start door so it places `Order.RunActor` of the command name and the FocusId through `Mailbox.PlaceOrder`. Add no `CoreMsg` case.
 3. [ ] `placeOrder` sends `Order.RunActor` to the handler. The handler asks the dispatcher for that command name and calls `startFunction`. It uses `placed.orderId` as the submission id.
-4. [ ] A Desk Load or Save that runs no Actor still logs its start and then `Notice.ActorStopped` of its focus and `ActorSucceeded`. It does not call `startPeerActor`.
-5. [ ] Leave `Order.StartPeerActor` unsupported. Do not add a handler that keeps it.
+4. [ ] A Desk Load or Save logs `Order.RunActor` and runs no actor function. It does not write `Order.LoadSave`. It does not call `startPeerActor`.
+5. [ ] Leave `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` unsupported. This ticket does not write them.
 
 ## Outputs
 
