@@ -426,18 +426,17 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                 push
         let parseHandle =
             CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
@@ -479,22 +478,19 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
         let push, consumer = ParseStack.create ()
         let host = CoreMailbox.createFile dataDir admittedCredentials
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, dirId = seedDocsFile host
             CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
@@ -562,18 +558,17 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let extra =
@@ -614,18 +609,17 @@ let ``File Load push parses when the parse thread pops it`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -678,18 +672,17 @@ let ``second Load of a Parsed File is parsed again`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -758,18 +751,17 @@ let ``second Load of a Current File lands its parse Event on a client that still
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -829,22 +821,19 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let! first =
@@ -897,20 +886,19 @@ let private openParse (dataDir: string) =
             admittedCredentials
             push
     let parseHandle = CoreDoor.create true host testCaller
+    let postNotice = CoreMailboxApi.postNotice host
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps parseHandle
+          postOps = ParseThread.postParseOps postNotice parseHandle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.postNotice host (Notice.NodeUnparsed nodeId)
+                postNotice (Notice.NodeUnparsed nodeId)
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.postNotice
-                    host
-                    (Notice.NodeParsed nodeId) }
+                postNotice (Notice.NodeParsed nodeId) }
     host
 
 let private stateOf host =
@@ -1110,22 +1098,19 @@ let private loadRig (dataDir: string) =
             push
     let startThread () =
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.postNotice
-                        host
-                        (Notice.NodeParsed nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
     { host = host
       pushed = pushed
       startThread = startThread }

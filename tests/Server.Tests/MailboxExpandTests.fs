@@ -190,18 +190,17 @@ let ``loadNode pushes the subject`` () =
             Assert.Equal(Some fileId, consumer ())
             stackPush fileId
             let parseHandle = CoreDoor.create true host testCaller
+            let postNotice = CoreMailboxApi.postNotice host
             ParseThread.start {
                 dataDir = dataDir
                 consumer = consumer
                 push = push
                 getGraph = ParseThread.graphFromHost host
-                postOps = ParseThread.postParseOps parseHandle
+                postOps = ParseThread.postParseOps postNotice parseHandle
                 markUnparsed = ignore
                 finishParse =
                     fun nodeId ->
-                        CoreMailboxApi.postNotice
-                            host
-                            (Notice.NodeParsed nodeId) }
+                        postNotice (Notice.NodeParsed nodeId) }
             let parsed () =
                 let log =
                     CoreMailboxApi.eventsSince host EventId.zero
