@@ -1,4 +1,4 @@
-# 81 — Log Actor and search stops as Notices
+# 81 — Log Actor stops as Notices
 
 **Status:** `defined`
 **Trackers:** architecture
@@ -22,7 +22,7 @@
 
 [ ] [EventJson.fs](src/Shared/EventJson.fs) `encodeNotice`, `noticeFrom`, `decodeNoticeBody`, `encodeActorStop`, `decodeActorStopBody`, `encodeActorResult`
 [ ] [Database.fs](src/Server/Database.fs) `writeNoticeRow`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `applyNotice`, `runMsg` arm `RecordSearchStop`
+[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `applyNotice`
 [ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `completeAction`, `actorStop`, `appendLifecycle`
 [ ] [ActorLive.fs](src/Shared/ActorLive.fs) `applyEvent`, `resultOf`
 [ ] [SyncLogic.fs](src/Shared/SyncLogic.fs) `applyLoggedNotice`, `foldProjectedEvents`, `withProjectedGraph`; `isNoticeEvent` and `loadResponseToPoll`, read only
@@ -66,7 +66,6 @@
 
 [ ] Alan, 2026-10-24: names follow `Order.Cancel*` and `Notice.*Stopped`
 [ ] ActorStop is logged as `Notice.ActorStopped`
-[ ] The search stop is logged as `Notice.SearchStopped`
 [ ] Existing `EventBody` member names stay
 [ ] Old-form logs are dropped
 [ ] Alan, 2026-10-24: the rule of [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md) covers stops: a stop Notice starts no catch-up
@@ -76,13 +75,12 @@
 
 ### Change
 
-[ ] One contract: `EventBody.ActorStop` leaves; a stop is logged as `Notice.ActorStopped`, and a search stop as `Notice.SearchStopped`
+[ ] One contract: `EventBody.ActorStop` leaves; a stop is logged as `Notice.ActorStopped`
 [ ] One client behavior changes: a poll that holds only a stop Notice starts no catch-up
 
 ### History.fs
 
 [ ] Add `Notice.ActorStopped of focusId: NodeId * result: ActorResult`
-[ ] Add `Notice.SearchStopped of rootId: NodeId`
 [ ] Remove `ActorStop` from `EventBody`
 [ ] The `EventBody` module gains `ActorStop (focusId: NodeId, result: ActorResult)`, which is `EventBody.Notice (Notice.ActorStopped(focusId, result))`
 [ ] The module gains `(|ActorStop|_|)` over `Notice.ActorStopped`
@@ -90,15 +88,13 @@
 ### EventJson.fs
 
 [ ] `encodeNotice` writes `actorStopped` with `focusId` and the result fields that `encodeActorStop` writes today
-[ ] `encodeNotice` writes `searchStopped` with `rootId`
-[ ] The Notice decoder reads both
+[ ] The Notice decoder reads `actorStopped`
 [ ] Remove the `actorStop` body kind from `encodeBody` and `decodeBody`
 
 ### Server
 
-[ ] `Database.writeNoticeRow` writes no row for `Notice.ActorStopped` or `Notice.SearchStopped`
-[ ] `CoreMailboxLoad.applyNotice` returns `Ok ()` for both
-[ ] The `RecordSearchStop` arm of `runMsg` appends `EventBody.Notice (Notice.SearchStopped rootId)` with the caller, the way `CoreEventDispatch.actorStop` appends today
+[ ] `Database.writeNoticeRow` writes no row for `Notice.ActorStopped`
+[ ] `CoreMailboxLoad.applyNotice` returns `Ok ()` for `Notice.ActorStopped`
 [ ] `CoreEventDispatch.completeAction` puts the `EventBody.ActorStop` arm before the `EventBody.Notice` arm
 
 ### Client
@@ -106,37 +102,27 @@
 [ ] `SyncLogic.isNoticeEvent` and `Api.countsAsExternal` do not change; a stop is a Notice to both
 [ ] `SyncLogic.applyLoggedNotice` sets `actorLiveFocusIds` to `ActorLive.applyEvent event st.actorLiveFocusIds` for every Notice
 [ ] `ActorLive.applyEvent` removes the focus on `Notice.ActorStopped`, through the `EventBody.(|ActorStop|_|)` pattern
-[ ] `ActorLive.applyEvent` removes the root on `Notice.SearchStopped`
 [ ] `ActorLive.applyEvent` leaves the live set alone for every other Notice
-[ ] `ActorLive.resultOf` gives the same result for `Notice.SearchStopped root` as for an `ActorStop` of `root` and `ActorSucceeded`
 [ ] `UpdateActorLive.withActorCmdResult` does not change
 
 ### Size
 
 [ ] 7 source files: `History.fs`, `EventJson.fs`, `Database.fs`, `CoreMailboxLoad.fs`, `CoreEventDispatch.fs`, `ActorLive.fs`, `SyncLogic.fs`
-[ ] 4 test files: `EventJsonTests.fs`, `ActorLiveTests.fs`, `SearchActorTests.fs`, `SyncLogicTests.fs`
+[ ] 2 test files: `EventJsonTests.fs`, `SyncLogicTests.fs`
 
 ## 6. Tests
 
 ### JSON
 
 [ ] Change `ActorStop failed without message decodes as empty` to decode a Notice of `kind` `actorStopped`
-[ ] Add the two cases to `Notice JSON round trip`
+[ ] Add the `Notice.ActorStopped` case to `Notice JSON round trip`
 [ ] Add `An old actorStop row is skipped on read`
 [ ] Filter: `ActorStop failed without message decodes as empty`
 [ ] Filter: `Notice JSON round trip`
 [ ] Filter: `An old actorStop row is skipped on read`
 
-### Search stop
-
-[ ] Add `recordSearchStop logs SearchStopped` in `SearchActorTests.fs`
-[ ] The log holds the search start, then `Notice.SearchStopped` of the root id
-[ ] Filter: `recordSearchStop logs SearchStopped`
-
 ### Browser
 
-[ ] Add `SearchStopped removes the root` in `ActorLiveTests.fs`
-[ ] Filter: `SearchStopped removes the root`
 [ ] Add `a stop-only poll removes the live focus and starts no catch-up` in `SyncLogicTests.fs`
 [ ] The state has a live focus; the poll holds only `Notice.ActorStopped` of that focus
 [ ] `applyServerTail` removes the focus from `actorLiveFocusIds`

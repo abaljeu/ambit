@@ -190,7 +190,7 @@ The first Node on a Node's Owned chain, counting the Node itself, that matches a
 _Avoid_: owning Special, owner (for this meaning), controlling Special, Head, Foot
 
 **Event**:
-One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. The mailbox posts an Event. Code name `Ev`. It carries the Command that produced it (`commandName`).
+One durable record in EventLog, which either represents an Order that has been carried out, or a Notice from a backend process. The mailbox posts an Event as it accepts and executes orders and notices.  
 _Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record), Command (a Command is not an Event), a Node sending an Event
 
 **event id**:
@@ -269,7 +269,7 @@ A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when
 _Avoid_: normal (bare, for a Node), regular node, plain node, leaf node
 
 **Notice**:
-The payload only a holder of the notice function posts. It replaces `InMsg`.
+A backend process message to the system of some notable occurrence.
 _Avoid_: InMsg (say Notice), Command (a Command is not a Notice)
 
 **Op**:
@@ -277,7 +277,7 @@ A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
 
 **Order**:
-The payload a client or an Actor places through `PlaceOrder`. The log stores it as `PlacedOrder`.
+The payload a client or an Actor places through `PlaceOrder`. The log stores it as `PlacedOrder`.  It carries the Command that produced it (`commandName`).
 _Avoid_: Command (a Command is the source of an Order), core message (say Order)
 
 **OUTER**:
