@@ -1,8 +1,6 @@
 # Actor as client architecture
 
-Spec: [[spec.md]]
-
-## 1. Story paths
+## 1. Flow paths (developer-facing paths)
 
 1. **Run an actor function**
 
