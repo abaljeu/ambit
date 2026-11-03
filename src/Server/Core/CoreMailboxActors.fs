@@ -251,7 +251,6 @@ module internal CoreMailboxActors =
                     (CoreMailboxEvents.eventDispatchContext context)
                     caller
                     event
-                    false
             with
             | Error err -> reply.Reply(Error err)
             | Ok (stored, _) ->

@@ -376,7 +376,7 @@ let ``a graphOnly post stores the Change without a document file write`` () =
                 CoreMailboxApi.postMailboxChange
                     host
                     testCaller
-                    true
+                    ChangeOrigin.Parse
                     [ event ]
                 |> Async.StartAsTask
             requireOk "graphOnly" posted |> ignore
@@ -409,3 +409,190 @@ let ``a graphOnly post stores the Change without a document file write`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+[<Fact>]
+let ``dispatch takes the graph-only round from origin Parse`` () =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let state =
+        { graph = Graph.addDetachedNode node (Graph.create ())
+          eventId = EventId.zero }
+    let flags = ResizeArray<bool>()
+    let pushed = ResizeArray<NodeId>()
+    let apply (event: Ev) (skipFile: bool) =
+        flags.Add skipFile
+        Ok(CoreChanges.accepted event.id true [ event ] false)
+    let handlers =
+        { cannedHandlers
+            (fun () -> Ok state)
+            (fun _ -> [])
+            apply with
+            pushPersist = pushed.Add }
+    let context: CoreEventDispatch.Context = {
+        persist = handlers
+        eventLog = ref EventLog.empty
+        restartTip = EventId.zero }
+    let change origin =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body =
+            EventBody.Order(
+                Order.Change(
+                    [ Op.SetText(fileId, "hello", "edited") ],
+                    origin)) }
+    match
+        CoreEventDispatch.postEvent
+            context
+            testCaller
+            (change ChangeOrigin.Parse)
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        Assert.Equal<bool list>([ true ], List.ofSeq flags)
+        Assert.Empty(pushed)
+    match
+        CoreEventDispatch.postEvent
+            context
+            testCaller
+            (change ChangeOrigin.Edit)
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        Assert.Equal<bool list>([ true; false ], List.ofSeq flags)
+
+[<Fact>]
+let ``a placed Parse Change is stored without a document file write`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = admittedHostFile (FileAgent.create dataDir)
+        try
+            let wsId = NodeId.New()
+            let fileId = NodeId.New()
+            let bodyId = NodeId.New()
+            let submissionId = Guid.NewGuid()
+            let ops =
+                [ Op.NewSpecialNode(wsId, Workspace, "home")
+                  Op.Replace(
+                      Graph.workspacesId,
+                      [],
+                      [ ChildNode.owner wsId ])
+                  Op.NewSpecialNode(fileId, File, "readme.txt")
+                  Op.Replace(wsId, [], [ ChildNode.owner fileId ])
+                  Op.NewNode(bodyId, "stored-body")
+                  Op.Replace(fileId, [], [ ChildNode.owner bodyId ]) ]
+            let! reply =
+                MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                    Mailbox.placeForCaller
+                        { orderId = OrderId submissionId
+                          authority = testCaller.authority
+                          commandName = Some "Parse"
+                          order =
+                            Order.Change(ops, ChangeOrigin.Parse) }
+                        testCaller
+                        channel)
+                |> Async.StartAsTask
+            match reply with
+            | Ok _ -> ()
+            | Error err -> Assert.Fail(err)
+            let! state =
+                CoreMailboxApi.getState host |> Async.StartAsTask
+            let state = requireOk "state" state
+            Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
+            match
+                DocumentPersistPath.resolveArtifactPath
+                    dataDir
+                    state.graph
+                    fileId
+            with
+            | Error err -> Assert.Fail(err)
+            | Ok path -> Assert.False(File.Exists path)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let stored =
+                history.events
+                |> List.find (fun item ->
+                    item.submissionId = submissionId)
+            match stored.body with
+            | EventBody.Order (Order.Change (_, ChangeOrigin.Parse)) ->
+                ()
+            | other ->
+                Assert.Fail($"stored origin Parse, got {other}")
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``a graph-only post of a Notice is refused and stores nothing`` () =
+    withHost [] (fun host _ -> task {
+        let submissionId = Guid.NewGuid()
+        let event =
+            { id = EventId.zero
+              submissionId = submissionId
+              authority = Authority "Parse"
+              commandName = ""
+              body =
+                EventBody.Notice(
+                    Notice.ActorStopped(
+                        NodeId.New(),
+                        ActorSucceeded)) }
+        let! result =
+            CoreMailboxApi.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        match result with
+        | Error _ -> ()
+        | Ok _ -> Assert.Fail("expected Error")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored =
+            history.events
+            |> List.filter (fun item ->
+                item.submissionId = submissionId)
+        Assert.Empty(stored)
+    })
+
+[<Fact>]
+let ``a graph-only post with a non-zero EventId is refused`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "nonzero-graph"
+        let dirty = { event with id = EventIdFixtures.storedId 99 }
+        let! result =
+            CoreMailboxApi.postGraphOnly host testCaller dirty
+            |> Async.StartAsTask
+        match result with
+        | Error msg ->
+            Assert.Equal("posted EventId must be zero", msg)
+        | Ok _ ->
+            Assert.Fail("expected posted EventId must be zero")
+    })
+
+[<Fact>]
+let ``postEvents refuses a Change of origin Parse`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "parse-on-edit"
+        let ops = Ev.ops event |> Option.defaultValue []
+        let parseEvent =
+            { event with
+                body =
+                    EventBody.Order(
+                        Order.Change(ops, ChangeOrigin.Parse)) }
+        let! result =
+            CoreMailboxApi.postEvents host testCaller [ parseEvent ]
+            |> Async.StartAsTask
+        match result with
+        | Error _ -> ()
+        | Ok _ -> Assert.Fail("expected Error")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored =
+            history.events
+            |> List.filter (fun item ->
+                item.submissionId = parseEvent.submissionId)
+        Assert.Empty(stored)
+    })

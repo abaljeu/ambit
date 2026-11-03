@@ -37,9 +37,6 @@ module internal CoreMailboxEvents =
 
     let operationContext msg =
         match msg with
-        | PostGraphOnly (_, event, _) ->
-            let n = Ev.ops event |> Option.defaultValue [] |> List.length
-            "PostGraphOnly", $"ops={n}"
         | StartActor _ -> "StartActor", ""
         | StartPeerActor (_, PeerActorName name, _, _) ->
             "StartPeerActor", name
@@ -58,7 +55,6 @@ module internal CoreMailboxEvents =
 
     let replyFailure error msg =
         match msg with
-        | PostGraphOnly (_, _, reply) -> reply.Reply(Error error)
         | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
@@ -109,21 +105,6 @@ module internal CoreMailboxEvents =
         match context.persist.getState () with
         | Ok state -> state.graph
         | Error _ -> Graph.create ()
-    let dispatchPostGraphOnly
-        (context: MailboxContext)
-        (caller: Caller)
-        (event: Ev)
-        (reply: AsyncReplyChannel<Result<EventId, string>>)
-        : unit =
-        match
-            CoreEventDispatch.postEvent
-                (eventDispatchContext context)
-                caller
-                event
-                true
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok (stored, _) -> reply.Reply(Ok stored.id)
 
     type PostedReply =
         AsyncReplyChannel<Result<EventId, string>>

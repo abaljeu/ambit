@@ -272,11 +272,11 @@ module internal CoreEventDispatch =
                     List.iter context.persist.pushPersist ids)
         | _ -> Ok ()
 
-    let private persist (context: Context) (completed: Ev) (graphOnly: bool) =
+    let private persist (context: Context) (completed: Ev) (skipFile: bool) =
         match Ev.ops completed with
         | None -> Ok None
         | Some _ ->
-            context.persist.applyEvent completed graphOnly
+            context.persist.applyEvent completed skipFile
             |> Result.map Some
 
     let private store context accepted completed =
@@ -290,11 +290,11 @@ module internal CoreEventDispatch =
     /// path: logNotice, then the axis write.
     let private markAcceptedSpecials
         (context: Context)
-        (graphOnly: bool)
+        (skipFile: bool)
         (completed: Ev)
         (accepted: CoreChangesAccepted option)
         =
-        if graphOnly then
+        if skipFile then
             Ok ()
         else
             match accepted with
@@ -302,23 +302,17 @@ module internal CoreEventDispatch =
             | Some result ->
                 pushChangeSpecials context completed result
 
-    let private withParseOrigin (graphOnly: bool) (event: Ev) =
-        if not graphOnly then
-            event
-        else
-            match event.body with
-            | EventBody.Order (Order.Change (ops, _)) ->
-                { event with
-                    body =
-                        EventBody.Order(
-                            Order.Change(ops, ChangeOrigin.Parse)) }
-            | _ -> event
+    /// Origin Parse skips the document file write. The stored origin stays.
+    let private skipsFileWrite (event: Ev) =
+        match event.body with
+        | EventBody.Order (Order.Change (_, ChangeOrigin.Parse)) ->
+            true
+        | _ -> false
 
     let private persistNew
         (context: Context)
         (caller: Caller)
         (event: Ev)
-        (graphOnly: bool)
         =
         if event.id <> EventId.zero then
             Error "posted EventId must be zero"
@@ -327,23 +321,22 @@ module internal CoreEventDispatch =
             match prepare context caller event with
             | Error error -> Error error
             | Ok completed ->
-                let completed = withParseOrigin graphOnly completed
-                match persist context completed graphOnly with
+                let skip = skipsFileWrite completed
+                match persist context completed skip with
                 | Error error -> Error error
                 | Ok accepted ->
                     match store context accepted completed with
                     | Error error -> Error error
                     | Ok stored ->
                         markAcceptedSpecials
-                            context graphOnly completed accepted
+                            context skip completed accepted
                         |> Result.map (fun () -> stored, accepted)
 
     let postEvent
         (context: Context)
         (caller: Caller)
         (event: Ev)
-        (graphOnly: bool)
         : Result<Ev * CoreChangesAccepted option, string> =
         match tryStored context event.submissionId with
         | Some existing -> Ok(existing, None)
-        | None -> persistNew context caller event graphOnly
+        | None -> persistNew context caller event

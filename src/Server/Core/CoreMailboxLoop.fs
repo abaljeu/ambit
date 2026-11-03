@@ -12,8 +12,6 @@ module internal CoreMailboxLoop =
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
-        | PostGraphOnly (caller, event, reply) ->
-            CoreMailboxEvents.dispatchPostGraphOnly context caller event reply
         | StartActor (caller, request, reply) ->
             CoreMailboxActors.dispatchStartActor context caller request reply
         | StartPeerActor (caller, peerName, request, reply) ->
@@ -66,7 +64,6 @@ module internal CoreMailboxLoop =
 
     let private messageCaller (msg: CoreMsg) =
         match msg with
-        | PostGraphOnly (caller, _, _)
         | StartActor (caller, _, _)
         | StartPeerActor (caller, _, _, _)
         | StartLoadSaveCommand (caller, _, _, _, _)
@@ -159,7 +156,6 @@ module internal CoreMailboxLoop =
                 (CoreMailboxEvents.eventDispatchContext context)
                 caller
                 event
-                false
         with
         | Error err -> reply.Reply(Error err)
         | Ok (stored, _) -> reply.Reply(Ok stored.id)
@@ -197,10 +193,10 @@ module internal CoreMailboxLoop =
                 context placed caller reply subject
         | Order.Change (ops, ChangeOrigin.Edit) ->
             replyEdit context placed caller reply ops
+        | Order.Change (_, ChangeOrigin.Parse)
         | Order.Undo _
         | Order.Redo _ ->
             replyPlaced context placed caller reply
-        | Order.Change (_, ChangeOrigin.Parse)
         | Order.StartActor _
         | Order.StartPeerActor _
         | Order.LoadSave _
