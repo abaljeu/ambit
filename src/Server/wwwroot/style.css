@@ -207,9 +207,7 @@ body {
 .amb-row-sync-synced .amb-file-indicator {
     color: #668866;
 }
-.amb-row-artifact-absent .amb-text {
-    color: #aa2222;
-}
+
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
@@ -264,9 +262,6 @@ body {
 }
 .amb-row-ref .amb-fold-toggle {
     color: #44f;
-}
-.amb-row-absent .amb-fold-toggle {
-    color: #444444;
 }
 .amb-node-guid {
     flex-shrink: 0;
@@ -338,7 +333,7 @@ body {
     color: #530;
 }
 .amb-db-status.amb-db-absent {
-    background: #ddd;
+    background: #444;
     color: #444;
 }
 
