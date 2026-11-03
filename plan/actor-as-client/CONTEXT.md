@@ -5,6 +5,7 @@ This folder is the Project [Actor as client](project.md).
 ## Sequence
 
 - map: [Map](map.md)
+- arch: [Arch](arch.md)
 - tickets: [[plan/context/ticket-work2.md]]
 
 ## Decisions 2026-11-03
