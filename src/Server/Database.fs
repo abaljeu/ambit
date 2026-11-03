@@ -594,5 +594,6 @@ module Database =
         | Notice.NodeParsing _
         | Notice.NodePersisting _
         | Notice.PersistFailed _
-        | Notice.ParseFailed _ ->
+        | Notice.ParseFailed _
+        | Notice.ActorStopped _ ->
             task { return () }

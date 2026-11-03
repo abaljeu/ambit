@@ -75,7 +75,15 @@ let private runMixedHello host secret childText = task {
 }
 
 let private mixedIds (history: EventLog) =
-    match changesOnly history.events with
+    let kept =
+        history.events
+        |> List.filter (fun event ->
+            match event.body with
+            | EventBody.ActorStop _
+            | EventBody.Change _
+            | EventBody.ActorStart _ -> true
+            | _ -> false)
+    match kept with
     | stop :: change :: start :: [] ->
         match stop.body, change.body, start.body with
         | EventBody.ActorStop _, EventBody.Change _, EventBody.ActorStart _ ->

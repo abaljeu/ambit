@@ -107,7 +107,7 @@ let ``ActorStop failed without message decodes as empty`` () =
               "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
               "\"authority\":\"Browser\","
               "\"commandName\":\"\","
-              "\"body\":{\"kind\":\"actorStop\",\"focusId\":\""
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"actorStopped\",\"focusId\":\""
               focusId.Value.ToString()
               "\",\"result\":\"failed\"}}" ]
     match Dec.fromString EventJson.decode legacy with
@@ -210,6 +210,22 @@ let ``An old actorStart or cancel row is skipped on read`` () =
             failwith $"expected Error, got {decoded}")
 
 [<Fact>]
+let ``An old actorStop row is skipped on read`` () =
+    let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    let legacy =
+        "{\"eventId\":3,"
+        + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+        + "\"authority\":\"Browser\","
+        + "\"commandName\":\"\","
+        + "\"body\":{\"kind\":\"actorStop\",\"focusId\":\""
+        + focusId
+        + "\",\"result\":\"succeeded\"}}"
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
 let ``An old nodeStamped row is skipped on read`` () =
     let legacy =
         String.concat
@@ -239,7 +255,8 @@ let ``Notice JSON round trip`` () =
           Notice.NodePersisting nodeId
           Notice.NodeUnpersisted nodeId
           Notice.PersistFailed(nodeId, "disk full")
-          Notice.ParseFailed(nodeId, "parse failed") ]
+          Notice.ParseFailed(nodeId, "parse failed")
+          Notice.ActorStopped(nodeId, ActorSucceeded) ]
     notices
     |> List.iter (fun notice ->
         let event =

@@ -93,7 +93,8 @@ module EventLog =
         | Notice.NodeParsed _
         | Notice.NodeUnparsed _
         | Notice.NodeReceived _
-        | Notice.NodeUploading _ -> true
+        | Notice.NodeUploading _
+        | Notice.ActorStopped _ -> true
         | Notice.ParseFailed _ -> false
 
     /// Replay of Parse writes the owning special at the Event id.

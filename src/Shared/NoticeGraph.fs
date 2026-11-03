@@ -90,7 +90,8 @@ module NoticeGraph =
         | Notice.NodeParsing _
         | Notice.ParseFailed _
         | Notice.NodePersisting _
-        | Notice.PersistFailed _ ->
+        | Notice.PersistFailed _
+        | Notice.ActorStopped _ ->
             Ok graph
         | Notice.NodeUnpersisted nodeId ->
             writeUnpersisted nodeId graph
