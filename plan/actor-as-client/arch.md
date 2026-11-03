@@ -52,6 +52,16 @@ type ActorOrder =
       commandName: string }
 ```
 
+[ ] `LoggedActorOrder` is the logged form of `ActorOrder`.
+
+```fsharp
+type LoggedActorOrder =
+    { focusId: NodeId
+      commandName: string }
+```
+
+[o] `Order.RunActor of commandName: string * focusId: NodeId`
+
 [o] `ActorFn`
 
 ```fsharp
@@ -107,6 +117,20 @@ putFunctionStart : (Credential -> NodeId -> NodeId -> string -> PendingBody -> u
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
 ```
 
+### ActorDispatch
+
+[ ] `actorForCommand` locates the actor function from the command name.
+
+```fsharp
+actorForCommand : string -> FunctionActor option
+```
+
+[ ] `stubActor` is the actor function on an order read from the log.
+
+```fsharp
+stubActor : FunctionActor
+```
+
 ### MailboxHost
 
 [ ] `postActorOrder` puts one `ActorOrder` on the mailbox queue.
@@ -149,6 +173,7 @@ startChosen : MailboxContext -> ActorStart -> (unit -> Graph) -> Result<Credenti
 [ ] The mailbox pull runs the actor function on the .NET thread pool.
 
 ```fsharp
+actorForCommand commandName
 ActorOrder actor getGraph focusId commandName
 postActorOrder order
 Async.Start (actor { getGraph = getGraph; secret = secret } coreChanges)
@@ -176,10 +201,20 @@ finishReadyStart context caller request secret make submissionId
 schedule secret coreChanges
 ```
 
+4. **Read a logged order**
+
+[ ] `actor` is `stubActor`.
+
+```fsharp
+LoggedActorOrder focusId commandName
+stubActor
+```
+
 ## 5. Module map
 
 [x] SearchActor is the module in `src/Server/SearchActor.fs`. `functionStart` builds the query closure.
 [x] RunAgentActor is the module in `src/Server/RunAgentActor.fs`. `actorFn` builds the closure that holds `GrokBotBinding`.
+[ ] ActorDispatch is the module in `src/Server/ActorDispatch.fs`.
 [x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
 [x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
 [x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
@@ -190,6 +225,4 @@ schedule secret coreChanges
 
 ## 7. Open questions
 
-open — `Order.RunActor of commandName: string * focusId: NodeId` is the logged case. `ActorOrder` is the queue order and holds the actor function. Alan has questioned `Order.RunActor`.
-
-open — `src/Server/ActorDispatch.fs` maps a command name to the actor function that `ActorOrder` holds. Alan has questioned that map.
+open — Whether a replay runs `stubActor` is open.

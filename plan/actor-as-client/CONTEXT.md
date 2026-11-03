@@ -16,17 +16,19 @@ This folder is the Project [Actor as client](project.md).
 [x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
-[ ] `Order.RunActor` stores the command name and the FocusId.
+[o] `Order.RunActor` stores the command name and the FocusId.
+[x] `commandName` locates the actor function and is the log. `stubActor` is the actor function on an order read from the log. Alan, 2026-11-03.
 [o] A new `CoreMsg` case is the start path.
 [x] `ActorOrder` includes the actor function. `postActorOrder` puts that order on the mailbox queue. Alan, 2026-11-03.
 [x] The pool mints the Actor session id.
 [ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
-[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
+[x] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`.
+[ ] The pool name tables leave.
 [ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
 [x] An Actor is a thread from the .NET thread pool. It runs an actor function.
 [o] An Actor is the actor function.
 [ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
-[ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
+[o] Cutover: add `Order.RunActor` beside the old orders.
 [ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `CoreMsg.StartLoadSaveCommand`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
 [o] `Order.StartActor` is a logged start.
 [o] `Order.LoadSave` is the git Load and Save log.
