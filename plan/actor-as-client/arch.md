@@ -38,7 +38,7 @@ type ActorChanges =
 ```
 
 [x] `FunctionStart`
-[ ] 00 — Rename commandId to actorNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`. The wire key stays `"commandId"`.
+[ ] 17 — Rename commandId to actorNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`. The wire key stays `"commandId"`. It runs before 06 — Log ActorOrder.
 
 ```fsharp
 type FunctionStart =

@@ -1,8 +1,8 @@
-# 00 — Rename commandId to actorNodeId
+# 17 — Rename commandId to actorNodeId
 **Status**: defined
 One job: The actor node's id is `actorNodeId`. Editor commands keep the name `CommandId`.
 
-[ ] This ticket is before 06 — Log ActorOrder. It does not add `ActorOrder`.
+[ ] This ticket runs before 06 — Log ActorOrder. 06 depends on it. It does not add `ActorOrder`.
 [ ] The source files are 8. The test files are 30. The size limit is 8 source files and 4 test files. The rename does not compile in slices, so this stays one ticket. The test count is over the limit.
 [ ] `commandOnOwnerPath` becomes `actorNodeOnOwnerPath`. The private binding `noRunnableCommand` becomes `noRunnableActor`. Both edits stay in `CommandRequest.fs` and `CommandRequestTests.fs`, which are already in this ticket.
 [ ] The Run error string stays `No command found`. `isCommandText` keeps its name.
@@ -92,7 +92,7 @@ Blockers:
 
 ## Stop when
 
-[ ] Record the stop at `plan/actor-as-client/reports/00-rename-command-node-id-stop.md`, then ask.
+[ ] Record the stop at `plan/actor-as-client/reports/17-rename-command-node-id-stop.md`, then ask.
 [ ] Stop when the wire key `"commandId"` changes.
 [ ] Stop when `CommandId` or `GrokBotWakeArgs.CommandId` is renamed.
 [ ] Stop when a file outside Outputs must change.
@@ -102,5 +102,5 @@ Blockers:
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test file in Outputs.
 [ ] All executed tests pass.
-[ ] Write the verdict to `plan/actor-as-client/reports/00-rename-command-node-id-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] Write the verdict to `plan/actor-as-client/reports/17-rename-command-node-id-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.

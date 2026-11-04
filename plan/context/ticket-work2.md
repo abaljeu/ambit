@@ -7,4 +7,6 @@ Make the ticket folder `issues/<nn>-<name>/`, for example `issues/01-accept-noti
 
 The handback is the ticket folder.
 
+Tickets are numbered in order of creation, never to show sequence. No ticket is ever numbered 0. The next ticket is always N+1, where N is the highest existing ticket number in that Project. Run order comes from each ticket's dependency or ordering note, not from its number.
+
 Follow the shared rules in [[plan/context/ticket-rules.md]].

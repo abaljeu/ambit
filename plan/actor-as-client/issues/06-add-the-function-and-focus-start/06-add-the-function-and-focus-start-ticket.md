@@ -13,7 +13,7 @@ Type:
 
 Blockers:
 
-[ ] [00 — Rename commandId to actorNodeId](../00-rename-command-node-id/00-rename-command-node-id-ticket.md)
+[ ] [17 — Rename commandId to actorNodeId](../17-rename-command-node-id/17-rename-command-node-id-ticket.md). It runs before this ticket.
 [ ] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
 
 ## Inputs
