@@ -335,7 +335,7 @@ module EventJson =
                   "request",
                   encodeLoadSaveCommandRequest request ]
         | Order.Load nodeId -> encodeLoad nodeId
-        | Order.Cancel focusId -> encodeCancel focusId
+        | Order.CancelActor focusId -> encodeCancel focusId
 
     let private decodeOrderChange: Decoder<Order> =
         Decode.object (fun get ->
@@ -384,7 +384,7 @@ module EventJson =
 
     let private decodeOrderCancel: Decoder<Order> =
         Decode.object (fun get ->
-            Order.Cancel(
+            Order.CancelActor(
                 get.Required.Field
                     "focusId"
                     Serialization.decodeNodeId))

@@ -139,7 +139,7 @@ module internal CoreMailboxActors =
         | _ ->
             reply.Reply(Error CoreAuth.refuse)
 
-    let private runCancel
+    let runCancel
         (context: MailboxContext)
         (caller: Caller)
         (focusId: NodeId)
@@ -160,16 +160,6 @@ module internal CoreMailboxActors =
                 match context.pool.finish secret ActorCancelled with
                 | Error err -> Error err
                 | Ok () -> Ok(Some stored)
-
-    let dispatchCancelActor
-        (context: MailboxContext)
-        (caller: Caller)
-        (focusId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        =
-        match runCancel context caller focusId (Guid.NewGuid()) with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok ())
 
     let private failedMessage error =
         match error with

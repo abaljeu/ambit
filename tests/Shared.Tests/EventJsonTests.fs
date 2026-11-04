@@ -389,7 +389,7 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           Order.LoadSave(LoadSavePath.Git, peerName, request)
           Order.LoadSave(LoadSavePath.Desk, peerName, request)
           Order.Load nodeId
-          Order.Cancel focusId ]
+          Order.CancelActor focusId ]
     orders
     |> List.iter (fun order ->
         let event =

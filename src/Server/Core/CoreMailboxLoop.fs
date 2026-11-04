@@ -30,8 +30,6 @@ module internal CoreMailboxLoop =
                     dispatch caller rootId ActorSucceeded)
         | ActorStop (caller, result, reply) ->
             CoreMailboxActors.dispatchActorStop context caller result reply
-        | CancelActor (caller, focusId, reply) ->
-            CoreMailboxActors.dispatchCancelActor context caller focusId reply
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
 
@@ -70,7 +68,6 @@ module internal CoreMailboxLoop =
         | RecordSearchStart (caller, _, _)
         | RecordSearchStop (caller, _, _)
         | ActorStop (caller, _, _)
-        | CancelActor (caller, _, _)
         | PostEvent (caller, _, _) -> caller
 
     let private rejectDropped (msg: CoreMsg) =
@@ -181,6 +178,24 @@ module internal CoreMailboxLoop =
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
+    /// Every Cancel reply is the draft EventId.
+    let private replyCancel
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (focusId: NodeId)
+        =
+        match
+            CoreMailboxActors.runCancel
+                context
+                caller
+                focusId
+                placed.orderId.Value
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok _ -> reply.Reply(Ok EventId.zero)
+
     let private placeOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -197,10 +212,11 @@ module internal CoreMailboxLoop =
         | Order.Undo _
         | Order.Redo _ ->
             replyPlaced context placed caller reply
+        | Order.CancelActor focusId ->
+            replyCancel context placed caller reply focusId
         | Order.StartActor _
         | Order.StartPeerActor _
-        | Order.LoadSave _
-        | Order.Cancel _ -> replyUnsupported reply
+        | Order.LoadSave _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with

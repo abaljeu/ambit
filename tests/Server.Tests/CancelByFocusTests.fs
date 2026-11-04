@@ -22,6 +22,14 @@ let private actorCaller secret : Caller =
       name = ""
       secret = secret }
 
+let private cancelledStops (log: EventLog) focusId =
+    log.events
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Notice (Notice.ActorStopped (fid, ActorCancelled))
+            when fid = focusId -> true
+        | _ -> false)
+
 [<Collection("Agent ask runner")>]
 type CancelByFocusTests() =
 
@@ -150,4 +158,96 @@ type CancelByFocusTests() =
                 Assert.Equal(0, rootStops)
                 let! stops = actorStopCount host request.focusId
                 Assert.Equal(1, stops)
+            }))
+
+    [<Fact>]
+    member _.``cancelByFocus places Order.CancelActor`` () =
+        let hangStarted, hang = hangUntilCancel ()
+        withFake hang (fun () ->
+            withHost (fun host pool -> task {
+                let! request = startLiveAsk host pool "?ai"
+                do! awaitHang hangStarted
+                let! cancelled =
+                    CoreMailboxApi.cancelByFocus
+                        host testCaller request.focusId
+                    |> Async.StartAsTask
+                match cancelled with
+                | Ok () -> ()
+                | Error err -> Assert.Fail(err)
+                Assert.False(
+                    Set.contains
+                        request.focusId
+                        (pool.liveFocusIds ()))
+                let! history =
+                    CoreMailboxApi.eventHistory host
+                    |> Async.StartAsTask
+                Assert.NotEmpty(
+                    cancelledStops history request.focusId)
+            }))
+
+    [<Fact>]
+    member _.``second Cancel for the same run logs no stop`` () =
+        let hangStarted, hang = hangUntilCancel ()
+        withFake hang (fun () ->
+            withHost (fun host pool -> task {
+                let! request = startLiveAsk host pool "?ai"
+                do! awaitHang hangStarted
+                do! cancelFocus host request.focusId
+                let! before =
+                    CoreMailboxApi.eventHistory host
+                    |> Async.StartAsTask
+                let firstStops =
+                    cancelledStops before request.focusId
+                Assert.NotEmpty(firstStops)
+                let! second =
+                    CoreMailboxApi.cancelByFocus
+                        host testCaller request.focusId
+                    |> Async.StartAsTask
+                match second with
+                | Ok () -> ()
+                | Error err -> Assert.Fail(err)
+                let! after =
+                    CoreMailboxApi.eventHistory host
+                    |> Async.StartAsTask
+                Assert.Equal<Ev list>(
+                    firstStops,
+                    cancelledStops after request.focusId)
+            }))
+
+    [<Fact>]
+    member _.``second Cancel on the same focus replies the same`` () =
+        let hangStarted, hang = hangUntilCancel ()
+        withFake hang (fun () ->
+            withHost (fun host pool -> task {
+                let! request = startLiveAsk host pool "?ai"
+                do! awaitHang hangStarted
+                let place focusId =
+                    MailboxHost.postMailboxAndAsyncReply host
+                        (fun channel ->
+                            Mailbox.placeForCaller
+                                { orderId = OrderId.New()
+                                  authority = testCaller.authority
+                                  commandName = None
+                                  order = Order.CancelActor focusId }
+                                testCaller
+                                channel)
+                    |> Async.StartAsTask
+                let! first = place request.focusId
+                let! before =
+                    CoreMailboxApi.eventHistory host
+                    |> Async.StartAsTask
+                Assert.NotEmpty(
+                    cancelledStops before request.focusId)
+                let! second = place request.focusId
+                Assert.Equal(first, second)
+                let! idle = place (NodeId.New())
+                Assert.Equal(first, idle)
+                Assert.False(
+                    Set.contains
+                        request.focusId
+                        (pool.liveFocusIds ()))
+                let! after =
+                    CoreMailboxApi.eventHistory host
+                    |> Async.StartAsTask
+                Assert.Equal<Ev list>(before.events, after.events)
             }))
