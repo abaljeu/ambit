@@ -1,11 +1,10 @@
-# 09 — Dispatch the query command
+# 09 — Start the query command
 **Status**: defined
-One job: The dispatcher maps a query Run to the query actor function, and that call is `startFunction`. Find and Move `recordSearchStart` logs `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`.
+One job: `postSearchRequest` builds the query `FunctionActor` and puts `Order.ActorOrder` on the mailbox queue. This ticket deletes `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`.
 
-[ ] `startFunction` is the pool start. This ticket keeps it.
-[ ] Alan, 2026-11-03: the search-start log is `Order.RunActor`. This ticket deletes `CoreMsg.RecordSearchStart`.
-[ ] This ticket deletes `CoreEventDispatch.actorStart` along with the `RecordSearchStart` arm. `actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. That arm is its only caller.
-[ ] The source files are 8. The test files are 3. The size limit is 8 source files and 4 test files.
+[ ] `startFunction` stays. The query start on `startChosen` leaves.
+[ ] Find and Move stays on `recordSearchStart`. That call logs `Order.ActorOrder` and does not run the actor.
+[ ] The source files are 7. The test files are 3. The size limit is 8 source files and 4 test files.
 
 Type:
 
@@ -13,60 +12,45 @@ Type:
 
 Blockers:
 
-[ ] [07 — Dispatch the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
+[ ] [07 — Start the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
 
 ## Inputs
 
 ### Working
 
-[ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is `src/Server/Core/CoreMailboxActors.fs` lines 82-94.
-[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`. It is `src/Server/SearchActor.fs` lines 71-90.
+[ ] `postSearchRequest` is in `src/Server/RouteRegistration.fs`. It calls `Api.postSearch`.
+[ ] `searchDoor` calls `CoreMailboxApi.recordSearchStart`.
+[ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is in `src/Server/Core/CoreMailboxActors.fs`.
+[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`. It is in `src/Server/SearchActor.fs`.
 [x] The actor function's input is `FunctionRun` and `CoreChangesDoor`.
-[o] The query start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` lines 308-314 posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
-[ ] `CoreMailboxLoop.runMsg` lines 25-27 call `CoreEventDispatch.actorStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActor`. `actorStart` is `src/Server/Core/CoreEventDispatch.fs` lines 72-77. That `runMsg` arm is its only caller.
-[ ] `CoreMailboxLoop.messageCaller` matches `RecordSearchStart` at line 73.
-[ ] `CoreMailboxEvents.operationContext` matches `RecordSearchStart` at line 48.
-[ ] `CoreMailboxEvents.replyFailure` matches `RecordSearchStart` at lines 66-67.
-[ ] `CoreMsg.RecordSearchStart` is `src/Server/Core/CoreMsg.fs` lines 26-29. The comment on line 25 names that case.
-[ ] `RouteRegistration.searchDoor` calls `recordSearchStart` at `src/Server/RouteRegistration.fs` line 229.
-[ ] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart` at line 234.
-[ ] `src/Server/SearchActor.fs` is 90 lines.
-[ ] `src/Server/Core/CoreMailboxActors.fs` is 258 lines.
-[ ] `src/Server/Core/CoreMailboxApi.fs` is 400 lines.
-[ ] `src/Server/Core/CoreMsg.fs` is 116 lines.
-[ ] `src/Server/Core/CoreMailboxLoop.fs` is 464 lines.
-[ ] `src/Server/Core/CoreMailboxEvents.fs` is 138 lines.
-[ ] `src/Server/Core/CoreEventDispatch.fs` is 349 lines.
-[ ] `src/Server/ActorDispatch.fs` is absent on staging. This ticket adds it.
-[ ] `tests/Server.Tests/QueryActorTests.fs` is 333 lines.
-[ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` is 152 lines.
-[ ] `tests/Server.Tests/SearchActorTests.fs` is 288 lines.
-[ ] `RouteRegistration.searchDoor` and `SearchActorTests` call `recordSearchStart`. They build no `CoreMsg` case. Deleting the case here leaves those callers on the function. 15 — Delete the old Actor starts leaves this case to this ticket.
+[ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
+[ ] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActor`. That `runMsg` arm is its only caller.
+[ ] `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure` match `RecordSearchStart`.
+[ ] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart`.
 
 ### Reference
 
-[ ] [Actor as client](../../project.md).
+[ ] [Arch](../../arch.md). `postSearchRequest` is the query handler.
 
 ## Do not load
 
 [ ] `RunAgentActor.fs`.
 [ ] `SearchActor.actorStart`. That function builds an `ActorStart`. It is not `CoreEventDispatch.actorStart`.
-[ ] `RouteRegistration.fs`. The call to `recordSearchStart` stays.
+[ ] `src/Server/ActorDispatch.fs`. Do not add it.
+[ ] A new `CoreMsg` case. Remote starts stay out of scope.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] The dispatcher builds the query actor function. The closure holds anything beyond `FunctionRun` and `CoreChangesDoor`, including the command node.
-3. [ ] `startChosen` calls `pool.startFunction` for a query Run. The log line is `Order.RunActor`.
-4. [ ] `recordSearchStart` places `Order.RunActor` of the command name and the FocusId. Find and Move stays on `recordSearchStart`. The query Run is the path that calls `startFunction`.
-5. [ ] Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
-6. [ ] The search-start log is `Order.RunActor`. The `Order` cases in `src/Shared/History.fs` stay as they are.
+2. [ ] Change: `postSearchRequest` builds `ActorOrder` from the query `FunctionActor`, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+3. [ ] Contract: `startChosen` no longer starts a query. Other names still call `startActor`.
+4. [ ] Change: `recordSearchStart` logs `Order.ActorOrder` and does not run the actor. Find and Move stays on `recordSearchStart`.
+5. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
+6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not add an `Order` case.
 
 ## Outputs
 
-[ ] `src/Server/ActorDispatch.fs`
-[ ] `src/Server/SearchActor.fs`
+[ ] `src/Server/RouteRegistration.fs`
 [ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/Core/CoreMailboxApi.fs`
 [ ] `src/Server/Core/CoreMsg.fs`
@@ -75,13 +59,13 @@ Blockers:
 [ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
 [ ] `tests/Server.Tests/QueryActorTests.fs` — the existing query start tests
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — keep the `startFunction` tests green
-[ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move logs `Order.RunActor`
+[ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move logs `Order.ActorOrder`
 
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/09-dispatch-the-query-command-stop.md`, then ask.
 [ ] Stop when this ticket writes `Order.StartActor`.
-[ ] Stop when this ticket adds an `Order` case.
+[ ] Stop when logging `Order.ActorOrder` from `recordSearchStart` needs a door other than the log.
 [ ] Stop when a constructor of `CoreMsg.RecordSearchStart` sits outside `CoreMailboxApi.recordSearchStart`.
 [ ] Stop when a test file outside Outputs must change.
 

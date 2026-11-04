@@ -1,6 +1,6 @@
 # 11 — Move door and case tests
 **Status**: defined
-One job: The mailbox door tests and the actor-case tests start an Actor with `startFunction`.
+One job: The mailbox door tests and the actor-case tests start an Actor with `startFunction` or with `postActorOrder`.
 
 [ ] This batch is four test files. The caller move is larger than the size limit, so the Server test files are split across 11, 12, 13, and 14.
 
@@ -10,7 +10,7 @@ Type:
 
 Blockers:
 
-[ ] [07 — Dispatch the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
+[ ] [07 — Start the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
 
 ## Inputs
 
@@ -23,19 +23,20 @@ Blockers:
 
 ### Reference
 
-[ ] [Actor as client](../../project.md).
+[ ] [Arch](../../arch.md).
 [ ] [Size limit](../../context/size-limit.md).
 
 ## Do not load
 
 [ ] Production `startActor` callers. Tickets 07 through 10 own those.
 [ ] The other batches are 12 — Move pool and issue tests, 13 — Move persist and command tests, and 14 — Move runtime and session tests.
+[ ] `src/Server/ActorDispatch.fs`. Do not add it.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a started Actor uses `startFunction`. The actor function's input is `FunctionRun` and `CoreChangesDoor`.
-3. [ ] A test that only needs the name `test` goes through the dispatcher.
+2. [ ] Change: A started Actor uses `startFunction`, or `postActorOrder` of an `ActorOrder` whose `actor` is that command's `FunctionActor`. The input is `FunctionRun` and `CoreChangesDoor`.
+3. [ ] A test that starts the test command uses `TestActor.functionActor`.
 4. [ ] Leave `startPeerActor` and `registerPeer` to the batch that owns that file.
 
 ## Outputs
@@ -49,7 +50,7 @@ Blockers:
 
 [ ] Record the stop at `plan/actor-as-client/reports/11-move-door-and-case-tests-stop.md`, then ask.
 [ ] Stop when a fifth test file must change.
-[ ] Stop when a production file outside the dispatcher must change.
+[ ] Stop when a production file must change.
 
 ## Check
 

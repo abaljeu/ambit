@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 06 — Log Order.RunActor.
+This folder is ticket 06 — Log ActorOrder.
 
 ## Sequence
 
