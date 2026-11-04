@@ -28,7 +28,7 @@ Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Act
 
 [x] The client's posted Cancel path: `messageForPosted`, `dispatchPostEvent` and `postCancel`. That is [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md).
 [x] `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave`, `Order.RunActor` and the pool start. Those belong to the Actor start cutover, 06–15.
-[x] `tests/Server.Tests/AskCancelHarness.fs`. Cutover ticket 11 edits it.
+[x] `tests/Server.Tests/AskCancelHarness.fs`. Cutover ticket [11 — Move door and case tests](../../actor-as-client/issues/11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md) edits it.
 [x] `src/Shared/ResidentProjection.fs`, `src/Shared/ViewModelDomPlan.fs`, `tests/Shared.Tests/WantTests.fs`, `tests/Shared.Tests/ViewModelTests.fs` and `tests/Shared.Tests/SyncLogicTests.fs`. Another ticket is changing them.
 
 ## Process
