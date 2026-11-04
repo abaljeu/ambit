@@ -17,12 +17,14 @@ This folder is the Project [Actor as client](project.md).
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
 [o] `Order.RunActor` stores the command name and the FocusId.
-[x] `commandName` locates the actor function and is the log. `stubActor` is the actor function on an order read from the log. Alan, 2026-11-03.
+[o] `commandName` locates the actor function. Alan, 2026-11-03.
+[x] Each command endpoint constructs its own `FunctionActor`. `commandName` stays on `ActorOrder` and is logged as-is. Nothing on the wire resolves the actor function from `commandName`. Alan, 2026-11-03.
+[x] Every Order member is logged as-is. `stubActor` is the actor function when `ActorOrder` is read from the wire. Alan, 2026-11-03.
 [o] A new `CoreMsg` case is the start path.
 [x] `ActorOrder` includes the actor function. `postActorOrder` puts that order on the mailbox queue. Alan, 2026-11-03.
 [x] The pool mints the Actor session id.
-[ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
-[x] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`.
+[ ] The LLM HTTP session is in the AI Actor closure. The AI handler builds that closure.
+[o] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`.
 [ ] The pool name tables leave.
 [ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
 [x] An Actor is a thread from the .NET thread pool. It runs an actor function.

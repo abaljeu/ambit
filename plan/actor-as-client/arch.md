@@ -6,7 +6,7 @@ Marks: [x] exists today. [ ] required. [o] obsolescent.
 
 ## 1. Bounds
 
-In scope: one function start for all Actor starts, the function in memory, and the log holds the command name and the FocusId.
+In scope: one function start for all Actor starts, the function in memory, and the log stores each Order member as-is.
 
 Out of scope: remote starts and per-run endpoints.
 
@@ -52,12 +52,10 @@ type ActorOrder =
       commandName: string }
 ```
 
-[ ] `LoggedActorOrder` is the logged form of `ActorOrder`.
+[ ] `Order.ActorOrder` carries `ActorOrder`. The log stores that member as-is.
 
 ```fsharp
-type LoggedActorOrder =
-    { focusId: NodeId
-      commandName: string }
+| ActorOrder of ActorOrder
 ```
 
 [o] `Order.RunActor of commandName: string * focusId: NodeId`
@@ -86,7 +84,7 @@ functionStart : ActorStart -> GraphCarrier -> FunctionStart
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> ActorFn
 ```
 
-[ ] `actorFn` returns `FunctionActor`. The closure holds `GrokBotBinding`.
+[ ] `actorFn` returns `FunctionActor`. The closure holds `GrokBotBinding`. The AI handler builds `ActorOrder` and calls `postActorOrder`.
 
 ```fsharp
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> FunctionActor
@@ -117,18 +115,48 @@ putFunctionStart : (Credential -> NodeId -> NodeId -> string -> PendingBody -> u
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
 ```
 
-### ActorDispatch
+### TestActor
 
-[ ] `actorForCommand` locates the actor function from the command name.
+[ ] `functionActor` is the test command `FunctionActor`. Its handler builds `ActorOrder` and calls `postActorOrder`.
 
 ```fsharp
-actorForCommand : string -> FunctionActor option
+functionActor : FunctionActor
 ```
 
-[ ] `stubActor` is the actor function on an order read from the log.
+### Api
+
+[ ] `postLoadSaveCommand` constructs the git Load or Save `FunctionActor`, builds `ActorOrder`, and calls `postActorOrder`.
+
+```fsharp
+postLoadSaveCommand : LoadSaveCommandRouter -> CoreChangesDoor -> string -> Async<IResult>
+```
+
+### RouteRegistration
+
+[ ] `postSearchRequest` constructs the query `FunctionActor`, builds `ActorOrder`, and calls `postActorOrder`.
+
+```fsharp
+postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
+```
+
+### EventJson
+
+[ ] `stubActor` is the actor function when `ActorOrder` is read from the wire.
 
 ```fsharp
 stubActor : FunctionActor
+```
+
+[ ] `encodeActorOrder` writes `ActorOrder` on the wire. The actor function stays off the wire.
+
+```fsharp
+encodeActorOrder : ActorOrder -> IEncodable
+```
+
+[ ] `decodeActorOrder` reads that wire form. `actor` is `stubActor`.
+
+```fsharp
+decodeActorOrder : string -> Result<ActorOrder, string>
 ```
 
 ### MailboxHost
@@ -170,10 +198,10 @@ startChosen : MailboxContext -> ActorStart -> (unit -> Graph) -> Result<Credenti
 
 1. **Run an actor function**
 
-[ ] The mailbox pull runs the actor function on the .NET thread pool.
+[ ] `postSearchRequest` builds `ActorOrder` and calls `postActorOrder`. The mailbox pull runs that actor function on the .NET thread pool.
 
 ```fsharp
-actorForCommand commandName
+postSearchRequest persistence req
 ActorOrder actor getGraph focusId commandName
 postActorOrder order
 Async.Start (actor { getGraph = getGraph; secret = secret } coreChanges)
@@ -201,20 +229,23 @@ finishReadyStart context caller request secret make submissionId
 schedule secret coreChanges
 ```
 
-4. **Read a logged order**
+4. **Read an order from the wire**
 
-[ ] `actor` is `stubActor`.
+[ ] `decodeActorOrder` sets `actor` to `stubActor`.
 
 ```fsharp
-LoggedActorOrder focusId commandName
-stubActor
+encodeActorOrder order
+decodeActorOrder wire
 ```
 
 ## 5. Module map
 
 [x] SearchActor is the module in `src/Server/SearchActor.fs`. `functionStart` builds the query closure.
 [x] RunAgentActor is the module in `src/Server/RunAgentActor.fs`. `actorFn` builds the closure that holds `GrokBotBinding`.
-[ ] ActorDispatch is the module in `src/Server/ActorDispatch.fs`.
+[x] TestActor is the module in `src/Server/TestActor.fs`.
+[x] Api is the module in `src/Server/Api.fs`.
+[x] RouteRegistration is the module in `src/Server/RouteRegistration.fs`.
+[x] EventJson is the module in `src/Shared/EventJson.fs`.
 [x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
 [x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
 [x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
@@ -225,4 +256,4 @@ stubActor
 
 ## 7. Open questions
 
-open — Whether a replay runs `stubActor` is open.
+open — What an `ActorOrder` read from the wire is used for is open.
