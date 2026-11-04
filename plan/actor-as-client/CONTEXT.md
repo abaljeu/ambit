@@ -14,6 +14,7 @@ This folder is the Project [Actor as client](project.md).
 [o] `startActor` is the original start.
 [o] `startPeerActor` was never supposed to exist.
 [x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
+[x] `FunctionActor` is a Shared type. Alan, 2026-11-03.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
 [o] `Order.RunActor` stores the command name and the FocusId.

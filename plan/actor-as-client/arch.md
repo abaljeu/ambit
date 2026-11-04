@@ -12,7 +12,13 @@ Out of scope: remote starts and per-run endpoints.
 
 ## 2. Types
 
-[x] `GraphCarrier` [x] `FunctionRun` [x] `FunctionActor`
+[x] `GraphCarrier`, `FunctionRun`, and `FunctionActor` are in `src/Server/Core/CoreActorPool.fs`.
+[ ] `FunctionActor` moves to `src/Shared/History.fs`. `FunctionRun` and `GraphCarrier` move there with it.
+[ ] `Credential` is `Credential of string` in `src/Server/Core/CoreChanges.fs`. It moves to `src/Shared/History.fs`. Moving it does not take `Caller`.
+[x] `Graph` and `NodeId` are in `src/Shared/Model.fs`.
+[x] `CoreChangesDoor` is in `src/Server/Core/CoreChangesDoor.fs`. `FunctionActor` names it. The door holds `MailboxHost` and `Caller`.
+[x] `MailboxHost` is in `src/Server/Core/MailboxHost.fs`. It holds `MailboxProcessor<CoreQueue>`, `PersistFilling`, and `Session`.
+[x] `Caller` is in `src/Server/Core/CoreChanges.fs`. It holds `Authority`, a name, and `Credential`. `Authority` is in `src/Shared/History.fs`.
 
 ```fsharp
 type GraphCarrier = unit -> Graph
@@ -246,6 +252,8 @@ decodeActorOrder wire
 [x] Api is the module in `src/Server/Api.fs`.
 [x] RouteRegistration is the module in `src/Server/RouteRegistration.fs`.
 [x] EventJson is the module in `src/Shared/EventJson.fs`.
+[ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, and `Credential` are in `src/Shared/History.fs`.
+[x] `CoreChangesDoor` is in `src/Server/Core/CoreChangesDoor.fs`.
 [x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
 [x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
 [x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
@@ -256,4 +264,4 @@ decodeActorOrder wire
 
 ## 7. Open questions
 
-None
+open — Whether `CoreChangesDoor` moves to Shared is open. A move drags `MailboxHost` and `Caller`.
