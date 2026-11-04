@@ -90,7 +90,7 @@ functionStart : ActorStart -> GraphCarrier -> FunctionStart
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> ActorFn
 ```
 
-[ ] `actorFn` returns `FunctionActor`. The closure holds `GrokBotBinding`. The AI handler builds `ActorOrder` and calls `postActorOrder`.
+[ ] `actorFn` returns `FunctionActor`. The closure holds `GrokBotBinding`. `postActorStart` builds `ActorOrder` with it and calls `postActorOrder`.
 
 ```fsharp
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> FunctionActor
@@ -123,7 +123,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### TestActor
 
-[ ] `functionActor` is the test command `FunctionActor`. Its handler builds `ActorOrder` and calls `postActorOrder`.
+[ ] `functionActor` is the test command `FunctionActor`. `postActorStart` builds `ActorOrder` with it and calls `postActorOrder`.
 
 ```fsharp
 functionActor : FunctionActor
@@ -200,6 +200,20 @@ finishReadyStart : MailboxContext -> Caller -> ActorStart -> Credential -> (Call
 startChosen : MailboxContext -> ActorStart -> (unit -> Graph) -> Result<Credential option, StartError>
 ```
 
+[ ] `postActorStart` builds `ActorOrder` for a posted Run and calls `postActorOrder`.
+
+```fsharp
+postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
+```
+
+### Commands
+
+[x] `execRunOp` is the Run command. It calls `queueRun`, which calls `RunLaunch.queueStart`.
+
+```fsharp
+execRunOp : VM -> VM * Effect list
+```
+
 ## 4. Flow paths
 
 1. **Run an actor function**
@@ -213,7 +227,17 @@ postActorOrder order
 Async.Start (actor { getGraph = getGraph; secret = secret } coreChanges)
 ```
 
-2. **Query start today**
+2. **Run a `?` command**
+
+[ ] `execRunOp` posts the Run. `postActorStart` builds `ActorOrder` and calls `postActorOrder`.
+
+```fsharp
+execRunOp model
+postActorStart context caller event request reply
+postActorOrder order
+```
+
+3. **Query start today**
 
 [x] `startChosen` builds the function inside the mailbox, then calls `startFunction`.
 
@@ -223,7 +247,7 @@ functionStart request getState
 startFunction start
 ```
 
-3. **Named start today**
+4. **Named start today**
 
 [o] `dispatchStartActor` and `dispatchStartPeerActor` pass `startActor` or `startPeerActor` through `prepareActorStart` and `finishReadyStart`.
 
@@ -235,7 +259,7 @@ finishReadyStart context caller request secret make submissionId
 schedule secret coreChanges
 ```
 
-4. **Read an order from the wire**
+5. **Read an order from the wire**
 
 [ ] `decodeActorOrder` sets `actor` to `stubActor`.
 
@@ -246,6 +270,7 @@ decodeActorOrder wire
 
 ## 5. Module map
 
+[x] Commands is the module in `src/Client/Commands.fs`. `execRunOp` is the Run command.
 [x] SearchActor is the module in `src/Server/SearchActor.fs`. `functionStart` builds the query closure.
 [x] RunAgentActor is the module in `src/Server/RunAgentActor.fs`. `actorFn` builds the closure that holds `GrokBotBinding`.
 [x] TestActor is the module in `src/Server/TestActor.fs`.
@@ -255,7 +280,7 @@ decodeActorOrder wire
 [ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, and `Credential` are in `src/Shared/History.fs`.
 [x] `CoreChangesDoor` is in `src/Server/Core/CoreChangesDoor.fs`.
 [x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
-[x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
+[x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`. `postActorStart` starts a posted `ActorStart`.
 [x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
 
 ## 6. Slicing strategy

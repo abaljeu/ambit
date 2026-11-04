@@ -1,9 +1,9 @@
 # 08 — Start the AI Actor
 **Status**: defined
-One job: The AI run starts from `RunAgentActor.actorFn`. The closure holds the LLM HTTP session. The Actor session id stays minted by the pool.
+One job: Run on a node that contains `?ai` puts `Order.ActorOrder` on the mailbox queue. The actor function is `RunAgentActor.actorFn`. The Actor session id stays minted by the pool.
 
-[ ] `actorFn` returns `FunctionActor`. Its input is `FunctionRun` and `CoreChangesDoor`.
-[ ] There is no AI HTTP route in `src/`. This ticket does not add one. Per-run endpoints stay out of scope.
+[ ] That Run is the same `execRunOp` and `postActorStart` path as `?test`.
+[ ] `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. Its input is `FunctionRun` and `CoreChangesDoor`.
 
 Type:
 
@@ -38,13 +38,14 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Change: `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. The wake and cancel use that session.
-3. [ ] Change: An AI start builds `ActorOrder` with that function, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+3. [ ] Change: `postActorStart` for a `?ai` Run builds `ActorOrder` with that function, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
 4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
 5. [ ] Contract: Remove the `ai` pair from `pool.register`.
 6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `commandName`.
 
 ## Outputs
 
+[ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/RunAgentActor.fs`
 [ ] `src/Server/RouteRegistration.fs`
 [ ] `tests/Server.Tests/AgentAskTests.fs` — the existing ask tests, through `postActorOrder`
@@ -53,7 +54,7 @@ Blockers:
 
 [ ] Record the stop at `plan/actor-as-client/reports/08-dispatch-the-ai-actor-stop.md`, then ask.
 [ ] Stop when the edit mints the Actor session id outside the pool, or stores it in the closure.
-[ ] Stop when the edit adds a route, `ActorDispatch.fs`, or a command-name map.
+[ ] Stop when the edit adds a route, a handler, `ActorDispatch.fs`, or a command-name map.
 [ ] Stop when a test file outside Outputs must change.
 
 ## Check

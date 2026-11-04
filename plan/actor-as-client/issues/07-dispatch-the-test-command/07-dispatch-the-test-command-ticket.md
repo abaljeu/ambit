@@ -1,9 +1,10 @@
 # 07 — Start the test command
 **Status**: defined
-One job: The test command starts from `TestActor.functionActor`. That start puts `Order.ActorOrder` on the mailbox queue.
+One job: Run on a node that contains `?test` puts `Order.ActorOrder` on the mailbox queue. The actor function is `TestActor.functionActor`.
 
-[ ] `startActor` still starts the other command names. The AI Actor, the query command, and git Load and Save are the next tickets.
-[ ] There is no test HTTP route in `src/`. This ticket does not add one. Per-run endpoints stay out of scope.
+[ ] `execRunOp` in `src/Client/Commands.fs` is that Run command. It calls `queueRun`, which calls `RunLaunch.queueStart`.
+[ ] `postActorStart` in `src/Server/Core/CoreMailboxActors.fs` starts the posted `ActorStart` through `startChosen` and `startActor`.
+[ ] This ticket does not add a handler. `startActor` still starts the other command names.
 
 Type:
 
@@ -19,7 +20,8 @@ Blockers:
 
 [ ] `RouteRegistration.fs` registers `ActorName "test"` as `TestActor.actorFn` on `pool.register`, through `CoreRuntime` `Actors`.
 [ ] `TestActor.actorFn` is an `ActorFn`. `TestActor.functionActor` is a `FunctionActor`.
-[ ] `startChosen` in `src/Server/Core/CoreMailboxActors.fs` calls `pool.startActor` unless `SearchActor.isQueryRequest` is true.
+[ ] `execRunOp` calls `CommandRequest.tryStart`, then `queueRun`.
+[ ] `dispatchPostEvent` calls `postActorStart` for `EventBody.ActorStart`. `postActorStart` calls `startChosen`.
 [ ] `postActorOrder : ActorOrder -> unit` is on `MailboxHost` after 06 — Log ActorOrder.
 
 ### Reference
@@ -35,15 +37,15 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: A test start builds `ActorOrder` with `TestActor.functionActor`, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+2. [ ] Change: `postActorStart` for a `?test` Run builds `ActorOrder` with `TestActor.functionActor`, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
 3. [ ] Contract: Remove the `test` pair from the `pool.register` list in `RouteRegistration.fs`.
-4. [ ] Do not add a command-name map. Do not write `Order.StartActor` or `Order.RunActor`.
+4. [ ] Do not add a handler, a route, or `ActorDispatch.fs`. Do not write `Order.StartActor` or `Order.RunActor`.
 5. [ ] The mailbox pull runs that actor on the .NET thread pool. That pull is 80 — Place Actor starts through PlaceOrder.
 
 ## Outputs
 
+[ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/RouteRegistration.fs`
-[ ] `src/Server/Core/CoreRuntime.fs`
 [ ] `src/Server/TestActor.fs`
 [ ] `tests/Server.Tests/TestActorHelloTests.fs` — the existing hello tests, through `postActorOrder`
 [ ] `tests/Server.Tests/TestActorCommandErrorTests.fs` — the existing command-error tests, through `postActorOrder`
@@ -51,8 +53,7 @@ Blockers:
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/07-dispatch-the-test-command-stop.md`, then ask.
-[ ] Stop when the only production start is a command-name match in `startChosen`.
-[ ] Stop when the edit adds a route, `ActorDispatch.fs`, or `actorForCommand`.
+[ ] Stop when the edit adds a route, a handler, `ActorDispatch.fs`, or `actorForCommand`.
 [ ] Stop when a test file outside Outputs must change.
 
 ## Check
