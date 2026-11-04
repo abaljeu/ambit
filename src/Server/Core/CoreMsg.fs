@@ -33,10 +33,6 @@ type internal CoreMsg =
         caller: Caller *
         result: ActorResult *
         AsyncReplyChannel<Result<unit, string>>
-    | CancelActor of
-        caller: Caller *
-        focusId: NodeId *
-        AsyncReplyChannel<Result<unit, string>>
     | PostEvent of
         caller: Caller *
         event: Ev *

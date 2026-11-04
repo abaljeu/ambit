@@ -50,7 +50,6 @@ module internal CoreMailboxEvents =
             | ActorFailed _ -> "ActorStop", "ActorFailed"
             | ActorCancelled -> "ActorStop", "ActorCancelled"
             | ActorQuery _ -> "ActorStop", "ActorQuery"
-        | CancelActor _ -> "CancelActor", ""
         | PostEvent _ -> "PostEvent", ""
 
     let replyFailure error msg =
@@ -64,7 +63,6 @@ module internal CoreMailboxEvents =
         | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
         | ActorStop (_, _, reply) -> reply.Reply(Error error)
-        | CancelActor (_, _, reply) -> reply.Reply(Error error)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
 
     type Started = {

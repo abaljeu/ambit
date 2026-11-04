@@ -161,15 +161,23 @@ module internal CoreMailboxActors =
                 | Error err -> Error err
                 | Ok () -> Ok(Some stored)
 
-    let dispatchCancelActor
+    /// Every Cancel reply is the draft EventId.
+    let replyCancel
         (context: MailboxContext)
+        (placed: PlacedOrder)
         (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
         (focusId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
         =
-        match runCancel context caller focusId (Guid.NewGuid()) with
+        match
+            runCancel
+                context
+                caller
+                focusId
+                placed.orderId.Value
+        with
         | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok ())
+        | Ok _ -> reply.Reply(Ok EventId.zero)
 
     let private failedMessage error =
         match error with

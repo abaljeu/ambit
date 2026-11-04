@@ -29,9 +29,13 @@ let private mailboxKind (message: Mailbox) =
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let core =
         Mailbox.CoreMsg (
-            CancelActor(
+            PostEvent(
                 testCaller,
-                Graph.rootId,
+                { id = EventId.zero
+                  submissionId = Guid.Empty
+                  authority = testCaller.authority
+                  commandName = ""
+                  body = EventBody.Cancel Graph.rootId },
                 Unchecked.defaultof<_>))
     let placed = {
         orderId = OrderId Guid.Empty

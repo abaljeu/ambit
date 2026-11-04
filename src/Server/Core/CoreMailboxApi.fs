@@ -407,8 +407,18 @@ module CoreMailboxApi =
         (caller: Caller)
         (focusId: NodeId)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            CancelActor(caller, focusId, channel))
+        async {
+            let! replied =
+                MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+                    Mailbox.placeForCaller
+                        { orderId = OrderId.New()
+                          authority = caller.authority
+                          commandName = None
+                          order = Order.CancelActor focusId }
+                        caller
+                        channel)
+            return Result.map (fun _ -> ()) replied
+        }
 
     let login
         (host: MailboxHost)
