@@ -16,7 +16,7 @@ let private requireOk label result =
 let private sampleActorStart: ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      commandId = Graph.rootId
+      actorNodeId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 

@@ -37,7 +37,7 @@ module TestActor =
     let private dispatch (input: ActorInput) (coreChanges: CoreChangesDoor) =
         async {
             let! result =
-                match Map.tryFind input.commandId input.graph.nodes with
+                match Map.tryFind input.actorNodeId input.graph.nodes with
                 | None -> async.Return (ActorFailed "")
                 | Some commandNode ->
                     match

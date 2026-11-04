@@ -8,7 +8,7 @@ type ActorInput =
     { graph: Graph
       zoomId: NodeId
       focusId: NodeId
-      commandId: NodeId
+      actorNodeId: NodeId
       sessionId: string
       secret: Credential }
 
@@ -29,7 +29,7 @@ type FunctionStart =
     { actor: FunctionActor
       getGraph: GraphCarrier
       focusId: NodeId
-      commandId: NodeId }
+      actorNodeId: NodeId }
 
 [<RequireQualifiedAccess>]
 type StartError =
@@ -86,7 +86,7 @@ module CoreActorPool =
 
     type private LiveRow =
         { focusId: NodeId
-          commandId: NodeId
+          actorNodeId: NodeId
           sessionId: string
           inbox: string list
           cancel: System.Threading.CancellationTokenSource
@@ -158,9 +158,9 @@ module CoreActorPool =
         Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
-    let private commandIsLive (model: Model) commandId =
+    let private commandIsLive (model: Model) actorNodeId =
         model.live
-        |> Map.exists (fun _ row -> row.commandId = commandId)
+        |> Map.exists (fun _ row -> row.actorNodeId = actorNodeId)
 
     let private admitStart request (model: Model) =
         if request.graphIds.IsEmpty then
@@ -168,7 +168,7 @@ module CoreActorPool =
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
         elif Set.contains request.focusId (liveFocusIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.commandId then
+        elif commandIsLive model request.actorNodeId then
             Error "command already has a live Actor"
         else
             Ok()
@@ -188,13 +188,13 @@ module CoreActorPool =
             { graph = actorGraph
               zoomId = request.zoomId
               focusId = request.focusId
-              commandId = request.commandId
+              actorNodeId = request.actorNodeId
               sessionId = sessionId
               secret = secret }
         putLive
             secret
             request.focusId
-            request.commandId
+            request.actorNodeId
             sessionId
             (BagPending(actorFn, input))
         Ok secret
@@ -205,7 +205,7 @@ module CoreActorPool =
         | Error err -> Error (StartError.Rejected err)
         | Ok() ->
             let actorGraph = actorGraphFrom fullGraph request
-            match Map.tryFind request.commandId actorGraph.nodes with
+            match Map.tryFind request.actorNodeId actorGraph.nodes with
             | None ->
                 Error (
                     StartError.Rejected
@@ -225,7 +225,7 @@ module CoreActorPool =
         =
         if Set.contains request.focusId (liveFocusIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.commandId then
+        elif commandIsLive model request.actorNodeId then
             Error "command already has a live Actor"
         else
             Ok()
@@ -241,7 +241,7 @@ module CoreActorPool =
         putLive
             secret
             request.focusId
-            request.commandId
+            request.actorNodeId
             sessionId
             (FunctionPending(request.actor, request.getGraph, secret))
         Ok secret
@@ -328,10 +328,10 @@ module CoreActorPool =
               live = Map.empty
               bySession = Map.empty }
         let getModel () = model
-        let putLive secret focusId commandId sessionId pending =
+        let putLive secret focusId actorNodeId sessionId pending =
             let row =
                 { focusId = focusId
-                  commandId = commandId
+                  actorNodeId = actorNodeId
                   sessionId = sessionId
                   inbox = []
                   cancel = new System.Threading.CancellationTokenSource()

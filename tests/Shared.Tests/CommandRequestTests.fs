@@ -65,7 +65,7 @@ let ``oneNodeStart uses the current Node as Command Zoom and Focus`` () =
         CommandRequest.oneNodeStart graph siteMap nodeId EventId.zero
     Assert.Equal(nodeId, request.zoomId)
     Assert.Equal(nodeId, request.focusId)
-    Assert.Equal(nodeId, request.commandId)
+    Assert.Equal(nodeId, request.actorNodeId)
     Assert.Equal(EventId.zero, request.eventId)
 
 [<Fact>]
@@ -121,16 +121,16 @@ let ``isScanStopText is true for ? prefix or equals in text`` () =
     Assert.False(CommandRequest.isScanStopText "")
 
 [<Fact>]
-let ``commandOnOwnerPath finds ? ancestor and keeps Focus distinct`` () =
+let ``actorNodeOnOwnerPath finds ? ancestor and keeps Focus distinct`` () =
     let graph, _, ids =
         ownerChain [ "?ai cursor"; "What time is it?" ]
-    let commandId, focusId = ids.[0], ids.[1]
+    let actorNodeId, focusId = ids.[0], ids.[1]
     Assert.Equal(
-        Some commandId,
-        CommandRequest.commandOnOwnerPath graph focusId commandId)
+        Some actorNodeId,
+        CommandRequest.actorNodeOnOwnerPath graph focusId actorNodeId)
     Assert.Equal(
-        Some commandId,
-        CommandRequest.commandOnOwnerPath graph commandId commandId)
+        Some actorNodeId,
+        CommandRequest.actorNodeOnOwnerPath graph actorNodeId actorNodeId)
 
 [<Fact>]
 let ``scan stops at first equals and does not skip to ?`` () =
@@ -142,33 +142,33 @@ let ``scan stops at first equals and does not skip to ?`` () =
         CommandRequest.scanStopOnOwnerPath graph question ids.[0])
     Assert.Equal(
         None,
-        CommandRequest.commandOnOwnerPath graph question ids.[0])
+        CommandRequest.actorNodeOnOwnerPath graph question ids.[0])
     Assert.True(CommandRequest.isAmbleScanStop graph question ids.[0])
 
 [<Fact>]
-let ``commandOnOwnerPath is none when Zoom is below the Command`` () =
+let ``actorNodeOnOwnerPath is none when Zoom is below the Command`` () =
     let graph, _, ids =
         ownerChain [ "?ai cursor"; "plain"; "What time is it?" ]
     Assert.Equal(
         None,
-        CommandRequest.commandOnOwnerPath graph ids.[2] ids.[1])
+        CommandRequest.actorNodeOnOwnerPath graph ids.[2] ids.[1])
 
 [<Fact>]
 let ``tryStart encodes distinct Focus Command and Zoom from owner-scan`` () =
     let graph, siteMap, ids =
         ownerChain [ "?test hello"; "What time is it?" ]
-    let commandId, focusId = ids.[0], ids.[1]
+    let actorNodeId, focusId = ids.[0], ids.[1]
     match
         CommandRequest.tryStart
-            graph siteMap commandId focusId EventId.zero with
+            graph siteMap actorNodeId focusId EventId.zero with
     | Error err -> failwith err
     | Ok request ->
-        Assert.Equal(commandId, request.zoomId)
+        Assert.Equal(actorNodeId, request.zoomId)
         Assert.Equal(focusId, request.focusId)
-        Assert.Equal(commandId, request.commandId)
-        Assert.NotEqual(request.commandId, request.focusId)
+        Assert.Equal(actorNodeId, request.actorNodeId)
+        Assert.NotEqual(request.actorNodeId, request.focusId)
         Assert.Equal<NodeId list>(
-            IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap commandId,
+            IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap actorNodeId,
             request.graphIds)
 
 [<Fact>]
@@ -193,7 +193,7 @@ let ``tryStart one-Node when Focus is the Command`` () =
             CommandRequest.oneNodeStart graph siteMap nodeId EventId.zero
         Assert.Equal(expected.zoomId, request.zoomId)
         Assert.Equal(expected.focusId, request.focusId)
-        Assert.Equal(expected.commandId, request.commandId)
+        Assert.Equal(expected.actorNodeId, request.actorNodeId)
         Assert.Equal<NodeId list>(expected.graphIds, request.graphIds)
 
 [<Fact>]
@@ -213,7 +213,7 @@ let ``count equals Amble stop does not ActorStart`` () =
         ownerChain [ "count=1+2" ]
     let focusId = ids.[0]
     Assert.True(CommandRequest.isAmbleScanStop graph focusId focusId)
-    Assert.Equal(None, CommandRequest.commandOnOwnerPath graph focusId focusId)
+    Assert.Equal(None, CommandRequest.actorNodeOnOwnerPath graph focusId focusId)
     match
         CommandRequest.tryStart
             graph siteMap focusId focusId EventId.zero with
@@ -226,7 +226,7 @@ let ``Focus under count equals takes Amble path not ActorStart`` () =
         ownerChain [ "count=1+2"; "child" ]
     let zoomId, focusId = ids.[0], ids.[1]
     Assert.True(CommandRequest.isAmbleScanStop graph focusId zoomId)
-    Assert.Equal(None, CommandRequest.commandOnOwnerPath graph focusId zoomId)
+    Assert.Equal(None, CommandRequest.actorNodeOnOwnerPath graph focusId zoomId)
     match
         CommandRequest.tryStart
             graph siteMap zoomId focusId EventId.zero with
@@ -252,7 +252,7 @@ let ``tryQueryStart uses the equals line as focus and command`` () =
         | None -> failwith "expected query start"
     Assert.Equal(lineId, request.zoomId)
     Assert.Equal(lineId, request.focusId)
-    Assert.Equal(lineId, request.commandId)
+    Assert.Equal(lineId, request.actorNodeId)
     Assert.Contains(lineId, request.graphIds)
     Assert.Equal(EventId.zero, request.eventId)
     match

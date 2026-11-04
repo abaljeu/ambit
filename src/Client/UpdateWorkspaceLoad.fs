@@ -122,7 +122,7 @@ let private loadRequestFor
       start =
         { zoomId = model.zoomRoot
           focusId = nodeId
-          commandId = nodeId
+          actorNodeId = nodeId
           graphIds = graphIds
           eventId = model.eventId } }
 
