@@ -2,7 +2,7 @@
 **Status**: defined
 One job: The log has `Order.ActorOrder` of `ActorOrder`. The pool start stays `startFunction`.
 
-[ ] `ActorOrder` holds `actor`, `getGraph`, `focusId`, `actorNodeId`, and `actorName`.
+[ ] `ActorOrder` holds `actor`, `getGraph`, `focusId`, and `actorName`. `focusId` is the node that has focus when the command runs. `actorName` stands in for `actor` on the wire.
 [ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, `Credential`, and `ActorChanges` move to `src/Shared/History.fs`. `CoreDoor.actorChanges` builds `ActorChanges` from `CoreChangesDoor`. The source files are 8. The test files are 2. The size limit is 8 source files and 4 test files.
 [ ] The folder name stays `06-add-the-function-and-focus-start` so existing links keep their path.
 [ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. That ticket renames `Order.Cancel` to `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
@@ -50,7 +50,7 @@ Blockers:
 3. [ ] Expand: Add `actorChanges : CoreChangesDoor -> ActorChanges` in `CoreDoor`. `postChanges` returns `Error` when the door is not writable.
 4. [ ] Expand: Add `ActorOrder` and `| ActorOrder of ActorOrder` on `Order` beside the cases that exist after 112.
 5. [ ] The logged value is that case, stored as-is. It is not `Order.RunActor`.
-6. [ ] Expand: Add `stubActor : FunctionActor`, `encodeActorOrder : ActorOrder -> IEncodable`, and `decodeActorOrder : string -> Result<ActorOrder, string>` in `EventJson`. Encode leaves `actor` off the wire. Decode sets `actor` to `stubActor`.
+6. [ ] Expand: Add `stubActor : FunctionActor`, `encodeActorOrder : ActorOrder -> IEncodable`, and `decodeActorOrder : string -> Result<ActorOrder, string>` in `EventJson`. Encode writes `focusId` and `actorName`. `actorName` stands in for `actor`. Decode sets `actor` to `stubActor`.
 7. [ ] Expand: Add the `MailboxLog` arm. Add a `placeOrder` arm that stays unsupported. 80 — Place Actor starts through PlaceOrder runs it.
 8. [ ] Expand: Add `postActorOrder : ActorOrder -> unit` on `MailboxHost`. It puts one `ActorOrder` on the mailbox queue.
 9. [ ] Leave `startFunction`, `startActor`, `startPeerActor`, and `CoreMsg` as they are.

@@ -42,9 +42,9 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postSearchRequest` builds `ActorOrder` from the query `FunctionActor`, `getGraph`, the FocusId, `actorNodeId`, and `actorName`, and calls `postActorOrder`.
+2. [ ] Change: `postSearchRequest` builds the query `FunctionActor` and closes over that path's data in the function. It builds `ActorOrder` from that function, `getGraph`, the FocusId, and `actorName`, and calls `postActorOrder`.
 3. [ ] Contract: `startChosen` no longer starts a query. Other names still call `startActor`.
-4. [ ] Change: `recordSearchStart` posts `Order.ActorOrder` for Find and Move. The Search Actor runs. Find and Move stays on `recordSearchStart`.
+4. [ ] Change: `recordSearchStart` builds the Find and Move `FunctionActor` and closes over that path's data in the function. It posts `ActorOrder` of that function, `getGraph`, the FocusId, and `actorName`. The Search Actor runs. Find and Move stays on `recordSearchStart`.
 5. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
 6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not add an `Order` case.
 

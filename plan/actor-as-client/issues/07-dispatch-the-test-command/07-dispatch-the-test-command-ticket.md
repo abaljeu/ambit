@@ -37,7 +37,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postActorStart` for a `?test` Run builds `ActorOrder` with `TestActor.functionActor`, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+2. [ ] Change: `postActorStart` for a `?test` Run closes over the actor node id from that Run in the `FunctionActor`. It builds `ActorOrder` with that function, `getGraph`, the FocusId, and `actorName`, and calls `postActorOrder`.
 3. [ ] Contract: Remove the `test` pair from the `pool.register` list in `RouteRegistration.fs`.
 4. [ ] Do not add a handler, a route, or `ActorDispatch.fs`. Do not write `Order.StartActor` or `Order.RunActor`.
 5. [ ] The mailbox pull runs that actor on the .NET thread pool. That pull is 80 — Place Actor starts through PlaceOrder.

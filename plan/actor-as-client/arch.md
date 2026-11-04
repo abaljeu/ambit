@@ -38,7 +38,7 @@ type ActorChanges =
 ```
 
 [x] `FunctionStart`
-[ ] 17 — Rename commandId to actorNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`. The wire key stays `"commandId"`. It runs before 06 — Log ActorOrder.
+[ ] 17 — Rename commandId to actorNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`. The wire key stays `"commandId"`. The pool's one-live-Actor check uses that id. It runs before 06 — Log ActorOrder.
 
 ```fsharp
 type FunctionStart =
@@ -63,11 +63,10 @@ type ActorOrder =
     { actor: FunctionActor
       getGraph: GraphCarrier
       focusId: NodeId
-      actorNodeId: NodeId
       actorName: string }
 ```
 
-[ ] `actorNodeId` is the actor node's id. `actorName` is the word after `?`. The two fields are unrelated. The pool's one-live-Actor check uses `actorNodeId`.
+[ ] `focusId` is the node that has focus when the command runs.
 [x] Naming debt: `isCommandText` keeps its name. `isScanStopText` and `commandIsLive` still say command for the actor line. The Run error string stays `No command found`.
 
 [ ] `Order.ActorOrder` carries `ActorOrder`. The log stores that member as-is.
@@ -165,13 +164,13 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 stubActor : FunctionActor
 ```
 
-[ ] `encodeActorOrder` writes `actorNodeId` and `actorName`. The actor function stays off the wire. The wire key for `actorNodeId` stays `"commandId"`.
+[ ] `encodeActorOrder` writes `focusId` and `actorName`. `actorName` stands in for `actor`.
 
 ```fsharp
 encodeActorOrder : ActorOrder -> IEncodable
 ```
 
-[ ] `decodeActorOrder` reads `actorNodeId` and `actorName`. `actor` is `stubActor`.
+[ ] `decodeActorOrder` reads `focusId` and `actorName`. `actor` is `stubActor`.
 
 ```fsharp
 decodeActorOrder : string -> Result<ActorOrder, string>
@@ -222,7 +221,7 @@ finishReadyStart : MailboxContext -> Caller -> ActorStart -> Credential -> (Call
 startChosen : MailboxContext -> ActorStart -> (unit -> Graph) -> Result<Credential option, StartError>
 ```
 
-[ ] `postActorStart` builds `ActorOrder` for a posted Run and calls `postActorOrder`.
+[ ] `postActorStart` takes the actor node id from the posted Run and closes over that id when it builds the `FunctionActor`. It builds `ActorOrder` and calls `postActorOrder`.
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
@@ -252,7 +251,7 @@ actorNameFromText : string -> string option
 
 ```fsharp
 postSearchRequest persistence req
-ActorOrder actor getGraph focusId actorNodeId actorName
+ActorOrder actor getGraph focusId actorName
 postActorOrder order
 actorChanges door
 Async.Start (actor { getGraph = getGraph; secret = secret } changes)
