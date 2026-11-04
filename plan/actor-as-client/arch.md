@@ -38,14 +38,14 @@ type ActorChanges =
 ```
 
 [x] `FunctionStart`
-[ ] 17 — Rename commandId to actorNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`. The wire key stays `"commandId"`. It runs before 06 — Log ActorOrder.
+[x] 17 — Rename commandId to actorNodeId: `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row use `actorNodeId`. The wire key stays `"commandId"`. It runs before 06 — Log ActorOrder.
 
 ```fsharp
 type FunctionStart =
     { actor: FunctionActor
       getGraph: GraphCarrier
       focusId: NodeId
-      commandId: NodeId }
+      actorNodeId: NodeId }
 ```
 
 [x] `FunctionPending` [o] `BagPending`

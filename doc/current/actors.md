@@ -24,7 +24,7 @@ An Actor is a thread from the .NET thread pool. It runs an actor function.
 [o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path. `Order.StartPeerActor` is that second order.
 [o] `Order.StartActor` is a logged start.
 [o] `Order.LoadSave` is the git Load and Save log.
-[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
+[o] The start provides `ActorStart` of `zoomId`, `focusId`, `actorNodeId`, `graphIds`, and `eventId`. The wire key for `actorNodeId` is `"commandId"`.
 [o] The browser `ActorStart` payload changes in this cutover.
 [ ] A dispatcher outside Core, `src/Server/ActorDispatch.fs`, maps a command name to an actor function. `Order.RunActor` stores the command name and the FocusId. Find and Move use that same order. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 [ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
