@@ -2,7 +2,7 @@
 **Status**: defined
 One job: The log has `Order.ActorOrder` of `ActorOrder`. The pool start stays `startFunction`.
 
-[ ] `ActorOrder` holds `actor`, `getGraph`, `focusId`, and `commandName`.
+[ ] `ActorOrder` holds `actor`, `getGraph`, `focusId`, `actorNodeId`, and `actorName`.
 [ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, `Credential`, and `ActorChanges` move to `src/Shared/History.fs`. `CoreDoor.actorChanges` builds `ActorChanges` from `CoreChangesDoor`. The source files are 8. The test files are 2. The size limit is 8 source files and 4 test files.
 [ ] The folder name stays `06-add-the-function-and-focus-start` so existing links keep their path.
 [ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. That ticket renames `Order.Cancel` to `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
@@ -13,7 +13,7 @@ Type:
 
 Blockers:
 
-[ ] [00 — Rename commandId to commandNodeId](../00-rename-command-node-id/00-rename-command-node-id-ticket.md)
+[ ] [00 — Rename commandId to actorNodeId](../00-rename-command-node-id/00-rename-command-node-id-ticket.md)
 [ ] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
 
 ## Inputs

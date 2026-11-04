@@ -41,7 +41,7 @@ Blockers:
 3. [ ] Change: `postActorStart` for a `?ai` Run builds `ActorOrder` with that function, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
 4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
 5. [ ] Contract: Remove the `ai` pair from `pool.register`.
-6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `commandName`.
+6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
 
 ## Outputs
 

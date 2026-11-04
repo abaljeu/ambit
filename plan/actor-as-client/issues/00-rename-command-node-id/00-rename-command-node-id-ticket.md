@@ -1,10 +1,11 @@
-# 00 — Rename commandId to commandNodeId
+# 00 — Rename commandId to actorNodeId
 **Status**: defined
-One job: The Actor node field is `commandNodeId`. Editor commands keep the name `CommandId`.
+One job: The actor node's id is `actorNodeId`. Editor commands keep the name `CommandId`.
 
 [ ] This ticket is before 06 — Log ActorOrder. It does not add `ActorOrder`.
 [ ] The source files are 8. The test files are 30. The size limit is 8 source files and 4 test files. The rename does not compile in slices, so this stays one ticket. The test count is over the limit.
-[ ] open — Actor-side 'command' naming clashes with editor commands; final names pending Alan.
+[ ] `commandOnOwnerPath` becomes `actorNodeOnOwnerPath`. The private binding `noRunnableCommand` becomes `noRunnableActor`. Both edits stay in `CommandRequest.fs` and `CommandRequestTests.fs`, which are already in this ticket.
+[ ] The Run error string stays `No command found`. `isCommandText` keeps its name.
 
 Type:
 
@@ -28,23 +29,25 @@ Blockers:
 
 ### Reference
 
-[ ] [Arch](../../arch.md). `ActorOrder.commandNodeId` is the same node.
+[ ] [Arch](../../arch.md). `ActorOrder.actorNodeId` is the actor node's id.
 
 ## Do not load
 
-[ ] Do not rename `CommandId`, `commandIds`, or `dockCommandIds`.
+[ ] Do not rename `CommandId`, `commandIds`, `dockCommandIds`, or `isCommandText`.
 [ ] Do not rename `GrokBotWakeArgs.CommandId`.
+[ ] Do not rename load-save command names or `/ambit/load-save-command`.
 [ ] Do not change the wire key `"commandId"` in `EventJson` or `GrokBotHttp`.
+[ ] Do not change the Run error string `No command found`.
 [ ] Do not add `ActorOrder`. That is 06 — Log ActorOrder.
-[ ] Do not pick a replacement for `commandNodeId`.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: Rename the Actor node field from `commandId` to `commandNodeId` on `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row.
-3. [ ] `EventJson` still writes and reads the wire key `"commandId"`.
-4. [ ] Update each test file in Outputs that constructs or reads that field.
-5. [ ] Leave `CommandId` and the Grok wake field as they are.
+2. [ ] Change: Rename the actor node field from `commandId` to `actorNodeId` on `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row.
+3. [ ] Change: Rename `commandOnOwnerPath` to `actorNodeOnOwnerPath`. Rename the private binding `noRunnableCommand` to `noRunnableActor`. Leave the string `No command found`.
+4. [ ] `EventJson` still writes and reads the wire key `"commandId"`.
+5. [ ] Update each test file in Outputs that constructs or reads that field, including the `commandOnOwnerPath` tests.
+6. [ ] Leave `CommandId`, `isCommandText`, load-save command names, and the Grok wake field as they are.
 
 ## Outputs
 

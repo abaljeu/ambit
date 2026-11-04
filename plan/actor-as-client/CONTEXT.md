@@ -16,15 +16,19 @@ This folder is the Project [Actor as client](project.md).
 [o] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
 [x] `FunctionActor` takes `ActorChanges`. `CoreDoor.actorChanges` builds that value from `CoreChangesDoor`. `CoreChangesDoor`, `MailboxHost`, and `Caller` stay in Server. Alan, 2026-11-03.
 [x] Find and Move posts `Order.ActorOrder`, and that order runs the Search Actor. Alan, 2026-11-04.
-[x] `ActorOrder` carries `commandNodeId` and `commandName`. The pool's one-live-Actor check uses `commandNodeId`. Alan, 2026-11-04.
-[ ] `commandNodeId` and `ActorOrder.commandName` are provisional. Final names are pending Alan.
+[o] `ActorOrder` carries `commandNodeId` and `commandName`. The pool's one-live-Actor check uses `commandNodeId`. Alan, 2026-11-04.
+[o] `commandNodeId` and `ActorOrder.commandName` are provisional. Final names are pending Alan.
+[x] The word after `?` is the actor name. `ActorOrder.actorName` holds it. `CommandRequest.actorNameFromText` already extracts it. Alan, 2026-11-04.
+[x] The `?` line is the actor node. `ActorOrder.actorNodeId` is that node's id. Today's `commandId` becomes `actorNodeId`. The wire key stays `"commandId"`. Alan, 2026-11-04.
+[x] `isCommandText` keeps its name. Load-save commands, editor `CommandId`, and `GrokBotWakeArgs.CommandId` are not this rename. Alan, 2026-11-04.
 [x] `FunctionActor` is a Shared type. Alan, 2026-11-03.
 [x] Run on a node that contains `?test` is `execRunOp`. `postActorStart` builds that command's `FunctionActor` and posts `ActorOrder`. The AI run uses that same path. Alan, 2026-11-03.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
 [o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
 [o] `Order.RunActor` stores the command name and the FocusId.
 [o] `commandName` locates the actor function. Alan, 2026-11-03.
-[x] Each command endpoint constructs its own `FunctionActor`. `commandName` stays on `ActorOrder` and is logged as-is. Nothing on the wire resolves the actor function from `commandName`. Alan, 2026-11-03.
+[o] Each command endpoint constructs its own `FunctionActor`. `commandName` stays on `ActorOrder` and is logged as-is. Nothing on the wire resolves the actor function from `commandName`. Alan, 2026-11-03.
+[x] Each command endpoint constructs its own `FunctionActor`. `actorName` stays on `ActorOrder` and is logged as-is. Nothing on the wire resolves the actor function from `actorName`. Alan, 2026-11-04.
 [x] Every Order member is logged as-is. `stubActor` is the actor function when `ActorOrder` is read from the wire. Alan, 2026-11-03.
 [x] A wire-read `ActorOrder` is a log record, used like every other logged Order member. Nothing re-runs `stubActor`. Alan, 2026-11-03.
 [o] A new `CoreMsg` case is the start path.

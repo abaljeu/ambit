@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 00 — Rename commandId to commandNodeId.
+This folder is ticket 00 — Rename commandId to actorNodeId.
 
 ## Sequence
 
