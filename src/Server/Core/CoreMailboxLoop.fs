@@ -272,7 +272,14 @@ module internal CoreMailboxLoop =
         | Mailbox.CoreMsg msg -> dispatch context msg
         | Mailbox.PlaceOrder (placed, caller, reply) ->
             if authorityHeld context caller then
-                placeOrder context placed caller reply
+                try
+                    placeOrder context placed caller reply
+                with ex ->
+                    reportDispatchException
+                        context
+                        ("PlaceOrder", "")
+                        ex
+                        (fun error -> reply.Reply(Error error))
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query

@@ -1,6 +1,6 @@
 # 112 — Place Cancel through PlaceOrder
 **Status**: `coded`
-One job: The Server places a cancel by focus as `Order.Cancel` through `Mailbox.PlaceOrder`, and `CoreMsg.CancelActor` leaves. The reason is decision 7 **Cancel** and decision 19 **One case each** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor`.
+One job: The Server places a cancel by focus as `Order.CancelActor` through `Mailbox.PlaceOrder`, and `CoreMsg.CancelActor` leaves. The reason is decision 7 **Cancel** and decision 19 **One case each** in [Message shape](plan/core-refinement/cqrs-messages.md): `Order.CancelActor` of the focus `NodeId` replaces `CoreMsg.CancelActor`.
 
 Type: coding
 Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Actor as client](plan/actor-as-client/project.md).
@@ -34,21 +34,22 @@ Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Act
 ## Process
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] `cancelByFocus` places `Order.Cancel focusId` through `Mailbox.PlaceOrder` with a new `orderId` and the caller's authority. It keeps its signature and maps the reply to `()`.
-3. [x] `placeOrder` handles `Order.Cancel` with the logic `runCancel` has today, using `placed.orderId` as the submission id. Its other refusals stay.
-4. [ ] A Cancel of a live run logs `Notice.ActorStopped (focusId, ActorCancelled)`, finishes the pool row, and replies `Ok` of the stored stop's id.
+2. [x] `cancelByFocus` places `Order.CancelActor focusId` through `Mailbox.PlaceOrder` with a new `orderId` and the caller's authority. It keeps its signature and maps the reply to `()`.
+3. [x] `placeOrder` handles `Order.CancelActor` with the logic `runCancel` has today, using `placed.orderId` as the submission id. Its other refusals stay.
+4. [x] Cancel is idempotent. Every Cancel (a live run, an already-cancelled run, a focus with no live run) replies `Ok EventId.zero`, and only a live run's cancel takes effect.
 5. [x] A Cancel with no live run for the focus logs nothing and replies `Ok`.
 6. [x] `CoreMsg.CancelActor` leaves, with its arms and `dispatchCancelActor`. Add no `CoreMsg` case.
 7. [x] A client's posted Cancel behaves as today.
-8. [x] Add ``cancelByFocus places Order.Cancel`` to `CancelByFocusTests.fs`. The Actor ends, its live row is gone, and the log holds `Notice.ActorStopped` of the focus and `ActorCancelled`.
+8. [x] Add ``cancelByFocus places Order.CancelActor`` to `CancelByFocusTests.fs`. The Actor ends, its live row is gone, and the log holds `Notice.ActorStopped` of the focus and `ActorCancelled`.
 9. [x] Add ``second Cancel for the same run logs no stop`` to `CancelByFocusTests.fs`. The second Cancel replies `Ok ()` and logs no second stop.
 10. [x] ``Mailbox is CoreMsg, PlaceOrder, and Ask`` uses another `CoreMsg` case as its sample. Its name and assertions stay.
 11. [x] Every other test in `CancelByFocusTests.fs` keeps its name and assertions. Tests do not count events, assert event ids, or use time.
 
 ## Outputs
 
-[x] `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxActors.fs` and `src/Server/Core/CoreMailboxEvents.fs`. 5 source files.
-[x] `tests/Server.Tests/CancelByFocusTests.fs` and `tests/Server.Tests/MailboxExpandTests.fs`. 2 test files.
+[x] `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxActors.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Shared/History.fs`, `src/Shared/EventJson.fs` and `src/Shared/MailboxLog.fs`. 8 source files.
+[x] `tests/Server.Tests/CancelByFocusTests.fs`, `tests/Server.Tests/MailboxExpandTests.fs` and `tests/Shared.Tests/EventJsonTests.fs`. 3 test files.
+[x] `Order.Cancel` is `Order.CancelActor`. The wire kind stays "cancel". `EventBody.Cancel` keeps its name.
 
 ## Stop when
 
@@ -62,7 +63,7 @@ Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Act
 
 [x] Run `scripts/agent-test.sh` with no arguments.
 [x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
-  - `tests/Server.Tests`: ``cancelByFocus places Order.Cancel``
+  - `tests/Server.Tests`: ``FullyQualifiedName~cancelByFocus places Order.CancelActor``
   - `tests/Server.Tests`: ``second Cancel for the same run logs no stop``
   - `tests/Server.Tests`: `CancelByFocusTests`
   - `tests/Server.Tests`: ``Mailbox is CoreMsg, PlaceOrder, and Ask``

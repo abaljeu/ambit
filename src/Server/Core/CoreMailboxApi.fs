@@ -417,10 +417,7 @@ module CoreMailboxApi =
                           order = Order.CancelActor focusId }
                         caller
                         channel)
-            return
-                match replied with
-                | Ok _ -> Ok ()
-                | Error err -> Error err
+            return Result.map (fun _ -> ()) replied
         }
 
     let login

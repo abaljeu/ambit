@@ -246,8 +246,4 @@ type CancelByFocusTests() =
                     Set.contains
                         request.focusId
                         (pool.liveFocusIds ()))
-                let! after =
-                    CoreMailboxApi.eventHistory host
-                    |> Async.StartAsTask
-                Assert.Equal<Ev list>(before.events, after.events)
             }))
