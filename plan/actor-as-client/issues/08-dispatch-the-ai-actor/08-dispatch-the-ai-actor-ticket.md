@@ -3,7 +3,7 @@
 One job: Run on a node that contains `?ai` puts `Order.ActorOrder` on the mailbox queue. The actor function is `RunAgentActor.actorFn`. The Actor session id stays minted by the pool.
 
 [ ] That Run is the same `execRunOp` and `postActorStart` path as `?test`.
-[ ] `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. Its input is `FunctionRun` and `CoreChangesDoor`.
+[ ] `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. Its input is `FunctionRun` and `ActorChanges`.
 
 Type:
 

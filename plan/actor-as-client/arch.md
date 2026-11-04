@@ -16,7 +16,8 @@ Out of scope: remote starts and per-run endpoints.
 [ ] `FunctionActor` moves to `src/Shared/History.fs`. `FunctionRun` and `GraphCarrier` move there with it.
 [ ] `Credential` is `Credential of string` in `src/Server/Core/CoreChanges.fs`. It moves to `src/Shared/History.fs`. Moving it does not take `Caller`.
 [x] `Graph` and `NodeId` are in `src/Shared/Model.fs`.
-[x] `CoreChangesDoor` is in `src/Server/Core/CoreChangesDoor.fs`. `FunctionActor` names it. The door holds `MailboxHost` and `Caller`.
+[x] `CoreChangesDoor` stays in `src/Server/Core/CoreChangesDoor.fs`. It holds `MailboxHost` and `Caller`.
+[ ] `ActorChanges` is the Shared door. It lives in `src/Shared/History.fs`.
 [x] `MailboxHost` is in `src/Server/Core/MailboxHost.fs`. It holds `MailboxProcessor<CoreQueue>`, `PersistFilling`, and `Session`.
 [x] `Caller` is in `src/Server/Core/CoreChanges.fs`. It holds `Authority`, a name, and `Credential`. `Authority` is in `src/Shared/History.fs`.
 
@@ -27,7 +28,13 @@ type FunctionRun =
     { getGraph: GraphCarrier
       secret: Credential }
 
-type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
+type FunctionActor = FunctionRun -> ActorChanges -> Async<unit>
+
+type ActorChanges =
+    { postChanges: Ev list -> Async<Result<unit, string>>
+      actorStop: ActorResult -> Async<Result<unit, string>>
+      getState: unit -> Async<Result<State, string>>
+      loadNode: NodeId -> Async<Result<EventId, string>> }
 ```
 
 [x] `FunctionStart`
@@ -165,6 +172,14 @@ encodeActorOrder : ActorOrder -> IEncodable
 decodeActorOrder : string -> Result<ActorOrder, string>
 ```
 
+### CoreDoor
+
+[ ] `actorChanges` builds `ActorChanges` from `CoreChangesDoor`. `postChanges` returns `Error` when the door is not writable.
+
+```fsharp
+actorChanges : CoreChangesDoor -> ActorChanges
+```
+
 ### MailboxHost
 
 [ ] `postActorOrder` puts one `ActorOrder` on the mailbox queue.
@@ -224,7 +239,8 @@ execRunOp : VM -> VM * Effect list
 postSearchRequest persistence req
 ActorOrder actor getGraph focusId commandName
 postActorOrder order
-Async.Start (actor { getGraph = getGraph; secret = secret } coreChanges)
+actorChanges door
+Async.Start (actor { getGraph = getGraph; secret = secret } changes)
 ```
 
 2. **Run a `?` command**
@@ -277,7 +293,8 @@ decodeActorOrder wire
 [x] Api is the module in `src/Server/Api.fs`.
 [x] RouteRegistration is the module in `src/Server/RouteRegistration.fs`.
 [x] EventJson is the module in `src/Shared/EventJson.fs`.
-[ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, and `Credential` are in `src/Shared/History.fs`.
+[ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, `Credential`, and `ActorChanges` are in `src/Shared/History.fs`.
+[ ] CoreDoor is the module in `src/Server/Core/CoreDoor.fs`. `actorChanges` builds `ActorChanges`.
 [x] `CoreChangesDoor` is in `src/Server/Core/CoreChangesDoor.fs`.
 [x] MailboxHost is the module in `src/Server/Core/MailboxHost.fs`. The mailbox queue is `MailboxProcessor<CoreQueue>`.
 [x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`. `postActorStart` starts a posted `ActorStart`.
@@ -289,4 +306,4 @@ decodeActorOrder wire
 
 ## 7. Open questions
 
-open — Whether `CoreChangesDoor` moves to Shared is open. A move drags `MailboxHost` and `Caller`.
+open — How Find and Move logs `Order.ActorOrder` without running the actor is open. `ActorOrder` carries `commandName`. `FunctionStart` carries `commandId`.

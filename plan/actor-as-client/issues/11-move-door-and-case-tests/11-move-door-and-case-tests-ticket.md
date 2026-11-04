@@ -35,7 +35,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: A started Actor uses `startFunction`, or `postActorOrder` of an `ActorOrder` whose `actor` is that command's `FunctionActor`. The input is `FunctionRun` and `CoreChangesDoor`.
+2. [ ] Change: A started Actor uses `startFunction`, or `postActorOrder` of an `ActorOrder` whose `actor` is that command's `FunctionActor`. The input is `FunctionRun` and `ActorChanges`. `CoreDoor.actorChanges` builds `ActorChanges` from the test's `CoreChangesDoor`.
 3. [ ] A test that starts the test command uses `TestActor.functionActor`.
 4. [ ] Leave `startPeerActor` and `registerPeer` to the batch that owns that file.
 

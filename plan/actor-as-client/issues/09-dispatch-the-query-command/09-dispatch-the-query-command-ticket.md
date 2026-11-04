@@ -22,7 +22,7 @@ Blockers:
 [ ] `searchDoor` calls `CoreMailboxApi.recordSearchStart`.
 [ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is in `src/Server/Core/CoreMailboxActors.fs`.
 [ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`. It is in `src/Server/SearchActor.fs`.
-[x] The actor function's input is `FunctionRun` and `CoreChangesDoor`.
+[x] The actor function's input is `FunctionRun` and `ActorChanges`.
 [ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
 [ ] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActor`. That `runMsg` arm is its only caller.
 [ ] `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure` match `RecordSearchStart`.
