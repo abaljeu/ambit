@@ -1,6 +1,6 @@
 # 14 — Move runtime and session tests
 **Status**: defined
-One job: The Core boot tests and the session tests start an Actor with `startFunction`.
+One job: The Core boot tests and the session tests start an Actor with `startFunction` or with `postActorOrder`.
 
 [ ] Two test files. They are the remainder after the four-file batches.
 
@@ -10,7 +10,7 @@ Type:
 
 Blockers:
 
-[ ] [07 — Dispatch the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
+[ ] [07 — Start the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
 
 ## Inputs
 
@@ -21,17 +21,18 @@ Blockers:
 
 ### Reference
 
-[ ] [Actor as client](../../project.md).
+[ ] [Arch](../../arch.md).
 [ ] [Size limit](../../context/size-limit.md).
 
 ## Do not load
 
 [ ] 11 — Move door and case tests, 12 — Move pool and issue tests, and 13 — Move persist and command tests.
+[ ] `src/Server/ActorDispatch.fs`. Do not add it.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a booted command name is dispatched, and a direct pool start calls `startFunction`.
+2. [ ] Change: A direct pool start calls `startFunction`. A booted command uses that command's `FunctionActor` and `postActorOrder`.
 3. [ ] Keep old pool fields until 15 — Delete the old Actor starts.
 
 ## Outputs

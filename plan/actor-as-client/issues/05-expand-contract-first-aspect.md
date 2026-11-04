@@ -36,7 +36,7 @@ After function-passing at pool construction ships (step one):
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
 
-[o] This hypothesis. Alan, 2026-11-03: one function, and a dispatcher outside Core maps the command name. The pool name tables leave.
+[o] This hypothesis. Alan, 2026-11-03: each endpoint builds its own `FunctionActor` and posts `Order.ActorOrder`. There is no dispatcher. The pool name tables leave on 15 — Delete the old Actor starts.
 
 ## 3. Lock: hard-cut contract
 
@@ -46,7 +46,7 @@ Alan 2026-09-27 voice. Settled lock on this ticket. The ticket stays Status `def
 
 Expand-alongside during the prove phase stays accurate: the pool can accept or register a function-shaped start alongside today’s ID-bag ActorStart path while proving. Contract is a hard flip when proven — not a gradual drain of the old path.
 
-[o] That hard cut. Alan, 2026-11-03: `startFunction` stays, callers move onto it, and `Order.RunActor` is added beside the old orders. No new `CoreMsg` case. Detail: [Actor as client](../project.md).
+[o] That hard cut. Alan, 2026-11-03: `startFunction` stays, callers move onto it, and `Order.ActorOrder` is added beside the old orders. No new `CoreMsg` case. Detail: [Arch](../arch.md).
 
 ## 4. Lock: TestActor is the pilot
 
@@ -60,30 +60,7 @@ Alan 2026-09-27 voice. Settled lock on this ticket (data model). The ticket stay
 
 The Graph is the universal carrier. Any particular function constructs a Graph and passes it in. The Graph can hold any information needed (full Graph, subgraph, key Nodes, etc.). The receiving function has a specific job to do with that Graph and can simulate any generic function an Actor might want. The **pool and dispatch layer stay dumb** — they just move the Graph. Tests can simulate future Actor shapes by building different Graphs.
 
-[o] The dispatch layer stays dumb and only moves a Graph. Alan, 2026-11-03: the dispatcher outside Core maps a command name to an actor function. Graph ids are in that actor function's closure.
-
-## Decisions 2026-11-03
-
-[x] `startFunction` is the one pool start. Alan, 2026-11-03.
-[o] `startActor` is the original start.
-[o] `startPeerActor` was never supposed to exist.
-[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
-[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
-[ ] `Order.RunActor` stores the command name and the FocusId.
-[o] A new `CoreMsg` case is the start path.
-[x] The pool mints the Actor session id.
-[ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
-[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
-[ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
-[x] An Actor is a thread from the .NET thread pool. It runs an actor function.
-[o] An Actor is the actor function.
-[ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
-[ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
-[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
-[o] `Order.StartActor` is a logged start.
-[o] `Order.LoadSave` is the git Load and Save log.
-[o] The hard cut in section 3. `startActor` and `startFunction` stay side by side until the callers move. No new `CoreMsg` case.
+[o] The dispatch layer stays dumb and only moves a Graph. Alan, 2026-11-03: each endpoint builds its own `FunctionActor`. Graph ids are in that actor function's closure.
 
 ## Comments
 

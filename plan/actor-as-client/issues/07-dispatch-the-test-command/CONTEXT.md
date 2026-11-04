@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 07 — Dispatch the test command.
+This folder is ticket 07 — Start the test command.
 
 ## Sequence
 

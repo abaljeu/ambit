@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 09 — Dispatch the query command.
+This folder is ticket 09 — Start the query command.
 
 ## Sequence
 
