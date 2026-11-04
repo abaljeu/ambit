@@ -73,19 +73,29 @@ module internal CoreMailboxLoop =
     let private rejectDropped (msg: CoreMsg) =
         CoreMailboxEvents.replyFailure droppedAuthority msg
 
+    let private catchDispatch
+        (context: MailboxContext)
+        (operation: string * string)
+        (replyFailure: string -> unit)
+        (run: unit -> unit)
+        =
+        try
+            run ()
+        with ex ->
+            reportDispatchException
+                context
+                operation
+                ex
+                replyFailure
+
     let private dispatch (context: MailboxContext) (msg: CoreMsg) : unit =
         if authorityHeld context (messageCaller msg) then
-            try
-                runMsg context msg
-            with ex ->
-                let operation, detail =
-                    CoreMailboxEvents.operationContext msg
-                reportDispatchException
-                    context
-                    (operation, detail)
-                    ex
-                    (fun error ->
-                        CoreMailboxEvents.replyFailure error msg)
+            catchDispatch
+                context
+                (CoreMailboxEvents.operationContext msg)
+                (fun error ->
+                    CoreMailboxEvents.replyFailure error msg)
+                (fun () -> runMsg context msg)
         else
             rejectDropped msg
 
@@ -178,24 +188,6 @@ module internal CoreMailboxLoop =
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
-    /// Every Cancel reply is the draft EventId.
-    let private replyCancel
-        (context: MailboxContext)
-        (placed: PlacedOrder)
-        (caller: Caller)
-        (reply: AsyncReplyChannel<Result<EventId, string>>)
-        (focusId: NodeId)
-        =
-        match
-            CoreMailboxActors.runCancel
-                context
-                caller
-                focusId
-                placed.orderId.Value
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok EventId.zero)
-
     let private placeOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -213,7 +205,8 @@ module internal CoreMailboxLoop =
         | Order.Redo _ ->
             replyPlaced context placed caller reply
         | Order.CancelActor focusId ->
-            replyCancel context placed caller reply focusId
+            CoreMailboxActors.replyCancel
+                context placed caller reply focusId
         | Order.StartActor _
         | Order.StartPeerActor _
         | Order.LoadSave _ -> replyUnsupported reply
@@ -254,15 +247,11 @@ module internal CoreMailboxLoop =
         | Query.EventsSince (_, reply) -> reply.Reply(Error error)
 
     let private dispatchAsk (context: MailboxContext) (query: Query) =
-        try
-            runQuery context query
-        with ex ->
-            let operation, detail = queryOperation query
-            reportDispatchException
-                context
-                (operation, detail)
-                ex
-                (fun error -> replyQueryFailure error query)
+        catchDispatch
+            context
+            (queryOperation query)
+            (fun error -> replyQueryFailure error query)
+            (fun () -> runQuery context query)
 
     let private dispatchMailbox
         (context: MailboxContext)
@@ -272,14 +261,12 @@ module internal CoreMailboxLoop =
         | Mailbox.CoreMsg msg -> dispatch context msg
         | Mailbox.PlaceOrder (placed, caller, reply) ->
             if authorityHeld context caller then
-                try
-                    placeOrder context placed caller reply
-                with ex ->
-                    reportDispatchException
-                        context
-                        ("PlaceOrder", "")
-                        ex
-                        (fun error -> reply.Reply(Error error))
+                catchDispatch
+                    context
+                    ("PlaceOrder", "")
+                    (fun error -> reply.Reply(Error error))
+                    (fun () ->
+                        placeOrder context placed caller reply)
             else
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
