@@ -256,4 +256,4 @@ decodeActorOrder wire
 
 ## 7. Open questions
 
-open — What an `ActorOrder` read from the wire is used for is open.
+None

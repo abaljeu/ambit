@@ -20,6 +20,7 @@ This folder is the Project [Actor as client](project.md).
 [o] `commandName` locates the actor function. Alan, 2026-11-03.
 [x] Each command endpoint constructs its own `FunctionActor`. `commandName` stays on `ActorOrder` and is logged as-is. Nothing on the wire resolves the actor function from `commandName`. Alan, 2026-11-03.
 [x] Every Order member is logged as-is. `stubActor` is the actor function when `ActorOrder` is read from the wire. Alan, 2026-11-03.
+[x] A wire-read `ActorOrder` is a log record, used like every other logged Order member. Nothing re-runs `stubActor`. Alan, 2026-11-03.
 [o] A new `CoreMsg` case is the start path.
 [x] `ActorOrder` includes the actor function. `postActorOrder` puts that order on the mailbox queue. Alan, 2026-11-03.
 [x] The pool mints the Actor session id.
