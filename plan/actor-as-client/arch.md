@@ -177,6 +177,8 @@ encodeActorOrder : ActorOrder -> IEncodable
 decodeActorOrder : string -> Result<ActorOrder, string>
 ```
 
+[ ] A wire-read `ActorOrder` is a log record, used like any other logged `Order` member. `stubActor` is never run.
+
 ### CoreDoor
 
 [ ] `actorChanges` builds `ActorChanges` from `CoreChangesDoor`. `postChanges` returns `Error` when the door is not writable.
@@ -232,6 +234,14 @@ postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> 
 
 ```fsharp
 execRunOp : VM -> VM * Effect list
+```
+
+### CommandRequest
+
+[x] `actorNameFromText` returns the actor name, the word after `?`.
+
+```fsharp
+actorNameFromText : string -> string option
 ```
 
 ## 4. Flow paths
@@ -292,6 +302,7 @@ decodeActorOrder wire
 ## 5. Module map
 
 [x] Commands is the module in `src/Client/Commands.fs`. `execRunOp` is the Run command.
+[x] CommandRequest is the module in `src/Shared/CommandRequest.fs`. `actorNameFromText` reads the actor name.
 [x] SearchActor is the module in `src/Server/SearchActor.fs`. `functionStart` builds the query closure.
 [x] RunAgentActor is the module in `src/Server/RunAgentActor.fs`. `actorFn` builds the closure that holds `GrokBotBinding`.
 [x] TestActor is the module in `src/Server/TestActor.fs`.

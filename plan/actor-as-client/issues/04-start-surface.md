@@ -15,47 +15,17 @@ Today CoreActorPool ([[src/Server/Core/CoreActorPool.fs]]) registers `ActorFn` b
 ## Answer
 
 1. **Curried in-process start** — In-process start uses a curried function posted to the mailbox — not a named ActorFn registry lookup. A Command closes over what the Actor needs and posts that function.
-2. **CoreActorPool remains with cancel** — CoreActorPool remains; it retains cancel authority. The information the pool needs to cancel is provided to the function: focus ID (the cancel Focus) and name.
-3. **Named registry stays fog** — Named registry for remote or cross-process start stays fog — not locked now.
-4. **ActorStart fields** — ActorStart no longer carries the `graphIds` extract (aligned with [02 — Graph handoff](02-graph-handoff.md)’s aim: drop extract; that ticket stays open). It records focus ID and name for the pool’s cancel path.
+2. **CoreActorPool remains with cancel** — CoreActorPool remains; it retains cancel authority. The pool cancels by focus ID (the cancel Focus) alone, through [112 — Place Cancel through PlaceOrder](../../core-refinement/issues/112-place-cancel-through-placeorder.md). Alan, 2026-11-03.
+3. **No in-process registry** — Each endpoint builds its own `FunctionActor`, so there is no in-process registry. Alan, 2026-11-03. Remote or cross-process start is out of scope ([Map](../map.md) section 4).
+4. **ActorStart fields** — In the end state, ActorStart no longer carries the `graphIds` extract (aligned with [02 — Graph handoff](02-graph-handoff.md)’s aim: drop extract; that ticket stays open). The Actor start cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included. It records focus ID for the pool’s cancel path.
 
 Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](02-graph-handoff.md).
-
-## Decisions 2026-11-03
-
-Alan, 2026-11-03. Detail and the cutover tickets: [Actor as client](../project.md).
-
-[x] `startFunction` is the one pool start. Alan, 2026-11-03.
-[o] `startActor` is the original start.
-[o] `startPeerActor` was never supposed to exist.
-[o] The pool cancel path requires a name on the function. Answer 2.
-[o] A named registry for in-process start stays fog. Answer 3.
-[x] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
-[o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.
-[o] One start takes a function and the FocusId only. The same-day refinement is `startFunction` plus `Order.RunActor`.
-[ ] `Order.RunActor` stores the command name and the FocusId.
-[o] A new `CoreMsg` case is the start path.
-[x] The pool mints the Actor session id.
-[ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure.
-[ ] A dispatcher outside Core maps a command name to an actor function. The module is `src/Server/ActorDispatch.fs`. The pool name tables leave.
-[ ] Anything else the actor function needs is in that closure. That includes graph ids and the command node.
-[x] An Actor is a thread from the .NET thread pool. It runs an actor function.
-[o] An Actor is the actor function.
-[o] A named registry for remote or cross-process start is in this cutover. Answer 3.
-[ ] Remote or cross-process start is out of scope for this cutover.
-[ ] `runSchedule` is renamed `launchPending` on 15 — Delete the old Actor starts.
-[ ] Cutover: add `Order.RunActor` beside the old orders. Callers move onto `startFunction`.
-[ ] Cutover: delete `startActor`, `startPeerActor`, the name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. `startFunction` stays.
-[o] `Order.StartActor` is a logged start.
-[o] `Order.LoadSave` is the git Load and Save log.
-[o] The browser `ActorStart` payload, including `graphIds`, changes in this cutover.
-[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 
 ## Comments
 
 - 2026-09-27 — Filed with the [Actor as client](../map.md) chart. Status `defined`.
 - 2026-09-27 — Locked from Alan voice. Status `done`. Feature-set remains parked.
-- 2026-11-03 — Alan unparked the Project. The decisions in this file supersede the name-on-the-function answer and the in-process registry fog. Status of this grill stays `done`.
+- 2026-11-03 — Alan unparked the Project. Answers 2 and 3 updated. The architecture is on [Arch](../arch.md). Status of this grill stays `done`.
 
 ## Time
 
