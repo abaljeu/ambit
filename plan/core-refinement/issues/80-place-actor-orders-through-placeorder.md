@@ -57,7 +57,7 @@ Blockers:
 
 [ ] Record the stop at `plan/core-refinement/reports/80-place-actor-orders-through-placeorder-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when the pull cannot both call `startFunction` and run `order.actor`. `ActorOrder.actorNodeId` is the actor node's id that `startFunction` uses.
+[ ] Stop when the pull cannot both call `startFunction` and run `order.actor`. `startFunction`'s actor node id comes from the Run path closure.
 [ ] Stop when the edit adds a `CoreMsg` case or looks up the function from `actorName`.
 [ ] Stop when the edit runs `stubActor`.
 
