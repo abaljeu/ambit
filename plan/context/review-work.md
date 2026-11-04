@@ -63,6 +63,8 @@ Write each section as a list, one finding per item. An empty section is one item
 
 Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
 
+When Miss names anything, the ticket does not meet spec. The next step is another build round to meet it, not the refactor round. The refactor round follows only a review whose Miss section is `No findings.`
+
 ## 4. Finish
 
 Done: the report has the six sections, each section is a list, the Miss section names what returns the ticket to build, and each Found elsewhere item is accepted or rejected.
