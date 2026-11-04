@@ -3,7 +3,7 @@
 One job: `postSearchRequest` builds the query `FunctionActor` and puts `Order.ActorOrder` on the mailbox queue. This ticket deletes `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`.
 
 [ ] `startFunction` stays. The query start on `startChosen` leaves.
-[ ] Find and Move stays on `recordSearchStart`. That call logs `Order.ActorOrder` and does not run the actor.
+[ ] Find and Move stays on `recordSearchStart`. That call posts `Order.ActorOrder`, and the Search Actor runs.
 [ ] The source files are 7. The test files are 3. The size limit is 8 source files and 4 test files.
 
 Type:
@@ -21,7 +21,7 @@ Blockers:
 [ ] `postSearchRequest` is in `src/Server/RouteRegistration.fs`. It calls `Api.postSearch`.
 [ ] `searchDoor` calls `CoreMailboxApi.recordSearchStart`.
 [ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is in `src/Server/Core/CoreMailboxActors.fs`.
-[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandId`. It is in `src/Server/SearchActor.fs`.
+[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph`, `focusId`, and `commandNodeId`. It is in `src/Server/SearchActor.fs`.
 [x] The actor function's input is `FunctionRun` and `ActorChanges`.
 [ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
 [ ] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActor`. That `runMsg` arm is its only caller.
@@ -42,9 +42,9 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postSearchRequest` builds `ActorOrder` from the query `FunctionActor`, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+2. [ ] Change: `postSearchRequest` builds `ActorOrder` from the query `FunctionActor`, `getGraph`, the FocusId, `commandNodeId`, and `commandName`, and calls `postActorOrder`.
 3. [ ] Contract: `startChosen` no longer starts a query. Other names still call `startActor`.
-4. [ ] Change: `recordSearchStart` logs `Order.ActorOrder` and does not run the actor. Find and Move stays on `recordSearchStart`.
+4. [ ] Change: `recordSearchStart` posts `Order.ActorOrder` for Find and Move. The Search Actor runs. Find and Move stays on `recordSearchStart`.
 5. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
 6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not add an `Order` case.
 
@@ -59,13 +59,13 @@ Blockers:
 [ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
 [ ] `tests/Server.Tests/QueryActorTests.fs` — the existing query start tests
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — keep the `startFunction` tests green
-[ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move logs `Order.ActorOrder`
+[ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move runs the Search Actor through `Order.ActorOrder`
 
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/09-dispatch-the-query-command-stop.md`, then ask.
 [ ] Stop when this ticket writes `Order.StartActor`.
-[ ] Stop when logging `Order.ActorOrder` from `recordSearchStart` needs a door other than the log.
+[ ] Stop when Find and Move posts an `ActorOrder` that does not run the Search Actor.
 [ ] Stop when a constructor of `CoreMsg.RecordSearchStart` sits outside `CoreMailboxApi.recordSearchStart`.
 [ ] Stop when a test file outside Outputs must change.
 

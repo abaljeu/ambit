@@ -15,6 +15,9 @@ This folder is the Project [Actor as client](project.md).
 [o] `startPeerActor` was never supposed to exist.
 [o] The actor function's input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
 [x] `FunctionActor` takes `ActorChanges`. `CoreDoor.actorChanges` builds that value from `CoreChangesDoor`. `CoreChangesDoor`, `MailboxHost`, and `Caller` stay in Server. Alan, 2026-11-03.
+[x] Find and Move posts `Order.ActorOrder`, and that order runs the Search Actor. Alan, 2026-11-04.
+[x] `ActorOrder` carries `commandNodeId` and `commandName`. The pool's one-live-Actor check uses `commandNodeId`. Alan, 2026-11-04.
+[ ] `commandNodeId` and `ActorOrder.commandName` are provisional. Final names are pending Alan.
 [x] `FunctionActor` is a Shared type. Alan, 2026-11-03.
 [x] Run on a node that contains `?test` is `execRunOp`. `postActorStart` builds that command's `FunctionActor` and posts `ActorOrder`. The AI run uses that same path. Alan, 2026-11-03.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `commandId`, `graphIds`, and `eventId`.

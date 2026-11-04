@@ -38,6 +38,7 @@ type ActorChanges =
 ```
 
 [x] `FunctionStart`
+[ ] 00 — Rename commandId to commandNodeId renames `ActorStart.commandId`, `ActorInput.commandId`, and `FunctionStart.commandId`.
 
 ```fsharp
 type FunctionStart =
@@ -62,8 +63,12 @@ type ActorOrder =
     { actor: FunctionActor
       getGraph: GraphCarrier
       focusId: NodeId
+      commandNodeId: NodeId
       commandName: string }
 ```
+
+[ ] `commandNodeId` is the `?` line's node. `commandName` is the word after `?`. The two fields are unrelated. The pool's one-live-Actor check uses `commandNodeId`.
+[ ] `commandNodeId` and `commandName` are provisional.
 
 [ ] `Order.ActorOrder` carries `ActorOrder`. The log stores that member as-is.
 
@@ -160,13 +165,13 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 stubActor : FunctionActor
 ```
 
-[ ] `encodeActorOrder` writes `ActorOrder` on the wire. The actor function stays off the wire.
+[ ] `encodeActorOrder` writes `commandNodeId` and `commandName`. The actor function stays off the wire. The wire key for `commandNodeId` stays `"commandId"`.
 
 ```fsharp
 encodeActorOrder : ActorOrder -> IEncodable
 ```
 
-[ ] `decodeActorOrder` reads that wire form. `actor` is `stubActor`.
+[ ] `decodeActorOrder` reads `commandNodeId` and `commandName`. `actor` is `stubActor`.
 
 ```fsharp
 decodeActorOrder : string -> Result<ActorOrder, string>
@@ -237,7 +242,7 @@ execRunOp : VM -> VM * Effect list
 
 ```fsharp
 postSearchRequest persistence req
-ActorOrder actor getGraph focusId commandName
+ActorOrder actor getGraph focusId commandNodeId commandName
 postActorOrder order
 actorChanges door
 Async.Start (actor { getGraph = getGraph; secret = secret } changes)
@@ -306,4 +311,4 @@ decodeActorOrder wire
 
 ## 7. Open questions
 
-open — How Find and Move logs `Order.ActorOrder` without running the actor is open. `ActorOrder` carries `commandName`. `FunctionStart` carries `commandId`.
+open — Actor-side 'command' naming clashes with editor commands; final names pending Alan.
