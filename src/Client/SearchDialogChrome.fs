@@ -104,6 +104,28 @@ let formatNamedDialogHit (name: Filename) (text: string) : string =
     | Filename.Ok label -> $"{label}  {text}"
     | _ -> text
 
+let dialogResultLabels (items: string list) : string list =
+    if List.isEmpty items then [ "Zero results" ] else items
+
+let dialogResultPick (items: string list) (rowIndex: int) : int option =
+    if List.isEmpty items then None else Some rowIndex
+
+let private appendDialogRow
+    (ul: HTMLElement)
+    (label: string)
+    (pickIndex: int option)
+    (selected: bool)
+    : HTMLElement option =
+    let li = document.createElement "li"
+    li.textContent <- label
+    match pickIndex with
+    | None -> li.classList.add "amb-dialog-zero"
+    | Some index ->
+        li.dataset.["idx"] <- string index
+        if selected then li.classList.add "amb-dialog-selected"
+    ul.appendChild li |> ignore
+    if selected && Option.isSome pickIndex then Some li else None
+
 let renderDialogResultList
     (container: HTMLElement)
     (items: string list)
@@ -114,25 +136,20 @@ let renderDialogResultList
     let previousScrollTop = ul.scrollTop
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
-    let selectedLi =
-        items
-        |> List.mapi (fun i label ->
-            let li = document.createElement "li"
-            li.textContent <- label
-            li.dataset.["idx"] <- string i
-            let selected = i = clampedSel
-            if selected then li.classList.add "amb-dialog-selected"
-            ul.appendChild li |> ignore
-            if selected then Some li else None)
-        |> List.tryPick id
+    dialogResultLabels items
+    |> List.iteri (fun i label ->
+        let pick = dialogResultPick items i
+        appendDialogRow ul label pick (pick = Some clampedSel) |> ignore)
     if scrollSelection then
-        selectedLi |> Option.iter scrollIntoViewNearest
+        let selectedLi = ul.querySelector ".amb-dialog-selected"
+        if not (isNull selectedLi) then
+            scrollIntoViewNearest (selectedLi :?> HTMLElement)
     else
         ul.scrollTop <- previousScrollTop
 
-let private dialogResultIndex (li: HTMLElement) : int =
+let private dialogResultIndex (li: HTMLElement) : int option =
     let idxStr = li.dataset.["idx"]
-    if System.String.IsNullOrEmpty idxStr then 0 else int idxStr
+    if System.String.IsNullOrEmpty idxStr then None else Some (int idxStr)
 
 let private dialogScrolledNearEnd (ul: HTMLElement) : bool =
     ul.scrollTop + ul.clientHeight >= ul.scrollHeight - 48.0
@@ -140,11 +157,12 @@ let private dialogScrolledNearEnd (ul: HTMLElement) : bool =
 let handleDialogKey (action: DialogKeyAction) (ke: KeyboardEvent) : unit =
     if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
         ke.preventDefault()
+    let combo = formatKeyCombo ke
     let overlay op =
         ke.preventDefault()
         action.flushQuery ()
         action.dispatch (ApplyOp op)
-    match formatKeyCombo ke with
+    match combo with
     | "Escape" -> overlay action.keys.closeDialog
     | "ArrowUp" -> overlay action.keys.moveSelectionUp
     | "ArrowDown" -> overlay action.keys.moveSelectionDown
@@ -162,7 +180,10 @@ let wireDialogList (wire: DialogListWire) : unit =
         let target = ev.target :?> HTMLElement
         match target.closest "li" with
         | None -> ()
-        | Some li -> wire.onResultClick (dialogResultIndex (li :?> HTMLElement)))
+        | Some li ->
+            match dialogResultIndex (li :?> HTMLElement) with
+            | None -> ()
+            | Some index -> wire.onResultClick index)
 
 let createTimeoutSlot () : TimeoutSlot =
     let timer = ref (None: float option)

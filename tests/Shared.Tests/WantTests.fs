@@ -215,6 +215,66 @@ let ``compose wants one rank past a folded loaded child`` () =
     Assert.DoesNotContain(hiddenId, want)
 
 [<Fact>]
+let ``compose wants two ranks past a folded loaded child`` () =
+    let g0 = Graph.create ()
+    let g1, zoomIds = ModelBuilder.createNodes [ "zoom" ] g0
+    let zoomId = zoomIds.[0]
+    let g2, midIds = ModelBuilder.createNodes [ "mid" ] g1
+    let midId = midIds.[0]
+    let g3, hiddenIds = ModelBuilder.createNodes [ "hidden" ] g2
+    let hiddenId = hiddenIds.[0]
+    let g4, grandIds = ModelBuilder.createNodes [ "grand" ] g3
+    let grandId = grandIds.[0]
+    let g5, greatIds = ModelBuilder.createNodes [ "great" ] g4
+    let greatId = greatIds.[0]
+    let g6 =
+        Graph.replace g5.root 0 [] (owned [ zoomId ]) g5
+        |> requireOk "deeper.root"
+    let g7 =
+        Graph.replace zoomId 0 [] (owned [ midId ]) g6
+        |> requireOk "deeper.zoom"
+    let g8 =
+        Graph.replace midId 0 [] (owned [ hiddenId ]) g7
+        |> requireOk "deeper.mid"
+    let g9 =
+        Graph.replace hiddenId 0 [] (owned [ grandId ]) g8
+        |> requireOk "deeper.hidden"
+    let graph =
+        Graph.replace grandId 0 [] (owned [ greatId ]) g9
+        |> requireOk "deeper.grand"
+    let siteMap, _ = buildSiteMapFrom graph zoomId (Sid 0)
+    let keptHeader = unload greatId graph
+    let keptWant = Want.compose keptHeader siteMap zoomId
+    Assert.Equal<NodeId list>([], keptWant)
+    let want =
+        Want.compose (absentUnloaded greatId graph) siteMap zoomId
+    Assert.Equal<NodeId list>([ greatId ], want)
+    Assert.DoesNotContain(grandId, want)
+
+[<Fact>]
+let ``compose returns the first 100 Absent ids in walk order`` () =
+    let g0 = Graph.create ()
+    let g1, zoomIds = ModelBuilder.createNodes [ "zoom" ] g0
+    let zoomId = zoomIds.[0]
+    let labels = [ for i in 0 .. 100 -> sprintf "n%d" i ]
+    let g2, childIds = ModelBuilder.createNodes labels g1
+    let g3 =
+        Graph.replace g2.root 0 [] (owned [ zoomId ]) g2
+        |> requireOk "cap.root"
+    let graph0 =
+        Graph.replace zoomId 0 [] (owned childIds) g3
+        |> requireOk "cap.zoom"
+    let siteMap, _ = buildSiteMapFrom graph0 zoomId (Sid 0)
+    let graph =
+        childIds
+        |> List.fold (fun g id -> absentUnloaded id g) graph0
+    let want = Want.compose graph siteMap zoomId
+    let expected = List.truncate 100 childIds
+    Assert.Equal<NodeId list>(expected, want)
+    Assert.Equal(100, List.length want)
+    Assert.DoesNotContain(childIds.[100], want)
+
+[<Fact>]
 let ``compose is empty when Included is Loaded`` () =
     let graph, siteMap, zoomId, _ = zoomWithChildren [ "leaf" ]
     let want = Want.compose graph siteMap zoomId
