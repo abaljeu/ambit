@@ -202,7 +202,7 @@ module internal CoreMailboxLoop =
         : Result<unit, string> =
         let start : FunctionStart =
             { actor = poolActor order.actor
-              getGraph = order.getGraph
+              getGraph = fun () -> CoreMailboxEvents.graphNow context
               focusId = order.focusId }
         match context.pool.startFunction start with
         | Error err -> Error err

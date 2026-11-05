@@ -1,5 +1,7 @@
 pass
 
+Recheck after `ActorOrder` dropped `getGraph`. The mailbox supplies `getGraph` on `FunctionStart`.
+
 Ticket: [18 — Place ActorOrder through PlaceOrder](../issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 
 [x] `scripts/agent-test.sh` with no arguments. Mapped Server and Shared tests passed.

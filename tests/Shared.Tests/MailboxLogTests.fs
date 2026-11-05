@@ -116,7 +116,6 @@ let ``ActorOrder carries command name and FocusId`` () =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
     let order =
         { actor = EventJson.stubActor
-          getGraph = fun () -> Graph.create ()
           focusId = focusId
           actorName = "hello" }
     let event =

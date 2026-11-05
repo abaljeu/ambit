@@ -38,7 +38,6 @@ module internal CoreMailboxLoad =
         =
         let order =
             { actor = EventJson.stubActor
-              getGraph = fun () -> Graph.create ()
               focusId = request.start.focusId
               actorName = "" }
         CoreEventDispatch.appendLifecycle

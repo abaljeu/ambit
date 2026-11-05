@@ -410,7 +410,6 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let other : ActorFunction = fun _ _ -> async.Return ()
     let order actor =
         { actor = actor
-          getGraph = fun () -> Graph.create ()
           focusId = focusId
           actorName = "hello" }
     let jsonOf actor =

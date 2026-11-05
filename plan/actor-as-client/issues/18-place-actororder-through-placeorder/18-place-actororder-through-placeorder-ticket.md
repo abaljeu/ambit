@@ -44,7 +44,7 @@ Blockers:
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
 2. [x] Types stay on Arch. Rename the Shared actor type and the pool actor type to `ActorFunction`.
 3. [x] Change: `postActorOrder` takes the client's `Caller` and posts `Mailbox.PlaceOrder` with that `Caller`.
-4. [x] Change: `placeOrder` accepts `Order.ActorOrder`. The pull calls `startFunction` and runs `order.actor` on the .NET thread pool through Shared changes. `FunctionStart.actorNodeId` comes from the closure on that `ActorFunction`.
+4. [x] Change: `placeOrder` accepts `Order.ActorOrder`. The pull calls `startFunction` and runs `order.actor` on the .NET thread pool through Shared changes. The mailbox supplies `getGraph`. `ActorOrder` carries `focusId` and `ActorFunction`.
 5. [x] A Desk Load or Save places `Order.ActorOrder` and runs no actor.
 6. [x] Leave `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` unsupported.
 7. [x] A wire-read order stays a log record. Leave `stubActor` unrun.

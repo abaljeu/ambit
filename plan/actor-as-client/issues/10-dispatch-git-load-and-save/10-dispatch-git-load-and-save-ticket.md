@@ -39,7 +39,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postLoadSaveCommand` builds `ActorOrder` for Git with the transport `FunctionActor`, `getGraph`, the FocusId, and `actorName`, and calls `postActorOrder`.
+2. [ ] Change: `postLoadSaveCommand` builds `ActorOrder` for Git with the transport `FunctionActor`, the FocusId, and `actorName`, and calls `postActorOrder`.
 3. [ ] The closure holds the path and the command node. The Desk arm runs no Actor and does not call `postActorOrder`.
 4. [ ] Change: `GithubTransportActor.start` uses that same `ActorOrder`. It does not post `CoreMsg.StartPeerActor`.
 5. [ ] Contract: Remove the two `registerPeer` calls.

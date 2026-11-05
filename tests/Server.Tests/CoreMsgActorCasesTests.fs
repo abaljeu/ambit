@@ -413,7 +413,6 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
             async.Return ()
     let order =
         { actor = actor
-          getGraph = fun () -> Graph.create ()
           focusId = focusId
           actorName = "test" }
     try

@@ -35,7 +35,6 @@ type ActorChanges =
 
 type ActorOrder =
     { actor: ActorFunction
-      getGraph: GraphCarrier
       focusId: NodeId
       actorName: string }
 ```
@@ -161,6 +160,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 ```
 
 [ ] `placeOrder` calls Pool start and runs `order.actor` on the .NET thread pool.
+[ ] The mailbox supplies `getGraph` when it builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
 [ ] `FunctionStart.actorNodeId` is the `actorNodeId` Curried actor applied. `placeOrder` reads that id from the closure.
 [ ] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] A Desk Load or Save runs no actor.

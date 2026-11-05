@@ -96,7 +96,6 @@ and ActorChanges =
 
 and [<CustomEquality; NoComparison>] ActorOrder =
     { actor: ActorFunction
-      getGraph: GraphCarrier
       focusId: NodeId
       actorName: string }
 

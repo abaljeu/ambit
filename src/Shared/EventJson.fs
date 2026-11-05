@@ -304,9 +304,6 @@ module EventJson =
     let stubActor : ActorFunction =
         fun _ _ -> async.Return ()
 
-    let private stubGraph : GraphCarrier =
-        fun () -> Graph.create ()
-
     let private actorOrderFields (order: ActorOrder) =
         [ "focusId", Serialization.encodeNodeId order.focusId
           "actorName", Encode.string order.actorName ]
@@ -317,7 +314,6 @@ module EventJson =
     let private decodeActorOrderFields : Decoder<ActorOrder> =
         Decode.object (fun get ->
             { actor = stubActor
-              getGraph = stubGraph
               focusId =
                   get.Required.Field
                       "focusId"
@@ -355,7 +351,6 @@ module EventJson =
             | true, focus ->
                 Ok
                     { actor = stubActor
-                      getGraph = stubGraph
                       focusId = NodeId focus
                       actorName = actorName }
 
