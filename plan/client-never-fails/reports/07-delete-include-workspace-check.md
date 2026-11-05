@@ -10,6 +10,6 @@ Full `scripts/agent-test.sh --full` passed: Server 742 passed, 1 skipped; Shared
 
 Renamed tests: ``postLoad Ev-only when includeWorkspace false`` is ``postLoad returns Events and the target Header``. ``postLoad Want answer when includeWorkspace true`` is ``postLoad Want answer for the target``. ``wantAnswerForTargets without residency intent returns empty`` is ``wantAnswerForTargets returns a leaf target Header``.
 
-The tree names ``wantAnswerForTargets returns the target Header and its child list``. The ticket input names ``wantAnswerForTargets returns direct Children and pointed-at Nodes``. The filter used the tree name.
+The ticket names ``wantAnswerForTargets returns the target Header and its child list``.
 
 `LoadRefuse.MultiWorkspace` stays. The Output `.fs` files have no `includeWorkspace`.

@@ -9,17 +9,17 @@ Blockers: [16 — Poll for nearby Absent Nodes](plan/client-never-fails/issues/1
 
 ### Working
 
-[x] `UpdateHelpers.loadTargetIntent` in `src/Client/UpdateHelpers.fs` builds `LoadTarget` and sets `includeWorkspace` from `Graph.isLoaded`.
-[x] `UpdateHelpers.tryStartLoadFetch` is the caller. It maps selection ids through `loadTargetIntent` and passes the targets to `SyncPlanner.tryStartLoad`.
-[x] `LoadTarget` in `src/Shared/ApiResponses.fs` is `{ targetId; includeWorkspace }`.
-[x] `encodeLoadTarget` and `decodeLoadTargetDecoder` in `src/Shared/ApiResponseSerialization.fs` read and write `includeWorkspace`.
-[x] `ResidentProjection.wantAnswerForTargets` in `src/Shared/ResidentProjection.fs` keeps a target id when `includeWorkspace` is true, then calls `wantAnswer`. `LoadRefuse.MultiWorkspace` is the refusal when the targets span two Workspaces.
-[x] 23 mentions of `includeWorkspace` sit in [[tests/Server.Tests/ApiPostLoadTests.fs]] (10), [[tests/Shared.Tests/LoadCaptureTests.fs]] (6), [[tests/Shared.Tests/SerializationTests.fs]] (4), and [[tests/Shared.Tests/SyncPlannerTests.fs]] (3).
-[x] The facts are ``postLoad Ev-only when includeWorkspace false``, ``postLoad Want answer when includeWorkspace true``, ``postLoad missing target returns Events without Nodes``, ``postLoad shares one event id for Events and Nodes``, ``postLoad same Workspace multi-target dedupes answer Nodes``, ``postLoad refuses selection spanning two Workspaces``, ``wantAnswerForTargets without residency intent returns empty``, ``wantAnswerForTargets returns direct Children and pointed-at Nodes``, ``wantAnswerForTargets missing target returns empty``, ``wantAnswerForTargets refuses targets across Workspaces``, ``captureLoadResponse shares event id for Changes and Nodes``, ``LoadRequest round-trip``, ``tryStartLoad emits LoadServer when idle with empty queue``, and ``tryStartLoad returns no effects when already loading``.
+[x] `UpdateHelpers.loadTargetIntent` in `src/Client/UpdateHelpers.fs` builds `{ targetId }`.
+[x] `UpdateHelpers.tryStartLoadFetch` maps selection ids through `loadTargetIntent` and passes those targets to `SyncPlanner.tryStartLoad`.
+[x] `LoadTarget` in `src/Shared/ApiResponses.fs` is `{ targetId }`.
+[x] `encodeLoadTarget` and `decodeLoadTargetDecoder` in `src/Shared/ApiResponseSerialization.fs` write and read the target id.
+[x] `ResidentProjection.wantAnswerForTargets` in `src/Shared/ResidentProjection.fs` answers each target id. `LoadRefuse.MultiWorkspace` is the refusal when the targets span two Workspaces.
+[x] [[tests/Server.Tests/ApiPostLoadTests.fs]], [[tests/Shared.Tests/LoadCaptureTests.fs]], [[tests/Shared.Tests/SerializationTests.fs]], and [[tests/Shared.Tests/SyncPlannerTests.fs]] assert the target id answer.
+[x] The facts are ``postLoad returns Events and the target Header``, ``postLoad Want answer for the target``, ``postLoad missing target returns Events without Nodes``, ``postLoad shares one event id for Events and Nodes``, ``postLoad same Workspace multi-target dedupes answer Nodes``, ``postLoad refuses selection spanning two Workspaces``, ``wantAnswerForTargets returns a leaf target Header``, ``wantAnswerForTargets returns the target Header and its child list``, ``wantAnswerForTargets missing target returns empty``, ``wantAnswerForTargets refuses targets across Workspaces``, ``captureLoadResponse shares event id for Changes and Nodes``, ``LoadRequest round-trip``, ``tryStartLoad emits LoadServer when idle with empty queue``, and ``tryStartLoad returns no effects when already loading``.
 [x] [[src/Client/UpdateHelpers.fs]] — `loadTargetIntent` and `tryStartLoadFetch`.
-[x] [[src/Shared/ApiResponses.fs]] — delete the `includeWorkspace` field.
+[x] [[src/Shared/ApiResponses.fs]] — `LoadTarget` is `{ targetId }`.
 [x] [[src/Shared/ApiResponseSerialization.fs]] — encode and decode a target id only.
-[x] [[src/Shared/ResidentProjection.fs]] — `wantAnswerForTargets` answers the target ids. Delete the `includeWorkspace` filter.
+[x] [[src/Shared/ResidentProjection.fs]] — `wantAnswerForTargets` answers the target ids. `LoadRefuse.MultiWorkspace` stays.
 
 ### Reference
 
@@ -34,10 +34,10 @@ Blockers: [16 — Poll for nearby Absent Nodes](plan/client-never-fails/issues/1
 ## Process
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] Change `loadTargetIntent` so it builds a target id only, and change `tryStartLoadFetch` to pass those targets.
-3. [x] Contract `LoadTarget` by deleting `includeWorkspace`. Change encode and decode to the target id only.
-4. [x] Change `wantAnswerForTargets` so it answers the target ids. Delete the `includeWorkspace` filter. Leave `LoadRefuse.MultiWorkspace` in place.
-5. [x] Change the 23 `includeWorkspace` mentions in the four test files named in Inputs.
+2. [x] `loadTargetIntent` builds a target id only, and `tryStartLoadFetch` passes those targets.
+3. [x] `LoadTarget` is `{ targetId }`. Encode and decode write and read that id.
+4. [x] `wantAnswerForTargets` answers the target ids. `LoadRefuse.MultiWorkspace` stays.
+5. [x] The four test files named in Inputs assert the target id answer.
 
 ## Outputs
 
@@ -45,10 +45,10 @@ Blockers: [16 — Poll for nearby Absent Nodes](plan/client-never-fails/issues/1
 [x] `src/Shared/ApiResponses.fs`
 [x] `src/Shared/ApiResponseSerialization.fs`
 [x] `src/Shared/ResidentProjection.fs`
-[x] `tests/Server.Tests/ApiPostLoadTests.fs` — 10 mentions
-[x] `tests/Shared.Tests/LoadCaptureTests.fs` — 6 mentions
-[x] `tests/Shared.Tests/SerializationTests.fs` — 4 mentions in ``LoadRequest round-trip``
-[x] `tests/Shared.Tests/SyncPlannerTests.fs` — 3 mentions
+[x] `tests/Server.Tests/ApiPostLoadTests.fs`
+[x] `tests/Shared.Tests/LoadCaptureTests.fs`
+[x] `tests/Shared.Tests/SerializationTests.fs` — ``LoadRequest round-trip``
+[x] `tests/Shared.Tests/SyncPlannerTests.fs`
 
 ## Stop when
 
