@@ -238,7 +238,7 @@ functionActor : NodeId -> ActorFunction
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction
 ```
 
-[ ] Wake reads `run.sessionId`. `deliver` and `takeInbox` use that id. Pool start minted it.
+[ ] The Grok oneshot POST reads `run.sessionId`. `deliver` and `takeInbox` use that id. Pool start minted it. The library call is `GrokBotRunner.wake`.
 
 ### Cancel by focus node
 

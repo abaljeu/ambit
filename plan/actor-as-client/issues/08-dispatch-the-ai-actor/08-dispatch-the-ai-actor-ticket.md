@@ -5,7 +5,7 @@ One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `
 [ ] The ask-start seam is the only test start for `?ai`. Suites call that seam.
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
 [ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
-[ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for wake, `deliver`, and `takeInbox`.
+[ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for the Grok oneshot POST and for `deliver` and `takeInbox`.
 [ ] The source files are 5. The test files are 10. The size limit is 8 source files and 4 test files. The test count is over the limit. The ask suites share one seam, and `actorFn` does not compile while those suites still register an `ActorFn`.
 
 Type:
@@ -21,7 +21,7 @@ Blockers:
 ### Working
 
 [ ] `RouteRegistration.fs` registers `ActorName "ai"` as `RunAgentActor.actorFn`.
-[ ] `RunAgentActor.actorFn` is an `ActorFn`. It reads `input.sessionId` and passes that string to the Grok wake and to `requestGrokCancel`.
+[ ] `RunAgentActor.actorFn` is an `ActorFn`. It reads `input.sessionId` and passes that string to `GrokBotRunner.wake` (library name) and to `requestGrokCancel`.
 [ ] `FunctionRun` is `getGraph` and `secret` in `src/Shared/History.fs`.
 [ ] `putFunctionStart` mints the Actor `sessionId` with `Guid.NewGuid` and stores it on the live row.
 [ ] `runSchedule` for `FunctionPending` builds `FunctionRun` from `getGraph` and `secret`. It does not copy `row.sessionId`.
@@ -61,7 +61,7 @@ Blockers:
 
 6. [ ] Add `sessionId` to `FunctionRun` in `src/Shared/History.fs`.
 7. [ ] `runSchedule` for `FunctionPending` sets `FunctionRun.sessionId` from `row.sessionId`. `putFunctionStart` still mints that id. `deliver` and `takeInbox` keep that id.
-8. [ ] Wake reads `run.sessionId`. `deliver` and `takeInbox` keep that id.
+8. [ ] The Grok oneshot POST reads `run.sessionId`. `deliver` and `takeInbox` keep that id. The library call is `GrokBotRunner.wake`.
 9. [ ] Contract: Cancel stays `cancelByFocus`. The focus node id is the actor handle. That id removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is not the cancel handle.
 
 ### 3. ActorOrder for ?ai
@@ -78,14 +78,14 @@ Blockers:
 [ ] `src/Shared/History.fs` — `FunctionRun.sessionId`
 [ ] `src/Server/Core/CoreActorPool.fs` — `runSchedule` copies `row.sessionId`
 [ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `ActorOrder` after `admitCaller`
-[ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. Wake reads `run.sessionId`.
+[ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. The Grok oneshot POST reads `run.sessionId`.
 [ ] `src/Server/RouteRegistration.fs` — remove `ai` from `pool.register`
 [ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun`
 [ ] `tests/Server.Tests/AgentAskTests.fs` — the second-launch fact calls `startAiRun`
 [ ] `tests/Server.Tests/AgentActorStreamTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/AgentAuthErrorTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/AgentFailurePreserveTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/AgentGrokBotStreamTests.fs` — calls the ask-start seam. ``inbound deliver stays live for a second chunk`` delivers with the wake `SessionId`.
+[ ] `tests/Server.Tests/AgentGrokBotStreamTests.fs` — calls the ask-start seam. ``inbound deliver stays live for a second chunk`` delivers with the `SessionId` from the Grok oneshot POST.
 [ ] `tests/Server.Tests/AiKeysTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/AiReposTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/BrowserAskProofTests.fs` — calls the ask-start seam
