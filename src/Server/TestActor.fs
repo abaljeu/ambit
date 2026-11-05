@@ -22,10 +22,7 @@ module TestActor =
                               input.focusId,
                               [],
                               [ ChildNode.owner helloNodeId ]) ] }
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
+            let caller = CoreDoor.actorCaller input.secret
             let! _ =
                 CoreDoor.postEvents
                     (CoreDoor.forCaller caller coreChanges)
@@ -50,10 +47,7 @@ module TestActor =
                             return ActorSucceeded
                         }
                     | _ -> async.Return (ActorFailed "")
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
+            let caller = CoreDoor.actorCaller input.secret
             let! _ =
                 CoreDoor.actorStop
                     (CoreDoor.forCaller caller coreChanges)
@@ -63,11 +57,6 @@ module TestActor =
 
     /// ActorFn for Actor name "test". Selection is CoreActorPool's job.
     let actorFn: ActorFn = dispatch
-
-    let private actorCaller (secret: Credential) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = secret }
 
     let private childEvent (parentId: NodeId) (text: string) : Ev =
         let childId = NodeId.New()
@@ -101,48 +90,25 @@ module TestActor =
     let private runBehavior
         (behavior: string)
         (parentId: NodeId)
-        (post: Ev list -> Async<Result<unit, string>>)
-        (stop: ActorResult -> Async<Result<unit, string>>)
+        (changes: ActorChanges)
         =
         async {
             let! result =
                 match behavior with
                 | "hello" ->
                     async {
-                        do! postChild parentId "hello" post
+                        do! postChild parentId "hello" changes.postChanges
                         return ActorSucceeded
                     }
                 | "ping" ->
                     async {
-                        do! postChild parentId "pong" post
+                        do! postChild parentId "pong" changes.postChanges
                         return ActorSucceeded
                     }
                 | _ -> async.Return (ActorFailed "")
-            let! _ = stop result
+            let! _ = changes.actorStop result
             return ()
         }
-
-    let private doorPost
-        (secret: Credential)
-        (door: CoreChangesDoor)
-        (events: Ev list)
-        =
-        async {
-            let! result =
-                CoreDoor.postEvents
-                    (CoreDoor.forCaller (actorCaller secret) door)
-                    events
-            return Result.map (fun (_: CoreChangesAccepted) -> ()) result
-        }
-
-    let private doorStop
-        (secret: Credential)
-        (door: CoreChangesDoor)
-        (result: ActorResult)
-        =
-        CoreDoor.actorStop
-            (CoreDoor.forCaller (actorCaller secret) door)
-            result
 
     /// Function-shaped TestActor. Calls getGraph; pool supplies no Graph.
     let functionActor: Gambol.Server.ActorFunction =
@@ -154,11 +120,12 @@ module TestActor =
                 match graph.focus with
                 | None -> ""
                 | Some nodeId -> commandText graph nodeId
-            runBehavior
-                behavior
-                parentId
-                (doorPost run.secret door)
-                (doorStop run.secret door)
+            let changes =
+                CoreDoor.actorChanges
+                    (CoreDoor.forCaller
+                        (CoreDoor.actorCaller run.secret)
+                        door)
+            runBehavior behavior parentId changes
 
     /// Test command after the actor node id is applied.
     /// Hello and ping land under focusId.
@@ -171,5 +138,4 @@ module TestActor =
             runBehavior
                 (commandText graph actorNodeId)
                 focusId
-                changes.postChanges
-                changes.actorStop
+                changes

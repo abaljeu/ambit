@@ -16,6 +16,12 @@ module CoreDoor =
           caller = caller
           writable = writable }
 
+    /// Authority Actor with the minted pool secret. Name stays empty.
+    let actorCaller (secret: Credential) : Caller =
+        { authority = Authority "Actor"
+          name = ""
+          secret = secret }
+
     let forCaller caller (door: CoreChangesDoor) =
         { door with caller = caller }
 

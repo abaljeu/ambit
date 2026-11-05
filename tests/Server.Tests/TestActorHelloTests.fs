@@ -65,11 +65,6 @@ let private sampleRequest focusId actorNodeId graphIds: Gambol.Shared.ActorStart
       graphIds = graphIds
       eventId = EventId.zero }
 
-let private actorCaller secret =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
 let private createHost () =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
@@ -79,17 +74,6 @@ let private createHost () =
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
     host, pool
-
-let private postOrder (host: MailboxHost) (request: ActorStart) =
-    let order =
-        { actor =
-            TestActor.functionActorAt
-                request.actorNodeId
-                request.focusId
-          focusId = request.focusId
-          actorName = "test" }
-    MailboxHost.postActorOrder host testCaller order
-    |> Async.StartAsTask
 
 let private withHost body =
     task {
@@ -120,7 +104,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
@@ -158,7 +142,7 @@ let ``TestActor hello interprets ?test hello without actor CSS`` () =
         requireOk "postChange" postResult |> ignore
         let request =
             sampleRequest actorNodeId actorNodeId [ Graph.rootId; actorNodeId ]
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -205,7 +189,7 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
                     [ Graph.rootId; actorNodeId; focusId ]
             { baseReq with zoomId = actorNodeId }
         Assert.NotEqual(request.actorNodeId, request.focusId)
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -245,7 +229,7 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
@@ -284,11 +268,11 @@ let ``TestActor hello drops live row after successful stop`` () =
 
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
 
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
 
-        // startActor replies after schedule. A fast hello can finish and
-        // drop the row before this continuation runs, so presence here is a race.
+        // postActorOrder replies after schedule. A fast hello can finish
+        // and drop the row before this continuation runs.
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
 
@@ -326,7 +310,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
@@ -377,7 +361,7 @@ let ``TestActor hello interprets command node text`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
@@ -410,7 +394,7 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -451,7 +435,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result = postOrder host request
+        let! result = postTestActorOrder host request
         requireOk "postActorOrder" result |> ignore
 
         let! finished = waitForActorFinished host request.focusId 1000

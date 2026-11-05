@@ -189,11 +189,6 @@ module internal CoreMailboxLoop =
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
-    let private actorCaller (secret: Credential) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = secret }
-
     /// Shared ActorFunction posts as the minted Actor credential.
     let private poolActor
         (actor:
@@ -205,7 +200,9 @@ module internal CoreMailboxLoop =
         : Async<unit> =
         let changes =
             CoreDoor.actorChanges
-                (CoreDoor.forCaller (actorCaller run.secret) door)
+                (CoreDoor.forCaller
+                    (CoreDoor.actorCaller run.secret)
+                    door)
         actor run changes
 
     let private scheduleActorOrder
