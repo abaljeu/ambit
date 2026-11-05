@@ -136,7 +136,7 @@ type SearchDialogState =
 | CancelSearchQuietGap
 ```
 
-[x] `GraphBuild.trashId` is the trash node. `ViewModelSearch.searchHitCap` is 200.
+[x] `GraphBuild.trashId` is the trash node and the include-versus-omit compare target. `reply` and `startSearch` keep the signatures below. `ViewModelSearch.searchHitCap` is 200.
 
 ## 3. Interfaces
 
@@ -151,7 +151,7 @@ takeResults : int -> SearchCursor -> NodeSearchResult list * SearchCursor option
 searchNodes : string -> NodeId -> Graph -> NodeSearchResult list
 ```
 
-[ ] `startSearch` includes trash when `zoomRoot` is `GraphBuild.trashId`. Otherwise the walk omits trash.
+[ ] Decided: include versus omit compares a node to `GraphBuild.trashId`. `startSearch` takes the search text, the zoom, and the Graph.
 
 ### SearchPicture
 
@@ -273,7 +273,7 @@ functionStart : ActorStart -> GraphCarrier -> FunctionStart
 
 [x] `functionStart` evaluates once on `getGraph`, then calls `CoreDoor.actorStop` with `ActorQuery`.
 
-[ ] `reply` includes trash when `request.startId` is `GraphBuild.trashId`. Otherwise the walk omits trash.
+[ ] Decided: `reply` passes `graph.root` as the zoom. Include versus omit compares a node to `GraphBuild.trashId`. The signature is `(unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply`.
 
 [ ] The Find reply ids are the Want ids. `wantAnswer` builds `nodes`. No `childMap` key is added only to carry a hit Header.
 
@@ -356,7 +356,7 @@ answerNodeIds : NodeId -> Graph -> string -> NodeId list
 run : NodeId -> Graph -> string -> Line
 ```
 
-[ ] `answerNodeIds` returns at most `searchHitCap` ids. A function stop under that cap stays. Ordinary eval omits trash.
+[ ] `answerNodeIds` returns at most `searchHitCap` ids. A function stop under that cap stays. Ordinary eval omits a node equal to `GraphBuild.trashId`. The signature is unchanged.
 
 ### ExprPrimitive
 
@@ -432,7 +432,7 @@ answerNodeIds lineId graph line
 
 4. **Skip trash**
 
-[ ] An ordinary Find, Move, or query omits trash.
+[ ] An ordinary Find, Move, or query omits a node equal to `GraphBuild.trashId`.
 
 ```fsharp
 startSearch query zoomRoot graph
@@ -441,7 +441,7 @@ answerNodeIds lineId graph line
 
 5. **Start at the trash node**
 
-[ ] The client walk starts at `GraphBuild.trashId` when `zoomRoot` is that id.
+[ ] The client walk starts at the trash node when `zoomRoot` equals `GraphBuild.trashId`. That value is the existing zoom argument.
 
 ```fsharp
 startSearch query GraphBuild.trashId graph
@@ -488,7 +488,7 @@ postEvents door events
 
 9. **Query skips trash**
 
-[ ] Ordinary query eval omits trash.
+[ ] Ordinary query eval omits a node equal to `GraphBuild.trashId`.
 
 ```fsharp
 answerNodeIds lineId graph line
@@ -616,4 +616,4 @@ applyReply clientHitCount current reply
 
 ## 7. Open questions
 
-1. **Server trash argument** — `reply` passes `graph.root` into `startSearch`. The walk includes trash when `request.startId` is `GraphBuild.trashId`. The argument that carries that start into `startSearch` is undecided.
+None
