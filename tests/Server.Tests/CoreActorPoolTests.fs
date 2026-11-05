@@ -7,7 +7,7 @@ open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 [<Fact>]
-let ``Actor handle wrap does not repeat live-secret admission`` () = task {
+let ``Actor handle with an empty secret is dropped`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
@@ -15,7 +15,7 @@ let ``Actor handle wrap does not repeat live-secret admission`` () = task {
             CoreDoor.forCaller
                 { authority = Authority "Actor"
                   name = ""
-                  secret = Credential "inactive" }
+                  secret = Credential "" }
                 handle
         let childId = NodeId.New()
         let event =
@@ -31,10 +31,7 @@ let ``Actor handle wrap does not repeat live-secret admission`` () = task {
         let! result =
             CoreDoor.postEvents bound [ event ]
             |> Async.StartAsTask
-        match result with
-        | Error err -> Assert.Fail(err)
-        | Ok accepted ->
-            Assert.Equal(Authority "Actor", accepted.events.Head.authority)
+        Assert.Equal(Error "authority dropped", result)
     finally
         CoreMailboxApi.dispose agent
 }

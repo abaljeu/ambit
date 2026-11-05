@@ -67,7 +67,7 @@ let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping re
     })
 
 [<Fact>]
-let ``CoreMailboxApi.startActor from an inactive Actor is refused`` () =
+let ``CoreMailboxApi.startActor from an inactive Actor is dropped`` () =
     withHost (fun host _ -> task {
         let! result =
             CoreMailboxApi.startActor
@@ -77,7 +77,7 @@ let ``CoreMailboxApi.startActor from an inactive Actor is refused`` () =
                   secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(Error "authority dropped", result)
     })
 
 [<Fact>]
@@ -105,8 +105,8 @@ let ``Actor start rejects a secret the pool does not admit`` () =
     }
 
 [<Fact>]
-let ``Actor start admits the secret and a later post skips the pool live check`` () =
-    let actorSecret = Credential "live-at-start"
+let ``Actor post with a secret the pool does not hold is dropped`` () =
+    let actorSecret = Credential "absent-receipt"
     let admitCount = ref 0
     let basePool = CoreActorPool.create ()
     let pool =
@@ -130,6 +130,7 @@ let ``Actor start admits the secret and a later post skips the pool live check``
                 CoreMailboxApi.startActor host testCaller sampleRequest
                 |> Async.StartAsTask
             requireOk "startActor" started
+            Assert.Equal(1, admitCount.Value)
             let caller = actorCaller actorSecret
             let childId = NodeId.New()
             let event =
@@ -141,9 +142,8 @@ let ``Actor start admits the secret and a later post skips the pool live check``
             let! posted =
                 CoreMailboxApi.postEvent host caller event
                 |> Async.StartAsTask
-            let stored = requireOk "Actor post" posted
+            Assert.Equal(Error "authority dropped", posted)
             Assert.Equal(1, admitCount.Value)
-            Assert.Equal(Authority "Actor", stored.authority)
         finally
             CoreMailboxApi.dispose host
     }
