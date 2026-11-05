@@ -61,7 +61,7 @@ Alan step 5, Absent fetch. This includes the whole-Workspace request and the rac
 
 7. **Poll for nearby Absent Nodes**
    1. **Want** — `compose` keeps ids whose Header is absent.
-   2. **Want** — The included walk and the two child ranks already list those ids.
+   2. **Want** — The included walk and the three child ranks already list those ids. Want keeps at most 100 ids in that walk order.
    3. **Want** — Expand puts a Node's child ids on that walk. The next Poll brings the missing Nodes.
 
 8. **Delete the whole-Workspace request**
