@@ -410,10 +410,7 @@ module ResidentProjection =
         if selectionSpansMultipleWorkspaces graph targetIds then
             Error LoadRefuse.MultiWorkspace
         else
-            targets
-            |> List.choose (fun target ->
-                if target.includeWorkspace then Some target.targetId else None)
-            |> wantAnswer graph
+            wantAnswer graph targetIds
             |> Ok
 
     /// Capture LoadResponse fields at one EventId.

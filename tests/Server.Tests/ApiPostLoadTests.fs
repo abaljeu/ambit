@@ -86,7 +86,7 @@ let private encodeRequest (request: LoadRequest) =
     Encode.toString 0 (ApiResponseSerialization.encodeLoadRequest request)
 
 [<Fact>]
-let ``postLoad Ev-only when includeWorkspace false`` () = task {
+let ``postLoad returns Events and the target Header`` () = task {
     let graph, _, _, fileId = nestedWorkspaceGraph ()
     let event =
         { id = EventIdFixtures.storedId 5
@@ -99,8 +99,7 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
     let body =
         encodeRequest
             { eventId = EventIdFixtures.storedId 2
-              targets =
-                [ { targetId = fileId; includeWorkspace = false } ] }
+              targets = [ { targetId = fileId } ] }
     let! result = Api.postLoad handle 100 200 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -111,14 +110,16 @@ let ``postLoad Ev-only when includeWorkspace false`` () = task {
             Assert.Equal(100, response.buildEpochSec)
             Assert.Equal(200, response.pageBuildEpochSec)
             Assert.Equal(1, response.events.Length)
-            Assert.Empty(response.nodes)
-            Assert.Empty(response.childMap)
+            Assert.Equal<NodeId list>(
+                [ fileId ],
+                response.nodes |> List.map (fun n -> n.id))
+            Assert.Equal<ChildNode list>([], response.childMap.[fileId])
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
 
 [<Fact>]
-let ``postLoad Want answer when includeWorkspace true`` () = task {
+let ``postLoad Want answer for the target`` () = task {
     let graph, _, dirId, fileId = nestedWorkspaceGraph ()
     let handle =
         handleForLoad 7 [] (stateResponse graph 7)
@@ -126,7 +127,7 @@ let ``postLoad Want answer when includeWorkspace true`` () = task {
         encodeRequest
             { eventId = EventIdFixtures.storedId 7
               targets =
-                [ { targetId = dirId; includeWorkspace = true } ] }
+                [ { targetId = dirId } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -160,7 +161,7 @@ let ``postLoad missing target returns Events without Nodes`` () = task {
         encodeRequest
             { eventId = EventId.zero
               targets =
-                [ { targetId = NodeId.New(); includeWorkspace = true } ] }
+                [ { targetId = NodeId.New() } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -190,7 +191,7 @@ let ``postLoad shares one event id for Events and Nodes`` () = task {
         encodeRequest
             { eventId = EventIdFixtures.storedId 3
               targets =
-                [ { targetId = dirId; includeWorkspace = true } ] }
+                [ { targetId = dirId } ] }
     let! result = Api.postLoad handle 10 20 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -217,8 +218,8 @@ let ``postLoad same Workspace multi-target dedupes answer Nodes`` () = task {
         encodeRequest
             { eventId = EventIdFixtures.storedId 8
               targets =
-                [ { targetId = dirId; includeWorkspace = true }
-                  { targetId = fileId; includeWorkspace = true } ] }
+                [ { targetId = dirId }
+                  { targetId = fileId } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -299,8 +300,8 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
         encodeRequest
             { eventId = EventIdFixtures.storedId 3
               targets =
-                [ { targetId = fileA; includeWorkspace = true }
-                  { targetId = fileB; includeWorkspace = true } ] }
+                [ { targetId = fileA }
+                  { targetId = fileB } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
     match result with
     | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->

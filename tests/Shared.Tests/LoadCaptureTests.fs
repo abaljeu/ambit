@@ -85,17 +85,18 @@ let private graphWithTwoWorkspaces () : Graph * NodeId * NodeId * NodeId * NodeI
             | Error err -> failwith err
     graph4, wsA, fileA, wsB, fileB
 [<Fact>]
-let ``wantAnswerForTargets without residency intent returns empty`` () =
+let ``wantAnswerForTargets returns a leaf target Header`` () =
     let graph, _, _, fileId = graphWithNestedWorkspace ()
     match
         ResidentProjection.wantAnswerForTargets
             graph
-            [ { targetId = fileId; includeWorkspace = false } ]
+            [ { targetId = fileId } ]
     with
-    | Error _ -> failwith "expected empty answer"
+    | Error _ -> failwith "expected Want answer"
     | Ok (childMap, nodes) ->
-        Assert.Empty(childMap)
-        Assert.Empty(nodes)
+        Assert.Equal(1, childMap.Count)
+        Assert.Empty(childMap.[fileId])
+        Assert.Equal<NodeId list>([ fileId ], nodes |> List.map (_.id))
 
 [<Fact>]
 let ``wantAnswerForTargets returns the target Header and its child list`` () =
@@ -103,7 +104,7 @@ let ``wantAnswerForTargets returns the target Header and its child list`` () =
     match
         ResidentProjection.wantAnswerForTargets
             graph
-            [ { targetId = dirId; includeWorkspace = true } ]
+            [ { targetId = dirId } ]
     with
     | Error _ -> failwith "expected Want answer"
     | Ok (childMap, nodes) ->
@@ -117,7 +118,7 @@ let ``wantAnswerForTargets missing target returns empty`` () =
     match
         ResidentProjection.wantAnswerForTargets
             graph
-            [ { targetId = NodeId.New(); includeWorkspace = true } ]
+            [ { targetId = NodeId.New() } ]
     with
     | Error _ -> failwith "expected empty answer"
     | Ok (childMap, nodes) ->
@@ -128,8 +129,8 @@ let ``wantAnswerForTargets missing target returns empty`` () =
 let ``wantAnswerForTargets refuses targets across Workspaces`` () =
     let graph, _, fileA, _, fileB = graphWithTwoWorkspaces ()
     let targets =
-        [ { targetId = fileA; includeWorkspace = true }
-          { targetId = fileB; includeWorkspace = true } ]
+        [ { targetId = fileA }
+          { targetId = fileB } ]
     match ResidentProjection.wantAnswerForTargets graph targets with
     | Error ResidentProjection.LoadRefuse.MultiWorkspace -> ()
     | Ok _ -> failwith "expected multi-Workspace refusal"
@@ -151,7 +152,7 @@ let ``captureLoadResponse shares event id for Changes and Nodes`` () =
             true
             events
             graph
-            [ { targetId = fileId; includeWorkspace = true } ]
+            [ { targetId = fileId } ]
     with
     | Error _ -> failwith "expected LoadResponse"
     | Ok response ->
