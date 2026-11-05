@@ -64,9 +64,9 @@ Blockers:
 
 ## Stop when
 
-[ ] Record the stop at `plan/actor-as-client/reports/18-place-actororder-through-placeorder-stop.md`, then ask.
+[x] Record the stop at `plan/actor-as-client/reports/18-place-actororder-through-placeorder-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs and Outputs.
-[ ] Stop when the pull cannot both call `startFunction` and run `order.actor`.
+[x] Stop when the pull cannot both call `startFunction` and run `order.actor`.
 [ ] Stop when `ActorOrder` carries `actorNodeId`, or the pull reads that id from `actorName`.
 [ ] Stop when the edit adds `ActorDispatch.fs` or a `CoreMsg` case.
 [ ] Stop when the edit runs `stubActor`.
