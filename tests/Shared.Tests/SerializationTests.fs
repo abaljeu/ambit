@@ -686,11 +686,13 @@ let ``SyncWant always encodes want`` () =
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =
+    let firstId = NodeId.New()
+    let secondId = NodeId.New()
     let request: LoadRequest =
         { eventId = EventIdFixtures.storedId 11
           targets =
-            [ { targetId = NodeId.New(); includeWorkspace = true }
-              { targetId = NodeId.New(); includeWorkspace = false } ] }
+            [ { targetId = firstId }
+              { targetId = secondId } ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadRequest
@@ -698,9 +700,8 @@ let ``LoadRequest round-trip`` () =
             request
     Assert.Equal(request.eventId, decoded.eventId)
     Assert.Equal(2, decoded.targets.Length)
-    Assert.Equal(request.targets.[0].targetId, decoded.targets.[0].targetId)
-    Assert.True(decoded.targets.[0].includeWorkspace)
-    Assert.False(decoded.targets.[1].includeWorkspace)
+    Assert.Equal(firstId, decoded.targets.[0].targetId)
+    Assert.Equal(secondId, decoded.targets.[1].targetId)
 
 [<Fact>]
 let ``LoadResponse round-trip with nodes and childMap`` () =

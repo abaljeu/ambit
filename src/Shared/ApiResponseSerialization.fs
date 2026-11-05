@@ -146,15 +146,12 @@ module ApiResponseSerialization =
         Decode.fromString decodeChangeRequestDecoder text
 
     let encodeLoadTarget (target: LoadTarget) : IEncodable =
-        Encode.object
-            [ "targetId", Serialization.encodeNodeId target.targetId
-              "includeWorkspace", Encode.bool target.includeWorkspace ]
+        Serialization.encodeNodeId target.targetId
 
     let decodeLoadTargetDecoder: Decoder<LoadTarget> =
-        Decode.object (fun get ->
-            { targetId = get.Required.Field "targetId" Serialization.decodeNodeId
-              includeWorkspace =
-                get.Required.Field "includeWorkspace" Decode.bool })
+        Decode.map
+            (fun targetId -> { targetId = targetId })
+            Serialization.decodeNodeId
 
     let encodeLoadRequest (request: LoadRequest) : IEncodable =
         Encode.object
