@@ -81,6 +81,8 @@ type SearchDialogState =
 
 [o] `SearchPicture.Gap`, `ArmSearchQuietGap`, and `CancelSearchQuietGap` are replaced by globe selection.
 
+[x] `GraphBuild.trashId` is the include-versus-omit compare target. `reply` and `startSearch` keep their signatures.
+
 ## 3. Interfaces
 
 ### ViewModelSearch
@@ -93,6 +95,8 @@ startSearch : string -> NodeId -> Graph -> SearchCursor option
 takeResults : int -> SearchCursor -> NodeSearchResult list * SearchCursor option
 searchNodes : string -> NodeId -> Graph -> NodeSearchResult list
 ```
+
+[ ] Include versus omit compares a node to `GraphBuild.trashId`. `startSearch` keeps `string -> NodeId -> Graph -> SearchCursor option`.
 
 ### SearchPicture
 
@@ -159,6 +163,8 @@ actorStart : Graph -> EventId -> ActorStart
 reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
 functionStart : ActorStart -> GraphCarrier -> FunctionStart
 ```
+
+[ ] `reply` passes `graph.root` into `startSearch`. Include versus omit compares a node to `GraphBuild.trashId`.
 
 ### CoreMailboxApi
 
@@ -231,6 +237,8 @@ postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, str
 answerNodeIds : NodeId -> Graph -> string -> NodeId list
 ```
 
+[ ] Ordinary eval omits a node equal to `GraphBuild.trashId`.
+
 ### ResidentProjection
 
 [x]
@@ -252,7 +260,7 @@ applySyncResponse : SyncResponse -> ClientSyncState -> Result<ClientSyncState, s
 
 1. **Shared Find and Move path**
 
-[ ] Find and Move open on one local NodeId list and use the same `onPick` seam. Edits stay local while the globe is clear. The walk stops at 200, skips trash, and includes trash only when it starts at `GraphBuild.trashId`.
+[ ] Find and Move open on one local NodeId list and use the same `onPick` seam. Edits stay local while the globe is clear. The walk stops at 200, omits a node equal to `GraphBuild.trashId`, and starts there when `zoomRoot` equals it.
 
 ```fsharp
 openSearchDialogWithOnPick invokedCommand onPick model
@@ -263,7 +271,7 @@ currentSearchResults model
 
 2. **Shared Search Actor path**
 
-[ ] Below 200, the globe and later edits request one root-only server reply for Find or Move. The reply contains distinct Node ids, replaces only the matching list, and has no page or continuation cursor.
+[ ] Below 200, the globe and later edits request one root-only server reply for Find or Move. `reply` passes `graph.root` into `startSearch`. Include versus omit compares a node to `GraphBuild.trashId`. The reply contains distinct Node ids, replaces only the matching list, and has no page or continuation cursor.
 
 ```fsharp
 update (NodeSearchQuery query) model
@@ -293,7 +301,7 @@ installWantAnswer childMap nodes graph
 
 4. **Query Actor path**
 
-[x] Run queues one remote evaluation. [ ] `answerNodeIds` stops at 200 or an earlier function stop, omits trash except through `trash`, and does not page.
+[x] Run queues one remote evaluation. [ ] `answerNodeIds` stops at 200 or an earlier function stop, omits a node equal to `GraphBuild.trashId` except through `trash`, and does not page.
 
 ```fsharp
 execRunOp model
@@ -351,4 +359,4 @@ installWantAnswer childMap nodes graph
 
 ## 7. Open questions
 
-1. **Server trash argument** — Which argument carries `request.startId = GraphBuild.trashId` into the walk while server zoom remains root-only?
+None
