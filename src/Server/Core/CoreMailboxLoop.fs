@@ -189,12 +189,24 @@ module internal CoreMailboxLoop =
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
+    let private actorCaller (secret: Credential) : Caller =
+        { authority = Authority "Actor"
+          name = ""
+          secret = secret }
+
+    /// Shared ActorFunction posts as the minted Actor credential.
     let private poolActor
-        (actor: Gambol.Shared.FunctionRun -> Gambol.Shared.ActorChanges -> Async<unit>)
+        (actor:
+            Gambol.Shared.FunctionRun ->
+                Gambol.Shared.ActorChanges ->
+                Async<unit>)
         (run: Gambol.Shared.FunctionRun)
         (door: CoreChangesDoor)
         : Async<unit> =
-        actor run (CoreDoor.actorChanges door)
+        let changes =
+            CoreDoor.actorChanges
+                (CoreDoor.forCaller (actorCaller run.secret) door)
+        actor run changes
 
     let private scheduleActorOrder
         (context: MailboxContext)

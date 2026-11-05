@@ -87,6 +87,17 @@ let private createHost () =
             admittedCredentials
     host, pool
 
+let private postOrder (host: MailboxHost) (request: ActorStart) =
+    let order =
+        { actor =
+            TestActor.functionActorAt
+                request.actorNodeId
+                request.focusId
+          focusId = request.focusId
+          actorName = "test" }
+    MailboxHost.postActorOrder host testCaller order
+    |> Async.StartAsTask
+
 let private withHost body =
     task {
         let host, pool = createHost ()
@@ -179,8 +190,8 @@ let private eventsAfterStart (events: Ev list) focusId =
         | [] -> []
         | event :: rest ->
             match event.body with
-            | EventBody.ActorStart started
-                when started.focusId = focusId ->
+            | EventBody.Order (Order.ActorOrder order)
+                when order.focusId = focusId ->
                 rest
             | _ -> skip rest
     skip chronological
@@ -220,10 +231,8 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
     withHost (fun host pool -> task {
         let! actorNodeId = seedCommand host text
         let request = sampleRequest actorNodeId actorNodeId
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postOrder host request
+        requireOk "postActorOrder" result |> ignore
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
         | Some (ActorFailed _) -> ()
@@ -250,10 +259,8 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         let beforeChildren = ownedChildFacts before.graph actorNodeId
         let beforeTexts = nodeTexts before.graph
         Assert.Equal(2, beforeChildren.Length)
-        let! start =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" start
+        let! start = postOrder host request
+        requireOk "postActorOrder" start |> ignore
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
         | Some (ActorFailed _) -> ()
@@ -288,10 +295,8 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
     withHost (fun host _ -> task {
         let! actorNodeId = seedCommand host "?test hello"
         let request = sampleRequest actorNodeId actorNodeId
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postOrder host request
+        requireOk "postActorOrder" result |> ignore
         let! stop = waitForActorStop host request.focusId 1000
         match stop with
         | Some ActorSucceeded -> ()
