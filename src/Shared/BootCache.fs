@@ -130,8 +130,16 @@ module BootCache =
             let guard = Op.guardsUnparsedDocument event.commandName
             match ResidentProjection.applyOpsAllowing guard mark ops st with
             | ApplyResult.Invalid (_, msg) -> Error msg
-            | ApplyResult.Changed next
-            | ApplyResult.Unchanged next -> Ok next
+            | applied ->
+                match
+                    ChangeAmendment.markForwardParseCreatedUnparsed
+                        event
+                        ops
+                        applied
+                with
+                | ApplyResult.Invalid (_, msg) -> Error msg
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> Ok next
 
     let foldLog
         (snapshot: StateResponse)

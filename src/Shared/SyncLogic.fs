@@ -125,6 +125,27 @@ module SyncLogic =
     let private inStoredOrder (events: Ev list) =
         events |> List.sortBy (fun event -> EventId.value event.id)
 
+    let private projectChangeApply
+        (event: Ev)
+        (ops: Op list)
+        (st: ClientSyncState)
+        (undid: bool)
+        (applied: ApplyResult)
+        (note: string option)
+        : Result<ClientSyncState * bool, string> =
+        match
+            ChangeAmendment.markForwardParseCreatedUnparsed
+                event
+                ops
+                applied
+        with
+        | ApplyResult.Invalid (_, msg) -> Error msg
+        | ApplyResult.Changed newSt
+        | ApplyResult.Unchanged newSt ->
+            Ok(
+                withProjectedGraph event st newSt note,
+                undid || note.IsSome)
+
     let private foldProjectedEvents
         (events: Ev list)
         (state: ClientSyncState)
@@ -149,12 +170,9 @@ module SyncLogic =
                         { pending = st.pending
                           submissionId = event.submissionId }
                 with
-                | ApplyResult.Changed newSt, note
-                | ApplyResult.Unchanged newSt, note ->
-                    Ok(
-                        withProjectedGraph event st newSt note,
-                        undid || note.IsSome)
                 | ApplyResult.Invalid (_, msg), _ -> Error msg
+                | applied, note ->
+                    projectChangeApply event ops st undid applied note
         inStoredOrder events
         |> List.fold
             (fun acc event ->

@@ -190,6 +190,18 @@ module ChangeAmendment =
             ApplyResult.Changed (writeCreatedUnparsed ops state)
         | _ -> result
 
+    /// Client replay of a forward Parse Change. Undo and Redo skip the mark.
+    /// Server applyPosted still keys only on commandName.
+    let markForwardParseCreatedUnparsed
+        (event: Ev)
+        (ops: Op list)
+        (result: ApplyResult)
+        : ApplyResult =
+        match event.body with
+        | EventBody.Change _ ->
+            markCreatedUnparsed event.commandName ops result
+        | _ -> result
+
     let private applyMarked
         (guardUnparsed: bool)
         (changedVersion: EventId option)
