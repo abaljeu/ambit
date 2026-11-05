@@ -23,12 +23,6 @@ let mutable private searchCache: SearchCache option = None
 let resetSearchResults () : unit =
     searchCache <- None
 
-/// Rows already cached. Does not start a search.
-let shownSearchResults () : NodeSearchResult list =
-    match searchCache with
-    | None -> []
-    | Some cache -> List.rev cache.resultsRev
-
 let private clientHitCount (model: VM) (query: string) : int =
     ViewModelSearch.searchNodes query model.zoomRoot model.graph
     |> List.length
