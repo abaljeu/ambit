@@ -11,7 +11,7 @@
 
 [ ] [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
 [ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
-[ ] [80 — Place Actor starts through PlaceOrder](80-place-actor-orders-through-placeorder.md)
+[ ] [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 [ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
 [ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
 [ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
@@ -34,7 +34,7 @@
 
 ### Match sites and constructors
 
-[ ] After 102, 65, 80, 111, 112, and 114, `CoreMsg` has one case, `PostEvent`
+[ ] After 102, 65, 18 — Place ActorOrder through PlaceOrder, 111, 112, and 114, `CoreMsg` has one case, `PostEvent`
 [ ] `PostEvent` is built in `postEventAccepted` and in `postedMailbox`
 [ ] `postedMailbox` sends a client `ActorStart`, a client `Cancel`, and a posted `Ev` with a non-zero id to `PostEvent`
 [ ] `Mailbox.CoreMsg` is matched in `dispatchMailbox`, `isStartupRead`, and `MailboxExpandTests.mailboxKind`

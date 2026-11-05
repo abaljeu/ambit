@@ -92,8 +92,8 @@ A thread from the .NET thread pool that runs an actor function. Its public ident
 _Avoid_: Agent, job, task, Peer Actor, Server Actor. Calling the actor function an Actor.
 
 **Actor function**:
-The function an Actor runs. It is defined outside Core. `startFunction` starts it. Its input is `FunctionRun` (`getGraph` and the Actor credential) and `CoreChangesDoor`.
-_Avoid_: Actor (for this function)
+The function an Actor runs. It is defined outside Core. `startFunction` starts it. Its input is `FunctionRun` (`getGraph` and the Actor credential) and `ActorChanges`. The pool form takes `CoreChangesDoor`. The type name is `ActorFunction`. `FunctionActor` is the prior name of that type. An old-style actor takes `actorNodeId` and, by currying, yields `ActorFunction`.
+_Avoid_: Actor (for this function), FunctionActor (as the type name)
 
 **Agent**:
 An external worker that an AI Actor runs. Not an Ambit Actor. Cursor is the name of one Agent.

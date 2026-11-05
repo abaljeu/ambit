@@ -15,7 +15,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 ## 2. Notes
 
-1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 17, and section 6 records their order. The 2026-09-27 park is [o].
+1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 18, and section 6 records their order. The 2026-09-27 park is [o].
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.
@@ -29,7 +29,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 12. **2026-09-28 Server description** — [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations.
 
 [o] This Feature-set stays concept-only. No new implement tickets.
-[ ] The cutover tickets 06 through 17 in `issues/` are the implement path. Alan, 2026-11-03.
+[ ] The cutover tickets 06 through 18 in `issues/` are the implement path. Alan, 2026-11-03. 18 — Place ActorOrder through PlaceOrder is the place path. Alan, 2026-11-05.
 
 ## 3. Decisions so far
 
@@ -63,4 +63,6 @@ These are exclusions from this map, not product-wide exclusions. See [[doc/agent
 [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is owned by Ambot2. It shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
 [x] [146 — Remove CoreMsg.PostGraphOnly](../core-refinement/issues/146-remove-coremsg-postgraphonly.md) landed on staging in PR #520, before the cutover builds [06 — Log ActorOrder](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md).
 [ ] [112 — Place Cancel through PlaceOrder](../core-refinement/issues/112-place-cancel-through-placeorder.md) is owned by Ambot2. It is built at `e08b8c46` on the branch `ambot2/112-place-cancel-through-placeorder` and has not landed on staging. 06 — Log ActorOrder, 15 — Delete the old Actor starts, and 16 — Delete the old Order cases start after it lands.
+[x] 80 — Place Actor starts through PlaceOrder is cancelled.
+[ ] [18 — Place ActorOrder through PlaceOrder](issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md) places `Order.ActorOrder` through `Mailbox.PlaceOrder`. The pull runs that order's `ActorFunction`. Blocked by 06 — Log ActorOrder.
 [ ] This Project does not edit tickets 111 through 118 in core-refinement. The order is recorded here.

@@ -1,6 +1,8 @@
 # 80 — Place Actor starts through PlaceOrder
-**Status**: defined
+**Status**: cancelled
 One job: The Server places `Order.ActorOrder` through `Mailbox.PlaceOrder`. The mailbox pull runs that order's actor on the .NET thread pool.
+
+Replaced by [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md).
 
 [ ] The actor function is already on the order. This ticket does not look up a command name.
 [o] `CoreMsg` is the start path for this order.

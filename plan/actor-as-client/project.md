@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool and runs an actor function. `Order.ActorOrder` carries that function, and the log stores it as-is.
-Updated: 2026-11-04
+Updated: 2026-11-05
 Started: 2026-09-27
 Actual: 2h
 
@@ -11,6 +11,7 @@ Actual: 2h
 ## Notes
 
 - 2026-11-03 — Alan unparked this Project. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 17 in `issues/`, and their order is in [Map](map.md) section 6.
+- 2026-11-05 — Alan: `FunctionActor` is renamed `ActorFunction`. An old-style actor takes `actorNodeId` and yields `ActorFunction`. [18 — Place ActorOrder through PlaceOrder](issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md) replaces 80 — Place Actor starts through PlaceOrder. Arch was rewritten from [[plan/context/arch-work.md]].
 - 2026-09-28 — Alan Server description on [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations. This Feature-set stays concept-only. No new implement tickets from this lock.
 - 2026-09-27 — Deferred pending the reframing of Actors as functions that can take all kinds of parameters. It may land around step five or six; the gaps in between are unknown. Keep the project, map, tickets, and chapter link. Slice one on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) stays `coded` as historical progress; further slices wait.
 - 2026-09-27 — [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md) locked from Alan voice: mailbox is a dispatcher (stamp EventId and route, do not wait); EventId is the watermark; queues are open-access; each entity answers completion on that Event. Feature-set remains deferred.

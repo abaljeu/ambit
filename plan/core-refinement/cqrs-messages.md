@@ -120,7 +120,7 @@ type internal CoreQueue =
 5. **LoadSave**
 
 [o] `Order.LoadSave` replaces `CoreMsg.StartLoadSaveCommand`. It carries `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`.
-[ ] Git Load and Save, and a Desk Load or Save, log `Order.RunActor`. Nothing writes `Order.LoadSave` before 15 — Delete the old Actor starts. That ticket deletes `Order.LoadSave` and its `PeerActorName`. A Desk Load or Save runs no actor function. Detail: [80 — Place Actor starts through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md).
+[ ] Git Load and Save, and a Desk Load or Save, log `Order.ActorOrder`. Nothing writes `Order.LoadSave` before 15 — Delete the old Actor starts. That ticket deletes `Order.LoadSave` and its `PeerActorName`. A Desk Load or Save runs no actor function. Detail: [18 — Place ActorOrder through PlaceOrder](../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md).
 6. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. `Order.Save` of `NodeId` is git Save ([79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md)).
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice

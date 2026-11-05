@@ -51,7 +51,7 @@ Blockers:
 4. [x] Expand: Add `ActorOrder` and `| ActorOrder of ActorOrder` on `Order` beside the cases that exist after 112.
 5. [x] The logged value is that case, stored as-is. It is not `Order.RunActor`.
 6. [x] Expand: Add `stubActor : FunctionActor`, `encodeActorOrder : ActorOrder -> IEncodable`, and `decodeActorOrder : string -> Result<ActorOrder, string>` in `EventJson`. Encode writes `focusId` and `actorName`. `actorName` stands in for `actor`. Decode sets `actor` to `stubActor`.
-7. [x] Expand: Add the `MailboxLog` arm. Add a `placeOrder` arm that stays unsupported. 80 — Place Actor starts through PlaceOrder runs it.
+7. [x] Expand: Add the `MailboxLog` arm. Add a `placeOrder` arm that stays unsupported. [18 — Place ActorOrder through PlaceOrder](../18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md) runs it.
 8. [x] Expand: Add `postActorOrder : ActorOrder -> unit` on `MailboxHost`. It puts one `ActorOrder` on the mailbox queue.
 9. [x] Leave `startFunction`, `startActor`, `startPeerActor`, and `CoreMsg` as they are.
 10. [x] A match of the cancel case uses `Order.CancelActor`.
