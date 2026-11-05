@@ -76,8 +76,41 @@ type ChangeOrigin =
     | Edit
     | Parse
 
-[<RequireQualifiedAccess>]
-type Order =
+/// Graph carrier the Actor calls. The pool does not invoke this.
+type GraphCarrier = unit -> Graph
+
+type Credential = Credential of string
+
+/// What a function-shaped Actor receives. No Graph or ids bag.
+type FunctionRun =
+    { getGraph: GraphCarrier
+      secret: Credential }
+
+type FunctionActor = FunctionRun -> ActorChanges -> Async<unit>
+
+and ActorChanges =
+    { postChanges: Ev list -> Async<Result<unit, string>>
+      actorStop: ActorResult -> Async<Result<unit, string>>
+      getState: unit -> Async<Result<State, string>>
+      loadNode: NodeId -> Async<Result<EventId, string>> }
+
+and [<CustomEquality; NoComparison>] ActorOrder =
+    { actor: FunctionActor
+      getGraph: GraphCarrier
+      focusId: NodeId
+      actorName: string }
+
+    override this.Equals(other: obj) =
+        match other with
+        | :? ActorOrder as that ->
+            this.focusId = that.focusId
+            && this.actorName = that.actorName
+        | _ -> false
+
+    override this.GetHashCode() =
+        hash (this.focusId, this.actorName)
+
+and [<RequireQualifiedAccess>] Order =
     | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
@@ -91,11 +124,22 @@ type Order =
         request: LoadSaveCommandRequest
     | Load of nodeId: NodeId
     | CancelActor of focusId: NodeId
+    | ActorOrder of ActorOrder
 
-[<RequireQualifiedAccess>]
-type EventBody =
+and [<RequireQualifiedAccess>] EventBody =
     | Order of Order
     | Notice of Notice
+
+and Ev =
+    { id: EventId
+      submissionId: System.Guid
+      authority: Authority
+      commandName: string
+      body: EventBody }
+
+and State =
+    { graph: Graph
+      eventId: EventId }
 
 [<RequireQualifiedAccess>]
 module EventBody =
@@ -159,16 +203,6 @@ module EventBody =
             Some(focusId, result)
         | _ -> None
 
-type Ev =
-    { id: EventId
-      submissionId: System.Guid
-      authority: Authority
-      commandName: string
-      body: EventBody }
-
-type State =
-    { graph: Graph
-      eventId: EventId }
 [<RequireQualifiedAccess>]
 type ApplyResult =
     | Changed of State

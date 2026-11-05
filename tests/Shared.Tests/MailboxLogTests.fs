@@ -111,6 +111,31 @@ let ``StartPeerActor carries Shared PeerActorName`` () =
     | _ -> Assert.Fail("expected StartPeerActor")
 
 [<Fact>]
+let ``ActorOrder carries command name and FocusId`` () =
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let order =
+        { actor = EventJson.stubActor
+          getGraph = fun () -> Graph.create ()
+          focusId = focusId
+          actorName = "hello" }
+    let event =
+        source "hello" (EventBody.Order(Order.ActorOrder order))
+    let placed = readOrder event
+    Assert.Equal(Some "hello", placed.commandName)
+    match placed.order with
+    | Order.ActorOrder found ->
+        Assert.Equal(focusId, found.focusId)
+        Assert.Equal("hello", found.actorName)
+    | _ -> Assert.Fail("expected ActorOrder")
+    let back = restored event
+    Assert.Equal("hello", back.commandName)
+    match back.body with
+    | EventBody.Order (Order.ActorOrder found) ->
+        Assert.Equal(focusId, found.focusId)
+    | _ -> Assert.Fail("expected ActorOrder")
+
+[<Fact>]
 let ``placed order reads EventBody.Order`` () =
     let ops = [ childOp () ]
     let order = Order.Change(ops, ChangeOrigin.Parse)

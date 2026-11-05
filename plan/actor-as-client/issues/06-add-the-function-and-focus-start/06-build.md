@@ -4,28 +4,34 @@ Ticket: [[06-add-the-function-and-focus-start-ticket.md]]
 
 ## Stage
 
-[ ] Stage is build in [06 — Log ActorOrder](CONTEXT.md).
-
-[ ] The build stopped before source edits. Status stays `defined`.
-
-## Stop
-
-[ ] The stop record is [06 — Log ActorOrder stop](../../reports/06-add-the-function-and-focus-start-stop.md).
-
-[ ] Process step 2 changes `FunctionActor` to `FunctionRun -> ActorChanges -> Async<unit>`.
-
-[ ] That signature is implemented in `src/Server/SearchActor.fs` and `src/Server/TestActor.fs`.
-
-[ ] Those two files sit outside Outputs. Source count would be 10. The limit is 8.
+[x] Stage is build in [06 — Log ActorOrder](CONTEXT.md).
 
 ## Edits
 
-[ ] No Output file was edited.
+[x] `GraphCarrier`, `FunctionRun`, and `Credential` are in `src/Shared/History.fs`.
+
+[x] Log `FunctionActor` is `FunctionRun -> ActorChanges -> Async<unit>`.
+
+[x] Pool `FunctionActor` stays in `src/Server/Core/CoreActorPool.fs` as `FunctionRun -> CoreChangesDoor -> Async<unit>`.
+
+[x] `FunctionStart` stays on the pool function. `startFunction` arguments stay.
+
+[x] `TestActor.functionActor` is `Gambol.Server.FunctionActor`.
+
+[x] `Order.ActorOrder` carries `ActorOrder`. Wire kind is `actorOrder`.
+
+[x] `EventJson.stubActor`, `encodeActorOrder`, and `decodeActorOrder` are in `src/Shared/EventJson.fs`.
+
+[x] `MailboxLog` accepts `Order.ActorOrder`. `placeOrder` replies unsupported for that case.
+
+[x] `MailboxHost.postActorOrder` posts `Mailbox.PlaceOrder`.
+
+[x] `actorChanges` is not in this build.
 
 ## Check
 
-[ ] Check did not run.
+[x] Verdict is `pass` in [06 — Log ActorOrder check](../../reports/06-add-the-function-and-focus-start-check.md).
 
 ## Status
 
-[ ] Ticket status stays `defined`.
+[x] Ticket status is `coded`.
