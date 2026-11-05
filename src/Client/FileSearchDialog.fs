@@ -23,6 +23,12 @@ let mutable private fileSearchCache: FileSearchCache option = None
 let resetFileSearchResults () : unit =
     fileSearchCache <- None
 
+/// Rows already cached. Does not start a search.
+let shownFileSearchResults () : FileSearchResult list =
+    match fileSearchCache with
+    | None -> []
+    | Some cache -> List.rev cache.resultsRev
+
 let private focusNodeIdOpt (model: VM) : NodeId option =
     match model.selectedNodes with
     | None -> None

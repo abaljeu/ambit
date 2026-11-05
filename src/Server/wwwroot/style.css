@@ -411,6 +411,11 @@ body {
 .amb-dialog-results li.amb-dialog-selected {
     background: #a8d0fe;
 }
+.amb-dialog-results li.amb-dialog-zero,
+.amb-dialog-results li.amb-dialog-zero:hover {
+    background: transparent;
+    cursor: default;
+}
 
 /* Blocking sync-risk alert (above palette z-index) */
 .amb-blocking-alert {
