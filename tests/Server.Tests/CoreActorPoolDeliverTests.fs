@@ -37,13 +37,13 @@ let private withPool body =
             CoreMailboxApi.dispose host
     }
 
-let private startAt host focusId commandId graphIds =
+let private startAt host focusId actorNodeId graphIds =
     CoreMailboxApi.startActor
         host
         testCaller
         { zoomId = Graph.rootId
           focusId = focusId
-          commandId = commandId
+          actorNodeId = actorNodeId
           graphIds = graphIds
           eventId = EventId.zero }
 
@@ -65,7 +65,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
                 testCaller
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
-                  commandId = Graph.rootId
+                  actorNodeId = Graph.rootId
                   graphIds = [ Graph.rootId ]
                   eventId = EventId.zero }
             |> Async.RunSynchronously
@@ -106,7 +106,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
                 testCaller
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
-                  commandId = Graph.rootId
+                  actorNodeId = Graph.rootId
                   graphIds = [ Graph.rootId ]
                   eventId = EventId.zero }
             |> Async.RunSynchronously
@@ -131,7 +131,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
         CoreMailboxApi.dispose host
 
 [<Fact>]
-let ``second start on the same commandId is rejected`` () =
+let ``second start on the same actorNodeId is rejected`` () =
     withPool (fun host pool -> task {
         let childId = NodeId.New()
         let event =
@@ -177,7 +177,7 @@ let ``focus exclusivity still rejects a second live Focus`` () =
         (pool.startActor
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              commandId = Graph.rootId
+              actorNodeId = Graph.rootId
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
             (fun () -> Graph.create ()))
@@ -186,7 +186,7 @@ let ``focus exclusivity still rejects a second live Focus`` () =
         pool.startActor
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              commandId = Graph.rootId
+              actorNodeId = Graph.rootId
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
             (fun () -> Graph.create ())

@@ -17,11 +17,11 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 let private encodeRequest (request: ActorStart) =
     Encode.toString 0 (EventJson.encodeStartRequest request)
 
-let private sampleRequest commandId : ActorStart =
-    { zoomId = commandId
-      focusId = commandId
-      commandId = commandId
-      graphIds = [ commandId ]
+let private sampleRequest actorNodeId : ActorStart =
+    { zoomId = actorNodeId
+      focusId = actorNodeId
+      actorNodeId = actorNodeId
+      graphIds = [ actorNodeId ]
       eventId = EventId.zero }
 
 let private jsonContent body =
@@ -50,7 +50,7 @@ let private createHost () =
 
 let private seedActorCommand host text : Task<NodeId> =
     task {
-        let commandId = NodeId.New()
+        let actorNodeId = NodeId.New()
         let event =
             { id = EventId.zero
               submissionId = Guid.NewGuid()
@@ -58,21 +58,21 @@ let private seedActorCommand host text : Task<NodeId> =
               commandName = ""
               body =
                 EventBody.Change
-                    [ Op.NewNode(commandId, text)
+                    [ Op.NewNode(actorNodeId, text)
                       Op.SetClasses(
-                          commandId,
+                          actorNodeId,
                           CssClass.empty,
                           CssClass.ofList [ "actor-test" ])
                       Op.Replace(
                           Graph.rootId,
                           [],
-                          [ ChildNode.owner commandId ]) ] }
+                          [ ChildNode.owner actorNodeId ]) ] }
         let! posted =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         match posted with
         | Error err -> return failwith err
-        | Ok _ -> return commandId
+        | Ok _ -> return actorNodeId
     }
 
 let private launchEvent (request: ActorStart) : Ev =
@@ -113,14 +113,14 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
     task {
         let host = createHost ()
         try
-            let! commandId = seedActorCommand host "hello"
+            let! actorNodeId = seedActorCommand host "hello"
             let! beforeId =
                 CoreMailboxApi.getEventId host |> Async.StartAsTask
             let request: ActorStart =
-                { zoomId = commandId
-                  focusId = commandId
-                  commandId = commandId
-                  graphIds = [ Graph.rootId; commandId ]
+                { zoomId = actorNodeId
+                  focusId = actorNodeId
+                  actorNodeId = actorNodeId
+                  graphIds = [ Graph.rootId; actorNodeId ]
                   eventId = beforeId }
             let! result = startViaEvents host request |> Async.StartAsTask
             let accepted =
@@ -135,12 +135,12 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
                 |> List.exists (fun ev ->
                     match ev.body with
                     | EventBody.ActorStart started ->
-                        started.commandId = commandId
+                        started.actorNodeId = actorNodeId
                     | _ -> false)
             Assert.True(started, "ActorStart missing from events")
             let! state = CoreMailboxApi.getState host |> Async.StartAsTask
             match state with
-            | Ok s -> Assert.True(s.graph.nodes.ContainsKey commandId)
+            | Ok s -> Assert.True(s.graph.nodes.ContainsKey actorNodeId)
             | Error err -> failwith err
         finally
             CoreMailboxApi.dispose host
@@ -151,20 +151,20 @@ let ``postCommand startActor can produce hello child`` () =
     task {
         let host = createHost ()
         try
-            let! commandId = seedActorCommand host "hello"
+            let! actorNodeId = seedActorCommand host "hello"
             let! beforeId =
                 CoreMailboxApi.getEventId host |> Async.StartAsTask
             let request: ActorStart =
-                { zoomId = commandId
-                  focusId = commandId
-                  commandId = commandId
-                  graphIds = [ Graph.rootId; commandId ]
+                { zoomId = actorNodeId
+                  focusId = actorNodeId
+                  actorNodeId = actorNodeId
+                  graphIds = [ Graph.rootId; actorNodeId ]
                   eventId = beforeId }
             let! result = startViaEvents host request |> Async.StartAsTask
             match result with
             | Ok _ -> ()
             | Error err -> failwith err
-            let! hello = waitForHello host commandId 1000
+            let! hello = waitForHello host actorNodeId 1000
             Assert.True(hello, "hello child not posted under Focus")
         finally
             CoreMailboxApi.dispose host
@@ -201,7 +201,7 @@ let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     return! client.PostAsync("/ambit/changes", content)
 }
 
-let private seedQuestionTest (client: HttpClient) rootId commandId = task {
+let private seedQuestionTest (client: HttpClient) rootId actorNodeId = task {
     let seed =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
@@ -209,11 +209,11 @@ let private seedQuestionTest (client: HttpClient) rootId commandId = task {
           commandName = ""
           body =
             EventBody.Change
-                [ Op.NewNode(commandId, "?test hello")
+                [ Op.NewNode(actorNodeId, "?test hello")
                   Op.Replace(
                       rootId,
                       [],
-                      [ ChildNode.owner commandId ]) ] }
+                      [ ChildNode.owner actorNodeId ]) ] }
     let! seedResp = postEventsHttp client [ seed ]
     Assert.Equal(HttpStatusCode.OK, seedResp.StatusCode)
 }
@@ -252,14 +252,14 @@ let ``production boot Run of ?test hello posts Owned hello child`` () =
     task {
         use client = createClientForDir (newTempDir ())
         let! _, graph = getFullState client
-        let commandId = NodeId.New()
-        do! seedQuestionTest client graph.root commandId
+        let actorNodeId = NodeId.New()
+        do! seedQuestionTest client graph.root actorNodeId
         let! afterId, _ = getFullState client
         let request: ActorStart =
-            { zoomId = commandId
-              focusId = commandId
-              commandId = commandId
-              graphIds = [ commandId ]
+            { zoomId = actorNodeId
+              focusId = actorNodeId
+              actorNodeId = actorNodeId
+              graphIds = [ actorNodeId ]
               eventId = afterId }
         let launch = launchEvent request
         let! commandResp = postEventsHttp client [ launch ]
@@ -267,7 +267,7 @@ let ``production boot Run of ?test hello posts Owned hello child`` () =
         Assert.True(
             commandResp.StatusCode = HttpStatusCode.OK,
             $"events {commandResp.StatusCode}: {commandJson}")
-        let! hello = waitStateHello client commandId 2000
+        let! hello = waitStateHello client actorNodeId 2000
         Assert.True(
             hello,
             "production Actor test did not post hello under Focus")

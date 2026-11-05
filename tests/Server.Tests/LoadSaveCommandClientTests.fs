@@ -62,7 +62,7 @@ let private request prePick operation =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          commandId = nodeId
+          actorNodeId = nodeId
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 
