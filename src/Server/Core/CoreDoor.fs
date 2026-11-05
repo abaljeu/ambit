@@ -47,3 +47,21 @@ module CoreDoor =
 
     let loadNode door subject =
         callIfReady CoreMailboxApi.mbLoadNode door subject
+
+    let private acceptedUnit result =
+        result |> Result.map (fun (_: CoreChangesAccepted) -> ())
+
+    /// Shared door for an ActorFunction. The pool door stays CoreChangesDoor.
+    let actorChanges (door: CoreChangesDoor) : ActorChanges =
+        let post evs =
+            async {
+                let! result = postEvents door evs
+                return acceptedUnit result
+            }
+        let stop result = actorStop door result
+        let graph () = graphAtEvent door
+        let load nodeId = loadNode door nodeId
+        { postChanges = post
+          actorStop = stop
+          graphAtEvent = graph
+          loadNode = load }

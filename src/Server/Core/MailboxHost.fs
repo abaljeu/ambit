@@ -92,25 +92,22 @@ module MailboxHost =
         postItemAndAsyncReply host (fun channel ->
             CoreQueue.Public (build channel))
 
-    let postActorOrder (host: MailboxHost) (order: ActorOrder) : unit =
+    let postActorOrder
+        (host: MailboxHost)
+        (caller: Caller)
+        (order: ActorOrder)
+        : Async<Result<EventId, string>> =
+        let commandName =
+            match order.actorName with
+            | "" -> None
+            | name -> Some name
         let placed =
             { orderId = OrderId(System.Guid.NewGuid())
-              authority = Authority "Actor"
-              commandName =
-                  match order.actorName with
-                  | "" -> None
-                  | name -> Some name
+              authority = caller.authority
+              commandName = commandName
               order = Order.ActorOrder order }
-        let caller =
-            { authority = Authority "Actor"
-              name = order.actorName
-              secret = Credential "" }
-        let post reply =
-            CoreQueue.Public(Mailbox.placeForCaller placed caller reply)
-        lock host.gate (fun () ->
-            host.mailbox.PostAndAsyncReply post
-            |> Async.Ignore
-            |> Async.Start)
+        postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.placeForCaller placed caller channel)
 
     let isReady (host: MailboxHost) = host.isReady
 

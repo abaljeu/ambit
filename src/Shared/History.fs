@@ -86,7 +86,7 @@ type FunctionRun =
     { getGraph: GraphCarrier
       secret: Credential }
 
-type FunctionActor = FunctionRun -> ActorChanges -> Async<unit>
+type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
 
 and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
@@ -95,8 +95,7 @@ and ActorChanges =
       loadNode: NodeId -> Async<Result<EventId, string>> }
 
 and [<CustomEquality; NoComparison>] ActorOrder =
-    { actor: FunctionActor
-      getGraph: GraphCarrier
+    { actor: ActorFunction
       focusId: NodeId
       actorName: string }
 

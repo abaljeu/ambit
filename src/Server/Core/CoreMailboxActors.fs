@@ -78,20 +78,15 @@ module internal CoreMailboxActors =
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
 
-    /// Query reads post-edit GraphAtEvent. `graphIds` do not replace that Graph.
+    /// Query and named starts both use the ID-bag start.
+    /// `startFunction` stays unused on this path.
     let private startChosen
         (context: MailboxContext)
         (request: Gambol.Shared.ActorStart)
-        (getState: unit -> Graph)
+        (_getState: unit -> Graph)
         : Result<Credential option, StartError> =
-        if SearchActor.isQueryRequest (getState ()) request then
-            SearchActor.functionStart request getState
-            |> context.pool.startFunction
-            |> Result.mapError StartError.Rejected
-            |> Result.map Some
-        else
-            context.pool.startActor request getState
-            |> Result.map Some
+        context.pool.startActor request _getState
+        |> Result.map Some
 
     let dispatchStartActor context caller request reply =
         dispatchActorStartResult

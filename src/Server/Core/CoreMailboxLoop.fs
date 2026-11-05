@@ -188,6 +188,54 @@ module internal CoreMailboxLoop =
         | Error err -> reply.Reply(Error err)
         | Ok event -> replyPosted context caller reply event
 
+    let private poolActor
+        (actor: Gambol.Shared.FunctionRun -> Gambol.Shared.ActorChanges -> Async<unit>)
+        (run: Gambol.Shared.FunctionRun)
+        (door: CoreChangesDoor)
+        : Async<unit> =
+        actor run (CoreDoor.actorChanges door)
+
+    let private scheduleActorOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (order: ActorOrder)
+        : Result<unit, string> =
+        let start : FunctionStart =
+            { actor = poolActor order.actor
+              getGraph = fun () -> CoreMailboxEvents.graphNow context
+              focusId = order.focusId }
+        match context.pool.startFunction start with
+        | Error err -> Error err
+        | Ok secret ->
+            match context.coreChanges.Value with
+            | None ->
+                context.pool.drop secret
+                Error "mailbox not initialized"
+            | Some make ->
+                context.pool.schedule secret (make caller)
+                Ok ()
+
+    let private replyActorOrder
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (order: ActorOrder)
+        =
+        let body = EventBody.Order(Order.ActorOrder order)
+        match
+            CoreEventDispatch.appendLifecycle
+                (CoreMailboxEvents.eventDispatchContext context)
+                caller
+                placed.orderId.Value
+                body
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok stored ->
+            match scheduleActorOrder context caller order with
+            | Error err -> reply.Reply(Error err)
+            | Ok () -> reply.Reply(Ok stored.id)
+
     let private placeOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -207,10 +255,11 @@ module internal CoreMailboxLoop =
         | Order.CancelActor focusId ->
             CoreMailboxActors.replyCancel
                 context placed caller reply focusId
+        | Order.ActorOrder order ->
+            replyActorOrder context placed caller reply order
         | Order.StartActor _
         | Order.StartPeerActor _
-        | Order.LoadSave _
-        | Order.ActorOrder _ -> replyUnsupported reply
+        | Order.LoadSave _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
