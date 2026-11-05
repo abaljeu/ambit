@@ -301,7 +301,7 @@ module EventJson =
             [ "kind", Encode.string "cancel"
               "focusId", Serialization.encodeNodeId focusId ]
 
-    let stubActor : FunctionActor =
+    let stubActor : ActorFunction =
         fun _ _ -> async.Return ()
 
     let private stubGraph : GraphCarrier =

@@ -1,5 +1,7 @@
 # 18 — Place ActorOrder through PlaceOrder stop
 
+Continued: Alan, 2026-11-05. Park the query arm on `pool.startActor`. `FunctionStart` then drops `actorNodeId`. The build continued on this branch.
+
 Ticket: [18 — Place ActorOrder through PlaceOrder](../issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 
 Arch: [Arch](../arch.md)

@@ -403,11 +403,11 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let focusId =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
     let mutable ran = false
-    let live : FunctionActor =
+    let live : ActorFunction =
         fun _ _ ->
             ran <- true
             async.Return ()
-    let other : FunctionActor = fun _ _ -> async.Return ()
+    let other : ActorFunction = fun _ _ -> async.Return ()
     let order actor =
         { actor = actor
           getGraph = fun () -> Graph.create ()

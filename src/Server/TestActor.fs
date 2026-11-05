@@ -105,7 +105,7 @@ module TestActor =
                 CommandRequest.behaviorFromText node.text)
 
     /// Function-shaped TestActor. Calls getGraph; pool supplies no Graph.
-    let functionActor: Gambol.Server.FunctionActor =
+    let functionActor: Gambol.Server.ActorFunction =
         fun run coreChanges ->
             async {
                 let graph = run.getGraph ()

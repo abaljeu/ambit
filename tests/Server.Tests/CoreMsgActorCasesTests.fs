@@ -400,3 +400,47 @@ let ``ActorStop with Parse credentials is refused`` () =
         finally
             CoreMailboxApi.dispose host
     }
+
+[<Fact>]
+let ``ActorOrder places the actor on the thread pool`` () = task {
+    let pool = CoreActorPool.create ()
+    let host = acceptingHost pool
+    let focusId = NodeId.New()
+    let ran = TaskCompletionSource<Credential>()
+    let actor : Gambol.Shared.ActorFunction =
+        fun run _ ->
+            ran.TrySetResult run.secret |> ignore
+            async.Return ()
+    let order =
+        { actor = actor
+          getGraph = fun () -> Graph.create ()
+          focusId = focusId
+          actorName = "test" }
+    try
+        let! placed =
+            MailboxHost.postActorOrder host testCaller order
+            |> Async.StartAsTask
+        match placed with
+        | Error err -> Assert.Fail(err)
+        | Ok _ ->
+            let! secret = ran.Task
+            Assert.NotEqual<Credential>(testSecret, secret)
+            Assert.True(pool.isLive secret)
+            Assert.Contains(focusId, pool.liveFocusIds ())
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let stored =
+                history.events
+                |> List.filter (fun event ->
+                    match event.body with
+                    | EventBody.Order (Order.ActorOrder found) ->
+                        found.focusId = focusId
+                    | _ -> false)
+            match stored with
+            | [ event ] ->
+                Assert.Equal(testAuthority, event.authority)
+            | other ->
+                Assert.Fail($"expected one ActorOrder, got {other.Length}")
+    finally
+        CoreMailboxApi.dispose host
+}

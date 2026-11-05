@@ -218,11 +218,11 @@ let private queryStart root lineId eventId : Ev =
     posted "Exec" (EventBody.ActorStart request)
 
 [<Fact>]
-let ``edit then ActorStart classifies the equals line after the edit`` () =
+let ``equals-line ActorStart does not run the query function`` () =
     task {
         let host = hostNow ()
         try
-            let! root, lineId, bobId = seedPlain host
+            let! root, lineId, _ = seedPlain host
             let! eventId =
                 CoreMailboxApi.getEventId host |> Async.StartAsTask
             let edit =
@@ -242,17 +242,23 @@ let ``edit then ActorStart classifies the equals line after the edit`` () =
                     match event.body with
                     | EventBody.Change _ -> true
                     | _ -> false)
-            let! stopped = waitStopEvent host lineId
-            let event =
-                match stopped with
-                | Some value -> value
-                | None -> failwith "ActorStop missing after the one eval"
-            Assert.Equal<NodeId list>([ bobId ], idsOfStop event)
-            let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            match after with
-            | Error err -> failwith err
-            | Ok afterState ->
-                Assert.Empty(Graph.children afterState.graph lineId)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let failed =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(id, ActorFailed message) ->
+                        id = lineId && message = "unknown actor"
+                    | _ -> false)
+            Assert.True(failed, "ActorFailed missing")
+            let queried =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(_, ActorQuery _) -> true
+                    | _ -> false)
+            Assert.False(queried)
         finally
             CoreMailboxApi.dispose host
     }

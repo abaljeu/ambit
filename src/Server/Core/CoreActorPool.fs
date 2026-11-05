@@ -14,14 +14,13 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
 
-type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
+type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.
 type FunctionStart =
-    { actor: FunctionActor
+    { actor: ActorFunction
       getGraph: GraphCarrier
-      focusId: NodeId
-      actorNodeId: NodeId }
+      focusId: NodeId }
 
 [<RequireQualifiedAccess>]
 type StartError =
@@ -72,7 +71,7 @@ module CoreActorPool =
     type private PendingBody =
         | BagPending of actorFn: ActorFn * input: ActorInput
         | FunctionPending of
-            actor: FunctionActor *
+            actor: ActorFunction *
             getGraph: GraphCarrier *
             secret: Credential
 
@@ -217,8 +216,6 @@ module CoreActorPool =
         =
         if Set.contains request.focusId (liveFocusIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.actorNodeId then
-            Error "command already has a live Actor"
         else
             Ok()
 
@@ -233,7 +230,7 @@ module CoreActorPool =
         putLive
             secret
             request.focusId
-            request.actorNodeId
+            request.focusId
             sessionId
             (FunctionPending(request.actor, request.getGraph, secret))
         Ok secret

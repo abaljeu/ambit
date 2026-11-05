@@ -896,3 +896,57 @@ let ``explicit Desk Save with a GitHub remote takes the Desk path`` () = task {
     finally
         CoreMailboxApi.dispose harness.host
 }
+
+[<Fact>]
+let ``Desk load-save places its order and runs no Actor`` () = task {
+    let pool = CoreActorPool.create ()
+    let host =
+        CoreMailbox.host
+            pool
+            (FileAgent.persist (FileAgent.create (newTempDir ())))
+            admittedCredentials
+    try
+        let nodeId = NodeId.New()
+        let router =
+            { resolvePath = fun _ _ -> Result.Ok LoadSavePath.Desk
+              startCommand =
+                fun path command ->
+                    CoreMailboxApi.startLoadSaveCommand
+                        host
+                        testCaller
+                        path
+                        (PeerActorName "unregistered")
+                        command }
+        let body =
+            request
+                LoadSaveOperation.Load
+                LoadSavePrePick.Desk
+                nodeId
+                EventId.zero
+            |> encodeRequest
+        let! result =
+            Api.postLoadSaveCommand
+                router
+                (CoreDoor.create true host testCaller)
+                body
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Desk, response.path)
+        Assert.Equal(None, response.command)
+        Assert.Empty(pool.liveFocusIds ())
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored =
+            history.events
+            |> List.filter (fun event ->
+                match event.body with
+                | EventBody.Order (Order.ActorOrder found) ->
+                    found.focusId = nodeId && found.actorName = ""
+                | _ -> false)
+        match stored with
+        | [ event ] -> Assert.Equal(testAuthority, event.authority)
+        | other ->
+            Assert.Fail($"expected one ActorOrder, got {other.Length}")
+    finally
+        CoreMailboxApi.dispose host
+}
