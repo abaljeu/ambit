@@ -214,9 +214,8 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok _ -> CoreMailboxEvents.replyStored reply stored
 
-    /// `?test` closes over the Run's actor node and queues ActorOrder.
-    /// The ActorStart row stays so a replay of this submission is idempotent.
-    let private queueTestOrder
+    /// Admitted `?test` Run. Closes over the actor node and queues ActorOrder.
+    let private queueAdmittedTest
         (context: MailboxContext)
         (caller: Caller)
         (event: Ev)
@@ -250,6 +249,26 @@ module internal CoreMailboxActors =
                         MailboxHost.postActorOrder host caller order
                     replyPlaced reply stored placed
                 })
+
+    /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
+    let private queueTestOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match CoreMailboxEvents.admitCaller context caller with
+        | Error err ->
+            recordFailedStart
+                context
+                caller
+                request
+                event.submissionId
+                err
+                reply
+        | Ok () ->
+            queueAdmittedTest context caller event request reply
 
     let private postChosenStart
         context caller event request reply =

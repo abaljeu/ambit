@@ -310,6 +310,77 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
             |> List.length)
     })
 
+let private runLaunch (request: ActorStart) (caller: Caller) : Ev =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = caller.authority
+      commandName = "Exec"
+      body = EventBody.ActorStart request }
+
+let private orderPosted (events: Ev list) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.Order (Order.ActorOrder _) -> true
+        | _ -> false)
+
+[<Fact>]
+let ``?test Run refuses a blank authority before ActorOrder`` () =
+    withHost (fun host pool -> task {
+        let! actorNodeId = seedCommand host "?test hello"
+        let request = sampleRequest actorNodeId actorNodeId
+        let blank =
+            { authority = Authority ""
+              name = ""
+              secret = Credential "blank" }
+        let! result =
+            CoreMailboxApi.postEvents
+                host blank [ runLaunch request blank ]
+            |> Async.StartAsTask
+        requireOk "blank start" result |> ignore
+        let! events = eventPast host |> Async.StartAsTask
+        Assert.False(orderPosted events)
+        let stop =
+            events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.ActorStop(fid, found)
+                    when fid = actorNodeId ->
+                    Some found
+                | _ -> None)
+        Assert.Equal(Some (ActorFailed CoreAuth.refuse), stop)
+        Assert.False(Set.contains actorNodeId (pool.liveFocusIds ()))
+        let! state =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let state = requireOk "getState" state
+        Assert.Empty(helloChildren state.graph actorNodeId actorNodeId)
+    })
+
+[<Fact>]
+let ``?test Run admits the caller and queues ActorOrder`` () =
+    withHost (fun host _ -> task {
+        let! actorNodeId = seedCommand host "?test hello"
+        let request = sampleRequest actorNodeId actorNodeId
+        let! result =
+            CoreMailboxApi.postEvents
+                host testCaller [ runLaunch request testCaller ]
+            |> Async.StartAsTask
+        requireOk "admitted start" result |> ignore
+        let! stop = waitForActorStop host request.focusId 1000
+        match stop with
+        | Some ActorSucceeded -> ()
+        | other -> Assert.Fail($"expected ActorSucceeded, got {other}")
+        let! events = eventPast host |> Async.StartAsTask
+        Assert.True(orderPosted events, "ActorOrder missing")
+        let! state =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let state = requireOk "getState" state
+        Assert.Equal(
+            1,
+            helloChildren state.graph actorNodeId actorNodeId
+            |> List.length)
+    })
+
 let private encodeRequest (request: ActorStart) =
     Encode.toString 0 (EventJson.encodeStartRequest request)
 
