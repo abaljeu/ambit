@@ -218,7 +218,6 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | NodeSearchQuery query ->
         match model.mode with
         | SearchDialog s when s.query <> query ->
-            Gambol.Client.SearchDialog.resetSearchResults ()
             let next =
                 { model with
                     mode =
@@ -233,7 +232,6 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | FileSearchQuery query ->
         match model.mode with
         | FileSearchDialog s when s.query <> query ->
-            Gambol.Client.FileSearchDialog.resetFileSearchResults ()
             { model with
                 mode = FileSearchDialog { s with query = query; selectedIndex = 0 } }, []
         | _ -> model, []
