@@ -84,12 +84,19 @@ module internal CoreMailboxEvents =
         session: Session
     }
 
+    /// Pool receipt for Authority "Actor". Other authorities are not receipts.
+    let actorReceiptIsLive (pool: CoreActorPool) (caller: Caller) =
+        match caller.authority with
+        | Authority "Actor" -> pool.isLive caller.secret
+        | _ -> false
+
     let admitCaller (context: MailboxContext) (caller: Caller) =
         match caller.authority with
         | Authority name when String.IsNullOrWhiteSpace name ->
             Error CoreAuth.refuse
         | Authority "Actor" ->
-            match CoreAuth.admit (context.pool.isLive caller.secret) with
+            let live = actorReceiptIsLive context.pool caller
+            match CoreAuth.admit live with
             | Error err -> Error(CoreAdmissionError.text err)
             | Ok () -> Ok ()
         | _ -> Ok ()

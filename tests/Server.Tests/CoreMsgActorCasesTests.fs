@@ -277,7 +277,12 @@ let ``ActorStop checks the live receipt once`` () =
                 live.Remove secret |> ignore
                 Ok ()
         liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> None
+        getFocusId =
+            fun secret ->
+                if live.Contains secret then
+                    Some sampleRequest.focusId
+                else
+                    None
         trySecretForFocus = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
@@ -290,6 +295,7 @@ let ``ActorStop checks the live receipt once`` () =
         requireOk "ActorStop" result
         Assert.Equal(1, isLiveCalls.Count)
         Assert.Equal(actorSecret, isLiveCalls.[0])
+        Assert.False(live.Contains actorSecret)
     })
 
 [<Fact>]

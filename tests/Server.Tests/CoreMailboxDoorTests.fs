@@ -106,7 +106,7 @@ let ``Actor start rejects a secret the pool does not admit`` () =
 
 [<Fact>]
 let ``Actor post with a secret the pool does not hold is dropped`` () =
-    let actorSecret = Credential "live-at-start"
+    let actorSecret = Credential "absent-receipt"
     let admitCount = ref 0
     let basePool = CoreActorPool.create ()
     let pool =
@@ -130,6 +130,7 @@ let ``Actor post with a secret the pool does not hold is dropped`` () =
                 CoreMailboxApi.startActor host testCaller sampleRequest
                 |> Async.StartAsTask
             requireOk "startActor" started
+            Assert.Equal(1, admitCount.Value)
             let caller = actorCaller actorSecret
             let childId = NodeId.New()
             let event =

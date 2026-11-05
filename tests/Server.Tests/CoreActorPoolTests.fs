@@ -7,7 +7,7 @@ open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 [<Fact>]
-let ``Actor handle with an inactive secret is dropped`` () = task {
+let ``Actor handle with an empty secret is dropped`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
@@ -15,7 +15,7 @@ let ``Actor handle with an inactive secret is dropped`` () = task {
             CoreDoor.forCaller
                 { authority = Authority "Actor"
                   name = ""
-                  secret = Credential "inactive" }
+                  secret = Credential "" }
                 handle
         let childId = NodeId.New()
         let event =
