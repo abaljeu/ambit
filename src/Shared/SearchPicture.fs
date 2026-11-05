@@ -152,3 +152,60 @@ module SearchPicture =
                       matchKey = Text text }
             | None, None ->
                 Decode.fail "search reply needs text or generation")
+
+/// Rows the Find dialog and the file search dialog show while a query settles.
+[<RequireQualifiedAccess>]
+module DialogResultRows =
+
+    [<RequireQualifiedAccess>]
+    type Readiness =
+        | Pending
+        | Ready
+
+    [<RequireQualifiedAccess>]
+    type Shown<'a> =
+        | PriorRows of 'a list
+        | CurrentRows of 'a list
+        | ZeroResults
+
+    let zeroResultsLabel = "Zero results"
+
+    let holdRows
+        (prior: 'a list)
+        (readiness: Readiness)
+        (pictureOutstanding: bool)
+        (incoming: 'a list)
+        : Shown<'a> =
+        let holdPrior =
+            pictureOutstanding && not (List.isEmpty prior)
+        match readiness with
+        | Readiness.Pending when List.isEmpty prior -> Shown.ZeroResults
+        | Readiness.Pending -> Shown.PriorRows prior
+        | Readiness.Ready when List.isEmpty incoming && holdPrior ->
+            Shown.PriorRows prior
+        | Readiness.Ready when List.isEmpty incoming -> Shown.ZeroResults
+        | Readiness.Ready -> Shown.CurrentRows incoming
+
+    let visibleRows (shown: Shown<'a>) : 'a list =
+        match shown with
+        | Shown.ZeroResults -> []
+        | Shown.PriorRows rows
+        | Shown.CurrentRows rows -> rows
+
+    let isZeroShown (shown: Shown<'a>) : bool =
+        match shown with
+        | Shown.ZeroResults -> true
+        | Shown.PriorRows _
+        | Shown.CurrentRows _ -> false
+
+    let pickShown (shown: Shown<'a>) (index: int) : 'a option =
+        if index < 0 then None
+        else shown |> visibleRows |> List.tryItem index
+
+    let stepShownIndex (shown: Shown<'a>) (index: int) (step: int) : int =
+        match shown with
+        | Shown.ZeroResults -> index
+        | Shown.PriorRows rows
+        | Shown.CurrentRows rows ->
+            let last = max 0 (rows.Length - 1)
+            min last (max 0 (index + step))

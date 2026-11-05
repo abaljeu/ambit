@@ -104,31 +104,58 @@ let formatNamedDialogHit (name: Filename) (text: string) : string =
     | Filename.Ok label -> $"{label}  {text}"
     | _ -> text
 
+let private appendDialogRow
+    (ul: HTMLElement)
+    (label: string)
+    (index: int option)
+    (selected: bool)
+    : HTMLElement =
+    let li = document.createElement "li"
+    li.textContent <- label
+    match index with
+    | Some i -> li.dataset.["idx"] <- string i
+    | None ->
+        li.dataset.["zero"] <- "1"
+        li.classList.add "amb-dialog-zero"
+    if selected then li.classList.add "amb-dialog-selected"
+    ul.appendChild li |> ignore
+    li
+
+let renderDialogResultRows
+    (container: HTMLElement)
+    (items: string list)
+    (selectedIndex: int)
+    (scrollSelection: bool)
+    (showZero: bool)
+    : unit =
+    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
+    let previousScrollTop = ul.scrollTop
+    ul.innerHTML <- ""
+    let selectedLi =
+        if showZero then
+            appendDialogRow ul DialogResultRows.zeroResultsLabel None false
+            |> Some
+        else
+            let clamped =
+                if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
+            items
+            |> List.mapi (fun i label ->
+                let selected = i = clamped
+                let li = appendDialogRow ul label (Some i) selected
+                if selected then Some li else None)
+            |> List.tryPick id
+    if scrollSelection then
+        selectedLi |> Option.iter scrollIntoViewNearest
+    else
+        ul.scrollTop <- previousScrollTop
+
 let renderDialogResultList
     (container: HTMLElement)
     (items: string list)
     (selectedIndex: int)
     (scrollSelection: bool)
     : unit =
-    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
-    let previousScrollTop = ul.scrollTop
-    ul.innerHTML <- ""
-    let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
-    let selectedLi =
-        items
-        |> List.mapi (fun i label ->
-            let li = document.createElement "li"
-            li.textContent <- label
-            li.dataset.["idx"] <- string i
-            let selected = i = clampedSel
-            if selected then li.classList.add "amb-dialog-selected"
-            ul.appendChild li |> ignore
-            if selected then Some li else None)
-        |> List.tryPick id
-    if scrollSelection then
-        selectedLi |> Option.iter scrollIntoViewNearest
-    else
-        ul.scrollTop <- previousScrollTop
+    renderDialogResultRows container items selectedIndex scrollSelection false
 
 let private dialogResultIndex (li: HTMLElement) : int =
     let idxStr = li.dataset.["idx"]
@@ -162,7 +189,10 @@ let wireDialogList (wire: DialogListWire) : unit =
         let target = ev.target :?> HTMLElement
         match target.closest "li" with
         | None -> ()
-        | Some li -> wire.onResultClick (dialogResultIndex (li :?> HTMLElement)))
+        | Some li ->
+            let row = li :?> HTMLElement
+            if row.dataset.["zero"] = "1" then ()
+            else wire.onResultClick (dialogResultIndex row))
 
 let createTimeoutSlot () : TimeoutSlot =
     let timer = ref (None: float option)

@@ -124,3 +124,40 @@ let ``search reply round-trips ids and text`` () =
     match Dec.fromString SearchPicture.decodeReply json with
     | Error err -> failwith err
     | Ok decoded -> Assert.Equal(reply, decoded)
+
+[<Fact>]
+let ``pending query keeps the prior result rows`` () =
+    let shown =
+        DialogResultRows.holdRows
+            [ "alpha" ]
+            DialogResultRows.Readiness.Pending
+            false
+            []
+    Assert.Equal(DialogResultRows.Shown.PriorRows [ "alpha" ], shown)
+
+[<Fact>]
+let ``ready empty results show the zero-results row`` () =
+    let shown =
+        DialogResultRows.holdRows
+            [ "alpha" ]
+            DialogResultRows.Readiness.Ready
+            false
+            []
+    Assert.Equal(DialogResultRows.Shown.ZeroResults, shown)
+
+[<Fact>]
+let ``empty results stay while the server picture is outstanding`` () =
+    let shown =
+        DialogResultRows.holdRows
+            [ "alpha" ]
+            DialogResultRows.Readiness.Ready
+            true
+            []
+    Assert.Equal(DialogResultRows.Shown.PriorRows [ "alpha" ], shown)
+
+[<Fact>]
+let ``pick on the zero-results row does nothing`` () =
+    let shown = DialogResultRows.Shown.ZeroResults
+    Assert.Equal(None, DialogResultRows.pickShown shown 0)
+    Assert.Equal(3, DialogResultRows.stepShownIndex shown 3 1)
+    Assert.Equal(3, DialogResultRows.stepShownIndex shown 3 -1)

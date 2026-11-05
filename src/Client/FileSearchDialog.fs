@@ -19,9 +19,23 @@ type private FileSearchCache =
       cursor: ViewModelFileSearch.FileSearchCursor option }
 
 let mutable private fileSearchCache: FileSearchCache option = None
+let mutable private shownRows: FileSearchResult list = []
+let mutable private showZeroResults = false
 
 let resetFileSearchResults () : unit =
     fileSearchCache <- None
+    shownRows <- []
+    showZeroResults <- false
+
+let private publishFile (incoming: FileSearchResult list) : unit =
+    let shown =
+        DialogResultRows.holdRows
+            shownRows
+            DialogResultRows.Readiness.Ready
+            false
+            incoming
+    shownRows <- DialogResultRows.visibleRows shown
+    showZeroResults <- DialogResultRows.isZeroShown shown
 
 let private focusNodeIdOpt (model: VM) : NodeId option =
     match model.selectedNodes with
@@ -68,24 +82,51 @@ let private startCache (s: FileSearchDialogState) (focus: NodeId) (model: VM) : 
       cursor = ViewModelFileSearch.startFind s.query focus model.graph }
     |> loadPage
 
-let private ensureFileSearchCache (s: FileSearchDialogState) (model: VM) : FileSearchCache option =
+let private installFileCache
+    (s: FileSearchDialogState)
+    (model: VM)
+    : FileSearchCache option =
     match focusNodeIdOpt model with
-    | None -> None
+    | None ->
+        fileSearchCache <- None
+        publishFile []
+        None
+    | Some focus ->
+        let cache = startCache s focus model
+        fileSearchCache <- Some cache
+        publishFile (List.rev cache.resultsRev)
+        Some cache
+
+let private ensureFileSearchCache
+    (s: FileSearchDialogState)
+    (model: VM)
+    : FileSearchCache option =
+    match focusNodeIdOpt model with
+    | None -> installFileCache s model
     | Some focus ->
         match fileSearchCache with
         | Some cache when cacheMatches s focus model cache -> Some cache
-        | _ ->
-            let cache = startCache s focus model
-            fileSearchCache <- Some cache
-            Some cache
+        | _ -> installFileCache s model
+
+let fileSearchShowsZeroResults (model: VM) : bool =
+    match model.mode with
+    | FileSearchDialog _ -> showZeroResults
+    | _ -> false
 
 let currentFileSearchResults (model: VM) : FileSearchResult list =
     match model.mode with
     | FileSearchDialog s ->
-        match ensureFileSearchCache s model with
-        | None -> []
-        | Some cache -> List.rev cache.resultsRev
+        ensureFileSearchCache s model |> ignore
+        shownRows
     | _ -> []
+
+let retargetFileSearch (query: string) (model: VM) : VM * Effect list =
+    match model.mode with
+    | FileSearchDialog s when s.query <> query ->
+        let nextState = { s with query = query; selectedIndex = 0 }
+        installFileCache nextState model |> ignore
+        { model with mode = FileSearchDialog nextState }, []
+    | _ -> model, []
 
 let openFileSearchDialogOp (model: VM) : VM * Effect list =
     match focusNodeIdOpt model with
@@ -133,14 +174,16 @@ let fileSearchSelectDownOp (model: VM) : VM * Effect list =
     | FileSearchDialog s ->
         match ensureFileSearchCache s model with
         | None -> model, []
-        | Some cache ->
-            let loaded = cache.resultsRev.Length
+        | Some loaded ->
             let cache =
-                if s.selectedIndex + 1 >= loaded then loadPage cache else cache
+                if showZeroResults || s.selectedIndex + 1 < loaded.resultsRev.Length then
+                    loaded
+                else
+                    loadPage loaded
             fileSearchCache <- Some cache
-            let n = cache.resultsRev.Length
-            let cap = max 0 (n - 1)
-            let next = min (s.selectedIndex + 1) cap
+            if not showZeroResults then publishFile (List.rev cache.resultsRev)
+            let count = if showZeroResults then 0 else shownRows.Length
+            let next = min (s.selectedIndex + 1) (max 0 (count - 1))
             { model with mode = FileSearchDialog { s with selectedIndex = next } }, []
     | _ -> model, []
 
@@ -150,17 +193,14 @@ let loadMoreFileSearchResultsOp (model: VM) : VM * Effect list =
         match ensureFileSearchCache s model with
         | None -> model, []
         | Some cache ->
-            fileSearchCache <- Some (loadPage cache)
+            let loaded = loadPage cache
+            fileSearchCache <- Some loaded
+            publishFile (List.rev loaded.resultsRev)
             model, []
     | _ -> model, []
 
 let fileSearchSetQueryOp (query: string) (model: VM) : VM * Effect list =
-    match model.mode with
-    | FileSearchDialog s ->
-        resetFileSearchResults ()
-        { model with
-            mode = FileSearchDialog { s with query = query; selectedIndex = 0 } }, []
-    | _ -> model, []
+    retargetFileSearch query model
 
 let private tryResultAtIndex
     (selectedIndex: int)

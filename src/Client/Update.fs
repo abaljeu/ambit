@@ -216,27 +216,10 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | ApplyOp op -> op model
 
     | NodeSearchQuery query ->
-        match model.mode with
-        | SearchDialog s when s.query <> query ->
-            Gambol.Client.SearchDialog.resetSearchResults ()
-            let next =
-                { model with
-                    mode =
-                        SearchDialog
-                            { s with
-                                query = query
-                                selectedIndex = 0
-                                serverHitIds = [] } }
-            next, [ ArmSearchQuietGap query ]
-        | _ -> model, []
+        Gambol.Client.SearchDialog.retargetNodeSearch query model
 
     | FileSearchQuery query ->
-        match model.mode with
-        | FileSearchDialog s when s.query <> query ->
-            Gambol.Client.FileSearchDialog.resetFileSearchResults ()
-            { model with
-                mode = FileSearchDialog { s with query = query; selectedIndex = 0 } }, []
-        | _ -> model, []
+        Gambol.Client.FileSearchDialog.retargetFileSearch query model
 
     | SysMsg (StateLoaded response) ->
         let graph = response.graph

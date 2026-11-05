@@ -19,29 +19,56 @@ type private SearchCache =
       cursor: ViewModelSearch.SearchCursor option }
 
 let mutable private searchCache: SearchCache option = None
+let mutable private shownRows: NodeSearchResult list = []
+let mutable private showZeroResults = false
+let mutable private pictureOutstanding = false
 
 let resetSearchResults () : unit =
     searchCache <- None
+    shownRows <- []
+    showZeroResults <- false
+    pictureOutstanding <- false
+
+let private publishShown (incoming: NodeSearchResult list) : unit =
+    let shown =
+        DialogResultRows.holdRows
+            shownRows
+            DialogResultRows.Readiness.Ready
+            pictureOutstanding
+            incoming
+    shownRows <- DialogResultRows.visibleRows shown
+    showZeroResults <- DialogResultRows.isZeroShown shown
+
+let private pictureWillStart (query: string) (hitCount: int) : bool =
+    let key = SearchPicture.Text query
+    let gap = SearchPicture.awaitGap hitCount key
+    SearchPicture.startAfterGap gap key hitCount |> Option.isSome
 
 let private clientHitCount (model: VM) (query: string) : int =
     ViewModelSearch.searchNodes query model.zoomRoot model.graph
     |> List.length
+
+let private republishCached (s: SearchDialogState) (model: VM) : unit =
+    match searchCache with
+    | Some cache when cache.query = s.query && cache.zoomRoot = model.zoomRoot ->
+        publishShown (List.rev cache.resultsRev)
+    | _ -> ()
 
 /// The quiet gap has ended for `armedText`. A newer query sends nothing.
 let searchPictureEffects (armedText: string) (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
         let hits = clientHitCount model s.query
-        let gap =
-            SearchPicture.awaitGap hits (SearchPicture.Text armedText)
-        match
-            SearchPicture.startAfterGap
-                gap
-                (SearchPicture.Text s.query)
-                hits
-        with
-        | None -> model, []
+        let armed = SearchPicture.Text armedText
+        let current = SearchPicture.Text s.query
+        let gap = SearchPicture.awaitGap hits armed
+        match SearchPicture.startAfterGap gap current hits with
+        | None ->
+            pictureOutstanding <- false
+            republishCached s model
+            model, []
         | Some _ ->
+            pictureOutstanding <- true
             model, [ RequestSearchPicture (s.query, model.zoomRoot) ]
     | _ -> model, []
 
@@ -52,12 +79,11 @@ let applyServerReply
     match model.mode with
     | SearchDialog s ->
         let hits = clientHitCount model s.query
-        let ids =
-            SearchPicture.keepReply
-                hits
-                (SearchPicture.Text s.query)
-                s.serverHitIds
-                reply
+        let key = SearchPicture.Text s.query
+        let ids = SearchPicture.keepReply hits key s.serverHitIds reply
+        if SearchPicture.applyReply hits key reply |> Option.isSome then
+            pictureOutstanding <- false
+            republishCached s model
         { model with
             mode = SearchDialog { s with serverHitIds = ids } }, []
     | _ -> model, []
@@ -84,18 +110,43 @@ let private startCache (s: SearchDialogState) (model: VM) : SearchCache =
       cursor = ViewModelSearch.startSearch s.query model.zoomRoot model.graph }
     |> loadPage
 
+let private installCache (s: SearchDialogState) (model: VM) : SearchCache =
+    let cache = startCache s model
+    searchCache <- Some cache
+    publishShown (List.rev cache.resultsRev)
+    cache
+
 let private ensureSearchCache (s: SearchDialogState) (model: VM) : SearchCache =
     match searchCache with
     | Some cache when cacheMatches s model cache -> cache
-    | _ ->
-        let cache = startCache s model
-        searchCache <- Some cache
-        cache
+    | _ -> installCache s model
+
+let searchDialogShowsZeroResults (model: VM) : bool =
+    match model.mode with
+    | SearchDialog _ -> showZeroResults
+    | _ -> false
 
 let currentSearchResults (model: VM) : NodeSearchResult list =
     match model.mode with
-    | SearchDialog s -> ensureSearchCache s model |> fun cache -> List.rev cache.resultsRev
+    | SearchDialog s ->
+        ensureSearchCache s model |> ignore
+        shownRows
     | _ -> []
+
+let retargetNodeSearch (query: string) (model: VM) : VM * Effect list =
+    match model.mode with
+    | SearchDialog s when s.query <> query ->
+        let nextState =
+            { s with
+                query = query
+                selectedIndex = 0
+                serverHitIds = [] }
+        let count = clientHitCount model query
+        pictureOutstanding <- pictureWillStart query count
+        installCache nextState model |> ignore
+        { model with mode = SearchDialog nextState },
+        [ ArmSearchQuietGap query ]
+    | _ -> model, []
 
 let openSearchDialogWithOnPick
     (invokedCommand: string)
@@ -133,17 +184,23 @@ let searchSelectUpOp (model: VM) : VM * Effect list =
                         selectedIndex = max 0 (s.selectedIndex - 1) } }, []
     | _ -> model, []
 
+let private holdingPriorRows (cache: SearchCache) : bool =
+    showZeroResults || (pictureOutstanding && cache.resultsRev.IsEmpty)
+
 let searchSelectDownOp (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
-        let cache = ensureSearchCache s model
-        let loaded = cache.resultsRev.Length
+        let loaded = ensureSearchCache s model
+        let holding = holdingPriorRows loaded
         let cache =
-            if s.selectedIndex + 1 >= loaded then loadPage cache else cache
+            if holding || s.selectedIndex + 1 < loaded.resultsRev.Length then
+                loaded
+            else
+                loadPage loaded
         searchCache <- Some cache
-        let n = cache.resultsRev.Length
-        let cap = max 0 (n - 1)
-        let next = min (s.selectedIndex + 1) cap
+        if not holding then publishShown (List.rev cache.resultsRev)
+        let count = if showZeroResults then 0 else shownRows.Length
+        let next = min (s.selectedIndex + 1) (max 0 (count - 1))
         { model with mode = SearchDialog { s with selectedIndex = next } }, []
     | _ -> model, []
 
@@ -152,6 +209,7 @@ let loadMoreSearchResultsOp (model: VM) : VM * Effect list =
     | SearchDialog s ->
         let cache = ensureSearchCache s model |> loadPage
         searchCache <- Some cache
+        publishShown (List.rev cache.resultsRev)
         model, []
     | _ -> model, []
 
@@ -173,8 +231,9 @@ let runSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
         rememberSearchQuery s.query
         let closed = { model with mode = s.returnTo }
         let hit = currentSearchResults model |> tryResultAtIndex s.selectedIndex
-        resetSearchResults ()
         match hit with
         | None -> model, []
-        | Some hit -> s.onPick hit closed
+        | Some hit ->
+            resetSearchResults ()
+            s.onPick hit closed
     | _ -> model, []

@@ -122,7 +122,10 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
         let items =
             Gambol.Client.FileSearchDialog.currentFileSearchResults model
             |> List.map formatHitLabel
-        renderDialogResultList container items s.selectedIndex scrollSelection
+        let showZero =
+            Gambol.Client.FileSearchDialog.fileSearchShowsZeroResults model
+        renderDialogResultRows
+            container items s.selectedIndex scrollSelection showZero
         showInsertButtons model
         wireFileSearchDialog input dispatch
     | _ ->
