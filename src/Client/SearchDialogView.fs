@@ -94,8 +94,13 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             |> List.map (fun hit -> formatNamedDialogHit hit.name hit.text)
         let showZero =
             Gambol.Client.SearchDialog.searchDialogShowsZeroResults model
-        renderDialogResultRows
-            container items s.selectedIndex scrollSelection showZero
+        renderDialogResultRows {
+            container = container
+            items = items
+            selectedIndex = s.selectedIndex
+            scrollSelection = scrollSelection
+            showZero = showZero
+        }
         wireSearchDialog input dispatch
     | _ ->
         queryDebounce.clearTimeout ()

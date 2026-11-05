@@ -121,30 +121,33 @@ let private appendDialogRow
     ul.appendChild li |> ignore
     li
 
-let renderDialogResultRows
-    (container: HTMLElement)
-    (items: string list)
-    (selectedIndex: int)
-    (scrollSelection: bool)
-    (showZero: bool)
-    : unit =
-    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
+type DialogResultRowsWire = {
+    container: HTMLElement
+    items: string list
+    selectedIndex: int
+    scrollSelection: bool
+    showZero: bool
+}
+
+let renderDialogResultRows (rows: DialogResultRowsWire) : unit =
+    let ul = rows.container.querySelector ".amb-dialog-results" :?> HTMLElement
     let previousScrollTop = ul.scrollTop
     ul.innerHTML <- ""
     let selectedLi =
-        if showZero then
+        if rows.showZero then
             appendDialogRow ul DialogResultRows.zeroResultsLabel None false
             |> Some
         else
             let clamped =
-                if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
-            items
+                if rows.items.IsEmpty then 0
+                else min rows.selectedIndex (rows.items.Length - 1)
+            rows.items
             |> List.mapi (fun i label ->
                 let selected = i = clamped
                 let li = appendDialogRow ul label (Some i) selected
                 if selected then Some li else None)
             |> List.tryPick id
-    if scrollSelection then
+    if rows.scrollSelection then
         selectedLi |> Option.iter scrollIntoViewNearest
     else
         ul.scrollTop <- previousScrollTop
@@ -155,7 +158,13 @@ let renderDialogResultList
     (selectedIndex: int)
     (scrollSelection: bool)
     : unit =
-    renderDialogResultRows container items selectedIndex scrollSelection false
+    renderDialogResultRows {
+        container = container
+        items = items
+        selectedIndex = selectedIndex
+        scrollSelection = scrollSelection
+        showZero = false
+    }
 
 let private dialogResultIndex (li: HTMLElement) : int =
     let idxStr = li.dataset.["idx"]

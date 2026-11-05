@@ -30,14 +30,14 @@ let resetSearchResults () : unit =
     pictureOutstanding <- false
 
 let private publishShown (incoming: NodeSearchResult list) : unit =
-    let shown =
+    let rows, zero =
         DialogResultRows.holdRows
             shownRows
             DialogResultRows.Readiness.Ready
             pictureOutstanding
             incoming
-    shownRows <- DialogResultRows.visibleRows shown
-    showZeroResults <- DialogResultRows.isZeroShown shown
+    shownRows <- rows
+    showZeroResults <- zero
 
 let private pictureWillStart (query: string) (hitCount: int) : bool =
     let key = SearchPicture.Text query
@@ -184,14 +184,14 @@ let searchSelectUpOp (model: VM) : VM * Effect list =
                         selectedIndex = max 0 (s.selectedIndex - 1) } }, []
     | _ -> model, []
 
-let private holdingPriorRows (cache: SearchCache) : bool =
+let private holdingShownRows (cache: SearchCache) : bool =
     showZeroResults || (pictureOutstanding && cache.resultsRev.IsEmpty)
 
 let searchSelectDownOp (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
         let loaded = ensureSearchCache s model
-        let holding = holdingPriorRows loaded
+        let holding = holdingShownRows loaded
         let cache =
             if holding || s.selectedIndex + 1 < loaded.resultsRev.Length then
                 loaded

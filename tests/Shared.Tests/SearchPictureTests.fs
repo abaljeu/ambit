@@ -127,33 +127,36 @@ let ``search reply round-trips ids and text`` () =
 
 [<Fact>]
 let ``pending query keeps the prior result rows`` () =
-    let shown =
+    let rows, zero =
         DialogResultRows.holdRows
             [ "alpha" ]
             DialogResultRows.Readiness.Pending
             false
             []
-    Assert.Equal(DialogResultRows.Shown.PriorRows [ "alpha" ], shown)
+    Assert.Equal<string list>([ "alpha" ], rows)
+    Assert.False(zero)
 
 [<Fact>]
 let ``ready empty results show the zero-results row`` () =
-    let shown =
+    let rows, zero =
         DialogResultRows.holdRows
             [ "alpha" ]
             DialogResultRows.Readiness.Ready
             false
             []
-    Assert.Equal(DialogResultRows.Shown.ZeroResults, shown)
+    Assert.Equal<string list>([], rows)
+    Assert.True(zero)
 
 [<Fact>]
 let ``empty results stay while the server picture is outstanding`` () =
-    let shown =
+    let rows, zero =
         DialogResultRows.holdRows
             [ "alpha" ]
             DialogResultRows.Readiness.Ready
             true
             []
-    Assert.Equal(DialogResultRows.Shown.PriorRows [ "alpha" ], shown)
+    Assert.Equal<string list>([ "alpha" ], rows)
+    Assert.False(zero)
 
 [<Fact>]
 let ``pick on the zero-results row does nothing`` () =

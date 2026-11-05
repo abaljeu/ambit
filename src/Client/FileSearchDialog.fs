@@ -28,14 +28,14 @@ let resetFileSearchResults () : unit =
     showZeroResults <- false
 
 let private publishFile (incoming: FileSearchResult list) : unit =
-    let shown =
+    let rows, zero =
         DialogResultRows.holdRows
             shownRows
             DialogResultRows.Readiness.Ready
             false
             incoming
-    shownRows <- DialogResultRows.visibleRows shown
-    showZeroResults <- DialogResultRows.isZeroShown shown
+    shownRows <- rows
+    showZeroResults <- zero
 
 let private focusNodeIdOpt (model: VM) : NodeId option =
     match model.selectedNodes with

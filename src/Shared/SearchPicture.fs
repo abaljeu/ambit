@@ -170,22 +170,6 @@ module DialogResultRows =
 
     let zeroResultsLabel = "Zero results"
 
-    let holdRows
-        (prior: 'a list)
-        (readiness: Readiness)
-        (pictureOutstanding: bool)
-        (incoming: 'a list)
-        : Shown<'a> =
-        let holdPrior =
-            pictureOutstanding && not (List.isEmpty prior)
-        match readiness with
-        | Readiness.Pending when List.isEmpty prior -> Shown.ZeroResults
-        | Readiness.Pending -> Shown.PriorRows prior
-        | Readiness.Ready when List.isEmpty incoming && holdPrior ->
-            Shown.PriorRows prior
-        | Readiness.Ready when List.isEmpty incoming -> Shown.ZeroResults
-        | Readiness.Ready -> Shown.CurrentRows incoming
-
     let visibleRows (shown: Shown<'a>) : 'a list =
         match shown with
         | Shown.ZeroResults -> []
@@ -197,6 +181,24 @@ module DialogResultRows =
         | Shown.ZeroResults -> true
         | Shown.PriorRows _
         | Shown.CurrentRows _ -> false
+
+    let holdRows
+        (prior: 'a list)
+        (readiness: Readiness)
+        (pictureOutstanding: bool)
+        (incoming: 'a list)
+        : 'a list * bool =
+        let holdPrior =
+            pictureOutstanding && not (List.isEmpty prior)
+        let shown =
+            match readiness with
+            | Readiness.Pending when List.isEmpty prior -> Shown.ZeroResults
+            | Readiness.Pending -> Shown.PriorRows prior
+            | Readiness.Ready when List.isEmpty incoming && holdPrior ->
+                Shown.PriorRows prior
+            | Readiness.Ready when List.isEmpty incoming -> Shown.ZeroResults
+            | Readiness.Ready -> Shown.CurrentRows incoming
+        visibleRows shown, isZeroShown shown
 
     let pickShown (shown: Shown<'a>) (index: int) : 'a option =
         if index < 0 then None

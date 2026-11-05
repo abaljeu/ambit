@@ -124,8 +124,13 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             |> List.map formatHitLabel
         let showZero =
             Gambol.Client.FileSearchDialog.fileSearchShowsZeroResults model
-        renderDialogResultRows
-            container items s.selectedIndex scrollSelection showZero
+        renderDialogResultRows {
+            container = container
+            items = items
+            selectedIndex = s.selectedIndex
+            scrollSelection = scrollSelection
+            showZero = showZero
+        }
         showInsertButtons model
         wireFileSearchDialog input dispatch
     | _ ->
