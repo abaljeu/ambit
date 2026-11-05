@@ -231,7 +231,7 @@ module GithubTransportActor =
         async {
             let actorChanges =
                 CoreDoor.forCaller (actorCaller input) coreChanges
-            let! state = CoreDoor.getState actorChanges
+            let! state = CoreDoor.graphAtEvent actorChanges
             match state with
             | Error err -> return ActorFailed err
             | Ok current ->

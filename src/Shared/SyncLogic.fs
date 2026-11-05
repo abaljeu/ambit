@@ -34,14 +34,14 @@ module SyncLogic =
         && serverBuildEpochSec > 0
         && webpageDeployEpochSec <> serverBuildEpochSec
 
-    let private asProjectionState (state: ClientSyncState) : State =
+    let private asProjectionState (state: ClientSyncState) : GraphAtEvent =
         { graph = state.graph
           eventId = state.eventId }
 
     let private withProjectedGraph
         (event: Ev)
         (state: ClientSyncState)
-        (projected: State)
+        (projected: GraphAtEvent)
         (note: string option)
         : ClientSyncState =
         { state with
@@ -209,7 +209,7 @@ module SyncLogic =
                 graph = undoPendingGraph state state.pending },
             true
 
-    let private applyPendingEvent (state: State) (event: Ev) : State =
+    let private applyPendingEvent (state: GraphAtEvent) (event: Ev) : GraphAtEvent =
         let ops = Ev.ops event |> Option.defaultValue []
         match ResidentProjection.applyOps ops state with
         | ApplyResult.Changed next
@@ -308,7 +308,7 @@ module SyncLogic =
           nodes = []
           childMap = Map.empty }
 
-    /// Apply a server-supplied Ev tail onto local State (Poll path).
+    /// Apply a server-supplied Ev tail onto local GraphAtEvent (Poll path).
     /// Empty list is a no-op that preserves History.
     let applyServerTail
         (events: Ev list)

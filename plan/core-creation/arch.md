@@ -40,7 +40,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
    1. [x] Browser Change submit
    2. [x] HTTP Adapter encodes Change + credentials
    3. [x] CoreMailbox `postEvents`
-   4. [x] CoreMsg validates Browser credentials before PersistHandlers
+   4. [x] CoreMsg validates Browser credentials before CoreMailboxAccess
 4. **Event, EventLog, and ClientHistory**
    Sequence: expand-migrate-contract. Locked interface: [[reports/event-abstraction.md]]. Shared slice only.
    1. **Expand**
@@ -72,7 +72,7 @@ Implementation status for this cut: Point 0 loop code is shared ([[issues/30-res
       8. [x] Browser callers keep using ClientHistory (Ev-shaped); client holds EventLog of the same type. Do not migrate onto a module named History. `ClientHistory.undo` locally then name-only submit; ack/reconcile stays the pending path
       9. [x] CoreMsg / CoreActorPool: mailbox appends ActorStart / ActorStop Ev records; callers do not `postEvent` those bodies
       10. [x] persist ActorStart / ActorStop
-      11. [x] PersistHandlers load/restore: File/Db call `EventLog.restore`; `getEventsSince` returns an Ev list
+      11. [x] CoreMailboxAccess load/restore: File/Db call `EventLog.restore`; `getEventsSince` returns an Ev list
       12. [x] every start request is `ActorStart`
       13. [x] stamp `authority` on every stored Ev from the admitted Caller
    3. **Contract**
@@ -96,7 +96,7 @@ Shared segment with path 3:
 1. [x] Credentialed `PostEvent` through CoreMsg
 
 Narrowest shared test seam:
-1. [x] CoreActorPool start and/or TestActor body input — not HTTP encoding, not PersistHandlers, not TestActor private helpers
+1. [x] CoreActorPool start and/or TestActor body input — not HTTP encoding, not CoreMailboxAccess, not TestActor private helpers
 
 Narrowest test seam for Story **Event, EventLog, and ClientHistory**:
 1. [x] Shared Ev / EventLog / ClientHistory functions
@@ -113,17 +113,17 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    - Interface:
      1. [x] match `CoreMsg` cases
      2. [x] for `StartActor`, carry `ActorStart` (include EventId); validate caller Authority and secret; call startActor; reply with that result; do not wait for the Actor body
-     3. [x] for every Changes post (Browser or Actor), require and validate Authority and secret before PersistHandlers
+     3. [x] for every Changes post (Browser or Actor), require and validate Authority and secret before CoreMailboxAccess
      4. [x] for Actor Changes posts, admit against the live table (same credential fields, live-row check)
      5. [x] for `ActorStop` of `ActorResult` (`ActorSucceeded` or `ActorFailed`), store an ActorStop Ev on EventLog, drop the live row and secret, request terminate without waiting
-     6. [x] for `GetState`, apply `lockPresent` from the live table on the mailbox thread, then reply; persist getState stays on PersistHandlers
+     6. [x] for `GetState`, apply `lockPresent` from the live table on the mailbox thread, then reply; persist getState stays on CoreMailboxAccess
      7. [x] stamp `authority` from the admitted Caller on every stored Ev
      8. [x] name-only Undo/Redo: `tryFind` the target Ev, fill inverse Ops, store the completed Ev (same `submissionId`)
    - Uses:
      1. [x] CoreActorPool
      2. [x] mailbox secret set (Browser) and live-table isLive (Actor). No CoreCredentials mailbox.
      3. [x] EventLog
-     4. [x] PersistHandlers (persist cases only)
+     4. [x] CoreMailboxAccess (persist cases only)
 2. **CoreMailbox** — [[src/Server/Core/CoreMailbox.fs]]
    1. [x] State: none beyond MailboxHost
    - Interface:
@@ -259,7 +259,7 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
    - Uses:
      1. [x] CoreMailbox
      2. [x] CoreActorPool
-12. **PersistHandlers** — [[src/Server/Core/FileAgent.fs]], [[src/Server/Core/DbAgent.fs]]
+12. **CoreMailboxAccess** — [[src/Server/Core/FileAgent.fs]], [[src/Server/Core/DbAgent.fs]]
    1. [x] State: File or Db persist implementation behind the loop
    - Interface:
      1. [x] getState, getEventId, applyEvent, snapshotDone
@@ -281,8 +281,8 @@ Mailbox is intake. EventLog is the store after the mailbox has taken it. ClientH
 6a. [x] **Actor live labels** — Client start/stop result chips from Command text via Focus→zoom owner scan and TitleCase actor token. Interface on **Actor live labels**.
 7. [x] **`postEvents` door** — Changes door. Interface on **CoreMailbox**. Payload is Ev. `postEvent` posts one Ev. `postGraphOnly` is graph-only Ev.
 8. [x] **ActorFn / TestActor input** — Definition and body-input seam. Interface on **TestActor** (outside Core). Callers pass ActorFn into **CoreActorPool.register** / **CoreRuntime.create**. Core does not embed Actor bodies.
-9. [x] **PersistHandlers** — Persist seam already landed by [One CoreMsg loop parameterized persist](issues/31-one-coremsg-loop-parameterized-persist.md) and [Move persist agents under CoreMailbox](issues/32-move-persist-agents-under-coremailbox.md). Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **PersistHandlers**.
-10. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before PersistHandlers; Actor also admits on the live table. Story path 3 is Browser Change posts only.
+9. [x] **CoreMailboxAccess** — Persist seam already landed by [One CoreMsg loop parameterized persist](issues/31-one-coremsg-loop-parameterized-persist.md) and [Move persist agents under CoreMailbox](issues/32-move-persist-agents-under-coremailbox.md). Hello does not widen it. Actor cases stay off this parameter. File and Db are not Actor mailboxes. Interface on **CoreMailboxAccess**.
+10. [x] **Credentialed Change posts** — Browser and Actor posts validate via **CoreMsg** before CoreMailboxAccess; Actor also admits on the live table. Story path 3 is Browser Change posts only.
 11. [x] **Included descendant id list** — Shared Zoom-rooted Included id walk (unfolded context). Interface on **Included descendant id list**. Browser Command `graphIds` and Actor reuse call the same function.
 12. [x] **Test seam for this tracer** — Story path 2: harness at CoreActorPool or TestActor. Outer facts assert Graph and lifecycle; TestActor does not assert. HTTP universal-response encoding is not on the outside-proof critical path.
 

@@ -230,7 +230,7 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! state =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Empty(helloChildren state.graph actorNodeId actorNodeId)
     })
@@ -245,7 +245,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
                 [ "keep-me"; "also-keep" ]
         let request = sampleRequest actorNodeId actorNodeId
         let! beforeState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let before = requireOk "getState before" beforeState
         let beforeChildren = ownedChildFacts before.graph actorNodeId
         let beforeTexts = nodeTexts before.graph
@@ -260,7 +260,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
         Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
         let! afterState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let after = requireOk "getState after" afterState
         Assert.Equal<(NodeId * Ownership * string) list>(
             beforeChildren,
@@ -297,7 +297,7 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
         | Some ActorSucceeded -> ()
         | other -> Assert.Fail($"expected ActorSucceeded, got {other}")
         let! state =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Equal(
             1,

@@ -287,7 +287,7 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.True(state.graph.nodes.[sampleRequest.focusId].lockPresent)
@@ -775,7 +775,7 @@ let private editText (nodeId: NodeId) oldText newText : Ev =
 let private editFileText (fileId: NodeId) : Ev =
     editText fileId "hello" "edited"
 
-let private hostWithHandlers (handlers: PersistHandlers) =
+let private hostWithHandlers (handlers: CoreMailboxAccess) =
     CoreMailbox.host
         (CoreActorPool.create ())
         { handlers = handlers
@@ -791,7 +791,7 @@ let private acceptPosted (event: Ev) (_graphOnly: bool) =
     Ok(CoreChanges.accepted event.id true [ event ] false)
 
 let private hostRecordingPush
-    (state: State)
+    (state: GraphAtEvent)
     (pushed: ResizeArray<NodeId>)
     =
     let handlers =
@@ -799,7 +799,7 @@ let private hostRecordingPush
             pushPersist = pushed.Add }
     hostWithHandlers handlers
 
-let private hostRecordingGraph (state: State ref) =
+let private hostRecordingGraph (state: GraphAtEvent ref) =
     let handlers =
         { cannedHandlers
             (fun () -> Ok state.Value)
@@ -851,7 +851,7 @@ let ``An Edit marks its owning special node at the Edit's id`` () =
                 |> Async.StartAsTask
             let accepted = requireOk "second edit" second
             let! live =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let live = requireOk "state" live
             let node = live.graph.nodes.[fileId]
             Assert.Equal(
@@ -865,7 +865,7 @@ let ``An Edit marks its owning special node at the Edit's id`` () =
     }
 
 let private hostRecordingNotices
-    (state: State ref)
+    (state: GraphAtEvent ref)
     (notices: ResizeArray<Notice>)
     =
     let handlers =
@@ -923,7 +923,7 @@ let ``an edit logs NodeUnpersisted for its owning special`` () =
             CoreMailboxApi.dispose host
     }
 
-let private applyOrdinaryEdit (state: State ref) (event: Ev) (_graphOnly: bool) =
+let private applyOrdinaryEdit (state: GraphAtEvent ref) (event: Ev) (_graphOnly: bool) =
     match Ev.ops event with
     | None -> Error "Event has no Ops"
     | Some ops ->
@@ -944,7 +944,7 @@ let private applyOrdinaryEdit (state: State ref) (event: Ev) (_graphOnly: bool) 
             state.Value <- { state.Value with graph = graph }
             Ok(CoreChanges.accepted event.id true [ event ] false)
 
-let private runOrdinaryEdit (initial: State) (event: Ev) =
+let private runOrdinaryEdit (initial: GraphAtEvent) (event: Ev) =
     let state = ref initial
     let handlers =
         { cannedHandlers
@@ -984,7 +984,7 @@ let private hasUnpersisted (ordered: Ev list) nodeId =
         | EventBody.Notice (Notice.NodeUnpersisted id) -> id = nodeId
         | _ -> false)
 
-let private persistOf (state: State) nodeId =
+let private persistOf (state: GraphAtEvent) nodeId =
     state.graph.nodes.[nodeId].documentState.persistState
 
 let private namedSpecial id kind name =
@@ -1307,7 +1307,7 @@ let ``posted empty-op Undo logs Order.Undo and restores the Graph`` () =
     withHost (fun host _ -> task {
         let childId, change = addRootChildEvent "undo-order"
         let! beforeState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let before = requireOk "before" beforeState
         let beforeChildren = Graph.children before.graph Graph.rootId
         let! posted =
@@ -1315,7 +1315,7 @@ let ``posted empty-op Undo logs Order.Undo and restores the Graph`` () =
             |> Async.StartAsTask
         requireOk "change" posted |> ignore
         let! changedState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let changed = requireOk "changed" changedState
         Assert.True(rootOwns changed.graph childId)
         let! since =
@@ -1346,7 +1346,7 @@ let ``posted empty-op Undo logs Order.Undo and restores the Graph`` () =
         | other ->
             Assert.Fail($"stored Undo is Order.Undo, got {other}")
         let! afterState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let after = requireOk "after undo" afterState
         Assert.False(rootOwns after.graph childId)
         Assert.Equal<ChildNode list>(
@@ -1370,7 +1370,7 @@ let ``posted empty-op Redo logs Order.Redo and restores the Change`` () =
             |> List.find (fun event ->
                 event.submissionId = change.submissionId)
         let! changedState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let changed = requireOk "changed" changedState
         let changedChildren = Graph.children changed.graph Graph.rootId
         Assert.True(rootOwns changed.graph childId)
@@ -1381,7 +1381,7 @@ let ``posted empty-op Redo logs Order.Redo and restores the Change`` () =
             |> Async.StartAsTask
         requireOk "undo" undone |> ignore
         let! undoneState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let undoneGraph = requireOk "undone" undoneState
         Assert.False(rootOwns undoneGraph.graph childId)
         let! mid =
@@ -1412,7 +1412,7 @@ let ``posted empty-op Redo logs Order.Redo and restores the Change`` () =
         | other ->
             Assert.Fail($"stored Redo is Order.Redo, got {other}")
         let! afterState =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let after = requireOk "after redo" afterState
         Assert.True(rootOwns after.graph childId)
         Assert.Equal<ChildNode list>(

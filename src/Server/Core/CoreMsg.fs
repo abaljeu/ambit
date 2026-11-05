@@ -39,7 +39,7 @@ type internal CoreMsg =
         AsyncReplyChannel<Result<EventId, string>>
 [<RequireQualifiedAccess>]
 type internal Query =
-    | State of AsyncReplyChannel<Result<State, string>>
+    | GraphAtEvent of AsyncReplyChannel<Result<GraphAtEvent, string>>
     | LastEventId of AsyncReplyChannel<Result<EventId, string>>
     | EventsSince of
         after: EventId *
@@ -76,8 +76,8 @@ type internal CoreQueue =
     /// Shutdown asks the loop to exit after this item. The reply means it exited.
     | Shutdown of AsyncReplyChannel<unit>
 
-type PersistHandlers = {
-    getState: unit -> Result<State, string>
+type CoreMailboxAccess = {
+    graphAtEvent: unit -> Result<GraphAtEvent, string>
     getEventId: unit -> Result<EventId, string>
     getEventsSince:
         Gambol.Shared.EventId
@@ -98,7 +98,7 @@ type PersistHandlers = {
 /// Persist + lifecycle the mailbox hosts. File and Db build this; CoreMailbox
 /// does not read agent fields.
 type internal PersistFilling = {
-    handlers: PersistHandlers
+    handlers: CoreMailboxAccess
     onError: string -> string -> exn -> unit
     formatError: string -> string
     isReady: unit -> bool

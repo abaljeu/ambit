@@ -165,7 +165,7 @@ module RunAgentActor =
         (add: FocusXmlStream.PlannedAdd)
         =
         async {
-            let! state = CoreDoor.getState coreChanges
+            let! state = CoreDoor.graphAtEvent coreChanges
             let graph =
                 match state with
                 | Ok s -> s.graph
@@ -387,7 +387,7 @@ module RunAgentActor =
         text
         =
         async {
-            let! state = CoreDoor.getState coreChanges
+            let! state = CoreDoor.graphAtEvent coreChanges
             let graph =
                 match state with
                 | Ok s -> s.graph

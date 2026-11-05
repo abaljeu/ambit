@@ -26,15 +26,15 @@ module CoreMailboxApi =
         MailboxHost.postMailboxAndAsyncReply host (fun channel ->
             Mailbox.Ask (build channel))
 
-    let tryGetState
+    let tryGraphAtEvent
         (host: MailboxHost)
-        : Async<Result<State, string>> =
-        ask host Query.State
+        : Async<Result<GraphAtEvent, string>> =
+        ask host Query.GraphAtEvent
 
-    let getState
+    let graphAtEvent
         (host: MailboxHost)
-        : Async<Result<State, string>> =
-        tryGetState host
+        : Async<Result<GraphAtEvent, string>> =
+        tryGraphAtEvent host
 
     let eventsSince
         (host: MailboxHost)

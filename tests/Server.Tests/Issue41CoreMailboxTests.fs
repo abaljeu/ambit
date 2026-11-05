@@ -52,7 +52,7 @@ let ``CoreMailboxApi.postEvents appends Change Events to EventLog`` () =
             |> Async.StartAsTask
         let stored = Assert.Single(changesOnly history.events)
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.True(EventId.isAccepted accepted.eventId)
@@ -78,7 +78,7 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.True(EventId.isAccepted accepted.eventId)
@@ -96,7 +96,7 @@ let ``CoreChangesDoor builds Ev at postEvent and persists its Graph Ops`` () =
             |> Async.StartAsTask
         let accepted = requireOk "post change" accepted
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         let! history =
@@ -161,7 +161,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
             |> Async.StartAsTask
         let storedRedo = requireOk "redo" redoResult
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "state after redo" state
         Assert.Equal(undoId, storedUndo.submissionId)
@@ -337,7 +337,7 @@ let ``two live client edits with EventId.zero are admitted`` () =
         Assert.True(EventId.isAccepted storedEdit.id)
         Assert.NotEqual(storedCreate.id, storedEdit.id)
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "state after edit" state
         Assert.Equal("after", state.graph.nodes.[childId].text)
@@ -381,7 +381,7 @@ let ``a graphOnly post stores the Change without a document file write`` () =
                 |> Async.StartAsTask
             requireOk "graphOnly" posted |> ignore
             let! state =
-                CoreMailboxApi.getState host
+                CoreMailboxApi.graphAtEvent host
                 |> Async.StartAsTask
             let state = requireOk "state" state
             Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
@@ -503,7 +503,7 @@ let ``a placed Parse Change is stored without a document file write`` () =
             | Ok _ -> ()
             | Error err -> Assert.Fail(err)
             let! state =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let state = requireOk "state" state
             Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
             match

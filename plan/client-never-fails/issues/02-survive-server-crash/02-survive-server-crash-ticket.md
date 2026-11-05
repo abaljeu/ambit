@@ -10,7 +10,7 @@ Blockers: [01 — Accept Notices](plan/client-never-fails/issues/01-accept-notic
 ### Working
 
 [ ] ``CoreEventDispatch.persistNew`` has type `Context -> Caller -> Ev -> bool -> Result<Ev * CoreChangesAccepted option, string>` in `src/Server/Core/CoreEventDispatch.fs`.
-[ ] `PersistHandlers` in `src/Server/Core/CoreMsg.fs` has `appendEvent`, `applyEvent`, and `replaceGraph: Notice -> Graph -> unit`.
+[ ] `CoreMailboxAccess` in `src/Server/Core/CoreMsg.fs` has `appendEvent`, `applyEvent`, and `replaceGraph: Notice -> Graph -> unit`.
 [ ] `DbAgent.persistGraphProjection` and `DbAgent.appendPersistedEvent` in `src/Server/Core/DbAgent.fs`.
 [ ] `FileAgent.processPostEvents` in `src/Server/Core/FileAgent.fs`.
 [ ] `CoreMailboxLoop` copies `replaceGraph` in `src/Server/Core/CoreMailboxLoop.fs`.
@@ -26,7 +26,7 @@ Blockers: [01 — Accept Notices](plan/client-never-fails/issues/01-accept-notic
 [ ] [[src/Server/Core/CoreEventDispatch.fs]] — append the Event, then write the durable Graph.
 [ ] [[src/Server/Core/DbAgent.fs]] — `persistGraphProjection` runs after `appendPersistedEvent`.
 [ ] [[src/Server/Core/FileAgent.fs]] — the durable Graph write runs after `appendEvent`.
-[ ] [[src/Server/Core/CoreMsg.fs]] — change `replaceGraph` to return `Result<unit, string>` only when the Graph write's `Error` of a string must cross `PersistHandlers`.
+[ ] [[src/Server/Core/CoreMsg.fs]] — change `replaceGraph` to return `Result<unit, string>` only when the Graph write's `Error` of a string must cross `CoreMailboxAccess`.
 [ ] [[src/Server/Core/CoreMailboxLoop.fs]] — pass that function through when its type changes.
 
 ### Reference
@@ -45,7 +45,7 @@ Blockers: [01 — Accept Notices](plan/client-never-fails/issues/01-accept-notic
 2. [ ] Change `persistNew` in `src/Server/Core/CoreEventDispatch.fs` so the in-memory apply finishes, `appendNew` stores the Event with its confirmed ops, and the durable Graph write runs after that append.
 3. [ ] Change `DbAgent` so `persistGraphProjection` runs after `appendPersistedEvent`. A projection `Error` of a string leaves the appended Event in the log.
 4. [ ] Change `FileAgent.processPostEvents` so the durable Graph write runs after `appendEvent`. A Graph write `Error` of a string leaves the appended Event in the log.
-5. [ ] Change `PersistHandlers.replaceGraph` and `CoreMailboxLoop` only when that `Error` of a string must cross the handler. Otherwise leave both files as they are.
+5. [ ] Change `CoreMailboxAccess.replaceGraph` and `CoreMailboxLoop` only when that `Error` of a string must cross the handler. Otherwise leave both files as they are.
 6. [ ] Add the two facts and change the two restart facts named in Outputs.
 
 ## Outputs

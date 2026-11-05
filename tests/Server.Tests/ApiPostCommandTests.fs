@@ -93,7 +93,7 @@ let private waitForHello host focusId timeoutMs =
               && (DateTime.UtcNow - startTime).TotalMilliseconds
                  < float timeoutMs do
             let! state =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match state with
             | Error _ -> ()
             | Ok s ->
@@ -138,7 +138,7 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
                         started.actorNodeId = actorNodeId
                     | _ -> false)
             Assert.True(started, "ActorStart missing from events")
-            let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+            let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match state with
             | Ok s -> Assert.True(s.graph.nodes.ContainsKey actorNodeId)
             | Error err -> failwith err

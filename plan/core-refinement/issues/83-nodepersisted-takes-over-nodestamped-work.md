@@ -20,7 +20,7 @@ coding
   - `tests/Server.Tests/StateEndpointTests.fs`
 - Types:
   - `Notice.NodePersisted`, `Notice.NodeStamped`
-  - `PersistHandlers`
+  - `CoreMailboxAccess`
   - `DbAgent.LoadedPersist`
 - Functions:
   - `CoreMailboxLoad.applyNotice` (the `NodePersisted` and `NodeStamped` arms), `CoreMailboxLoad.writePersisted`

@@ -4,7 +4,7 @@ open System
 open Gambol.Shared
 open Xunit
 
-let private applied (event: Ev) (state: State) : State =
+let private applied (event: Ev) (state: GraphAtEvent) : GraphAtEvent =
     match Ev.apply event state with
     | ApplyResult.Changed next -> next
     | ApplyResult.Unchanged _ -> failwith "expected event to alter the Graph"
@@ -86,7 +86,7 @@ let ``ordinary inverse reverses nested Replace order`` () =
           Op.Replace(innerId, [ leaf ], []) ],
         inverse)
 
-let private createPasteScenario () : State * Ev * NodeId list =
+let private createPasteScenario () : GraphAtEvent * Ev * NodeId list =
     let initial =
         { graph = Graph.create ()
           eventId = EventId.zero }

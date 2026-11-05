@@ -147,7 +147,7 @@ let private emptyState () : ClientSyncState =
         (EventIdFixtures.storedId 5)
         (ClientHistory.clear ())
 
-let private ofState (st: State) : ClientSyncState =
+let private ofState (st: GraphAtEvent) : ClientSyncState =
     ClientSyncState.create
         st.graph
         st.eventId

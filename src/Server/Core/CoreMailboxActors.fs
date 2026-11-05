@@ -78,7 +78,7 @@ module internal CoreMailboxActors =
             | Error err -> reply.Reply(Error err)
             | Ok _ -> reply.Reply(Ok ())
 
-    /// Query reads post-edit State. `graphIds` do not replace that Graph.
+    /// Query reads post-edit GraphAtEvent. `graphIds` do not replace that Graph.
     let private startChosen
         (context: MailboxContext)
         (request: Gambol.Shared.ActorStart)

@@ -61,7 +61,7 @@ type private Seed =
 let private markCurrent host nodeId =
     CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId)
     let state =
-        CoreMailboxApi.getState host
+        CoreMailboxApi.graphAtEvent host
         |> Async.RunSynchronously
         |> requireOk "mark current"
     match Map.tryFind nodeId state.graph.nodes with
@@ -183,7 +183,7 @@ let ``git Load tells the client the actor completed`` () =
         (fun _ host _ _ seed -> task {
             try
                 let! state =
-                    CoreMailboxApi.getState host |> Async.StartAsTask
+                    CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
                 let baseline = requireOk "state" state
                 let! started =
                     GithubTransportActor.start

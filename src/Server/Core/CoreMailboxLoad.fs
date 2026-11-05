@@ -24,7 +24,7 @@ module internal CoreMailboxLoad =
         (caller: Caller)
         (subject: NodeId)
         : Result<unit, string> =
-        match context.persist.getState () with
+        match context.persist.graphAtEvent () with
         | Error err -> Error err
         | Ok state ->
             match isLoadSubject state.graph subject with
@@ -44,10 +44,10 @@ module internal CoreMailboxLoad =
             caller
             request.start
             reply
-            (fun _ getState ->
+            (fun _ getGraph ->
                 DeskLoadPush.runLoadSave
                     { pool = context.pool
-                      getState = getState
+                      getGraph = getGraph
                       peerName = peerName }
                     (dispatchLoad context caller)
                     request

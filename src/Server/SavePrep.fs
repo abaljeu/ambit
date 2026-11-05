@@ -7,7 +7,7 @@ module SavePrep =
 
     let syncDataDir
         (dbStatus: DatabaseSetup.DbStatus)
-        (getState: unit -> Async<Result<State, string>>)
+        (getState: unit -> Async<Result<GraphAtEvent, string>>)
         (getFileEventId: unit -> Async<EventId>)
         (dataDir: string)
         : Async<Result<int, string>> =

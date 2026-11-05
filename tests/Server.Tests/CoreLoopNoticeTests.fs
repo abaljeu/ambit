@@ -34,19 +34,19 @@ let private fileStateAtEdit persist parse editId noticeId =
             nodes = Map.add id stamped state.graph.nodes }
     id, { graph = graph; eventId = noticeId }
 
-let private handlers
-    (state: State ref)
+let private accessors
+    (graphAtEvent: GraphAtEvent ref)
     (snaps: ResizeArray<NodeId>)
-    : PersistHandlers =
-    { getState = fun () -> Ok state.Value
-      getEventId = fun () -> Ok state.Value.eventId
+    : CoreMailboxAccess =
+    { graphAtEvent = fun () -> Ok graphAtEvent.Value
+      getEventId = fun () -> Ok graphAtEvent.Value.eventId
       getEventsSince = fun _ -> Ok []
       getEventLog = fun () -> Ok EventLog.empty
       appendEvent = fun _ -> Ok ()
       applyEvent = fun _ _ -> Error "unused"
       replaceGraph =
         fun _ graph ->
-            state.Value <- { state.Value with graph = graph }
+            graphAtEvent.Value <- { graphAtEvent.Value with graph = graph }
       noteDiffDone = snaps.Add
       noteParsed = ignore
       pushPersist = ignore
@@ -54,7 +54,7 @@ let private handlers
       noteWriteFailed = ignore }
 
 let private filling state snaps : PersistFilling =
-    { handlers = handlers state snaps
+    { handlers = accessors state snaps
       onError = fun _ _ _ -> ()
       formatError = id
       isReady = fun () -> true
@@ -104,7 +104,7 @@ let ``NodeParsed pushes a persist request`` () =
                 eventId = EventId.zero }
         let snaps = ResizeArray<NodeId>()
         let record =
-            { handlers state snaps with
+            { accessors state snaps with
                 pushPersist = pushed.Add }
         apply record (Notice.NodeParsed id)
         id
@@ -122,7 +122,7 @@ let ``NodeParsed pushes a persist request`` () =
         ref { graph = Graph.create (); eventId = EventId.zero }
     let snaps = ResizeArray<NodeId>()
     let missingHandlers =
-        { handlers empty snaps with pushPersist = pushed.Add }
+        { accessors empty snaps with pushPersist = pushed.Add }
     match
         CoreMailboxLoop.applyNotice
             missingHandlers
@@ -153,7 +153,7 @@ let ``NodeParsed sets legacy DocumentState to Current`` () =
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeParsed id)
+    apply (accessors state snaps) (Notice.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, after.documentState.parseState)
     Assert.False(after.documentState.pullingFile)
@@ -165,7 +165,7 @@ let ``ParseFinished sets Parsed and leaves PersistState`` () =
         fileState PersistState.Unpersisted ParseState.Unparsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeParsed id)
+    apply (accessors state snaps) (Notice.NodeParsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)
@@ -190,7 +190,7 @@ let ``ParseFinished leaves a pullingFile File Node Unparsed`` () =
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeParsed id)
+    apply (accessors state snaps) (Notice.NodeParsed id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
     Assert.True(after.documentState.pullingFile)
@@ -204,7 +204,7 @@ let ``NodeUnparsed sets Unparsed and leaves PersistState`` () =
         fileState PersistState.Unpersisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeUnparsed id)
+    apply (accessors state snaps) (Notice.NodeUnparsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
     Assert.Equal(Unparsed, node.documentState.AsEnum)
@@ -218,7 +218,7 @@ let ``NodePersisted sets Persisted and calls the diff hook`` () =
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
     let stamp = DateTime(2026, 10, 21, 1, 2, 3, DateTimeKind.Utc)
-    apply (handlers state snaps) (Notice.NodePersisted(id, EventId.zero, stamp))
+    apply (accessors state snaps) (Notice.NodePersisted(id, EventId.zero, stamp))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
     Assert.Equal(stamp, node.updateTime)
@@ -239,7 +239,7 @@ let ``NodePersisted for an older version leaves the node Unpersisted`` () =
             (EventId.fromJson 9)
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodePersisted(id, older, stamp))
+    apply (accessors state snaps) (Notice.NodePersisted(id, older, stamp))
     let late = state.Value.graph.nodes.[id]
     Assert.Equal(older, late.documentState.persistedVersion)
     Assert.Equal(PersistState.Unpersisted, late.documentState.persistState)
@@ -254,7 +254,7 @@ let ``NodePersisted for an older version leaves the node Unpersisted`` () =
             changed
     let equalState = ref equalInitial
     apply
-        (handlers equalState (ResizeArray<NodeId>()))
+        (accessors equalState (ResizeArray<NodeId>()))
         (Notice.NodePersisted(equalId, changed, stamp))
     let caught = equalState.Value.graph.nodes.[equalId]
     Assert.Equal(changed, caught.documentState.persistedVersion)
@@ -265,7 +265,7 @@ let ``NodePersisted for an older version leaves the node Unpersisted`` () =
         fileState PersistState.Unpersisted ParseState.Parsed
     let zeroState = ref zeroInitial
     apply
-        (handlers zeroState (ResizeArray<NodeId>()))
+        (accessors zeroState (ResizeArray<NodeId>()))
         (Notice.NodePersisted(zeroId, EventId.zero, stamp))
     let atZero = zeroState.Value.graph.nodes.[zeroId]
     Assert.Equal(EventId.zero, atZero.documentState.persistedVersion)
@@ -279,7 +279,7 @@ let ``NodeUploading applies PullingFile`` () =
     let beforeCount = initial.graph.nodes.Count
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeUploading id)
+    apply (accessors state snaps) (Notice.NodeUploading id)
     let node = state.Value.graph.nodes.[id]
     let row = GraphProjection.nodeRowFromNode node
     Assert.Equal(beforeCount, state.Value.graph.nodes.Count)
@@ -307,7 +307,7 @@ let ``NodeReceived applies Unparsed`` () =
             graph = Graph.addDetachedNode node (Graph.create ())
             eventId = EventId.zero }
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeReceived id)
+    apply (accessors state snaps) (Notice.NodeReceived id)
     let after = state.Value.graph.nodes.[id]
     let row = GraphProjection.nodeRowFromNode after
     Assert.Equal(ParseState.Unparsed, after.documentState.parseState)
@@ -330,7 +330,7 @@ let ``NodePersisting leaves the Edit's changedVersion`` () =
             noticeId
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodePersisting id)
+    apply (accessors state snaps) (Notice.NodePersisting id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
     Assert.Equal(editId, node.documentState.changedVersion)
@@ -349,7 +349,7 @@ let ``NodeUploading leaves the Edit's changedVersion`` () =
             noticeId
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeUploading id)
+    apply (accessors state snaps) (Notice.NodeUploading id)
     let node = state.Value.graph.nodes.[id]
     Assert.True(node.documentState.pullingFile)
     Assert.Equal(PersistState.Unpersisted, node.documentState.persistState)
@@ -362,7 +362,7 @@ let ``applyNotice NodeUnpersisted marks Unpersisted`` () =
         fileState PersistState.Persisted ParseState.Parsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeUnpersisted id)
+    apply (accessors state snaps) (Notice.NodeUnpersisted id)
     let viaNotice = state.Value.graph.nodes.[id]
     let viaSet =
         Graph.setPersistState id PersistState.Unpersisted initial.graph
@@ -381,7 +381,7 @@ let ``NodePersisting changes no node state`` () =
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
     let before = initial.graph.nodes.[id]
-    apply (handlers state snaps) (Notice.NodePersisting id)
+    apply (accessors state snaps) (Notice.NodePersisting id)
     let after = state.Value.graph.nodes.[id]
     Assert.Equal(before.documentState, after.documentState)
     Assert.Equal(ParseState.Parsed, after.documentState.parseState)
@@ -396,7 +396,7 @@ let ``PersistFailed does not change persist state`` () =
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
     apply
-        (handlers state snaps)
+        (accessors state snaps)
         (Notice.PersistFailed(id, "disk full"))
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(PersistState.Persisted, node.documentState.persistState)
@@ -420,7 +420,7 @@ let ``NodeParsing changes nothing`` () =
         try
             CoreMailboxApi.postNotice host (Notice.NodeParsing id)
             let! got =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
             Assert.Equal(ParseState.Parsed, node.documentState.parseState)
@@ -447,13 +447,13 @@ let ``axis write failure is returned`` () =
     let missing = NodeId.New()
     let missingResult =
         CoreMailboxLoop.applyNotice
-            (handlers state snaps)
+            (accessors state snaps)
             (Notice.NodeParsed missing)
     Assert.Equal(Error "node not found", missingResult)
     Assert.Equal(ParseState.Unparsed, state.Value.graph.nodes.[id].documentState.parseState)
     let rejected =
         CoreMailboxLoop.applyNotice
-            (handlers state snaps)
+            (accessors state snaps)
             (Notice.NodePersisted(
                 Graph.workspacesId,
                 EventId.zero,
@@ -495,7 +495,7 @@ let ``mailbox queue applies ParseFinished`` () =
         try
             CoreMailboxApi.postNotice host (Notice.NodeParsed id)
             let! got =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
             Assert.Equal(ParseState.Parsed, node.documentState.parseState)
@@ -518,7 +518,7 @@ let ``mailbox queue applies NodePersisted off CoreMsg`` () =
                 host
                 (Notice.NodePersisted(id, EventId.zero, DateTime.UtcNow))
             let! got =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let got = requireState "state" got
             let node = got.graph.nodes.[id]
             Assert.Equal(PersistState.Persisted, node.documentState.persistState)
@@ -534,7 +534,7 @@ let ``parsed comes from NodeParsed`` () =
         fileState PersistState.Persisted ParseState.Unparsed
     let state = ref initial
     let snaps = ResizeArray<NodeId>()
-    apply (handlers state snaps) (Notice.NodeParsed id)
+    apply (accessors state snaps) (Notice.NodeParsed id)
     let node = state.Value.graph.nodes.[id]
     Assert.Equal(ParseState.Parsed, node.documentState.parseState)
     Assert.Equal(Current, node.documentState.AsEnum)

@@ -14,7 +14,6 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
 
-/// Pool function. The log FunctionActor in Shared takes ActorChanges.
 type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.
@@ -64,7 +63,7 @@ type CoreActorPool =
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
     { pool: CoreActorPool
-      getState: unit -> Graph
+      getGraph: unit -> Graph
       peerName: PeerActorName }
 
 [<RequireQualifiedAccess>]
@@ -272,7 +271,7 @@ module CoreActorPool =
             run.pool.startPeerActor
                 run.peerName
                 request.start
-                run.getState
+                run.getGraph
             |> Result.map Some
 
     let private takePending (model: Model) secret =

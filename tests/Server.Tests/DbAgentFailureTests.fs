@@ -9,7 +9,7 @@ open Gambol.Server.Tests.TestBackend
 let private host agent = admittedHostDb agent
 
 let private getState agent = async {
-    match! CoreMailboxApi.getState (host agent) with
+    match! CoreMailboxApi.graphAtEvent (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")

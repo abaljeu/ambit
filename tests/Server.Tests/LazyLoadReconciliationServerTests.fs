@@ -106,7 +106,7 @@ let private postOps (fileAgent: MailboxHost) (_revision: int) (ops: Op list) =
     |> ignore
 
 let private readGraph (fileAgent: MailboxHost) =
-    CoreMailboxApi.getState fileAgent
+    CoreMailboxApi.graphAtEvent fileAgent
     |> Async.RunSynchronously
     |> requireOk "state"
     |> fun state -> state.graph

@@ -160,11 +160,11 @@ let admittedChanges (host: MailboxHost) =
     CoreDoor.create true host testCaller
 
 let cannedHandlers
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
-    : PersistHandlers =
-    { getState = readState
+    : CoreMailboxAccess =
+    { graphAtEvent = readState
       getEventId = fun () ->
           readState () |> Result.map (fun state -> state.eventId)
       getEventsSince = fun after -> Ok(eventsSince after)
@@ -194,7 +194,7 @@ let private cannedFilling readState eventsSince apply : PersistFilling =
 /// Mailbox whose reads and apply are supplied by the test.
 let hostCanned
     (pool: CoreActorPool)
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
     : MailboxHost =
@@ -203,9 +203,9 @@ let hostCanned
         (cannedFilling readState eventsSince apply)
         admittedCredentials
 
-/// Door whose getState and getEventsSince come from the mailbox persist.
+/// Door whose graphAtEvent and getEventsSince come from the mailbox persist.
 let doorForReads
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     : CoreChangesDoor =
     let pool = CoreActorPool.create ()
@@ -488,7 +488,7 @@ let wireEvent submissionId ops : Ev =
       commandName = ""
       body = EventBody.Change ops }
 
-let applyChange (event: Ev) (state: State) =
+let applyChange (event: Ev) (state: GraphAtEvent) =
     ChangeValidation.applyOps (eventOps event) state
 
 let addRootChildEvent text : NodeId * Ev =

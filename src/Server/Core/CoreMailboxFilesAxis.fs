@@ -27,7 +27,7 @@ open Gambol.Shared
 module internal CoreMailboxFilesAxis =
 
     let private writeNotice
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (notice: Notice)
         : Result<unit, string> =
         CoreEventDispatch.writeAxis
@@ -38,7 +38,7 @@ module internal CoreMailboxFilesAxis =
     /// Marks the node Unparsed, then pushes. The mark writes the axis
     /// directly and does not enqueue.
     let markUnparsedThenPush
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (rawPush: NodeId -> unit)
         (nodeId: NodeId)
         : Result<unit, string> =
@@ -51,10 +51,10 @@ module internal CoreMailboxFilesAxis =
 
     /// Read the node after Parsed is written. Push only that case.
     let private pushParsedUnpersisted
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (nodeId: NodeId)
         =
-        match persist.getState () with
+        match persist.graphAtEvent () with
         | Error _ -> ()
         | Ok state ->
             match Map.tryFind nodeId state.graph.nodes with
@@ -63,7 +63,7 @@ module internal CoreMailboxFilesAxis =
             | _ -> ()
 
     let applyNodeParsed
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (nodeId: NodeId)
         =
         writeNotice persist (Notice.NodeParsed nodeId)
@@ -72,13 +72,13 @@ module internal CoreMailboxFilesAxis =
             persist.noteParsed nodeId)
 
     let writePullingFileUnpersisted
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (nodeId: NodeId)
         : Result<unit, string> =
         writeNotice persist (Notice.NodeUploading nodeId)
 
     let writeReceived
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (nodeId: NodeId)
         : Result<unit, string> =
         writeNotice persist (Notice.NodeReceived nodeId)

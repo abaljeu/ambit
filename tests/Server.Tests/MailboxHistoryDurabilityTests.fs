@@ -151,8 +151,8 @@ let private assertRestartLog host = task {
 
 let private assertRestartGraph host childId text = task {
     do! assertRestartLog host
-    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
-    assertChild (requireOk "getState" state) childId text
+    let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+    assertChild (requireOk "graphAtEvent" state) childId text
 }
 
 [<Fact>]
@@ -207,14 +207,14 @@ let ``File startup does not replay the event log`` () = task {
           lifecycle
             3
             (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    let before = persist.handlers.getState () |> requireOk "before"
+    let before = persist.handlers.graphAtEvent () |> requireOk "before"
     Assert.False(before.graph.nodes.ContainsKey childId)
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        let restarted = requireOk "getState" state
+        let restarted = requireOk "graphAtEvent" state
         Assert.False(restarted.graph.nodes.ContainsKey childId)
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
@@ -235,14 +235,14 @@ let ``Db recover applies Ops Ev ahead of projection revision`` () = task {
           lifecycle
             3
             (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    let before = persist.handlers.getState () |> requireOk "before"
+    let before = persist.handlers.graphAtEvent () |> requireOk "before"
     Assert.False(before.graph.nodes.ContainsKey childId)
     persist.dispose ()
     let host = admittedHostDb (DbAgent.create connStr)
     try
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        assertChild (requireOk "getState" state) childId "db-recover"
+        assertChild (requireOk "graphAtEvent" state) childId "db-recover"
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
         CoreMailboxApi.dispose host

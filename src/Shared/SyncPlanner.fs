@@ -82,8 +82,8 @@ module SyncPlanner =
     let restorePending
         (_serverEventId: Gambol.Shared.EventId)
         (saved: Ev list)
-        (state: State)
-        : State * Ev list =
+        (state: GraphAtEvent)
+        : GraphAtEvent * Ev list =
         saved
         |> List.fold
             (fun (state, reversed) event ->

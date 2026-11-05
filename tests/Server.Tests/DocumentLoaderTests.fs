@@ -14,12 +14,12 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private writeAmbFiles (dataDir: string) (state: State) =
+let private writeAmbFiles (dataDir: string) (state: GraphAtEvent) =
     DocumentPersistWrite.writeAllDocuments dataDir state.graph
     |> requireOk "writeAllDocuments"
     |> ignore
 
-let private stateWithRootChild (text: string) : State =
+let private stateWithRootChild (text: string) : GraphAtEvent =
     let childId = NodeId.New()
     let change =
         { id = EventId.zero

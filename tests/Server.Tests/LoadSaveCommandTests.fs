@@ -173,7 +173,7 @@ let private postSeed host ops =
 let private markCurrent host nodeId =
     CoreMailboxApi.postNotice host (Notice.NodeParsed nodeId)
     let state =
-        CoreMailboxApi.getState host
+        CoreMailboxApi.graphAtEvent host
         |> Async.RunSynchronously
         |> requireOk "mark current"
     match Map.tryFind nodeId state.graph.nodes with
@@ -543,7 +543,7 @@ let private postChange host ops =
     |> ignore
 
 let private readGraph host =
-    CoreMailboxApi.getState host
+    CoreMailboxApi.graphAtEvent host
     |> Async.RunSynchronously
     |> requireOk "state"
     |> fun state -> state.graph

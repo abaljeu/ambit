@@ -179,7 +179,7 @@ let private hostNow () =
         admittedCredentials
 
 let private seedPlain host = task {
-    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+    let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
     let graph =
         match state with
         | Ok value -> value.graph
@@ -248,7 +248,7 @@ let ``edit then ActorStart classifies the equals line after the edit`` () =
                 | Some value -> value
                 | None -> failwith "ActorStop missing after the one eval"
             Assert.Equal<NodeId list>([ bobId ], idsOfStop event)
-            let! after = CoreMailboxApi.getState host |> Async.StartAsTask
+            let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match after with
             | Error err -> failwith err
             | Ok afterState ->
@@ -320,7 +320,7 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                         && message = "focus already has a live Actor"
                     | _ -> false)
             Assert.True(failed, "ActorFailed missing")
-            let! after = CoreMailboxApi.getState host |> Async.StartAsTask
+            let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match after with
             | Error err -> failwith err
             | Ok afterState ->

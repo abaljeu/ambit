@@ -24,8 +24,8 @@ let private buildTwoSiblings () : Graph * NodeId * NodeId =
         |> ModelBuilder.requireOk "root->[a,b]"
     g2, a, b
 
-/// Build initial State from graph.
-let private stateOf (graph: Graph) : State =
+/// Build initial GraphAtEvent from graph.
+let private stateOf (graph: Graph) : GraphAtEvent =
     { graph = graph; eventId = EventId.zero }
 
 /// SiteNodeRange for root's children [start, endd).

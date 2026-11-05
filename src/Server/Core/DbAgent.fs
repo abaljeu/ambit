@@ -16,7 +16,7 @@ type DbAgent = private {
 module DbAgent =
 
     type private LoadedPersist = {
-        state: State ref
+        state: GraphAtEvent ref
         eventLog: EventLog ref
         diffInProgress: bool ref
         diffNeeded: bool ref
@@ -47,8 +47,8 @@ module DbAgent =
 
     let private loadReconciled
         (connectionString: string)
-        (state: State)
-        : State * EventLog =
+        (state: GraphAtEvent)
+        : GraphAtEvent * EventLog =
         let log =
             if String.IsNullOrWhiteSpace connectionString then
                 EventLog.empty
@@ -75,12 +75,12 @@ module DbAgent =
             |> Async.RunSynchronously
         recovered
 
-    let private loadInitialState (connectionString: string) : Async<State> =
+    let private loadInitialState (connectionString: string) : Async<GraphAtEvent> =
         Database.loadPersistedState connectionString
         |> Async.AwaitTask
 
     let private makeLoaded
-        (initialState: State)
+        (initialState: GraphAtEvent)
         (connectionString: string)
         (liveSaveDataDir: string option)
         persistNode
@@ -163,7 +163,7 @@ module DbAgent =
     let private applyOneEvent
         loaded
         (graphOnly: bool)
-        ((s: State), confirmations, externalChanges)
+        ((s: GraphAtEvent), confirmations, externalChanges)
         (event: Ev)
         =
         match tryPersistedEvent loaded event.submissionId with
@@ -208,7 +208,7 @@ module DbAgent =
             eprintfn "DbAgent: failed to apply batch: %s" ex.Message
             Error $"Database error: {ex.Message}"
 
-    let private persistGraphProjection loaded (newState: State) events =
+    let private persistGraphProjection loaded (newState: GraphAtEvent) events =
         if String.IsNullOrWhiteSpace loaded.connectionString then
             Ok ()
         elif List.isEmpty (Map.toList newState.graph.nodes) then
@@ -494,8 +494,8 @@ module DbAgent =
                     "DbAgent: failed to persist notice: %s"
                     ex.Message
 
-    let private persistHandlers loaded = {
-        getState = fun () -> Ok loaded.state.Value
+    let private coreMailboxAccess loaded = {
+        graphAtEvent = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after -> Ok(eventsSince loaded after)
         getEventLog = fun () -> Ok loaded.eventLog.Value
@@ -571,7 +571,7 @@ module DbAgent =
             | Some node -> Ok(NodeUpdateTime.toDbPrecision node.updateTime)
 
     let private createLoaded
-        (initialState: State)
+        (initialState: GraphAtEvent)
         (connectionString: string)
         (liveSaveDataDir: string option)
         persistNode
@@ -606,7 +606,7 @@ module DbAgent =
             PersistRequestStack.stop stack
             join ()
         { filling =
-            { handlers = persistHandlers loaded
+            { handlers = coreMailboxAccess loaded
               onError = logUnhandledException loaded.liveSaveDataDir
               formatError = formatError loaded.liveSaveDataDir
               isReady = fun () -> loaded.ready.Task.IsCompletedSuccessfully
@@ -666,7 +666,7 @@ module DbAgent =
                   logFacts = ProjectionOwnershipRepair.emptyPlan.logFacts })
 
     let createForTest
-        (initialState: State)
+        (initialState: GraphAtEvent)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         createLoaded
@@ -680,7 +680,7 @@ module DbAgent =
     /// liveSaveDataDir) so failure/timeout behavior can be exercised without a real DB
     /// connection or the real (slow/bug-prone) document reconcile path.
     let createForTestWithDependencies
-        (initialState: State)
+        (initialState: GraphAtEvent)
         (liveSaveDataDir: string option)
         persistNode
         (runStartupSweep: Graph -> Result<Guid list, string>)

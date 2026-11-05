@@ -4,7 +4,7 @@ open Xunit
 open Gambol.Shared
 open GraphChildMapHelpers
 
-let private apply (ops: Op list) (state: State) : State =
+let private apply (ops: Op list) (state: GraphAtEvent) : GraphAtEvent =
     match ChangeValidation.applyOps ops state with
     | ApplyResult.Changed st -> st
     | ApplyResult.Unchanged st -> st
@@ -21,7 +21,7 @@ let private withClasses
             graph.nodes
             |> Map.add nid { node with cssClasses = classes } }
 
-let private stateWithKids (count: int) : State * NodeId list =
+let private stateWithKids (count: int) : GraphAtEvent * NodeId list =
     let texts = [ for i in 1 .. count -> $"n{i}" ]
     let graph, ids = ModelBuilder.createNodes texts (Graph.create ())
     { graph = graph; eventId = EventId.zero }, ids

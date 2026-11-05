@@ -49,7 +49,7 @@ let private persistedNode (state: State) (nodeId: NodeId) : bool =
 
 ```fsharp
 let private writeAxis
-    (persist: PersistHandlers)
+    (persist: CoreMailboxAccess)
     (notice: Notice)
     (mutate: Graph -> Result<Graph, string>)
     : Result<unit, string> =

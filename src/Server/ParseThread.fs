@@ -188,7 +188,7 @@ module ParseThread =
         : unit -> Async<Result<Graph, string>> =
         fun () ->
             async {
-                match! CoreMailboxApi.tryGetState host with
+                match! CoreMailboxApi.tryGraphAtEvent host with
                 | Error err -> return Error err
                 | Ok state -> return Ok state.graph
             }

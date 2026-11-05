@@ -339,7 +339,7 @@ let private readFileShared (path: string) =
     use reader = new StreamReader(fs)
     reader.ReadToEnd()
 
-let private writeDocumentFiles (tempDir: string) (state: State) =
+let private writeDocumentFiles (tempDir: string) (state: GraphAtEvent) =
     DocumentPersistWrite.writeAllDocuments tempDir state.graph
     |> function
         | Ok _ -> ()
@@ -1189,7 +1189,7 @@ let ``New server uses snapshot + log replay`` () = task {
         })
     do!
         usingAdmittedFile tempDir (fun _host handle -> task {
-            let! stateResult = CoreDoor.getState handle |> Async.StartAsTask
+            let! stateResult = CoreDoor.graphAtEvent handle |> Async.StartAsTask
             match stateResult with
             | Error err -> Assert.Fail(err)
             | Ok state ->

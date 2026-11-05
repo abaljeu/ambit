@@ -98,7 +98,7 @@ module EventLog =
         | Notice.ParseFailed _ -> false
 
     /// Replay of Parse writes the owning special at the Event id.
-    let private flagParseReplay (event: Ev) (state: State) =
+    let private flagParseReplay (event: Ev) (state: GraphAtEvent) =
         if event.commandName <> "Parse" then
             state
         else
@@ -126,7 +126,7 @@ module EventLog =
         { appliedState state event with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
-    let recover (state: State) (log: EventLog) : State * EventLog =
+    let recover (state: GraphAtEvent) (log: EventLog) : GraphAtEvent * EventLog =
         let graphId = EventId.value state.eventId
         let logId = EventId.value (tip log)
         if graphId > logId then

@@ -16,7 +16,7 @@ Blockers: none
 [ ] [GraphMutate.fs](../../../src/Shared/GraphMutate.fs) `finishPersist` calls `setUnpersistedAt` when the `EventId` is present
 [ ] [ChangeAmendment.fs](../../../src/Shared/ChangeAmendment.fs) `applyPosted` applies Undo and Redo Ops with `Op.persistMarkVersion`
 [ ] [CoreEventDispatch.fs](../../../src/Server/Core/CoreEventDispatch.fs) `markForPersist` calls `GraphMutate.setUnpersistedAt` for Undo and Redo
-[ ] [PersistApplyTests.fs](../../../tests/Server.Tests/PersistApplyTests.fs) `editThenAction` and `applyAction` post an `Ev` through `PersistHandlers.applyEvent`
+[ ] [PersistApplyTests.fs](../../../tests/Server.Tests/PersistApplyTests.fs) `editThenAction` and `applyAction` post an `Ev` through `CoreMailboxAccess.applyEvent`
 [ ] [EventTests.fs](../../../tests/Shared.Tests/EventTests.fs) `EventLog.recover` fixtures
 
 ### Reference

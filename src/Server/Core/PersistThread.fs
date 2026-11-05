@@ -7,7 +7,7 @@ open Gambol.Shared
 /// Dependencies for the long-lived persist thread. The thread does not
 /// edit graph axes. It reads live state once per taken request.
 type internal PersistThreadDeps = {
-    currentState: unit -> State
+    currentState: unit -> GraphAtEvent
     take: unit -> PersistRequest option
     persistNode: Graph -> NodeId -> Result<DateTime, string>
     postNotice: Notice -> unit

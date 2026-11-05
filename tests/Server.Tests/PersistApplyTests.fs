@@ -28,10 +28,10 @@ let private wireEvent submissionId ops : Ev =
       commandName = "persist-apply"
       body = EventBody.Change ops }
 
-let private eventsSince (handlers: PersistHandlers) after =
+let private eventsSince (handlers: CoreMailboxAccess) after =
     requireOk "getEventsSince" (handlers.getEventsSince after)
 
-let private applyThenAppend (handlers: PersistHandlers) event =
+let private applyThenAppend (handlers: CoreMailboxAccess) event =
     let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
     Assert.Empty(eventsSince handlers (EventId.zero))
     requireOk "appendEvent" (handlers.appendEvent event)
@@ -62,9 +62,9 @@ let ``FileAgent applyEvent marks a File Node at the later Edit id`` () =
     let agent = FileAgent.create (newTempDir ())
     let handlers = (FileAgent.persist agent).handlers
     let seeded =
-        match handlers.getState () with
+        match handlers.graphAtEvent () with
         | Error error ->
-            Assert.Fail($"getState: {error}")
+            Assert.Fail($"graphAtEvent: {error}")
             Unchecked.defaultof<_>
         | Ok state ->
             Graph.addDetachedNode node state.graph
@@ -77,7 +77,7 @@ let ``FileAgent applyEvent marks a File Node at the later Edit id`` () =
         "second edit"
         (handlers.applyEvent (editFileText 5 fileId "first" "second") false)
     |> ignore
-    let state = requireOk "getState" (handlers.getState ())
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
     let live = state.graph.nodes.[fileId]
     Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
     Assert.Equal(EventIdFixtures.storedId 5, live.documentState.changedVersion)
@@ -90,7 +90,7 @@ let ``FileAgent applyEvent applies Ev Ops without leftover Change`` () =
     let agent = FileAgent.create (newTempDir ())
     let handlers = (FileAgent.persist agent).handlers
     let accepted = applyThenAppend handlers event
-    let state = requireOk "getState" (handlers.getState ())
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
     Assert.Equal("persist-apply-file", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
 
@@ -103,7 +103,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
     let agent = DbAgent.createForTest initial (fun _ -> Ok [])
     let handlers = (DbAgent.persist agent).handlers
     let accepted = applyThenAppend handlers event
-    let state = requireOk "getState" (handlers.getState ())
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
     Assert.Equal("persist-apply-db", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
 
@@ -123,9 +123,9 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             |> Async.RunSynchronously
             |> requireOk "postEvent"
         let state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.RunSynchronously
-            |> requireOk "getState"
+            |> requireOk "graphAtEvent"
         Assert.Equal("no-change-copy", state.graph.nodes.[childId].text)
         Assert.Equal(event.submissionId, stored.submissionId)
         match Ev.ops stored with
@@ -160,8 +160,8 @@ let private fileAt text persisted =
         |> withPersistedVersions EventId.zero persisted
     fileId, node
 
-let private seedPersisted (handlers: PersistHandlers) fileId node =
-    let state = requireOk "seed getState" (handlers.getState ())
+let private seedPersisted (handlers: CoreMailboxAccess) fileId node =
+    let state = requireOk "seed graphAtEvent" (handlers.graphAtEvent ())
     handlers.replaceGraph
         (Notice.NodePersisting fileId)
         (Graph.addDetachedNode node state.graph)
@@ -177,9 +177,9 @@ let private fileHandlers () =
     let agent = FileAgent.create (newTempDir ())
     (FileAgent.persist agent).handlers
 
-let private applyAction (handlers: PersistHandlers) event =
+let private applyAction (handlers: CoreMailboxAccess) event =
     requireOk "applyEvent" (handlers.applyEvent event false) |> ignore
-    requireOk "getState" (handlers.getState ())
+    requireOk "graphAtEvent" (handlers.graphAtEvent ())
 
 let private assertVersions state fileId text changed persisted =
     let live = state.graph.nodes.[fileId]
@@ -190,7 +190,7 @@ let private assertVersions state fileId text changed persisted =
 
 /// Edit at V, then Undo or Redo at a later id. persistedVersion stays.
 let private editThenAction
-    (handlers: PersistHandlers)
+    (handlers: CoreMailboxAccess)
     actionId
     bodyFor
     =
@@ -287,8 +287,8 @@ let private postBody host commandName body =
     CoreMailboxApi.postEvent host testCaller event |> Async.StartAsTask
 
 let private stateOf host = task {
-    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
-    return requireOk "getState" state
+    let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+    return requireOk "graphAtEvent" state
 }
 
 let private artifactText dataDir graph fileId =

@@ -44,7 +44,7 @@ module WorkspaceUploadStructure =
                 isImmediateChild scopeRelative i.relative)
 
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial: State =
+        let initial: GraphAtEvent =
             { graph = graph
               eventId = EventId.zero }
 

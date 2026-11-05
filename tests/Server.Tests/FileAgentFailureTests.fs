@@ -26,7 +26,7 @@ let private changedBody () =
 let private host agent = admittedHostFile agent
 
 let private getState agent = async {
-    match! CoreMailboxApi.getState (host agent) with
+    match! CoreMailboxApi.graphAtEvent (host agent) with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -90,7 +90,7 @@ let private fileEditGraph () =
         |> requireOk "body"
     graph, fileId, bodyId
 
-let private fileIdIn (state: State) =
+let private fileIdIn (state: GraphAtEvent) =
     state.graph.nodes
     |> Map.pick (fun id node ->
         match node.kind, Filename.tryValue node.name with
@@ -113,14 +113,14 @@ let private childEdit fileId =
     childId, events
 
 let private openThenEdit mailbox = async {
-    let! stateResult = CoreMailboxApi.getState mailbox
+    let! stateResult = CoreMailboxApi.graphAtEvent mailbox
     let state =
         match stateResult with
         | Ok value -> value
         | Error error -> failwith $"state: {error}"
     let fileId = fileIdIn state
     CoreMailboxApi.postNotice mailbox (Notice.NodeParsed fileId)
-    let! parsed = CoreMailboxApi.getState mailbox
+    let! parsed = CoreMailboxApi.graphAtEvent mailbox
     match parsed with
     | Error error -> failwith $"parsed: {error}"
     | Ok _ -> ()
@@ -428,7 +428,7 @@ let ``new special node's first file write posts NodePersisting`` () = task {
     let mailbox = host agent
     try
         let! state =
-            CoreMailboxApi.getState mailbox |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent mailbox |> Async.StartAsTask
         let state = requireOk "state" state
         let wsId, ops =
             FileNodeOps.planCreateWorkspace state.graph "home"
@@ -476,7 +476,7 @@ let ``new special node's first file write posts NodePersisting`` () = task {
             Assert.Fail(
                 $"expected NodePersisting then NodePersisted for {wsId}, got {events}")
         let! after =
-            CoreMailboxApi.getState mailbox |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent mailbox |> Async.StartAsTask
         let after = requireOk "after" after
         let path =
             DocumentPersistPath.resolveArtifactPath dataDir after.graph wsId

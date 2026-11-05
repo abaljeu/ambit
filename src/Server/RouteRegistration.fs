@@ -391,7 +391,7 @@ module RouteRegistration =
         return!
             SavePrep.syncDataDir
                 persistence.DbStatus
-                (fun () -> CoreDoor.getState handle)
+                (fun () -> CoreDoor.graphAtEvent handle)
                 (fun () -> CoreMailboxApi.getEventId persistence.Core.host)
                 persistence.DataDir
     }

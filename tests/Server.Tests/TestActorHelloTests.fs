@@ -119,7 +119,7 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         
@@ -157,7 +157,7 @@ let ``TestActor hello interprets ?test hello without actor CSS`` () =
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         let helloChildren =
@@ -206,7 +206,7 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Equal("What time is it?", state.graph.nodes.[focusId].text)
@@ -388,7 +388,7 @@ let ``TestActor hello interprets command node text`` () =
         Assert.True(finished, "ActorFinished not received within timeout")
         
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         
@@ -433,7 +433,7 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
                 | _ -> None)
         Assert.Equal(Some (ActorFailed ""), stopResult)
         let! state =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
         Assert.Empty(helloOutputChildren state.graph Graph.rootId actorNodeId)
     })
@@ -469,7 +469,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         Assert.True(dropped, "Live row not dropped within timeout")
         
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "getState" state
         

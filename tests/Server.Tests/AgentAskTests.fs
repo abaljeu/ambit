@@ -47,7 +47,7 @@ type AgentAskTests() =
                         hasActorStart host request.focusId
                     Assert.True(started)
                     let! state =
-                        CoreMailboxApi.getState host
+                        CoreMailboxApi.graphAtEvent host
                         |> Async.StartAsTask
                     match state with
                     | Error err -> Assert.Fail(err)

@@ -20,10 +20,10 @@ coding
   - `tests/Shared.Tests/SpecialNodeStateAxesTests.fs`
   - `tests/Shared.Tests/DirectoryReconcileTests.fs`
 - Types:
-  - `PersistHandlers` in `src/Server/Core/CoreMsg.fs`, `Ev`, `Notice`, `DocumentState`
+  - `CoreMailboxAccess` in `src/Server/Core/CoreMsg.fs`, `Ev`, `Notice`, `DocumentState`
 - Functions:
   - `ChangeAmendment.applyForCommand`, `ChangeAmendment.applyForGraphOnly`
-  - `FileAgent.applyOne`, `DbAgent.applyOneEvent` (the `PersistHandlers.applyEvent` bodies)
+  - `FileAgent.applyOne`, `DbAgent.applyOneEvent` (the `CoreMailboxAccess.applyEvent` bodies)
   - `CoreEventDispatch.persist`, `CoreEventDispatch.pushChangeSpecials`, `CoreEventDispatch.markForPersist`, `CoreEventDispatch.writeAxis`
   - `CoreMailboxLoad.writePullingFileUnpersisted`, and the `Notice.NodePersisting` arm of `CoreMailboxLoad.applyNotice`
   - `CoreMailboxLoad.dispatchItem` (logs a Notice, then applies it)

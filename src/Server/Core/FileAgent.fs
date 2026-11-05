@@ -14,7 +14,7 @@ type FileAgentDependencies = {
 // FileAgent — persist filling for one dataDir. Does not start a mailbox.
 type FileAgent = private {
     filling: PersistFilling
-    initialState: Gambol.Shared.State
+    initialState: Gambol.Shared.GraphAtEvent
 }
 
 module FileAgent =
@@ -25,7 +25,7 @@ module FileAgent =
         eventStream: FileStream
         eventOffsets: int64 ResizeArray
         persistedEventLog: EventLog ref
-        state: State ref
+        state: GraphAtEvent ref
         stack: PersistRequest BlockingCollection option ref
         persistFinished: (Notice -> unit) option ref
     }
@@ -122,8 +122,8 @@ module FileAgent =
                     loaded.state.Value <- newState
                     Ok(accepted loaded confirmations externalChanges)
 
-    let private persistHandlers loaded : PersistHandlers = {
-        getState = fun () -> Ok loaded.state.Value
+    let private coreMailboxAccess loaded : CoreMailboxAccess = {
+        graphAtEvent = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after ->
             Ok(
@@ -161,7 +161,7 @@ module FileAgent =
         | Ok state -> state
         | Error msg -> failwith msg
 
-    let private checkpointAhead (state: State) (log: EventLog) =
+    let private checkpointAhead (state: GraphAtEvent) (log: EventLog) =
         EventId.value state.eventId > EventId.value (EventLog.tip log)
 
     // A checkpoint past the log tip drops the log. Otherwise the graph
@@ -184,7 +184,7 @@ module FileAgent =
         (dataDir: string)
         (eventStream: FileStream)
         (eventOffsets: int64 ResizeArray)
-        (loadedState: State)
+        (loadedState: GraphAtEvent)
         =
         { dataDir = dataDir
           dependencies = dependencies
@@ -236,7 +236,7 @@ module FileAgent =
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
         { filling =
-            { handlers = persistHandlers loaded
+            { handlers = coreMailboxAccess loaded
               onError = onError
               formatError = formatError
               isReady = fun () -> true
@@ -256,5 +256,5 @@ module FileAgent =
     let internal persist (agent: FileAgent) : PersistFilling =
         agent.filling
 
-    let initialState (agent: FileAgent) : State =
+    let initialState (agent: FileAgent) : GraphAtEvent =
         agent.initialState

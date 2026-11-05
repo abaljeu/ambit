@@ -33,7 +33,7 @@ Home: [core-refinement architecture](../arch.md) §3 step 3 **Core Persist stack
 - [x] Sync call site — The old direct `persistGraphOps` / `persistGraphChange` call on the post path is gone. The loop is the feeder.
 - [x] SnapshotDone — When the thread finishes an open node, it adds `Notice` `SnapshotDone` through the private function. It does not edit graph axes. The core loop sets Persisted. A failed write does not add `SnapshotDone` and does not set Persisted. A Db ops job notifies the open owning file. Snapshot marks move only when that id is in the in-progress workspace batch, so a file `SnapshotDone` does not close the workspace batch. The same id is not notified by both the ops job and the Change job.
 - [x] Block — A node whose `parseState` is Unparsed and whose `documentState` is not Current is not open. The thread does not call the write body for that node's ops. A Current document whose `parseState` is still Unparsed stays open until [20 — State axes on special nodes](../../github-transport/issues/20-state-axes-on-special-nodes.md) writes `parseState`. A Change job is blocked when any submitted id is that Unparsed pair. The thread does not call `persistGraphChange` for that job.
-- [x] ParseFinished catch-up — [Core mailbox backend](../../../src/Server/Core/CoreMailboxBackend.fs) `ParseFinished` writes Parsed only. It then calls `PersistHandlers.noteParsed`. That handler enqueues a catch-up when the node is Parsed and still Unpersisted. The persist thread does the catch-up. `ParseFinished` does not set Persisted.
+- [x] ParseFinished catch-up — [Core mailbox backend](../../../src/Server/Core/CoreMailboxBackend.fs) `ParseFinished` writes Parsed only. It then calls `CoreMailboxAccess.noteParsed`. That handler enqueues a catch-up when the node is Parsed and still Unpersisted. The persist thread does the catch-up. `ParseFinished` does not set Persisted.
 
 ## Out of scope
 
@@ -49,8 +49,8 @@ Collector interface, named here because the architecture does not list the recor
 1. **PersistKind** — `Ops` or `Change`.
 2. **PersistSubmit** — One job: node ids, graphs, ops, kind, notify, and wait.
 3. **PersistOutcome** — `Wrote`, `Blocked`, `Failed`, or `Queued`. A thrown write becomes `Failed of string`. It is not rethrown.
-4. **PersistHandlers.noteParsed** — Catch-up hook after `ParseFinished`.
-5. **PersistHandlers.snapshotDone** — `NodeId -> Graph option -> unit`, so bookkeeping can see which node finished.
+4. **CoreMailboxAccess.noteParsed** — Catch-up hook after `ParseFinished`.
+5. **CoreMailboxAccess.snapshotDone** — `NodeId -> Graph option -> unit`, so bookkeeping can see which node finished.
 
 ## See also
 

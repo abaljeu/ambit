@@ -24,7 +24,7 @@ let private emptyChange () =
 let private host agent = admittedHostDb agent
 
 let private getStateFrom mailbox = async {
-    match! CoreMailboxApi.getState mailbox with
+    match! CoreMailboxApi.graphAtEvent mailbox with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")

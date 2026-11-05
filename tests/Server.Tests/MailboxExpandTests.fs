@@ -120,13 +120,13 @@ let private postSeed host ops =
 let private seedFile host =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
         postSeed host wsOps
         let! state1 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state1 = requireOk "state" state1
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile

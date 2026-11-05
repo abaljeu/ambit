@@ -422,7 +422,7 @@ module Database =
 
     let loadPersistedState
         (connectionString: string)
-        : Task<State> =
+        : Task<GraphAtEvent> =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
@@ -436,8 +436,8 @@ module Database =
                   eventId = eventId }
         }
 
-    /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
-    let rebuildFromDocumentFiles (connectionString: string) (fileState: State) : Task =
+    /// Truncate SQL tables and replace the projection from a pre-loaded file `GraphAtEvent`.
+    let rebuildFromDocumentFiles (connectionString: string) (fileState: GraphAtEvent) : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()

@@ -52,7 +52,7 @@ let private withBody (graph: Graph) (bodyId: NodeId) (text: string) =
     let body = graph.nodes.[bodyId]
     { graph with nodes = Map.add bodyId { body with text = text } graph.nodes }
 
-let private markPersisted (state: State) (nodeId: NodeId) =
+let private markPersisted (state: GraphAtEvent) (nodeId: NodeId) =
     let node =
         Node.withPersistState PersistState.Persisted state.graph.nodes.[nodeId]
     { state with
@@ -67,7 +67,7 @@ let private waitUntil (label: string) (ready: unit -> bool) =
     Assert.True(ready (), label)
 
 let private startThread
-    (state: State ref)
+    (state: GraphAtEvent ref)
     (take: unit -> PersistRequest option)
     (persistNode: Graph -> NodeId -> Result<DateTime, string>)
     (postNotice: Notice -> unit)
@@ -200,20 +200,20 @@ let ``persist thread posts NodePersisted on success only`` () =
     Assert.False(persistedBad)
 
 let private applyPersisted
-    (state: State ref)
+    (graphAtEvent: GraphAtEvent ref)
     (pushPersist: NodeId -> unit)
     (notice: Notice)
     =
-    let handlers : PersistHandlers = {
-        getState = fun () -> Ok state.Value
-        getEventId = fun () -> Ok state.Value.eventId
+    let handlers : CoreMailboxAccess = {
+        graphAtEvent = fun () -> Ok graphAtEvent.Value
+        getEventId = fun () -> Ok graphAtEvent.Value.eventId
         getEventsSince = fun _ -> Ok []
         getEventLog = fun () -> Ok EventLog.empty
         appendEvent = fun _ -> Ok ()
         applyEvent = fun _ _ -> Error "unused"
         replaceGraph =
             fun _ graph ->
-                state.Value <- { state.Value with graph = graph }
+                graphAtEvent.Value <- { graphAtEvent.Value with graph = graph }
         noteDiffDone = ignore
         noteParsed = ignore
         pushPersist = pushPersist

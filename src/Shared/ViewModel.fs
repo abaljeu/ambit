@@ -313,7 +313,7 @@ and FileSearchDialogState =
       selectedIndex: int
       returnTo: Mode }
 
-// Server `State` is in `FileAgent`, and mainly the graph.
+// Server `GraphAtEvent` is in `FileAgent`, and mainly the graph.
 and VM = // the client state
     { graph: Graph // the core data
       eventId: EventId

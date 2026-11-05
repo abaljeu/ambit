@@ -30,7 +30,7 @@ let private fileRuntime () =
         (fun _ -> ())
 
 [<Fact>]
-let ``live Browser credential is admitted and Change reaches PersistHandlers``
+let ``live Browser credential is admitted and Change reaches CoreMailboxAccess``
     () =
     task {
         let dataDir = newTempDir ()

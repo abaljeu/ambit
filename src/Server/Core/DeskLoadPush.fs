@@ -27,7 +27,7 @@ module internal DeskLoadPush =
         (request: LoadSaveCommandRequest)
         (path: LoadSavePath)
         =
-        let graph = run.getState ()
+        let graph = run.getGraph ()
         let chosen = LoadPathChoice.ofRequest request graph
         let path = PathPick.effectiveLoadPath chosen path
         CoreActorPool.startLoadSaveCommand run path chosen request

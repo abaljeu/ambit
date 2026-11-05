@@ -16,7 +16,7 @@ let changeEvent commandName (id: EventId) submissionId ops : Ev =
 let changeEventZero commandName ops =
     changeEvent commandName EventId.zero (Guid.NewGuid()) ops
 
-let applyChange (event: Ev) (state: State) =
+let applyChange (event: Ev) (state: GraphAtEvent) =
     ChangeValidation.applyOps (eventOps event) state
 
 let inverseEvent (id: EventId) submissionId (event: Ev) : Ev =

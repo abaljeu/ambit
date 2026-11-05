@@ -29,7 +29,7 @@
 ### Helper
 
 [ ] [CoreEventDispatch.fs](src/Server/Core/CoreEventDispatch.fs) `writeAxis`
-[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `PersistHandlers.replaceGraph`
+[ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `CoreMailboxAccess.replaceGraph`
 
 ### Match sites
 

@@ -99,12 +99,12 @@ Deltas only. Hello / Actor-pool modules do not change.
       1. [x] `postEvent` admits Ev, applies Ops, persist `appendEvent` Ev. No leftover Change copy for apply
    3. Uses
       1. [ ] Ev
-      2. [ ] PersistHandlers (`appendEvent`; apply Ops)
+      2. [ ] CoreMailboxAccess (`appendEvent`; apply Ops)
 7. **FileAgent** — [[src/Server/Core/FileAgent.fs]]
    1. State
       1. [ ] Graph + EventLog (unchanged roles)
    2. Interface
-      1. [x] PersistHandlers apply Ev (Ops), then `appendEvent`
+      1. [x] CoreMailboxAccess apply Ev (Ops), then `appendEvent`
    3. Uses
       1. [ ] Ev
       2. [ ] Op
@@ -113,7 +113,7 @@ Deltas only. Hello / Actor-pool modules do not change.
    1. State
       1. [ ] Graph + EventLog + projection (unchanged roles)
    2. Interface
-      1. [x] PersistHandlers apply Ev (Ops), then `appendEvent`. Projection still Files/Query persist, not EventLog
+      1. [x] CoreMailboxAccess apply Ev (Ops), then `appendEvent`. Projection still Files/Query persist, not EventLog
    3. Uses
       1. [ ] Ev
       2. [ ] Op

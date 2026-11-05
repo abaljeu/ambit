@@ -116,7 +116,7 @@ module BootCache =
             |> List.map (fun event -> event.id)
             |> List.fold EventId.max snapshotEventId
 
-    let private applyLoggedEvent (event: Ev) (st: State) : Result<State, string> =
+    let private applyLoggedEvent (event: Ev) (st: GraphAtEvent) : Result<GraphAtEvent, string> =
         match event.body with
         | EventBody.Notice notice ->
             match ResidentProjection.applyDocumentNotice notice st with
@@ -138,7 +138,7 @@ module BootCache =
         (delta: Ev list)
         : Result<StateResponse, string> =
         let ordered = eventsAfter snapshot.eventId delta
-        let state0: State =
+        let state0: GraphAtEvent =
             { graph = snapshot.graph
               eventId = snapshot.eventId }
         ordered

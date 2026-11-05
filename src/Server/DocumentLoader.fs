@@ -9,17 +9,17 @@ module DocumentLoader =
     let private loadGraphFromDisk (dataDir: string) : Result<Graph, string> =
         DocumentPersistChange.readAllDocuments dataDir
 
-    let private stateFromGraph (dataDir: string) (graph: Graph) : State =
+    let private stateFromGraph (dataDir: string) (graph: Graph) : GraphAtEvent =
         { graph = graph
           eventId = Bookkeeping.readEventId dataDir }
 
     /// Read `.amb` network from disk (empty graph when no artifacts exist).
-    let tryLoadState (dataDir: string) : Result<State, string> =
+    let tryLoadState (dataDir: string) : Result<GraphAtEvent, string> =
         loadGraphFromDisk dataDir
         |> Result.map (stateFromGraph dataDir)
 
     /// Fail-fast wrapper around `tryLoadState`.
-    let loadState (dataDir: string) : State =
+    let loadState (dataDir: string) : GraphAtEvent =
         match tryLoadState dataDir with
         | Ok state -> state
         | Error msg -> failwith msg

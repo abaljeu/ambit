@@ -23,7 +23,7 @@ The version is `State.eventId`. `EventId` lives in `src/Shared/History.fs` today
 - `PersistState`, `DocumentState`, `DocumentState.fromParts`, `Node.Create`, and `Node.withPersistState` in `src/Shared/Model.fs`
 - `Notice` in `src/Shared/History.fs`
 - `State` in `src/Shared/History.fs`
-- `PersistHandlers.applyEvent` in `src/Server/Core/CoreMsg.fs`
+- `CoreMailboxAccess.applyEvent` in `src/Server/Core/CoreMsg.fs`
 - `PersistThreadDeps.currentState` in `src/Server/Core/PersistThread.fs`
 - `GraphProjection.NodePersistenceRow` in `src/Shared/GraphProjection.fs`
 - `Database.NodeDbRow` in `src/Server/Database.fs`

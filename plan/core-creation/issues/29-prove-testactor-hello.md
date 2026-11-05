@@ -23,7 +23,7 @@ Live query, cancel, host-stop, fail, post-twice, duplicate terminal, Interrupted
 
 ### 1. Shared Core mailbox foundation
 
-Prerequisite for the hello proof. Land Actor cases on the one Core mailbox per arch Story paths 1–2 and Module map (**CoreMsg / CoreMailboxBackend**, **CoreMailbox**, **CoreActorPool**, **History**). Sources: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/Core/CoreActorPool.fs]]. Persist stays PersistHandlers (Point 0). `type ActorResult = | ActorSucceeded`. No second mailbox, nested `ActorMsg` pump, or second live registry.
+Prerequisite for the hello proof. Land Actor cases on the one Core mailbox per arch Story paths 1–2 and Module map (**CoreMsg / CoreMailboxBackend**, **CoreMailbox**, **CoreActorPool**, **History**). Sources: [[src/Server/Core/CoreMailbox.fs]], [[src/Server/Core/CoreMailboxBackend.fs]], [[src/Server/Core/CoreActorPool.fs]]. Persist stays CoreMailboxAccess (Point 0). `type ActorResult = | ActorSucceeded`. No second mailbox, nested `ActorMsg` pump, or second live registry.
 
 1. [ ] Live registry is only CoreActorPool’s synchronized table — arch **CoreActorPool**
 2. [ ] `StartActor` on CoreMsg: validate credentials, async handoff to CoreActorPool.startActor — arch **CoreMsg / CoreMailboxBackend**

@@ -36,13 +36,13 @@ let private postOps host ops =
 let private seedWorkspaceFile host label fileName =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph label
         postOps host wsOps
         let! state1 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -56,13 +56,13 @@ let private seedWorkspaceFile host label fileName =
 let private seedDocsFile host =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
         postOps host wsOps
         let! state1 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let dirId, dirOps =
             FileNodeOps.planCreateOwnedDirectory
@@ -71,7 +71,7 @@ let private seedDocsFile host =
                 "docs"
         postOps host dirOps
         let! state2 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state2 = requireOk "state2" state2
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -83,7 +83,7 @@ let private seedDocsFile host =
     }
 
 let private graphHasText host fileId text =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> false
     | Ok state ->
         Graph.children state.graph fileId
@@ -454,7 +454,7 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -498,7 +498,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -523,7 +523,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -539,7 +539,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
     }
 
 let private ownedNames (host: MailboxHost) (parentId: NodeId) =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> []
     | Ok state ->
         Graph.children state.graph parentId
@@ -645,14 +645,14 @@ let ``File Load push parses when the parse thread pops it`` () =
     }
 
 let private parseStateOf host nodeId =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Map.tryFind nodeId state.graph.nodes
         |> Option.map (fun node -> node.documentState.parseState)
 
 let private childIdNamed host parentId name =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Graph.children state.graph parentId
@@ -724,7 +724,7 @@ let ``second Load of a Parsed File is parsed again`` () =
             CoreMailboxApi.dispose host
     }
 
-let private applyEvents (state: State) (events: Ev list) : State =
+let private applyEvents (state: GraphAtEvent) (events: Ev list) : GraphAtEvent =
     List.fold
         (fun current event ->
             match Ev.apply event current with
@@ -783,7 +783,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
                     2000
             Assert.True(ready, "first Load should parse HELLO")
             let! heldResult =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let held = requireOk "held" heldResult
             Assert.Equal(Current, held.graph.nodes.[fileId].documentState.AsEnum)
             File.WriteAllText(diskPath, "AGAIN\n")
@@ -902,7 +902,7 @@ let private openParse (dataDir: string) =
     host
 
 let private stateOf host =
-    CoreMailboxApi.getState host
+    CoreMailboxApi.graphAtEvent host
     |> Async.RunSynchronously
     |> requireOk "state"
 
@@ -918,7 +918,7 @@ let private childNamed host parentId name =
 let private holdCurrentChild host dataDir =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
@@ -1049,7 +1049,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
             let side = childNamed host dirId "side" |> Option.get
             Assert.Empty(Graph.children (stateOf host).graph side.id)
             let! heldResult =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let held = requireOk "held" heldResult
             let! childLoad =
                 CoreMailboxApi.mbLoadNode host testCaller side.id

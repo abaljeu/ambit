@@ -299,7 +299,7 @@ module LazyLoadReconciliationServer =
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
-            let! stateResult = CoreDoor.getState workspace.handle
+            let! stateResult = CoreDoor.graphAtEvent workspace.handle
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->

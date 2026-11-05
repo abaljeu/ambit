@@ -135,7 +135,7 @@ module ChangeAmendment =
             tryAmendReplace graph parentId anchor newList message
         | _ -> Error message
 
-    let private buildAmendedOps (ops: Op list) (state: State) : Result<Op list, string> =
+    let private buildAmendedOps (ops: Op list) (state: GraphAtEvent) : Result<Op list, string> =
         let rec applyReplacement replacement current acc rest =
             match replacement with
             | [] -> foldOps rest current acc
@@ -169,7 +169,7 @@ module ChangeAmendment =
 
     /// A detected file's new node starts Current from NewSpecialNode.
     /// Parse apply marks it Unparsed so the outline parse is not skipped.
-    let private writeCreatedUnparsed (ops: Op list) (state: State) =
+    let private writeCreatedUnparsed (ops: Op list) (state: GraphAtEvent) =
         createdSpecialIds ops
         |> List.fold (fun current id ->
             match NoticeGraph.writeGraph (Notice.NodeUnparsed id) current.graph with
@@ -194,7 +194,7 @@ module ChangeAmendment =
         (guardUnparsed: bool)
         (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
         match
@@ -221,7 +221,7 @@ module ChangeAmendment =
             err, false, ops
 
     /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
-    let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
+    let applyOps (ops: Op list) (state: GraphAtEvent) : ApplyResult * bool * Op list =
         applyMarked true (Some EventId.zero) ops state
 
     /// Disk parse (`commandName` Parse) applies without writing PersistState.
@@ -231,7 +231,7 @@ module ChangeAmendment =
         (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
         applyMarked
@@ -246,7 +246,7 @@ module ChangeAmendment =
         (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
         let result, amended, applied =
@@ -264,7 +264,7 @@ module ChangeAmendment =
         (eventId: EventId)
         (event: Ev)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list =
         let result, amended, applied =
             applyMarked

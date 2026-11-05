@@ -64,7 +64,7 @@ module ModelBuilder =
         |> replaceInsert (id 3) [ id 9 ]
         |> replaceInsert (id 5) [ id 10 ]
 
-    let createState12 () : State =
+    let createState12 () : GraphAtEvent =
         { graph = createDag12 ()
           eventId = EventId.zero }
 

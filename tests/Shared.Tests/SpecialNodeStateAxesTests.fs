@@ -20,7 +20,7 @@ let private apply (ops: Op list) (graph: Graph) : Graph =
     | ApplyResult.Unchanged state -> state.graph
     | ApplyResult.Invalid(_, msg) -> failwith msg
 
-let private freshState (graph: Graph) : State =
+let private freshState (graph: Graph) : GraphAtEvent =
     { graph = graph; eventId = EventId.zero }
 
 let private artifact (kind: SpecialKind) (name: string) : Graph * NodeId =

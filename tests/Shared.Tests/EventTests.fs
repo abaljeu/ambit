@@ -25,7 +25,7 @@ let private startRequest () : ActorStart =
       graphIds = [ zoom ]
       eventId = EventIdFixtures.storedId 4 }
 
-let private textState () : State * NodeId =
+let private textState () : GraphAtEvent * NodeId =
     let graph, ids =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
     { graph = graph; eventId = EventId.zero }, List.head ids

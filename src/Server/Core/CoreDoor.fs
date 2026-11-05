@@ -19,8 +19,8 @@ module CoreDoor =
     let forCaller caller (door: CoreChangesDoor) =
         { door with caller = caller }
 
-    let getState door =
-        CoreMailboxApi.getState door.host
+    let graphAtEvent door =
+        CoreMailboxApi.graphAtEvent door.host
 
     let getEventId door =
         CoreMailboxApi.getEventId door.host

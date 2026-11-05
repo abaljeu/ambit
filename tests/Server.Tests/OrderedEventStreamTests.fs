@@ -150,7 +150,7 @@ let private waitHello host focusId timeoutMs = task {
         not found
         && (DateTime.UtcNow - started).TotalMilliseconds < float timeoutMs
         do
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         match state with
         | Ok graphState ->
             let helloChild child =

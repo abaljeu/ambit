@@ -13,7 +13,7 @@ coding
   - `src/Shared/History.fs` (where `Notice` is defined)
   - `src/Shared/EventJson.fs`
   - `src/Server/Database.fs`
-  - `src/Server/Core/CoreMsg.fs` (where `PersistHandlers` is defined)
+  - `src/Server/Core/CoreMsg.fs` (where `CoreMailboxAccess` is defined)
   - `src/Server/Core/CoreMailboxLoad.fs`
   - `src/Server/Core/FileAgent.fs`
   - `src/Server/Core/DbAgent.fs`
@@ -25,7 +25,7 @@ coding
   - `tests/Server.Tests/PersistThreadTests.fs`
 - Types:
   - `Notice`
-  - `PersistHandlers`
+  - `CoreMailboxAccess`
 - Functions:
   - `EventJson.encodeNodeStamped`, `EventJson.encodeNotice`, `EventJson.decodeNodeStamped`, `EventJson.decodeNoticeBody`
   - `Database.writeNoticeRow`
@@ -35,7 +35,7 @@ coding
   - `EventLogFile.readAllEvents`, `DbAgent.loadReconciled`
 
 ## 4. Context
-After [83 — NodePersisted takes over NodeStamped's work](83-nodepersisted-takes-over-nodestamped-work.md), nothing in `src/` posts `Notice.NodeStamped`. Its `applyNotice` arm logs it and keeps the graph. `PersistHandlers.noteStamped` runs from the `NodePersisted` arm. An event log written earlier can hold `nodeStamped` rows.
+After [83 — NodePersisted takes over NodeStamped's work](83-nodepersisted-takes-over-nodestamped-work.md), nothing in `src/` posts `Notice.NodeStamped`. Its `applyNotice` arm logs it and keeps the graph. `CoreMailboxAccess.noteStamped` runs from the `NodePersisted` arm. An event log written earlier can hold `nodeStamped` rows.
 
 ## 5. Changes
 - Delete `Notice.NodeStamped` from `src/Shared/History.fs`. Each match on `Notice` that names it changes:
@@ -44,7 +44,7 @@ After [83 — NodePersisted takes over NodeStamped's work](83-nodepersisted-take
   - `Database.writeNoticeRow`
   - `CoreMailboxLoad.applyNotice`
 - An old `nodeStamped` row fails to decode. `EventLogFile.readAllEvents` and `DbAgent.loadReconciled` skip a row that fails to decode.
-- Rename `PersistHandlers.noteStamped` to `notePersisted`. Each record that sets it changes:
+- Rename `CoreMailboxAccess.noteStamped` to `notePersisted`. Each record that sets it changes:
   - `CoreMailboxLoad.failedPersist` and the `NodePersisted` arm of `applyNotice`
   - `FileAgent.persistHandlers` (`noteStamped = ignore` becomes `notePersisted = ignore`)
   - `DbAgent.persistHandlers` (`DbAgent.noteStamped` becomes `notePersisted`)

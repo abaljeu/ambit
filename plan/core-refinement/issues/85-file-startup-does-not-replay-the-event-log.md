@@ -19,7 +19,7 @@ coding
 - Types:
   - `FileAgent.LoadedFile` (fields `persistClean`, `lastPersisted`, `pendingCheckpoint`)
   - `EventLog`, `State`
-  - `PersistHandlers`
+  - `CoreMailboxAccess`
 - Functions:
   - `FileAgent.reconcileLoaded`, `FileAgent.loadOrFail`, `FileAgent.openLoaded`, `FileAgent.startPersist`, `FileAgent.createWithDependencies`
   - `FileAgent.persistCollected`, `FileAgent.takeCheckpoint`, `FileAgent.noteStamped`, `FileAgent.persistHandlers`

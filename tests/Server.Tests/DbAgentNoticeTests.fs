@@ -32,7 +32,7 @@ let private postFile (agent: DbAgent) = task {
 
 let private apply (mailbox: MailboxHost) (notice: Notice) = task {
     CoreMailboxApi.postNotice mailbox notice
-    let! state = CoreMailboxApi.getState mailbox |> Async.StartAsTask
+    let! state = CoreMailboxApi.graphAtEvent mailbox |> Async.StartAsTask
     match state with
     | Error err -> fail "state" err
     | Ok _ -> ()

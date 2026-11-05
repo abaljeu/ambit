@@ -4,7 +4,7 @@ open Gambol.Shared
 
 type LoadSaveCommandRouter =
     { resolvePath:
-        State -> LoadSaveCommandRequest -> Result<LoadSavePath, string>
+        GraphAtEvent -> LoadSaveCommandRequest -> Result<LoadSavePath, string>
       startCommand:
         LoadSavePath ->
         LoadSaveCommandRequest ->
@@ -15,7 +15,7 @@ module LoadSaveRouting =
 
     let resolvePath
         (dataDir: string)
-        (state: State)
+        (state: GraphAtEvent)
         (request: LoadSaveCommandRequest)
         : Result<LoadSavePath, string> =
         let choice =

@@ -657,7 +657,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
         { graph = graph0; eventId = EventId.zero }
-    let applyOps (s: State) ops =
+    let applyOps (s: GraphAtEvent) ops =
         ops
         |> List.fold
             (fun st op ->
@@ -743,7 +743,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
         { graph = graph0; eventId = EventId.zero }
-    let applyOps (s: State) ops =
+    let applyOps (s: GraphAtEvent) ops =
         ops
         |> List.fold
             (fun st op ->
@@ -861,7 +861,7 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
 
     applyParseThenCurrent graph noteId ops |> ignore
 
-let private applyOpsState (s: State) (ops: Op list) : State =
+let private applyOpsState (s: GraphAtEvent) (ops: Op list) : GraphAtEvent =
     ops
     |> List.fold
         (fun st op ->
@@ -956,7 +956,7 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
         |> requireOk "planParseFile"
     applyParseThenCurrent graph fileId ops |> ignore
 
-let private markDocumentCurrent id (state: State) =
+let private markDocumentCurrent id (state: GraphAtEvent) =
     let graph =
         Graph.setParseState id ParseState.Parsed state.graph
         |> requireOk "mark current"

@@ -78,7 +78,7 @@ let private stateResponse (graph: Graph) (revision: int) =
 let private handleForLoad
     (_revision: int)
     (events: Ev list)
-    (state: State)
+    (state: GraphAtEvent)
     : CoreChangesDoor =
     doorForReads (fun () -> Result.Ok state) (fun _ -> events)
 

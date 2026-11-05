@@ -6,7 +6,7 @@
 coding
 
 ## 2. Blockers
-- [x] [72 — Push parsed nodes to the persist stack](72-push-parsed-nodes-to-the-persist-stack.md). It adds `PersistHandlers.pushPersist` and `PersistRequestStack.pushBoundNode`.
+- [x] [72 — Push parsed nodes to the persist stack](72-push-parsed-nodes-to-the-persist-stack.md). It adds `CoreMailboxAccess.pushPersist` and `PersistRequestStack.pushBoundNode`.
 
 ## 3. Look at
 - Files:
@@ -15,11 +15,11 @@ coding
   - `src/Shared/DocumentOpImpact.fs`
   - `src/Server/Core/FileAgent.fs`
   - `src/Server/Core/DbAgent.fs`
-  - `src/Server/Core/CoreMsg.fs` (where `PersistHandlers` is defined)
+  - `src/Server/Core/CoreMsg.fs` (where `CoreMailboxAccess` is defined)
   - `tests/Server.Tests/TestBackend.fs`
   - `tests/Server.Tests/FileAgentFailureTests.fs`
 - Types:
-  - `PersistHandlers`
+  - `CoreMailboxAccess`
   - `CoreEventDispatch.Context`
   - `PersistRequest`
   - `Notice.NodePersisting`

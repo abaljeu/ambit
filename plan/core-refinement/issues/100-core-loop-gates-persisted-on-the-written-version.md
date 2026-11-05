@@ -18,7 +18,7 @@ bug-fixing
   - `src/Server/Core/PersistThread.fs`
   - `tests/Server.Tests/CoreLoopNoticeTests.fs`
 - Types:
-  - `PersistState`, `DocumentState`, `Notice`, `PersistHandlers`
+  - `PersistState`, `DocumentState`, `Notice`, `CoreMailboxAccess`
 - Functions:
   - `CoreMailboxLoad.applyNotice` (the `Notice.NodePersisted` arm), `CoreMailboxLoad.writePersisted`, `CoreMailboxLoad.stampUpdateTime`
   - `CoreEventDispatch.pushChangeSpecials`, `CoreEventDispatch.persistedNode`

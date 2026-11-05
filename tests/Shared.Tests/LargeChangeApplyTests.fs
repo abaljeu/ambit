@@ -13,7 +13,7 @@ module Enc = Thoth.Json.Newtonsoft.Encode
 /// the size of the whole graph.
 let private nodeCount = 2000
 
-let private baseState () : State =
+let private baseState () : GraphAtEvent =
     let graph0 = Graph.create ()
     let filler =
         List.init nodeCount (fun i ->
@@ -37,13 +37,13 @@ let private parseLikeChange (parentId: NodeId) : Ev =
 
 let private eventOps = SpecialNodeTestHelpers.eventOps
 
-let private applied (state: State) (event: Ev) : State =
+let private applied (state: GraphAtEvent) (event: Ev) : GraphAtEvent =
     match Ev.apply event state with
     | ApplyResult.Changed s -> s
     | ApplyResult.Unchanged s -> s
     | ApplyResult.Invalid(_, msg) -> failwithf "apply failed: %s" msg
 
-let private undoEvent (event: Ev) (state: State) : ApplyResult =
+let private undoEvent (event: Ev) (state: GraphAtEvent) : ApplyResult =
     let ops = eventOps event
     let step (accState, hasChanged) op =
         match Op.undo op accState with

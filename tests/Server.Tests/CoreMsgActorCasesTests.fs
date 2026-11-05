@@ -129,7 +129,7 @@ let ``GetState stamps lockPresent from the live table after startActor`` () =
             |> Async.StartAsTask
         requireOk "StartActor" started
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "GetState" state
         Assert.True(state.graph.nodes.[sampleRequest.focusId].lockPresent)
@@ -168,7 +168,7 @@ let ``StartActor with blank Authority does not hand off`` () =
     })
 
 [<Fact>]
-let ``Actor PostChange with live row reaches PersistHandlers`` () =
+let ``Actor PostChange with live row reaches CoreMailboxAccess`` () =
     let _, _, live, pool = recordingPool ()
     let actorSecret = Credential "actor-live"
     live.Add actorSecret

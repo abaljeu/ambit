@@ -72,7 +72,7 @@ module internal CoreMailboxEvents =
     }
 
     type MailboxContext = {
-        persist: PersistHandlers
+        persist: CoreMailboxAccess
         pool: CoreActorPool
         parsePush: NodeId -> Result<unit, string>
         onError: string -> string -> exn -> unit
@@ -100,7 +100,7 @@ module internal CoreMailboxEvents =
           restartTip = context.restartTip }
 
     let graphNow context =
-        match context.persist.getState () with
+        match context.persist.graphAtEvent () with
         | Ok state -> state.graph
         | Error _ -> Graph.create ()
 

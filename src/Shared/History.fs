@@ -91,7 +91,7 @@ type FunctionActor = FunctionRun -> ActorChanges -> Async<unit>
 and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
-      getState: unit -> Async<Result<State, string>>
+      graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
       loadNode: NodeId -> Async<Result<EventId, string>> }
 
 and [<CustomEquality; NoComparison>] ActorOrder =
@@ -137,7 +137,7 @@ and Ev =
       commandName: string
       body: EventBody }
 
-and State =
+and GraphAtEvent =
     { graph: Graph
       eventId: EventId }
 
@@ -205,9 +205,9 @@ module EventBody =
 
 [<RequireQualifiedAccess>]
 type ApplyResult =
-    | Changed of State
-    | Unchanged of State
-    | Invalid of State * string
+    | Changed of GraphAtEvent
+    | Unchanged of GraphAtEvent
+    | Invalid of GraphAtEvent * string
 
 
 [<RequireQualifiedAccess>]
@@ -220,12 +220,12 @@ module Op =
     let private reservedPathError =
         "owned artifact path contains a reserved system name"
 
-    let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
+    let private fromGraphResult (state: GraphAtEvent) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
 
-    let private fromGraphResultUnchanged (state: State) (result: Result<Graph, string>) : ApplyResult =
+    let private fromGraphResultUnchanged (state: GraphAtEvent) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
@@ -316,7 +316,7 @@ module Op =
     let private applyAllowed
         (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         match op with
@@ -414,7 +414,7 @@ module Op =
         else
             applyAllowed changedVersion op state
 
-    let apply (op: Op) (state: State) : ApplyResult =
+    let apply (op: Op) (state: GraphAtEvent) : ApplyResult =
         applyAllowing true (Some EventId.zero) op state
 
     let internal applyAllAllowing guardUnparsed changedVersion ops state =
@@ -440,7 +440,7 @@ module Op =
         | Ok(s, false) -> ApplyResult.Unchanged s
         | Ok(s, true) -> ApplyResult.Changed s
 
-    let applyAll (ops: Op list) (state: State) : ApplyResult =
+    let applyAll (ops: Op list) (state: GraphAtEvent) : ApplyResult =
         applyAllAllowing true (Some EventId.zero) ops state
 
     let invert (op: Op) : Op =
@@ -463,7 +463,7 @@ module Op =
 
         ops |> List.rev |> List.choose retainReversible
 
-    let private undoAllowed (op: Op) (state: State) : ApplyResult =
+    let private undoAllowed (op: Op) (state: GraphAtEvent) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
@@ -504,7 +504,7 @@ module Op =
                                 { state.graph with
                                     nodes = Map.add nodeId restored state.graph.nodes } }
 
-    let undo (op: Op) (state: State) : ApplyResult =
+    let undo (op: Op) (state: GraphAtEvent) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
@@ -583,7 +583,7 @@ module Ev =
         | Notice.NodePersisted _
         | Notice.ActorStopped _ -> None
 
-    let private applyNotice (notice: Notice) (state: State) : ApplyResult =
+    let private applyNotice (notice: Notice) (state: GraphAtEvent) : ApplyResult =
         match documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
         | Some(nodeId, newState) ->
@@ -591,7 +591,7 @@ module Ev =
             | Ok graph -> ApplyResult.Changed { state with graph = graph }
             | Error msg -> ApplyResult.Invalid(state, msg)
 
-    let apply (event: Ev) (state: State) : ApplyResult =
+    let apply (event: Ev) (state: GraphAtEvent) : ApplyResult =
         match event.body with
         | EventBody.Notice notice -> applyNotice notice state
         | _ ->

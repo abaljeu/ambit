@@ -7,7 +7,7 @@ Actual: 8h15m
 
 ## 1. Context
 
-A live Browser already posts Changes and presents the Login.html session cookie `gambol_auth` ([[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]]). Architecture locks credentialed Change posts on the CoreMailbox door with CoreMsg validating Authority and secret before PersistHandlers — Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg** on [Core creation architecture](plan/core-creation/arch.md).
+A live Browser already posts Changes and presents the Login.html session cookie `gambol_auth` ([[20-client-presents-credential.md]], [[23-close-core-object-seam.md]], [[25-bind-changes-at-core-seam.md]]). Architecture locks credentialed Change posts on the CoreMailbox door with CoreMsg validating Authority and secret before CoreMailboxAccess — Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg** on [Core creation architecture](plan/core-creation/arch.md).
 
 An earlier implement on this ticket partially moved admission into CoreMsg but also pushed credentials into FileAgent / DbAgent / DatabaseSetup and closed a boot-minted GUID into `browserChanges` / `addBoundCredentials`. That is not the target. Treat the current tree as partial/wrong; this ticket describes target behavior and remaining work. Acceptance below is unchecked until the target holds.
 
@@ -15,7 +15,7 @@ Architecture (Story paths, Module map, Seams): [Core creation architecture](plan
 
 ## 2. What to build
 
-Make Browser Change posts credentialed end-to-end with cookie-as-credential and request-carried secrets: Browser presents `gambol_auth` → HTTP Adapter encodes Change + credentials → CoreMailbox credentialed `postChange` → CoreMsg admits against CoreCredentials → PersistHandlers.postChange(changes only). Nothing past CoreMailbox needs credentials (not FileAgent, not DbAgent, not PersistHandlers). Follow arch Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg**. Point at arch Module map for State / Interface / Uses.
+Make Browser Change posts credentialed end-to-end with cookie-as-credential and request-carried secrets: Browser presents `gambol_auth` → HTTP Adapter encodes Change + credentials → CoreMailbox credentialed `postChange` → CoreMsg admits against CoreCredentials → CoreMailboxAccess.postChange(changes only). Nothing past CoreMailbox needs credentials (not FileAgent, not DbAgent, not CoreMailboxAccess). Follow arch Story path **Browser Change posts** and shared segment **Credentialed `PostChange` through CoreMsg**. Point at arch Module map for State / Interface / Uses.
 
 ### Credential identity
 
@@ -37,7 +37,7 @@ Make Browser Change posts credentialed end-to-end with cookie-as-credential and 
 
 ### What this increment avoids
 
-Actor live-table admit (Story path **Browser Run hello** hop admit-before-`PostChange`), StartActor, TestActor hello, Outside Core lifecycle proof, new Browser chrome or controls, PersistHandlers widening (still changes-only after admit), Actor `PostChange` beyond the shared CoreMsg credential check that Browser posts also use, any CoreActor / CoreActorPool deltas for this round, and `auth.Disabled` skip of cookie checks.
+Actor live-table admit (Story path **Browser Run hello** hop admit-before-`PostChange`), StartActor, TestActor hello, Outside Core lifecycle proof, new Browser chrome or controls, CoreMailboxAccess widening (still changes-only after admit), Actor `PostChange` beyond the shared CoreMsg credential check that Browser posts also use, any CoreActor / CoreActorPool deltas for this round, and `auth.Disabled` skip of cookie checks.
 
 ### 1. Undo mistaken deltas
 
@@ -72,17 +72,17 @@ Transport encoding. Contracts on arch **HTTP Adapter**.
 Public door. Contracts on arch **CoreMailbox**; Seam **CoreMailbox door**.
 
 1. [x] Credentialed `postChange` — public `postChange` takes Change list plus Browser Authority and secret (same door Browser and Actor will share; this ticket exercises Browser only)
-2. [x] Validation stops here — after CoreMsg admit, PersistHandlers and File/Db see changes only
+2. [x] Validation stops here — after CoreMsg admit, CoreMailboxAccess and File/Db see changes only
 
 ### 5. CoreMsg / CoreMailboxBackend
 
 Mailbox validation before persist. Contracts on arch **CoreMsg / CoreMailboxBackend**; Seam **Credentialed Change posts**; shared segment **Credentialed `PostChange` through CoreMsg**.
 
 1. [x] `PostChange` carries credentials — every `PostChange` (Browser path here) requires Authority and secret on the message
-2. [x] Validate before PersistHandlers — CoreMsg validates Browser credentials before calling PersistHandlers
-3. [x] PersistHandlers stays changes-only — `postChange` after admit does not take credentials
-4. [x] Live admits — a live Browser credential (cookie value seeded / added) is admitted and the Change reaches PersistHandlers
-5. [x] Inactive refuses — a missing cookie is Adapter HTTP 401 without CoreMailbox; a present but inactive cookie is the same auth refuse (Adapter `contains` and/or CoreMsg); PersistHandlers is not called for that refuse
+2. [x] Validate before CoreMailboxAccess — CoreMsg validates Browser credentials before calling CoreMailboxAccess
+3. [x] CoreMailboxAccess stays changes-only — `postChange` after admit does not take credentials
+4. [x] Live admits — a live Browser credential (cookie value seeded / added) is admitted and the Change reaches CoreMailboxAccess
+5. [x] Inactive refuses — a missing cookie is Adapter HTTP 401 without CoreMailbox; a present but inactive cookie is the same auth refuse (Adapter `contains` and/or CoreMsg); CoreMailboxAccess is not called for that refuse
 6. [x] No Actor live-table admit — this ticket does not require CoreActorPool live-row admit (that stays with hello Story paths)
 
 ### 6. CoreRuntime seed
@@ -95,7 +95,7 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 
 ## 3. Out of scope
 
-1. FileAgent / DbAgent / PersistHandlers credential parameters (undo if present; do not add)
+1. FileAgent / DbAgent / CoreMailboxAccess credential parameters (undo if present; do not add)
 2. CoreActor / CoreActorPool changes for this round (undo if present; do not add)
 3. Persisting the credential set across restarts (option 3)
 4. Invisible stored-password re-login after restart for web (option 1)
@@ -109,7 +109,7 @@ Boot seed for Browser credential. Contracts on arch **CoreRuntime**.
 ## 5. Comments
 
 - 2026-09-13 — Filed via `/to-tickets` narrowed to Story path **Browser Change posts** only (tracer-cut). Paths 1–2 not ticketed here.
-- 2026-09-13 — Partial implement: `PostChange` carries Authority + secret; CoreMsg admits before PersistHandlers; CoreMailbox credentialed door; Browser path stamped via `browserChanges` / `Authority "Browser"`. Seam tests in CredentialedChangePostsTests. Also wrongly threaded credentials into File/Db/DatabaseSetup and closed a boot GUID into `browserChanges` / `addBoundCredentials`.
+- 2026-09-13 — Partial implement: `PostChange` carries Authority + secret; CoreMsg admits before CoreMailboxAccess; CoreMailbox credentialed door; Browser path stamped via `browserChanges` / `Authority "Browser"`. Seam tests in CredentialedChangePostsTests. Also wrongly threaded credentials into File/Db/DatabaseSetup and closed a boot GUID into `browserChanges` / `addBoundCredentials`.
 - 2026-09-13 — Redesign locked: cookie `gambol_auth` is the credential; seed at boot with `AuthToken.deriveToken(Auth config)`; request-carried creds validate at CoreMailbox only; undo File/Db/CoreActor/CoreActorPool/GUID deltas. Status returned to `ready-for-agent`; acceptance unchecked until target holds. Arch Story path **Browser Change posts** still shows `[x]` — align [Core creation architecture](plan/core-creation/arch.md) when reconciling (prefer this ticket as source of truth for remaining work).
 - 2026-09-13 — Re-implement against redesign: File/Db take MailboxStarter (no CoreCredentials); createFile/createDb take starter; boot seeds `deriveToken`; Change posts carry request cookie; login `credentials.add`; request path reseeds cookie into the set.
 - 2026-09-14 — Spec-gap fix after review of `4008e8d`: state/poll/load use request cookie; missing cookie refuses (no closed-over fallback); client reacts to DeployEpochSec restart/initial-load; boot+login `credentials.add` only.

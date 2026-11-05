@@ -27,7 +27,7 @@ let private postChange (host: MailboxHost) (ops: Op list) =
     |> ignore
 
 let private readGraph (host: MailboxHost) =
-    CoreMailboxApi.getState host
+    CoreMailboxApi.graphAtEvent host
     |> Async.RunSynchronously
     |> requireOk "state"
     |> fun state -> state.graph

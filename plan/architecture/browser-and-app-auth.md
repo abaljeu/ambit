@@ -15,8 +15,8 @@ This page records how the Browser and the App present authorization to the Serve
 2. **Derived token** — The Server computes the value with `AuthToken.deriveToken` from Auth config username and password ([[src/Server/AuthToken.fs]]). Login and boot seed use the same function.
 3. **Request-carried** — Every Browser API request carries `gambol_auth`. The Server reads the cookie from that request. The Server does not close over a boot secret and attach it when the cookie is missing.
 4. **Missing cookie refuses** — A missing or blank cookie is refused. The Adapter returns HTTP 401 and does not call CoreMailbox.
-5. **Cookie not in set refuses** — A present cookie that is not in the CoreCredentials allowed set is the same auth refuse (HTTP 401). The Adapter may `contains` at the door. That check is before CoreMsg enqueue. It is not persist logic. PersistHandlers stays after CoreMsg admit.
-6. **Mailbox second line** — CoreMsg still admits Authority and secret for a bad or inactive cookie that reaches the mailbox. PersistHandlers is not called for that refuse.
+5. **Cookie not in set refuses** — A present cookie that is not in the CoreCredentials allowed set is the same auth refuse (HTTP 401). The Adapter may `contains` at the door. That check is before CoreMsg enqueue. It is not persist logic. CoreMailboxAccess stays after CoreMsg admit.
+6. **Mailbox second line** — CoreMsg still admits Authority and secret for a bad or inactive cookie that reaches the mailbox. CoreMailboxAccess is not called for that refuse.
 
 ## 3. Browser
 
@@ -39,8 +39,8 @@ This page records how the Browser and the App present authorization to the Serve
 ## 5. Core
 
 1. **Boot seed** — CoreRuntime adds `AuthToken.deriveToken` from Auth config user and password to CoreCredentials at Server start ([[src/Server/Core/CoreRuntime.fs]]).
-2. **Mailbox validates before action** — CoreMailbox `postChange` takes the Change list plus Authority and secret. CoreMsg admits the secret against CoreCredentials before PersistHandlers ([[src/Server/Core/CoreMailboxBackend.fs]]).
-3. **File and Db do not handle credentials** — After admit, PersistHandlers, FileAgent, and DbAgent see Changes only.
+2. **Mailbox validates before action** — CoreMailbox `postChange` takes the Change list plus Authority and secret. CoreMsg admits the secret against CoreCredentials before CoreMailboxAccess ([[src/Server/Core/CoreMailboxBackend.fs]]).
+3. **File and Db do not handle credentials** — After admit, CoreMailboxAccess, FileAgent, and DbAgent see Changes only.
 4. **Set membership** — CoreCredentials is an in-memory set. Boot seed and login `add` the Browser token. The set is not persisted. A restart creates a new set and seeds the same derived token.
 5. **Other secrets** — CoreCredentials also holds non-Browser secrets (Parse, later Actors). Those secrets are not `gambol_auth`.
 

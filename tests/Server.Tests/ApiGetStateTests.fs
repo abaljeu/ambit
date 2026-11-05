@@ -28,7 +28,7 @@ let private requireOk label result =
         Unchecked.defaultof<_>
 
 let private handleWithGetState
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     : CoreChangesDoor =
     doorForReads readState (fun _ -> [])
 

@@ -9,7 +9,7 @@ open Xunit
 
 let private owned = ChildNode.owners
 
-let private expectChanged (result: ApplyResult) : State =
+let private expectChanged (result: ApplyResult) : GraphAtEvent =
     match result with
     | ApplyResult.Changed state -> state
     | ApplyResult.Unchanged _ -> failwith "expected Changed, got Unchanged"

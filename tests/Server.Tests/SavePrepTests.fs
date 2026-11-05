@@ -9,7 +9,7 @@ open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 
-let private stateWithRootChild (text: string) : State =
+let private stateWithRootChild (text: string) : GraphAtEvent =
     let childId = NodeId.New()
     let change =
         { id = EventId.zero

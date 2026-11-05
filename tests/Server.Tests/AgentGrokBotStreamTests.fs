@@ -67,7 +67,7 @@ let private ambitPrompt =
 let private packedExtract host (seeded: SeededAsk) =
     task {
         let! state =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         match state with
         | Error err ->
             Assert.Fail(err)

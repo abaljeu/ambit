@@ -169,7 +169,7 @@ let ``blank text returns no ids`` () =
     let got = walk "   " graph.root graph
     Assert.Empty(got.ids)
 
-let private stateOf (graph: Graph) : State =
+let private stateOf (graph: Graph) : GraphAtEvent =
     { graph = graph
       eventId = EventId.zero }
 
@@ -216,7 +216,7 @@ let ``postSearch records ActorStart at the root`` () = task {
     let dir = newTempDir ()
     let host, handle = createAdmittedFile dir
     try
-        let! stateResult = CoreDoor.getState handle |> Async.StartAsTask
+        let! stateResult = CoreDoor.graphAtEvent handle |> Async.StartAsTask
         let state =
             match stateResult with
             | Ok state -> state

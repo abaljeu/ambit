@@ -95,7 +95,7 @@ let private clearFake () =
 
 let private graphState host =
     task {
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         return requireOk "getState" state
     }
 

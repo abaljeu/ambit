@@ -5,19 +5,19 @@ open Gambol.Shared
 open GraphChildMapHelpers
 open Xunit
 
-let private expectChanged (result: ApplyResult) : State =
+let private expectChanged (result: ApplyResult) : GraphAtEvent =
     match result with
     | ApplyResult.Changed state -> state
     | ApplyResult.Unchanged _ -> failwith "expected Changed, got Unchanged"
     | ApplyResult.Invalid(_, msg) -> failwithf "expected Changed, got Invalid: %s" msg
 
-let private expectInvalid (result: ApplyResult) : State * string =
+let private expectInvalid (result: ApplyResult) : GraphAtEvent * string =
     match result with
     | ApplyResult.Invalid(state, msg) -> state, msg
     | ApplyResult.Changed _ -> failwith "expected Invalid, got Changed"
     | ApplyResult.Unchanged _ -> failwith "expected Invalid, got Unchanged"
 
-let private findNodeByText (text: string) (state: State) : Node =
+let private findNodeByText (text: string) (state: GraphAtEvent) : Node =
     state.graph.nodes
     |> Map.toSeq
     |> Seq.map snd
@@ -860,7 +860,7 @@ let private reachableStructure (graph: Graph) =
 
     walk graph.root (Set.empty, Map.empty) |> snd
 
-let private applyUndoRedo (ops: Op list) (state: State) =
+let private applyUndoRedo (ops: Op list) (state: GraphAtEvent) =
     let before = reachableStructure state.graph
     let changed = ChangeValidation.applyOps ops state |> expectChanged
     let after = reachableStructure changed.graph

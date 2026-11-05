@@ -100,7 +100,7 @@ module internal CoreMailboxLoop =
             rejectDropped msg
 
     let internal applyNotice
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (msg: Notice)
         : Result<unit, string> =
         match msg with
@@ -214,8 +214,8 @@ module internal CoreMailboxLoop =
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
-        | Query.State reply ->
-            match context.persist.getState () with
+        | Query.GraphAtEvent reply ->
+            match context.persist.graphAtEvent () with
             | Error err -> reply.Reply(Error err)
             | Ok state ->
                 let graph =
@@ -236,14 +236,14 @@ module internal CoreMailboxLoop =
 
     let private queryOperation query =
         match query with
-        | Query.State _ -> "State", ""
+        | Query.GraphAtEvent _ -> "GraphAtEvent", ""
         | Query.LastEventId _ -> "LastEventId", ""
         | Query.EventsSince (after, _) ->
             "EventsSince", $"after={after}"
 
     let private replyQueryFailure error query =
         match query with
-        | Query.State reply -> reply.Reply(Error error)
+        | Query.GraphAtEvent reply -> reply.Reply(Error error)
         | Query.LastEventId reply -> reply.Reply(Error error)
         | Query.EventsSince (_, reply) -> reply.Reply(Error error)
 
@@ -294,8 +294,8 @@ module internal CoreMailboxLoop =
         | CoreQueue.Shutdown reply ->
             reply.Reply()
 
-    let private failedPersist (persist: PersistHandlers) error : PersistHandlers = {
-        getState = persist.getState
+    let private failedPersist (persist: CoreMailboxAccess) error : CoreMailboxAccess = {
+        graphAtEvent = persist.graphAtEvent
         getEventId = persist.getEventId
         getEventsSince = persist.getEventsSince
         getEventLog = persist.getEventLog
@@ -309,11 +309,11 @@ module internal CoreMailboxLoop =
         noteWriteFailed = persist.noteWriteFailed
     }
 
-    let private failedSeed persist error : PersistHandlers =
+    let private failedSeed persist error : CoreMailboxAccess =
         { failedPersist persist error with
             getEventsSince = fun _ -> Error error }
 
-    let private seedEventLog (persist: PersistHandlers) =
+    let private seedEventLog (persist: CoreMailboxAccess) =
         try
             // getEventsSince must be healthy before we trust getEventLog for seed;
             // otherwise a broken Poll door would leave writes open.
@@ -328,7 +328,7 @@ module internal CoreMailboxLoop =
 
     let private pushReporting
         (persist: PersistFilling)
-        (handlers: PersistHandlers)
+        (handlers: CoreMailboxAccess)
         (rawPush: NodeId -> unit)
         (nodeId: NodeId)
         =
@@ -393,7 +393,7 @@ module internal CoreMailboxLoop =
 
     let private isStartupRead (message: Mailbox) =
         match message with
-        | Mailbox.Ask (Query.State _)
+        | Mailbox.Ask (Query.GraphAtEvent _)
         | Mailbox.Ask (Query.LastEventId _)
         | Mailbox.Ask (Query.EventsSince _) -> true
         | Mailbox.CoreMsg _

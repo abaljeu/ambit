@@ -279,9 +279,9 @@ module ChangeValidation =
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 
-    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
+    let applyOpsTrusted (ops: Op list) (state: GraphAtEvent) : ApplyResult =
         Op.applyAll ops state
 
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
+    let applyOps (ops: Op list) (state: GraphAtEvent) : ApplyResult =
         applyOpsAllowing true (Some EventId.zero) ops state
 

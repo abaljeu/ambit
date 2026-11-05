@@ -11,7 +11,7 @@ module internal CoreEventDispatch =
     module EventLog = Gambol.Shared.EventLog
 
     type Context =
-        { persist: PersistHandlers
+        { persist: CoreMailboxAccess
           eventLog: EventLog ref
           restartTip: EventId }
 
@@ -196,11 +196,11 @@ module internal CoreEventDispatch =
         | _ -> false
 
     let internal writeAxis
-        (persist: PersistHandlers)
+        (persist: CoreMailboxAccess)
         (notice: Gambol.Shared.Notice)
         (mutate: Graph -> Result<Graph, string>)
         : Result<unit, string> =
-        match persist.getState () with
+        match persist.graphAtEvent () with
         | Error err -> Error err
         | Ok state ->
             match mutate state.graph with
@@ -219,7 +219,7 @@ module internal CoreEventDispatch =
         (version: EventId)
         (nodeId: NodeId)
         : Result<unit, string> =
-        match context.persist.getState () with
+        match context.persist.graphAtEvent () with
         | Error err -> Error err
         | Ok state ->
             match Map.tryFind nodeId state.graph.nodes with
@@ -247,7 +247,7 @@ module internal CoreEventDispatch =
         | Gambol.Shared.EventBody.Order (Order.Change _)
         | Gambol.Shared.EventBody.Order (Order.Undo _)
         | Gambol.Shared.EventBody.Order (Order.Redo _) ->
-            match context.persist.getState () with
+            match context.persist.graphAtEvent () with
             | Error err -> Error err
             | Ok state ->
                 let ops =

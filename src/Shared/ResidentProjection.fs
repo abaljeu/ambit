@@ -10,7 +10,7 @@ module ResidentProjection =
         (guardUnparsed: bool)
         (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         match op with
@@ -32,13 +32,13 @@ module ResidentProjection =
         | Op.NewSpecialNode _ ->
             Op.applyAllowing guardUnparsed changedVersion op state
 
-    let applyOp (op: Op) (state: State) : ApplyResult =
+    let applyOp (op: Op) (state: GraphAtEvent) : ApplyResult =
         applyOpAllowing true (Some EventId.zero) op state
 
     /// Document-state Notice for a resident Node.
     /// An absent Node stays unchanged.
     /// Parsing and persist Notices do not write this enum.
-    let internal applyDocumentNotice (notice: Notice) (state: State) : ApplyResult =
+    let internal applyDocumentNotice (notice: Notice) (state: GraphAtEvent) : ApplyResult =
         match Ev.documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
         | Some (nodeId, newState) ->
@@ -53,7 +53,7 @@ module ResidentProjection =
         (guardUnparsed: bool)
         (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         let step (accState, hasChanged) op =
@@ -78,7 +78,7 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
+    let applyOps (ops: Op list) (state: GraphAtEvent) : ApplyResult =
         applyOpsAllowing true (Some EventId.zero) ops state
 
     let private casUserMessage (message: string) =
@@ -116,7 +116,7 @@ module ResidentProjection =
 
     let private undoAllPending
         (sync: SyncPending)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult =
         let inverses = pendingOps sync |> Op.invertAll
         if inverses.IsEmpty then
@@ -126,7 +126,7 @@ module ResidentProjection =
             | ApplyResult.Invalid _ -> ApplyResult.Unchanged state
             | other -> other
 
-    let private stateAfterUndo (result: ApplyResult) (fallback: State) =
+    let private stateAfterUndo (result: ApplyResult) (fallback: GraphAtEvent) =
         match result with
         | ApplyResult.Changed s
         | ApplyResult.Unchanged s -> s
@@ -138,7 +138,7 @@ module ResidentProjection =
         (guardUnparsed: bool)
         (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
         match applyOpAllowing guardUnparsed changedVersion op state with
@@ -157,7 +157,7 @@ module ResidentProjection =
 
     let applyOpForSync
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
         applyOpForSyncAllowing true (Some EventId.zero) op state sync
@@ -166,7 +166,7 @@ module ResidentProjection =
         (guardUnparsed: bool)
         (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
         let step (accState, hasChanged, note) op =
@@ -195,7 +195,7 @@ module ResidentProjection =
 
     let applyOpsForSync
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
         applyOpsForSyncAllowing true (Some EventId.zero) ops state sync

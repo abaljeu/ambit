@@ -35,7 +35,7 @@ module Api =
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
     type private SnapshotAnswer =
-        { state: State
+        { state: GraphAtEvent
           nodes: Node list
           childMap: Map<NodeId, ChildNode list> }
 
@@ -44,7 +44,7 @@ module Api =
         (want: NodeId list)
         : Async<Result<SnapshotAnswer, string>> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return Error err
             | Ok state ->
                 let childMap, nodes =
@@ -120,7 +120,7 @@ module Api =
         (targets: LoadTarget list)
         : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return Error err
             | Ok state ->
                 return
@@ -191,7 +191,7 @@ module Api =
         try
             let scope = parseBootstrapScope req
             let savedZoom = parseSavedZoom req
-            let! result = CoreDoor.getState handle
+            let! result = CoreDoor.graphAtEvent handle
             match result with
             | Ok state ->
                 let response: StateResponse =
@@ -316,7 +316,7 @@ module Api =
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! CoreDoor.getState handle with
+                match! CoreDoor.graphAtEvent handle with
                 | Error err -> return agentErrorResult err
                 | Ok state ->
                     match router.resolvePath state request with
@@ -387,7 +387,7 @@ module Api =
         (handle: CoreChangesDoor)
         : Async<IResult> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return agentErrorResult err
             | Ok state ->
                 let json =
@@ -476,7 +476,7 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
-    /// Search door. `changes` reads State. Start and stop hit the event source.
+    /// Search door. `changes` reads GraphAtEvent. Start and stop hit the event source.
     type SearchActorDoor =
         { changes: CoreChangesDoor
           recordStart:
@@ -486,7 +486,7 @@ module Api =
     let private searchReply
         (door: SearchActorDoor)
         (request: SearchPicture.Request)
-        (state: State)
+        (state: GraphAtEvent)
         : Async<IResult> =
         async {
             let start =
@@ -513,7 +513,7 @@ module Api =
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! CoreDoor.getState door.changes with
+                match! CoreDoor.graphAtEvent door.changes with
                 | Error err -> return agentErrorResult err
                 | Ok state -> return! searchReply door request state
         }
