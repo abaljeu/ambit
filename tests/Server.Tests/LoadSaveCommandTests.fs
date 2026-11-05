@@ -25,7 +25,7 @@ let private request operation prePick nodeId eventId =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          commandId = nodeId
+          actorNodeId = nodeId
           graphIds = [ Graph.rootId; nodeId ]
           eventId = eventId } }
 
@@ -95,7 +95,7 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
 
 type private Seed =
     { workspaceId: NodeId
-      commandId: NodeId
+      actorNodeId: NodeId
       focusId: NodeId
       eventId: EventId }
 
@@ -186,23 +186,23 @@ let private markCurrent host nodeId =
 let private seedWorkspace host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let commandId, focusId = NodeId.New(), NodeId.New()
+    let actorNodeId, focusId = NodeId.New(), NodeId.New()
     postSeed host workspaceOps |> ignore
     let graph = markCurrent host workspaceId
     let children = Graph.children graph workspaceId
     let accepted =
         postSeed
             host
-            [ Op.NewNode(commandId, operationName)
+            [ Op.NewNode(actorNodeId, operationName)
               Op.NewNode(focusId, "focus")
               Op.Replace(
                   workspaceId,
                   children,
                   children
-                  @ [ ChildNode.owner commandId
+                  @ [ ChildNode.owner actorNodeId
                       ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
-      commandId = commandId
+      actorNodeId = actorNodeId
       focusId = focusId
       eventId = accepted.eventId }
 
@@ -243,12 +243,12 @@ let private requestFor operation prePick seed =
       start =
         { zoomId = seed.workspaceId
           focusId = seed.focusId
-          commandId = seed.commandId
+          actorNodeId = seed.actorNodeId
           graphIds =
             [ Graph.rootId
               Graph.workspacesId
               seed.workspaceId
-              seed.commandId
+              seed.actorNodeId
               seed.focusId ]
           eventId = seed.eventId } }
 

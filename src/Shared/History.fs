@@ -26,7 +26,7 @@ type ActorResult =
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
-      commandId: NodeId
+      actorNodeId: NodeId
       graphIds: NodeId list
       eventId: EventId }
 
@@ -90,7 +90,7 @@ type Order =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest
     | Load of nodeId: NodeId
-    | Cancel of focusId: NodeId
+    | CancelActor of focusId: NodeId
 
 [<RequireQualifiedAccess>]
 type EventBody =
@@ -143,11 +143,11 @@ module EventBody =
         | _ -> None
 
     let Cancel (focusId: NodeId) : EventBody =
-        EventBody.Order(Order.Cancel focusId)
+        EventBody.Order(Order.CancelActor focusId)
 
     let (|Cancel|_|) (body: EventBody) =
         match body with
-        | EventBody.Order (Order.Cancel focusId) -> Some focusId
+        | EventBody.Order (Order.CancelActor focusId) -> Some focusId
         | _ -> None
 
     let ActorStop (focusId: NodeId, result: ActorResult) : EventBody =

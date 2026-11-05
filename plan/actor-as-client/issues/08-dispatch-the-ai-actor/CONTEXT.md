@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 08 — Dispatch the AI Actor.
+This folder is ticket 08 — Start the AI Actor.
 
 ## Sequence
 

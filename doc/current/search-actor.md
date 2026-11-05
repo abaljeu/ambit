@@ -79,9 +79,9 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Uses
 
 [x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The zoom is the root. Detail: [Server](server.md).
-[o] ActorStart: the running Actor is recorded on the event source as `ActorStart`. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so `ActorStop` can pair with the start. Search does not read a focus. The walk reads the full server Graph from State at that start. One reply, then the queue puts `ActorStop` on the event source. Detail: [Mailbox](mailbox.md).
+[o] ActorStart: the running Actor is recorded on the event source as `ActorStart`. `zoomId`, `actorNodeId`, and `graphIds` are the root. The shared `focusId` field holds that same root so `ActorStop` can pair with the start. Search does not read a focus. The walk reads the full server Graph from State at that start. One reply, then the queue puts `ActorStop` on the event source. Detail: [Mailbox](mailbox.md).
 [o] ActorStart: the running Actor is recorded on the event source as `Order.StartActor`. The shared `focusId` field holds the root so the stop notice can pair with the start. The walk reads the full server Graph from `Query.State` at that start. One reply, then the notice function posts `Notice.SearchStopped` on the event source. Detail: [Mailbox](mailbox.md).
-[o] `zoomId`, `commandId`, and `graphIds` are fields of that start record.
+[o] `zoomId`, `actorNodeId`, and `graphIds` are fields of that start record. The wire key for `actorNodeId` is `"commandId"`.
 [ ] Find and Move `recordSearchStart` logs `Order.RunActor` of the command name and the FocusId. It does not write `Order.StartActor`. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 [o] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. The mailbox cases are `RecordSearchStart` and `RecordSearchStop`. `changes` reads State. `recordStart` records `ActorStart`. `recordStop` is a queue message. The queue puts `ActorStop` on the event source. The id is the root.
 [o] Door: `recordStart` places `Order.RecordSearchStart`.

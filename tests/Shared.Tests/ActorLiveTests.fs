@@ -24,7 +24,7 @@ let private actorStartAt eventId focusId zoomId : Ev =
         EventBody.ActorStart
             { zoomId = zoomId
               focusId = focusId
-              commandId = NodeId.New()
+              actorNodeId = NodeId.New()
               graphIds = [ focusId ]
               eventId = eventId } }
 
@@ -214,11 +214,11 @@ let ``focusIdsFromLockPresent reads GetState overlay`` () =
 let private graphWithCommand (commandText: string) : Graph * NodeId =
     let g0 = Graph.create ()
     let g1, ids = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = ids.[0]
+    let actorNodeId = ids.[0]
     let graph =
-        Graph.replace g1.root 0 [] (owned [ commandId ]) g1
+        Graph.replace g1.root 0 [] (owned [ actorNodeId ]) g1
         |> requireOk "graphWithCommand.root"
-    graph, commandId
+    graph, actorNodeId
 
 let private graphWithCommandChild
     (commandText: string)
@@ -226,24 +226,24 @@ let private graphWithCommandChild
     : Graph * NodeId * NodeId =
     let g0 = Graph.create ()
     let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = commandIds.[0]
+    let actorNodeId = commandIds.[0]
     let g2, childIds = ModelBuilder.createNodes [ childText ] g1
     let childId = childIds.[0]
     let g3 =
-        Graph.replace g2.root 0 [] (owned [ commandId ]) g2
+        Graph.replace g2.root 0 [] (owned [ actorNodeId ]) g2
         |> requireOk "graphWithCommandChild.root"
     let graph =
-        Graph.replace commandId 0 [] (owned [ childId ]) g3
+        Graph.replace actorNodeId 0 [] (owned [ childId ]) g3
         |> requireOk "graphWithCommandChild.command"
-    graph, commandId, childId
+    graph, actorNodeId, childId
 
 [<Fact>]
 let ``?test start and stop use TitleCase Test not AI`` () =
-    let graph, commandId = graphWithCommand "?test hello"
+    let graph, actorNodeId = graphWithCommand "?test hello"
     let started =
-        actorStartAt (EventIdFixtures.storedId 1) commandId commandId
+        actorStartAt (EventIdFixtures.storedId 1) actorNodeId actorNodeId
     let startResult =
-        ActorLive.lastCmdResult graph commandId [ started ]
+        ActorLive.lastCmdResult graph actorNodeId [ started ]
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Test started.")),
         startResult)
@@ -253,53 +253,53 @@ let ``?test start and stop use TitleCase Test not AI`` () =
             (CmdLastResult.Detail (Some "Run", "Test started.")))
     let stopped =
         actorStopEvent
-            (EventIdFixtures.storedId 2) commandId ActorSucceeded
+            (EventIdFixtures.storedId 2) actorNodeId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph actorNodeId [ stopped ])
     let failed =
         actorStopEvent
-            (EventIdFixtures.storedId 3) commandId (ActorFailed "")
+            (EventIdFixtures.storedId 3) actorNodeId (ActorFailed "")
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Test", "Actor failed.")),
-        ActorLive.lastCmdResult graph commandId [ failed ])
+        ActorLive.lastCmdResult graph actorNodeId [ failed ])
     let cancelled =
         actorStopEvent
-            (EventIdFixtures.storedId 4) commandId ActorCancelled
+            (EventIdFixtures.storedId 4) actorNodeId ActorCancelled
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Test", "Actor cancelled.")),
-        ActorLive.lastCmdResult graph commandId [ cancelled ])
+        ActorLive.lastCmdResult graph actorNodeId [ cancelled ])
 
 [<Fact>]
 let ``?test ancestor Command labels Focus child start and stop`` () =
-    let graph, commandId, childId =
+    let graph, actorNodeId, childId =
         graphWithCommandChild "?test hello" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 7) childId commandId
+        actorStartAt (EventIdFixtures.storedId 7) childId actorNodeId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Test started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph actorNodeId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 8) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph actorNodeId [ stopped ])
 
 [<Fact>]
 let ``?ai start and stop use TitleCase Ai not hardcoded AI`` () =
-    let graph, commandId = graphWithCommand "?ai later"
+    let graph, actorNodeId = graphWithCommand "?ai later"
     let started =
-        actorStartAt (EventIdFixtures.storedId 9) commandId commandId
+        actorStartAt (EventIdFixtures.storedId 9) actorNodeId actorNodeId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Ai started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph actorNodeId [ started ])
     let stopped =
         actorStopEvent
-            (EventIdFixtures.storedId 10) commandId ActorSucceeded
+            (EventIdFixtures.storedId 10) actorNodeId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Ai", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph actorNodeId [ stopped ])
 
 [<Fact>]
 let ``no Command on owner path uses generic wording not AI`` () =
@@ -329,21 +329,21 @@ let private graphWithCommandMidChild
     : Graph * NodeId * NodeId * NodeId =
     let g0 = Graph.create ()
     let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = commandIds.[0]
+    let actorNodeId = commandIds.[0]
     let g2, midIds = ModelBuilder.createNodes [ midText ] g1
     let midId = midIds.[0]
     let g3, childIds = ModelBuilder.createNodes [ childText ] g2
     let childId = childIds.[0]
     let g4 =
-        Graph.replace g3.root 0 [] (owned [ commandId ]) g3
+        Graph.replace g3.root 0 [] (owned [ actorNodeId ]) g3
         |> requireOk "graphWithCommandMidChild.root"
     let g5 =
-        Graph.replace commandId 0 [] (owned [ midId ]) g4
+        Graph.replace actorNodeId 0 [] (owned [ midId ]) g4
         |> requireOk "graphWithCommandMidChild.command"
     let graph =
         Graph.replace midId 0 [] (owned [ childId ]) g5
         |> requireOk "graphWithCommandMidChild.mid"
-    graph, commandId, midId, childId
+    graph, actorNodeId, midId, childId
 
 [<Fact>]
 let ``equals Command uses TitleCase name token not a product name`` () =
@@ -362,40 +362,40 @@ let ``equals Command uses TitleCase name token not a product name`` () =
 
 [<Fact>]
 let ``equals ancestor stops scan and does not use ? above`` () =
-    let graph, commandId, equalsId, childId =
+    let graph, actorNodeId, equalsId, childId =
         graphWithCommandMidChild "?test hello" "count=1+2" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 14) childId commandId
+        actorStartAt (EventIdFixtures.storedId 14) childId actorNodeId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Count started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph actorNodeId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 15) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Count", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph actorNodeId [ stopped ])
     let onEquals =
-        actorStartAt (EventIdFixtures.storedId 16) equalsId commandId
+        actorStartAt (EventIdFixtures.storedId 16) equalsId actorNodeId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Count started.")),
-        ActorLive.lastCmdResult graph commandId [ onEquals ])
+        ActorLive.lastCmdResult graph actorNodeId [ onEquals ])
 
 [<Fact>]
 let ``equals form with no name token uses generic not ? ancestor`` () =
-    let graph, commandId, _, childId =
+    let graph, actorNodeId, _, childId =
         graphWithCommandMidChild "?ai later" "=1+2" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 17) childId commandId
+        actorStartAt (EventIdFixtures.storedId 17) childId actorNodeId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Actor started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph actorNodeId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 18) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (None, "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph actorNodeId [ stopped ])
 
 [<Fact>]
 let ``a stop-only poll removes the live focus and starts no catch-up`` () =

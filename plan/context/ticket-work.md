@@ -8,6 +8,8 @@ Start with [Cursor scope](cursor-scope.md) in `write-ticket` mode. Fill this tic
 
 Write `plan/<slug>/issues/NN-<ticket-name>.md` from the template in section 2. Use section 3.
 
+Tickets are numbered in order of creation, never to show sequence. No ticket is ever numbered 0. The next ticket is always N+1, where N is the highest existing ticket number in that Project. Run order comes from each ticket's dependency or ordering note, not from its number.
+
 Hand the written ticket back to slicing.
 
 ## 2. Ticket template

@@ -50,7 +50,6 @@ Write each section as a list, one finding per item. An empty section is one item
 3. **Arch.** Check the diff against the story paths and the module map in `arch.md`. Each break is a **Blocker** and names the arch section and the code location.
 4. **Tests.** Check that each test Outputs names exists and checks what Outputs says. Record what `scripts/check-test.sh <pid>` prints.
 5. **Miss.** Name what returns the ticket to build:
-   - each Hard finding
    - each Missing, Partial or Wrong finding
    - each Blocker
    - a named test that is missing
@@ -62,6 +61,10 @@ Write each section as a list, one finding per item. An empty section is one item
    - **Fix.** What to do.
 
 Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
+
+When Miss names anything, the code does not meet the ticket. The next step is another build round to meet it, not the refactor round. The refactor round follows only a review whose Miss section is `No findings.`
+
+A Hard finding is a standards miss, not a spec miss. It does not return the ticket to build. The refactor round fixes it, as long as the fix changes no behavior.
 
 ## 4. Finish
 

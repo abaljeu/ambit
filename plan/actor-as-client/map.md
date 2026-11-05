@@ -9,38 +9,38 @@ Remake Server Actor hosting and mailbox orchestration so an Actor is a Core clie
 Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so far). Aims 3 and 4 are Decisions so far ([03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md), [04 — Start surface](issues/04-start-surface.md)):
 
 1. **Actor ≈ Core client** — same relation to Core as the Browser: owns internal behavior; talks Core for Graph, Events, and Changes (today mostly Poll, not push). Not a special mailbox citizen with a private Graph extract. Provisional.
-2. **Pass full Graph + start point** — stop requiring a subgraph extract for Actor start; handing an immutable Graph is O(1) reference share. Start ids (Zoom, Focus, Command or equivalent) select where work begins. Provisional. [04 — Start surface](issues/04-start-surface.md) drops `graphIds` from ActorStart; live versus snapshot Graph and start ids beyond cancel Focus stay on [02 — Graph handoff](issues/02-graph-handoff.md).
+2. **Pass full Graph + start point** — stop requiring a subgraph extract for Actor start; handing an immutable Graph is O(1) reference share. Start ids (Zoom, Focus, Command or equivalent) select where work begins. Provisional. In the end state, ActorStart has no `graphIds` ([04 — Start surface](issues/04-start-surface.md)). This cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included; live versus snapshot Graph and start ids beyond cancel Focus stay on [02 — Graph handoff](issues/02-graph-handoff.md).
 3. **Simple orchestration** — The mailbox is the single entry and a dispatcher, not a synchronous executioner: it stamps each Event with a sequence number (EventId) and routes it, and does not wait for completion. EventId is the watermark; there is no separate progress counter. A reader asks an entity “did Event N complete?” and waits until yes. Callers may address queues directly. The pipeline is one-directional (graph → file → parser → database). Each entity that implements an Event can be queried for completion on that Event.
-4. **In-process start prefers curried functions** — In-process start posts a curried function to the mailbox. A Command closes over what the Actor needs and posts that function. CoreActorPool remains and retains cancel; the function receives focus ID (the cancel Focus) and name. Named registry for remote or cross-process start stays fog. ActorStart records focus ID and name for cancel and no longer carries `graphIds`.
+4. **In-process start prefers curried functions** — In-process start posts a curried function to the mailbox. A Command closes over what the Actor needs and posts that function. CoreActorPool remains and retains cancel; the function receives focus ID (the cancel Focus) and name. Named registry for remote or cross-process start stays fog. ActorStart records focus ID and name for cancel. The end state drops `graphIds`. This cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included.
 
 ## 2. Notes
 
-1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. `Order.RunActor` stores the command name and the FocusId. The decisions and the cutover tickets are on [Actor as client](project.md). The 2026-09-27 park is [o].
+1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 17, and section 6 records their order. The 2026-09-27 park is [o].
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.
 5. **Parse thread** — Parse product home stays [[plan/parse-thread/project.md]]. Parse stays outside Core. This map covers only how Parse *hosts* under the new scheme if hosting touches the remake. File→Graph algorithm body is out of scope.
 6. **Provisional aims** — Destination aims 1 and 2 stay chat aims until [01 — Actor-as-client duplex](issues/01-actor-as-client-duplex.md) and [02 — Graph handoff](issues/02-graph-handoff.md) resolve. Aims 3 and 4 are Decisions so far on [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md) and [04 — Start surface](issues/04-start-surface.md). Next pass: [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) starts at function-passing pool setup (pool receives a function; Actor calls it; no Graph/ids bag from the pool). Graph-resolver is not the first slice. It does not promote aims 1 or 2.
 7. **Mailbox clear-fast** — [[doc/Decisions/0004-core-mailbox-messages-clear-fast.md]] still holds: the mailbox stamps and routes without waiting; slow work still leaves the mailbox. The mailbox is a dispatcher, not an executioner. Locked on [03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md).
-8. **Today's extract** — Production ActorStart still carries `graphIds` (Included expand of Zoom). [04 — Start surface](issues/04-start-surface.md) locks that ActorStart drops that extract and keeps focus ID and name for cancel. Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).
+8. **Today's extract** — Production ActorStart still carries `graphIds` (Included expand of Zoom). [04 — Start surface](issues/04-start-surface.md) locks that the end state drops that extract and keeps focus ID and name for cancel. This cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included. Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).
 9. **Today's start** — In-process start posts a curried function; it is not a named ActorFn registry lookup. CoreActorPool remains and cancels via focus ID and name on the function. Named registry stays fog. Locked on [04 — Start surface](issues/04-start-surface.md).
 10. **Step-two hypothesis** — After function-passing ships, next seam may be flexibility across Actor types (dispatch chooses the function shape; polymorphism in signatures, not the pool). Working hypothesis only on [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md). Not a Decision.
 11. **Slice one expand-alongside** — [05 — Expand-contract first aspect](issues/05-expand-contract-first-aspect.md) Status `coded` (historical). `startFunction` posts a function; the Actor calls `getGraph`; ID-bag `startActor` remains. Further slices are deferred with this Feature-set.
 12. **2026-09-28 Server description** — [[plan/core-refinement/arch.md]] Target — Server Core confirms Actors as privilege-less external functions that only post to the mailbox. Core and the mailbox own create and destroy, and Graph, file, and git mutations.
 
 [o] This Feature-set stays concept-only. No new implement tickets.
-[ ] The cutover tickets named on the Project file are the implement path. Alan, 2026-11-03.
+[ ] The cutover tickets 06 through 17 in `issues/` are the implement path. Alan, 2026-11-03.
 
 ## 3. Decisions so far
 
 1. **[03 — Mailbox orchestration shape](issues/03-mailbox-orchestration-shape.md)** — Mailbox is the single entry and a dispatcher: stamp EventId and route, do not wait. EventId is the watermark. Queues are open-access; pipeline is graph → file → parser → database. Each entity answers “did Event N complete?”
-2. **[04 — Start surface](issues/04-start-surface.md)** — In-process start posts a curried function; not a named ActorFn lookup. CoreActorPool remains and cancels via focus ID and name on the function. Named registry stays fog. ActorStart drops `graphIds` and records focus ID and name for cancel.
+2. **[04 — Start surface](issues/04-start-surface.md)** — In-process start posts a curried function; not a named ActorFn lookup. CoreActorPool remains and cancels via focus ID and name on the function. Named registry stays fog. In the end state, ActorStart has no `graphIds` and records focus ID and name for cancel. This cutover's intermediate state keeps `graphIds`.
 
 ## 4. Not yet specified
 
 1. **Remote or cross-process start** — Out of scope for this cutover. Later question: how a command reaches a worker in another process. The 2026-09-27 named-registry fog is [o] for this cutover. [04 — Start surface](issues/04-start-surface.md).
-2. **Existing Actor migration** — The Project file's tickets move TestActor, the AI Actor, the query command, and git Load and Save onto the one start, then delete the old starts.
-3. **Lifecycle Events after remake** — ActorStart records focus ID and name for cancel and drops `graphIds` ([04 — Start surface](issues/04-start-surface.md)). What ActorStop and any other Event fields must still record stays open.
+2. **Existing Actor migration** — Tickets 07 through 10 move TestActor, the AI Actor, the query command, and git Load and Save onto the one start, then delete the old starts.
+3. **Lifecycle Events after remake** — In the end state, ActorStart records focus ID and name for cancel and has no `graphIds` ([04 — Start surface](issues/04-start-surface.md)). This cutover's intermediate state keeps `graphIds`. What ActorStop and any other Event fields must still record stays open.
 4. **Worker isolation** — whether filesystem and database workers stay in-process with Core or later move out.
 5. **Graph handoff remainder** — live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).
 
@@ -51,15 +51,16 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 3. **Parse file→Graph algorithm body** — Pointer: [[plan/parse-thread/project.md]]. This map may touch only how Parse *hosts* under the new scheme.
 4. **Rewriting all existing Actors in one go** — Migration of each Actor body is later work, not this chart.
 5. **Product code on this chart** — The map finds the way. It does not implement CoreActorPool or mailbox F#.
+6. **Dropping `graphIds`** — The end state drops `graphIds` from ActorStart. This cutover's intermediate state keeps the browser `ActorStart` payload, `graphIds` included.
 
 These are exclusions from this map, not product-wide exclusions. See [[doc/agents/scope-vs-commitment.md]].
 
 ## 6. Order
 
-[ ] [10 — Dispatch git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) converts every caller of `CoreMsg.StartLoadSaveCommand` to an actor launch through `ActorDispatch.fs` and `Order.RunActor`. After that ticket, nothing sends `StartLoadSaveCommand`.
+[ ] [10 — Start git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) converts every caller of `CoreMsg.StartLoadSaveCommand`. `postLoadSaveCommand` puts `Order.ActorOrder` on the mailbox queue. After that ticket, nothing sends `StartLoadSaveCommand`.
 [ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes that message, with `Order.StartActor` and `Order.LoadSave`.
-[ ] [09 — Dispatch the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. The search-start log is `Order.RunActor`.
+[ ] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. Find and Move posts `Order.ActorOrder`, and that order runs the Search Actor.
 [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is owned by Ambot2. It shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
-[ ] Ambot2 is writing the `CoreMsg.PostGraphOnly` removal now. That ticket is built before the cutover builds [06 — Log Order.RunActor](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) through 15 — Delete the old Actor starts.
-[ ] [112 — Place Cancel through PlaceOrder](../core-refinement/issues/112-place-cancel-through-placeorder.md) is being rewritten as a ticket only. It is not ready to build. Its place is after [Record the one function Actor start](https://github.com/abaljeu/ambit/pull/514) (PR #514).
+[x] [146 — Remove CoreMsg.PostGraphOnly](../core-refinement/issues/146-remove-coremsg-postgraphonly.md) landed on staging in PR #520, before the cutover builds [06 — Log ActorOrder](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md).
+[ ] [112 — Place Cancel through PlaceOrder](../core-refinement/issues/112-place-cancel-through-placeorder.md) is owned by Ambot2. It is built at `e08b8c46` on the branch `ambot2/112-place-cancel-through-placeorder` and has not landed on staging. 06 — Log ActorOrder, 15 — Delete the old Actor starts, and 16 — Delete the old Order cases start after it lands.
 [ ] This Project does not edit tickets 111 through 118 in core-refinement. The order is recorded here.

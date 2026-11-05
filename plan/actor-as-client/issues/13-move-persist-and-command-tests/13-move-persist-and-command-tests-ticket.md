@@ -1,8 +1,8 @@
 # 13 — Move persist and command tests
 **Status**: defined
-One job: The persist-handler tests and the command-post tests start an Actor with `startFunction`.
+One job: The persist-handler tests and the command-post tests start an Actor with `startFunction` or with `postActorOrder`.
 
-[ ] Four test files. Same split as [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md).
+[ ] Four test files. Same split as 11 — Move door and case tests.
 
 Type:
 
@@ -10,7 +10,7 @@ Type:
 
 Blockers:
 
-[ ] [06 — Log Order.RunActor](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
+[ ] [06 — Log ActorOrder](../06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md)
 
 ## Inputs
 
@@ -23,17 +23,18 @@ Blockers:
 
 ### Reference
 
-[ ] [Actor as client](../../project.md).
+[ ] [Arch](../../arch.md).
 [ ] [Size limit](../../context/size-limit.md).
 
 ## Do not load
 
 [ ] 11 — Move door and case tests, 12 — Move pool and issue tests, and 14 — Move runtime and session tests.
+[ ] `src/Server/ActorDispatch.fs`. Do not add it.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change each named file so a started Actor uses `startFunction`, or the dispatcher when the test boots Core with a command name.
+2. [ ] Change: A started Actor uses `startFunction`. A booted command uses that command's `FunctionActor` and `postActorOrder`.
 3. [ ] Keep old pool fields until 15 — Delete the old Actor starts.
 
 ## Outputs

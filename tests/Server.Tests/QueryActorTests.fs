@@ -59,7 +59,7 @@ let private stopFor (getGraph: unit -> Graph) (lineId: NodeId) =
         let request: ActorStart =
             { zoomId = lineId
               focusId = lineId
-              commandId = lineId
+              actorNodeId = lineId
               graphIds = [ lineId ]
               eventId = EventId.zero }
         let start = SearchActor.functionStart request getGraph
@@ -118,13 +118,13 @@ let ``ActorStop ids are not the find walk`` () =
 let ``question text is not a query request`` () =
     let graph1, ids =
         ModelBuilder.createNodes [ "?test a=b" ] (Graph.create ())
-    let commandId = ids.[0]
-    let graph = insertAtRoot [ commandId ] graph1
+    let actorNodeId = ids.[0]
+    let graph = insertAtRoot [ actorNodeId ] graph1
     let request: ActorStart =
         { zoomId = graph.root
-          focusId = commandId
-          commandId = commandId
-          graphIds = [ graph.root; commandId ]
+          focusId = actorNodeId
+          actorNodeId = actorNodeId
+          graphIds = [ graph.root; actorNodeId ]
           eventId = EventId.zero }
     Assert.False(SearchActor.isQueryRequest graph request)
 
@@ -212,7 +212,7 @@ let private queryStart root lineId eventId : Ev =
     let request: ActorStart =
         { zoomId = root
           focusId = lineId
-          commandId = lineId
+          actorNodeId = lineId
           graphIds = [ root; lineId ]
           eventId = eventId }
     posted "Exec" (EventBody.ActorStart request)

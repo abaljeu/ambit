@@ -48,7 +48,7 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     let start =
         { zoomId = zoom
           focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
-          commandId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+          actorNodeId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
     let started =
@@ -180,7 +180,7 @@ let ``An old undo redo or load row is skipped on read`` () =
 let ``An old actorStart or cancel row is skipped on read`` () =
     let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
     let zoom = "cccccccc-cccc-cccc-cccc-cccccccccccc"
-    let commandId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    let actorNodeId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
     let rows =
         [ "{\"eventId\":3,"
           + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
@@ -191,7 +191,7 @@ let ``An old actorStart or cancel row is skipped on read`` () =
           + "\",\"focusId\":\""
           + focusId
           + "\",\"commandId\":\""
-          + commandId
+          + actorNodeId
           + "\",\"graphIds\":[\""
           + zoom
           + "\"],\"eventId\":4}}"
@@ -364,12 +364,12 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
     let zoom =
         NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
-    let commandId =
+    let actorNodeId =
         NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
     let start =
         { zoomId = zoom
           focusId = focusId
-          commandId = commandId
+          actorNodeId = actorNodeId
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
     let peerName = PeerActorName "github-load"
@@ -389,7 +389,7 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           Order.LoadSave(LoadSavePath.Git, peerName, request)
           Order.LoadSave(LoadSavePath.Desk, peerName, request)
           Order.Load nodeId
-          Order.Cancel focusId ]
+          Order.CancelActor focusId ]
     orders
     |> List.iter (fun order ->
         let event =

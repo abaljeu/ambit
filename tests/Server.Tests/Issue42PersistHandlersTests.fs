@@ -121,7 +121,7 @@ let ``ActorStart persists across File restart`` () = task {
         let request: ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              commandId = Graph.rootId
+              actorNodeId = Graph.rootId
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
         let! started =
@@ -149,7 +149,7 @@ let ``ActorStart persists across File restart`` () = task {
 let private sampleActorStart: ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      commandId = Graph.rootId
+      actorNodeId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
