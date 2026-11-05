@@ -129,6 +129,18 @@ let testCaller =
       name = "test"
       secret = testSecret }
 
+/// Queues the test command for an admitted caller.
+let postTestActorOrder (host: MailboxHost) (request: ActorStart) =
+    let order =
+        { actor =
+            TestActor.functionActorAt
+                request.actorNodeId
+                request.focusId
+          focusId = request.focusId
+          actorName = "test" }
+    MailboxHost.postActorOrder host testCaller order
+    |> Async.StartAsTask
+
 /// Admitted Callers Session copies when the host starts.
 let admittedCredentials =
     CoreCredentials.ofCallers (Set.singleton testCaller)

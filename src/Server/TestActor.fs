@@ -22,10 +22,7 @@ module TestActor =
                               input.focusId,
                               [],
                               [ ChildNode.owner helloNodeId ]) ] }
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
+            let caller = CoreDoor.actorCaller input.secret
             let! _ =
                 CoreDoor.postEvents
                     (CoreDoor.forCaller caller coreChanges)
@@ -50,10 +47,7 @@ module TestActor =
                             return ActorSucceeded
                         }
                     | _ -> async.Return (ActorFailed "")
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
+            let caller = CoreDoor.actorCaller input.secret
             let! _ =
                 CoreDoor.actorStop
                     (CoreDoor.forCaller caller coreChanges)
@@ -64,80 +58,84 @@ module TestActor =
     /// ActorFn for Actor name "test". Selection is CoreActorPool's job.
     let actorFn: ActorFn = dispatch
 
-    let private actorCaller (secret: Credential) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = secret }
+    let private childEvent (parentId: NodeId) (text: string) : Ev =
+        let childId = NodeId.New()
+        { id = EventId.zero
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body =
+            EventBody.Change
+                [ Op.NewNode(childId, text)
+                  Op.Replace(
+                      parentId,
+                      [],
+                      [ ChildNode.owner childId ]) ] }
 
-    let private postOwnedChild
+    let private postChild
         (parentId: NodeId)
         (text: string)
-        (secret: Credential)
-        (coreChanges: CoreChangesDoor)
+        (post: Ev list -> Async<Result<unit, string>>)
         =
         async {
-            let childId = NodeId.New()
-            let event =
-                { id = EventId.zero
-                  submissionId = System.Guid.NewGuid()
-                  authority = Authority "Browser"
-                  commandName = ""
-                  body =
-                    EventBody.Change
-                        [ Op.NewNode(childId, text)
-                          Op.Replace(
-                              parentId,
-                              [],
-                              [ ChildNode.owner childId ]) ] }
-            let! _ =
-                CoreDoor.postEvents
-                    (CoreDoor.forCaller (actorCaller secret) coreChanges)
-                    [ event ]
+            let! _ = post [ childEvent parentId text ]
             return ()
         }
 
-    let private operationFrom (graph: Graph) =
-        match graph.focus with
-        | None -> None
-        | Some nodeId ->
-            Map.tryFind nodeId graph.nodes
-            |> Option.map (fun node ->
-                CommandRequest.behaviorFromText node.text)
+    let private commandText (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> ""
+        | Some node -> CommandRequest.behaviorFromText node.text
+
+    let private runBehavior
+        (behavior: string)
+        (parentId: NodeId)
+        (changes: ActorChanges)
+        =
+        async {
+            let! result =
+                match behavior with
+                | "hello" ->
+                    async {
+                        do! postChild parentId "hello" changes.postChanges
+                        return ActorSucceeded
+                    }
+                | "ping" ->
+                    async {
+                        do! postChild parentId "pong" changes.postChanges
+                        return ActorSucceeded
+                    }
+                | _ -> async.Return (ActorFailed "")
+            let! _ = changes.actorStop result
+            return ()
+        }
 
     /// Function-shaped TestActor. Calls getGraph; pool supplies no Graph.
     let functionActor: Gambol.Server.ActorFunction =
-        fun run coreChanges ->
-            async {
-                let graph = run.getGraph ()
-                let parentId =
-                    graph.focus
-                    |> Option.defaultValue graph.root
-                let! result =
-                    match operationFrom graph with
-                    | Some "hello" ->
-                        async {
-                            do! postOwnedChild
-                                    parentId
-                                    "hello"
-                                    run.secret
-                                    coreChanges
-                            return ActorSucceeded
-                        }
-                    | Some "ping" ->
-                        async {
-                            do! postOwnedChild
-                                    parentId
-                                    "pong"
-                                    run.secret
-                                    coreChanges
-                            return ActorSucceeded
-                        }
-                    | _ -> async.Return (ActorFailed "")
-                let! _ =
-                    CoreDoor.actorStop
-                        (CoreDoor.forCaller
-                            (actorCaller run.secret)
-                            coreChanges)
-                        result
-                return ()
-            }
+        fun run door ->
+            let graph = run.getGraph ()
+            let parentId =
+                graph.focus |> Option.defaultValue graph.root
+            let behavior =
+                match graph.focus with
+                | None -> ""
+                | Some nodeId -> commandText graph nodeId
+            let changes =
+                CoreDoor.actorChanges
+                    (CoreDoor.forCaller
+                        (CoreDoor.actorCaller run.secret)
+                        door)
+            runBehavior behavior parentId changes
+
+    /// Test command after the actor node id is applied.
+    /// Hello and ping land under focusId.
+    let functionActorAt
+        (actorNodeId: NodeId)
+        (focusId: NodeId)
+        : Gambol.Shared.ActorFunction =
+        fun run changes ->
+            let graph = run.getGraph ()
+            runBehavior
+                (commandText graph actorNodeId)
+                focusId
+                changes

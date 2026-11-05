@@ -199,28 +199,107 @@ module internal CoreMailboxActors =
             | Ok stopped ->
                 CoreMailboxEvents.replyStored reply started
 
+    let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
+        let graph = CoreMailboxEvents.graphNow context
+        match Map.tryFind nodeId graph.nodes with
+        | None -> None
+        | Some node -> CommandRequest.actorNameFromText node.text
+
+    let private replyPlaced
+        (reply: PostedReply)
+        (stored: Ev)
+        (placed: Result<EventId, string>)
+        =
+        match placed with
+        | Error err -> reply.Reply(Error err)
+        | Ok _ -> CoreMailboxEvents.replyStored reply stored
+
+    /// Admitted `?test` Run. Closes over the actor node and queues ActorOrder.
+    let private queueAdmittedTest
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match context.coreChanges.Value with
+        | None -> reply.Reply(Error "mailbox not initialized")
+        | Some make ->
+            let order =
+                { actor =
+                    TestActor.functionActorAt
+                        request.actorNodeId
+                        request.focusId
+                  focusId = request.focusId
+                  actorName = "test" }
+            let host = (make caller).host
+            let dispatch =
+                CoreMailboxEvents.eventDispatchContext context
+            match
+                CoreEventDispatch.appendLifecycle
+                    dispatch
+                    caller
+                    event.submissionId
+                    (EventBody.ActorStart request)
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok stored ->
+                Async.Start(async {
+                    let! placed =
+                        MailboxHost.postActorOrder host caller order
+                    replyPlaced reply stored placed
+                })
+
+    /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
+    let private queueTestOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match CoreMailboxEvents.admitCaller context caller with
+        | Error err ->
+            recordFailedStart
+                context
+                caller
+                request
+                event.submissionId
+                err
+                reply
+        | Ok () ->
+            queueAdmittedTest context caller event request reply
+
+    let private postChosenStart
+        context caller event request reply =
+        let start req getState =
+            startChosen context req getState
+        match prepareActorStart context caller request start with
+        | Error error ->
+            recordFailedStart
+                context caller request event.submissionId
+                (failedMessage error) reply
+        | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
+        | Ok (Some secret, make) ->
+            match
+                finishReadyStart
+                    context caller request secret make
+                    event.submissionId
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok stored ->
+                CoreMailboxEvents.replyStored reply stored
+
     let private postActorStart context caller event request reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with
         | Some stored ->
             CoreMailboxEvents.replyStored reply stored
         | None ->
-            let start req getState =
-                startChosen context req getState
-            match prepareActorStart context caller request start with
-            | Error error ->
-                recordFailedStart
-                    context caller request event.submissionId
-                    (failedMessage error) reply
-            | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
-            | Ok (Some secret, make) ->
-                match
-                    finishReadyStart
-                        context caller request secret make
-                        event.submissionId
-                with
-                | Error err -> reply.Reply(Error err)
-                | Ok stored ->
-                    CoreMailboxEvents.replyStored reply stored
+            match actorNameOn context request.actorNodeId with
+            | Some "test" ->
+                queueTestOrder context caller event request reply
+            | _ ->
+                postChosenStart context caller event request reply
 
     let private postCancel context caller event focusId reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with

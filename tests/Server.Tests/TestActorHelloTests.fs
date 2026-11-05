@@ -65,15 +65,9 @@ let private sampleRequest focusId actorNodeId graphIds: Gambol.Shared.ActorStart
       graphIds = graphIds
       eventId = EventId.zero }
 
-let private actorCaller secret =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
 let private createHost () =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
-    pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
             pool
@@ -110,10 +104,8 @@ let ``TestActor hello posts one Owned child text hello under Focus`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -150,10 +142,8 @@ let ``TestActor hello interprets ?test hello without actor CSS`` () =
         requireOk "postChange" postResult |> ignore
         let request =
             sampleRequest actorNodeId actorNodeId [ Graph.rootId; actorNodeId ]
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
@@ -199,10 +189,8 @@ let ``TestActor hello reply sits under question Focus not Command`` () =
                     [ Graph.rootId; actorNodeId; focusId ]
             { baseReq with zoomId = actorNodeId }
         Assert.NotEqual(request.actorNodeId, request.focusId)
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! state =
@@ -241,10 +229,8 @@ let ``TestActor hello stops successfully with ActorSucceeded`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -282,13 +268,11 @@ let ``TestActor hello drops live row after successful stop`` () =
 
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
 
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
 
-        // startActor replies after schedule. A fast hello can finish and
-        // drop the row before this continuation runs, so presence here is a race.
+        // postActorOrder replies after schedule. A fast hello can finish
+        // and drop the row before this continuation runs.
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
 
@@ -326,10 +310,8 @@ let ``TestActor hello observes ActorStarted before output`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -341,8 +323,8 @@ let ``TestActor hello observes ActorStarted before output`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart started
-                    when started.focusId = request.focusId ->
+                | EventBody.Order (Order.ActorOrder order)
+                    when order.focusId = request.focusId ->
                     true
                 | _ -> false)
         
@@ -379,10 +361,8 @@ let ``TestActor hello interprets command node text`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -414,10 +394,8 @@ let ``TestActor unknown command is ActorFailed with no hello child`` () =
             |> Async.StartAsTask
         requireOk "postChange" postResult |> ignore
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
         let! dropped = waitForLiveRowDrop pool request.focusId 1000
@@ -457,10 +435,8 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
         
         let request = sampleRequest Graph.rootId actorNodeId [ Graph.rootId; actorNodeId ]
         
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = postTestActorOrder host request
+        requireOk "postActorOrder" result |> ignore
 
         let! finished = waitForActorFinished host request.focusId 1000
         Assert.True(finished, "ActorFinished not received within timeout")
@@ -485,8 +461,8 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart started
-                    when started.focusId = request.focusId ->
+                | EventBody.Order (Order.ActorOrder order)
+                    when order.focusId = request.focusId ->
                     true
                 | _ -> false)
         
@@ -517,13 +493,13 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             |> List.length
         
         Assert.True(actorStartedIndex.IsSome,
-            "§7.4: Gambol.Shared.ActorStarted event should be present")
+            "§7.4: ActorOrder should be present")
         Assert.True(actorOutputChangeIndex.IsSome,
             "§7.4: Change event (output) should be present")
         Assert.True(actorFinishedIndex.IsSome,
             "§7.4: ActorFinished event should be present")
         Assert.True(actorOutputChangeIndex.Value < actorStartedIndex.Value,
-            "§7.4: Gambol.Shared.ActorStarted should appear before output Change")
+            "§7.4: ActorOrder should appear before output Change")
         Assert.True(actorFinishedIndex.Value < actorOutputChangeIndex.Value,
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount)
@@ -535,8 +511,8 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart started
-                    when started.focusId = request.focusId ->
+                | EventBody.Order (Order.ActorOrder order)
+                    when order.focusId = request.focusId ->
                     true
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)
                     when focusId = request.focusId ->
@@ -544,5 +520,5 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
                 | _ -> false)
         
         Assert.True(actorEventsPresent,
-            "§7.5: Public Actor identity (ActorStarted, ActorFinished) should remain on History")
+            "§7.5: ActorOrder and ActorStop should remain on History")
     })
