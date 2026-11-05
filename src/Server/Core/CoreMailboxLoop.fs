@@ -50,14 +50,14 @@ module internal CoreMailboxLoop =
 
     let private droppedAuthority = "authority dropped"
 
-    /// Actor authority is the live pool secret. DropAuthority leaves it.
+    /// Actor authority is held only while that pool secret is live.
     /// A caller Session never held still runs.
     let private authorityHeld
         (context: MailboxContext)
         (caller: Caller)
         =
         match caller.authority with
-        | Authority "Actor" -> true
+        | Authority "Actor" -> context.pool.isLive caller.secret
         | _ -> not (Session.wasDropped context.session caller)
 
     let private messageCaller (msg: CoreMsg) =

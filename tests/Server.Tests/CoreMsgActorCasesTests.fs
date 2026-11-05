@@ -147,7 +147,7 @@ let ``StartActor from an inactive Actor does not hand off`` () =
                   secret = Credential "inactive" }
                 sampleRequest
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(Error "authority dropped", result)
         Assert.False(started.Task.IsCompleted)
     })
 
@@ -185,7 +185,7 @@ let ``Actor PostChange with live row reaches CoreMailboxAccess`` () =
     })
 
 [<Fact>]
-let ``Actor PostChange does not repeat the live-row check`` () =
+let ``Actor PostChange without a live row is dropped`` () =
     let _, _, _, pool = recordingPool ()
     let actorSecret = Credential "actor-not-live"
     withHost pool (fun host -> task {
@@ -195,8 +195,7 @@ let ``Actor PostChange does not repeat the live-row check`` () =
                 (actorCaller actorSecret)
                 [ addRootChild "nope" ]
             |> Async.StartAsTask
-        let accepted = requireOk "Actor post" result
-        Assert.True(EventId.isAccepted accepted.eventId)
+        Assert.Equal(Error "authority dropped", result)
     })
 
 [<Fact>]
@@ -253,7 +252,7 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     })
 
 [<Fact>]
-let ``ActorStop does not repeat the live-row admission check`` () =
+let ``ActorStop checks the live receipt once`` () =
     let isLiveCalls = ResizeArray<Credential>()
     let live = ResizeArray<Credential>()
     let actorSecret = Credential "actor-once"
@@ -289,11 +288,12 @@ let ``ActorStop does not repeat the live-row admission check`` () =
                 host (actorCaller actorSecret) ActorSucceeded
             |> Async.StartAsTask
         requireOk "ActorStop" result
-        Assert.Empty(isLiveCalls)
+        Assert.Equal(1, isLiveCalls.Count)
+        Assert.Equal(actorSecret, isLiveCalls.[0])
     })
 
 [<Fact>]
-let ``live Actor stop succeeds and a later stop is safe`` () =
+let ``live Actor stop succeeds and a later stop is dropped`` () =
     let pool = CoreActorPool.create ()
     let seen = TaskCompletionSource<Credential>()
     pool.register (ActorName "root") (fun input _ -> async {
@@ -314,11 +314,11 @@ let ``live Actor stop succeeds and a later stop is safe`` () =
         let! again =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "later ActorStop" again
+        Assert.Equal(Error "authority dropped", again)
     })
 
 [<Fact>]
-let ``ActorStop of an already-finished Actor is idempotent`` () =
+let ``ActorStop after the pool row is finished is dropped`` () =
     let _, stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-finished"
     live.Add actorSecret
@@ -331,7 +331,7 @@ let ``ActorStop of an already-finished Actor is idempotent`` () =
         let! second =
             postActorStop host caller ActorSucceeded
             |> Async.StartAsTask
-        requireOk "second stop" second
+        Assert.Equal(Error "authority dropped", second)
         Assert.Equal(1, stopped.Count)
         Assert.False(live.Contains actorSecret)
     })
