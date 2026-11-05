@@ -84,17 +84,55 @@ let private startCache (s: SearchDialogState) (model: VM) : SearchCache =
       cursor = ViewModelSearch.startSearch s.query model.zoomRoot model.graph }
     |> loadPage
 
+let private sameSearchText (left: SearchCache) (right: SearchCache) : bool =
+    left.query = right.query && left.zoomRoot = right.zoomRoot
+
+/// A new walk for the same text must not wipe rows already shown.
+let private holdShownRows (previous: SearchCache option) (fresh: SearchCache) : SearchCache =
+    match previous with
+    | Some prev when
+        sameSearchText prev fresh
+        && not prev.resultsRev.IsEmpty
+        && fresh.resultsRev.IsEmpty ->
+        { fresh with
+            resultsRev = prev.resultsRev
+            cursor = prev.cursor }
+    | _ -> fresh
+
 let private ensureSearchCache (s: SearchDialogState) (model: VM) : SearchCache =
     match searchCache with
     | Some cache when cacheMatches s model cache -> cache
-    | _ ->
-        let cache = startCache s model
+    | previous ->
+        let fresh = startCache s model
+        let cache = holdShownRows previous fresh
         searchCache <- Some cache
         cache
 
+let private rowFromNode (node: Node) : NodeSearchResult =
+    { nodeId = node.id
+      text = node.text
+      name = node.name }
+
+let private serverOnlyRows
+    (s: SearchDialogState)
+    (model: VM)
+    (local: NodeSearchResult list)
+    : NodeSearchResult list =
+    let seen = local |> List.map (fun row -> row.nodeId) |> Set.ofList
+    s.serverHitIds
+    |> List.choose (fun id ->
+        if Set.contains id seen then
+            None
+        else
+            Map.tryFind id model.graph.nodes |> Option.map rowFromNode)
+
 let currentSearchResults (model: VM) : NodeSearchResult list =
     match model.mode with
-    | SearchDialog s -> ensureSearchCache s model |> fun cache -> List.rev cache.resultsRev
+    | SearchDialog s ->
+        let local =
+            ensureSearchCache s model
+            |> fun cache -> List.rev cache.resultsRev
+        local @ serverOnlyRows s model local
     | _ -> []
 
 let openSearchDialogWithOnPick
@@ -141,7 +179,7 @@ let searchSelectDownOp (model: VM) : VM * Effect list =
         let cache =
             if s.selectedIndex + 1 >= loaded then loadPage cache else cache
         searchCache <- Some cache
-        let n = cache.resultsRev.Length
+        let n = List.length (currentSearchResults model)
         let cap = max 0 (n - 1)
         let next = min (s.selectedIndex + 1) cap
         { model with mode = SearchDialog { s with selectedIndex = next } }, []
