@@ -8,4 +8,4 @@ This folder is ticket 06 — Log ActorOrder.
 
 ## Stage
 
-defined
+build
