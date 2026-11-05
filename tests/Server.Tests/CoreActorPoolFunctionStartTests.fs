@@ -21,12 +21,12 @@ let private carrierGraph (text: string) : Graph * NodeId =
 let private functionStart
     (getGraph: GraphCarrier)
     (focusId: NodeId)
-    (commandId: NodeId)
+    (actorNodeId: NodeId)
     : FunctionStart =
     { actor = TestActor.functionActor
       getGraph = getGraph
       focusId = focusId
-      commandId = commandId }
+      actorNodeId = actorNodeId }
 
 let private postedTexts (events: Ev list) =
     events
@@ -131,7 +131,7 @@ let ``ID-bag startActor still starts TestActor hello`` () =
         let request: ActorStart =
             { zoomId = helloGraph.root
               focusId = helloId
-              commandId = helloId
+              actorNodeId = helloId
               graphIds = [ helloGraph.root; helloId ]
               eventId = EventId.zero }
         let pool = CoreActorPool.create ()

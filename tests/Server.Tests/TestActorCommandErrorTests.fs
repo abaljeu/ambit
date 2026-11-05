@@ -60,20 +60,20 @@ let private waitForActorStop host focusId timeoutMs =
         else return None
     }
 
-let private helloChildren (graph: Graph) focusId commandId =
+let private helloChildren (graph: Graph) focusId actorNodeId =
     Graph.children graph focusId
     |> List.filter (fun child ->
         child.ref = Ownership.Owner
-        && child.id <> commandId
+        && child.id <> actorNodeId
         && match Map.tryFind child.id graph.nodes with
            | Some node -> node.text = "hello"
            | None -> false)
 
-let private sampleRequest focusId commandId : ActorStart =
+let private sampleRequest focusId actorNodeId : ActorStart =
     { zoomId = focusId
       focusId = focusId
-      commandId = commandId
-      graphIds = [ Graph.rootId; commandId ]
+      actorNodeId = actorNodeId
+      graphIds = [ Graph.rootId; actorNodeId ]
       eventId = EventId.zero }
 
 let private createHost () =
@@ -98,7 +98,7 @@ let private withHost body =
 
 let private seedCommand host text =
     task {
-        let commandId = NodeId.New()
+        let actorNodeId = NodeId.New()
         let event =
             { id = EventId.zero
               submissionId = Guid.NewGuid()
@@ -106,21 +106,21 @@ let private seedCommand host text =
               commandName = ""
               body =
                 EventBody.Change
-                    [ Op.NewNode(commandId, text)
+                    [ Op.NewNode(actorNodeId, text)
                       Op.Replace(
                           Graph.rootId,
                           [],
-                          [ ChildNode.owner commandId ]) ] }
+                          [ ChildNode.owner actorNodeId ]) ] }
         let! posted =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" posted |> ignore
-        return commandId
+        return actorNodeId
     }
 
 let private seedCommandWithChildren host text childTexts =
     task {
-        let commandId = NodeId.New()
+        let actorNodeId = NodeId.New()
         let childIds = childTexts |> List.map (fun _ -> NodeId.New())
         let newChildOps =
             List.zip childIds childTexts
@@ -128,13 +128,13 @@ let private seedCommandWithChildren host text childTexts =
                 Op.NewNode(id, childText))
         let childEdges = childIds |> List.map ChildNode.owner
         let ops =
-            Op.NewNode(commandId, text)
+            Op.NewNode(actorNodeId, text)
             :: newChildOps
             @ [ Op.Replace(
                     Graph.rootId,
                     [],
-                    [ ChildNode.owner commandId ])
-                Op.Replace(commandId, [], childEdges) ]
+                    [ ChildNode.owner actorNodeId ])
+                Op.Replace(actorNodeId, [], childEdges) ]
         let event =
             { id = EventId.zero
               submissionId = Guid.NewGuid()
@@ -145,7 +145,7 @@ let private seedCommandWithChildren host text childTexts =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
         requireOk "postChange" posted |> ignore
-        return commandId
+        return actorNodeId
     }
 
 let private ownedChildFacts (graph: Graph) focusId =
@@ -190,8 +190,8 @@ let private eventsAfterStart (events: Ev list) focusId =
 [<InlineData("?nope", "nope")>]
 let ``unregistered Actor name fails start`` (text: string) (name: string) =
     withHost (fun host pool -> task {
-        let! commandId = seedCommand host text
-        let request = sampleRequest commandId commandId
+        let! actorNodeId = seedCommand host text
+        let request = sampleRequest actorNodeId actorNodeId
         let! result =
             CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
@@ -218,8 +218,8 @@ let ``unregistered Actor name fails start`` (text: string) (name: string) =
 [<InlineData("?test nope")>]
 let ``TestActor non-hello command fails without Owned child`` (text: string) =
     withHost (fun host pool -> task {
-        let! commandId = seedCommand host text
-        let request = sampleRequest commandId commandId
+        let! actorNodeId = seedCommand host text
+        let request = sampleRequest actorNodeId actorNodeId
         let! result =
             CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
@@ -232,22 +232,22 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         let! state =
             CoreMailboxApi.getState host |> Async.StartAsTask
         let state = requireOk "getState" state
-        Assert.Empty(helloChildren state.graph commandId commandId)
+        Assert.Empty(helloChildren state.graph actorNodeId actorNodeId)
     })
 
 [<Fact>]
 let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
     withHost (fun host pool -> task {
-        let! commandId =
+        let! actorNodeId =
             seedCommandWithChildren
                 host
                 "?test unknown"
                 [ "keep-me"; "also-keep" ]
-        let request = sampleRequest commandId commandId
+        let request = sampleRequest actorNodeId actorNodeId
         let! beforeState =
             CoreMailboxApi.getState host |> Async.StartAsTask
         let before = requireOk "getState before" beforeState
-        let beforeChildren = ownedChildFacts before.graph commandId
+        let beforeChildren = ownedChildFacts before.graph actorNodeId
         let beforeTexts = nodeTexts before.graph
         Assert.Equal(2, beforeChildren.Length)
         let! start =
@@ -264,7 +264,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         let after = requireOk "getState after" afterState
         Assert.Equal<(NodeId * Ownership * string) list>(
             beforeChildren,
-            ownedChildFacts after.graph commandId)
+            ownedChildFacts after.graph actorNodeId)
         Assert.Equal<(NodeId * string) list>(
             beforeTexts,
             nodeTexts after.graph)
@@ -286,8 +286,8 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
 [<Fact>]
 let ``TestActor ?test hello posts Owned hello and succeeds`` () =
     withHost (fun host _ -> task {
-        let! commandId = seedCommand host "?test hello"
-        let request = sampleRequest commandId commandId
+        let! actorNodeId = seedCommand host "?test hello"
+        let request = sampleRequest actorNodeId actorNodeId
         let! result =
             CoreMailboxApi.startActor host testCaller request
             |> Async.StartAsTask
@@ -301,7 +301,7 @@ let ``TestActor ?test hello posts Owned hello and succeeds`` () =
         let state = requireOk "getState" state
         Assert.Equal(
             1,
-            helloChildren state.graph commandId commandId
+            helloChildren state.graph actorNodeId actorNodeId
             |> List.length)
     })
 
@@ -339,7 +339,7 @@ let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     return! client.PostAsync("/ambit/changes", content)
 }
 
-let private seedQuestion (client: HttpClient) rootId commandId text = task {
+let private seedQuestion (client: HttpClient) rootId actorNodeId text = task {
     let seed =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
@@ -347,11 +347,11 @@ let private seedQuestion (client: HttpClient) rootId commandId text = task {
           commandName = ""
           body =
             EventBody.Change
-                [ Op.NewNode(commandId, text)
+                [ Op.NewNode(actorNodeId, text)
                   Op.Replace(
                       rootId,
                       [],
-                      [ ChildNode.owner commandId ]) ] }
+                      [ ChildNode.owner actorNodeId ]) ] }
     let! seedResp = postEventsHttp client [ seed ]
     Assert.Equal(HttpStatusCode.OK, seedResp.StatusCode)
 }
@@ -365,14 +365,14 @@ let ``production events door records a failed ActorStop for an unknown actor``
     task {
         use client = createClientForDir (newTempDir ())
         let! _, graph = getFullState client
-        let commandId = NodeId.New()
-        do! seedQuestion client graph.root commandId text
+        let actorNodeId = NodeId.New()
+        do! seedQuestion client graph.root actorNodeId text
         let! afterId, _ = getFullState client
         let request: ActorStart =
-            { zoomId = commandId
-              focusId = commandId
-              commandId = commandId
-              graphIds = [ commandId ]
+            { zoomId = actorNodeId
+              focusId = actorNodeId
+              actorNodeId = actorNodeId
+              graphIds = [ actorNodeId ]
               eventId = afterId }
         let launch =
             { id = EventId.zero
@@ -397,7 +397,7 @@ let ``production events door records a failed ActorStop for an unknown actor``
                 |> List.exists (fun event ->
                     match event.body with
                     | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
-                        id = commandId
+                        id = actorNodeId
                     | _ -> false)
             Assert.True(failed, "failed ActorStop missing")
     }

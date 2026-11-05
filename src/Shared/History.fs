@@ -26,7 +26,7 @@ type ActorResult =
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
-      commandId: NodeId
+      actorNodeId: NodeId
       graphIds: NodeId list
       eventId: EventId }
 

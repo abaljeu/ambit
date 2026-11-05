@@ -20,7 +20,7 @@ let private requireOk label result =
 let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      commandId = Graph.rootId
+      actorNodeId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
@@ -99,7 +99,7 @@ let ``StartActor with live credentials calls startActor with ActorStart`` () =
         let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         Assert.Equal(sampleRequest.zoomId, handed.zoomId)
         Assert.Equal(sampleRequest.focusId, handed.focusId)
-        Assert.Equal(sampleRequest.commandId, handed.commandId)
+        Assert.Equal(sampleRequest.actorNodeId, handed.actorNodeId)
         Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
         Assert.Equal(sampleRequest.eventId, handed.eventId)
     })
