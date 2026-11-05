@@ -12,18 +12,20 @@ Completing this Roadmap means completing the application. [[doc/index.md]] is th
 
 (Mutable section. Replace this section when the near-term aim changes.)
 
-Solid product core via [[epics/robust-outliner.md]]: **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met). **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); leftovers continue as pointers 08–17. Epic current Chapter: [[epics/chapters/actors-supported.md]].
+Solid product core via [[epics/robust-outliner.md]]: 
+- **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met).
+- **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]);
+- leftovers continue as pointers 08–17.
+- Epic current Chapter: [[epics/chapters/actors-supported.md]].
 
-- The main push is cleaning up that architecture
+The main push is cleaning up that architecture
 - The destination is CoreMsg removed
-- The prerequisite is the Actor migration: a function is given to the actor pool, which starts an actor on that function
+- The prerequisite is the Actor migration: a function is given to the actor pool, which starts an actor on that function.
 - Online search is the functional goal ([[plan/online-search/project.md]]; Chapter [[epics/chapters/find-what-i-wrote.md]])
-
-Grow by pull in / organize / send out. First inbound Agent path [[plan/llm-connector/project.md]] is Stage done. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later.
+- Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); 
 
 ### What to work on next
 
-- Ambot0 (the work coordinator) maintains this list
 - Destination: CoreMsg removed
 - Prerequisite: the Actor migration on [Actor as client](plan/actor-as-client/project.md) ([map](plan/actor-as-client/map.md))
 - Start: the current frontier of that Actor migration
