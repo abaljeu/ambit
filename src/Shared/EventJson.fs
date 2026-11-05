@@ -301,6 +301,64 @@ module EventJson =
             [ "kind", Encode.string "cancel"
               "focusId", Serialization.encodeNodeId focusId ]
 
+    let stubActor : FunctionActor =
+        fun _ _ -> async.Return ()
+
+    let private stubGraph : GraphCarrier =
+        fun () -> Graph.create ()
+
+    let private actorOrderFields (order: ActorOrder) =
+        [ "focusId", Serialization.encodeNodeId order.focusId
+          "actorName", Encode.string order.actorName ]
+
+    let encodeActorOrder (order: ActorOrder) : IEncodable =
+        Encode.object (actorOrderFields order)
+
+    let private decodeActorOrderFields : Decoder<ActorOrder> =
+        Decode.object (fun get ->
+            { actor = stubActor
+              getGraph = stubGraph
+              focusId =
+                  get.Required.Field
+                      "focusId"
+                      Serialization.decodeNodeId
+              actorName = get.Required.Field "actorName" Decode.string })
+
+    let private quotedField (json: string) (name: string) =
+        let key = "\"" + name + "\""
+        let keyAt = json.IndexOf(key, System.StringComparison.Ordinal)
+        if keyAt < 0 then Error ("ActorOrder is missing " + name)
+        else
+            let colon =
+                json.IndexOf(':', keyAt + key.Length)
+            if colon < 0 then Error ("ActorOrder is missing " + name)
+            else
+                let openQuote = json.IndexOf('"', colon + 1)
+                let closeQuote =
+                    if openQuote < 0 then -1
+                    else json.IndexOf('"', openQuote + 1)
+                if openQuote < 0 || closeQuote < 0 then
+                    Error ("ActorOrder is missing " + name)
+                else
+                    Ok (
+                        json.Substring(
+                            openQuote + 1,
+                            closeQuote - openQuote - 1))
+
+    let decodeActorOrder (json: string) : Result<ActorOrder, string> =
+        match quotedField json "focusId", quotedField json "actorName" with
+        | Error err, _ -> Error err
+        | _, Error err -> Error err
+        | Ok focusText, Ok actorName ->
+            match System.Guid.TryParse focusText with
+            | false, _ -> Error "ActorOrder focusId is not a Guid"
+            | true, focus ->
+                Ok
+                    { actor = stubActor
+                      getGraph = stubGraph
+                      focusId = NodeId focus
+                      actorName = actorName }
+
     let private encodeOrder (order: Order) =
         match order with
         | Order.Change(ops, origin) ->
@@ -336,6 +394,10 @@ module EventJson =
                   encodeLoadSaveCommandRequest request ]
         | Order.Load nodeId -> encodeLoad nodeId
         | Order.CancelActor focusId -> encodeCancel focusId
+        | Order.ActorOrder order ->
+            Encode.object
+                (("kind", Encode.string "actorOrder")
+                 :: actorOrderFields order)
 
     let private decodeOrderChange: Decoder<Order> =
         Decode.object (fun get ->
@@ -401,6 +463,8 @@ module EventJson =
             | "loadSave" -> decodeOrderLoadSave
             | "load" -> decodeOrderLoad
             | "cancel" -> decodeOrderCancel
+            | "actorOrder" ->
+                Decode.map Order.ActorOrder decodeActorOrderFields
             | other -> Decode.fail ("Unknown order: " + other))
 
     let private encodeBody (body: EventBody) =

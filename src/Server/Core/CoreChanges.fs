@@ -2,8 +2,6 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
-type Credential = Credential of string
-
 /// Public Authority, login instance name, and secret at a Core door.
 /// `name` is this browser/session instance, not the global user name.
 type Caller =

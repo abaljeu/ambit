@@ -209,7 +209,8 @@ module internal CoreMailboxLoop =
                 context placed caller reply focusId
         | Order.StartActor _
         | Order.StartPeerActor _
-        | Order.LoadSave _ -> replyUnsupported reply
+        | Order.LoadSave _
+        | Order.ActorOrder _ -> replyUnsupported reply
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with

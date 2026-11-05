@@ -1,20 +1,20 @@
 # 06 — Log ActorOrder
-**Status**: defined
+**Status**: coded
 One job: The log has `Order.ActorOrder` of `ActorOrder`. The pool start stays `startFunction`.
 
-[ ] `ActorOrder` holds `actor`, `getGraph`, `focusId`, and `actorName`. `focusId` is the node that has focus when the command runs. `actorName` stands in for `actor` on the wire.
-[ ] `FunctionActor`, `FunctionRun`, `GraphCarrier`, `Credential`, and `ActorChanges` move to `src/Shared/History.fs`. `CoreDoor.actorChanges` builds `ActorChanges` from `CoreChangesDoor`. The source files are 8. The test files are 2. The size limit is 8 source files and 4 test files.
-[ ] The folder name stays `06-add-the-function-and-focus-start` so existing links keep their path.
-[ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. That ticket renames `Order.Cancel` to `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
+[x] `ActorOrder` holds `actor`, `getGraph`, `focusId`, and `actorName`. `focusId` is the node that has focus when the command runs. `actorName` stands in for `actor` on the wire.
+[x] `GraphCarrier`, `FunctionRun`, and `Credential` move to `src/Shared/History.fs`. `ActorChanges` and the log `FunctionActor` are added there. `FunctionActor` is `FunctionRun -> ActorChanges -> Async<unit>`. The pool `FunctionActor` stays in `CoreActorPool.fs` as `FunctionRun -> CoreChangesDoor -> Async<unit>`. `actorChanges` waits for the ticket that first runs a Shared `FunctionActor`. The source files are 8. The named test files are 2. `tests/Server.Tests/PersistApplyTests.fs` annotates `PersistHandlers` where `getState` overlaps `ActorChanges`. The size limit is 8 source files and 4 test files.
+[x] The folder name stays `06-add-the-function-and-focus-start` so existing links keep their path.
+[x] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. That ticket renames `Order.Cancel` to `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
 
 Type:
 
-[ ] coding
+[x] coding
 
 Blockers:
 
-[ ] [17 — Rename commandId to actorNodeId](../17-rename-command-id-to-actor-node-id/17-rename-command-id-to-actor-node-id-ticket.md). It runs before this ticket.
-[ ] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
+[x] [17 — Rename commandId to actorNodeId](../17-rename-command-id-to-actor-node-id/17-rename-command-id-to-actor-node-id-ticket.md). It runs before this ticket.
+[x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
 
 ## Inputs
 
@@ -45,29 +45,29 @@ Blockers:
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Expand: Move `GraphCarrier`, `FunctionRun`, `FunctionActor`, and `Credential` to `src/Shared/History.fs`. Add `ActorChanges` there. `FunctionActor` is `FunctionRun -> ActorChanges -> Async<unit>`. Delete the moved definitions from `CoreActorPool.fs` and `CoreChanges.fs`.
-3. [ ] Expand: Add `actorChanges : CoreChangesDoor -> ActorChanges` in `CoreDoor`. `postChanges` returns `Error` when the door is not writable.
-4. [ ] Expand: Add `ActorOrder` and `| ActorOrder of ActorOrder` on `Order` beside the cases that exist after 112.
-5. [ ] The logged value is that case, stored as-is. It is not `Order.RunActor`.
-6. [ ] Expand: Add `stubActor : FunctionActor`, `encodeActorOrder : ActorOrder -> IEncodable`, and `decodeActorOrder : string -> Result<ActorOrder, string>` in `EventJson`. Encode writes `focusId` and `actorName`. `actorName` stands in for `actor`. Decode sets `actor` to `stubActor`.
-7. [ ] Expand: Add the `MailboxLog` arm. Add a `placeOrder` arm that stays unsupported. 80 — Place Actor starts through PlaceOrder runs it.
-8. [ ] Expand: Add `postActorOrder : ActorOrder -> unit` on `MailboxHost`. It puts one `ActorOrder` on the mailbox queue.
-9. [ ] Leave `startFunction`, `startActor`, `startPeerActor`, and `CoreMsg` as they are.
-10. [ ] A match of the cancel case uses `Order.CancelActor`.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] Expand: Move `GraphCarrier`, `FunctionRun`, and `Credential` to `src/Shared/History.fs`. Add `ActorChanges` and `FunctionActor` there. `FunctionActor` is `FunctionRun -> ActorChanges -> Async<unit>`. That is the log function. Keep the pool `FunctionActor` in `CoreActorPool.fs` as `FunctionRun -> CoreChangesDoor -> Async<unit>`. `FunctionStart` stays on that pool function. In `TestActor.fs`, annotate `functionActor` as `Gambol.Server.FunctionActor`.
+3. [x] `actorChanges` waits for the ticket that first runs a Shared `FunctionActor`. This ticket does not add it.
+4. [x] Expand: Add `ActorOrder` and `| ActorOrder of ActorOrder` on `Order` beside the cases that exist after 112.
+5. [x] The logged value is that case, stored as-is. It is not `Order.RunActor`.
+6. [x] Expand: Add `stubActor : FunctionActor`, `encodeActorOrder : ActorOrder -> IEncodable`, and `decodeActorOrder : string -> Result<ActorOrder, string>` in `EventJson`. Encode writes `focusId` and `actorName`. `actorName` stands in for `actor`. Decode sets `actor` to `stubActor`.
+7. [x] Expand: Add the `MailboxLog` arm. Add a `placeOrder` arm that stays unsupported. 80 — Place Actor starts through PlaceOrder runs it.
+8. [x] Expand: Add `postActorOrder : ActorOrder -> unit` on `MailboxHost`. It puts one `ActorOrder` on the mailbox queue.
+9. [x] Leave `startFunction`, `startActor`, `startPeerActor`, and `CoreMsg` as they are.
+10. [x] A match of the cancel case uses `Order.CancelActor`.
 
 ## Outputs
 
-[ ] `src/Shared/History.fs`
-[ ] `src/Server/Core/CoreActorPool.fs`
-[ ] `src/Server/Core/CoreChanges.fs`
-[ ] `src/Server/Core/CoreDoor.fs`
-[ ] `src/Shared/EventJson.fs`
-[ ] `src/Shared/MailboxLog.fs`
-[ ] `src/Server/Core/CoreMailboxLoop.fs`
-[ ] `src/Server/Core/MailboxHost.fs`
-[ ] `tests/Shared.Tests/EventJsonTests.fs` — `ActorOrder round-trips on the wire with stubActor`
-[ ] `tests/Shared.Tests/MailboxLogTests.fs` — `ActorOrder carries command name and FocusId`
+[x] `src/Shared/History.fs`
+[x] `src/Server/Core/CoreActorPool.fs`
+[x] `src/Server/Core/CoreChanges.fs`
+[x] `src/Server/TestActor.fs` — `functionActor` is `Gambol.Server.FunctionActor`
+[x] `src/Shared/EventJson.fs`
+[x] `src/Shared/MailboxLog.fs`
+[x] `src/Server/Core/CoreMailboxLoop.fs`
+[x] `src/Server/Core/MailboxHost.fs`
+[x] `tests/Shared.Tests/EventJsonTests.fs` — `ActorOrder round-trips on the wire with stubActor`
+[x] `tests/Shared.Tests/MailboxLogTests.fs` — `ActorOrder carries command name and FocusId`
 
 ## Stop when
 
@@ -79,10 +79,10 @@ Blockers:
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: ``ActorOrder round-trips on the wire with stubActor``
   - `tests/Shared.Tests`: ``ActorOrder carries command name and FocusId``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/actor-as-client/reports/06-add-the-function-and-focus-start-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Write the verdict to `plan/actor-as-client/reports/06-add-the-function-and-focus-start-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

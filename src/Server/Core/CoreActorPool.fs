@@ -14,14 +14,7 @@ type ActorInput =
 
 type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
 
-/// Graph carrier the Actor calls. The pool does not invoke this.
-type GraphCarrier = unit -> Graph
-
-/// What a function-shaped Actor receives. No Graph or ids bag.
-type FunctionRun =
-    { getGraph: GraphCarrier
-      secret: Credential }
-
+/// Pool function. The log FunctionActor in Shared takes ActorChanges.
 type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.

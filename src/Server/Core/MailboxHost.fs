@@ -1,5 +1,7 @@
 namespace Gambol.Server
 
+open Gambol.Shared
+
 type MailboxHost =
     private {
         mailbox: MailboxProcessor<CoreQueue>
@@ -89,6 +91,26 @@ module MailboxHost =
         : Async<'a> =
         postItemAndAsyncReply host (fun channel ->
             CoreQueue.Public (build channel))
+
+    let postActorOrder (host: MailboxHost) (order: ActorOrder) : unit =
+        let placed =
+            { orderId = OrderId(System.Guid.NewGuid())
+              authority = Authority "Actor"
+              commandName =
+                  match order.actorName with
+                  | "" -> None
+                  | name -> Some name
+              order = Order.ActorOrder order }
+        let caller =
+            { authority = Authority "Actor"
+              name = order.actorName
+              secret = Credential "" }
+        let post reply =
+            CoreQueue.Public(Mailbox.placeForCaller placed caller reply)
+        lock host.gate (fun () ->
+            host.mailbox.PostAndAsyncReply post
+            |> Async.Ignore
+            |> Async.Start)
 
     let isReady (host: MailboxHost) = host.isReady
 

@@ -397,3 +397,38 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
                 commandName = ""
                 body = EventBody.Order order }
         Assert.Equal(event, roundTrip event))
+
+[<Fact>]
+let ``ActorOrder round-trips on the wire with stubActor`` () =
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let mutable ran = false
+    let live : FunctionActor =
+        fun _ _ ->
+            ran <- true
+            async.Return ()
+    let other : FunctionActor = fun _ _ -> async.Return ()
+    let order actor =
+        { actor = actor
+          getGraph = fun () -> Graph.create ()
+          focusId = focusId
+          actorName = "hello" }
+    let jsonOf actor =
+        Enc.toString 0 (EventJson.encodeActorOrder (order actor))
+    Assert.Equal(jsonOf live, jsonOf other)
+    match EventJson.decodeActorOrder (jsonOf live) with
+    | Error err -> Assert.Fail(err)
+    | Ok decoded ->
+        Assert.Equal(focusId, decoded.focusId)
+        Assert.Equal("hello", decoded.actorName)
+        Assert.False(ran)
+    let event =
+        { changeEvent with
+            commandName = "hello"
+            body = EventBody.Order(Order.ActorOrder (order live)) }
+    match (roundTrip event).body with
+    | EventBody.Order (Order.ActorOrder decoded) ->
+        Assert.Equal(focusId, decoded.focusId)
+        Assert.Equal("hello", decoded.actorName)
+        Assert.False(ran)
+    | _ -> Assert.Fail("expected ActorOrder")

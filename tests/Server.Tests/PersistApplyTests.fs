@@ -160,7 +160,7 @@ let private fileAt text persisted =
         |> withPersistedVersions EventId.zero persisted
     fileId, node
 
-let private seedPersisted handlers fileId node =
+let private seedPersisted (handlers: PersistHandlers) fileId node =
     let state = requireOk "seed getState" (handlers.getState ())
     handlers.replaceGraph
         (Notice.NodePersisting fileId)
@@ -177,7 +177,7 @@ let private fileHandlers () =
     let agent = FileAgent.create (newTempDir ())
     (FileAgent.persist agent).handlers
 
-let private applyAction handlers event =
+let private applyAction (handlers: PersistHandlers) event =
     requireOk "applyEvent" (handlers.applyEvent event false) |> ignore
     requireOk "getState" (handlers.getState ())
 
@@ -189,7 +189,11 @@ let private assertVersions state fileId text changed persisted =
     Assert.Equal(persisted, live.documentState.persistedVersion)
 
 /// Edit at V, then Undo or Redo at a later id. persistedVersion stays.
-let private editThenAction handlers actionId bodyFor =
+let private editThenAction
+    (handlers: PersistHandlers)
+    actionId
+    bodyFor
+    =
     let version = EventIdFixtures.storedId 4
     let persisted = EventIdFixtures.storedId 2
     let fileId, node = fileAt "hello" persisted

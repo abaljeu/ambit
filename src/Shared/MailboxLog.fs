@@ -30,7 +30,8 @@ module MailboxLog =
         | Order.Redo _
         | Order.Load _
         | Order.StartActor _
-        | Order.CancelActor _ ->
+        | Order.CancelActor _
+        | Order.ActorOrder _ ->
             Ok (EventBody.Order order)
         | Order.StartPeerActor _
         | Order.LoadSave _ -> Error "unsupported"
