@@ -12,38 +12,54 @@ Out of scope: dialog layout, file search, paging, a continuation cursor, and exp
 
 ## 2. Types
 
-[x] `SearchPicture.Match`, `SearchPicture.Request`, and `SearchPicture.Reply`.
+[x] `Match`
 
 ```fsharp
 type Match =
     | Text of string
     | Generation of int
+```
 
+[x] `Request`
+
+```fsharp
 type Request =
     { text: string
       startId: NodeId
       generation: int option }
+```
 
+[x] `Reply`
+
+```fsharp
 type Reply =
     { ids: NodeId list
       matchKey: Match }
 ```
 
-[x] `Api.SearchActorDoor`, `ActorStart`, and `ActorResult`. Search uses the root for all `ActorStart` Node ids. The wire key for `actorNodeId` remains `"commandId"`.
+[x] `SearchActorDoor`
 
 ```fsharp
 type SearchActorDoor =
     { changes: CoreChangesDoor
       recordStart: ActorStart -> Async<Result<unit, string>>
       recordStop: NodeId -> Async<unit> }
+```
 
+[x] `ActorStart`
+
+```fsharp
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
       actorNodeId: NodeId
       graphIds: NodeId list
       eventId: EventId }
+```
 
+[x] `ActorResult`
+
+```fsharp
 type ActorResult =
     | ActorSucceeded
     | ActorFailed of string
@@ -51,21 +67,30 @@ type ActorResult =
     | ActorQuery of ids: NodeId list
 ```
 
-[x] `SyncResponse`, `ChildNode`, and `Op.Replace`. Search Headers ride `nodes`; query results use `ChildNode.reference`.
+[x] `SyncResponse`
 
 ```fsharp
 type SyncResponse =
     { events: Ev list
       nodes: Node list
       childMap: Map<NodeId, ChildNode list> }
+```
+
+[x] `ChildNode`
+
+```fsharp
 type ChildNode =
     { ref: Ownership
       id: NodeId }
+```
 
+[x] `Replace`
+
+```fsharp
 | Replace of parentId: NodeId * oldChildren: ChildNode list * newChildren: ChildNode list
 ```
 
-[x] `SearchDialogState` is in `src/Shared/ViewModel.fs`.
+[x] `SearchDialogState`
 
 ```fsharp
 type SearchDialogState =
@@ -81,11 +106,9 @@ type SearchDialogState =
 
 [o] `SearchPicture.Gap`, `ArmSearchQuietGap`, and `CancelSearchQuietGap` are replaced by globe selection.
 
-[x] `GraphBuild.trashId` is the include-versus-omit compare target. `reply` and `startSearch` keep their signatures.
-
 ## 3. Interfaces
 
-### ViewModelSearch
+### Local search
 
 [x]
 
@@ -96,9 +119,13 @@ takeResults : int -> SearchCursor -> NodeSearchResult list * SearchCursor option
 searchNodes : string -> NodeId -> Graph -> NodeSearchResult list
 ```
 
-[ ] Include versus omit compares a node to `GraphBuild.trashId`. `startSearch` keeps `string -> NodeId -> Graph -> SearchCursor option`.
+[x] `searchHitCap` is 200. The walk stops there.
 
-### SearchPicture
+[ ] Include versus omit compares a node to `GraphBuild.trashId`. The walk starts at that node when `zoomRoot` equals it.
+
+[ ] `startSearch` keeps `string -> NodeId -> Graph -> SearchCursor option`.
+
+### Search picture
 
 [x]
 
@@ -112,7 +139,9 @@ matchKeyOf : Request -> Match
 keepReply : Match -> NodeId list -> Reply -> NodeId list
 ```
 
-### SearchDialog
+[ ] `keepReply` returns the reply ids when `reply.matchKey` equals the current `Match`. A different `Match` returns the kept ids.
+
+### Search dialog
 
 [x]
 
@@ -122,15 +151,13 @@ currentSearchResults : VM -> NodeSearchResult list
 applyServerReply : SearchPicture.Reply -> VM -> VM * Effect list
 ```
 
-### SearchPictureClient
+[x] Find and Move open on one NodeId list and share `onPick`.
 
-[x]
+[ ] While the globe is clear, `currentSearchResults` reads Local search.
 
-```fsharp
-runSearch : (Msg -> unit) -> string -> NodeId -> unit
-```
+[ ] `applyServerReply` stores the server ids. `currentSearchResults` shows that list in place of the client list.
 
-### Update
+### Globe edit
 
 [x]
 
@@ -138,7 +165,23 @@ runSearch : (Msg -> unit) -> string -> NodeId -> unit
 update : Msg -> VM -> VM * Effect list
 ```
 
-### RouteRegistration
+[x] `NodeSearchQuery` stores the query and clears `serverHitIds`.
+
+[ ] A clear globe calls Local search.
+
+[ ] A selected globe calls Search transport when the local count is under 200. At 200 the edit stays on Local search.
+
+### Search transport
+
+[x]
+
+```fsharp
+runSearch : (Msg -> unit) -> string -> NodeId -> unit
+```
+
+[x] `runSearch` posts `Request`. `startId` is the client zoom. `generation` is absent. Shown Node ids stay off the request.
+
+### Search route
 
 [x]
 
@@ -146,7 +189,9 @@ update : Msg -> VM -> VM * Effect list
 postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 ```
 
-### Api
+[x] `postSearchRequest` reads the body and calls Search door.
+
+### Search door
 
 [x]
 
@@ -154,19 +199,31 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 postSearch : SearchActorDoor -> string -> Async<IResult>
 ```
 
-### SearchActor
+[x] `postSearch` reads State through `changes`, records the start, runs Find and Move reply, records the stop at the root, and returns one reply. Errors are `Result` values.
+
+### Root-only start
 
 [x]
 
 ```fsharp
 actorStart : Graph -> EventId -> ActorStart
-reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
-functionStart : ActorStart -> GraphCarrier -> FunctionStart
 ```
 
-[ ] `reply` passes `graph.root` into `startSearch`. Include versus omit compares a node to `GraphBuild.trashId`.
+[x] `zoomId`, `focusId`, `actorNodeId`, and `graphIds` are `graph.root`. `focusId` holds that root so the stop pairs with the start. Search does not take a focus. The wire key for `actorNodeId` remains `"commandId"`.
 
-### CoreMailboxApi
+### Find and Move reply
+
+[x]
+
+```fsharp
+reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
+```
+
+[ ] `reply` passes `graph.root` into Local search. Include versus omit compares a node to `GraphBuild.trashId`.
+
+[x] The reply is one list of distinct Node ids. There is no continuation cursor.
+
+### Search event record
 
 [x]
 
@@ -175,15 +232,9 @@ recordSearchStart : MailboxHost -> Caller -> ActorStart -> Async<Result<unit, st
 recordSearchStop : MailboxHost -> Caller -> NodeId -> Async<Result<unit, string>>
 ```
 
-### CommandRequest
+[x] `recordSearchStart` commits `ActorStart` on the event source. `recordSearchStop` commits `ActorStop`. The walk stays off this queue.
 
-[x]
-
-```fsharp
-tryQueryStart : Graph -> SiteMap -> NodeId -> NodeId -> EventId -> ActorStart option
-```
-
-### Commands
+### Run command
 
 [x]
 
@@ -191,7 +242,19 @@ tryQueryStart : Graph -> SiteMap -> NodeId -> NodeId -> EventId -> ActorStart op
 execRunOp : VM -> VM * Effect list
 ```
 
-### RunLaunch
+[x] Run on a line that contains `=` queues one start.
+
+### Query line
+
+[x]
+
+```fsharp
+tryQueryStart : Graph -> SiteMap -> NodeId -> NodeId -> EventId -> ActorStart option
+```
+
+[x] A query line contains `=`.
+
+### Queue start
 
 [x]
 
@@ -199,7 +262,9 @@ execRunOp : VM -> VM * Effect list
 queueStart : ActorStart -> EventId -> SyncInfo -> Effect list -> SyncInfo * Effect list
 ```
 
-### CoreMailboxActors
+[x] `queueStart` queues `ActorStart` on `syncInfo.pending`.
+
+### Posted query start
 
 [x]
 
@@ -207,7 +272,19 @@ queueStart : ActorStart -> EventId -> SyncInfo -> Effect list -> SyncInfo * Effe
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
 ```
 
-### CoreActorPool
+[x] `postActorStart` runs Query function for a posted Run, then Pool start.
+
+### Query function
+
+[x]
+
+```fsharp
+functionStart : ActorStart -> GraphCarrier -> FunctionStart
+```
+
+[x] `functionStart` evaluates once on the server Graph, then calls Actor stop with `ActorQuery`.
+
+### Pool start
 
 [x]
 
@@ -215,21 +292,9 @@ postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> 
 startFunction : FunctionStart -> Result<Credential, string>
 ```
 
-### CoreDoor
+[x] `startFunction` is the pool start for a query.
 
-[x]
-
-```fsharp
-actorStop : CoreChangesDoor -> ActorResult -> Async<Result<unit, string>>
-```
-
-[ ] Proposed Query Ref post.
-
-```fsharp
-postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, string>>
-```
-
-### ExprRun
+### Query answer
 
 [x]
 
@@ -237,9 +302,33 @@ postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, str
 answerNodeIds : NodeId -> Graph -> string -> NodeId list
 ```
 
-[ ] Ordinary eval omits a node equal to `GraphBuild.trashId`.
+[ ] `answerNodeIds` returns at most 200 ids. A function stop under that cap stays. Ordinary eval omits a node equal to `GraphBuild.trashId`. The signature stays `NodeId -> Graph -> string -> NodeId list`. There is no page.
 
-### ResidentProjection
+### Trash function
+
+[ ] The catalog row `trash` returns `GraphBuild.trashId` the way `root` returns the root.
+
+### Actor stop
+
+[x]
+
+```fsharp
+actorStop : CoreChangesDoor -> ActorResult -> Async<Result<unit, string>>
+```
+
+[x] Errors are `Result` values. A query posts one `ActorQuery` and stops.
+
+### Query ref post
+
+[x]
+
+```fsharp
+postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, string>>
+```
+
+[ ] Proposed Query Ref post. The Query Actor posts `Op.Replace`. Each result child is `ChildNode.reference`. The same response carries the Want `nodes`.
+
+### Want nodes
 
 [x]
 
@@ -248,7 +337,9 @@ wantAnswer : Graph -> NodeId list -> Map<NodeId, ChildNode list> * Node list
 installWantAnswer : Map<NodeId, ChildNode list> -> Node list -> Graph -> Result<Graph, string>
 ```
 
-### SyncLogic
+[ ] The reply ids are the Want ids. Hit Headers ride `SyncResponse.nodes`. No `childMap` entry exists only to carry a hit Header.
+
+### Sync install
 
 [x]
 
@@ -256,107 +347,197 @@ installWantAnswer : Map<NodeId, ChildNode list> -> Node list -> Graph -> Result<
 applySyncResponse : SyncResponse -> ClientSyncState -> Result<ClientSyncState, string>
 ```
 
+[x] `applySyncResponse` applies the event tail, then Want nodes.
+
 ## 4. Flow paths
 
 1. **Shared Find and Move path**
 
-[ ] Find and Move open on one local NodeId list and use the same `onPick` seam. Edits stay local while the globe is clear. The walk stops at 200, omits a node equal to `GraphBuild.trashId`, and starts there when `zoomRoot` equals it.
+[ ] Find and Move share the local list while the globe is clear.
 
 ```fsharp
-openSearchDialogWithOnPick invokedCommand onPick model
-update (NodeSearchQuery query) model
-searchNodes query zoomRoot graph
-currentSearchResults model
+Search dialog
+Globe edit
+Local search
+Search dialog
 ```
 
 2. **Shared Search Actor path**
 
-[ ] Below 200, the globe and later edits request one root-only server reply for Find or Move. `reply` passes `graph.root` into `startSearch`. Include versus omit compares a node to `GraphBuild.trashId`. The reply contains distinct Node ids, replaces only the matching list, and has no page or continuation cursor.
+[ ] The globe requests one root-only Find and Move reply.
 
 ```fsharp
-update (NodeSearchQuery query) model
-runSearch dispatch query zoomRoot
-postSearchRequest persistence request
-postSearch door body
-actorStart graph eventId
-recordSearchStart host caller start
-reply getGraph request
-startSearch query graph.root graph
-takeResults searchHitCap cursor
-recordSearchStop host caller graph.root
-keepReply currentMatch kept reply
-applyServerReply reply model
-currentSearchResults model
+Globe edit
+Search transport
+Search route
+Search door
+Root-only start
+Search event record
+Find and Move reply
+Local search
+Search event record
+Search picture
+Search dialog
 ```
 
 3. **Want nodes ride**
 
-[ ] The shared reply ids become the Want ids. Hit Headers ride `SyncResponse.nodes`; no `childMap` entry exists only to carry a hit Header.
+[ ] Hit Headers ride the existing Want `nodes` list.
 
 ```fsharp
-wantAnswer graph reply.ids
-applySyncResponse response state
-installWantAnswer childMap nodes graph
+Want nodes
+Sync install
 ```
 
 4. **Query Actor path**
 
-[x] Run queues one remote evaluation. [ ] `answerNodeIds` stops at 200 or an earlier function stop, omits a node equal to `GraphBuild.trashId` except through `trash`, and does not page.
+[x] Run queues one remote evaluation. [ ] The answer keeps the cap and the trash compare.
 
 ```fsharp
-execRunOp model
-tryQueryStart graph siteMap zoomId focusId eventId
-queueStart request eventId syncInfo effects
-postActorStart context caller event request reply
-functionStart request getGraph
-startFunction start
-answerNodeIds lineId graph line
-actorStop door (ActorQuery ids)
+Run command
+Query line
+Queue start
+Posted query start
+Query function
+Pool start
+Query answer
+Actor stop
 ```
 
 5. **Proposed Query Ref post**
 
-[ ] The Query Actor posts `Op.Replace` with `ChildNode.reference` results on the event source. The same response carries their Want `nodes`.
+[ ] The query results become Refs under the query line, with their Want `nodes`.
 
 ```fsharp
-answerNodeIds lineId graph line
-postEvents door events
-wantAnswer graph ids
-applySyncResponse response state
-installWantAnswer childMap nodes graph
+Query answer
+Query ref post
+Want nodes
+Sync install
 ```
 
 ## 5. Module map
 
-[x] ViewModelSearch is the module in `src/Shared/ViewModelSearch.fs`.
-[x] SearchPicture is the module in `src/Shared/SearchPicture.fs`.
-[x] SearchDialog is the module in `src/Client/SearchDialog.fs`.
-[x] SearchPictureClient is the module in `src/Client/SearchPictureClient.fs`.
-[x] Update is the module in `src/Client/Update.fs`.
-[x] Api is the module in `src/Server/Api.fs`.
-[x] RouteRegistration is the module in `src/Server/RouteRegistration.fs`.
-[x] SearchActor is the module in `src/Server/SearchActor.fs`.
-[x] CoreMailboxApi is the module in `src/Server/Core/CoreMailboxApi.fs`.
-[x] CoreMailboxActors is the module in `src/Server/Core/CoreMailboxActors.fs`.
-[x] CoreActorPool is the module in `src/Server/Core/CoreActorPool.fs`.
-[x] CoreDoor is the module in `src/Server/Core/CoreDoor.fs`.
-[x] CommandRequest is the module in `src/Shared/CommandRequest.fs`.
-[x] Commands is the module in `src/Client/Commands.fs`.
-[x] RunLaunch is the module in `src/Shared/RunLaunch.fs`.
-[x] ExprRun is the module in `src/Shared/ExprRun.fs`.
-[x] ExprPrimitive is the module in `src/Shared/ExprPrimitive.fs`.
-[x] ResidentProjection is the module in `src/Shared/ResidentProjection.fs`.
-[x] SyncLogic is the module in `src/Shared/SyncLogic.fs`.
-[x] `ActorStart`, `ActorResult`, `Op.Replace`, and `EventBody.Change` are in `src/Shared/History.fs`.
-[x] `SyncResponse` is in `src/Shared/ApiResponses.fs`.
-[x] `ChildNode.reference` is in `src/Shared/Model.fs`.
-[x] `GraphBuild.trashId` is in `src/Shared/GraphBuild.fs`.
-[ ] `SearchDialogState` holds globe selection in `src/Shared/ViewModel.fs`.
+1. **Local search**
+   - Interface: `src/Shared/ViewModelSearch.fs` `searchHitCap`, `startSearch`, `takeResults`, `searchNodes`
+   - Compare target: `GraphBuild.trashId` in `src/Shared/GraphBuild.fs`
+   - Uses:
+     1. [x] none
+2. **Search picture**
+   - Interface: `src/Shared/SearchPicture.fs` `matchKeyOf`, `keepReply`
+   - Type `Match`, `Request`, and `Reply` in `src/Shared/SearchPicture.fs`
+   - [o] Type `Gap` in `src/Shared/SearchPicture.fs`
+   - Uses:
+     1. [x] none
+3. **Search dialog**
+   - Interface: `src/Client/SearchDialog.fs` `openSearchDialogWithOnPick`, `currentSearchResults`, `applyServerReply`
+   - Type `SearchDialogState` in `src/Shared/ViewModel.fs`
+   - Uses:
+     1. [x] Local search
+     2. [x] Search picture
+4. **Globe edit**
+   - Interface: `src/Client/Update.fs` `update`
+   - Uses:
+     1. [ ] Local search
+     2. [ ] Search transport
+5. **Search transport**
+   - Interface: `src/Client/SearchPictureClient.fs` `runSearch`
+   - Uses:
+     1. [x] Search picture
+6. **Search route**
+   - Interface: `src/Server/RouteRegistration.fs` `postSearchRequest`
+   - Uses:
+     1. [x] Search door
+7. **Search door**
+   - Interface: `src/Server/Api.fs` `postSearch`
+   - Type `SearchActorDoor` in `src/Server/Api.fs`
+   - Uses:
+     1. [x] Root-only start
+     2. [x] Search event record
+     3. [x] Find and Move reply
+8. **Root-only start**
+   - Interface: `src/Server/SearchActor.fs` `actorStart`
+   - Type `ActorStart` in `src/Shared/History.fs`
+   - Uses:
+     1. [x] none
+9. **Find and Move reply**
+   - Interface: `src/Server/SearchActor.fs` `reply`
+   - Uses:
+     1. [x] Local search
+10. **Search event record**
+    - Interface: `src/Server/Core/CoreMailboxApi.fs` `recordSearchStart`, `recordSearchStop`
+    - Uses:
+      1. [x] none
+11. **Run command**
+    - Interface: `src/Client/Commands.fs` `execRunOp`
+    - Uses:
+      1. [x] Query line
+      2. [x] Queue start
+12. **Query line**
+    - Interface: `src/Shared/CommandRequest.fs` `tryQueryStart`
+    - Uses:
+      1. [x] none
+13. **Queue start**
+    - Interface: `src/Shared/RunLaunch.fs` `queueStart`
+    - Uses:
+      1. [x] none
+14. **Posted query start**
+    - Interface: `src/Server/Core/CoreMailboxActors.fs` `postActorStart`
+    - Uses:
+      1. [x] Query function
+      2. [x] Pool start
+15. **Query function**
+    - Interface: `src/Server/SearchActor.fs` `functionStart`
+    - Uses:
+      1. [x] Query answer
+      2. [x] Actor stop
+16. **Pool start**
+    - Interface: `src/Server/Core/CoreActorPool.fs` `startFunction`
+    - Uses:
+      1. [x] Query function
+17. **Query answer**
+    - Interface: `src/Shared/ExprRun.fs` `answerNodeIds`
+    - Uses:
+      1. [ ] Trash function
+18. **Trash function**
+    - Interface: `src/Shared/ExprPrimitive.fs`
+    - Compare target: `GraphBuild.trashId` in `src/Shared/GraphBuild.fs`
+    - Uses:
+      1. [ ] none
+19. **Actor stop**
+    - Interface: `src/Server/Core/CoreDoor.fs` `actorStop`
+    - Type `ActorResult` in `src/Shared/History.fs`
+    - Uses:
+      1. [x] none
+20. **Query ref post**
+    - Interface: `src/Server/Core/CoreDoor.fs` `postEvents`
+    - Type `ChildNode` in `src/Shared/Model.fs`
+    - Type `Replace` in `src/Shared/History.fs`
+    - Uses:
+      1. [ ] Query answer
+      2. [ ] Want nodes
+21. **Want nodes**
+    - Interface: `src/Shared/ResidentProjection.fs` `wantAnswer`, `installWantAnswer`
+    - Type `SyncResponse` in `src/Shared/ApiResponses.fs`
+    - Uses:
+      1. [x] none
+22. **Sync install**
+    - Interface: `src/Shared/SyncLogic.fs` `applySyncResponse`
+    - Uses:
+      1. [x] Want nodes
 
-## 6. Slicing strategy
+## 6. Seams
+
+1. [x] **Find and Move reply** / **Local search** — `actor reply matches startSearch and takeResults`, `reply walks from the root`, and `reply reads the carrier graph once and stops at 200` in `tests/Server.Tests/SearchActorTests.fs`.
+2. [x] **Search door** / **Find and Move reply** — `postSearch returns one reply from the server graph` in `tests/Server.Tests/SearchActorTests.fs`.
+3. [x] **Search door** / **Root-only start** — `actorStart records the root` and `postSearch records ActorStart at the root` in `tests/Server.Tests/SearchActorTests.fs`.
+4. [x] **Query function** / **Actor stop** — `ActorStop reads the carrier graph once` and `ActorStop ids are not the find walk` in `tests/Server.Tests/QueryActorTests.fs`.
+5. [x] **Query function** / **Query answer** — `empty equals line stops with no node ids` in `tests/Server.Tests/QueryActorTests.fs`.
+6. [x] **Sync install** / **Want nodes** — `applySyncResponse installs Want answer after Event tail` and `applySyncResponse Load Fetch answer installs through installWantAnswer` in `tests/Shared.Tests/SyncLogicTests.fs`.
+
+## 7. Slicing strategy
 
 [x] tracer-cut
 
-## 7. Open questions
+## 8. Open questions
 
 None
