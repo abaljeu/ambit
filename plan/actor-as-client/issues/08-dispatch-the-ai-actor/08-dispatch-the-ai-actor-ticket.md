@@ -38,7 +38,7 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Change: `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. The wake and cancel use that session.
-3. [ ] Change: `postActorStart` for a `?ai` Run builds `ActorOrder` with that function, `getGraph`, the FocusId, and the command name, and calls `postActorOrder`.
+3. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `FunctionActor`. It builds `ActorOrder` with that function, `getGraph`, the FocusId, and `actorName`, and calls `postActorOrder`.
 4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
 5. [ ] Contract: Remove the `ai` pair from `pool.register`.
 6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.

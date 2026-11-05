@@ -30,7 +30,7 @@ Blockers:
 
 ### Reference
 
-[x] [Arch](../../arch.md). `ActorOrder.actorNodeId` is the actor node's id.
+[x] [Arch](../../arch.md). `actorNodeId` is the field on `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row. The Run endpoint closes over that id in its `FunctionActor`.
 
 ## Do not load
 
