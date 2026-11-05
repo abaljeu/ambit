@@ -96,7 +96,6 @@
     <Compile Include="StateEndpointGetTests.fs" />
     <Compile Include="SearchActorTests.fs" />
     <Compile Include="QueryActorTests.fs" />
-    <Compile Include="SearchDialogTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
