@@ -1489,3 +1489,117 @@ let ``logged NodePersisted for an older version leaves the client node Unpersist
                 Assert.Equal(changed, caught.documentState.persistedVersion)
                 Assert.Equal(PersistState.Persisted, caught.documentState.persistState)
                 Assert.Equal(changed, caught.documentState.changedVersion)
+
+let private unparsedDirectory () =
+    let dirId = NodeId.New()
+    let dir =
+        Node.Create(
+            dirId,
+            text = "docs",
+            name = Filename.Ok "docs",
+            kind = Special Directory,
+            documentState = Unparsed)
+    let graph = Graph.create () |> Graph.addDetachedNode dir
+    dirId, dir, graph
+
+let private createdMemberOps dirId fileId subId =
+    let kids = [ ChildNode.owner fileId; ChildNode.owner subId ]
+    [ Op.NewSpecialNode(fileId, File, "note.txt")
+      Op.NewSpecialNode(subId, Directory, "sub")
+      ChildListWire.append dirId [] kids ]
+
+let private syncAt (graph: Graph) =
+    ClientSyncState.create
+        graph
+        (EventIdFixtures.storedId 1)
+        (ClientHistory.clear ())
+
+let private requireSync label response state =
+    match SyncLogic.applySyncResponse response state with
+    | Ok applied -> applied
+    | Error msg -> failwith $"{label}: {msg}"
+
+let private assertParseState id expected (graph: Graph) =
+    Assert.Equal(expected, graph.nodes.[id].documentState.parseState)
+
+[<Fact>]
+let ``applySyncResponse Parse marks created File and Directory Unparsed`` () =
+    let dirId, dir, graph = unparsedDirectory ()
+    let fileId = NodeId.New()
+    let subId = NodeId.New()
+    let ops = createdMemberOps dirId fileId subId
+    let parsed = Node.withDocumentState Current dir
+    let response =
+        { events =
+            [ SpecialNodeTestHelpers.changeEvent
+                "Parse"
+                (EventIdFixtures.storedId 2)
+                (System.Guid.NewGuid())
+                ops
+              { id = EventIdFixtures.storedId 3
+                submissionId = System.Guid.NewGuid()
+                authority = Authority ""
+                commandName = ""
+                body = EventBody.Notice(Notice.NodeParsed dirId) } ]
+          nodes = [ parsed ]
+          childMap =
+            Map.ofList
+                [ dirId, [ ChildNode.owner fileId; ChildNode.owner subId ] ] }
+    let applied = requireSync "parse" response (syncAt graph)
+    assertParseState fileId ParseState.Unparsed applied.graph
+    assertParseState subId ParseState.Unparsed applied.graph
+    assertParseState dirId ParseState.Parsed applied.graph
+    Assert.Equal(2, (Graph.children applied.graph dirId).Length)
+
+[<Fact>]
+let ``applySyncResponse Edit leaves created specials Current`` () =
+    let dirId, dir, graph = unparsedDirectory ()
+    let current = Node.withDocumentState Current dir
+    let graph = graph |> Graph.addDetachedNode current
+    let fileId = NodeId.New()
+    let subId = NodeId.New()
+    let response =
+        { events =
+            [ SpecialNodeTestHelpers.changeEvent
+                "Edit"
+                (EventIdFixtures.storedId 2)
+                (System.Guid.NewGuid())
+                (createdMemberOps dirId fileId subId) ]
+          nodes = []
+          childMap = Map.empty }
+    let applied = requireSync "edit" response (syncAt graph)
+    assertParseState fileId ParseState.Parsed applied.graph
+    assertParseState subId ParseState.Parsed applied.graph
+    Assert.Equal(Current, applied.graph.nodes.[fileId].documentState.AsEnum)
+    Assert.Equal(Current, applied.graph.nodes.[subId].documentState.AsEnum)
+
+[<Fact>]
+let ``applySyncResponse Undo and Redo do not mark created specials Unparsed`` () =
+    let dirId, _, graph = unparsedDirectory ()
+    let fileId = NodeId.New()
+    let subId = NodeId.New()
+    let ops = createdMemberOps dirId fileId subId
+    let orderBody body =
+        { id = EventIdFixtures.storedId 2
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Parse"
+          commandName = "Parse"
+          body = body }
+    let response body =
+        { events = [ orderBody body ]
+          nodes = []
+          childMap = Map.empty }
+    let undo =
+        requireSync
+            "undo"
+            (response (EventBody.Undo(EventIdFixtures.storedId 1, ops)))
+            (syncAt graph)
+    assertParseState fileId ParseState.Parsed undo.graph
+    assertParseState subId ParseState.Parsed undo.graph
+    let redo =
+        requireSync
+            "redo"
+            (response (EventBody.Redo(EventIdFixtures.storedId 1, ops)))
+            (syncAt graph)
+    assertParseState fileId ParseState.Parsed redo.graph
+    assertParseState subId ParseState.Parsed redo.graph
