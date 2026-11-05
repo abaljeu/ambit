@@ -5,6 +5,7 @@ One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `
 [ ] The ask-start seam is the only test start for `?ai`. Suites call that seam.
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
 [ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
+[ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for wake, `deliver`, and `takeInbox`.
 [ ] The source files are 5. The test files are 10. The size limit is 8 source files and 4 test files. The test count is over the limit. The ask suites share one seam, and `actorFn` does not compile while those suites still register an `ActorFn`.
 
 Type:
@@ -41,6 +42,8 @@ Blockers:
 [ ] Do not add a `CoreMsg` case.
 [ ] Do not mint the Actor session id in `RunAgentActor`.
 [ ] Do not store the Actor session id in the `GrokBotBinding` closure or the curried `NodeId` closure.
+[ ] Do not route cancel through `startAiRun` or through `FunctionRun.sessionId`.
+[ ] Do not add a cancel API. `cancelByFocus` already takes the focus node id.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
 
 ## Process
@@ -58,23 +61,24 @@ Blockers:
 
 6. [ ] Add `sessionId` to `FunctionRun` in `src/Shared/History.fs`.
 7. [ ] `runSchedule` for `FunctionPending` sets `FunctionRun.sessionId` from `row.sessionId`. `putFunctionStart` still mints that id. `deliver` and `takeInbox` keep that id.
-8. [ ] Wake and cancel read `run.sessionId`.
+8. [ ] Wake reads `run.sessionId`. `deliver` and `takeInbox` keep that id.
+9. [ ] Contract: Cancel stays `cancelByFocus`. The focus node id is the actor handle. That id removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is not the cancel handle.
 
 ### 3. ActorOrder for ?ai
 
-9. [ ] Change: `actorFn` is `AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction`. The closure holds `GrokBotBinding`.
-10. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`.
-11. [ ] Contract: The `?ai` path does not post `CoreMsg.StartActor` and does not call `startActor` for `ai`. `startActor` still starts the other command names.
-12. [ ] Contract: Remove the `ai` pair from `pool.register` in `RouteRegistration.fs` and from `createHost`.
-13. [ ] Change: `startAiRun` posts `ActorOrder`. The actor is `RunAgentActor.actorFn` applied to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
-14. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
+10. [ ] Change: `actorFn` is `AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction`. The closure holds `GrokBotBinding`.
+11. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`.
+12. [ ] Contract: The `?ai` path does not post `CoreMsg.StartActor` and does not call `startActor` for `ai`. `startActor` still starts the other command names.
+13. [ ] Contract: Remove the `ai` pair from `pool.register` in `RouteRegistration.fs` and from `createHost`.
+14. [ ] Change: `startAiRun` posts `ActorOrder`. The actor is `RunAgentActor.actorFn` applied to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
+15. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
 
 ## Outputs
 
 [ ] `src/Shared/History.fs` — `FunctionRun.sessionId`
 [ ] `src/Server/Core/CoreActorPool.fs` — `runSchedule` copies `row.sessionId`
 [ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `ActorOrder` after `admitCaller`
-[ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. Wake and cancel read `run.sessionId`.
+[ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. Wake reads `run.sessionId`.
 [ ] `src/Server/RouteRegistration.fs` — remove `ai` from `pool.register`
 [ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun`
 [ ] `tests/Server.Tests/AgentAskTests.fs` — the second-launch fact calls `startAiRun`
@@ -85,7 +89,7 @@ Blockers:
 [ ] `tests/Server.Tests/AiKeysTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/AiReposTests.fs` — calls the ask-start seam
 [ ] `tests/Server.Tests/BrowserAskProofTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/CancelByFocusTests.fs` — calls the ask-start seam
+[ ] `tests/Server.Tests/CancelByFocusTests.fs` — starts through the ask-start seam, then `cancelByFocus` with the focus node id. That cancel is not `startAiRun` and does not use `FunctionRun.sessionId`.
 
 ## Stop when
 
@@ -95,6 +99,7 @@ Blockers:
 [ ] Stop when the edit adds a route, a handler, `ActorDispatch.fs`, or a command-name map.
 [ ] Stop when a test file outside Outputs must change.
 [ ] Stop when a suite chooses `ActorFn` or `ActorFunction` for `?ai` instead of `startAiRun`.
+[ ] Stop when cancel uses the Actor session id, or when `startAiRun` cancels.
 
 ## Check
 

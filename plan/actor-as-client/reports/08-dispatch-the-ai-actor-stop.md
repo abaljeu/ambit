@@ -14,6 +14,8 @@ Ticket: [08 — Start the AI Actor](../issues/08-dispatch-the-ai-actor/08-dispat
 
 [x] The old stop "do not add the Actor session id to `FunctionRun`" is superseded. Minting outside the pool stays a stop. Storing the id in the actor closure stays a stop.
 
+[x] Alan, 2026-11-05. Cancel uses the focus node id. That id removes the live row. Cancel is not `startAiRun` and not `FunctionRun.sessionId`. The session id stays for wake, deliver, and `takeInbox`.
+
 ## Build
 
 [ ] Product code is not started.

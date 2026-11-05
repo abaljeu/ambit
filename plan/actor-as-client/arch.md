@@ -238,7 +238,13 @@ functionActor : NodeId -> ActorFunction
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction
 ```
 
-[ ] Wake and cancel read `run.sessionId`. Pool start minted that id.
+[ ] Wake reads `run.sessionId`. `deliver` and `takeInbox` use that id. Pool start minted it.
+
+### Cancel by focus node
+
+[x] `cancelByFocus` takes the focus node id.
+[ ] That node id is the actor handle. The live row leaves from that path.
+[ ] `FunctionRun.sessionId` is not the cancel handle.
 
 ### Query command
 
