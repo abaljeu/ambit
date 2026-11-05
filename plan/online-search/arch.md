@@ -1,167 +1,543 @@
 # Online search architecture
 
-Spec: [spec](spec.md)
-Updated: 2026-10-07
-Sequence: tracer-cut
+Spec: [[spec.md]] (user-facing Projects only. An internal Project may have no spec.md.)
 
-The Search spec and the Query spec stay separate sections of [spec](spec.md). Both specs live in that file. Dialog UI stays out of scope. File search stays out of scope. Paging and a continuation cursor are out of scope. Locks are in the story paths and in Decisions so far below. Where a mechanism is still a design, the module map marks it **Proposed design**. This architecture does not resolve a ticket. to-arch step 5 is complete for committed Module map items. Each committed module has a doc/current home, and this arch links to it: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), and [Want nodes for hits](../../doc/current/want-nodes.md). The Query Actor Ref post is a proposed design and has no doc/current home. The file `src/Server/SearchActor.fs` is the locked home of both Actors.
+Marks: [x] exists today. [ ] required. [o] obsolescent.
 
-Vocabulary: say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
+## 1. Bounds
 
-**Decisions so far**. The same locks are on [map](map.md) Decisions so far.
+In scope: Find and Move share one Search Actor and NodeId list; the globe requests it below the cap of 200; hit Headers ride Want `nodes`; Query evaluates remotely and inserts Refs.
 
-1. **One spec file** — Both specs live in [spec](spec.md). The Search spec and the Query spec stay separate sections of that file.
-2. **No limit syntax** — A query function may stop under 200. The server stops at 200. This architecture does not add expression spelling for that stop.
-3. **Actor file** — `src/Server/SearchActor.fs` is the home of the Search Actor and the Query Actor.
-4. **Sequence** — tracer-cut.
-5. **Node id** — The identity of a result is the NodeId. The server list lists each Node id once. Answer: [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md). See item 10 **Globe**.
-6. **Remote query eval** — Query eval is remote. The Query Actor evaluates on the server. Answer: [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md). [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) is not edited.
-7. **Standing locks** — The cap of 200, the globe on the search bar, the shared Find and Move Actor, no paging, the trash rules, and Want nodes for hits stay locks. The short quiet gap is not a Find lock. The Query Ref post stays a proposed design.
-8. **Shared search algorithm** — One search algorithm serves Find and Move. Step 1: the client algorithm stops at 200 hits. That work is [14 — Cap of 200](issues/14-cap-of-200.md) section 1 **Find and Move**. Step 2: the Search Actor reuses that algorithm. Today [startSearch](src/Shared/ViewModelSearch.fs) and [takeResults](src/Shared/ViewModelSearch.fs) take the search text, the zoom, and the Graph. The reply holds up to 200 hits. One reply and no continuation cursor stay a seam. The Find start is item 10 **Globe**. The query cap stays on [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** and is blocked by [11 — Server evaluates](issues/11-server-evaluates.md) only.
-9. **Root only** — Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start.
-10. **Globe** — Alan, 2026-10-07. The Find dialog opens on a local search and shows N hits. When N is under 200, the globe on the search bar can request the server. When the search text is unchanged, the server reply replaces the client list. When the person edits the text, the search is local or server according to whether the globe is selected. This supersedes the quiet-gap Start. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md). The server list lists each Node id once. The start does not carry shown Node ids.
-11. **Want nodes** — Alan, 2026-10-07. A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. Move uses that same reply. The Query Ref post stays a proposed design. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
+Out of scope: dialog layout, file search, paging, a continuation cursor, and expression spelling for a stop under 200.
 
-## 1. Story paths
+## 2. Types
 
-1. **Residence hits first**
-   1. [ ] **Keypress** — While the globe is not selected, every keypress recomputes on the client only and updates [Search dialog](src/Client/SearchDialog.fs) immediately. No server message goes out on that keypress. This local incremental search is a lock. Claim home: [Workspace graph](../../doc/current/graph.md) (Reference search).
-   2. [ ] **Move keypress** — While the globe is not selected, and when Move recomputes on each keypress the same way, Move uses this same client path.
+[x] `Match`
 
-2. **Globe requests the server**
-   1. [ ] **Open stays local** — The dialog opens on a local search and shows N hits.
-   2. [ ] **Globe** — When N is under 200, the globe on the search bar can request the server. When N is 200, that request is not sent. That request starts the shared Find and Move Actor. The Actor uses the same client search algorithm. Actor Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. Move uses this Actor. Query does not use this globe. Query keeps its own Actor. This globe is a lock. See §2 item 1 **Search Actor**.
-   3. [ ] **Replace** — When the search text is unchanged, the server reply replaces the client list. The server list lists each Node id once. The start does not carry shown Node ids. A reply for an older search string does not replace the list. The reply matches the search text, or an equivalent generation of that text.
-   4. [ ] **Edit follows the globe** — When the person edits the text, the search is local when the globe is not selected, and a server search when the globe is selected.
-   5. [ ] **Up to 200 hits** — The reply holds at most 200 Node ids from that same algorithm, then the walk stops. The Actor posts that one reply. There is no continuation cursor.
+```fsharp
+type Match =
+    | Text of string
+    | Generation of int
+```
 
-3. **Cap of 200**
-   1. [ ] **Client stop** — The client search algorithm returns at most 200 hits and then stops. Find and Move use that stop on the residence Graph. This step does not start the Search Actor. This cap is a lock.
-   2. [ ] **Find and Move** — The Search Actor uses that same stop. The local list stops at 200. The server list stops at 200. Find and Move share that cap. This cap is a lock.
-   3. [ ] **Query** — The query function may stop under 200. The server returns at most 200 for a query and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. This cap is a lock. The query cap waits on [11 — Server evaluates](issues/11-server-evaluates.md) only.
+[x] `Request`
 
-4. **Skip trash**
-   1. [ ] **Ordinary search skips trash** — Search skips trash unless it starts at the trash node.
+```fsharp
+type Request =
+    { text: string
+      startId: NodeId
+      generation: int option }
+```
 
-5. **Start at the trash node**
-   1. [ ] **TRASH** — The search starts in trash when its start Node is TRASH ([GraphBuild.trashId](src/Shared/GraphBuild.fs)).
+[x] `Reply`
 
-6. **Dialog shows server hits**
-   1. [ ] **Show N** — If the server finds N items, the Find dialog shows that server list in place of the client list. Move shows that same list. N is at most 200.
-   2. [ ] **Want nodes** — Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. This ride is a lock. See §2 item 3 **Want nodes for hits**. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
+```fsharp
+type Reply =
+    { ids: NodeId list
+      matchKey: Match }
+```
 
-7. **Move uses the same search**
-   1. [ ] **Same backend** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. This shared backend is a lock.
+[x] `SearchActorDoor`
 
-8. **Insert Refs under the query line**
-   1. [ ] **Refs** — Results under the query line are Refs, not Owned Children.
-   2. [ ] **Existing Ref shape** — [ExprRun](src/Shared/ExprRun.fs) `run` already materialises a Node answer with `ChildNode.reference`.
-   3. [ ] **Post the Replace** — Proposed design: the Query Actor posts a Change on the event source whose child list uses that Ref shape under the query line. Server eval is story path 12 **Server evaluates**. See §2 item 2 **Query Actor**.
+```fsharp
+type SearchActorDoor =
+    { changes: CoreChangesDoor
+      recordStart: ActorStart -> Async<Result<unit, string>>
+      recordStop: NodeId -> Async<unit> }
+```
 
-9. **Query skips trash**
-    1. [ ] **Ordinary query skips trash** — An ordinary query skips trash.
+[x] `ActorStart`
 
-10. **Trash function**
-    1. [ ] **trash** — The function is named `trash`. It works like `root` for reaching trash.
+```fsharp
+type ActorStart =
+    { zoomId: NodeId
+      focusId: NodeId
+      actorNodeId: NodeId
+      graphIds: NodeId list
+      eventId: EventId }
+```
 
-11. **Server items inserted**
-    1. [ ] **Insert N** — The query expression inserts the N items the server finds, as Refs under the query line. N is at most 200, and lower when the function stops under 200.
-    2. [ ] **Nodes then Refs** — Proposed design: the same Poll carries the Want `nodes` for those ids and the Change that inserts the Refs, so a Ref points at a Node the Browser has.
+[x] `ActorResult`
 
-12. **Server evaluates**
-    1. [x] **Server Graph** — The Query Actor evaluates the query on the full server Graph once, when Run hits a Node whose text contains `=`, off the mailbox. The Actor then stops. Run queues that ActorStart on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes` (alias `POST /ambit/events`). The list turn classifies from the post-edit State. The observable reply is Node ids on ActorStop. A keypress does not start this Actor. This eval is remote. Detail is [Server evaluates](issues/11-server-evaluates.md). The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
+```fsharp
+type ActorResult =
+    | ActorSucceeded
+    | ActorFailed of string
+    | ActorCancelled
+    | ActorQuery of ids: NodeId list
+```
 
-### 13. Shared segments
+[x] `SyncResponse`
 
-1. **One reply**
-   1. [ ] **Actor thread** — The walk runs on the shared Find and Move Actor, off the mailbox. The globe starts that Actor when N is under 200. An edit starts a server search when the globe is selected. A keypress does not start the Actor when the globe is not selected. The walk is the client search algorithm. Actor Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. Query starts its own Actor when the line runs. Each Actor posts one reply and stops. Same clear-fast rule as [Core mailbox messages clear fast](doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
-   2. [ ] **Cap** — The reply holds at most 200 Node ids.
-   3. [ ] **Want nodes** — Those hit Headers ride the existing Want answer `nodes` list. This ride is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
+```fsharp
+type SyncResponse =
+    { events: Ev list
+      nodes: Node list
+      childMap: Map<NodeId, ChildNode list> }
+```
 
-2. **Query Change**
-   1. [ ] **Ref Change** — Query also posts the Ref Replace on the event source.
-   2. [ ] **Lower limit** — When the function stops under 200, the result uses that stop. Otherwise the result stops at 200.
+[x] `ChildNode`
 
-### 14. Test seam
+```fsharp
+type ChildNode =
+    { ref: Ownership
+      id: NodeId }
+```
 
-1. [ ] **One result of Node ids** — Find and Move tests install one result of at most 200 Node ids with [installWantAnswer](src/Shared/ResidentProjection.fs). That install is a lock. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md). Query tests also expect the Ref Replace under the query line, and a function stop under 200. The Ref Replace stays a proposed design. That Ref expectation is [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). [Server evaluates](issues/11-server-evaluates.md) observes Node ids. A provisional soft-stop in those tests does not close [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap**.
+[x] `Replace`
 
-## 2. Module map
+```fsharp
+| Replace of parentId: NodeId * oldChildren: ChildNode list * newChildren: ChildNode list
+```
 
-1. **Search Actor** — The shared backend is a lock. The file name is a lock.
-   Find and Move share one running Actor. Query does not use that Actor. The function is outside Core. There is no search actor under `src/Server` today. The locked home is the file below. The Server git Actor stays the example of an Actor that posts to the mailbox while Core performs a Graph Change.
-   File: `src/Server/SearchActor.fs`
-   Claim home: [Search Actor](../../doc/current/search-actor.md)
+[x] `SearchDialogState`
 
-   1. **State**
-      Claim home: [Search Actor](../../doc/current/search-actor.md) Data.
-      1. [ ] **One walk** — The Actor holds one walk, off the mailbox, and then stops. It keeps no continuation cursor.
-      2. [ ] **Trash** — The walk skips trash unless the start Node is TRASH.
-      3. [ ] **Node id** — The server list lists each Node id once. The reply replaces the client list. The Actor does not take shown Node ids.
-      4. [ ] **Cap** — The walk uses the client search algorithm and stops at 200 hits. This cap is a lock.
-   2. **Interface**
-      Claim home: [Search Actor](../../doc/current/search-actor.md) Interface and Messages.
-      1. [ ] **Start** — The globe on the search bar starts the shared Actor when N is under 200. An edit starts a server search when the globe is selected. Move does not start a second Actor. Actor Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. The start does not carry shown Node ids. A keypress does not start the Actor when the globe is not selected.
-      2. [ ] **Stop** — The Actor returns at most 200 hits and stops. When the search text is unchanged, the reply replaces the client list. The Actor posts one reply. There is no continuation cursor.
-      3. [ ] **Reply match** — The result carries the search text it was computed for, or an equivalent generation. The dialog drops the result when that text is not current.
-   3. **Uses**
-      Claim home: [Search Actor](../../doc/current/search-actor.md) Uses.
-      1. [ ] **Server Graph** — The Actor reads the full server Graph. The walk is the client search algorithm. That algorithm takes the search text, the zoom, and the Graph. Actor Start supplies the root and that Graph. The zoom is the root. Search does not take a focus.
-      2. [x] **ActorStart** — The running Actor is recorded on the event source as ActorStart. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root. Search does not take a focus. The walk reads the full server Graph from State. One reply, then the queue puts ActorStop on the event source.
-      3. [x] **Door** — `Api.SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. The mailbox cases are `RecordSearchStart` and `RecordSearchStop`. `changes` reads State. `recordStart` records ActorStart. `recordStop` is a queue message. The queue puts ActorStop on the event source. The id is the root.
+```fsharp
+type SearchDialogState =
+    { invokedCommand: string
+      query: string
+      selectedIndex: int
+      returnTo: Mode
+      onPick: NodeSearchResult -> VM -> VM * Effect list
+      serverHitIds: NodeId list }
+```
 
-2. **Query Actor** — The separate Actor is a lock. The file name is a lock. The Ref post stays a proposed design.
-   The Query Actor evaluates the query on the server. This eval is remote. Query does not share the Find and Move Actor. The same file starts this Actor. The cap of 200 is a lock.
-   File: `src/Server/SearchActor.fs`
-   Claim home: [Query Actor](../../doc/current/query-actor.md)
+[ ] `SearchDialogState` adds globe selection.
 
-   1. **State**
-      Claim home: [Query Actor](../../doc/current/query-actor.md) Data.
-      1. [x] **One result** — One result, then stop. No page and no cursor.
-      2. [ ] **Limit** — The function may stop under 200. A request above 200 stops at 200.
-      3. [ ] **Trash** — Ordinary eval skips trash. `trash` reaches trash the way `root` reaches ROOT.
-   2. **Interface**
-      1. [x] **Eval** — The Actor evaluates the expression on the server Graph once, when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart on the pending event list, behind the edit. The observable reply is Node ids on ActorStop. Detail: [Server evaluates](issues/11-server-evaluates.md). Claim home: [Query Actor](../../doc/current/query-actor.md) Interface and Messages.
-      2. [ ] **Refs** — Proposed design. The Actor posts a Change that inserts `ChildNode.reference` children under the query line. The shape matches [ExprRun](src/Shared/ExprRun.fs). This Ref post has no doc/current home. The locked Ref shape is [Query Actor](../../doc/current/query-actor.md) Interface and Messages. Server eval is Interface item 1 **Eval**.
-   3. **Uses**
-      1. [ ] **Event source** — Proposed design. The Ref Replace is a Change on the event source. This proposed design has no doc/current home.
-      2. [ ] **ExprRun shape** — `ChildNode.reference` as in ExprRun's materialise path. Claim home: [Query Actor](../../doc/current/query-actor.md) Messages.
-      3. [x] **Search Actor** — Query has its own running Actor. It starts when the line runs. It does not use the Find and Move Actor or the Find globe. Claim home: [Query Actor](../../doc/current/query-actor.md) Job and Uses.
+[o] `SearchPicture.Gap`, `ArmSearchQuietGap`, and `CancelSearchQuietGap` are replaced by globe selection.
 
-3. **Want nodes for hits** — This ride is a lock.
-   A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. There is no new package. The list is one reply of at most 200 Node ids, not a page. Move uses that same reply. The Query Ref post is not this module.
-   File: [ResidentProjection](src/Shared/ResidentProjection.fs)
-   Claim home: [Want nodes for hits](../../doc/current/want-nodes.md)
+## 3. Interfaces
 
-   1. **State**
-      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Data.
-      1. [ ] **Hit headers** — A hit Node is Resident after install. A hit with no new `childMap` key stays Unloaded for its Children.
-   2. **Interface**
-      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Interface.
-      1. [ ] **nodes** — The result's Nodes are added to the Want answer `nodes` list.
-      2. [ ] **childMap** — Ordinary Want edges stay `childMap`. The result does not add a `childMap` key only to carry a hit Header.
-      3. [ ] **Install** — [installWantAnswer](src/Shared/ResidentProjection.fs) merges `nodes` and `childMap` as it does today.
-   3. **Uses**
-      Claim home: [Want nodes for hits](../../doc/current/want-nodes.md) Uses.
-      1. [ ] **Poll** — Post-Event and Poll already carry the Want answer. The one reply uses that carrier.
+### Local search
 
-## 3. Seams
+[x]
 
-1. **Want install**
-   1. [ ] Interface on **Want nodes for hits**. This ride is a lock. [installWantAnswer](src/Shared/ResidentProjection.fs) is the install door. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
-2. **Ref Change**
-   1. [ ] Interface on **Query Actor**. Proposed design. The event source applies the Ref Replace. This proposed design has no doc/current home.
-3. **Cap**
-   1. [ ] **200** — The client search algorithm stops at 200. The Search Actor uses that same stop. Find and Move share the cap of 200. Query stops at 200. This is a lock. A query function may stop lower. The local list stops at 200. The server list stops at 200. The globe sends no request when the local list already has 200 hits. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md).
-4. **Globe**
-   1. [ ] **Globe on the search bar** — When N is under 200, the globe can request the server. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. This is a lock. Query does not use this seam. Claim homes: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), [Search](../../doc/current/search.md). [21 — Globe requests the server](issues/21-globe-requests-the-server.md) is the Find start.
-5. **Dialog layout**
-   1. **Out of scope** — The Find dialog layout is out of scope. The globe on the search bar is in scope. The dialog does not ask for a next page. While the globe is not selected, each keypress updates the hit list from the client.
+```fsharp
+searchHitCap : int
+startSearch : string -> NodeId -> Graph -> SearchCursor option
+takeResults : int -> SearchCursor -> NodeSearchResult list * SearchCursor option
+searchNodes : string -> NodeId -> Graph -> NodeSearchResult list
+```
 
-## 4. Alternative considered
+[x] `searchHitCap` is 200. The walk stops there.
 
-1. **Paging** — A continuation cursor, and mailbox messages Next and Page, so the dialog can ask for more. Alan locked no paging. That arrangement is out of this architecture.
-2. **New Want type** — A second answer beside `nodes` and `childMap`. [installWantAnswer](src/Shared/ResidentProjection.fs) already merges `nodes`. A second type is a wider interface. This arrangement loses.
-3. **Message per key** — A server request on every keypress. While the globe is not selected, the keypress path stays on the client. That arrangement stays.
-4. **Quiet gap** — One server request after the search text is unchanged, with no globe. Alan replaced that Start with the globe. That arrangement is out.
-5. **Winner** — The dialog opens on a local search and shows N hits. While the globe is not selected, each keypress stays on the client. The client search algorithm stops at 200 hits. When N is under 200, the globe on the search bar can request the server. That request uses the same algorithm on the full server Graph. Actor Start supplies the root and that Graph. The zoom is the root. Search does not take a focus. The reply holds up to 200 hits. When the search text is unchanged, the reply replaces the client list. An edit follows the globe. A reply for an older search string does not replace the list. The server list lists each Node id once. Hit Headers ride the existing `nodes` list. That ride is a lock. Query is one remote evaluation on its own Actor when the line runs. The Query Ref post stays a proposed design. Sequence is tracer-cut.
+[ ] Include versus omit compares a node to `GraphBuild.trashId`. The walk starts at that node when `zoomRoot` equals it.
+
+[ ] `startSearch` keeps `string -> NodeId -> Graph -> SearchCursor option`.
+
+### Search picture
+
+[x]
+
+```fsharp
+matchKeyOf : Request -> Match
+```
+
+[ ]
+
+```fsharp
+keepReply : Match -> NodeId list -> Reply -> NodeId list
+```
+
+[ ] `keepReply` returns the reply ids when `reply.matchKey` equals the current `Match`. A different `Match` returns the kept ids.
+
+### Search dialog
+
+[x]
+
+```fsharp
+openSearchDialogWithOnPick : string -> (NodeSearchResult -> VM -> VM * Effect list) -> VM -> VM * Effect list
+currentSearchResults : VM -> NodeSearchResult list
+applyServerReply : SearchPicture.Reply -> VM -> VM * Effect list
+```
+
+[x] Find and Move open on one NodeId list and share `onPick`.
+
+[ ] While the globe is clear, `currentSearchResults` reads Local search.
+
+[ ] `applyServerReply` stores the server ids. `currentSearchResults` shows that list in place of the client list.
+
+### Globe edit
+
+[x]
+
+```fsharp
+update : Msg -> VM -> VM * Effect list
+```
+
+[x] `NodeSearchQuery` stores the query and clears `serverHitIds`.
+
+[ ] A clear globe calls Local search.
+
+[ ] A selected globe calls Search transport when the local count is under 200. At 200 the edit stays on Local search.
+
+### Search transport
+
+[x]
+
+```fsharp
+runSearch : (Msg -> unit) -> string -> NodeId -> unit
+```
+
+[x] `runSearch` posts `Request`. `startId` is the client zoom. `generation` is absent. Shown Node ids stay off the request.
+
+### Search route
+
+[x]
+
+```fsharp
+postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
+```
+
+[x] `postSearchRequest` reads the body and calls Search door.
+
+### Search door
+
+[x]
+
+```fsharp
+postSearch : SearchActorDoor -> string -> Async<IResult>
+```
+
+[x] `postSearch` reads State through `changes`, records the start, runs Find and Move reply, records the stop at the root, and returns one reply. Errors are `Result` values.
+
+### Root-only start
+
+[x]
+
+```fsharp
+actorStart : Graph -> EventId -> ActorStart
+```
+
+[x] `zoomId`, `focusId`, `actorNodeId`, and `graphIds` are `graph.root`. `focusId` holds that root so the stop pairs with the start. Search does not take a focus. The wire key for `actorNodeId` remains `"commandId"`.
+
+### Find and Move reply
+
+[x]
+
+```fsharp
+reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
+```
+
+[ ] `reply` passes `graph.root` into Local search. Include versus omit compares a node to `GraphBuild.trashId`.
+
+[x] The reply is one list of distinct Node ids. There is no continuation cursor.
+
+### Search event record
+
+[x]
+
+```fsharp
+recordSearchStart : MailboxHost -> Caller -> ActorStart -> Async<Result<unit, string>>
+recordSearchStop : MailboxHost -> Caller -> NodeId -> Async<Result<unit, string>>
+```
+
+[x] `recordSearchStart` commits `ActorStart` on the event source. `recordSearchStop` commits `ActorStop`. The walk stays off this queue.
+
+### Run command
+
+[x]
+
+```fsharp
+execRunOp : VM -> VM * Effect list
+```
+
+[x] Run on a line that contains `=` queues one start.
+
+### Query line
+
+[x]
+
+```fsharp
+tryQueryStart : Graph -> SiteMap -> NodeId -> NodeId -> EventId -> ActorStart option
+```
+
+[x] A query line contains `=`.
+
+### Queue start
+
+[x]
+
+```fsharp
+queueStart : ActorStart -> EventId -> SyncInfo -> Effect list -> SyncInfo * Effect list
+```
+
+[x] `queueStart` queues `ActorStart` on `syncInfo.pending`.
+
+### Posted query start
+
+[x]
+
+```fsharp
+postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
+```
+
+[x] `postActorStart` runs Query function for a posted Run, then Pool start.
+
+### Query function
+
+[x]
+
+```fsharp
+functionStart : ActorStart -> GraphCarrier -> FunctionStart
+```
+
+[x] `functionStart` evaluates once on the server Graph, then calls Actor stop with `ActorQuery`.
+
+### Pool start
+
+[x]
+
+```fsharp
+startFunction : FunctionStart -> Result<Credential, string>
+```
+
+[x] `startFunction` is the pool start for a query.
+
+### Query answer
+
+[x]
+
+```fsharp
+answerNodeIds : NodeId -> Graph -> string -> NodeId list
+```
+
+[ ] `answerNodeIds` returns at most 200 ids. A function stop under that cap stays. Ordinary eval omits a node equal to `GraphBuild.trashId`. The signature stays `NodeId -> Graph -> string -> NodeId list`. There is no page.
+
+### Trash function
+
+[ ] The catalog row `trash` returns `GraphBuild.trashId` the way `root` returns the root.
+
+### Actor stop
+
+[x]
+
+```fsharp
+actorStop : CoreChangesDoor -> ActorResult -> Async<Result<unit, string>>
+```
+
+[x] Errors are `Result` values. A query posts one `ActorQuery` and stops.
+
+### Query ref post
+
+[x]
+
+```fsharp
+postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, string>>
+```
+
+[ ] Proposed Query Ref post. The Query Actor posts `Op.Replace`. Each result child is `ChildNode.reference`. The same response carries the Want `nodes`.
+
+### Want nodes
+
+[x]
+
+```fsharp
+wantAnswer : Graph -> NodeId list -> Map<NodeId, ChildNode list> * Node list
+installWantAnswer : Map<NodeId, ChildNode list> -> Node list -> Graph -> Result<Graph, string>
+```
+
+[ ] The reply ids are the Want ids. Hit Headers ride `SyncResponse.nodes`. No `childMap` entry exists only to carry a hit Header.
+
+### Sync install
+
+[x]
+
+```fsharp
+applySyncResponse : SyncResponse -> ClientSyncState -> Result<ClientSyncState, string>
+```
+
+[x] `applySyncResponse` applies the event tail, then Want nodes.
+
+## 4. Flow paths
+
+1. **Shared Find and Move path**
+
+[ ] Find and Move share the local list while the globe is clear.
+
+```fsharp
+Search dialog
+Globe edit
+Local search
+Search dialog
+```
+
+2. **Shared Search Actor path**
+
+[ ] The globe requests one root-only Find and Move reply.
+
+```fsharp
+Globe edit
+Search transport
+Search route
+Search door
+Root-only start
+Search event record
+Find and Move reply
+Local search
+Search event record
+Search picture
+Search dialog
+```
+
+3. **Want nodes ride**
+
+[ ] Hit Headers ride the existing Want `nodes` list.
+
+```fsharp
+Want nodes
+Sync install
+```
+
+4. **Query Actor path**
+
+[x] Run queues one remote evaluation. [ ] The answer keeps the cap and the trash compare.
+
+```fsharp
+Run command
+Query line
+Queue start
+Posted query start
+Query function
+Pool start
+Query answer
+Actor stop
+```
+
+5. **Proposed Query Ref post**
+
+[ ] The query results become Refs under the query line, with their Want `nodes`.
+
+```fsharp
+Query answer
+Query ref post
+Want nodes
+Sync install
+```
+
+## 5. Module map
+
+1. **Local search**
+   - Interface: `src/Shared/ViewModelSearch.fs` `searchHitCap`, `startSearch`, `takeResults`, `searchNodes`
+   - Compare target: `GraphBuild.trashId` in `src/Shared/GraphBuild.fs`
+   - Uses:
+     1. [x] none
+2. **Search picture**
+   - Interface: `src/Shared/SearchPicture.fs` `matchKeyOf`, `keepReply`
+   - Type `Match`, `Request`, and `Reply` in `src/Shared/SearchPicture.fs`
+   - [o] Type `Gap` in `src/Shared/SearchPicture.fs`
+   - Uses:
+     1. [x] none
+3. **Search dialog**
+   - Interface: `src/Client/SearchDialog.fs` `openSearchDialogWithOnPick`, `currentSearchResults`, `applyServerReply`
+   - Type `SearchDialogState` in `src/Shared/ViewModel.fs`
+   - Uses:
+     1. [x] Local search
+     2. [x] Search picture
+4. **Globe edit**
+   - Interface: `src/Client/Update.fs` `update`
+   - Uses:
+     1. [ ] Local search
+     2. [ ] Search transport
+5. **Search transport**
+   - Interface: `src/Client/SearchPictureClient.fs` `runSearch`
+   - Uses:
+     1. [x] Search picture
+6. **Search route**
+   - Interface: `src/Server/RouteRegistration.fs` `postSearchRequest`
+   - Uses:
+     1. [x] Search door
+7. **Search door**
+   - Interface: `src/Server/Api.fs` `postSearch`
+   - Type `SearchActorDoor` in `src/Server/Api.fs`
+   - Uses:
+     1. [x] Root-only start
+     2. [x] Search event record
+     3. [x] Find and Move reply
+8. **Root-only start**
+   - Interface: `src/Server/SearchActor.fs` `actorStart`
+   - Type `ActorStart` in `src/Shared/History.fs`
+   - Uses:
+     1. [x] none
+9. **Find and Move reply**
+   - Interface: `src/Server/SearchActor.fs` `reply`
+   - Uses:
+     1. [x] Local search
+10. **Search event record**
+    - Interface: `src/Server/Core/CoreMailboxApi.fs` `recordSearchStart`, `recordSearchStop`
+    - Uses:
+      1. [x] none
+11. **Run command**
+    - Interface: `src/Client/Commands.fs` `execRunOp`
+    - Uses:
+      1. [x] Query line
+      2. [x] Queue start
+12. **Query line**
+    - Interface: `src/Shared/CommandRequest.fs` `tryQueryStart`
+    - Uses:
+      1. [x] none
+13. **Queue start**
+    - Interface: `src/Shared/RunLaunch.fs` `queueStart`
+    - Uses:
+      1. [x] none
+14. **Posted query start**
+    - Interface: `src/Server/Core/CoreMailboxActors.fs` `postActorStart`
+    - Uses:
+      1. [x] Query function
+      2. [x] Pool start
+15. **Query function**
+    - Interface: `src/Server/SearchActor.fs` `functionStart`
+    - Uses:
+      1. [x] Query answer
+      2. [x] Actor stop
+16. **Pool start**
+    - Interface: `src/Server/Core/CoreActorPool.fs` `startFunction`
+    - Uses:
+      1. [x] Query function
+17. **Query answer**
+    - Interface: `src/Shared/ExprRun.fs` `answerNodeIds`
+    - Uses:
+      1. [ ] Trash function
+18. **Trash function**
+    - Interface: `src/Shared/ExprPrimitive.fs`
+    - Compare target: `GraphBuild.trashId` in `src/Shared/GraphBuild.fs`
+    - Uses:
+      1. [ ] none
+19. **Actor stop**
+    - Interface: `src/Server/Core/CoreDoor.fs` `actorStop`
+    - Type `ActorResult` in `src/Shared/History.fs`
+    - Uses:
+      1. [x] none
+20. **Query ref post**
+    - Interface: `src/Server/Core/CoreDoor.fs` `postEvents`
+    - Type `ChildNode` in `src/Shared/Model.fs`
+    - Type `Replace` in `src/Shared/History.fs`
+    - Uses:
+      1. [ ] Query answer
+      2. [ ] Want nodes
+21. **Want nodes**
+    - Interface: `src/Shared/ResidentProjection.fs` `wantAnswer`, `installWantAnswer`
+    - Type `SyncResponse` in `src/Shared/ApiResponses.fs`
+    - Uses:
+      1. [x] none
+22. **Sync install**
+    - Interface: `src/Shared/SyncLogic.fs` `applySyncResponse`
+    - Uses:
+      1. [x] Want nodes
+
+## 6. Seams
+
+1. [x] **Find and Move reply** / **Local search** — `actor reply matches startSearch and takeResults`, `reply walks from the root`, and `reply reads the carrier graph once and stops at 200` in `tests/Server.Tests/SearchActorTests.fs`.
+2. [x] **Search door** / **Find and Move reply** — `postSearch returns one reply from the server graph` in `tests/Server.Tests/SearchActorTests.fs`.
+3. [x] **Search door** / **Root-only start** — `actorStart records the root` and `postSearch records ActorStart at the root` in `tests/Server.Tests/SearchActorTests.fs`.
+4. [x] **Query function** / **Actor stop** — `ActorStop reads the carrier graph once` and `ActorStop ids are not the find walk` in `tests/Server.Tests/QueryActorTests.fs`.
+5. [x] **Query function** / **Query answer** — `empty equals line stops with no node ids` in `tests/Server.Tests/QueryActorTests.fs`.
+6. [x] **Sync install** / **Want nodes** — `applySyncResponse installs Want answer after Event tail` and `applySyncResponse Load Fetch answer installs through installWantAnswer` in `tests/Shared.Tests/SyncLogicTests.fs`.
+
+## 7. Slicing strategy
+
+[x] tracer-cut
+
+## 8. Open questions
+
+None
