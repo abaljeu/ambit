@@ -1,8 +1,9 @@
 # 08 — Start the AI Actor
 **Status**: defined
-One job: Run on a node that contains `?ai` puts `Order.ActorOrder` on the mailbox queue. The actor function is `RunAgentActor.actorFn`. The Actor session id stays minted by the pool.
+One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `Order.ActorOrder` and puts that order on the mailbox queue. The actor function is `RunAgentActor.actorFn`. The Actor session id stays minted by the pool.
 
-[ ] That Run is the same `execRunOp` and `postActorStart` path as `?test`.
+[ ] That Run uses the same `execRunOp` and `postActorStart` entry as `?test`. It posts `ActorOrder`. It no longer goes through `StartActor` for `ai`.
+[ ] `startActor` still starts the command names other than `ai`.
 [ ] `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. Its input is `FunctionRun` and `ActorChanges`.
 
 Type:
@@ -39,9 +40,10 @@ Blockers:
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Change: `actorFn` returns `FunctionActor`. The closure holds the LLM HTTP session. The wake and cancel use that session.
 3. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `FunctionActor`. It builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`.
-4. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
-5. [ ] Contract: Remove the `ai` pair from `pool.register`.
-6. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
+4. [ ] Contract: The `?ai` path does not post `CoreMsg.StartActor` and does not call `startActor` for `ai`.
+5. [ ] Leave the Actor session id minted in `putFunctionStart`. `deliver` and `takeInbox` keep that id.
+6. [ ] Contract: Remove the `ai` pair from `pool.register`.
+7. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
 
 ## Outputs
 
