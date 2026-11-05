@@ -221,6 +221,10 @@ _Avoid_: file (bare, for the Node), document, page, note, file body
 The in-memory data store: a root and the nodes reachable from it, with ownership and ref links among those nodes.
 _Avoid_: tree, document tree, model, outline
 
+**GraphAtEvent**:
+The Graph data Core exposes at a given Event (what people meant by the `/state` / getState graph payload / StateResponse). What `/state` returns is a GraphAtEvent. The HTTP path `/state` remains; it is not renamed. getState and StateResponse are historical wire names. Prefer GraphAtEvent in new writing and code.
+_Avoid_: State (deprecated name for this concept), mapState, treating History or ActorStart/ActorStop as GraphAtEvent, using GraphAtEvent as a synonym for Event or the full server record
+
 **Header**:
 Everything in a Node except its Children.
 _Avoid_: metadata, node body, properties
@@ -356,10 +360,6 @@ _Avoid_: common, core (as a name for Shared), lib
 Any Kind that is not Normal; a structural or system role. The Special Kinds are Workspaces, Workspace, Directory, and File. Every artifact is Special, but the Workspaces Node is Special and not an artifact.
 _Avoid_: system node, meta node
 
-**State**:
-The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
-_Avoid_: mapState, treating History or ActorStart/ActorStop as State, using State as a synonym for Event or the full server record
-
 **subsection**:
 The Expression search for sections below the input Node. Cluster spelling `#`; `subsection "todo"` equals `#todo`.
 _Avoid_: tagged, content search, named (as this search), Find
@@ -412,7 +412,7 @@ These terms are permitted with standard definition:
 - **Session**: one webpage lifetime from load to refresh or close.
 - **SiteMap**: the client's derived view index over the resident Graph.
 - **slice**: an implementation increment, and the Project-only Stage after spec ([[doc/agents/project-status.md]]).
-- **StateResponse**: the `/state` endpoint's response payload.
+- **StateResponse**: historical wire name for the `/state` endpoint's response payload. The HTTP path `/state` remains; it is not renamed. What `/state` returns is a **GraphAtEvent**.
 - **synchronization**: plain noun form of **Sync**, same meaning.
 - **Zoom**: the command that focuses the view on a Node.
 
@@ -420,6 +420,7 @@ These terms are permitted with standard definition:
 
 - affordance
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
+- **State** (bare name for the Graph concept) — deprecated; say **GraphAtEvent**. State was the old name for GraphAtEvent. Remaining uses of State in markdown are simply misnamed and mean GraphAtEvent. The HTTP path `/state` remains. What `/state` returns is a GraphAtEvent.
 - **Peer** - as in peer actor.  The adjective is not descriptive.
 - **Piece** used as an adjective.
 - **Piece**  and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.
