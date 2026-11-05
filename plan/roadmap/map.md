@@ -12,7 +12,34 @@ Completing this Roadmap means completing the application. [[doc/index.md]] is th
 
 (Mutable section. Replace this section when the near-term aim changes.)
 
-Solid product core via [[epics/robust-outliner.md]]: **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met). **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); leftovers continue as pointers 08–17. Epic current Chapter: [[epics/chapters/actors-supported.md]]. Grow by pull in / organize / send out. First inbound Agent path [[plan/llm-connector/project.md]] is Stage done. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later. Present Find / Search work: [[plan/online-search/project.md]] (Ambot implement; Chapter home [[epics/chapters/find-what-i-wrote.md]]).
+Solid product core via [[epics/robust-outliner.md]]: **v1 built** ([[plan/core-creation/project.md]] Stage `done`; Chapter [[epics/chapters/initial-core.md]] met). **v2 live** Core-seam: [[plan/core-refinement/project.md]] ([[plan/core-refinement/arch.md]]); leftovers continue as pointers 08–17. Epic current Chapter: [[epics/chapters/actors-supported.md]]. The main push is cleaning up that architecture. The current phase simplifies how an actor starts: a function is given to the actor pool, which starts an actor on that function. The same phase retires CoreMsg and extends Order. Detail: [Actor as client](plan/actor-as-client/project.md). Online search is the functional goal and resumes after that actor work ([[plan/online-search/project.md]]; Chapter [[epics/chapters/find-what-i-wrote.md]]). Grow by pull in / organize / send out. First inbound Agent path [[plan/llm-connector/project.md]] is Stage done. Connected-channel first Chapter: **Ambit as bot DM channel** ([[epics/operate-connected-channels.md]], [[epics/chapters/ambit-as-bot-dm-channel.md]], [[plan/bot-channel/project.md]]); mail stays later.
+
+### What to work on next
+
+Ambot0 (the work coordinator) maintains this list. Updated 2026-11-05.
+
+1. [06 — Log ActorOrder](plan/actor-as-client/issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md) — Ambot, in flight as [draft PR 527](https://github.com/abaljeu/ambit/pull/527)
+2. [07 — Start the test command](plan/actor-as-client/issues/07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md)
+3. [08 — Start the AI Actor](plan/actor-as-client/issues/08-dispatch-the-ai-actor/08-dispatch-the-ai-actor-ticket.md)
+4. [09 — Start the query command](plan/actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
+5. [10 — Start git Load and Save](plan/actor-as-client/issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md)
+6. Move tests onto the new start
+    - [11 — Move door and case tests](plan/actor-as-client/issues/11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md)
+    - [12 — Move pool and issue tests](plan/actor-as-client/issues/12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md)
+    - [13 — Move persist and command tests](plan/actor-as-client/issues/13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md)
+    - [14 — Move runtime and session tests](plan/actor-as-client/issues/14-move-runtime-and-session-tests/14-move-runtime-and-session-tests-ticket.md)
+7. [15 — Delete the old Actor starts](plan/actor-as-client/issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md)
+8. [16 — Delete the old Order cases](plan/actor-as-client/issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md)
+9. [111 — Place search start as an order, and post SearchStopped](plan/core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) — after 15 — Delete the old Actor starts
+
+In flight
+
+- Ambot holds 06 — Log ActorOrder, and online-search architecture drafts [PR 528](https://github.com/abaljeu/ambit/pull/528) and [PR 529](https://github.com/abaljeu/ambit/pull/529)
+- Ambot2 restarts 23 — Search results never vanish in a thinner shape after Alan closed [PR 526](https://github.com/abaljeu/ambit/pull/526). Ambot2 is rewriting that ticket as part of the restart. Ambot2 holds Core mailbox and actor work until 06 — Log ActorOrder and the tickets after it land.
+
+Waiting
+
+- Online search resumes after the actor work above.
 
 ## Epics
 
