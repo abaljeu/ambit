@@ -1,7 +1,6 @@
 namespace Gambol.Server
 
 open System
-open System.Collections.Concurrent
 open System.Runtime.CompilerServices
 open Gambol.Shared
 open Gambol.CloudAgents
@@ -384,27 +383,12 @@ module RunAgentActor =
           repos: AiRepo list
           grok: GrokBotBinding }
 
-    let private offered =
-        ConcurrentDictionary<NodeId, Gambol.Shared.ActorFunction>()
-
     let private bound =
         ConditionalWeakTable<CoreActorPool, AiMaterials>()
 
     let private tryBound pool =
         let mutable found = Unchecked.defaultof<AiMaterials>
         if bound.TryGetValue(pool, &found) then Some found else None
-
-    /// Test seam supplies the function for one actor node.
-    let offerActor
-        (actorNodeId: NodeId)
-        (actor: Gambol.Shared.ActorFunction)
-        =
-        offered[actorNodeId] <- actor
-
-    let internal takeOfferedActor (actorNodeId: NodeId) =
-        match offered.TryRemove actorNodeId with
-        | true, actor -> Some actor
-        | _ -> None
 
     let internal bindActorMaterials pool keys repos grok =
         bound.Add(pool, { keys = keys; repos = repos; grok = grok })
