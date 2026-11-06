@@ -12,8 +12,6 @@ module internal CoreMailboxLoop =
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
-        | StartActor (caller, request, reply) ->
-            CoreMailboxActors.dispatchStartActor context caller request reply
         | StartPeerActor (caller, peerName, request, reply) ->
             CoreMailboxActors.dispatchStartPeerActor
                 context caller peerName request reply
@@ -63,7 +61,6 @@ module internal CoreMailboxLoop =
 
     let private messageCaller (msg: CoreMsg) =
         match msg with
-        | StartActor (caller, _, _)
         | StartPeerActor (caller, _, _, _)
         | StartLoadSaveCommand (caller, _, _, _, _)
         | RecordSearchStart (caller, _, _)
@@ -141,11 +138,6 @@ module internal CoreMailboxLoop =
 
     let private reportNotice (context: MailboxContext) (err: string) =
         context.onError "Notice" err (exn err)
-
-    let private replyUnsupported
-        (reply: AsyncReplyChannel<Result<'a, string>>)
-        =
-        reply.Reply(Error "unsupported")
 
     let private editEvent (placed: PlacedOrder) (ops: Op list) =
         let edited =
@@ -246,6 +238,12 @@ module internal CoreMailboxLoop =
             | Error err -> reply.Reply(Error err)
             | Ok () -> reply.Reply(Ok stored.id)
 
+    let private replyStarted
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (result: Result<unit, string>)
+        =
+        reply.Reply(Result.map (fun () -> EventId.zero) result)
+
     let private placeOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -267,7 +265,12 @@ module internal CoreMailboxLoop =
                 context placed caller reply focusId
         | Order.ActorOrderCase order ->
             replyActorOrder context placed caller reply order
-        | Order.StartActor _ -> replyUnsupported reply
+        | Order.StartActor request ->
+            CoreMailboxActors.dispatchStartActor
+                context
+                caller
+                request
+                (replyStarted reply)
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with

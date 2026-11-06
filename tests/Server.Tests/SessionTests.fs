@@ -31,17 +31,14 @@ let private orderEvent text = {
     body = EventBody.Change [ Op.NewNode(NodeId.New(), text) ]
 }
 
-let private latePlace (caller: Caller) channel =
-    Mailbox.placeForCaller
-        { orderId = OrderId.New()
-          authority = caller.authority
-          commandName = Some "late"
-          order =
-              Order.Change(
-                  [ Op.NewNode(NodeId.New(), "late") ],
-                  ChangeOrigin.Edit) }
-        caller
-        channel
+let private latePlaced (caller: Caller) = {
+    orderId = OrderId.New()
+    authority = caller.authority
+    commandName = Some "late"
+    order =
+        Order.Change(
+            [ Op.NewNode(NodeId.New(), "late") ],
+            ChangeOrigin.Edit) }
 
 let private sessionOf host = MailboxHost.session host
 
@@ -335,9 +332,10 @@ let ``login during a pending logout runs and a dropped generation rejects a late
         do! CoreMailboxApi.logout host testCaller |> Async.StartAsTask
         do! waitUntilAuthorityGone 1000 host testCaller |> Async.StartAsTask
         let! late =
-            MailboxHost.postMailboxAndAsyncReply
+            MailboxHost.postPlacedOrder
                 host
-                (latePlace testCaller)
+                testCaller
+                (latePlaced testCaller)
         Assert.Equal(Error "authority dropped", late)
         let! last =
             CoreMailboxApi.getEventId host |> Async.StartAsTask

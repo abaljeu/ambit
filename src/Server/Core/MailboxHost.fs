@@ -92,6 +92,15 @@ module MailboxHost =
         postItemAndAsyncReply host (fun channel ->
             CoreQueue.Public (build channel))
 
+    /// Place one Order and wait for the EventId reply.
+    let internal postPlacedOrder
+        (host: MailboxHost)
+        (caller: Caller)
+        (placed: PlacedOrder)
+        : Async<Result<EventId, string>> =
+        postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.placeForCaller placed caller channel)
+
     let postActorOrder
         (host: MailboxHost)
         (caller: Caller)
@@ -106,8 +115,7 @@ module MailboxHost =
               authority = caller.authority
               commandName = commandName
               order = Order.ActorOrderCase order }
-        postMailboxAndAsyncReply host (fun channel ->
-            Mailbox.placeForCaller placed caller channel)
+        postPlacedOrder host caller placed
 
     let isReady (host: MailboxHost) = host.isReady
 

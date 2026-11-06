@@ -37,7 +37,6 @@ module internal CoreMailboxEvents =
 
     let operationContext msg =
         match msg with
-        | StartActor _ -> "StartActor", ""
         | StartPeerActor (_, PeerActorName name, _, _) ->
             "StartPeerActor", name
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
@@ -54,7 +53,6 @@ module internal CoreMailboxEvents =
 
     let replyFailure error msg =
         match msg with
-        | StartActor (_, _, reply) -> reply.Reply(Error error)
         | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
             reply.Reply(Error error)

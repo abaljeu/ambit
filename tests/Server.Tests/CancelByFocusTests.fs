@@ -222,15 +222,11 @@ type CancelByFocusTests() =
                 let! request = startLiveAsk host pool "?ai"
                 do! awaitHang hangStarted
                 let place focusId =
-                    MailboxHost.postMailboxAndAsyncReply host
-                        (fun channel ->
-                            Mailbox.placeForCaller
-                                { orderId = OrderId.New()
-                                  authority = testCaller.authority
-                                  commandName = None
-                                  order = Order.CancelActor focusId }
-                                testCaller
-                                channel)
+                    MailboxHost.postPlacedOrder host testCaller {
+                        orderId = OrderId.New()
+                        authority = testCaller.authority
+                        commandName = None
+                        order = Order.CancelActor focusId }
                     |> Async.StartAsTask
                 let! first = place request.focusId
                 let! before =

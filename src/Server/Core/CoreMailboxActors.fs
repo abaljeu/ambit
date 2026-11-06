@@ -63,20 +63,19 @@ module internal CoreMailboxActors =
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
         start
-        =
+        : Result<unit, string> =
         match prepareActorStart context caller request start with
         | Error error ->
-            reply.Reply(Error (StartError.text error))
-        | Ok (None, _) -> reply.Reply(Ok ())
+            Error (StartError.text error)
+        | Ok (None, _) -> Ok ()
         | Ok (Some secret, make) ->
             match
                 finishReadyStart
                     context caller request secret make (Guid.NewGuid())
             with
-            | Error err -> reply.Reply(Error err)
-            | Ok _ -> reply.Reply(Ok ())
+            | Error err -> Error err
+            | Ok _ -> Ok ()
 
     /// Query and named starts both use the ID-bag start.
     /// `startFunction` stays unused on this path.
@@ -88,27 +87,38 @@ module internal CoreMailboxActors =
         context.pool.startActor request _getState
         |> Result.map Some
 
-    let dispatchStartActor context caller request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startActor start getState
-                |> Result.map Some)
+    let dispatchStartActor
+        context
+        caller
+        request
+        (reply: Result<unit, string> -> unit)
+        =
+        reply (
+            dispatchActorStartResult
+                context
+                caller
+                request
+                (fun start getState ->
+                    context.pool.startActor start getState
+                    |> Result.map Some))
 
     let dispatchStartPeerActor
-        context caller peerName request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startPeerActor peerName start getState
-                |> Result.mapError StartError.Rejected
-                |> Result.map Some)
+        context
+        caller
+        peerName
+        request
+        (reply: AsyncReplyChannel<Result<unit, string>>)
+        =
+        let started =
+            dispatchActorStartResult
+                context
+                caller
+                request
+                (fun start getState ->
+                    context.pool.startPeerActor peerName start getState
+                    |> Result.mapError StartError.Rejected
+                    |> Result.map Some)
+        reply.Reply started
     let dispatchActorStop
         (context: MailboxContext)
         (caller: Caller)

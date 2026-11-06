@@ -3,10 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | StartActor of
-        caller: Caller *
-        request: Gambol.Shared.ActorStart *
-        AsyncReplyChannel<Result<unit, string>>
     | StartPeerActor of
         caller: Caller *
         peerName: PeerActorName *

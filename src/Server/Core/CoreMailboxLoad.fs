@@ -63,20 +63,21 @@ module internal CoreMailboxLoad =
         match logged with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            CoreMailboxActors.dispatchActorStartResult
-                context
-                caller
-                request.start
-                reply
-                (fun _ getGraph ->
-                    DeskLoadPush.runLoadSave
-                        { pool = context.pool
-                          getGraph = getGraph
-                          peerName = peerName }
-                        (dispatchLoad context caller)
-                        request
-                        path
-                    |> Result.mapError StartError.Rejected)
+            let started =
+                CoreMailboxActors.dispatchActorStartResult
+                    context
+                    caller
+                    request.start
+                    (fun _ getGraph ->
+                        DeskLoadPush.runLoadSave
+                            { pool = context.pool
+                              getGraph = getGraph
+                              peerName = peerName }
+                            (dispatchLoad context caller)
+                            request
+                            path
+                        |> Result.mapError StartError.Rejected)
+            reply.Reply started
 
     let internal replyLoad
         (context: MailboxContext)

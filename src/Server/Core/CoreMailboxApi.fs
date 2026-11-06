@@ -105,8 +105,7 @@ module CoreMailboxApi =
         =
         match isUndoOrRedo event, MailboxLog.placedOrderFromEvent event with
         | true, Ok placed ->
-            MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-                Mailbox.placeForCaller placed caller channel)
+            MailboxHost.postPlacedOrder host caller placed
         | _ -> postEventAccepted host caller event
 
     let private isClientActorStop (event: Ev) =
@@ -334,8 +333,15 @@ module CoreMailboxApi =
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartActor(caller, request, channel))
+        async {
+            let! replied =
+                MailboxHost.postPlacedOrder host caller {
+                    orderId = OrderId.New()
+                    authority = caller.authority
+                    commandName = None
+                    order = Order.StartActor request }
+            return Result.map (fun _ -> ()) replied
+        }
 
     let startPeerActor
         (host: MailboxHost)
@@ -385,14 +391,11 @@ module CoreMailboxApi =
         (caller: Caller)
         (subject: NodeId)
         : Async<Result<EventId, string>> =
-        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-            Mailbox.placeForCaller
-                { orderId = OrderId.New()
-                  authority = caller.authority
-                  commandName = None
-                  order = Order.Load subject }
-                caller
-                channel)
+        MailboxHost.postPlacedOrder host caller {
+            orderId = OrderId.New()
+            authority = caller.authority
+            commandName = None
+            order = Order.Load subject }
 
     let actorStop
         (host: MailboxHost)
@@ -409,14 +412,11 @@ module CoreMailboxApi =
         : Async<Result<unit, string>> =
         async {
             let! replied =
-                MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-                    Mailbox.placeForCaller
-                        { orderId = OrderId.New()
-                          authority = caller.authority
-                          commandName = None
-                          order = Order.CancelActor focusId }
-                        caller
-                        channel)
+                MailboxHost.postPlacedOrder host caller {
+                    orderId = OrderId.New()
+                    authority = caller.authority
+                    commandName = None
+                    order = Order.CancelActor focusId }
             return Result.map (fun _ -> ()) replied
         }
 

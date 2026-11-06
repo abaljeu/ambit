@@ -489,15 +489,11 @@ let ``a placed Parse Change is stored without a document file write`` () =
                   Op.NewNode(bodyId, "stored-body")
                   Op.Replace(fileId, [], [ ChildNode.owner bodyId ]) ]
             let! reply =
-                MailboxHost.postMailboxAndAsyncReply host (fun channel ->
-                    Mailbox.placeForCaller
-                        { orderId = OrderId submissionId
-                          authority = testCaller.authority
-                          commandName = Some "Parse"
-                          order =
-                            Order.Change(ops, ChangeOrigin.Parse) }
-                        testCaller
-                        channel)
+                MailboxHost.postPlacedOrder host testCaller {
+                    orderId = OrderId submissionId
+                    authority = testCaller.authority
+                    commandName = Some "Parse"
+                    order = Order.Change(ops, ChangeOrigin.Parse) }
                 |> Async.StartAsTask
             match reply with
             | Ok _ -> ()
