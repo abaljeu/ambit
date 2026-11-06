@@ -262,16 +262,13 @@ module internal CoreMailboxActors =
         queueAdmittedOrder context caller event request reply order
 
     let private aiFunction (context: MailboxContext) request =
-        match RunAgentActor.takeOfferedActor request.actorNodeId with
+        match
+            RunAgentActor.actorForNode
+                context.pool
+                request.actorNodeId
+        with
         | Some actor -> Ok actor
-        | None ->
-            match
-                RunAgentActor.actorForNode
-                    context.pool
-                    request.actorNodeId
-            with
-            | Some actor -> Ok actor
-            | None -> Error "ai actor is not bound"
+        | None -> Error "ai actor is not bound"
 
     /// Admitted `?ai` Run. Closes over the actor node and queues ActorOrder.
     let private queueAdmittedAi
