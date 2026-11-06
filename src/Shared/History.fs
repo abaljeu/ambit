@@ -84,7 +84,8 @@ type Credential = Credential of string
 /// What a function-shaped Actor receives. No Graph or ids bag.
 type FunctionRun =
     { getGraph: GraphCarrier
-      secret: Credential }
+      secret: Credential
+      sessionId: string }
 
 type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
 

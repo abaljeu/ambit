@@ -295,9 +295,13 @@ module CoreActorPool =
                 | BagPending(actorFn, input) ->
                     actorFn input coreChanges
                 | FunctionPending(actor, getGraph, secret) ->
+                    let focused () =
+                        getGraph ()
+                        |> Graph.withFocus (Some row.focusId)
                     actor
-                        { getGraph = getGraph
-                          secret = secret }
+                        { getGraph = focused
+                          secret = secret
+                          sessionId = row.sessionId }
                         coreChanges
             Async.Start(work, row.cancel.Token)
 
