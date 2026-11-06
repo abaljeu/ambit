@@ -86,12 +86,20 @@ type BrowserAskProofTests() =
             (fun _ -> fakeReply "from-agent")
             (fun () ->
                 withHost (fun host pool -> task {
-                    let! seeded = seedAskTree host "?ai"
-                    let request = askRequest seeded
-                    do! postLiveAiRun host request
-                    do! expectActorSucceeded
-                            host pool request.focusId
-                    do! expectNoActorStart host request.focusId
-                    let! ordered = hasActorStart host request.focusId
+                    let! focusId = seedAiAncestor host
+                    do! postLiveAiRun host focusId
+                    do! expectActorSucceeded host pool focusId
+                    do! expectNoActorStart host focusId
+                    let! ordered = hasActorStart host focusId
                     Assert.True(ordered)
                 }))
+
+    [<Fact>]
+    member _.``stale ?ai ActorStart is not stored`` () =
+        withHost (fun host _ -> task {
+            let! actorNodeId = seedCommand host "?ai"
+            do! postStaleAiStart host actorNodeId
+            do! expectNoActorStart host actorNodeId
+            let! ordered = hasActorStart host actorNodeId
+            Assert.False(ordered)
+        })
