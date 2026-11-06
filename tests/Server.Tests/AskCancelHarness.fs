@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.AskCancelHarness
 
 open System
+open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 open Xunit
@@ -67,19 +68,33 @@ let private grokBinding config =
     { Config = config
       ResponseUrl = unusedResponseUrl }
 
+type private HostAi =
+    { keys: AiKeySet
+      repos: AiRepo list
+      grok: GrokBotBinding }
+
+let private hostAi =
+    ConditionalWeakTable<MailboxHost, HostAi>()
+
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
-    pool.register
-        (ActorName "ai")
-        (RunAgentActor.actorFn keys repos grok)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
+    hostAi.Add(host, { keys = keys; repos = repos; grok = grok })
     host, pool
+
+let private readHostAi host =
+    let mutable found = Unchecked.defaultof<HostAi>
+    if hostAi.TryGetValue(host, &found) then
+        found
+    else
+        Assert.Fail("ask host has no AI materials")
+        Unchecked.defaultof<HostAi>
 
 let private clearFake () =
     let deadline = DateTime.UtcNow.AddSeconds 2.0
@@ -288,9 +303,27 @@ let seedAskTree host commandText =
               graphIds = [ zoomId; actorNodeId; noteId ] }
     }
 
-/// Ask start for `?ai`. The first body calls `startActor`.
+/// Ask start for `?ai`. Posts ActorOrder for that Run's actor node.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
-    CoreMailboxApi.startActor host testCaller request
+    let mats = readHostAi host
+    let actor =
+        RunAgentActor.actorFn
+            mats.keys
+            mats.repos
+            mats.grok
+            request.actorNodeId
+    RunAgentActor.offerActor request.actorNodeId actor
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = testCaller.authority
+          commandName = "Exec"
+          body = EventBody.ActorStart request }
+    async {
+        let! result =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+        return Result.map (fun _ -> ()) result
+    }
     |> Async.StartAsTask
 
 let startAsk host (seeded: SeededAsk) =
