@@ -322,8 +322,49 @@ let startAiRun (host: MailboxHost) (request: ActorStart) =
     }
     |> Async.StartAsTask
 
-/// Client-shaped `?ai` Run. The live path must not keep ActorStart.
-let postLiveAiRun (host: MailboxHost) (request: ActorStart) =
+/// Client-shaped `?ai` Run. The body is ActorOrder.
+let postLiveAiRun (host: MailboxHost) (focusId: NodeId) =
+    let order =
+        { actor = EventJson.stubActor
+          focusId = focusId
+          actorName = "ai" }
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = testCaller.authority
+          commandName = "Exec"
+          body = EventBody.Order(Order.ActorOrder order) }
+    task {
+        let! result =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        requireOk "live ai run" result |> ignore
+    }
+
+/// `?ai` owns the focus line. The command is on the owner path.
+let seedAiAncestor host =
+    task {
+        let actorNodeId = NodeId.New()
+        let focusId = NodeId.New()
+        let ops =
+            [ Op.NewNode(actorNodeId, "?ai")
+              Op.NewNode(focusId, "ask")
+              Op.Replace(
+                  Graph.rootId,
+                  [],
+                  [ ChildNode.owner actorNodeId ])
+              Op.Replace(
+                  actorNodeId,
+                  [],
+                  [ ChildNode.owner focusId ]) ]
+        do! postBrowserChange host "seed ai ancestor" ops
+        return focusId
+    }
+
+/// Old `?ai` ActorStart event. The server must not keep that row.
+let postStaleAiStart (host: MailboxHost) (focusId: NodeId) =
+    let request =
+        sampleRequest focusId focusId focusId [ focusId ]
     let event =
         { id = EventId.zero
           submissionId = Guid.NewGuid()
@@ -334,7 +375,7 @@ let postLiveAiRun (host: MailboxHost) (request: ActorStart) =
         let! result =
             CoreMailboxApi.postEvents host testCaller [ event ]
             |> Async.StartAsTask
-        requireOk "live ai run" result |> ignore
+        requireOk "stale ai start" result |> ignore
     }
 
 let expectNoActorStart host focusId =
