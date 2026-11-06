@@ -303,25 +303,20 @@ let seedAskTree host commandText =
               graphIds = [ zoomId; actorNodeId; noteId ] }
     }
 
-/// Ask start for `?ai`. Posts ActorOrder for that Run's actor node.
+/// Ask start for `?ai`. The admitted test caller posts ActorOrder.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
     let mats = readHostAi host
-    let actor =
-        RunAgentActor.actorFn
-            mats.keys
-            mats.repos
-            mats.grok
-            request.actorNodeId
-    RunAgentActor.offerActor request.actorNodeId actor
-    let event =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = testCaller.authority
-          commandName = "Exec"
-          body = EventBody.ActorStart request }
+    let order =
+        { actor =
+            RunAgentActor.actorFn
+                mats.keys
+                mats.repos
+                mats.grok
+                request.actorNodeId
+          focusId = request.focusId
+          actorName = "ai" }
     async {
-        let! result =
-            CoreMailboxApi.postEvents host testCaller [ event ]
+        let! result = MailboxHost.postActorOrder host testCaller order
         return Result.map (fun _ -> ()) result
     }
     |> Async.StartAsTask
@@ -502,6 +497,7 @@ let expectChangeCount host expected =
         Assert.Equal(expected, changes.Length)
     }
 
+/// True when this focus has an ActorOrder. The ask seam posts that order.
 let hasActorStart host focusId =
     task {
         let! events = eventPast host |> Async.StartAsTask
@@ -509,8 +505,8 @@ let hasActorStart host focusId =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStart started ->
-                    started.focusId = focusId
+                | EventBody.Order (Order.ActorOrder order) ->
+                    order.focusId = focusId
                 | _ -> false)
     }
 
