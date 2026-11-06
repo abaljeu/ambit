@@ -288,13 +288,16 @@ let seedAskTree host commandText =
               graphIds = [ zoomId; actorNodeId; noteId ] }
     }
 
+/// Ask start for `?ai`. The first body calls `startActor`.
+let startAiRun (host: MailboxHost) (request: ActorStart) =
+    CoreMailboxApi.startActor host testCaller request
+    |> Async.StartAsTask
+
 let startAsk host (seeded: SeededAsk) =
     task {
         let request = askRequest seeded
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = startAiRun host request
+        requireOk "startAiRun" result
         return request
     }
 
@@ -538,10 +541,8 @@ let private startBrowserAsk host actorNodeId =
                 siteMap
                 actorNodeId
                 state.eventId
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = startAiRun host request
+        requireOk "startAiRun" result
         return request
     }
 

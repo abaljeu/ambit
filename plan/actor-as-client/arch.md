@@ -18,12 +18,16 @@ Out of scope: remote starts, per-run endpoints, the `/state` route, and a Persis
 [ ] The type name is `ActorFunction`.
 [x] `ActorChanges.graphAtEvent` returns `GraphAtEvent`.
 
+[x] `FunctionRun` today is `getGraph` and `secret`.
+[ ] `FunctionRun.sessionId` is the Actor session id `putFunctionStart` mints.
+
 ```fsharp
 type GraphCarrier = unit -> Graph
 
 type FunctionRun =
     { getGraph: GraphCarrier
-      secret: Credential }
+      secret: Credential
+      sessionId: string }
 
 type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
 
@@ -204,6 +208,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 ```
 
 [ ] 15 — Delete the old Actor starts renames `runSchedule` to `launchPending`.
+[ ] `runSchedule` for `FunctionPending` sets `FunctionRun.sessionId` from `row.sessionId`.
 
 ### Posted run
 
@@ -227,13 +232,19 @@ functionActor : NodeId -> ActorFunction
 ### AI actor
 
 [x] `actorFn` returns `ActorFn`.
-[ ] `actorFn` returns Curried actor. The closure holds `GrokBotBinding`.
+[ ] `actorFn` returns Curried actor. The closure holds `GrokBotBinding` only.
 
 ```fsharp
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction
 ```
 
-The Actor session id stays minted by Pool start.
+[ ] The Grok oneshot POST reads `run.sessionId`. `deliver` and `takeInbox` use that id. Pool start minted it. The library call is `GrokBotRunner.wake`.
+
+### Cancel by focus node
+
+[x] `cancelByFocus` takes the focus node id.
+[ ] That node id is the actor handle. The live row leaves from that path.
+[ ] `FunctionRun.sessionId` is not the cancel handle.
 
 ### Query command
 

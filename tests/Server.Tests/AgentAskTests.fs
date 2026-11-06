@@ -124,18 +124,12 @@ type AgentAskTests() =
                 withHost (fun host _ -> task {
                     let! seeded = seedAskTree host "?ai"
                     let request = askRequest seeded
-                    let! first =
-                        CoreMailboxApi.startActor
-                            host testCaller request
-                        |> Async.StartAsTask
+                    let! first = startAiRun host request
                     match first with
                     | Ok () -> ()
                     | Error err ->
                         Assert.Fail($"first start: {err}")
-                    let! second =
-                        CoreMailboxApi.startActor
-                            host testCaller request
-                        |> Async.StartAsTask
+                    let! second = startAiRun host request
                     match second with
                     | Error err ->
                         Assert.Contains("focus", err)
