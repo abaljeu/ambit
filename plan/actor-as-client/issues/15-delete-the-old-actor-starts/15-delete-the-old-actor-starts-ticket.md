@@ -3,7 +3,7 @@
 One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand` are gone.
 
 [ ] `startFunction` stays.
-[ ] 10 — Start git Load and Save converts every caller of `CoreMsg.StartLoadSaveCommand`. After that ticket, nothing sends it. This ticket deletes the message.
+[ ] 10 — Start git Load converts Load. 19 — Start git Save converts Save. After both, nothing sends `CoreMsg.StartLoadSaveCommand`. This ticket deletes the message.
 [ ] `runSchedule` is renamed `launchPending`. It takes the Actor's pending work out of the live table and `Async.Start`s it on the thread pool with the row's cancel token.
 [ ] The Order cases stay until 16 — Delete the old Order cases. Putting those files in this ticket made 10 source files. The size limit is 8.
 [ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. The cancel case is `Order.CancelActor`. This ticket does not edit it.
@@ -16,7 +16,8 @@ Blockers:
 
 [ ] [08 — Start the AI Actor](../08-dispatch-the-ai-actor/08-dispatch-the-ai-actor-ticket.md)
 [ ] [09 — Start the query command](../09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
-[ ] [10 — Start git Load and Save](../10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md)
+[ ] [10 — Start git Load](../10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md)
+[ ] [19 — Start git Save](../19-dispatch-git-save/19-dispatch-git-save-ticket.md)
 [ ] [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md)
 [ ] [12 — Move pool and issue tests](../12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md)
 [ ] [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md)
@@ -30,7 +31,7 @@ Blockers:
 
 [ ] `startActor`, `startPeerActor`, `register`, and `registerPeer` are on `CoreActorPool`.
 [ ] `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` are matched in `CoreMailboxLoop.fs` and `CoreMailboxEvents.fs`.
-[ ] `CoreMsg.StartLoadSaveCommand` is built by `CoreMailboxApi.startLoadSaveCommand`. After 10 — Start git Load and Save, nothing sends it.
+[ ] `CoreMsg.StartLoadSaveCommand` is built by `CoreMailboxApi.startLoadSaveCommand`. After 10 — Start git Load and 19 — Start git Save, nothing sends it.
 [ ] `CoreMailboxLoad.dispatchStartLoadSaveCommand` runs from the `StartLoadSaveCommand` arm of `runMsg`.
 [ ] `runSchedule` is private in `src/Server/Core/CoreActorPool.fs`. The pool field that calls it is `schedule`.
 

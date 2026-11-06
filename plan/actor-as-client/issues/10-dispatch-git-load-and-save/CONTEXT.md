@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 10 — Start git Load and Save.
+This folder is ticket 10 — Start git Load.
 
 ## Sequence
 
