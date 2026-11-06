@@ -269,75 +269,98 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok id -> reply.Reply(Ok id)
 
-    /// Admitted `?ai` posts ActorOrder and does not store ActorStart.
-    let private postAdmittedAi
+    /// `?ai` failure is ActorFailed. It does not store ActorStart.
+    let private recordAiFailed
         (context: MailboxContext)
         (caller: Caller)
+        (focusId: NodeId)
+        (submissionId: System.Guid)
+        (message: string)
         (reply: PostedReply)
+        =
+        let dispatch = CoreMailboxEvents.eventDispatchContext context
+        let stop =
+            EventBody.ActorStop(focusId, ActorFailed message)
+        match
+            CoreEventDispatch.appendLifecycle
+                dispatch caller submissionId stop
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok stored ->
+            CoreMailboxEvents.replyStored reply stored
+
+    let private commandTextIsAi (graph: Graph) (id: NodeId) =
+        match Map.tryFind id graph.nodes with
+        | Some node ->
+            CommandRequest.actorNameFromText node.text = Some "ai"
+        | None -> false
+
+    let private aiCommandId (context: MailboxContext) (focusId: NodeId) =
+        let graph = CoreMailboxEvents.graphNow context
+        let rec walk id seen =
+            if Set.contains id seen then None
+            else
+                if commandTextIsAi graph id then Some id
+                else
+                    match Map.tryFind id graph.ownerParentByChild with
+                    | None -> None
+                    | Some parent ->
+                        walk parent (Set.add id seen)
+        walk focusId Set.empty
+
+    let private placeAiOrder
+        (host: MailboxHost)
+        (caller: Caller)
+        (submissionId: System.Guid)
         (order: ActorOrder)
         =
-        match context.coreChanges.Value with
-        | None -> reply.Reply(Error "mailbox not initialized")
-        | Some make ->
-            let host = (make caller).host
-            Async.Start(async {
-                let! placed =
-                    MailboxHost.postActorOrder host caller order
-                replyOrder reply placed
-            })
+        let placed =
+            { orderId = OrderId submissionId
+              authority = caller.authority
+              commandName = Some order.actorName
+              order = Order.ActorOrder order }
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.placeForCaller placed caller channel)
 
-    let private aiFunction (context: MailboxContext) request =
-        match
-            RunAgentActor.actorForNode
-                context.pool
-                request.actorNodeId
-        with
-        | Some actor -> Ok actor
-        | None -> Error "ai actor is not bound"
+    let private aiActor (context: MailboxContext) (focusId: NodeId) =
+        match aiCommandId context focusId with
+        | None -> Error "ai command not found"
+        | Some nodeId ->
+            match RunAgentActor.actorForNode context.pool nodeId with
+            | Some actor -> Ok (nodeId, actor)
+            | None -> Error "ai actor is not bound"
 
-    /// Admitted `?ai` Run. Closes over the actor node and queues ActorOrder.
-    let private queueAdmittedAi
-        (context: MailboxContext)
-        (caller: Caller)
-        (event: Ev)
-        (request: Gambol.Shared.ActorStart)
-        (reply: PostedReply)
-        =
-        match aiFunction context request with
-        | Error message ->
-            recordFailedStart
-                context
-                caller
-                request
-                event.submissionId
-                message
-                reply
-        | Ok actor ->
-            let order =
-                { actor = actor
-                  focusId = request.focusId
-                  actorName = "ai" }
-            postAdmittedAi context caller reply order
-
-    /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
+    /// Admitted `?ai` order. The function closes over the command node.
     let private queueAiOrder
         (context: MailboxContext)
         (caller: Caller)
         (event: Ev)
-        (request: Gambol.Shared.ActorStart)
+        (order: ActorOrder)
         (reply: PostedReply)
         =
         match CoreMailboxEvents.admitCaller context caller with
         | Error err ->
-            recordFailedStart
-                context
-                caller
-                request
-                event.submissionId
-                err
-                reply
+            recordAiFailed
+                context caller order.focusId
+                event.submissionId err reply
         | Ok () ->
-            queueAdmittedAi context caller event request reply
+            match context.coreChanges.Value with
+            | None -> reply.Reply(Error "mailbox not initialized")
+            | Some make ->
+                match aiActor context order.focusId with
+                | Error message ->
+                    recordAiFailed
+                        context caller order.focusId
+                        event.submissionId message reply
+                | Ok (_, actor) ->
+                    let host = (make caller).host
+                    let real = { order with actor = actor }
+                    Async.Start(async {
+                        let! placed =
+                            placeAiOrder
+                                host caller event.submissionId real
+                        replyOrder reply placed
+                    })
 
     /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
     let private queueTestOrder
@@ -386,7 +409,13 @@ module internal CoreMailboxActors =
         | None ->
             match actorNameOn context request.actorNodeId with
             | Some "ai" ->
-                queueAiOrder context caller event request reply
+                recordAiFailed
+                    context
+                    caller
+                    request.focusId
+                    event.submissionId
+                    "ai does not use ActorStart"
+                    reply
             | Some "test" ->
                 queueTestOrder context caller event request reply
             | _ ->
@@ -414,6 +443,9 @@ module internal CoreMailboxActors =
         match event.body with
         | EventBody.ActorStop _ ->
             reply.Reply(Error "ActorStop is not a client event type")
+        | EventBody.Order (Order.ActorOrder order)
+            when order.actorName = "ai" ->
+            queueAiOrder context caller event order reply
         | EventBody.ActorStart request ->
             postActorStart context caller event request reply
         | EventBody.Cancel focusId ->
