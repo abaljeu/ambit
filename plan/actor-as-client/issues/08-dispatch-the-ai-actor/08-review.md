@@ -1,37 +1,49 @@
 # 08 — Start the AI Actor
 
 Ticket: [[08-dispatch-the-ai-actor-ticket.md]]
-PR: https://github.com/abaljeu/ambit/pull/545
-Second review, after the prior must-fix.
-Diff base: `f32290ca` (`cursor/remove-order-peer-and-loadsave-ff54`). That commit later squash-landed onto `staging` as `bff40213`. `git diff f32290ca bff40213` is empty. This review did not rebase.
+Spec: `plan/actor-as-client/spec.md` is absent. This project has no `spec.md`. The ticket is the spec.
+Arch: [[plan/actor-as-client/arch.md]]
 
-## Verdict
+## 1. Standards
 
-notes only
+- **Scan.** `python` is absent. `python3 scripts/standards-scan.py --diff origin/staging` exited 1. The three-dot merge-base with `origin/staging` is `9e230332`, so that range also contains the parent commit already squashed on `staging` as [544 — Remove unused Order.StartPeerActor and Order.LoadSave](https://github.com/abaljeu/ambit/pull/544). `python3 scripts/standards-scan.py --diff f32290ca` is the pull-request base. Both scans print the same two `MUTABLE` lines. No `LONG`, `TAB`, `BARE_ID`, `PHRASE`, or `FILE` line. Touched bindings in the pull-request diff are under 40 lines. The longest is `queueAdmittedOrder` at 29 lines.
+- **Out parameter.** **Hard.** Breaks [fsharp-source](.agents/rules/fsharp-source.md): Don't use mutable. `src/Server/RunAgentActor.fs` `tryBound` is `let mutable found = Unchecked.defaultof<AiMaterials>`.
+- **Harness out parameter.** **Hard.** Same rule: Don't use mutable. `tests/Server.Tests/AskCancelHarness.fs` `readHostAi` is `let mutable found = Unchecked.defaultof<HostAi>`.
+- **Two admit copies.** **Judgement.** Duplicated Code. `queueAiOrder` and `queueTestOrder` in `src/Server/Core/CoreMailboxActors.fs` repeat the `admitCaller` match. Source: [[plan/context/SMELLS.md]]. The hunk is `match CoreMailboxEvents.admitCaller context caller with`.
+- **Two material records.** **Judgement.** Data Clumps. `AiMaterials` in `src/Server/RunAgentActor.fs` and `HostAi` in `tests/Server.Tests/AskCancelHarness.fs` are the same three fields. The hunk is `keys: AiKeySet` plus `repos: AiRepo list` plus `grok: GrokBotBinding`.
+- **Start name.** **Judgement.** Mysterious Name. `hasActorStart` now matches `EventBody.Order (Order.ActorOrder order)`. The hunk is `| EventBody.Order (Order.ActorOrder order) ->`.
+- **Order helper arity.** **Judgement.** Argument Count. `queueAdmittedOrder` takes six positional arguments. The hunk is `let private queueAdmittedOrder`.
+- **Shotgun Surgery.** Suppressed. The source edits are the five Output files. 08 — Start the AI Actor names those files.
 
-The one job holds. The prior must-fix is closed. No new must-fix.
+## 2. Spec
 
-## Prior must-fix
+- **One job.** A Run whose command text is `ai` does not call `startActor`. `postActorStart` matches that name, `queueAiOrder` calls `admitCaller`, and `queueAdmittedAi` builds `ActorOrder` and `queueAdmittedOrder` calls `MailboxHost.postActorOrder`. `actorForNode` applies `actorFn` to the bound keys, repos, `GrokBotBinding`, and that Run's actor node id. Names other than `ai` and `test` still reach `postChosenStart`, which calls `startActor`.
+- **Session id.** `FunctionRun` gains `sessionId`. `putFunctionStart` still mints `Guid.NewGuid` and stores it on the live row. `runSchedule` copies `row.sessionId`. `deliver` and `takeInbox` still key the row by that id. `completeGrok` passes `ask.sessionId` to `GrokBotRunner.wake` and to `requestGrokCancel`. `askFrom` reads `run.sessionId`. The actor closure holds the keys, the repos, `GrokBotBinding`, and the actor node id.
+- **Registers.** `RouteRegistration` passes `Actors = []` and calls `bindActorMaterials` with the keys, repos, and `GrokBotBinding`. `createHost` no longer registers `ActorName "ai"`.
+- **Seam.** `startAiRun` applies `actorFn` to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id, then calls `MailboxHost.postActorOrder` with `testCaller`. It does not cancel. `cancelByFocus` still posts `Order.CancelActor` with the focus node id.
+- **Bounds.** The diff adds no route, no `ActorDispatch.fs`, and no `Order.StartActor` or `Order.RunActor` case. The function on the order is the applied `actorFn`, not `Map.tryFind` on the actor name.
+- **Focus wrapper.** **Extra.** `runSchedule` for every `FunctionPending` sets `getGraph` to `getGraph () |> Graph.withFocus (Some row.focusId)`. `packExtract` then passes `ask.focusId` as both zoom and focus. Ask facts set zoom and focus to the same node, so the suite does not show a Run whose zoom is a different node.
+- **Door ack.** **Extra.** `queueAdmittedOrder`, shared with `?test`, appends `EventBody.ActorStart` for the client submission, then posts `ActorOrder`. `startAiRun` does not take this path.
+- **Proof file.** **Extra.** `tests/Server.Tests/BrowserAskProofTests.fs` is outside Outputs. `lifecycleIndexes` now treats `Order.ActorOrder` as the start row. The test-file count in the diff is 2. The ticket limit is 4.
 
-Closed. `startAiRun` in `tests/Server.Tests/AskCancelHarness.fs` builds `RunAgentActor.actorFn` from the harness keys, repos, `GrokBotBinding`, and that Run's actor node id, then calls `MailboxHost.postActorOrder` with that function, the FocusId, and actor name `ai`. The caller is `testCaller`, the caller in `admittedCredentials`. `offerActor` is gone. `startAiRun` does not post `EventBody.ActorStart` and does not post `CoreMsg.StartActor`.
+## 3. Arch
 
-## Must-fix
+- No findings.
 
-None.
+## 4. Tests
 
-## Notes
+- **Suite.** `bash scripts/check-test.sh 2983` printed `DONE` and `/tmp/ambit-full-suite-20261106-212932.log`. The log ends `full suite finished`. `tests/Server.Tests` passed 752, skipped 1, failed 0. `tests/Shared.Tests` passed 1937, skipped 3, failed 0. `scripts/check-test.sh` is not executable. The bare path prints `Permission denied`.
+- **Seam.** `startAiRun` posts `ActorOrder`. `createHost` does not register `ActorName "ai"`. ``second launch on the same Focus is refused`` calls `startAiRun` for both starts.
+- **Proof.** ``Browser Ask from what I see finishes with Poll Focus Children and drops live`` looks for `ActorOrder` before `ActorStop`, then asserts the owned text `from-agent`.
+- **Product door.** No fact posts `EventBody.ActorStart` for command text `ai`. The ticket says the ask-start seam is the only test start for `?ai`.
+- **Check file.** `plan/actor-as-client/reports/08-dispatch-the-ai-actor-check.md` starts with `pass`. This review did not re-run that file's filters. The full suite above includes those assemblies and failed 0.
 
-1. **One job.** A `?ai` Run does not call `startActor`. `postActorStart` matches the command text `ai`, `queueAiOrder` calls `admitCaller`, then `queueAdmittedAi` builds `ActorOrder` and `queueAdmittedOrder` calls `postActorOrder`. Names other than `ai` and `test` still reach `postChosenStart`, which calls `startActor`. `startOnCommand` still calls `startActor` for a probe `ActorFn`.
-2. **Session id.** `History.fs` adds only `FunctionRun.sessionId`. `putFunctionStart` still mints `Guid.NewGuid` and stores it on the live row. `runSchedule` copies `row.sessionId`. `deliver` and `takeInbox` are unchanged and still key the row by that id. `completeGrok` passes `ask.sessionId` to `GrokBotRunner.wake`. `actorFn` closes over the keys, the repos, `GrokBotBinding`, and the actor node id. The session id is read from `run` when the function runs. `requestGrokCancel` still receives that string inside the run, as the working input describes. `startAiRun` does not cancel. `cancelFocus` still calls `cancelByFocus` with the focus node id.
-3. **Registers.** `RouteRegistration` passes `Actors = []` and binds the keys, repos, and `GrokBotBinding` on the pool. `createHost` no longer registers `ActorName "ai"`. The product function is `actorFn` applied to the bound values and the actor node id. It is not `Map.tryFind` on the actor name.
-4. **Product Run still stores `ActorStart`.** `queueAdmittedOrder`, shared with `?test`, appends `EventBody.ActorStart` for the client submission, then posts `ActorOrder`. That constructor is `Order.StartActor`. `startAiRun` does not take this path. The same append was already the `?test` door ack.
-5. **`runSchedule` also sets focus.** The `FunctionPending` arm wraps `getGraph` with `Graph.withFocus (Some row.focusId)` for every function start. `packExtract` uses that focus id as both zoom and focus. Ask tests set zoom and focus to the same node. A Run whose zoom is a different node posts a smaller extract than the old zoom id.
-6. **Deleted order cases stay deleted.** The `History.fs` hunk is the `sessionId` field. `Order.StartPeerActor` and `Order.LoadSave` are not in the diff. This diff does not add an `Order` case.
-7. **File list.** Five source files match Outputs: `History.fs`, `CoreActorPool.fs`, `CoreMailboxActors.fs`, `RunAgentActor.fs`, `RouteRegistration.fs`. Also in the diff: the trimmed ticket, the check report, this review, and `AskCancelHarness.fs`. `BrowserAskProofTests.fs` is outside Outputs. It now looks for `ActorOrder` before `ActorStop`. That is two test files, under the limit of four. No route and no `ActorDispatch.fs`.
-8. **Check report.** `plan/actor-as-client/reports/08-dispatch-the-ai-actor-check.md` matches the post-fix runs: `scripts/agent-test.sh` passed `BrowserAskProofTests|CoreActorPoolTests` (2) and `EventJsonTests|HistoryTests|MailboxLogTests` (86). The ask, cancel, function-start, and test-command filter passed 76. No factual correction.
-9. **Sibling.** Open PR 543 is the Outputs trim onto `staging`. This branch already contains that trim (`06475270`). Open PR 546 edits plan tickets and `map.md` only. No shared product files.
-10. **Commits.** Each commit after `f32290ca` names one file.
+## 5. Miss
 
-## Stack
+- No findings.
 
-The PR base ref is still `cursor/remove-order-peer-and-loadsave-ff54`. Its tip `f32290ca` is not the squash commit `bff40213` on `staging`. The trees match, so this review does not need a rebase.
+## 6. Found elsewhere
+
+"The following issues were found beyond the ticket scope.  The fixes are suggested."
+
+- No findings.
