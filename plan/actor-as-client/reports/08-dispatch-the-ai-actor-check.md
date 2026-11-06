@@ -4,7 +4,7 @@ pass
 
 Ticket: [08 — Start the AI Actor](../issues/08-dispatch-the-ai-actor/08-dispatch-the-ai-actor-ticket.md)
 
-[x] `scripts/agent-test.sh` with no arguments passed. Mapped runs: `CoreActorPoolTests` 1 passed, and `EventJsonTests|HistoryTests|MailboxLogTests` 86 passed.
+[x] `scripts/agent-test.sh` with no arguments passed. Mapped runs: `BrowserAskProofTests|CoreActorPoolTests` 2 passed, and `EventJsonTests|HistoryTests|MailboxLogTests` 86 passed.
 
 [x] Ask suites that share `startAiRun` passed 76 tests: `AgentAskTests`, `AgentActorStreamTests`, `AgentAuthErrorTests`, `AgentFailurePreserveTests`, `AgentGrokBotStreamTests`, `AiKeysTests`, `AiReposTests`, `BrowserAskProofTests`, `CancelByFocusTests`, plus `CoreActorPoolFunctionStartTests`, `TestActorHelloTests`, and `TestActorCommandErrorTests`.
 
@@ -14,6 +14,6 @@ Ticket: [08 — Start the AI Actor](../issues/08-dispatch-the-ai-actor/08-dispat
 
 [x] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
 
-[x] `pool.register` and `createHost` no longer register `ai`. `startAiRun` applies `RunAgentActor.actorFn` to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
+[x] `pool.register` and `createHost` no longer register `ai`. `startAiRun` applies `RunAgentActor.actorFn` to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id, then posts `ActorOrder`.
 
 [x] Cancel stays `cancelByFocus` with the focus node id. `startAiRun` does not cancel.
