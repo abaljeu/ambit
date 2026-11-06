@@ -80,6 +80,7 @@ let private createHost keys repos grok =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
+    RunAgentActor.bindActorMaterials pool keys repos grok
     let host =
         CoreMailbox.host
             pool
@@ -320,6 +321,34 @@ let startAiRun (host: MailboxHost) (request: ActorStart) =
         return Result.map (fun _ -> ()) result
     }
     |> Async.StartAsTask
+
+/// Client-shaped `?ai` Run. The live path must not keep ActorStart.
+let postLiveAiRun (host: MailboxHost) (request: ActorStart) =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = testCaller.authority
+          commandName = "Exec"
+          body = EventBody.ActorStart request }
+    task {
+        let! result =
+            CoreMailboxApi.postEvents host testCaller [ event ]
+            |> Async.StartAsTask
+        requireOk "live ai run" result |> ignore
+    }
+
+let expectNoActorStart host focusId =
+    task {
+        let! events = eventPast host |> Async.StartAsTask
+        let started =
+            events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStart body ->
+                    body.focusId = focusId
+                | _ -> false)
+        Assert.False(started)
+    }
 
 let startAsk host (seeded: SeededAsk) =
     task {
