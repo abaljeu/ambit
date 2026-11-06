@@ -108,20 +108,9 @@ type internal CoreQueue =
 [o] `Order.StartActor` of `ActorStart` is the pool start. `CoreMsg.StartActor` is that start path.
 [o] `Order.StartActor` remains in the log. Alan, 2026-11-03: 15 — Delete the old Actor starts deletes it completely. No reader keeps an old row.
 [x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
-[ ] `Order.RunActor` stores the command name and the FocusId. Find and Move log that same order. Detail: item 4 **StartPeerActor**.
+[ ] `Order.RunActor` stores the command name and the FocusId. Find and Move log that same order. Detail: [Actor as client](../actor-as-client/project.md).
 
-4. **StartPeerActor**
-
-[o] `Order.StartPeerActor` replaces `CoreMsg.StartPeerActor`. It carries `PeerActorName` and `ActorStart`. `startPeerActor` was never supposed to exist.
-[o] `CoreMsg` is the start path for this order.
-[ ] `Order.RunActor` stores the command name and the FocusId. The pool start is `startFunction`. Alan, 2026-11-03. Detail: [Actor as client](../actor-as-client/project.md).
-[ ] `Order.StartPeerActor` leaves when that cutover deletes the old starts. No new `CoreMsg` case.
-
-5. **LoadSave**
-
-[o] `Order.LoadSave` replaces `CoreMsg.StartLoadSaveCommand`. It carries `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`.
-[ ] Git Load and Save, and a Desk Load or Save, log `Order.ActorOrder`. Nothing writes `Order.LoadSave` before 15 — Delete the old Actor starts. That ticket deletes `Order.LoadSave` and its `PeerActorName`. A Desk Load or Save runs no actor function. Detail: [18 — Place ActorOrder through PlaceOrder](../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md).
-6. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. `Order.Save` of `NodeId` is git Save ([79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md)).
+4. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. `Order.Save` of `NodeId` is git Save ([79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md)).
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice
 
@@ -176,7 +165,7 @@ Only a holder of the notice function posts a Notice. No Notice is inferred from 
 19. **One case each** — . Each `CoreMsg` case moves to its own case. The two stops are `Notice` cases. Every other case is an `Order` case. Cases are not merged on the move.
 
 [o] Actor starts stay two `CoreMsg` cases, `StartActor` and `StartPeerActor`.
-[ ] The logged Actor start is `Order.RunActor`. Alan, 2026-11-03. Detail: item 4 **StartPeerActor**.
+[ ] The logged Actor start is `Order.RunActor`. Alan, 2026-11-03. Detail: [Actor as client](../actor-as-client/project.md).
 20. **Type cleanup** — . Existing `EventBody` cases are not renamed. `Notice.ActorStopped` tells the client it can drop its hold on the Actor. The same-focus race in [117 — The pool posts Notice.ActorStopped when an Actor ends](issues/117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md) is a known limit, accepted for now.
 
 ## 4. Migration

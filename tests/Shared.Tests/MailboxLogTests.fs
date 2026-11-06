@@ -94,23 +94,6 @@ let ``Load keeps its node through EventJson and MailboxLog`` () =
         | _ -> Assert.Fail("expected Undo")
 
 [<Fact>]
-let ``StartPeerActor carries Shared PeerActorName`` () =
-    let name = PeerActorName "github-load"
-    Assert.Equal("Gambol.Shared", typeof<PeerActorName>.Namespace)
-    let start = {
-        zoomId = Graph.rootId
-        focusId = Graph.rootId
-        actorNodeId = Graph.rootId
-        graphIds = [ Graph.rootId ]
-        eventId = EventId.zero }
-    let order = Order.StartPeerActor(name, start)
-    match order with
-    | Order.StartPeerActor (peerName = foundName; request = foundStart) ->
-        Assert.Equal(name, foundName)
-        Assert.Equal(start, foundStart)
-    | _ -> Assert.Fail("expected StartPeerActor")
-
-[<Fact>]
 let ``ActorOrder carries command name and FocusId`` () =
     let focusId =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))

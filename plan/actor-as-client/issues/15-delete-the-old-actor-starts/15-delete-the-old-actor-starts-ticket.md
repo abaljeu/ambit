@@ -42,7 +42,7 @@ Blockers:
 ## Do not load
 
 [ ] `startFunction`. It is the target start.
-[ ] `Order.ActorOrder`, `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave`. 16 — Delete the old Order cases deletes the three old cases and leaves `Order.ActorOrder`.
+[ ] `Order.ActorOrder` and `Order.StartActor`. 16 — Delete the old Order cases deletes the old case and leaves `Order.ActorOrder`.
 [ ] `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`. 09 — Start the query command deletes them.
 [ ] A new `CoreMsg` case.
 [ ] `Order.RunActor` and `ActorDispatch.fs`. They are not added.

@@ -28,7 +28,7 @@ Blockers: none. [102 — Place Parse changes as Order.Change](102-place-parse-ch
 #### `placeOrder`
 
 [ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs:188-207` handles `Order.Change(_, ChangeOrigin.Edit)` through ``replyEdit``, which rebuilds the Ev with origin `Edit` through ``editEvent`` and calls ``replyPosted``. ``replyPosted`` (`CoreMailboxLoop.fs:151-165`) calls `CoreEventDispatch.postEvent` with `false`.
-[ ] ``placeOrder`` replies `Error "unsupported"` through ``replyUnsupported`` for `Order.Change(_, ChangeOrigin.Parse)`, `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave` and `Order.Cancel`. A Change of origin `Parse` posted through `postEvents` is refused this way today.
+[ ] ``placeOrder`` replies `Error "unsupported"` through ``replyUnsupported`` for `Order.Change(_, ChangeOrigin.Parse)`, `Order.StartActor`, and `Order.Cancel`. A Change of origin `Parse` posted through `postEvents` is refused this way today.
 
 #### `CoreEventDispatch` and the flag
 
@@ -68,7 +68,7 @@ Blockers: none. [102 — Place Parse changes as Order.Change](102-place-parse-ch
 [ ] `CoreMailboxAccess.applyEvent` keeps its `bool`, and `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `tests/Server.Tests/TestBackend.fs`, `tests/Server.Tests/PersistApplyTests.fs`, `tests/Server.Tests/PersistThreadTests.fs` and `tests/Server.Tests/CoreLoopNoticeTests.fs` stay as written. `CoreEventDispatch` computes that `bool` from the origin. Removing it from the persist handlers needs those six files and goes over the test-file limit.
 [ ] The callers of `postGraphOnly` and `postEvents`, and `CoreDoor`, stay as written.
 [ ] Every other `CoreMsg` case. `CoreMsg.CancelActor` is [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md). `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` are [15 — Delete the old Actor starts](../../actor-as-client/issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md). `CoreMsg.RecordSearchStart` is [09 — Dispatch the query command](../../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md). `CoreMsg.ActorStop` is [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md).
-[ ] The `placeOrder` arms for `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave` and `Order.Cancel`, and every arm of `dispatchPostEvent` in `CoreMailboxActors.fs` except the argument it passes to `CoreEventDispatch.postEvent`. The cutover tickets and 112 change them.
+[ ] The `placeOrder` arms for `Order.StartActor` and `Order.Cancel`, and every arm of `dispatchPostEvent` in `CoreMailboxActors.fs` except the argument it passes to `CoreEventDispatch.postEvent`. The cutover tickets and 112 change them.
 [ ] Every test in `tests/Server.Tests/CoreMailboxDoorTests.fs`. Only the `CoreEventDispatch.postEvent` call in ``runOrdinaryEdit`` changes. Cutover ticket 11 moves tests in that file.
 [ ] `plan/actor-as-client/**` and `plan/core-refinement/issues/80-place-actor-orders-through-placeorder.md`. The cutover owns them.
 [ ] `src/Shared/ResidentProjection.fs`, `src/Shared/ViewModelDomPlan.fs`, `tests/Shared.Tests/WantTests.fs`, `tests/Shared.Tests/ViewModelTests.fs` and `tests/Shared.Tests/SyncLogicTests.fs`. Another ticket is changing them.

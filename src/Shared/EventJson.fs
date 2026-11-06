@@ -272,25 +272,6 @@ module EventJson =
             | other ->
                 Decode.fail ("Unknown change origin: " + other))
 
-    let private encodeLoadSavePath (path: LoadSavePath) =
-        match path with
-        | LoadSavePath.Git -> Encode.string "git"
-        | LoadSavePath.Desk -> Encode.string "desk"
-
-    let private decodeLoadSavePath: Decoder<LoadSavePath> =
-        Decode.string
-        |> Decode.andThen (function
-            | "git" -> Decode.succeed LoadSavePath.Git
-            | "desk" -> Decode.succeed LoadSavePath.Desk
-            | other ->
-                Decode.fail ("Unknown load/save path: " + other))
-
-    let private encodePeerActorName (PeerActorName name) =
-        Encode.string name
-
-    let private decodePeerActorName: Decoder<PeerActorName> =
-        Decode.string |> Decode.map PeerActorName
-
     let private encodeLoad nodeId =
         Encode.object
             [ "kind", Encode.string "load"
@@ -375,18 +356,6 @@ module EventJson =
             Encode.object
                 [ "kind", Encode.string "startActor"
                   "start", encodeStartRequest start ]
-        | Order.StartPeerActor(peerName, start) ->
-            Encode.object
-                [ "kind", Encode.string "startPeerActor"
-                  "peerName", encodePeerActorName peerName
-                  "start", encodeStartRequest start ]
-        | Order.LoadSave(path, peerName, request) ->
-            Encode.object
-                [ "kind", Encode.string "loadSave"
-                  "path", encodeLoadSavePath path
-                  "peerName", encodePeerActorName peerName
-                  "request",
-                  encodeLoadSaveCommandRequest request ]
         | Order.Load nodeId -> encodeLoad nodeId
         | Order.CancelActor focusId -> encodeCancel focusId
         | Order.ActorOrder order ->
@@ -417,21 +386,6 @@ module EventJson =
             Order.StartActor(
                 get.Required.Field "start" decodeStartRequest))
 
-    let private decodeOrderStartPeerActor: Decoder<Order> =
-        Decode.object (fun get ->
-            Order.StartPeerActor(
-                get.Required.Field "peerName" decodePeerActorName,
-                get.Required.Field "start" decodeStartRequest))
-
-    let private decodeOrderLoadSave: Decoder<Order> =
-        Decode.object (fun get ->
-            Order.LoadSave(
-                get.Required.Field "path" decodeLoadSavePath,
-                get.Required.Field "peerName" decodePeerActorName,
-                get.Required.Field
-                    "request"
-                    decodeLoadSaveCommandRequest))
-
     let private decodeOrderLoad: Decoder<Order> =
         Decode.object (fun get ->
             Order.Load(
@@ -454,8 +408,6 @@ module EventJson =
             | "undo" -> decodeOrderUndo
             | "redo" -> decodeOrderRedo
             | "startActor" -> decodeOrderStartActor
-            | "startPeerActor" -> decodeOrderStartPeerActor
-            | "loadSave" -> decodeOrderLoadSave
             | "load" -> decodeOrderLoad
             | "cancel" -> decodeOrderCancel
             | "actorOrder" ->

@@ -168,7 +168,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [ ] `FunctionStart.actorNodeId` is the `actorNodeId` Curried actor applied. `placeOrder` reads that id from the closure.
 [ ] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] A Desk Load or Save runs no actor.
-[o] `placeOrder` accepts `Order.StartActor`, `Order.StartPeerActor`, or `Order.LoadSave`.
+[o] `placeOrder` accepts `Order.StartActor`.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.

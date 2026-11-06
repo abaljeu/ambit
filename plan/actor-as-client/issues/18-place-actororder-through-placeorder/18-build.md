@@ -9,7 +9,7 @@ Ticket: [18 — Place ActorOrder through PlaceOrder](18-place-actororder-through
 [x] `placeOrder` builds that `FunctionStart` from `order.actor`, the mailbox `getGraph`, and `order.focusId`.
 [x] `postActorOrder` posts `Mailbox.PlaceOrder` with the client's `Caller`.
 [x] A Desk Load logs `Order.ActorOrder` and calls no `startFunction`.
-[x] `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` stay unsupported in `placeOrder`.
+[x] `Order.StartActor` stays unsupported in `placeOrder`.
 [x] `stubActor` is the wire actor. This build does not call it.
 
 ## Check

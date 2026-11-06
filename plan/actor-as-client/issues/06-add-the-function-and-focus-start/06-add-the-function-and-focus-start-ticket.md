@@ -24,7 +24,7 @@ Blockers:
 [x] `Credential` is `Credential of string` in `src/Server/Core/CoreChanges.fs`.
 [x] `CoreChangesDoor` stays in `src/Server/Core/CoreChangesDoor.fs`. Actors post changes, stop, read state, and load a node through `CoreDoor`.
 [o] `startActor` and `startPeerActor` are the other pool starts.
-[ ] `Order` in `src/Shared/History.fs` has `StartActor`, `StartPeerActor`, `LoadSave`, and `Cancel`. It has no `ActorOrder`.
+[ ] `Order` in `src/Shared/History.fs` has `StartActor` and `Cancel`. It has no `ActorOrder`.
 [ ] `Order` is matched in `src/Shared/EventJson.fs`, `src/Shared/MailboxLog.fs`, and `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs`.
 [ ] The mailbox queue is `MailboxProcessor<CoreQueue>` in `src/Server/Core/MailboxHost.fs`.
 
