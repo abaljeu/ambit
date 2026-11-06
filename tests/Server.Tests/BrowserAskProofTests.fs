@@ -10,8 +10,8 @@ let private lifecycleIndexes (events: Ev list) focusId =
     let started =
         tryIndex (fun event ->
             match event.body with
-            | EventBody.ActorStart body
-                when body.focusId = focusId -> true
+            | EventBody.Order (Order.ActorOrder order)
+                when order.focusId = focusId -> true
             | _ -> false)
     let finished =
         tryIndex (fun event ->
@@ -64,7 +64,7 @@ type BrowserAskProofTests() =
                         ()
                     | other ->
                         Assert.Fail(
-                            $"expected ActorStarted then ActorFinished, got {other}")
+                            $"expected ActorOrder then ActorStop, got {other}")
                     let fromPoll =
                         applyPollChanges
                             launched.graphAfterSeed
