@@ -2,7 +2,7 @@
 **Status**: defined
 One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `Order.ActorOrder`. `actorFn` returns `ActorFunction`. `FunctionRun.sessionId` is the pool-minted Actor session id.
 
-[ ] The ask-start seam is the only test start for `?ai`. Suites call that seam.
+[x] The ask-start seam is the only test start for `?ai`. Suites call that seam.
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
 [ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
 [ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for the Grok oneshot POST and for `deliver` and `takeInbox`.
@@ -52,10 +52,10 @@ Blockers:
 
 ### 1. Ask-start seam
 
-2. [ ] Add `startAiRun` in `tests/Server.Tests/AskCancelHarness.fs`. `startAsk` and `startBrowserAsk` call `startAiRun`. `startLiveAsk` calls `startAsk`. `launchBrowserAsk` calls `startBrowserAsk`.
-3. [ ] The first `startAiRun` calls `CoreMailboxApi.startActor`. `createHost` still registers `ActorName "ai"` as `RunAgentActor.actorFn`.
-4. [ ] ``second launch on the same Focus is refused`` calls `startAiRun` for both starts.
-5. [ ] A suite calls `startAsk`, `startLiveAsk`, or `launchBrowserAsk`. It does not call `CoreMailboxApi.startActor` for `?ai`. A probe `ActorFn` stays on `startActor`.
+2. [x] Add `startAiRun` in `tests/Server.Tests/AskCancelHarness.fs`. `startAsk` and `startBrowserAsk` call `startAiRun`. `startLiveAsk` calls `startAsk`. `launchBrowserAsk` calls `startBrowserAsk`.
+3. [x] The first `startAiRun` calls `CoreMailboxApi.startActor`. `createHost` still registers `ActorName "ai"` as `RunAgentActor.actorFn`.
+4. [x] ``second launch on the same Focus is refused`` calls `startAiRun` for both starts.
+5. [x] A suite calls `startAsk`, `startLiveAsk`, or `launchBrowserAsk`. It does not call `CoreMailboxApi.startActor` for `?ai`. A probe `ActorFn` stays on `startActor`.
 
 ### 2. Session id on FunctionRun
 
