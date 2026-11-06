@@ -315,20 +315,3 @@ let ``stale Editing snapshot commits live text and queues ActorStart`` () =
     | Some (CmdLastResult.Error (_, msg)) ->
         failwith $"expected launch, got {msg}"
     | _ -> ()
-
-[<Fact>]
-let ``ai Run queues ActorOrder`` () =
-    let focusId = NodeId.New()
-    let syncInfo = (editingCommandModel ()).syncInfo
-    let sync, _ =
-        RunLaunch.queueAi focusId EventId.zero syncInfo []
-    match sync.pending with
-    | [ event ] ->
-        match event.body with
-        | EventBody.Order (Order.ActorOrder order) ->
-            Assert.Equal(focusId, order.focusId)
-            Assert.Equal("ai", order.actorName)
-        | other ->
-            failwith $"expected ActorOrder, got %A{other}"
-    | other ->
-        failwith $"expected one pending event, got %A{other}"

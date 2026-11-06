@@ -92,30 +92,17 @@ let private execAmbleRunOp
             let ran, runEffects = runAmbleOp afterDelete
             ran, commitEffects @ delEffects @ runEffects
 
-let private commandName (graph: Graph) (nodeId: NodeId) =
-    Map.tryFind nodeId graph.nodes
-    |> Option.bind (fun node ->
-        CommandRequest.actorNameFromText node.text)
-
 let private queueRun
     (request: ActorStart)
     (committed: VM)
     (commitEffects: Effect list)
     : VM * Effect list =
     let syncInfo, queued =
-        match commandName committed.graph request.actorNodeId with
-        | Some "ai" ->
-            RunLaunch.queueAi
-                request.focusId
-                committed.eventId
-                committed.syncInfo
-                commitEffects
-        | _ ->
-            RunLaunch.queueStart
-                request
-                committed.eventId
-                committed.syncInfo
-                commitEffects
+        RunLaunch.queueStart
+            request
+            committed.eventId
+            committed.syncInfo
+            commitEffects
     { committed with syncInfo = syncInfo }, queued
 
 let private submitQuery
