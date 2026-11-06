@@ -6,7 +6,7 @@ One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
 [ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
 [ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for the Grok oneshot POST and for `deliver` and `takeInbox`.
-[ ] The source files are 5. The test files are 10. The size limit is 8 source files and 4 test files. The test count is over the limit. The ask suites share one seam, and `actorFn` does not compile while those suites still register an `ActorFn`.
+[ ] The source files are 5. The test files are 1. The size limit is 8 source files and 4 test files. Both counts are under the limit.
 
 Type:
 
@@ -29,8 +29,11 @@ Blockers:
 [ ] `postActorOrder` is on `MailboxHost`.
 [ ] `postActorStart` for `?test` admits the caller, then posts `ActorOrder`.
 [ ] `AskCancelHarness.createHost` registers `ActorName "ai"` as `RunAgentActor.actorFn`.
-[ ] `startAsk`, `startLiveAsk`, and `startBrowserAsk` call `CoreMailboxApi.startActor`. `launchBrowserAsk` calls `startBrowserAsk`.
-[ ] ``second launch on the same Focus is refused`` in `tests/Server.Tests/AgentAskTests.fs` calls `CoreMailboxApi.startActor` for `?ai`.
+[ ] `startAsk` and `startBrowserAsk` call `startAiRun`.
+[ ] `startLiveAsk` calls `startAsk`.
+[ ] `launchBrowserAsk` calls `startBrowserAsk`.
+[ ] `startAiRun` calls `CoreMailboxApi.startActor`.
+[ ] ``second launch on the same Focus is refused`` in `tests/Server.Tests/AgentAskTests.fs` calls `startAiRun` for both starts.
 
 ### Reference
 
@@ -80,16 +83,7 @@ Blockers:
 [ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `ActorOrder` after `admitCaller`
 [ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. The Grok oneshot POST reads `run.sessionId`.
 [ ] `src/Server/RouteRegistration.fs` — remove `ai` from `pool.register`
-[ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun`
-[ ] `tests/Server.Tests/AgentAskTests.fs` — the second-launch fact calls `startAiRun`
-[ ] `tests/Server.Tests/AgentActorStreamTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/AgentAuthErrorTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/AgentFailurePreserveTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/AgentGrokBotStreamTests.fs` — calls the ask-start seam. ``inbound deliver stays live for a second chunk`` delivers with the `SessionId` from the Grok oneshot POST.
-[ ] `tests/Server.Tests/AiKeysTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/AiReposTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/BrowserAskProofTests.fs` — calls the ask-start seam
-[ ] `tests/Server.Tests/CancelByFocusTests.fs` — starts through the ask-start seam, then `cancelByFocus` with the focus node id. That cancel is not `startAiRun` and does not use `FunctionRun.sessionId`.
+[ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun` posts `ActorOrder`. `createHost` drops the `ai` register.
 
 ## Stop when
 
@@ -104,16 +98,6 @@ Blockers:
 ## Check
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
-  - `tests/Server.Tests`: `AgentAskTests`
-  - `tests/Server.Tests`: `AgentActorStreamTests`
-  - `tests/Server.Tests`: `AgentAuthErrorTests`
-  - `tests/Server.Tests`: `AgentFailurePreserveTests`
-  - `tests/Server.Tests`: `AgentGrokBotStreamTests`
-  - `tests/Server.Tests`: `AiKeysTests`
-  - `tests/Server.Tests`: `AiReposTests`
-  - `tests/Server.Tests`: `BrowserAskProofTests`
-  - `tests/Server.Tests`: `CancelByFocusTests`
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/actor-as-client/reports/08-dispatch-the-ai-actor-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
