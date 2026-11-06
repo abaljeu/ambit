@@ -261,6 +261,31 @@ module internal CoreMailboxActors =
               actorName = "test" }
         queueAdmittedOrder context caller event request reply order
 
+    let private replyOrder
+        (reply: PostedReply)
+        (placed: Result<EventId, string>)
+        =
+        match placed with
+        | Error err -> reply.Reply(Error err)
+        | Ok id -> reply.Reply(Ok id)
+
+    /// Admitted `?ai` posts ActorOrder and does not store ActorStart.
+    let private postAdmittedAi
+        (context: MailboxContext)
+        (caller: Caller)
+        (reply: PostedReply)
+        (order: ActorOrder)
+        =
+        match context.coreChanges.Value with
+        | None -> reply.Reply(Error "mailbox not initialized")
+        | Some make ->
+            let host = (make caller).host
+            Async.Start(async {
+                let! placed =
+                    MailboxHost.postActorOrder host caller order
+                replyOrder reply placed
+            })
+
     let private aiFunction (context: MailboxContext) request =
         match
             RunAgentActor.actorForNode
@@ -292,8 +317,7 @@ module internal CoreMailboxActors =
                 { actor = actor
                   focusId = request.focusId
                   actorName = "ai" }
-            queueAdmittedOrder
-                context caller event request reply order
+            postAdmittedAi context caller reply order
 
     /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
     let private queueAiOrder
