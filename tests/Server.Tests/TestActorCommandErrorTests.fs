@@ -179,7 +179,7 @@ let private eventsAfterStart (events: Ev list) focusId =
         | [] -> []
         | event :: rest ->
             match event.body with
-            | EventBody.Order (Order.ActorOrder order)
+            | EventBody.Order (Order.ActorOrderCase order)
                 when order.focusId = focusId ->
                 rest
             | _ -> skip rest
@@ -193,7 +193,7 @@ let ``unregistered Actor name fails start`` (text: string) (name: string) =
         let! actorNodeId = seedCommand host text
         let request = sampleRequest actorNodeId actorNodeId
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         match result with
         | Error err ->
@@ -310,7 +310,7 @@ let private orderPosted (events: Ev list) =
     events
     |> List.exists (fun event ->
         match event.body with
-        | EventBody.Order (Order.ActorOrder _) -> true
+        | EventBody.Order (Order.ActorOrderCase _) -> true
         | _ -> false)
 
 [<Fact>]

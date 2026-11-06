@@ -83,7 +83,7 @@ let private withHost pool body =
     }
 
 let private postStartActor host caller request =
-    CoreMailboxApi.startActor host caller request
+    CoreMailboxApi.coreMailboxStartActor host caller request
 
 let private postActorStop host caller result =
     CoreMailboxApi.actorStop host caller result
@@ -438,7 +438,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
                 history.events
                 |> List.filter (fun event ->
                     match event.body with
-                    | EventBody.Order (Order.ActorOrder found) ->
+                    | EventBody.Order (Order.ActorOrderCase found) ->
                         found.focusId = focusId
                     | _ -> false)
             match stored with

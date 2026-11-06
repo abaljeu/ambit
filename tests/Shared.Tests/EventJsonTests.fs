@@ -415,9 +415,9 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let event =
         { changeEvent with
             commandName = "hello"
-            body = EventBody.Order(Order.ActorOrder (order live)) }
+            body = EventBody.Order(Order.ActorOrderCase (order live)) }
     match (roundTrip event).body with
-    | EventBody.Order (Order.ActorOrder decoded) ->
+    | EventBody.Order (Order.ActorOrderCase decoded) ->
         Assert.Equal(focusId, decoded.focusId)
         Assert.Equal("hello", decoded.actorName)
         Assert.False(ran)

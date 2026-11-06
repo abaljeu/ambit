@@ -60,7 +60,7 @@ let private withHost body =
 let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping result`` () =
     withHost (fun host pool -> task {
         let! result =
-            CoreMailboxApi.startActor host testCaller sampleRequest
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
@@ -70,7 +70,7 @@ let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping re
 let ``CoreMailboxApi.startActor from an inactive Actor is dropped`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailboxApi.startActor
+            CoreMailboxApi.coreMailboxStartActor
                 host
                 { authority = Authority "Actor"
                   name = testCaller.name
@@ -97,7 +97,7 @@ let ``Actor start rejects a secret the pool does not admit`` () =
                 admittedCredentials
         try
             let! result =
-                CoreMailboxApi.startActor host testCaller sampleRequest
+                CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
                 |> Async.StartAsTask
             Assert.Equal(Error CoreAuth.refuse, result)
         finally
@@ -127,7 +127,7 @@ let ``Actor post with a secret the pool does not hold is dropped`` () =
                 admittedCredentials
         try
             let! started =
-                CoreMailboxApi.startActor host testCaller sampleRequest
+                CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
                 |> Async.StartAsTask
             requireOk "startActor" started
             Assert.Equal(1, admitCount.Value)
@@ -283,7 +283,7 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
 let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailboxApi.startActor host testCaller sampleRequest
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         let! state =
@@ -297,7 +297,7 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
 let ``CoreMailboxApi.startActor appends ActorStart to lifecycle events`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailboxApi.startActor host testCaller sampleRequest
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         let! events =
@@ -398,7 +398,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! history =
@@ -438,7 +438,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         requireOk "startActor" result
         let! history =
@@ -464,7 +464,7 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         
         match result with
@@ -497,7 +497,7 @@ let ``CoreActorPool.startActor fails when actorNodeId not in graphIds`` () =
               eventId = EventId.zero }
         
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         
         match result with
@@ -509,7 +509,7 @@ let ``CoreActorPool.startActor fails when actorNodeId not in graphIds`` () =
 let ``mailbox records ActorStarted before actor body runs`` () =
     withHost (fun host _ -> task {
         let! result =
-            CoreMailboxApi.startActor host testCaller sampleRequest
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -533,7 +533,7 @@ let ``mailbox records ActorStarted before actor body runs`` () =
 let ``CoreActorPool.startActor creates live row synchronously`` () =
     withHost (fun host pool -> task {
         let! result =
-            CoreMailboxApi.startActor host testCaller sampleRequest
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
         
@@ -740,7 +740,7 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
     task {
         try
             let! started =
-                CoreMailboxApi.startActor host testCaller sampleRequest
+                CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
                 |> Async.StartAsTask
             match started with
             | Ok _ -> Assert.Fail("expected ActorStart persist Error")

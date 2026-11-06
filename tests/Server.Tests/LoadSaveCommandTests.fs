@@ -940,7 +940,7 @@ let ``Desk load-save places its order and runs no Actor`` () = task {
             history.events
             |> List.filter (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrder found) ->
+                | EventBody.Order (Order.ActorOrderCase found) ->
                     found.focusId = nodeId && found.actorName = ""
                 | _ -> false)
         match stored with

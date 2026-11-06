@@ -125,7 +125,7 @@ let ``ActorStart persists across File restart`` () = task {
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
         let! started =
-            CoreMailboxApi.startActor first testCaller request
+            CoreMailboxApi.coreMailboxStartActor first testCaller request
             |> Async.StartAsTask
         requireOk "startActor" started
     finally
@@ -217,7 +217,7 @@ let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
     let pool = stubPool (Credential "persist-append-fail")
     withFilling filling pool (fun host -> task {
         let! started =
-            CoreMailboxApi.startActor host testCaller sampleActorStart
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleActorStart
             |> Async.StartAsTask
         match started with
         | Ok _ -> Assert.Fail("expected appendEvent Error")

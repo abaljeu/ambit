@@ -38,7 +38,7 @@ let private filePersist () =
 
 let private startRootActor host pool actorFn =
     pool.register (ActorName "root") actorFn
-    CoreMailboxApi.startActor host testCaller sampleRequest
+    CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
 
 [<Fact>]
 let ``Actor getEventId surfaces persist error instead of Revision 0`` () =

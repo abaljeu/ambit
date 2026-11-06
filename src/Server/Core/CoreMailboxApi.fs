@@ -329,7 +329,7 @@ module CoreMailboxApi =
         : Async<Result<CoreChangesAccepted, string>> =
         postMailboxChange host caller ChangeOrigin.Parse [ event ]
 
-    let startActor
+    let coreMailboxStartActor
         (host: MailboxHost)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)

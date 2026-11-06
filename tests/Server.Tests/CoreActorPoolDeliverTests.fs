@@ -38,7 +38,7 @@ let private withPool body =
     }
 
 let private startAt host focusId actorNodeId graphIds =
-    CoreMailboxApi.startActor
+    CoreMailboxApi.coreMailboxStartActor
         host
         testCaller
         { zoomId = Graph.rootId
@@ -60,7 +60,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
             admittedCredentials
     try
         let started =
-            CoreMailboxApi.startActor
+            CoreMailboxApi.coreMailboxStartActor
                 host
                 testCaller
                 { zoomId = Graph.rootId
@@ -101,7 +101,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
             admittedCredentials
     try
         let started =
-            CoreMailboxApi.startActor
+            CoreMailboxApi.coreMailboxStartActor
                 host
                 testCaller
                 { zoomId = Graph.rootId

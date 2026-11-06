@@ -31,7 +31,7 @@ module MailboxLog =
         | Order.Load _
         | Order.StartActor _
         | Order.CancelActor _
-        | Order.ActorOrder _ ->
+        | Order.ActorOrderCase _ ->
             Ok (EventBody.Order order)
 
     let placedOrderFromEvent (event: Ev) : Result<PlacedOrder, string> =

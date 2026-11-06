@@ -44,7 +44,7 @@ module internal CoreMailboxLoad =
             (CoreMailboxEvents.eventDispatchContext context)
             caller
             (System.Guid.NewGuid())
-            (EventBody.Order(Order.ActorOrder order))
+            (EventBody.Order(Order.ActorOrderCase order))
         |> Result.map ignore
 
     let internal dispatchStartLoadSaveCommand

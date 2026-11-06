@@ -323,7 +323,7 @@ let ``TestActor hello observes ActorStarted before output`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrder order)
+                | EventBody.Order (Order.ActorOrderCase order)
                     when order.focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -461,7 +461,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.tryFindIndex (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrder order)
+                | EventBody.Order (Order.ActorOrderCase order)
                     when order.focusId = request.focusId ->
                     true
                 | _ -> false)
@@ -511,7 +511,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrder order)
+                | EventBody.Order (Order.ActorOrderCase order)
                     when order.focusId = request.focusId ->
                     true
                 | Gambol.Shared.EventBody.ActorStop(focusId, _)

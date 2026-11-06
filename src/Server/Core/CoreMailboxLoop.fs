@@ -232,7 +232,7 @@ module internal CoreMailboxLoop =
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         (order: ActorOrder)
         =
-        let body = EventBody.Order(Order.ActorOrder order)
+        let body = EventBody.Order(Order.ActorOrderCase order)
         match
             CoreEventDispatch.appendLifecycle
                 (CoreMailboxEvents.eventDispatchContext context)
@@ -265,7 +265,7 @@ module internal CoreMailboxLoop =
         | Order.CancelActor focusId ->
             CoreMailboxActors.replyCancel
                 context placed caller reply focusId
-        | Order.ActorOrder order ->
+        | Order.ActorOrderCase order ->
             replyActorOrder context placed caller reply order
         | Order.StartActor _ -> replyUnsupported reply
 

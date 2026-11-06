@@ -358,7 +358,7 @@ module EventJson =
                   "start", encodeStartRequest start ]
         | Order.Load nodeId -> encodeLoad nodeId
         | Order.CancelActor focusId -> encodeCancel focusId
-        | Order.ActorOrder order ->
+        | Order.ActorOrderCase order ->
             Encode.object
                 (("kind", Encode.string "actorOrder")
                  :: actorOrderFields order)
@@ -411,7 +411,7 @@ module EventJson =
             | "load" -> decodeOrderLoad
             | "cancel" -> decodeOrderCancel
             | "actorOrder" ->
-                Decode.map Order.ActorOrder decodeActorOrderFields
+                Decode.map Order.ActorOrderCase decodeActorOrderFields
             | other -> Decode.fail ("Unknown order: " + other))
 
     let private encodeBody (body: EventBody) =

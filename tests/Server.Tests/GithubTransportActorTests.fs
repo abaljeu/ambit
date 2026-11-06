@@ -439,7 +439,7 @@ let ``Peer Actor is not available through the Run actor table`` () =
     withActor GithubTransportOperation.Load deps "load"
         (fun _ host _ _ seed -> task {
             let! result =
-                CoreMailboxApi.startActor host testCaller (request seed)
+                CoreMailboxApi.coreMailboxStartActor host testCaller (request seed)
                 |> Async.StartAsTask
             match result with
             | Error err ->

@@ -56,7 +56,7 @@ let private hostDb connStr secret =
 
 let private runMixedHello host secret childText = task {
     let! started =
-        CoreMailboxApi.startActor host testCaller sampleActorStart
+        CoreMailboxApi.coreMailboxStartActor host testCaller sampleActorStart
         |> Async.StartAsTask
     requireOk "startActor" started
     let childId, event = addRootChildEvent childText
@@ -411,7 +411,7 @@ let ``File empty Graph checkpoint live append continues past Graph`` () = task {
     let host = hostFile dir (Credential "mailbox-history-continue")
     try
         let! started =
-            CoreMailboxApi.startActor host testCaller sampleActorStart
+            CoreMailboxApi.coreMailboxStartActor host testCaller sampleActorStart
             |> Async.StartAsTask
         requireOk "startActor" started
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask

@@ -264,7 +264,7 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
                   graphIds = [ Graph.rootId ]
                   eventId = EventId.zero }
             let! started =
-                CoreMailboxApi.startActor host testCaller request
+                CoreMailboxApi.coreMailboxStartActor host testCaller request
                 |> Async.StartAsTask
             requireOk "start actor" started
             let! afterStart =

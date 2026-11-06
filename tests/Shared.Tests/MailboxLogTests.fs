@@ -102,18 +102,18 @@ let ``ActorOrder carries command name and FocusId`` () =
           focusId = focusId
           actorName = "hello" }
     let event =
-        source "hello" (EventBody.Order(Order.ActorOrder order))
+        source "hello" (EventBody.Order(Order.ActorOrderCase order))
     let placed = readOrder event
     Assert.Equal(Some "hello", placed.commandName)
     match placed.order with
-    | Order.ActorOrder found ->
+    | Order.ActorOrderCase found ->
         Assert.Equal(focusId, found.focusId)
         Assert.Equal("hello", found.actorName)
     | _ -> Assert.Fail("expected ActorOrder")
     let back = restored event
     Assert.Equal("hello", back.commandName)
     match back.body with
-    | EventBody.Order (Order.ActorOrder found) ->
+    | EventBody.Order (Order.ActorOrderCase found) ->
         Assert.Equal(focusId, found.focusId)
     | _ -> Assert.Fail("expected ActorOrder")
 

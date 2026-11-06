@@ -290,7 +290,7 @@ let seedAskTree host commandText =
 
 /// Ask start for `?ai`. The first body calls `startActor`.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
-    CoreMailboxApi.startActor host testCaller request
+    CoreMailboxApi.coreMailboxStartActor host testCaller request
     |> Async.StartAsTask
 
 let startAsk host (seeded: SeededAsk) =
@@ -334,7 +334,7 @@ let startOnCommand host actorNodeId =
             sampleRequest
                 actorNodeId actorNodeId actorNodeId [ actorNodeId ]
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
         requireOk "start command" result
         return request

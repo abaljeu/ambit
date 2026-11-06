@@ -105,7 +105,7 @@ module MailboxHost =
             { orderId = OrderId(System.Guid.NewGuid())
               authority = caller.authority
               commandName = commandName
-              order = Order.ActorOrder order }
+              order = Order.ActorOrderCase order }
         postMailboxAndAsyncReply host (fun channel ->
             Mailbox.placeForCaller placed caller channel)
 
