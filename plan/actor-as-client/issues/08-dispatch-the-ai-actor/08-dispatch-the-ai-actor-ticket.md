@@ -4,9 +4,9 @@ One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `
 
 [x] The ask-start seam is the only test start for `?ai`. Suites call that seam.
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
-[ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
+[ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. That live path does not append or retain `ActorStart` before the `ActorOrder`. `startActor` still starts the other command names.
 [ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for the Grok oneshot POST and for `deliver` and `takeInbox`.
-[ ] The source files are 5. The test files are 1. The size limit is 8 source files and 4 test files. Both counts are under the limit.
+[ ] The source files are 5. The test files are 2. The size limit is 8 source files and 4 test files. Both counts are under the limit.
 
 Type:
 
@@ -70,20 +70,21 @@ Blockers:
 ### 3. ActorOrder for ?ai
 
 10. [ ] Change: `actorFn` is `AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction`. The closure holds `GrokBotBinding`.
-11. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`.
+11. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`. It does not append `EventBody.ActorStart` and does not retain `Order.StartActor` before that order.
 12. [ ] Contract: The `?ai` path does not post `CoreMsg.StartActor` and does not call `startActor` for `ai`. `startActor` still starts the other command names.
 13. [ ] Contract: Remove the `ai` pair from `pool.register` in `RouteRegistration.fs` and from `createHost`.
 14. [ ] Change: `startAiRun` posts `ActorOrder`. The actor is `RunAgentActor.actorFn` applied to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
-15. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
+15. [ ] Do not write `Order.StartActor` or `Order.RunActor` on the live `?ai` path. That path does not append an `ActorStart` row before `ActorOrder`. `?test` keeps its own start row. Do not look up the function from `actorName`.
 
 ## Outputs
 
 [ ] `src/Shared/History.fs` — `FunctionRun.sessionId`
 [ ] `src/Server/Core/CoreActorPool.fs` — `runSchedule` copies `row.sessionId`
-[ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `ActorOrder` after `admitCaller`
+[ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` admits the caller, then posts `ActorOrder`, with no `ActorStart` row before that order
 [ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. The Grok oneshot POST reads `run.sessionId`.
 [ ] `src/Server/RouteRegistration.fs` — remove `ai` from `pool.register`
-[ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun` posts `ActorOrder`. `createHost` drops the `ai` register.
+[ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun` posts `ActorOrder`. `createHost` drops the `ai` register and binds the `?ai` function for a posted Run.
+[ ] `tests/Server.Tests/BrowserAskProofTests.fs` — a posted `?ai` Run has `ActorOrder` and no `ActorStart` before it.
 
 ## Stop when
 
