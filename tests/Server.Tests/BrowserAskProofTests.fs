@@ -79,3 +79,19 @@ type BrowserAskProofTests() =
                             launched.request.focusId
                             [ "from-agent" ]
                 }))
+
+    [<Fact>]
+    member _.``posted ?ai Run has ActorOrder and no ActorStart`` () =
+        withFake
+            (fun _ -> fakeReply "from-agent")
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let! seeded = seedAskTree host "?ai"
+                    let request = askRequest seeded
+                    do! postLiveAiRun host request
+                    do! expectActorSucceeded
+                            host pool request.focusId
+                    do! expectNoActorStart host request.focusId
+                    let! ordered = hasActorStart host request.focusId
+                    Assert.True(ordered)
+                }))
