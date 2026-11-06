@@ -12,7 +12,7 @@ Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Act
 [x] `CoreMsg.CancelActor` in `src/Server/Core/CoreMsg.fs:40` is `Caller * NodeId * AsyncReplyChannel<Result<unit, string>>`.
 [x] ``cancelByFocus`` in `src/Server/Core/CoreMailboxApi.fs:363` builds it. Its only caller is ``cancelFocus`` in `tests/Server.Tests/AskCancelHarness.fs:366`, which every test in `CancelByFocusTests.fs` uses. Read only.
 [x] ``runMsg`` and ``messageCaller`` in `src/Server/Core/CoreMailboxLoop.fs`, and ``operationContext`` and ``replyFailure`` in `src/Server/Core/CoreMailboxEvents.fs`, match it.
-[x] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs:188` refuses `Order.Cancel` with `replyUnsupported` (lines 203–207), alongside `Order.Change (_, ChangeOrigin.Parse)`, `Order.StartActor`, `Order.StartPeerActor` and `Order.LoadSave`.
+[x] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs:188` refuses `Order.Cancel` with `replyUnsupported` (lines 203–207), alongside `Order.Change (_, ChangeOrigin.Parse)` and `Order.StartActor`.
 [x] ``dispatchCancelActor`` in `src/Server/Core/CoreMailboxActors.fs:164` runs ``runCancel`` with a new submission id and replies `Ok ()`.
 [x] ``runCancel`` in `src/Server/Core/CoreMailboxActors.fs:142` is private. It logs `Notice.ActorStopped (focusId, ActorCancelled)` through the `EventBody.ActorStop` shell, then calls `pool.finish`. With no live run for the focus, it logs nothing.
 [x] ``postCancel`` in `src/Server/Core/CoreMailboxActors.fs:222` handles a client's posted Cancel, which arrives as `CoreMsg.PostEvent` through `messageForPosted` and `dispatchPostEvent`. It finds a resubmission with ``storedBySubmission``. Read only.
@@ -27,7 +27,7 @@ Blockers: none. It lands before the Actor start cutover, tickets 06–15 in [Act
 ## Do not load
 
 [x] The client's posted Cancel path: `messageForPosted`, `dispatchPostEvent` and `postCancel`. That is [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md).
-[x] `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave`, `Order.RunActor` and the pool start. Those belong to the Actor start cutover, 06–15.
+[x] `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `Order.StartActor`, `Order.RunActor` and the pool start. Those belong to the Actor start cutover, 06–15.
 [x] `tests/Server.Tests/AskCancelHarness.fs`. Cutover ticket [11 — Move door and case tests](../../actor-as-client/issues/11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md) edits it.
 [x] `src/Shared/ResidentProjection.fs`, `src/Shared/ViewModelDomPlan.fs`, `tests/Shared.Tests/WantTests.fs`, `tests/Shared.Tests/ViewModelTests.fs` and `tests/Shared.Tests/SyncLogicTests.fs`. Another ticket is changing them.
 

@@ -21,9 +21,8 @@ An Actor is a thread from the .NET thread pool. It runs an actor function.
 [o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
 [x] `startFunction` is the pool start. The actor function's input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id.
 [o] The mailbox calls `startActor` through `CoreMsg.StartActor`. Detail: Mailbox.
-[o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path. `Order.StartPeerActor` is that second order.
+[o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path.
 [o] `Order.StartActor` is a logged start.
-[o] `Order.LoadSave` is the git Load and Save log.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `actorNodeId`, `graphIds`, and `eventId`. The wire key for `actorNodeId` is `"commandId"`.
 [o] The browser `ActorStart` payload changes in this cutover.
 [ ] A dispatcher outside Core, `src/Server/ActorDispatch.fs`, maps a command name to an actor function. `Order.RunActor` stores the command name and the FocusId. Find and Move use that same order. Detail: [Actor as client](../../plan/actor-as-client/project.md).

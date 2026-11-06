@@ -372,12 +372,6 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           actorNodeId = actorNodeId
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
-    let peerName = PeerActorName "github-load"
-    let request =
-        { operation = LoadSaveOperation.Save
-          prePick = LoadSavePrePick.Desk
-          holdStack = true
-          start = start }
     let ops = [ Op.SetText(nodeId, "old", "new") ]
     let orders =
         [ Order.Change(ops, ChangeOrigin.Parse)
@@ -385,9 +379,6 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           Order.Undo(EventIdFixtures.storedId 2, ops)
           Order.Redo(EventIdFixtures.storedId 3, ops)
           Order.StartActor start
-          Order.StartPeerActor(peerName, start)
-          Order.LoadSave(LoadSavePath.Git, peerName, request)
-          Order.LoadSave(LoadSavePath.Desk, peerName, request)
           Order.Load nodeId
           Order.CancelActor focusId ]
     orders

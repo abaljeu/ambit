@@ -33,8 +33,6 @@ module MailboxLog =
         | Order.CancelActor _
         | Order.ActorOrder _ ->
             Ok (EventBody.Order order)
-        | Order.StartPeerActor _
-        | Order.LoadSave _ -> Error "unsupported"
 
     let placedOrderFromEvent (event: Ev) : Result<PlacedOrder, string> =
         match orderOfBody event.body with

@@ -27,7 +27,6 @@
 
 ### Tests this ticket names
 
-[ ] [MailboxLogTests.fs](tests/Shared.Tests/MailboxLogTests.fs) `StartPeerActor carries Shared PeerActorName`
 [ ] [PathPickTests.fs](tests/Shared.Tests/PathPickTests.fs), every test
 
 ## 4. Context
@@ -37,7 +36,6 @@
 [ ] `History.fs` defines `Op`, `Authority`, `ActorResult`, `ActorStart`, `LoadSavePath`, `LoadSavePrePick`, `LoadSaveOperation`, `LoadSaveCommandRequest`, `Notice`, `PeerActorName`, `ChangeOrigin`, `Order`, `EventBody`, and `Ev`, then `State`, `ApplyResult`, and the `Op` and `Ev` modules
 [ ] `ChangeValidation.fs` defines the `ChangeValidation` module
 [ ] `Order` sits after `Notice` and before `EventBody`
-[ ] `Order.LoadSave` holds `LoadSavePath`, `PeerActorName`, and `LoadSaveCommandRequest`
 [ ] `LoadSavePath`, `LoadSavePrePick`, and `LoadSaveOperation` sit after `ActorStart`
 [ ] `LoadSaveCommandRequest` sits after those three unions
 [ ] `LoadSaveCommandRequest` holds `LoadSaveOperation`, `LoadSavePrePick`, `holdStack`, and `ActorStart`
@@ -87,10 +85,8 @@
 
 ### Kept
 
-[ ] Keep `StartPeerActor carries Shared PeerActorName`
 [ ] Keep every test in `PathPickTests.fs`
 [ ] Keep `LoadSaveCommandTests`
-[ ] Filter: `StartPeerActor carries Shared PeerActorName`
 [ ] Filter: `PathPickTests`
 [ ] Filter: `LoadSaveCommandTests`
 [ ] Keep `HistoryTests`, which use `ChangeValidation`

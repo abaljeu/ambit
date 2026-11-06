@@ -114,13 +114,6 @@ and [<RequireQualifiedAccess>] Order =
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
     | StartActor of ActorStart
-    | StartPeerActor of
-        peerName: PeerActorName *
-        request: ActorStart
-    | LoadSave of
-        path: LoadSavePath *
-        peerName: PeerActorName *
-        request: LoadSaveCommandRequest
     | Load of nodeId: NodeId
     | CancelActor of focusId: NodeId
     | ActorOrder of ActorOrder

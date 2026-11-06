@@ -34,7 +34,7 @@ Blockers:
 [ ] Find and Move `recordSearchStart`.
 [ ] `DeskLoadPush.fs`. Its caller remains until that delete.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
-[ ] Do not write `Order.LoadSave` or `Order.StartActor`.
+[ ] Do not write `Order.StartActor`.
 
 ## Process
 
@@ -44,7 +44,7 @@ Blockers:
 4. [ ] Change: `GithubTransportActor.start` uses that same `ActorOrder`. It does not post `CoreMsg.StartPeerActor`.
 5. [ ] Contract: Remove the two `registerPeer` calls.
 6. [ ] Change: Convert every caller of `CoreMsg.StartLoadSaveCommand`. After this step, nothing sends `StartLoadSaveCommand`.
-7. [ ] Do not write `Order.LoadSave`, `Order.StartActor`, or `Order.RunActor`.
+7. [ ] Do not write `Order.StartActor` or `Order.RunActor`.
 
 ## Outputs
 
@@ -61,7 +61,7 @@ Blockers:
 [ ] Record the stop at `plan/actor-as-client/reports/10-dispatch-git-load-and-save-stop.md`, then ask.
 [ ] Stop when Desk must start an Actor.
 [ ] Stop when a test file outside Outputs must change.
-[ ] Stop when this ticket writes `Order.LoadSave` or `Order.StartActor`.
+[ ] Stop when this ticket writes `Order.StartActor`.
 [ ] Stop when a send of `StartLoadSaveCommand` remains.
 
 ## Check

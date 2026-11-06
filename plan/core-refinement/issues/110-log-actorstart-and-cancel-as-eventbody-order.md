@@ -12,7 +12,7 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 #### History
 
 [ ] ``EventBody`` in `src/Shared/History.fs` has `ActorStart of ActorStart` and `Cancel of focusId: NodeId`.
-[ ] ``Order`` in `src/Shared/History.fs` has `StartActor of ActorStart`, `StartPeerActor of peerName * request: ActorStart`, `LoadSave of path * peerName * request: LoadSaveCommandRequest`, and `Cancel of focusId: NodeId`.
+[ ] ``Order`` in `src/Shared/History.fs` has `StartActor of ActorStart` and `Cancel of focusId: NodeId`.
 [ ] ``Ev.ops``, ``Ev.withOps`` and ``Ev.target`` in `src/Shared/History.fs` each have an `EventBody.ActorStart _ | EventBody.Cancel _` arm.
 
 #### Logging an Actor start
@@ -21,7 +21,7 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 [ ] ``recordFailedStart`` in `src/Server/Core/CoreMailboxActors.fs` logs `EventBody.ActorStart request`, then `EventBody.ActorStop` with `ActorFailed`.
 [ ] ``actorStart`` in `src/Server/Core/CoreEventDispatch.fs` logs `EventBody.ActorStart request` for `CoreMsg.RecordSearchStart`.
 [ ] Actor starts reach the mailbox as `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, `CoreMsg.StartLoadSaveCommand` and `CoreMsg.RecordSearchStart`, or as a posted `EventBody.ActorStart`. None is placed through `placeOrder`.
-[ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave` and `Order.Cancel`.
+[ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor` and `Order.Cancel`.
 [ ] ``historyBody`` in `src/Shared/MailboxLog.fs` maps `Order.StartActor` to `EventBody.ActorStart` and `Order.Cancel` to `EventBody.Cancel`. ``orderOfBody`` maps them back.
 
 #### Cancel

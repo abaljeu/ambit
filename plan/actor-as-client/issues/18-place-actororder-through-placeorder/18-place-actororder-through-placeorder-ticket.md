@@ -20,7 +20,7 @@ Blockers:
 ### Working
 
 [x] `postActorOrder` on `MailboxHost` puts one `ActorOrder` on the mailbox queue. It posts `Authority "Actor"` and `Credential ""`.
-[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor`, `Order.StartPeerActor`, `Order.LoadSave`, and `Order.ActorOrder`. `Order.CancelActor` is already accepted.
+[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor` and `Order.ActorOrder`. `Order.CancelActor` is already accepted.
 [x] `startFunction` in `src/Server/Core/CoreActorPool.fs` mints the Actor credential and the Actor session id.
 [x] The Shared actor type and the pool actor type are both named `FunctionActor`.
 [x] `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/CoreMailboxDoorTests.fs`.
@@ -32,7 +32,7 @@ Blockers:
 ## Do not load
 
 [x] `ActorOrder` gains no `actorNodeId` field. Curried actor applies that id before the post.
-[x] `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` stay unsupported. 15 — Delete the old Actor starts and 16 — Delete the old Order cases delete the old cases.
+[x] `Order.StartActor` stays unsupported. 15 — Delete the old Actor starts and 16 — Delete the old Order cases delete the old case.
 [x] `src/Server/ActorDispatch.fs`. This ticket does not add it.
 [x] A new `CoreMsg` case.
 [x] A lookup of the actor from `actorName`.
@@ -46,7 +46,7 @@ Blockers:
 3. [x] Change: `postActorOrder` takes the client's `Caller` and posts `Mailbox.PlaceOrder` with that `Caller`.
 4. [x] Change: `placeOrder` accepts `Order.ActorOrder`. The pull calls `startFunction` and runs `order.actor` on the .NET thread pool through Shared changes. The mailbox supplies `getGraph`. `ActorOrder` carries `focusId` and `ActorFunction`.
 5. [x] A Desk Load or Save places `Order.ActorOrder` and runs no actor.
-6. [x] Leave `Order.StartActor`, `Order.StartPeerActor`, and `Order.LoadSave` unsupported.
+6. [x] Leave `Order.StartActor` unsupported.
 7. [x] A wire-read order stays a log record. Leave `stubActor` unrun.
 
 ## Outputs

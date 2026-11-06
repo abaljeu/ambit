@@ -49,7 +49,7 @@
 
 [x] `EventBody` is `Change | Undo | Redo | ActorStart | ActorStop | Load | Cancel | Notice`
 [x] `Order` compiles before `EventBody` in `History.fs`
-[x] `Order` is `Change of ops * origin | Undo of target | Redo of target | StartActor | StartPeerActor | LoadSave | Load | Cancel`
+[x] `Order` is `Change of ops * origin | Undo of target | Redo of target | StartActor | Load | Cancel`
 
 ### JSON
 
@@ -58,7 +58,7 @@
 [x] `EventJson` is the server codec and the client codec
 [x] `EventLogFile`, `DbAgent`, `BootCache`, and the client poll decode through `EventJson.decode`
 [x] `encodeStartRequest` and `encodeLoadSaveCommandRequest` exist
-[x] `EventJson` has private codecs for `LoadSavePath`, `PeerActorName`, and `ChangeOrigin`, used by `encodeOrder` and `decodeOrder`
+[x] `EventJson` has a private codec for `ChangeOrigin`, used by `encodeOrder` and `decodeOrder`
 
 ## 5. Changes
 
@@ -87,13 +87,10 @@
 ### EventJson.fs
 
 [x] Add `encodeOrder` and `decodeOrder`
-[x] The order `kind` values are `change`, `undo`, `redo`, `startActor`, `startPeerActor`, `loadSave`, `load`, `cancel`
+[x] The order `kind` values are `change`, `undo`, `redo`, `startActor`, `load`, `cancel`
 [x] `change` writes `ops` and `origin`; `origin` is `edit` or `parse`
 [x] `undo` and `redo` write `target`
 [x] `startActor` writes `start` with `encodeStartRequest`
-[x] `startPeerActor` writes `peerName` and `start`
-[x] `loadSave` writes `path`, `peerName`, and `request` with `encodeLoadSaveCommandRequest`
-[x] `path` is `git` or `desk`
 [x] `load` writes `nodeId`; `cancel` writes `focusId`
 [x] `encodeBody` writes `EventBody.Order` as `kind` `order` and field `order`
 [x] `decodeBody` reads `kind` `order` with `decodeOrder`

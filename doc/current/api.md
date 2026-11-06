@@ -27,7 +27,7 @@ One Event source means one ordered stream. Connected Events are queued in order,
 7. [ ] Credential only — The route checks the logged-in user before `PlaceOrder`. A client places `Order.RunActor` and `Order.Cancel`. A holder of the notice function posts `Notice.ActorStopped`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry and §2 Cancel.
 8. [o] A missing Actor name fails in the pool as `unknown actor`.
 9. [ ] The dispatcher outside Core maps the command name to an actor function. The pool start is `startFunction`. `Order.RunActor` stores the command name and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
-10. [o] `Order.StartActor` and `Order.LoadSave` are logged starts.
+10. [o] `Order.StartActor` is a logged start.
 
 ## Parties
 
