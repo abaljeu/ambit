@@ -1,6 +1,8 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
+open System.Runtime.CompilerServices
 open Gambol.Shared
 open Gambol.CloudAgents
 
@@ -34,10 +36,24 @@ module RunAgentActor =
               { ModelParam.Id = "fast"
                 ModelParam.Value = "true" } ] }
 
-    let private actorCaller (input: ActorInput) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = input.secret }
+    type private Ask =
+        { graph: Graph
+          focusId: NodeId
+          actorNodeId: NodeId
+          secret: Credential
+          sessionId: string }
+
+    let private askFrom (actorNodeId: NodeId) (run: FunctionRun) : Ask =
+        let graph = run.getGraph ()
+        let focusId =
+            match graph.focus with
+            | Some id -> id
+            | None -> actorNodeId
+        { graph = graph
+          focusId = focusId
+          actorNodeId = actorNodeId
+          secret = run.secret
+          sessionId = run.sessionId }
 
     let private systemPrompt =
         "You are Ambit AI. You edit outline children under Focus."
@@ -61,14 +77,14 @@ module RunAgentActor =
         + Environment.NewLine
         + "- Do not rewrite Focus itself."
 
-    let private packExtract (input: ActorInput) =
+    let private packExtract (ask: Ask) =
         AiExtractPack.packExtract
-            input.graph
-            input.zoomId
-            input.focusId
+            ask.graph
+            ask.focusId
+            ask.focusId
 
-    let private commandArgs keys repos (input: ActorInput) =
-        match Map.tryFind input.actorNodeId input.graph.nodes with
+    let private commandArgs keys repos (ask: Ask) =
+        match Map.tryFind ask.actorNodeId ask.graph.nodes with
         | None -> { Keyname = None; Reponame = None }
         | Some node -> AiCommandArgs.fromText keys repos node.text
 
@@ -93,8 +109,8 @@ module RunAgentActor =
                 sessionId
                 err
 
-    let private firstBehaviorToken (input: ActorInput) =
-        match Map.tryFind input.actorNodeId input.graph.nodes with
+    let private firstBehaviorToken (ask: Ask) =
+        match Map.tryFind ask.actorNodeId ask.graph.nodes with
         | None -> ""
         | Some node ->
             match AiKeys.tokensFromText node.text with
@@ -105,11 +121,7 @@ module RunAgentActor =
 
     let private nodeGuid (NodeId value) = value.ToString()
 
-    let private postReplace
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
-        ops
-        =
+    let private postReplace (changes: ActorChanges) ops =
         async {
             let event =
                 { id = EventId.zero
@@ -117,10 +129,7 @@ module RunAgentActor =
                   authority = Authority "Actor"
                   commandName = ""
                   body = EventBody.Change ops }
-            let! _ =
-                CoreDoor.postEvents
-                    (CoreDoor.forCaller (actorCaller input) coreChanges)
-                    [ event ]
+            let! _ = changes.postChanges [ event ]
             return ()
         }
 
@@ -159,24 +168,24 @@ module RunAgentActor =
         | None -> oldChildren @ [ edge ]
 
     let private postAdd
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
+        (ask: Ask)
+        (changes: ActorChanges)
         (lists: Map<NodeId, ChildNode list>)
         (add: FocusXmlStream.PlannedAdd)
         =
         async {
-            let! state = CoreDoor.graphAtEvent coreChanges
+            let! state = changes.graphAtEvent ()
             let graph =
                 match state with
                 | Ok s -> s.graph
-                | Error _ -> input.graph
+                | Error _ -> ask.graph
             let oldChildren =
                 rememberedChildren
-                    lists graph input.focusId add.parentId
+                    lists graph ask.focusId add.parentId
             let edge = ChildNode.owner add.childId
             let newChildren =
                 nextChildren
-                    input.focusId
+                    ask.focusId
                     lists
                     add.parentId
                     oldChildren
@@ -185,91 +194,59 @@ module RunAgentActor =
                 [ Op.NewNode(add.childId, add.text)
                   ChildListWire.replace
                     add.parentId oldChildren newChildren ]
-            do! postReplace input coreChanges ops
+            do! postReplace changes ops
             return Map.add add.parentId newChildren lists
         }
 
-    let private postAddNow
-        (input: ActorInput)
-        coreChanges
-        lists
-        add
-        =
-        postAdd input coreChanges lists add
-        |> Async.RunSynchronously
+    let private postAddNow (ask: Ask) changes lists add =
+        postAdd ask changes lists add |> Async.RunSynchronously
 
-    let private postAdds
-        (input: ActorInput)
-        coreChanges
-        lists
-        adds
-        =
+    let private postAdds (ask: Ask) changes lists adds =
         List.fold
-            (fun lists add ->
-                postAddNow input coreChanges lists add)
+            (fun lists add -> postAddNow ask changes lists add)
             lists
             adds
 
-    let private applyChunk
-        (input: ActorInput)
-        coreChanges
-        live
-        chunk
-        =
+    let private applyChunk ask changes live chunk =
         let tokens, draft =
             FocusXmlStream.push chunk live.draft
         let step =
             FocusXmlStream.apply NodeId.New tokens draft
         { draft = step.draft
-          lists = postAdds input coreChanges live.lists step.adds }
+          lists = postAdds ask changes live.lists step.adds }
 
-    let private flushLive
-        (input: ActorInput)
-        coreChanges
-        live
-        =
+    let private flushLive ask changes live =
         let step = FocusXmlStream.flush NodeId.New live.draft
         { draft = step.draft
-          lists = postAdds input coreChanges live.lists step.adds }
+          lists = postAdds ask changes live.lists step.adds }
 
-    let private onStreamEvent
-        (input: ActorInput)
-        coreChanges
-        live
-        ev
-        =
+    let private onStreamEvent ask changes live ev =
         match ev with
         | AssistantText chunk ->
-            applyChunk input coreChanges live chunk
-        | RunFinished _ ->
-            flushLive input coreChanges live
+            applyChunk ask changes live chunk
+        | RunFinished _ -> flushLive ask changes live
         | RunFailed _
-        | RunCancelled ->
-            live
+        | RunCancelled -> live
 
-    let private streamFold
-        (input: ActorInput)
-        coreChanges
-        : StreamFold<LiveDraft>
-        =
+    let private streamFold (ask: Ask) changes : StreamFold<LiveDraft> =
         { Seed =
-            { draft = FocusXmlStream.start input.focusId
+            { draft = FocusXmlStream.start ask.focusId
               lists = Map.empty }
-          OnEvent = onStreamEvent input coreChanges }
+          OnEvent = onStreamEvent ask changes }
 
     let private streamOutcome
-        (input: ActorInput)
+        (ask: Ask)
         (outcome: Result<AgentResult * LiveDraft, AgentError>)
         =
         match outcome with
         | Error err -> failedFromStream err
-        | Ok(_, live) when Map.containsKey input.focusId live.lists ->
+        | Ok(_, live) when Map.containsKey ask.focusId live.lists ->
             StreamedOk
         | Ok(result, _) -> TextReady result.Text
 
     let private runStream
-        (input: ActorInput)
-        coreChanges
+        (ask: Ask)
+        changes
         (onCancel: unit -> unit)
         (stream:
             StreamFold<LiveDraft> ->
@@ -282,21 +259,17 @@ module RunAgentActor =
                 onCancel ()
                 return CompleteCancelled
             else
-                let outcome = stream (streamFold input coreChanges)
+                let outcome = stream (streamFold ask changes)
                 if ct.IsCancellationRequested then
                     return CompleteCancelled
                 else
-                    return streamOutcome input outcome
+                    return streamOutcome ask outcome
         }
 
-    let private streamUntilDone
-        (input: ActorInput)
-        coreChanges
-        (args: StreamArgs)
-        =
+    let private streamUntilDone (ask: Ask) changes (args: StreamArgs) =
         runStream
-            input
-            coreChanges
+            ask
+            changes
             (fun () ->
                 requestCancel args.Config args.AgentId args.RunId)
             (fun fold -> AgentRunner.streamUntilComplete args fold)
@@ -314,11 +287,7 @@ module RunAgentActor =
           Repos = AiRepos.resolve repos args.Reponame
           Options = askOptions }
 
-    let private complete
-        (input: ActorInput)
-        coreChanges
-        (args: StartArgs)
-        =
+    let private complete (ask: Ask) changes (args: StartArgs) =
         async {
             match AgentRunner.start
                 args.Config args.Prompt args.Repos args.Options with
@@ -329,23 +298,22 @@ module RunAgentActor =
                       AgentId = agentId
                       RunId = runId
                       MaxWaitMs = None }
-                return!
-                    streamUntilDone input coreChanges stream
+                return! streamUntilDone ask changes stream
         }
 
     let private completeGrok
         (grok: GrokBotBinding)
-        (input: ActorInput)
-        coreChanges
+        (ask: Ask)
+        changes
         document
         =
         async {
-            let sessionId = input.sessionId
+            let sessionId = ask.sessionId
             let wakeArgs =
                 { Config = grok.Config
                   Text = promptAndExtract document
-                  CommandId = nodeGuid input.actorNodeId
-                  FocusId = nodeGuid input.focusId
+                  CommandId = nodeGuid ask.actorNodeId
+                  FocusId = nodeGuid ask.focusId
                   SessionId = sessionId
                   ResponseUrl = grok.ResponseUrl }
             match GrokBotRunner.wake wakeArgs with
@@ -358,8 +326,8 @@ module RunAgentActor =
                       MaxWaitMs = None }
                 return!
                     runStream
-                        input
-                        coreChanges
+                        ask
+                        changes
                         (fun () ->
                             requestGrokCancel grok.Config sessionId)
                         (fun fold ->
@@ -368,71 +336,95 @@ module RunAgentActor =
                                 fold)
         }
 
-    let private stop
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
-        result
-        =
+    let private stop (changes: ActorChanges) result =
         async {
-            let! _ =
-                CoreDoor.actorStop
-                    (CoreDoor.forCaller (actorCaller input) coreChanges)
-                    result
+            let! _ = changes.actorStop result
             return ()
         }
 
-    let private planOnCurrent
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
-        text
-        =
+    let private planOnCurrent (ask: Ask) (changes: ActorChanges) text =
         async {
-            let! state = CoreDoor.graphAtEvent coreChanges
+            let! state = changes.graphAtEvent ()
             let graph =
                 match state with
                 | Ok s -> s.graph
-                | Error _ -> input.graph
-            return FocusChildrenReplace.plan graph input.focusId text
+                | Error _ -> ask.graph
+            return FocusChildrenReplace.plan graph ask.focusId text
         }
 
-    let private runComplete keys repos grok input coreChanges document =
-        if isGrokBot input then
-            completeGrok grok input coreChanges document
+    let private runComplete keys repos grok ask changes document =
+        if isGrokBot ask then
+            completeGrok grok ask changes document
         else
-            let args = commandArgs keys repos input
-            complete
-                input
-                coreChanges
-                (toStartArgs keys repos args document)
+            let args = commandArgs keys repos ask
+            complete ask changes (toStartArgs keys repos args document)
 
-    let private runBody keys repos grok (input: ActorInput) coreChanges =
+    let private runBody keys repos grok (ask: Ask) changes =
         async {
-            match packExtract input with
+            match packExtract ask with
             | Error _ -> return ActorFailed ""
             | Ok document ->
                 match!
-                    runComplete
-                        keys repos grok input coreChanges document with
+                    runComplete keys repos grok ask changes document
+                    with
                 | CompleteCancelled -> return ActorCancelled
                 | CompleteFailed msg -> return ActorFailed msg
                 | StreamedOk -> return ActorSucceeded
                 | TextReady text ->
-                    let! planned = planOnCurrent input coreChanges text
+                    let! planned = planOnCurrent ask changes text
                     match planned with
                     | Error _ -> return ActorFailed ""
                     | Ok ops ->
-                        do! postReplace input coreChanges ops
+                        do! postReplace changes ops
                         return ActorSucceeded
         }
 
-    /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
+    type private AiMaterials =
+        { keys: AiKeySet
+          repos: AiRepo list
+          grok: GrokBotBinding }
+
+    let private offered =
+        ConcurrentDictionary<NodeId, Gambol.Shared.ActorFunction>()
+
+    let private bound =
+        ConditionalWeakTable<CoreActorPool, AiMaterials>()
+
+    let private tryBound pool =
+        let mutable found = Unchecked.defaultof<AiMaterials>
+        if bound.TryGetValue(pool, &found) then Some found else None
+
+    /// Test seam supplies the function for one actor node.
+    let offerActor
+        (actorNodeId: NodeId)
+        (actor: Gambol.Shared.ActorFunction)
+        =
+        offered[actorNodeId] <- actor
+
+    let internal takeOfferedActor (actorNodeId: NodeId) =
+        match offered.TryRemove actorNodeId with
+        | true, actor -> Some actor
+        | _ -> None
+
+    let internal bindActorMaterials pool keys repos grok =
+        bound.Add(pool, { keys = keys; repos = repos; grok = grok })
+
+    /// ActorFunction for Actor name `ai`. The pool mints sessionId.
     let actorFn
         (keys: AiKeySet)
         (repos: AiRepo list)
         (grok: GrokBotBinding)
-        : ActorFn =
-        fun input coreChanges ->
+        (actorNodeId: NodeId)
+        : Gambol.Shared.ActorFunction =
+        fun run changes ->
             async {
-                let! result = runBody keys repos grok input coreChanges
-                do! stop input coreChanges result
+                let ask = askFrom actorNodeId run
+                let! result = runBody keys repos grok ask changes
+                do! stop changes result
             }
+
+    let internal actorForNode pool actorNodeId =
+        match tryBound pool with
+        | None -> None
+        | Some mats ->
+            Some (actorFn mats.keys mats.repos mats.grok actorNodeId)
