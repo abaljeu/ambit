@@ -25,6 +25,23 @@ module RunLaunch =
             syncInfo
             effects
 
+    /// Browser `?ai` Run. The queued body is ActorOrder.
+    let queueAi
+        (focusId: NodeId)
+        (eventId: EventId)
+        (syncInfo: SyncInfo)
+        (effects: Effect list)
+        : SyncInfo * Effect list =
+        let order =
+            { actor = EventJson.stubActor
+              focusId = focusId
+              actorName = "ai" }
+        SyncPlanner.queueWithOpenBatch
+            (posted "Exec" (EventBody.Order(Order.ActorOrder order)))
+            eventId
+            syncInfo
+            effects
+
     let queueCancel
         (focusId: NodeId)
         (eventId: EventId)
