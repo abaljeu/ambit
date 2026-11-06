@@ -214,24 +214,18 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok _ -> CoreMailboxEvents.replyStored reply stored
 
-    /// Admitted `?test` Run. Closes over the actor node and queues ActorOrder.
-    let private queueAdmittedTest
+    /// Admitted Run. Appends ActorStart, then posts ActorOrder.
+    let private queueAdmittedOrder
         (context: MailboxContext)
         (caller: Caller)
         (event: Ev)
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
+        (order: ActorOrder)
         =
         match context.coreChanges.Value with
         | None -> reply.Reply(Error "mailbox not initialized")
         | Some make ->
-            let order =
-                { actor =
-                    TestActor.functionActorAt
-                        request.actorNodeId
-                        request.focusId
-                  focusId = request.focusId
-                  actorName = "test" }
             let host = (make caller).host
             let dispatch =
                 CoreMailboxEvents.eventDispatchContext context
@@ -249,6 +243,80 @@ module internal CoreMailboxActors =
                         MailboxHost.postActorOrder host caller order
                     replyPlaced reply stored placed
                 })
+
+    /// Admitted `?test` Run. Closes over the actor node and queues ActorOrder.
+    let private queueAdmittedTest
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        let order =
+            { actor =
+                TestActor.functionActorAt
+                    request.actorNodeId
+                    request.focusId
+              focusId = request.focusId
+              actorName = "test" }
+        queueAdmittedOrder context caller event request reply order
+
+    let private aiFunction (context: MailboxContext) request =
+        match RunAgentActor.takeOfferedActor request.actorNodeId with
+        | Some actor -> Ok actor
+        | None ->
+            match
+                RunAgentActor.actorForNode
+                    context.pool
+                    request.actorNodeId
+            with
+            | Some actor -> Ok actor
+            | None -> Error "ai actor is not bound"
+
+    /// Admitted `?ai` Run. Closes over the actor node and queues ActorOrder.
+    let private queueAdmittedAi
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match aiFunction context request with
+        | Error message ->
+            recordFailedStart
+                context
+                caller
+                request
+                event.submissionId
+                message
+                reply
+        | Ok actor ->
+            let order =
+                { actor = actor
+                  focusId = request.focusId
+                  actorName = "ai" }
+            queueAdmittedOrder
+                context caller event request reply order
+
+    /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
+    let private queueAiOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (event: Ev)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match CoreMailboxEvents.admitCaller context caller with
+        | Error err ->
+            recordFailedStart
+                context
+                caller
+                request
+                event.submissionId
+                err
+                reply
+        | Ok () ->
+            queueAdmittedAi context caller event request reply
 
     /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
     let private queueTestOrder
@@ -296,6 +364,8 @@ module internal CoreMailboxActors =
             CoreMailboxEvents.replyStored reply stored
         | None ->
             match actorNameOn context request.actorNodeId with
+            | Some "ai" ->
+                queueAiOrder context caller event request reply
             | Some "test" ->
                 queueTestOrder context caller event request reply
             | _ ->
