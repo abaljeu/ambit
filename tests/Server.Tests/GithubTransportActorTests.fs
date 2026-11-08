@@ -351,7 +351,9 @@ let ``git Load ends when the pull fails and posts nothing`` () =
 [<Fact>]
 let ``git Save gates commit then releases before push`` () =
     let steps = ResizeArray<string>()
-    let pull _ _ = Error "pull unused"
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
     let commit root message clientHint =
         steps.Add($"commit {root}")
         Assert.Equal("gambol: git Save", message)
@@ -382,9 +384,102 @@ let ``git Save gates commit then releases before push`` () =
             Assert.Equal<string list>(
                 [ $"gate acquire {root}"
                   $"commit {root}"
+                  $"pull {root}"
                   $"gate release {root}"
                   $"push {root}" ],
                 steps |> Seq.toList)
+        })
+
+[<Fact>]
+let ``git Save persists focus then commits pulls and pushes`` () =
+    let steps = ResizeArray<string>()
+    let persisted = ResizeArray<bool>()
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
+    let commit root _ _ =
+        steps.Add($"commit {root}")
+        persisted.Add(File.Exists(Path.Combine(root, "note.txt")))
+        Ok(tracked, "committed")
+    let push root _ _ =
+        steps.Add($"push {root}")
+        Ok "pushed"
+    let deps =
+        dependencies steps pull commit push
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ operation seed -> task {
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let graph = (requireOk "state" state).graph
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    graph
+                    seed.workspaceId
+                    "note.txt"
+            postGraph host fileOps
+            let focusRequest = request seed
+            let fileRequest =
+                { focusRequest with
+                    focusId = fileId
+                    graphIds = focusRequest.graphIds @ [ fileId ] }
+            let! started =
+                GithubTransportActor.start
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    fileRequest
+                |> Async.StartAsTask
+            requireOk "start Save" started
+            let! stopped = waitForStop host fileId 1000
+            Assert.Equal(Some ActorSucceeded, stopped)
+            Assert.Equal<bool list>([ true ], persisted |> Seq.toList)
+            let root = Path.Combine(dataDir, "home")
+            Assert.Equal<string list>(
+                [ $"gate acquire {root}"
+                  $"commit {root}"
+                  $"pull {root}"
+                  $"gate release {root}"
+                  $"push {root}" ],
+                steps |> Seq.toList)
+        })
+
+[<Fact>]
+let ``git Save stops when the pull fails and does not push`` () =
+    let steps = ResizeArray<string>()
+    let conflict = "Git conflict: notes/today.md"
+    let pull _ _ =
+        steps.Add("pull")
+        Error conflict
+    let commit _ _ _ =
+        steps.Add("commit")
+        Ok(tracked, "committed")
+    let push _ _ _ =
+        steps.Add("push")
+        Ok "pushed"
+    let deps =
+        dependencies steps pull commit push
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ operation seed -> task {
+            let! started =
+                GithubTransportActor.start
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
+                |> Async.StartAsTask
+            requireOk "start Save" started
+            let! stopped = waitForStop host seed.focusId 1000
+            Assert.Equal(Some(ActorFailed conflict), stopped)
+            Assert.Equal<string list>(
+                [ "commit"; "pull" ],
+                steps
+                |> Seq.filter (fun step ->
+                    step = "commit" || step = "pull" || step = "push")
+                |> Seq.toList)
         })
 
 [<Fact>]

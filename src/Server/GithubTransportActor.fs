@@ -99,15 +99,6 @@ module GithubTransportActor =
             | LoadCommit.NothingToCommit tracked ->
                 pullAndReadHeads git workspaceRoot tracked)
 
-    let private saveTracked git workspaceRoot =
-        git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
-            git.commitAll
-                workspaceRoot
-                "gambol: git Save"
-                None)
-        |> Result.bind (fun (tracked, commitOutput) ->
-            git.pushTracked workspaceRoot tracked commitOutput)
-
     /// Paths the pull changed. None when either head cannot be read.
     let private changedAfterPull workspaceRoot heads =
         match heads.beforeHead, heads.afterHead with
@@ -245,76 +236,103 @@ module GithubTransportActor =
             workspaceId
             root
 
-    let private runSaveStep workspaceId dependencies root =
-        async.Return(
-            saveTracked dependencies.git root
-            |> Result.map ignore)
+    let private actorOutcome =
+        function
+        | Ok () -> ActorSucceeded
+        | Error err -> ActorFailed err
 
-    let private runBody
+    let private finishActor
+        (changes: ActorChanges)
+        (work: Async<Result<unit, string>>)
+        =
+        async {
+            let! step = work
+            let! _ = changes.actorStop (actorOutcome step)
+            return ()
+        }
+
+    let private readWorkspace
         dataDir
-        operation
+        (changes: ActorChanges)
+        focusId
+        =
+        async {
+            let! state = changes.graphAtEvent ()
+            match state with
+            | Error err -> return Error err
+            | Ok current ->
+                match workspaceFromFocus dataDir current.graph focusId with
+                | Error err -> return Error err
+                | Ok found -> return Ok(current.graph, found)
+        }
+
+    /// The focus node, or the document that holds it, written before git.
+    let private persistFocus dataDir graph focusId =
+        let targetId =
+            match DocumentPartition.documentRootForNode graph focusId with
+            | Some documentRootId -> documentRootId
+            | None -> focusId
+        DocumentPersistChange.persistNode dataDir graph targetId
+        |> Result.map ignore
+
+    /// Commit, then Load's pull resolution, then push. The gate covers commit and pull.
+    let private commitPullPush git root =
+        git.withWorkTreeGate.applyAction root (fun () ->
+            git.commitAll root "gambol: git Save" None
+            |> Result.bind (fun (tracked, commitOutput) ->
+                git.pullTracked root tracked
+                |> Result.map (fun _ -> tracked, commitOutput)))
+        |> Result.bind (fun (tracked, commitOutput) ->
+            git.pushTracked root tracked commitOutput)
+        |> Result.map ignore
+
+    let private runSaveBody
+        dataDir
         dependencies
         focusId
         (changes: ActorChanges)
         =
         async {
-            let! state = changes.graphAtEvent ()
-            match state with
-            | Error err -> return ActorFailed err
-            | Ok current ->
-                match workspaceFromFocus dataDir current.graph focusId with
-                | Error err -> return ActorFailed err
-                | Ok(workspaceId, root) ->
-                    let call =
-                        match operation with
-                        | GithubTransportOperation.Load ->
-                            runLoadStep
-                                dataDir
-                                changes
-                                current.graph
-                                focusId
-                        | GithubTransportOperation.Save ->
-                            runSaveStep 
-                    let! stepResult =
-                        call workspaceId dependencies root
-                    match stepResult with
-                    | Ok () -> return ActorSucceeded
-                    | Error err -> return ActorFailed err
+            match! readWorkspace dataDir changes focusId with
+            | Error err -> return Error err
+            | Ok(graph, (_, root)) ->
+                match persistFocus dataDir graph focusId with
+                | Error err -> return Error err
+                | Ok () -> return commitPullPush dependencies.git root
         }
 
-    let private runActorFunction
+    let private runLoadBody
         dataDir
-        operation
         dependencies
         focusId
-        : Gambol.Shared.ActorFunction
+        (changes: ActorChanges)
         =
-        fun _ changes ->
-            async {
-                let! result =
-                    runBody
+        async {
+            match! readWorkspace dataDir changes focusId with
+            | Error err -> return Error err
+            | Ok(graph, (workspaceId, root)) ->
+                return!
+                    runLoadStep
                         dataDir
-                        operation
-                        dependencies
-                        focusId
                         changes
-                let! _ = changes.actorStop result
-                return ()
-            }
+                        graph
+                        focusId
+                        workspaceId
+                        dependencies
+                        root
+        }
 
     let loadActorFunction dataDir dependencies focusId =
-        runActorFunction
-            dataDir
-            GithubTransportOperation.Load
-            dependencies
-            focusId
+        fun _ changes ->
+            finishActor
+                changes
+                (runLoadBody dataDir dependencies focusId changes)
 
     let saveActorFunction dataDir dependencies focusId =
-        runActorFunction
-            dataDir
-            GithubTransportOperation.Save
-            dependencies
-            focusId
+        fun _ changes ->
+            finishActor
+                changes
+                (runSaveBody dataDir dependencies focusId changes)
 
     let start host caller dataDir dependencies operation request =
         let actor =
