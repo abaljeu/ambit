@@ -438,7 +438,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
                 history.events
                 |> List.filter (fun event ->
                     match event.body with
-                    | EventBody.Order (Order.ActorOrderCase found) ->
+                    | EventBody.Order (Order.StartActor found) ->
                         found.focusId = focusId
                     | _ -> false)
             match stored with

@@ -179,7 +179,7 @@ let private eventsAfterStart (events: Ev list) focusId =
         | [] -> []
         | event :: rest ->
             match event.body with
-            | EventBody.Order (Order.ActorOrderCase order)
+            | EventBody.Order (Order.StartActor order)
                 when order.focusId = focusId ->
                 rest
             | _ -> skip rest
@@ -310,7 +310,7 @@ let private orderPosted (events: Ev list) =
     events
     |> List.exists (fun event ->
         match event.body with
-        | EventBody.Order (Order.ActorOrderCase _) -> true
+        | EventBody.Order (Order.StartActor _) -> true
         | _ -> false)
 
 [<Fact>]

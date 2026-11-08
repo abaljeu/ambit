@@ -339,7 +339,7 @@ module CoreMailboxApi =
                     orderId = OrderId.New()
                     authority = caller.authority
                     commandName = None
-                    order = Order.StartActor request }
+                    order = Order.StartActorDeprecated request }
             return Result.map (fun _ -> ()) replied
         }
 

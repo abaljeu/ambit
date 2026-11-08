@@ -378,7 +378,7 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           Order.Change(ops, ChangeOrigin.Edit)
           Order.Undo(EventIdFixtures.storedId 2, ops)
           Order.Redo(EventIdFixtures.storedId 3, ops)
-          Order.StartActor start
+          Order.StartActorDeprecated start
           Order.Load nodeId
           Order.CancelActor focusId ]
     orders
@@ -415,9 +415,9 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let event =
         { changeEvent with
             commandName = "hello"
-            body = EventBody.Order(Order.ActorOrderCase (order live)) }
+            body = EventBody.Order(Order.StartActor (order live)) }
     match (roundTrip event).body with
-    | EventBody.Order (Order.ActorOrderCase decoded) ->
+    | EventBody.Order (Order.StartActor decoded) ->
         Assert.Equal(focusId, decoded.focusId)
         Assert.Equal("hello", decoded.actorName)
         Assert.False(ran)
