@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.AskCancelHarness
 
 open System
-open System.Runtime.CompilerServices
 open System.Threading
 open System.Threading.Tasks
 open Xunit
@@ -68,34 +67,19 @@ let private grokBinding config =
     { Config = config
       ResponseUrl = unusedResponseUrl }
 
-type private HostAi =
-    { keys: AiKeySet
-      repos: AiRepo list
-      grok: GrokBotBinding }
-
-let private hostAi =
-    ConditionalWeakTable<MailboxHost, HostAi>()
-
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
     pool.register (ActorName "test") TestActor.actorFn
-    RunAgentActor.bindActorMaterials pool keys repos grok
+    pool.register
+        (ActorName "ai")
+        (RunAgentActor.actorFn keys repos grok)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
-    hostAi.Add(host, { keys = keys; repos = repos; grok = grok })
     host, pool
-
-let private readHostAi host =
-    let mutable found = Unchecked.defaultof<HostAi>
-    if hostAi.TryGetValue(host, &found) then
-        found
-    else
-        Assert.Fail("ask host has no AI materials")
-        Unchecked.defaultof<HostAi>
 
 let private clearFake () =
     let deadline = DateTime.UtcNow.AddSeconds 2.0
@@ -304,51 +288,10 @@ let seedAskTree host commandText =
               graphIds = [ zoomId; actorNodeId; noteId ] }
     }
 
-/// Ask start for `?ai`. The admitted test caller posts ActorOrder.
+/// Ask start for `?ai`. The first body calls `startActor`.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
-    let mats = readHostAi host
-    let order =
-        { actor =
-            RunAgentActor.actorFn
-                mats.keys
-                mats.repos
-                mats.grok
-                request.actorNodeId
-          focusId = request.focusId
-          actorName = "ai" }
-    async {
-        let! result = MailboxHost.postActorOrder host testCaller order
-        return Result.map (fun _ -> ()) result
-    }
+    CoreMailboxApi.startActor host testCaller request
     |> Async.StartAsTask
-
-/// Client-shaped `?ai` Run. The live path must not keep ActorStart.
-let postLiveAiRun (host: MailboxHost) (request: ActorStart) =
-    let event =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = testCaller.authority
-          commandName = "Exec"
-          body = EventBody.ActorStart request }
-    task {
-        let! result =
-            CoreMailboxApi.postEvents host testCaller [ event ]
-            |> Async.StartAsTask
-        requireOk "live ai run" result |> ignore
-    }
-
-let expectNoActorStart host focusId =
-    task {
-        let! events = eventPast host |> Async.StartAsTask
-        let started =
-            events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.ActorStart body ->
-                    body.focusId = focusId
-                | _ -> false)
-        Assert.False(started)
-    }
 
 let startAsk host (seeded: SeededAsk) =
     task {
@@ -526,7 +469,6 @@ let expectChangeCount host expected =
         Assert.Equal(expected, changes.Length)
     }
 
-/// True when this focus has an ActorOrder. The ask seam posts that order.
 let hasActorStart host focusId =
     task {
         let! events = eventPast host |> Async.StartAsTask
@@ -534,8 +476,8 @@ let hasActorStart host focusId =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrder order) ->
-                    order.focusId = focusId
+                | EventBody.ActorStart started ->
+                    started.focusId = focusId
                 | _ -> false)
     }
 
