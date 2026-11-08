@@ -502,19 +502,37 @@ let ``git Save marks an unparsed file parsed and writes it before commit`` () =
             Assert.Equal(ParseState.Parsed, saved.parseState)
         })
 
+let private isPersistNotice =
+    function
+    | EventBody.Notice (Notice.NodeParsed _)
+    | EventBody.Notice (Notice.NodePersisted _)
+    | EventBody.Notice (Notice.NodePersisting _)
+    | EventBody.Notice (Notice.NodeUnpersisted _)
+    | EventBody.Notice (Notice.PersistFailed _) -> true
+    | _ -> false
+
 [<Fact>]
-let ``git Save on a normal node does not commit`` () =
+let ``git Save on a Normal Node skips persist then commits pulls and pushes`` () =
     let steps = ResizeArray<string>()
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
+    let commit root _ _ =
+        steps.Add($"commit {root}")
+        Ok(tracked, "committed")
+    let push root _ _ =
+        steps.Add($"push {root}")
+        Ok "pushed"
     let deps =
-        dependencies
-            steps
-            (fun _ _ -> Ok "pulled")
-            (fun _ _ _ ->
-                steps.Add("commit")
-                Ok(tracked, "committed"))
-            (fun _ _ _ -> Ok "pushed")
+        dependencies steps pull commit push
     withActor GithubTransportOperation.Save deps "save"
         (fun dataDir host _ operation seed -> task {
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let before = requireOk "before" state
+            let focus = before.graph.nodes.[seed.focusId]
+            let workspace = before.graph.nodes.[seed.workspaceId]
+            Assert.Equal(Normal, focus.kind)
             let! started =
                 startTransport
                     dataDir
@@ -524,14 +542,22 @@ let ``git Save on a normal node does not commit`` () =
                     (request seed)
             requireOk "start Save" started
             let! stopped = waitForStop host seed.focusId 1000
-            match stopped with
-            | Some (ActorFailed message) ->
-                Assert.Contains(
-                    "normal nodes do not have parse or persist state",
-                    message)
-            | other ->
-                Assert.Fail($"expected parse-state failure, got {other}")
-            Assert.DoesNotContain("commit", steps)
+            Assert.Equal(Some ActorSucceeded, stopped)
+            let! events =
+                CoreMailboxApi.getEventsSince host before.eventId
+                |> Async.StartAsTask
+            let persisted =
+                events |> List.filter (fun event -> isPersistNotice event.body)
+            Assert.Empty(persisted)
+            let! afterState =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let after = requireOk "after" afterState
+            Assert.Equal(focus, after.graph.nodes.[seed.focusId])
+            Assert.Equal(
+                workspace,
+                after.graph.nodes.[seed.workspaceId])
+            let root = Path.Combine(dataDir, "home")
+            Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
         })
 
 [<Fact>]
