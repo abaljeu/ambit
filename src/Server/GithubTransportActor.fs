@@ -272,12 +272,13 @@ module GithubTransportActor =
                     return! waitUntilPersisted changes after focusId
         }
 
-    /// Mark the focused node Parsed and push that node on the persist stack.
-    /// Unpersisted is the stack's existing condition for a write.
+    /// An artifact focus is marked Parsed and pushed on the persist stack.
+    /// A Normal Node skips that step. Unpersisted is the write condition.
     let private forcePersistFocus (changes: ActorChanges) focusId =
         async {
             match! readFocusNode changes focusId with
             | Error err -> return Error err
+            | Ok (_, _, node) when node.kind = Normal -> return Ok ()
             | Ok (eventId, graph, _) ->
                 match focusCanBeParsed graph focusId with
                 | Error err -> return Error err
@@ -324,7 +325,8 @@ module GithubTransportActor =
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 
-    /// Save marks the focused node parsed, pushes it, then commits.
+    /// Save marks an artifact focus parsed, pushes it, then commits.
+    /// A Normal Node skips that persist.
     let saveActorFunction dataDir dependencies focusId =
         actorFunction (runSaveBody dataDir dependencies focusId)
 
