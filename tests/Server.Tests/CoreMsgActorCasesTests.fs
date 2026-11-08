@@ -53,14 +53,14 @@ let private recordingPool () =
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId =
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId =
             fun secret ->
                 if live.Contains secret then
                     Some sampleRequest.focusId
                 else
                     None
-        trySecretForFocus = fun _ -> None
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -116,7 +116,7 @@ let ``StartActor reply is startActor bookkeeping without waiting for an Actor bo
         sw.Stop()
         requireOk "StartActor" result
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
-        Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        Assert.True(Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -276,14 +276,14 @@ let ``ActorStop checks the live receipt once`` () =
             fun secret _ ->
                 live.Remove secret |> ignore
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId =
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId =
             fun secret ->
                 if live.Contains secret then
                     Some sampleRequest.focusId
                 else
                     None
-        trySecretForFocus = fun _ -> None
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -431,7 +431,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
             let! secret = ran.Task
             Assert.NotEqual<Credential>(testSecret, secret)
             Assert.True(pool.isLive secret)
-            Assert.Contains(focusId, pool.liveFocusIds ())
+            Assert.Contains(focusId, pool.liveActorNodeIds ())
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let stored =

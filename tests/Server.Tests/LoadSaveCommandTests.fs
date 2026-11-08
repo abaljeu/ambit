@@ -933,7 +933,7 @@ let ``Desk load-save places its order and runs no Actor`` () = task {
         let response = requireResponse result
         Assert.Equal(LoadSavePath.Desk, response.path)
         Assert.Equal(None, response.command)
-        Assert.Empty(pool.liveFocusIds ())
+        Assert.Empty(pool.liveActorNodeIds ())
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let stored =

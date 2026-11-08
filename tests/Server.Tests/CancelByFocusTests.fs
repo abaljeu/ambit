@@ -143,7 +143,7 @@ type CancelByFocusTests() =
                 let! request = startLiveAsk host pool "?ai"
                 do! awaitHang hangStarted
                 let secret =
-                    match pool.trySecretForFocus request.focusId with
+                    match pool.trySecretForActorNode request.focusId with
                     | Some value -> value
                     | None -> failwith "expected live secret"
                 do! cancelFocus host request.focusId
@@ -177,7 +177,7 @@ type CancelByFocusTests() =
                 Assert.False(
                     Set.contains
                         request.focusId
-                        (pool.liveFocusIds ()))
+                        (pool.liveActorNodeIds ()))
                 let! history =
                     CoreMailboxApi.eventHistory host
                     |> Async.StartAsTask
@@ -241,5 +241,5 @@ type CancelByFocusTests() =
                 Assert.False(
                     Set.contains
                         request.focusId
-                        (pool.liveFocusIds ()))
+                        (pool.liveActorNodeIds ()))
             }))

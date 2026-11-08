@@ -3,16 +3,14 @@ namespace Gambol.Server
 open Gambol.Shared
 
 /// Builds an ActorOrder from the client ActorStart.
+/// The caller picks the cancelable node for that Actor.
 [<RequireQualifiedAccess>]
 module ActorOrderFromStart =
-
-    /// Cancelable node for this start. One place, so a later actor can replace it.
-    let private actorNodeIdOf (start: ActorStart) : NodeId =
-        start.runDefinitionId
 
     let orderFromStart
         (makeActor: NodeId -> NodeId -> Gambol.Shared.ActorFunction)
         (actorName: string)
+        (actorNodeIdOf: ActorStart -> NodeId)
         (start: ActorStart)
         : ActorOrder =
         { actor = makeActor start.runDefinitionId start.focusId

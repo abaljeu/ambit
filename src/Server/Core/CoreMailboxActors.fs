@@ -127,14 +127,14 @@ module internal CoreMailboxActors =
         : unit =
         match caller.authority with
         | Authority "Actor" ->
-            match context.pool.getFocusId caller.secret with
+            match context.pool.getActorNodeId caller.secret with
             | None -> reply.Reply(Ok ())
-            | Some focusId ->
+            | Some actorNodeId ->
                 match
                     CoreEventDispatch.actorStop
                         (CoreMailboxEvents.eventDispatchContext context)
                         caller
-                        focusId
+                        actorNodeId
                         result
                 with
                 | Error err -> reply.Reply(Error err)
@@ -150,7 +150,7 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         (submissionId: System.Guid)
         : Result<Ev option, string> =
-        match context.pool.trySecretForFocus focusId with
+        match context.pool.trySecretForActorNode focusId with
         | None -> Ok None
         | Some secret ->
             match
@@ -239,6 +239,7 @@ module internal CoreMailboxActors =
                 ActorOrderFromStart.orderFromStart
                     TestActor.functionActorAt
                     "test"
+                    (fun start -> start.focusId)
                     request
             let host = (make caller).host
             let dispatch =

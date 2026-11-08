@@ -201,7 +201,7 @@ let ``unregistered Actor name fails start`` (text: string) (name: string) =
             Assert.Contains(name, err)
         | Ok () ->
             Assert.Fail("expected start/Command failure")
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
+        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()))
         let! events = eventPast host |> Async.StartAsTask
         let started =
             events
@@ -226,7 +226,7 @@ let ``TestActor non-hello command fails without Owned child`` (text: string) =
         match stop with
         | Some (ActorFailed _) -> ()
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
+        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()))
         let! state =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
@@ -254,7 +254,7 @@ let ``TestActor non-hello preserves Focus Children and posts no Change`` () =
         match stop with
         | Some (ActorFailed _) -> ()
         | other -> Assert.Fail($"expected ActorFailed, got {other}")
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
+        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()))
         let! afterState =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let after = requireOk "getState after" afterState
@@ -338,7 +338,7 @@ let ``?test Run refuses a blank authority before ActorOrder`` () =
                     Some found
                 | _ -> None)
         Assert.Equal(Some (ActorFailed CoreAuth.refuse), stop)
-        Assert.False(Set.contains runDefinitionId (pool.liveFocusIds ()))
+        Assert.False(Set.contains runDefinitionId (pool.liveActorNodeIds ()))
         let! state =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state

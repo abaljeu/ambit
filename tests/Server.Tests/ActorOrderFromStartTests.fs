@@ -13,7 +13,11 @@ let private startWithDistinctIds () : ActorStart =
       graphIds = []
       eventId = EventId.zero }
 
-let private orderFor (actorName: string) (start: ActorStart) =
+let private orderFor
+    (actorNodeIdOf: ActorStart -> NodeId)
+    (actorName: string)
+    (start: ActorStart)
+    =
     let marker : Gambol.Shared.ActorFunction =
         fun _ _ -> async { return () }
     let makeActor
@@ -27,16 +31,19 @@ let private orderFor (actorName: string) (start: ActorStart) =
         Gambol.Server.ActorOrderFromStart.orderFromStart
             makeActor
             actorName
+            actorNodeIdOf
             start
     order, marker
 
 [<Fact>]
-let ``orderFromStart sets actorNodeId to runDefinitionId and the given actor name`` () =
+let ``orderFromStart sets actorNodeId from the selector and the actor name`` () =
     let start = startWithDistinctIds ()
-    let order, marker = orderFor "test" start
-    Assert.Equal(start.runDefinitionId, order.actorNodeId)
+    let order, marker =
+        orderFor (fun item -> item.focusId) "test" start
+    Assert.Equal(start.focusId, order.actorNodeId)
     Assert.Equal("test", order.actorName)
     Assert.Same(marker, order.actor)
-    let named, _ = orderFor "query" start
+    let named, _ =
+        orderFor (fun item -> item.runDefinitionId) "query" start
     Assert.Equal(start.runDefinitionId, named.actorNodeId)
     Assert.Equal("query", named.actorName)

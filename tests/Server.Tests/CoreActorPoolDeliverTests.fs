@@ -79,7 +79,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
         | Ok texts ->
             Assert.Equal<string list>([ "chunk" ], texts)
         | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForFocus Graph.rootId with
+        match pool.trySecretForActorNode Graph.rootId with
         | None -> Assert.Fail("missing live secret")
         | Some secret -> pool.drop secret
         match pool.deliver (!session, "late") with
@@ -121,7 +121,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
         | Ok texts ->
             Assert.Equal<string list>([ ""; "later" ], texts)
         | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForFocus Graph.rootId with
+        match pool.trySecretForActorNode Graph.rootId with
         | None -> Assert.Fail("missing live secret")
         | Some secret -> pool.drop secret
         match pool.deliver (!session, "late") with
@@ -165,7 +165,7 @@ let ``second start on the same runDefinitionId is rejected`` () =
                 "command already has a live Actor", msg)
         | Ok _ -> Assert.Fail("expected command exclusivity")
         Assert.True(
-            Set.contains Graph.rootId (pool.liveFocusIds ()))
+            Set.contains Graph.rootId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]

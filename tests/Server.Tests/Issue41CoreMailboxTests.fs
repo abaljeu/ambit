@@ -245,9 +245,9 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
           admit = fun _ -> Ok ()
           drop = fun _ -> ()
           finish = fun _ _ -> Ok ()
-          liveFocusIds = fun () -> Set.empty
-          getFocusId = fun _ -> Some Graph.rootId
-          trySecretForFocus = fun _ -> None
+          liveActorNodeIds = fun () -> Set.empty
+          getActorNodeId = fun _ -> Some Graph.rootId
+          trySecretForActorNode = fun _ -> None
           deliver = fun _ -> Error "not live"
           takeInbox = fun _ -> Error "not live" }
     task {

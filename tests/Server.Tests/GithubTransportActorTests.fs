@@ -260,7 +260,7 @@ let ``git Load gates pull from subnode Focus`` () =
                   $"gate release {root}" ],
                 steps |> Seq.toList)
             Assert.False(
-                Set.contains seed.focusId (pool.liveFocusIds ()))
+                Set.contains seed.focusId (pool.liveActorNodeIds ()))
         })
 
 [<Fact>]
@@ -330,7 +330,7 @@ let ``git Load ends when the pull fails and posts nothing`` () =
             Assert.Equal(Some(ActorFailed conflict), stopped)
             Assert.Empty(pushed)
             Assert.False(
-                Set.contains seed.focusId (pool.liveFocusIds ()))
+                Set.contains seed.focusId (pool.liveActorNodeIds ()))
         })
 
 [<Fact>]
@@ -391,12 +391,12 @@ let ``Peer Actor row is live only while git work runs`` () =
             requireOk "start Load" started
             do! entered.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
             Assert.True(
-                Set.contains seed.focusId (pool.liveFocusIds ()))
+                Set.contains seed.focusId (pool.liveActorNodeIds ()))
             release.SetResult()
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
             Assert.False(
-                Set.contains seed.focusId (pool.liveFocusIds ()))
+                Set.contains seed.focusId (pool.liveActorNodeIds ()))
         })
 
 [<Theory>]

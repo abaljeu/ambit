@@ -63,7 +63,7 @@ let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping re
             CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
-        Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        Assert.True(Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -251,9 +251,9 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> Some Graph.rootId
-        trySecretForFocus = fun _ -> None
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId = fun _ -> Some Graph.rootId
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -335,9 +335,9 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
             fun secret result ->
                 live.Remove secret |> ignore
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> Some sampleRequest.focusId
-        trySecretForFocus = fun _ -> None
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId = fun _ -> Some sampleRequest.focusId
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -537,7 +537,7 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        let focusIds = pool.liveFocusIds ()
+        let focusIds = pool.liveActorNodeIds ()
         Assert.True(Set.contains sampleRequest.focusId focusIds)
     })
 
@@ -720,7 +720,7 @@ let ``CoreMailboxApi.postEvent stores Caller authority without admission`` () =
     })
 
 [<Fact>]
-let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
+let ``ActorStart persist Error leaves Focus out of liveActorNodeIds`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with
@@ -747,7 +747,7 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
             | Error error ->
                 Assert.Contains("actor start persist failed", error)
             Assert.False(
-                Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+                Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
         finally
             CoreMailboxApi.dispose host
     }

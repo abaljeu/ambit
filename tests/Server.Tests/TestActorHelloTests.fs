@@ -43,7 +43,7 @@ let private waitForLiveRowDrop pool focusId timeoutMs =
         let mutable dropped = false
         let startTime = DateTime.UtcNow
         while not dropped && (DateTime.UtcNow - startTime).TotalMilliseconds < float timeoutMs do
-            dropped <- not (Set.contains focusId (pool.liveFocusIds ()))
+            dropped <- not (Set.contains focusId (pool.liveActorNodeIds ()))
             if not dropped then
                 do! Task.Delay(10)
         return dropped
@@ -288,7 +288,7 @@ let ``TestActor hello drops live row after successful stop`` () =
                     Some result
                 | _ -> None)
         Assert.Equal(Some ActorSucceeded, stopResult)
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()))
+        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -504,7 +504,7 @@ let ``34b section7 outside proof - full lifecycle via CoreMailbox`` () =
             "§7.4: Output Change should appear before ActorFinished")
         Assert.Equal(1, actorFinishedCount)
         
-        Assert.False(Set.contains request.focusId (pool.liveFocusIds ()),
+        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()),
             "§7.5: Live row should be gone after finish")
         
         let actorEventsPresent =

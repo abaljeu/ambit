@@ -86,4 +86,4 @@ module SearchActor =
                     return ()
                 }
           getGraph = getGraph
-          focusId = request.focusId }
+          actorNodeId = request.focusId }

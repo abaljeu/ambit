@@ -205,7 +205,7 @@ module internal CoreMailboxLoop =
         let start : FunctionStart =
             { actor = poolActor order.actor
               getGraph = fun () -> CoreMailboxEvents.graphNow context
-              focusId = order.actorNodeId }
+              actorNodeId = order.actorNodeId }
         match context.pool.startFunction start with
         | Error err -> Error err
         | Ok secret ->
@@ -280,7 +280,7 @@ module internal CoreMailboxLoop =
             | Ok state ->
                 let graph =
                     GraphSpan.withLockPresent
-                        (context.pool.liveFocusIds ())
+                        (context.pool.liveActorNodeIds ())
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
         | Query.LastEventId reply ->

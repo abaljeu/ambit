@@ -149,7 +149,7 @@ let private expectActorStop expected host focusId =
     }
 
 let private expectLiveGone pool focusId =
-    Assert.False(Set.contains focusId (pool.liveFocusIds ()))
+    Assert.False(Set.contains focusId (pool.liveActorNodeIds ()))
 
 let fakeReply text =
     Finished
@@ -303,7 +303,7 @@ let startAsk host (seeded: SeededAsk) =
 
 let waitLive pool focusId timeoutMs =
     waitUntil timeoutMs (fun () -> task {
-        return Set.contains focusId (pool.liveFocusIds ())
+        return Set.contains focusId (pool.liveActorNodeIds ())
     })
 
 let startLiveAsk host pool commandText =
