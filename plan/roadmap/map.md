@@ -31,6 +31,21 @@ The main push is cleaning up that architecture:
 - Ticket dependencies set the order
 - Online search resumes after this work
 
+### Graph nodes and their files
+
+- Effort: Graph-node-to-filesystem synchronization
+- State: active planning and investigation
+- Owner: Ambot2 investigates, writes the tickets, and implements the backend
+- Chapter: [Move nodes with their files](epics/chapters/move-nodes-with-files.md), on Robust outliner
+- Project: [Node move and disk](plan/node-move-disk/project.md), Stage chart
+- Renaming a File Node renames its File on disk
+- A new Owned placement moves that File
+- Moving a Normal Node moves the Files and Directories it Owns, including through Nodes in between
+- The path before the change and the path after the change decide the disk move
+- The same path leaves the File or Directory where it is
+- Moving a Directory Node moves its Directory on disk
+- A Normal Node may Own a Directory through Nodes in between
+
 ## Epics
 
 - [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]]; vision: [[epics/chapters/two-panel-view.md]])
