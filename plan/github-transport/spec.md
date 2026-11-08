@@ -25,7 +25,7 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 10. **Git Load/Save are Workspace-scoped** — When git Load or git Save runs, including explicit git Load from a subnode, pull/push operates on the whole Workspace work tree / tracked branch — never file-level git. Plain Load of a File or a Directory does not start that actor. After files land, inform Core ([[plan/core-refinement/project.md]]).
 11. **git Save sequence** — git Save runs these stages, in this order.
 
-    - persist focus marks that focused node Parsed and pushes that same node on the persistence stack, including when the node is already Persisted. A focus that cannot take parse state fails this stage.
+    - An artifact focus is marked Parsed and pushed on the persistence stack, including when that node is already Persisted. A Normal Node skips this stage. Save then commits, pulls, and pushes. Any other focus that cannot take parse state fails this stage. Save keeps that focus.
     - commit
     - pull
     - push
