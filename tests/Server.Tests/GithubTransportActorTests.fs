@@ -125,6 +125,23 @@ let private request seed =
           seed.focusId ]
       eventId = EventId.zero }
 
+let private startTransport dataDir host deps operation actorRequest =
+    GithubTransportActor.start
+        host
+        testCaller
+        dataDir
+        deps
+        operation
+        actorRequest
+    |> Async.StartAsTask
+
+let private saveOrder root =
+    [ $"gate acquire {root}"
+      $"commit {root}"
+      $"pull {root}"
+      $"gate release {root}"
+      $"push {root}" ]
+
 let private runActor operation dependencies operationName onPush body =
     task {
         let dataDir = newTempDir ()
@@ -182,14 +199,12 @@ let ``git Load tells the client the actor completed`` () =
                     CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
                 let baseline = requireOk "state" state
                 let! started =
-                    GithubTransportActor.start
-                        host
-                        testCaller
+                    startTransport
                         dataDir
+                        host
                         deps
                         GithubTransportOperation.Load
                         (request seed)
-                    |> Async.StartAsTask
                 requireOk "start Load" started
                 do! entered.Task.WaitAsync(TimeSpan.FromSeconds 2.0)
                 let! commandEvents =
@@ -246,14 +261,12 @@ let ``git Load gates pull from subnode Focus`` () =
     withActor GithubTransportOperation.Load deps "load"
         (fun dataDir host pool operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
@@ -286,14 +299,12 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
         (fun id -> pushed.Add id)
         (fun dataDir host _ operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
@@ -332,14 +343,12 @@ let ``git Load ends when the pull fails and posts nothing`` () =
         (fun id -> pushed.Add id)
         (fun dataDir host pool operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some(ActorFailed conflict), stopped)
@@ -351,7 +360,9 @@ let ``git Load ends when the pull fails and posts nothing`` () =
 [<Fact>]
 let ``git Save gates commit then releases before push`` () =
     let steps = ResizeArray<string>()
-    let pull _ _ = Error "pull unused"
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
     let commit root message clientHint =
         steps.Add($"commit {root}")
         Assert.Equal("gambol: git Save", message)
@@ -367,24 +378,99 @@ let ``git Save gates commit then releases before push`` () =
     withActor GithubTransportOperation.Save deps "save"
         (fun dataDir host _ operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk "start Save" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
             let root = Path.Combine(dataDir, "home")
+            Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
+        })
+
+[<Fact>]
+let ``git Save persists focus then commits pulls and pushes`` () =
+    let steps = ResizeArray<string>()
+    let persisted = ResizeArray<bool>()
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
+    let commit root _ _ =
+        steps.Add($"commit {root}")
+        persisted.Add(File.Exists(Path.Combine(root, "note.txt")))
+        Ok(tracked, "committed")
+    let push root _ _ =
+        steps.Add($"push {root}")
+        Ok "pushed"
+    let deps =
+        dependencies steps pull commit push
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ operation seed -> task {
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let graph = (requireOk "state" state).graph
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    graph
+                    seed.workspaceId
+                    "note.txt"
+            postGraph host fileOps
+            let focusRequest = request seed
+            let fileRequest =
+                { focusRequest with
+                    focusId = fileId
+                    graphIds = focusRequest.graphIds @ [ fileId ] }
+            let! started =
+                startTransport
+                    dataDir
+                    host
+                    deps
+                    operation
+                    fileRequest
+            requireOk "start Save" started
+            let! stopped = waitForStop host fileId 1000
+            Assert.Equal(Some ActorSucceeded, stopped)
+            Assert.Equal<bool list>([ true ], persisted |> Seq.toList)
+            let root = Path.Combine(dataDir, "home")
+            Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
+        })
+
+[<Fact>]
+let ``git Save stops when the pull fails and does not push`` () =
+    let steps = ResizeArray<string>()
+    let conflict = "Git conflict: notes/today.md"
+    let pull _ _ =
+        steps.Add("pull")
+        Error conflict
+    let commit _ _ _ =
+        steps.Add("commit")
+        Ok(tracked, "committed")
+    let push _ _ _ =
+        steps.Add("push")
+        Ok "pushed"
+    let deps =
+        dependencies steps pull commit push
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ operation seed -> task {
+            let! started =
+                startTransport
+                    dataDir
+                    host
+                    deps
+                    operation
+                    (request seed)
+            requireOk "start Save" started
+            let! stopped = waitForStop host seed.focusId 1000
+            Assert.Equal(Some(ActorFailed conflict), stopped)
             Assert.Equal<string list>(
-                [ $"gate acquire {root}"
-                  $"commit {root}"
-                  $"gate release {root}"
-                  $"push {root}" ],
-                steps |> Seq.toList)
+                [ "commit"; "pull" ],
+                steps
+                |> Seq.filter (fun step ->
+                    step = "commit" || step = "pull" || step = "push")
+                |> Seq.toList)
         })
 
 [<Fact>]
@@ -405,14 +491,12 @@ let ``Peer Actor row is live only while git work runs`` () =
     withActor GithubTransportOperation.Load deps "load"
         (fun dataDir host pool operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk "start Load" started
             do! entered.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
             Assert.True(
@@ -443,14 +527,12 @@ let ``Load and Save return the same conflict reject shape`` operationName =
     withActor operation deps operationName
         (fun dataDir host _ operation seed -> task {
             let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
+                startTransport
                     dataDir
+                    host
                     deps
                     operation
                     (request seed)
-                |> Async.StartAsTask
             requireOk $"start {operationName}" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some(ActorFailed conflict), stopped)
