@@ -45,6 +45,7 @@ The main push is cleaning up that architecture:
 - The same path leaves the File or Directory where it is
 - Moving a Directory Node moves its Directory on disk
 - A Normal Node may Own a Directory through Nodes in between
+- Every File and Directory rename or move uses git mv, never a manual filesystem move or copy-and-delete. This covers a new Owned placement, a Normal Node move, and a Directory Node move
 
 ## Epics
 
