@@ -228,29 +228,27 @@ module GithubTransportActor =
             loadFocus changes id
         | None -> async.Return missingSubject
 
-    let private runStep
-        operation
-        dependencies
+    let private runLoadStep
         dataDir
         changes
         graph
         focusId
         workspaceId
+        dependencies
         root
         =
-        match operation with
-        | GithubTransportOperation.Load ->
-            runLoadChoice
-                dependencies
-                dataDir
-                changes
-                (LoadSubject.enclosingSubject graph focusId)
-                workspaceId
-                root
-        | GithubTransportOperation.Save ->
-            async.Return(
-                saveTracked dependencies.git root
-                |> Result.map ignore)
+        runLoadChoice
+            dependencies
+            dataDir
+            changes
+            (LoadSubject.enclosingSubject graph focusId)
+            workspaceId
+            root
+
+    let private runSaveStep workspaceId dependencies root =
+        async.Return(
+            saveTracked dependencies.git root
+            |> Result.map ignore)
 
     let private runBody
         dataDir
@@ -267,17 +265,19 @@ module GithubTransportActor =
                 match workspaceFromFocus dataDir current.graph focusId with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
-                    match!
-                        runStep
-                            operation
-                            dependencies
-                            dataDir
-                            changes
-                            current.graph
-                            focusId
-                            workspaceId
-                            root
-                    with
+                    let call =
+                        match operation with
+                        | GithubTransportOperation.Load ->
+                            runLoadStep
+                                dataDir
+                                changes
+                                current.graph
+                                focusId
+                        | GithubTransportOperation.Save ->
+                            runSaveStep 
+                    let! stepResult =
+                        call workspaceId dependencies root
+                    match stepResult with
                     | Ok () -> return ActorSucceeded
                     | Error err -> return ActorFailed err
         }
