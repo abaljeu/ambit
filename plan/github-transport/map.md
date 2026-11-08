@@ -55,7 +55,7 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 
 ## 4. Not yet specified
 
-1. **Transport mechanics** — [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md) is open. Core handoff detail: [[plan/core-refinement/map.md]].
+1. **Transport mechanics** — [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md) is coded. [31 — Force-save the focused node](issues/31-force-save-the-focused-node.md) is the persist-focus step in Solution 11 — git Save sequence. Core handoff detail: [[plan/core-refinement/map.md]].
 2. **WebDAV client parse** — None open. Seam **Desk WebDAV** stays. This Project does not redesign it. [26 — Desk WebDAV](issues/26-desk-webdav.md) Status `done`.
 
 ## 5. Out of scope

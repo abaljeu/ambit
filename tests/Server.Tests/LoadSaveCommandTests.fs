@@ -442,7 +442,12 @@ let ``every Git choice starts the Server Peer Actor``
     let host, seed, started, dataDir, dependencies =
         routeMatrixHarness operation operationName
     try
-        let command = requestFor operation prePick seed
+        let focusId =
+            if operationName = "save" then
+                seed.workspaceId
+            else
+                seed.focusId
+        let command = requestForFocus operation prePick seed focusId
         let! result =
             Api.postLoadSaveCommand
                 (routeMatrixRouter host dataDir dependencies operation)
@@ -454,7 +459,7 @@ let ``every Git choice starts the Server Peer Actor``
         Assert.True(Option.isSome response.command)
         do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Contains(history.events, hasStartedActor seed.focusId)
+        Assert.Contains(history.events, hasStartedActor focusId)
     finally
         CoreMailboxApi.dispose host
 }
@@ -495,12 +500,13 @@ let ``routed Git Save commits then pushes through Peer Actor`` () = task {
             Path.Combine(harness.workspace, "saved.txt"),
             "saved")
         do!
-            postRouted
+            postRoutedFocus
                 LoadSaveOperation.Save
                 LoadSavePrePick.Git
+                harness.seed.workspaceId
                 harness
         let! stopped =
-            waitForStop harness.host harness.seed.focusId
+            waitForStop harness.host harness.seed.workspaceId
         Assert.Equal(Some ActorSucceeded, stopped)
         let verify = Path.Combine(harness.parent, "verify")
         git harness.parent $"clone {harness.remote} verify" |> ignore
