@@ -27,7 +27,12 @@ module RouteRegistration =
                 DataDir = dataDir
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
-                Actors = []
+                Actors =
+                    [ ActorName "ai", RunAgentActor.actorFn
+                            (AiKeys.fromConfig this.Config)
+                            (AiRepos.fromConfig this.Config)
+                            (GrokBotSettings.fromConfigBinding
+                                this.Config) ]
             }
 
     let private errorTemplate (message: string) =
@@ -61,11 +66,6 @@ module RouteRegistration =
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()
         let core = ParseThread.bootCore boot
-        RunAgentActor.bindActorMaterials
-            core.pool
-            (AiKeys.fromConfig this.Config)
-            (AiRepos.fromConfig this.Config)
-            (GrokBotSettings.fromConfigBinding this.Config)
         let github =
             GithubTransportActor.productionDependencies
         core.pool.registerPeer
