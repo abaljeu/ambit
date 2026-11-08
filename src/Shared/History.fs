@@ -116,7 +116,7 @@ and [<RequireQualifiedAccess>] Order =
     | StartActorDeprecated of ActorStart
     | StartActor of ActorOrder
     | Load of nodeId: NodeId
-    | CancelActor of focusId: NodeId
+    | CancelActor of actorNodeId: NodeId
 
 and [<RequireQualifiedAccess>] EventBody =
     | Order of Order

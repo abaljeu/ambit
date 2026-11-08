@@ -236,12 +236,10 @@ module internal CoreMailboxActors =
         | None -> reply.Reply(Error "mailbox not initialized")
         | Some make ->
             let order =
-                { actor =
+                ActorOrderFromStart.orderFromStart
                     TestActor.functionActorAt
-                        request.runDefinitionId
-                        request.focusId
-                  actorNodeId = request.focusId
-                  actorName = "test" }
+                    "test"
+                    request
             let host = (make caller).host
             let dispatch =
                 CoreMailboxEvents.eventDispatchContext context
