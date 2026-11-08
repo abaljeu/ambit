@@ -33,19 +33,10 @@ The main push is cleaning up that architecture:
 
 ### Graph nodes and their files
 
-- Effort: Graph-node-to-filesystem synchronization
-- State: active planning and investigation
-- Owner: Ambot2 investigates, writes the tickets, and implements the backend
+- Files are persisted and moved.
+- Active work owned by Ambot2
 - Chapter: [Move nodes with their files](epics/chapters/move-nodes-with-files.md), on Robust outliner
-- Project: [Node move and disk](plan/node-move-disk/project.md), Stage chart
-- Renaming a File Node renames its File on disk
-- A new Owned placement moves that File
-- Moving a Normal Node moves the Files and Directories it Owns, including through Nodes in between
-- The path before the change and the path after the change decide the disk move
-- The same path leaves the File or Directory where it is
-- Moving a Directory Node moves its Directory on disk
-- A Normal Node may Own a Directory through Nodes in between
-- Every File and Directory rename or move uses git mv, never a manual filesystem move or copy-and-delete. This covers a new Owned placement, a Normal Node move, and a Directory Node move
+- Project: [Node move and disk](plan/node-move-disk/project.md)
 
 ## Epics
 
