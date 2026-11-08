@@ -36,14 +36,12 @@ Blockers:
 
 [ ] **Upward scan** — Alan reports that the Save function skips the upward Workspace scan and that Load scans upward. Save is to use that same upward scan.
 [ ] **Upload with a Workspace in hand** — Alan reports that Save skips the Workspace upload even when a Workspace is provided or left in. Alan gives the cause as unknown.
-[ ] **Focus, then git save** — Alan intends an explicit save of the focus node, then a handoff to git save for the Workspace upload.
-[ ] **Stage order** — Alan's git save sequence, copied as spoken: commit -> pull -> optimistic merge -> save -> push.
-[ ] **Stage 1** — commit.
-[ ] **Stage 2** — pull.
-[ ] **Stage 3** — optimistic merge.
-[ ] **Stage 4** — save.
-[ ] **Stage 5** — push.
-[ ] **Separate stages** — Each stage stays its own stage, in that order.
+[ ] **Stage order** — Alan's corrected sequence, copied as spoken: persist focus; commit; pull (same pull resolution process as Load; pull doesn't fail on conflict automerge) push.
+[ ] **Stage 1** — persist focus.
+[ ] **Stage 2** — commit.
+[ ] **Stage 3** — pull. Pull uses the same resolution process as Load. A conflict is merged automatically. A conflict alone leaves the pull successful.
+[ ] **Stage 4** — push.
+[ ] **Four stages** — The sequence is these four stages. It has no optimistic-merge stage. It has no save stage after pull.
 [ ] **Scope** — This ticket is the GitHub save path. Alan says the other path is isolated higher up.
 
 ## Observed on this read
@@ -73,13 +71,13 @@ Blockers:
 [ ] **Named reports** — The StartActorDeprecated gap report and the Git Load and Save actor functions note stay as they are.
 [ ] **Prior lock file** — 10 — git Save is commit then push, the spec, and the map decision that records that lock stay as they are.
 [ ] **Source** — This filing writes the ticket, the project note, and the map pointer.
-[ ] **Stage text** — The five spoken stages stay in Alan's order, as five stages. This ticket gives them no new names.
+[ ] **Stage text** — The sequence stays persist focus, commit, pull, push. Pull keeps Load's resolution process.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Answer each question in Investigation. Mark each answer as reported, intended, or verified.
-3. [ ] Keep the five stages in Alan's order. Keep each stage separate.
+3. [ ] Keep the four stages in Alan's order: persist focus, commit, pull, push.
 4. [ ] Name the cause of the skipped upload only from evidence.
 5. [ ] Stop before a source edit.
 
@@ -91,9 +89,7 @@ Blockers:
 [ ] **Which upload** — What is the Workspace upload: a git push of the work tree, a post of the Workspace node, or both?
 [ ] **Why the skip** — Why does Save skip that upload when the Workspace value is already in hand?
 [ ] **Where the other path sits** — Which higher file isolates the other path?
-[ ] **Stage map** — Which existing function, if any, is each of the five stages?
-[ ] **Optimistic merge** — What does optimistic merge name in this repo?
-[ ] **Two saves** — What is the stage named save, beside the explicit save of the focus node?
+[ ] **Stage map** — Which existing function, if any, is each of the four stages?
 [ ] **Spoken struct** — Does a later note define FirstFactorStart?
 
 ## Outputs
@@ -107,15 +103,15 @@ Blockers:
 [ ] Record the stop at `plan/github-transport/reports/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload-stop.md`, then ask.
 [ ] Stop when the work edits source under this filing.
 [ ] Stop when the work leaves the GitHub save path.
-[ ] Stop when a stage is reordered, merged, or given a new name.
+[ ] Stop when a stage is added, dropped, or placed out of the order persist focus, commit, pull, push.
 [ ] Stop when an observation in this ticket is written down as the cause.
 
 ## Check
 
 [ ] GitHub Save uses the same upward Workspace scan as GitHub Load.
 [ ] When the Workspace value is already in hand, GitHub Save uploads that Workspace.
-[ ] GitHub Save saves the focus node, then hands off to git save for the Workspace upload.
-[ ] The git save sequence is commit, then pull, then optimistic merge, then save, then push. Each stage stays separate.
+[ ] The sequence is persist focus, then commit, then pull, then push.
+[ ] Pull uses the same resolution process as Load. A conflict is merged automatically. A conflict alone leaves the pull successful.
 [ ] The change stays on the GitHub save path.
 [ ] The stop report names the cause from evidence, or its first line says the cause is still unknown.
 [ ] This filing runs no tests. A later build runs `scripts/agent-test.sh` with no arguments.
