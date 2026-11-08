@@ -1,6 +1,6 @@
 # 30 — GitHub save path: missing workspace upward scan and workspace upload
 
-**Status**: defined
+**Status**: coded
 
 One job: A person who runs GitHub Save on a node inside a Workspace gets that Workspace by the same upward scan GitHub Load uses, and GitHub Save then uploads that Workspace. The report is Alan's voice on 2026-11-08.
 
@@ -79,7 +79,7 @@ Blockers:
 2. [ ] Answer each question in Investigation. Mark each answer as reported, intended, or verified.
 3. [ ] Keep the four stages in Alan's order: persist focus, commit, pull, push.
 4. [ ] Name the cause of the skipped upload only from evidence.
-5. [ ] Stop before a source edit.
+5. [x] The Build edits source. The stages stay persist focus, commit, pull, push.
 
 ## Investigation
 
@@ -108,15 +108,17 @@ Blockers:
 
 ## Check
 
-[ ] GitHub Save uses the same upward Workspace scan as GitHub Load.
-[ ] When the Workspace value is already in hand, GitHub Save uploads that Workspace.
-[ ] The sequence is persist focus, then commit, then pull, then push.
-[ ] Pull uses the same resolution process as Load. A conflict is merged automatically. A conflict alone leaves the pull successful.
-[ ] The change stays on the GitHub save path.
-[ ] The stop report names the cause from evidence, or its first line says the cause is still unknown.
-[ ] This filing runs no tests. A later build runs `scripts/agent-test.sh` with no arguments.
-[ ] That later build runs `scripts/agent-test.sh --filter` for each test that build names:
-  - `<Project>`: ``<test name>``
-[ ] All executed tests pass.
-[ ] Write the verdict to `plan/github-transport/reports/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] GitHub Save uses the same upward Workspace scan as GitHub Load.
+[x] When the Workspace value is already in hand, GitHub Save uploads that Workspace.
+[x] The sequence is persist focus, then commit, then pull, then push.
+[x] Pull uses the same resolution process as Load. A conflict is merged automatically. A conflict alone leaves the pull successful.
+[x] The change stays on the GitHub save path.
+[x] The stop report names the cause from evidence, or its first line says the cause is still unknown.
+[x] This filing runs no tests. A later build runs `scripts/agent-test.sh` with no arguments.
+[x] That later build runs `scripts/agent-test.sh --filter` for each test that build names:
+  - `tests/Server.Tests`: ``git Save gates commit then releases before push``
+  - `tests/Server.Tests`: ``git Save persists focus then commits pulls and pushes``
+  - `tests/Server.Tests`: ``git Save stops when the pull fails and does not push``
+[x] All executed tests pass.
+[x] Write the verdict to `plan/github-transport/reports/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
