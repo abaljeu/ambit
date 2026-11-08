@@ -1,7 +1,7 @@
 # 31 — Force-save the focused node
 **Status**: coded
 
-One job: A person who runs Save on a focused node gets that node marked Parsed and pushed on the persistence stack before Save commits, including when the node is already Persisted. The stage is Solution 11 — git Save sequence in [github-transport spec](../spec.md).
+One job: Save on an artifact focus marks that node Parsed and pushes it on the persistence stack before commit, including when the node is already Persisted. A Normal Node skips that persist. Save then commits, pulls, and pushes. The stage is Solution 11 — git Save sequence in [github-transport spec](../spec.md).
 
 Type:
 
@@ -37,9 +37,9 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] Change Save's persist step so the focused node is the node marked Parsed and pushed. Save posts `Notice.NodeUnpersisted`, then `Notice.NodeParsed`, on that focus. The second notice is the existing push.
+2. [x] Change Save's persist step so an artifact focus is the node marked Parsed and pushed. Save posts `Notice.NodeUnpersisted`, then `Notice.NodeParsed`, on that focus. The second notice is the existing push.
 3. [x] Wait until that node is Persisted, or until `Notice.PersistFailed` for that node, before commit.
-4. [x] When `GraphMutate.setParseState` cannot mark the focus Parsed, fail Save with that error. Save does not walk to an enclosing document.
+4. [x] A Normal Node skips persist and its state stays unchanged. Save then commits, pulls, and pushes. When `GraphMutate.setParseState` cannot mark any other focus Parsed, fail Save with that error. Save does not walk to an enclosing document.
 
 ## Outputs
 
@@ -64,7 +64,7 @@ Blockers:
 [x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: ``git Save persists focus then commits pulls and pushes``
   - `tests/Server.Tests`: ``git Save marks an unparsed file parsed and writes it before commit``
-  - `tests/Server.Tests`: ``git Save on a normal node does not commit``
+  - `tests/Server.Tests`: ``git Save on a Normal Node skips persist then commits pulls and pushes``
   - `tests/Server.Tests`: ``git Save gates commit then releases before push``
   - `tests/Server.Tests`: ``git Save stops when the pull fails and does not push``
   - `tests/Server.Tests`: ``Load and Save return the same conflict reject shape``
