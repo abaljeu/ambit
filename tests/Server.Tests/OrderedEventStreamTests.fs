@@ -188,10 +188,11 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
             accepted.events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStart start ->
-                    start.runDefinitionId = runDefinitionId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = runDefinitionId
+                    && order.actorName = "test"
                 | _ -> false)
-        Assert.True(started, "stored ActorStart missing")
+        Assert.True(started, "stored StartActor missing")
         let! hello = waitHello host runDefinitionId 1000
         Assert.True(hello, "hello child missing; edit was not visible")
     finally
@@ -316,9 +317,11 @@ let ``events door applies an edit then ActorStart as one list`` () = task {
         accepted.events
         |> List.exists (fun event ->
             match event.body with
-            | EventBody.ActorStart start -> start.runDefinitionId = runDefinitionId
+            | EventBody.Order (Order.StartActor order) ->
+                order.actorNodeId = runDefinitionId
+                && order.actorName = "test"
             | _ -> false)
-    Assert.True(started, "events door did not store ActorStart")
+    Assert.True(started, "events door did not store StartActor")
     let! hello = waitHelloHttp client runDefinitionId 2000
     Assert.True(hello, "hello child missing on the events door")
 }

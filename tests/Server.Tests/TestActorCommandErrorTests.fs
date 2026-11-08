@@ -326,18 +326,19 @@ let ``?test Run refuses a blank authority before ActorOrder`` () =
             CoreMailboxApi.postEvents
                 host blank [ runLaunch request blank ]
             |> Async.StartAsTask
-        requireOk "blank start" result |> ignore
+        match result with
+        | Error err -> Assert.Equal(CoreAuth.refuse, err)
+        | Ok _ -> Assert.Fail("blank authority was admitted")
         let! events = eventPast host |> Async.StartAsTask
         Assert.False(orderPosted events)
-        let stop =
+        let lifecycle =
             events
-            |> List.tryPick (fun event ->
+            |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStop(fid, found)
-                    when fid = runDefinitionId ->
-                    Some found
-                | _ -> None)
-        Assert.Equal(Some (ActorFailed CoreAuth.refuse), stop)
+                | EventBody.ActorStart _
+                | EventBody.ActorStop _ -> true
+                | _ -> false)
+        Assert.False(lifecycle, "refused ?test wrote a lifecycle row")
         Assert.False(Set.contains runDefinitionId (pool.liveActorNodeIds ()))
         let! state =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
@@ -361,6 +362,13 @@ let ``?test Run admits the caller and queues ActorOrder`` () =
         | other -> Assert.Fail($"expected ActorSucceeded, got {other}")
         let! events = eventPast host |> Async.StartAsTask
         Assert.True(orderPosted events, "ActorOrder missing")
+        let deprecated =
+            events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStart _ -> true
+                | _ -> false)
+        Assert.False(deprecated, "StartActorDeprecated still queued")
         let! state =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
