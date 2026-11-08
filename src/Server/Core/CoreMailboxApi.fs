@@ -343,6 +343,23 @@ module CoreMailboxApi =
             return Result.map (fun _ -> ()) replied
         }
 
+    /// Place Order.StartActor from a supplied function. Reply is that EventId.
+    let coreMailboxStartActorFromFunction
+        (host: MailboxHost)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (actor: Gambol.Shared.ActorFunction)
+        (actorName: string)
+        (actorNodeIdOf: Gambol.Shared.ActorStart -> NodeId)
+        : Async<Result<EventId, string>> =
+        let order =
+            ActorOrderFromStart.orderFromStart
+                (fun _ _ -> actor)
+                actorName
+                actorNodeIdOf
+                request
+        MailboxHost.postActorOrder host caller order
+
     let startPeerActor
         (host: MailboxHost)
         (caller: Caller)

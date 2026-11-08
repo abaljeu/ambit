@@ -1,7 +1,10 @@
 module Gambol.Server.Tests.ActorOrderFromStartTests
 
+open System.Threading.Tasks
 open Xunit
+open Gambol.Server
 open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
 
 let private startWithDistinctIds () : ActorStart =
     let focusId = NodeId.New()
@@ -47,3 +50,59 @@ let ``orderFromStart sets actorNodeId from the selector and the actor name`` () 
         orderFor (fun item -> item.runDefinitionId) "query" start
     Assert.Equal(start.runDefinitionId, named.actorNodeId)
     Assert.Equal("query", named.actorName)
+
+[<Fact>]
+let ``coreMailboxStartActorFromFunction places StartActor from the selector`` () =
+    task {
+        let focusId = NodeId.New()
+        let runDefinitionId = NodeId.New()
+        Assert.NotEqual(focusId, runDefinitionId)
+        let request : ActorStart =
+            { zoomId = NodeId.New()
+              focusId = focusId
+              runDefinitionId = runDefinitionId
+              graphIds = []
+              eventId = EventId.zero }
+        let actor : ActorFunction =
+            fun _ _ -> async { return () }
+        let host, _ = createAdmittedFile (newTempDir ())
+        try
+            let! placed =
+                CoreMailboxApi.coreMailboxStartActorFromFunction
+                    host
+                    testCaller
+                    request
+                    actor
+                    "supplied"
+                    (fun start -> start.runDefinitionId)
+                |> Async.StartAsTask
+            let placedId =
+                match placed with
+                | Ok id -> id
+                | Error err -> failwith err
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let starts =
+                history.events
+                |> List.choose (fun event ->
+                    match event.body with
+                    | EventBody.Order (Order.StartActor order) ->
+                        Some (event.id, order)
+                    | _ -> None)
+            match starts with
+            | [ id, order ] ->
+                Assert.Equal(placedId, id)
+                Assert.Equal("supplied", order.actorName)
+                Assert.Equal(runDefinitionId, order.actorNodeId)
+            | other ->
+                Assert.Fail($"expected one StartActor, got {List.length other}")
+            let deprecated =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStart _ -> true
+                    | _ -> false)
+            Assert.False(deprecated)
+        finally
+            CoreMailboxApi.dispose host
+    }

@@ -36,9 +36,18 @@ let private withPersist persist body =
 let private filePersist () =
     FileAgent.persist (FileAgent.create (newTempDir ()))
 
-let private startRootActor host pool actorFn =
-    pool.register (ActorName "root") actorFn
-    CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
+let private startRootActor
+    (host: MailboxHost)
+    (pool: CoreActorPool)
+    (actor: Gambol.Shared.ActorFunction)
+    =
+    CoreMailboxApi.coreMailboxStartActorFromFunction
+        host
+        testCaller
+        sampleRequest
+        actor
+        "root"
+        (fun start -> start.focusId)
 
 [<Fact>]
 let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
@@ -47,46 +56,29 @@ let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
         { persist with
             handlers =
                 { persist.handlers with
-                    getEventId = fun () -> Error "revision unavailable" } }
-    let seen = TaskCompletionSource<string option>()
+                    graphAtEvent =
+                        fun () -> Error "revision unavailable" } }
+    let seen = TaskCompletionSource<Result<unit, string>>()
     withPersist filling (fun host pool -> task {
         let! started =
-            startRootActor host pool (fun _ coreChanges -> async {
-                try
-                    let! _ = CoreDoor.getEventId coreChanges
-                    seen.TrySetResult None |> ignore
-                with ex ->
-                    seen.TrySetResult (Some ex.Message) |> ignore
+            startRootActor host pool (fun _ changes -> async {
+                let! result = changes.graphAtEvent ()
+                let reported =
+                    match result with
+                    | Ok _ -> Ok ()
+                    | Error err -> Error err
+                seen.TrySetResult reported |> ignore
             })
             |> Async.StartAsTask
-        requireOk "startActor" started
+        requireOk "startActor" started |> ignore
         let! observed = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        Assert.Equal(Some "revision unavailable", observed)
-    })
-
-
-[<Fact>]
-let ``Actor isReady uses mailbox host isReady`` () =
-    let persist = filePersist ()
-    let filling = { persist with isReady = fun () -> false }
-    let seen = TaskCompletionSource<bool>()
-    withPersist filling (fun host pool -> task {
-        let doorReady = CoreDoor.isReady (CoreDoor.create true host testCaller)
-        let! started =
-            startRootActor host pool (fun _ coreChanges -> async {
-                seen.TrySetResult (CoreDoor.isReady coreChanges) |> ignore
-            })
-            |> Async.StartAsTask
-        requireOk "startActor" started
-        let! actorReady = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        Assert.False(doorReady)
-        Assert.False(actorReady)
+        Assert.Equal(Error "revision unavailable", observed)
     })
 
 [<Fact>]
 let ``Actor postChange on scheduled handle reaches persist`` () =
     let persist = filePersist ()
-    let seen = TaskCompletionSource<Result<CoreChangesAccepted, string>>()
+    let seen = TaskCompletionSource<Result<EventId, string>>()
     let childId = NodeId.New()
     let event =
         changeEvent
@@ -97,13 +89,20 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
               Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ]
     withPersist persist (fun host pool -> task {
         let! started =
-            startRootActor host pool (fun _ coreChanges -> async {
-                let! result = CoreDoor.postEvents coreChanges [ event ]
-                seen.TrySetResult result |> ignore
+            startRootActor host pool (fun _ changes -> async {
+                let! posted = changes.postChanges [ event ]
+                match posted with
+                | Error err ->
+                    seen.TrySetResult(Error err) |> ignore
+                | Ok () ->
+                    let! atEvent = changes.graphAtEvent ()
+                    let id =
+                        Result.map (fun state -> state.eventId) atEvent
+                    seen.TrySetResult id |> ignore
             })
             |> Async.StartAsTask
-        requireOk "startActor" started
+        requireOk "startActor" started |> ignore
         let! posted = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        let accepted = requireOk "actor post" posted
-        Assert.True(EventId.isAccepted accepted.eventId)
+        let eventId = requireOk "actor post" posted
+        Assert.True(EventId.isAccepted eventId)
     })
