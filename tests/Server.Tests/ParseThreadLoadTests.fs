@@ -199,7 +199,7 @@ let private deskLoadRequest (nodeId: NodeId) =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          actorNodeId = nodeId
+          runDefinitionId = nodeId
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 

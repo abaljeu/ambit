@@ -182,7 +182,7 @@ let ``edit then Run queues ActorStart behind the edit in one batch`` () =
     | [ edit; start ] ->
         match edit.body, start.body with
         | EventBody.Change _, EventBody.ActorStart request ->
-            Assert.Equal(focusId, request.actorNodeId)
+            Assert.Equal(focusId, request.runDefinitionId)
         | _ -> failwith "expected Change then ActorStart"
     | other -> failwith $"expected two pending, got %A{other}"
     let batches =
@@ -252,7 +252,7 @@ let ``edit then Run on an equals line queues ActorStart behind the edit`` () =
     | [ edit; start ] ->
         match edit.body, start.body with
         | EventBody.Change _, EventBody.ActorStart request ->
-            Assert.Equal(focusId, request.actorNodeId)
+            Assert.Equal(focusId, request.runDefinitionId)
             Assert.Equal(focusId, request.focusId)
         | _ -> failwith "expected Change then ActorStart"
     | other -> failwith $"expected two pending, got %A{other}"

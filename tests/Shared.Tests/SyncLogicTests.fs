@@ -260,7 +260,7 @@ let private actorStartEvent eventId focusId : Ev =
         EventBody.ActorStart
             { zoomId = focusId
               focusId = focusId
-              actorNodeId = NodeId.New()
+              runDefinitionId = NodeId.New()
               graphIds = [ focusId ]
               eventId = eventId } }
 

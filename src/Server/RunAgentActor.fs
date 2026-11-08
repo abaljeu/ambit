@@ -68,7 +68,7 @@ module RunAgentActor =
             input.focusId
 
     let private commandArgs keys repos (input: ActorInput) =
-        match Map.tryFind input.actorNodeId input.graph.nodes with
+        match Map.tryFind input.runDefinitionId input.graph.nodes with
         | None -> { Keyname = None; Reponame = None }
         | Some node -> AiCommandArgs.fromText keys repos node.text
 
@@ -94,7 +94,7 @@ module RunAgentActor =
                 err
 
     let private firstBehaviorToken (input: ActorInput) =
-        match Map.tryFind input.actorNodeId input.graph.nodes with
+        match Map.tryFind input.runDefinitionId input.graph.nodes with
         | None -> ""
         | Some node ->
             match AiKeys.tokensFromText node.text with
@@ -344,7 +344,7 @@ module RunAgentActor =
             let wakeArgs =
                 { Config = grok.Config
                   Text = promptAndExtract document
-                  CommandId = nodeGuid input.actorNodeId
+                  CommandId = nodeGuid input.runDefinitionId
                   FocusId = nodeGuid input.focusId
                   SessionId = sessionId
                   ResponseUrl = grok.ResponseUrl }

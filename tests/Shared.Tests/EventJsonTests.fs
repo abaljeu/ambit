@@ -48,7 +48,7 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     let start =
         { zoomId = zoom
           focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
-          actorNodeId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+          runDefinitionId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
     let started =
@@ -180,7 +180,7 @@ let ``An old undo redo or load row is skipped on read`` () =
 let ``An old actorStart or cancel row is skipped on read`` () =
     let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
     let zoom = "cccccccc-cccc-cccc-cccc-cccccccccccc"
-    let actorNodeId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    let runDefinitionId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
     let rows =
         [ "{\"eventId\":3,"
           + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
@@ -191,7 +191,7 @@ let ``An old actorStart or cancel row is skipped on read`` () =
           + "\",\"focusId\":\""
           + focusId
           + "\",\"commandId\":\""
-          + actorNodeId
+          + runDefinitionId
           + "\",\"graphIds\":[\""
           + zoom
           + "\"],\"eventId\":4}}"
@@ -364,12 +364,12 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
     let zoom =
         NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
-    let actorNodeId =
+    let runDefinitionId =
         NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
     let start =
         { zoomId = zoom
           focusId = focusId
-          actorNodeId = actorNodeId
+          runDefinitionId = runDefinitionId
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
     let ops = [ Op.SetText(nodeId, "old", "new") ]
@@ -401,7 +401,7 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let other : ActorFunction = fun _ _ -> async.Return ()
     let order actor =
         { actor = actor
-          focusId = focusId
+          actorNodeId = focusId
           actorName = "hello" }
     let jsonOf actor =
         Enc.toString 0 (EventJson.encodeActorOrder (order actor))
@@ -409,7 +409,7 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     match EventJson.decodeActorOrder (jsonOf live) with
     | Error err -> Assert.Fail(err)
     | Ok decoded ->
-        Assert.Equal(focusId, decoded.focusId)
+        Assert.Equal(focusId, decoded.actorNodeId)
         Assert.Equal("hello", decoded.actorName)
         Assert.False(ran)
     let event =
@@ -418,7 +418,7 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
             body = EventBody.Order(Order.StartActor (order live)) }
     match (roundTrip event).body with
     | EventBody.Order (Order.StartActor decoded) ->
-        Assert.Equal(focusId, decoded.focusId)
+        Assert.Equal(focusId, decoded.actorNodeId)
         Assert.Equal("hello", decoded.actorName)
         Assert.False(ran)
     | _ -> Assert.Fail("expected ActorOrder")

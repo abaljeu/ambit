@@ -114,12 +114,12 @@ module CommandRequest =
         (siteMap: SiteMap)
         (zoomId: NodeId)
         (focusId: NodeId)
-        (actorNodeId: NodeId)
+        (runDefinitionId: NodeId)
         (eventId: EventId)
         : ActorStart =
         { zoomId = zoomId
           focusId = focusId
-          actorNodeId = actorNodeId
+          runDefinitionId = runDefinitionId
           graphIds = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
           eventId = eventId }
 
@@ -133,12 +133,12 @@ module CommandRequest =
         : Result<ActorStart, string> =
         match actorNodeOnOwnerPath graph focusId zoomId with
         | None -> Error noRunnableActor
-        | Some actorNodeId ->
+        | Some runDefinitionId ->
             Ok
                 (actorStart
-                    graph siteMap zoomId focusId actorNodeId eventId)
+                    graph siteMap zoomId focusId runDefinitionId eventId)
 
-    /// Run on a query line. `focusId` and `actorNodeId` are that line.
+    /// Run on a query line. `focusId` and `runDefinitionId` are that line.
     let tryQueryStart
         (graph: Graph)
         (siteMap: SiteMap)

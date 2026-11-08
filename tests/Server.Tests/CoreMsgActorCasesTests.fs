@@ -20,7 +20,7 @@ let private requireOk label result =
 let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      actorNodeId = Graph.rootId
+      runDefinitionId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
@@ -99,7 +99,7 @@ let ``StartActor with live credentials calls startActor with ActorStart`` () =
         let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         Assert.Equal(sampleRequest.zoomId, handed.zoomId)
         Assert.Equal(sampleRequest.focusId, handed.focusId)
-        Assert.Equal(sampleRequest.actorNodeId, handed.actorNodeId)
+        Assert.Equal(sampleRequest.runDefinitionId, handed.runDefinitionId)
         Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
         Assert.Equal(sampleRequest.eventId, handed.eventId)
     })
@@ -419,7 +419,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
             async.Return ()
     let order =
         { actor = actor
-          focusId = focusId
+          actorNodeId = focusId
           actorName = "test" }
     try
         let! placed =
@@ -439,7 +439,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
                 |> List.filter (fun event ->
                     match event.body with
                     | EventBody.Order (Order.StartActor found) ->
-                        found.focusId = focusId
+                        found.actorNodeId = focusId
                     | _ -> false)
             match stored with
             | [ event ] ->

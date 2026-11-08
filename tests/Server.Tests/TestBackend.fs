@@ -134,9 +134,9 @@ let postTestActorOrder (host: MailboxHost) (request: ActorStart) =
     let order =
         { actor =
             TestActor.functionActorAt
-                request.actorNodeId
+                request.runDefinitionId
                 request.focusId
-          focusId = request.focusId
+          actorNodeId = request.focusId
           actorName = "test" }
     MailboxHost.postActorOrder host testCaller order
     |> Async.StartAsTask

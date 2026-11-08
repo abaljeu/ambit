@@ -25,7 +25,7 @@ let private request operation prePick nodeId eventId =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          actorNodeId = nodeId
+          runDefinitionId = nodeId
           graphIds = [ Graph.rootId; nodeId ]
           eventId = eventId } }
 
@@ -95,7 +95,7 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
 
 type private Seed =
     { workspaceId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       focusId: NodeId
       eventId: EventId }
 
@@ -186,23 +186,23 @@ let private markCurrent host nodeId =
 let private seedWorkspace host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let actorNodeId, focusId = NodeId.New(), NodeId.New()
+    let runDefinitionId, focusId = NodeId.New(), NodeId.New()
     postSeed host workspaceOps |> ignore
     let graph = markCurrent host workspaceId
     let children = Graph.children graph workspaceId
     let accepted =
         postSeed
             host
-            [ Op.NewNode(actorNodeId, operationName)
+            [ Op.NewNode(runDefinitionId, operationName)
               Op.NewNode(focusId, "focus")
               Op.Replace(
                   workspaceId,
                   children,
                   children
-                  @ [ ChildNode.owner actorNodeId
+                  @ [ ChildNode.owner runDefinitionId
                       ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
-      actorNodeId = actorNodeId
+      runDefinitionId = runDefinitionId
       focusId = focusId
       eventId = accepted.eventId }
 
@@ -243,12 +243,12 @@ let private requestFor operation prePick seed =
       start =
         { zoomId = seed.workspaceId
           focusId = seed.focusId
-          actorNodeId = seed.actorNodeId
+          runDefinitionId = seed.runDefinitionId
           graphIds =
             [ Graph.rootId
               Graph.workspacesId
               seed.workspaceId
-              seed.actorNodeId
+              seed.runDefinitionId
               seed.focusId ]
           eventId = seed.eventId } }
 
@@ -941,7 +941,7 @@ let ``Desk load-save places its order and runs no Actor`` () = task {
             |> List.filter (fun event ->
                 match event.body with
                 | EventBody.Order (Order.StartActor found) ->
-                    found.focusId = nodeId && found.actorName = ""
+                    found.actorNodeId = nodeId && found.actorName = ""
                 | _ -> false)
         match stored with
         | [ event ] -> Assert.Equal(testAuthority, event.authority)

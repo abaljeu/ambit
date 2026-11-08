@@ -11,7 +11,7 @@ open Gambol.Server.Tests.TestBackend
 
 type SeededAsk =
     { zoomId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       graphIds: NodeId list }
 
 let private requireOk label result =
@@ -99,10 +99,10 @@ let private graphState host =
         return requireOk "getState" state
     }
 
-let private sampleRequest zoomId focusId actorNodeId graphIds : ActorStart =
+let private sampleRequest zoomId focusId runDefinitionId graphIds : ActorStart =
     { zoomId = zoomId
       focusId = focusId
-      actorNodeId = actorNodeId
+      runDefinitionId = runDefinitionId
       graphIds = graphIds
       eventId = EventId.zero }
 
@@ -218,7 +218,7 @@ let askRequest (seeded: SeededAsk) =
     sampleRequest
         seeded.zoomId
         seeded.zoomId
-        seeded.actorNodeId
+        seeded.runDefinitionId
         seeded.graphIds
 
 let ownedTexts (graph: Graph) focusId =
@@ -266,11 +266,11 @@ let private postBrowserChange host label ops =
 let seedAskTree host commandText =
     task {
         let zoomId = NodeId.New()
-        let actorNodeId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let noteId = NodeId.New()
         let ops =
             [ Op.NewNode(zoomId, "zoom")
-              Op.NewNode(actorNodeId, commandText)
+              Op.NewNode(runDefinitionId, commandText)
               Op.NewNode(noteId, "visible-context")
               Op.Replace(
                   Graph.rootId,
@@ -279,13 +279,13 @@ let seedAskTree host commandText =
               Op.Replace(
                   zoomId,
                   [],
-                  [ ChildNode.owner actorNodeId
+                  [ ChildNode.owner runDefinitionId
                     ChildNode.owner noteId ]) ]
         do! postBrowserChange host "seed" ops
         return
             { zoomId = zoomId
-              actorNodeId = actorNodeId
-              graphIds = [ zoomId; actorNodeId; noteId ] }
+              runDefinitionId = runDefinitionId
+              graphIds = [ zoomId; runDefinitionId; noteId ] }
     }
 
 /// Ask start for `?ai`. The first body calls `startActor`.
@@ -317,22 +317,22 @@ let startLiveAsk host pool commandText =
 
 let seedCommand host text =
     task {
-        let actorNodeId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let ops =
-            [ Op.NewNode(actorNodeId, text)
+            [ Op.NewNode(runDefinitionId, text)
               Op.Replace(
                   Graph.rootId,
                   [],
-                  [ ChildNode.owner actorNodeId ]) ]
+                  [ ChildNode.owner runDefinitionId ]) ]
         do! postBrowserChange host "seed command" ops
-        return actorNodeId
+        return runDefinitionId
     }
 
-let startOnCommand host actorNodeId =
+let startOnCommand host runDefinitionId =
     task {
         let request =
             sampleRequest
-                actorNodeId actorNodeId actorNodeId [ actorNodeId ]
+                runDefinitionId runDefinitionId runDefinitionId [ runDefinitionId ]
         let! result =
             CoreMailboxApi.coreMailboxStartActor host testCaller request
             |> Async.StartAsTask
@@ -510,36 +510,36 @@ let postOwnedChild host focusId text =
 
 let private seedBrowserCommand host commandText =
     task {
-        let actorNodeId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let noteId = NodeId.New()
         let ops =
-            [ Op.NewNode(actorNodeId, commandText)
+            [ Op.NewNode(runDefinitionId, commandText)
               Op.NewNode(noteId, "visible-context")
               Op.Replace(
                   Graph.rootId,
                   [],
-                  [ ChildNode.owner actorNodeId ])
+                  [ ChildNode.owner runDefinitionId ])
               Op.Replace(
-                  actorNodeId,
+                  runDefinitionId,
                   [],
                   [ ChildNode.owner noteId ]) ]
         do! postBrowserChange host "seed Browser Command" ops
-        return actorNodeId
+        return runDefinitionId
     }
 
-let private startBrowserAsk host actorNodeId =
+let private startBrowserAsk host runDefinitionId =
     task {
         let! state = graphState host
         let siteMap, _ =
             ViewModel.buildSiteMapFrom
                 state.graph
-                actorNodeId
+                runDefinitionId
                 (Sid 0)
         let request =
             CommandRequest.oneNodeStart
                 state.graph
                 siteMap
-                actorNodeId
+                runDefinitionId
                 state.eventId
         let! result = startAiRun host request
         requireOk "startAiRun" result
@@ -553,9 +553,9 @@ type BrowserAskLaunch =
 
 let launchBrowserAsk host commandText =
     task {
-        let! actorNodeId = seedBrowserCommand host commandText
+        let! runDefinitionId = seedBrowserCommand host commandText
         let! state = graphState host
-        let! request = startBrowserAsk host actorNodeId
+        let! request = startBrowserAsk host runDefinitionId
         return
             { request = request
               pollAfter = state.eventId
@@ -567,7 +567,7 @@ let pollEventsSince host afterId =
     |> Async.StartAsTask
 
 let expectOneNodeStart (request: ActorStart) =
-    Assert.Equal(request.actorNodeId, request.zoomId)
-    Assert.Equal(request.actorNodeId, request.focusId)
-    Assert.Contains(request.actorNodeId, request.graphIds)
+    Assert.Equal(request.runDefinitionId, request.zoomId)
+    Assert.Equal(request.runDefinitionId, request.focusId)
+    Assert.Contains(request.runDefinitionId, request.graphIds)
 

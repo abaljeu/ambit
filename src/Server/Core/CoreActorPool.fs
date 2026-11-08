@@ -8,7 +8,7 @@ type ActorInput =
     { graph: Graph
       zoomId: NodeId
       focusId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       sessionId: string
       secret: Credential }
 
@@ -77,7 +77,7 @@ module CoreActorPool =
 
     type private LiveRow =
         { focusId: NodeId
-          actorNodeId: NodeId
+          runDefinitionId: NodeId
           sessionId: string
           inbox: string list
           cancel: System.Threading.CancellationTokenSource
@@ -149,9 +149,9 @@ module CoreActorPool =
         Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
-    let private commandIsLive (model: Model) actorNodeId =
+    let private commandIsLive (model: Model) runDefinitionId =
         model.live
-        |> Map.exists (fun _ row -> row.actorNodeId = actorNodeId)
+        |> Map.exists (fun _ row -> row.runDefinitionId = runDefinitionId)
 
     let private admitStart request (model: Model) =
         if request.graphIds.IsEmpty then
@@ -159,7 +159,7 @@ module CoreActorPool =
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
         elif Set.contains request.focusId (liveFocusIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.actorNodeId then
+        elif commandIsLive model request.runDefinitionId then
             Error "command already has a live Actor"
         else
             Ok()
@@ -179,13 +179,13 @@ module CoreActorPool =
             { graph = actorGraph
               zoomId = request.zoomId
               focusId = request.focusId
-              actorNodeId = request.actorNodeId
+              runDefinitionId = request.runDefinitionId
               sessionId = sessionId
               secret = secret }
         putLive
             secret
             request.focusId
-            request.actorNodeId
+            request.runDefinitionId
             sessionId
             (BagPending(actorFn, input))
         Ok secret
@@ -196,7 +196,7 @@ module CoreActorPool =
         | Error err -> Error (StartError.Rejected err)
         | Ok() ->
             let actorGraph = actorGraphFrom fullGraph request
-            match Map.tryFind request.actorNodeId actorGraph.nodes with
+            match Map.tryFind request.runDefinitionId actorGraph.nodes with
             | None ->
                 Error (
                     StartError.Rejected
@@ -317,10 +317,10 @@ module CoreActorPool =
               live = Map.empty
               bySession = Map.empty }
         let getModel () = model
-        let putLive secret focusId actorNodeId sessionId pending =
+        let putLive secret focusId runDefinitionId sessionId pending =
             let row =
                 { focusId = focusId
-                  actorNodeId = actorNodeId
+                  runDefinitionId = runDefinitionId
                   sessionId = sessionId
                   inbox = []
                   cancel = new System.Threading.CancellationTokenSource()

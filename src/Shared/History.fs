@@ -26,7 +26,7 @@ type ActorResult =
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       graphIds: NodeId list
       eventId: EventId }
 
@@ -96,18 +96,18 @@ and ActorChanges =
 
 and [<CustomEquality; NoComparison>] ActorOrder =
     { actor: ActorFunction
-      focusId: NodeId
+      actorNodeId: NodeId
       actorName: string }
 
     override this.Equals(other: obj) =
         match other with
         | :? ActorOrder as that ->
-            this.focusId = that.focusId
+            this.actorNodeId = that.actorNodeId
             && this.actorName = that.actorName
         | _ -> false
 
     override this.GetHashCode() =
-        hash (this.focusId, this.actorName)
+        hash (this.actorNodeId, this.actorName)
 
 and [<RequireQualifiedAccess>] Order =
     | Change of ops: Op list * origin: ChangeOrigin

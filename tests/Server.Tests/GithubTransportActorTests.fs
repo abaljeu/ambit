@@ -55,7 +55,7 @@ let private postGraph host ops =
 
 type private Seed =
     { workspaceId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       focusId: NodeId }
 
 let private markCurrent host nodeId =
@@ -74,23 +74,23 @@ let private markCurrent host nodeId =
 let private seedOperation host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let actorNodeId = NodeId.New()
+    let runDefinitionId = NodeId.New()
     let focusId = NodeId.New()
     postGraph host workspaceOps
     let graph = markCurrent host workspaceId
     let children = Graph.children graph workspaceId
     postGraph
         host
-        [ Op.NewNode(actorNodeId, operationName)
+        [ Op.NewNode(runDefinitionId, operationName)
           Op.NewNode(focusId, "subnode")
           Op.Replace(
               workspaceId,
               children,
               children
-              @ [ ChildNode.owner actorNodeId
+              @ [ ChildNode.owner runDefinitionId
                   ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
-      actorNodeId = actorNodeId
+      runDefinitionId = runDefinitionId
       focusId = focusId }
 
 let rec private waitForStop host focusId remainingMs =
@@ -116,12 +116,12 @@ let rec private waitForStop host focusId remainingMs =
 let private request seed =
     { zoomId = seed.workspaceId
       focusId = seed.focusId
-      actorNodeId = seed.actorNodeId
+      runDefinitionId = seed.runDefinitionId
       graphIds =
         [ Graph.rootId
           Graph.workspacesId
           seed.workspaceId
-          seed.actorNodeId
+          seed.runDefinitionId
           seed.focusId ]
       eventId = EventId.zero }
 

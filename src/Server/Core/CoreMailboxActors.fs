@@ -238,9 +238,9 @@ module internal CoreMailboxActors =
             let order =
                 { actor =
                     TestActor.functionActorAt
-                        request.actorNodeId
+                        request.runDefinitionId
                         request.focusId
-                  focusId = request.focusId
+                  actorNodeId = request.focusId
                   actorName = "test" }
             let host = (make caller).host
             let dispatch =
@@ -305,7 +305,7 @@ module internal CoreMailboxActors =
         | Some stored ->
             CoreMailboxEvents.replyStored reply stored
         | None ->
-            match actorNameOn context request.actorNodeId with
+            match actorNameOn context request.runDefinitionId with
             | Some "test" ->
                 queueTestOrder context caller event request reply
             | _ ->

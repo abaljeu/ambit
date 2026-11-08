@@ -38,7 +38,7 @@ module internal CoreMailboxLoad =
         =
         let order =
             { actor = EventJson.stubActor
-              focusId = request.start.focusId
+              actorNodeId = request.start.focusId
               actorName = "" }
         CoreEventDispatch.appendLifecycle
             (CoreMailboxEvents.eventDispatchContext context)

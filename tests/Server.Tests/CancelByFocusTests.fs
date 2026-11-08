@@ -74,8 +74,8 @@ type CancelByFocusTests() =
         let posted, probe = postChildThenWait "kept-change"
         withHost (fun host pool -> task {
             registerActor pool "probe" probe
-            let! actorNodeId = seedCommand host "?probe"
-            let! request = startOnCommand host actorNodeId
+            let! runDefinitionId = seedCommand host "?probe"
+            let! request = startOnCommand host runDefinitionId
             do! awaitHang posted
             do! cancelFocus host request.focusId
             do! expectActorCancelled host pool request.focusId
