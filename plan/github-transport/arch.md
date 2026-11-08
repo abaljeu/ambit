@@ -1,7 +1,7 @@
 # github-transport architecture
 
 Spec: [[spec.md]]
-Updated: 2026-10-14
+Updated: 2026-11-08
 Sequence: module-build
 
 Sources: 
@@ -34,7 +34,7 @@ Sources:
 
 5. **Same tracked branch**
    1. [x] git Load pulls the current tracked branch of the whole Workspace work tree
-   2. [x] git Save commits work-tree edits, then pushes the same tracked branch of the whole Workspace work tree
+   2. [x] git Save follows Solution 11 — git Save sequence on that same tracked branch of the whole Workspace work tree.
    3. [x] Neither hop is file-level git
    4. [x] Neither hop checkouts, switches, or moves to an older commit
 
@@ -85,13 +85,7 @@ Sources:
     13. [ ] Thin remainder: lock workspace, receive files, inform revised Core ([[plan/core-refinement/project.md]] owns how Core works through changes)
 
 11. **git Save**
-    1. [x] Person names git Save (explicit pre-pick)
-    2. [x] PathPick is skipped
-    3. [x] Same mailbox → actor-pool door as Load; Actor uses Focus as the work tree
-    4. [x] Server Actor `git commit`s the work-tree edits (`GitSave.commitAll`)
-    5. [x] Then pushes the whole Workspace work tree / same tracked branch (invocation node does not narrow git)
-    6. [x] Does not invoke or replace Graph→file Persist
-    7. [x] Reject uses condensed git error (conflict names at least one path)
+    1. [o] This story is retired. The sequence is Solution 11 — git Save sequence.
 
 12. **desk Load**
     1. [x] Person names desk Load (explicit pre-pick)
@@ -180,16 +174,13 @@ Sources:
     4. [x] Same reject wording for Load and Save. That wording does not mean pull is fast-forward
 
 27. **Persist stays independent of git Save**
-    1. [x] Graph→file Persist already runs on its own path
-    2. [x] git Save does not own or replace Persist
-    3. [x] git Save composition is `git commit` of work-tree edits, then push
-    4. [x] Do not merge Persist into git Save
+    1. [o] This story is retired. The sequence is Solution 11 — git Save sequence.
 
 Shared segments:
 1. [x] Command Load and Save doors ([[src/Shared/CommandEntry.fs]], [[src/Client/Commands.fs]])
 2. [x] PathPick (plain Load/Save only)
 3. [x] WorkspaceGit remote-exists + tracked branch + pull/push
-4. [x] Server Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save = commit then push)
+4. [x] Server Actor git Load / git Save (mailbox → actor pool; Focus = work tree; git Save is Solution 11 — git Save sequence)
 5. [x] Desk WebDAV / `loadOp` / desk Save ([[src/Shared/dotnet/WorkspaceFileSync.fs]], [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]])
 6. [x] Host GitRun (no Ambit credential store)
 7. [x] Load informs Core after files land (today’s Parse / graph-push hop until [[plan/core-refinement/project.md]] retargets). Fetch+Poll stays
@@ -251,12 +242,12 @@ Narrowest shared test seam:
       9. [x] A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. git writes no conflict markers. That path is resolved to the remote action so the merge commit can be created.
       10. [x] The merge commit includes the remote tip, so a later git Save fast-forwards.
       11. [x] The work tree holds that merge.
-      12. [x] git Save: `git commit` work-tree edits (`GitSave.commitAll`), then push the same tracked branch of the whole Workspace work tree; reject conflicted or non-FF; never file-level git
+      12. [x] git Save is Solution 11 — git Save sequence.
       13. [x] Skip list is `.gitignore` on that work tree (person edits that file; no Ambit skip key)
       14. [x] Reject error: conflict names at least one file path; other failures a matching short git-condensed message
       15. [x] No checkout, switch, or older-commit move
       16. [x] No GitHub credential argument
-      17. [x] Does not invoke Graph→file Persist
+      17. [o] The Graph→file Persist exclusion is retired. The sequence is Solution 11 — git Save sequence.
       18. [x] Persist file writes, git Load pull, and git Save commit acquire and release the Workspace work-tree gate — **superseded**; not current required interface
       19. [x] A second caller waits for the gate and continues after release instead of rejecting as busy — **superseded**
    3. Uses
@@ -275,7 +266,7 @@ Narrowest shared test seam:
       4. [x] After git Load, the Server Actor informs Core that files changed.
       5. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
       6. [x] Commit-before-pull already happens.
-      7. [x] git Save: `git commit` work-tree edits, then push whole Workspace work tree / same tracked branch; FF-only reject; never file-level git; Persist stays independent
+      7. [x] git Save is Solution 11 — git Save sequence.
       8. [x] Reject UX: conflict names at least one file path; other failures a matching short git-condensed error; same reject wording for Load and Save. That wording does not mean pull is fast-forward
       9. [x] Same Actor shape for every device that maps through Server
       10. [x] Invokes WorkspaceGit; does not call git with an Ambit-supplied token
@@ -322,19 +313,19 @@ Narrowest shared test seam:
    1. [x] `remoteExists` + tracked branch
    2. [x] push stays fast-forward-only.
    3. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-   4. [x] git Save: commit work-tree edits, then push
+   4. [x] git Save is Solution 11 — git Save sequence.
    5. [x] skip list is `.gitignore`
    6. [x] reject text: conflict names a path; other failures short git-condensed
    7. [x] no credential parameter
-   8. [x] no Persist call
+   8. [o] The no-Persist call line is retired. The sequence is Solution 11 — git Save sequence.
    9. [x] one gate per Workspace; a second Persist, pull, or commit waits for the holder and continues after release — **revoked 2026-09-28**; not current required seam
 
 3. **Server Actor git Load/Save**
    Interface on **Server Actor**. Tests stub WorkspaceGit. Start door is mailbox → actor pool from Load/Save ([07 — Actor start door](issues/07-actor-start-door.md)).
    1. [x] The Load or Save core message reaches the pool, which invokes the Actor; Focus names the work tree
    2. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
-   3. [x] git Save → commit work-tree edits, then push
-   4. [x] Persist is not invoked from git Save
+   3. [x] git Save is Solution 11 — git Save sequence.
+   4. [o] The line that kept Persist off git Save is retired. The sequence is Solution 11 — git Save sequence.
    5. [x] reject UX same wording for Load and Save. That wording does not mean pull is fast-forward
    6. [x] no Ambit credential store
    7. [x] pull and commit acquire and release the Workspace work-tree gate — **superseded**; exclusive gate revoked
@@ -359,7 +350,7 @@ Narrowest shared test seam:
 7. **File-level git** — pull or push a file or subtree because Load/Save was invoked on a subnode. Rejected: [05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md).
 8. **Run / `?git` entrée** — Start the Server Actor from Run or a `?git` Command. Rejected: [07 — Actor start door](issues/07-actor-start-door.md); door is Load or Save via mailbox → actor pool.
 9. **Ambit skip key** — A special Ambit config key for `.amb` skip. Rejected: [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md); skip list is `.gitignore`.
-10. **Merge Persist into git Save** — Make git Save own or replace Graph→file Persist. Rejected: [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); Persist already happens independently; composition is `git commit` then push.
+10. **Merge Persist into git Save** — This alternative is retired. The sequence is Solution 11 — git Save sequence.
 
 ## 5. Unsettled
 

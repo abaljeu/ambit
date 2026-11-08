@@ -1,8 +1,8 @@
 # github-transport
 
-Updated: 2026-10-14
+Updated: 2026-11-08
 
-Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); [project.md](project.md). Core handoff after files land: [[plan/core-refinement/project.md]]. Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes transport locks. It does not invent new product behavior.
+Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md); [project.md](project.md). Core handoff after files land: [[plan/core-refinement/project.md]]. Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes transport locks. It does not invent new product behavior.
 
 ## 1. Problem Statement
 
@@ -23,7 +23,14 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 8. **Host git credentials** — Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir. The Actor invokes `git`. git loads credentials (credential helper / host setup). On Server that is the host’s git.
 9. **Skip list is `.gitignore`** — No special Ambit config key. Skip on the GitHub remote is whatever `.gitignore` already says; the person edits that file. When `.amb` or other notes are listed there, they are skipped on the remote. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote.
 10. **Git Load/Save are Workspace-scoped** — When git Load or git Save runs, including explicit git Load from a subnode, pull/push operates on the whole Workspace work tree / tracked branch — never file-level git. Plain Load of a File or a Directory does not start that actor. After files land, inform Core ([[plan/core-refinement/project.md]]).
-11. **git Save is commit then push** — git Save is `git commit` of the work-tree edits, then push. Graph→file Persist already happens independently. git Save does not own or replace Persist. Do not merge Persist into git Save. git Load commits its merge as part of the pull. That merge commit is not a new Save. Commit-before-pull already happens. This lock adds no commit step before the merge.
+11. **git Save sequence** — git Save runs these stages, in this order.
+
+    - persist focus
+    - commit
+    - pull
+    - push
+
+    Pull uses the same resolution as Solution 4 — Fast-forward push, remote-wins pull. A conflict is merged automatically. A conflict alone leaves the pull successful.
 
 ## 3. User Stories
 
@@ -37,7 +44,7 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 8. **Load** — As a person, I want the Load command to send a core message through the mailbox, so that the Server Actor runs when PathPick chooses git. A desk Load's subject is a Workspace Node, a Directory Node, or a File Node. The parse push marks that subject Unparsed, then pushes it onto the parse stack. The mailbox posts Events. The Load command does not send a Command or an Event.
 9. **Save** — As a person, I want Command Save to use the same mailbox → actor-pool wiring as Load, so that the Server Actor runs when PathPick chooses git.
 10. **git Load** — As a person, I want an explicit git Load pre-pick, so that I merge the tracked remote branch of the whole Workspace work tree (even from a subnode) and commit that merge as part of the pull, then inform Core that files changed. Content conflicts and edit-versus-delete resolve to the remote action, with no conflict markers. A Server edit and a remote delete remove the file. A Server delete and a remote edit leave the remote file. Pull is not fast-forward-only.
-11. **git Save** — As a person, I want an explicit git Save pre-pick, so that I `git commit` the work-tree edits and then push the whole Workspace work tree / tracked branch (even from a subnode), never file-level git.
+11. **git Save** — This story is retired. The sequence is Solution 11 — git Save sequence.
 12. **desk Load** — As a person, I want an explicit desk Load pre-pick, so that the Load command sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it onto the parse stack. The mailbox posts Events. Desktop-mapped WebDAV stays [26 — Desk WebDAV](issues/26-desk-webdav.md).
 13. **desk Save** — As a person, I want an explicit desk Save pre-pick, so that I take the desk file path when I choose desk.
 14. **Plain Load prefers git** — As a person, I want plain Load of a Workspace Node to start the git actor when a remote exists and to use desk Load otherwise, so that I do not pick a path when the default is enough. Plain Load of a File Node or a Directory Node stays the parse-stack path even when a remote exists. A selected node inside a File Node uses that owning File Node, and several selected nodes in one File Node yield one message. Explicit git Load still pulls the Workspace.
@@ -53,7 +60,7 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 24. **Workspace-scoped git** — As a person, I want git Load and git Save to always pull or push the whole Workspace work tree / tracked branch, so that invoking Load/Save from a subnode never becomes file-level git.
 25. **Actor start door** — As a person, I want Load or Save (not Run, not `?git`) to start the Server Actor through mailbox → actor pool, so that Focus names the work tree and Save uses the same door as Load.
 26. **Reject UX** — As a person, I want a conflict reject to name at least one file path and other failures to show a matching short git-condensed error, so that Load and Save rejects reflect what git reported. That wording covers network, credentials, a missing remote, and a non-fast-forward push. It does not mean pull is fast-forward.
-27. **Persist stays independent of git Save** — As a person, I want Graph→file Persist to keep running on its own path, so that git Save only commits work-tree edits and then pushes, and does not own or replace Persist. git Load's merge commit is part of the pull. It is not Persist and not a new Save.
+27. **Persist stays independent of git Save** — This story is retired. The sequence is Solution 11 — git Save sequence.
 
 ## 4. Out of Scope
 
@@ -65,7 +72,7 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 6. **Want-driven Graph→Browser** — This spec does not change residency. That work stays [[plan/browser-residency/project.md]].
 7. **workspace-git command surface** — This spec does not inherit [[plan/workspace-git/project.md]] Git Remote / Git Pull / Git Push as the primary surface, and does not inherit that spec’s non-FF accept.
 8. **Run / `?git` entrée** — This spec does not start the Server Actor from Run or a `?git` Command. The door is Load or Save ([07 — Actor start door](issues/07-actor-start-door.md)).
-9. **Merge Persist into git Save** — This spec does not merge Graph→file Persist into git Save. Persist stays independent. git Save is `git commit` of work-tree edits, then push ([10 — git Save is commit then push](issues/10-git-save-commit-then-push.md)).
+9. **Merge Persist into git Save** — This item is retired. The sequence is Solution 11 — git Save sequence.
 10. **File-level git** — This spec does not pull or push a file or subtree as a git path. Git Load/Save are Workspace-scoped ([05 — Git Load/Save are Workspace-scoped](issues/05-git-load-save-workspace-scoped.md)).
 
 ## 5. Further Notes
@@ -75,6 +82,6 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 3. **Cite** — [[src/Server/WorkspaceGit.fs]] (`ensurePushConfig` / `receive.denyNonFastForwards`). Implemented WebDAV Upload / Download: [[doc/current/workspace-file-sync.md]].
 4. **Architecture** — [[arch.md]]. Sequence `module-build`.
 5. **Start door, reject UX, `.gitignore` (2026-09-26)** — Alan, Github Sync room: mailbox → actor pool from Load/Save; condensed git errors (conflict names a path); skip list is `.gitignore` with no Ambit key.
-6. **git Save is commit then push (2026-09-26)** — Alan, Github Sync: git Save is `git commit` of work-tree edits, then push. Persist stays independent. Do not merge Persist into git Save.
+6. **git Save is commit then push (2026-09-26)** — This note is retired. The sequence is Solution 11 — git Save sequence.
 7. **Split to core-refinement (2026-09-29)** — Alan: after [[plan/core-refinement/project.md]] completes, this Project only locks the workspace, receives files, and informs Core. Core works through the changes.
 8. **Remote-wins pull (2026-10-14)** — Alan, Github Sync: git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull. Content conflicts resolve to the remote file, with no conflict markers. An edit-versus-delete is remote-wins, the same rule: a Server edit and a remote delete remove the file; a Server delete and a remote edit leave the remote file. The unmerged edit/delete path is resolved to that remote action so the merge commit can be created. Pull is not fast-forward-only and not a reset to the remote tip. git push stays fast-forward-only. Commit-before-pull already happens. The merge commit is not a new Save. The parse merge of the pulled file with the Server graph stays on [[plan/core-refinement/project.md]]. Solution item 4 — Fast-forward push, remote-wins pull.

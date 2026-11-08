@@ -24,13 +24,13 @@ Blockers:
 [ ] **Save step** — `runSaveStep` takes `workspaceId` and calls `saveTracked` on the work-tree root.
 [ ] **Save git calls** — `saveTracked` calls `commitAll` with the message "gambol: git Save", then `pushTracked`.
 [ ] **Read point** — The observations below are from staging commit `fcc01cd0`.
-[ ] **Prior lock** — [10 — git Save is commit then push](10-git-save-commit-then-push.md) stays as written.
+[ ] **Prior lock** — [10 — git Save is commit then push](10-git-save-commit-then-push.md) is retired.
 
 ### Reference
 
 [ ] **Rename translation** — [StartActorDeprecated gap](../../actor-as-client/reports/startactor-deprecated-gap.md).
 [ ] **Load and Save functions note** — [Git Load and Save actor functions](../../actor-as-client/reports/git-load-and-save-actor-functions.md).
-[ ] **Spec item 11** — [github-transport spec](../spec.md). This ticket leaves that spec as written.
+[ ] **Solution 11 — git Save sequence** — [github-transport spec](../spec.md) states that sequence.
 
 ## Reported
 
@@ -69,7 +69,7 @@ Blockers:
 [ ] **Other path** — Desk Save, and the path Alan isolates higher up, stay out of this ticket.
 [ ] **Other agent's note** — A dated definition note under `plan/actor-as-client` stays with the other agent.
 [ ] **Named reports** — The StartActorDeprecated gap report and the Git Load and Save actor functions note stay as they are.
-[ ] **Prior lock file** — 10 — git Save is commit then push, the spec, and the map decision that records that lock stay as they are.
+[ ] **Prior lock file** — 10 — git Save is commit then push is retired. The spec and the map record Solution 11 — git Save sequence.
 [ ] **Source** — This filing writes the ticket, the project note, and the map pointer.
 [ ] **Stage text** — The sequence stays persist focus, commit, pull, push. Pull keeps Load's resolution process.
 
