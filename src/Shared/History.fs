@@ -92,7 +92,9 @@ and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
-      loadNode: NodeId -> Async<Result<EventId, string>> }
+      loadNode: NodeId -> Async<Result<EventId, string>>
+      postNotice: Notice -> unit
+      postGraphOnly: Ev -> Async<Result<unit, string>> }
 
 and [<CustomEquality; NoComparison>] ActorOrder =
     { actor: ActorFunction

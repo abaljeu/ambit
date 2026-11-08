@@ -41,13 +41,15 @@ let private startRootActor
     (pool: CoreActorPool)
     (actor: Gambol.Shared.ActorFunction)
     =
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = sampleRequest
+          actor = actor
+          actorName = "root"
+          actorNodeIdOf = fun start -> start.focusId }
     CoreMailboxApi.coreMailboxStartActorFromFunction
         host
         testCaller
-        sampleRequest
-        actor
-        "root"
-        (fun start -> start.focusId)
+        placement
 
 [<Fact>]
 let ``Actor getEventId surfaces persist error instead of Revision 0`` () =

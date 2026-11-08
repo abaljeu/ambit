@@ -41,6 +41,8 @@ module ActorLive =
 
     let applyEvent (event: Ev) (live: Set<NodeId>) : Set<NodeId> =
         match event.body with
+        | EventBody.Order (Order.StartActor order) ->
+            Set.add order.actorNodeId live
         | EventBody.ActorStart start -> Set.add start.focusId live
         | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
         | EventBody.Change _

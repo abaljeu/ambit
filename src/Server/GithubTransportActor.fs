@@ -31,7 +31,7 @@ type GithubTransportGit =
 type GithubTransportActorDependencies =
     { git: GithubTransportGit }
 
-/// Server Peer Actor for person-started git Load and git Save.
+/// Git Load and Git Save for a person Load or Save.
 [<RequireQualifiedAccess>]
 module GithubTransportActor =
 
@@ -42,14 +42,10 @@ module GithubTransportActor =
         | GithubTransportOperation.Save ->
             PeerActorName "github-save"
 
-    let start host caller operation request =
-        CoreMailboxApi.startPeerActor
-            host caller (peerName operation) request
-
-    let private actorCaller (input: ActorInput) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = input.secret }
+    let private transportActorName =
+        function
+        | GithubTransportOperation.Load -> "github-load"
+        | GithubTransportOperation.Save -> "github-save"
 
     let private workspaceFromFocus dataDir graph focusId =
         let workspaceId = GraphQuery.enclosingWorkspace graph focusId
@@ -126,23 +122,63 @@ module GithubTransportActor =
             | Error _ -> None
         | _ -> None
 
+    let private finishLoadOn
+        (changes: ActorChanges)
+        dataDir
+        workspaceLabel
+        workspaceId
+        changedPaths
+        =
+        async {
+            match!
+                LazyLoadReconciliationServer.reconcileFromChanges
+                    changes
+                    dataDir
+                    workspaceLabel
+                    changedPaths
+            with
+            | Error err -> return Error err
+            | Ok _ ->
+                let! loaded = changes.loadNode workspaceId
+                return loaded |> Result.map (fun _ -> ())
+        }
+
     /// Mark received files and containing Directories, then Load.
     let internal finishLoadPull
         (workspace: LazyLoadReconciliationServer.WorkspaceReconcile)
         workspaceId
         changedPaths
         =
+        finishLoadOn
+            (CoreDoor.actorChanges workspace.handle)
+            workspace.dataDir
+            workspace.workspaceLabel
+            workspaceId
+            changedPaths
+
+    let private runLoadOn
+        dependencies
+        dataDir
+        (changes: ActorChanges)
+        workspaceId
+        workspaceRoot
+        =
         async {
-            match!
-                LazyLoadReconciliationServer.reconcileReceivedFiles
-                    workspace
-                    changedPaths
-            with
+            match pullTracked dependencies.git workspaceRoot with
             | Error err -> return Error err
-            | Ok _ ->
-                let! loaded =
-                    CoreDoor.loadNode workspace.handle workspaceId
-                return loaded |> Result.map (fun _ -> ())
+            | Ok heads ->
+                let changed =
+                    changedAfterPull workspaceRoot heads
+                    |> Option.defaultValue []
+                let label =
+                    System.IO.Path.GetFileName workspaceRoot
+                return!
+                    finishLoadOn
+                        changes
+                        dataDir
+                        label
+                        workspaceId
+                        changed
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -154,27 +190,16 @@ module GithubTransportActor =
         workspaceId
         workspaceRoot
         =
-        async {
-            match pullTracked dependencies.git workspaceRoot with
-            | Error err -> return Error err
-            | Ok heads ->
-                let changed =
-                    changedAfterPull workspaceRoot heads
-                    |> Option.defaultValue []
-                return!
-                    finishLoadPull
-                        { handle = changes
-                          dataDir = dataDir
-                          workspaceLabel =
-                            System.IO.Path.GetFileName
-                                workspaceRoot }
-                        workspaceId
-                        changed
-        }
+        runLoadOn
+            dependencies
+            dataDir
+            (CoreDoor.actorChanges changes)
+            workspaceId
+            workspaceRoot
 
-    let private loadFocus changes focusId =
+    let private loadFocus (changes: ActorChanges) focusId =
         async {
-            let! loaded = CoreDoor.loadNode changes focusId
+            let! loaded = changes.loadNode focusId
             return loaded |> Result.map (fun _ -> ())
         }
 
@@ -192,7 +217,7 @@ module GithubTransportActor =
         =
         match choice with
         | Some (_, LoadSubject.Workspace) ->
-            runLoad
+            runLoadOn
                 dependencies
                 dataDir
                 changes
@@ -227,18 +252,19 @@ module GithubTransportActor =
                 saveTracked dependencies.git root
                 |> Result.map ignore)
 
-    let private runBody dataDir operation dependencies input coreChanges =
+    let private runBody
+        dataDir
+        operation
+        dependencies
+        focusId
+        (changes: ActorChanges)
+        =
         async {
-            let actorChanges =
-                CoreDoor.forCaller (actorCaller input) coreChanges
-            let! state = CoreDoor.graphAtEvent actorChanges
+            let! state = changes.graphAtEvent ()
             match state with
             | Error err -> return ActorFailed err
             | Ok current ->
-                match
-                    workspaceFromFocus
-                        dataDir current.graph input.focusId
-                with
+                match workspaceFromFocus dataDir current.graph focusId with
                 | Error err -> return ActorFailed err
                 | Ok(workspaceId, root) ->
                     match!
@@ -246,9 +272,9 @@ module GithubTransportActor =
                             operation
                             dependencies
                             dataDir
-                            actorChanges
+                            changes
                             current.graph
-                            input.focusId
+                            focusId
                             workspaceId
                             root
                     with
@@ -256,21 +282,60 @@ module GithubTransportActor =
                     | Error err -> return ActorFailed err
         }
 
-    let actorFn
+    let private runActorFunction
         dataDir
         operation
         dependencies
-        : ActorFn =
-        fun input coreChanges ->
+        focusId
+        : Gambol.Shared.ActorFunction
+        =
+        fun _ changes ->
             async {
                 let! result =
                     runBody
-                        dataDir operation dependencies input coreChanges
-                let actorChanges =
-                    CoreDoor.forCaller (actorCaller input) coreChanges
-                let! _ = CoreDoor.actorStop actorChanges result
+                        dataDir
+                        operation
+                        dependencies
+                        focusId
+                        changes
+                let! _ = changes.actorStop result
                 return ()
             }
+
+    let loadActorFunction dataDir dependencies focusId =
+        runActorFunction
+            dataDir
+            GithubTransportOperation.Load
+            dependencies
+            focusId
+
+    let saveActorFunction dataDir dependencies focusId =
+        runActorFunction
+            dataDir
+            GithubTransportOperation.Save
+            dependencies
+            focusId
+
+    let start host caller dataDir dependencies operation request =
+        let actor =
+            match operation with
+            | GithubTransportOperation.Load ->
+                loadActorFunction dataDir dependencies request.focusId
+            | GithubTransportOperation.Save ->
+                saveActorFunction dataDir dependencies request.focusId
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = transportActorName operation
+              actorNodeIdOf = fun item -> item.focusId }
+        async {
+            let! placed =
+                CoreMailboxApi.coreMailboxStartActorFromFunction
+                    host
+                    caller
+                    placement
+            return Result.map ignore placed
+        }
 
     let private workTreeGate =
         { new GithubTransportWorkTreeGate with

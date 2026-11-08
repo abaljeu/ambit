@@ -7,6 +7,12 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module ActorOrderFromStart =
 
+    type FunctionActorPlacement =
+        { request: ActorStart
+          actor: Gambol.Shared.ActorFunction
+          actorName: string
+          actorNodeIdOf: ActorStart -> NodeId }
+
     let orderFromStart
         (makeActor: NodeId -> NodeId -> Gambol.Shared.ActorFunction)
         (actorName: string)
@@ -16,3 +22,10 @@ module ActorOrderFromStart =
         { actor = makeActor start.runDefinitionId start.focusId
           actorNodeId = actorNodeIdOf start
           actorName = actorName }
+
+    let orderFromPlacement (placement: FunctionActorPlacement) : ActorOrder =
+        orderFromStart
+            (fun _ _ -> placement.actor)
+            placement.actorName
+            placement.actorNodeIdOf
+            placement.request

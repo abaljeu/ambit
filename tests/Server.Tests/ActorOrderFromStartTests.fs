@@ -67,14 +67,16 @@ let ``coreMailboxStartActorFromFunction places StartActor from the selector`` ()
             fun _ _ -> async { return () }
         let host, _ = createAdmittedFile (newTempDir ())
         try
+            let placement : ActorOrderFromStart.FunctionActorPlacement =
+                { request = request
+                  actor = actor
+                  actorName = "supplied"
+                  actorNodeIdOf = fun start -> start.runDefinitionId }
             let! placed =
                 CoreMailboxApi.coreMailboxStartActorFromFunction
                     host
                     testCaller
-                    request
-                    actor
-                    "supplied"
-                    (fun start -> start.runDefinitionId)
+                    placement
                 |> Async.StartAsTask
             let placedId =
                 match placed with

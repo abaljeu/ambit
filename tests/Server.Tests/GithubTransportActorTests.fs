@@ -129,10 +129,6 @@ let private runActor operation dependencies operationName onPush body =
     task {
         let dataDir = newTempDir ()
         let pool = CoreActorPool.create ()
-        pool.registerPeer
-            (GithubTransportActor.peerName operation)
-            (GithubTransportActor.actorFn
-                dataDir operation dependencies)
         let host =
             CoreMailbox.hostWithParsePush
                 pool
@@ -180,14 +176,18 @@ let ``git Load tells the client the actor completed`` () =
             (fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage))
             (fun _ _ _ -> Error "push unused")
     withActor GithubTransportOperation.Load deps "load"
-        (fun _ host _ _ seed -> task {
+        (fun dataDir host _ _ seed -> task {
             try
                 let! state =
                     CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
                 let baseline = requireOk "state" state
                 let! started =
                     GithubTransportActor.start
-                        host testCaller GithubTransportOperation.Load
+                        host
+                        testCaller
+                        dataDir
+                        deps
+                        GithubTransportOperation.Load
                         (request seed)
                     |> Async.StartAsTask
                 requireOk "start Load" started
@@ -247,7 +247,12 @@ let ``git Load gates pull from subnode Focus`` () =
         (fun dataDir host pool operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
@@ -282,7 +287,12 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
         (fun dataDir host _ operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
@@ -320,10 +330,15 @@ let ``git Load ends when the pull fails and posts nothing`` () =
         deps
         "load"
         (fun id -> pushed.Add id)
-        (fun _ host pool operation seed -> task {
+        (fun dataDir host pool operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
@@ -353,7 +368,12 @@ let ``git Save gates commit then releases before push`` () =
         (fun dataDir host _ operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk "start Save" started
             let! stopped = waitForStop host seed.focusId 1000
@@ -383,10 +403,15 @@ let ``Peer Actor row is live only while git work runs`` () =
             (fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage))
             (fun _ _ _ -> Error "push unused")
     withActor GithubTransportOperation.Load deps "load"
-        (fun _ host pool operation seed -> task {
+        (fun dataDir host pool operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk "start Load" started
             do! entered.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
@@ -416,10 +441,15 @@ let ``Load and Save return the same conflict reject shape`` operationName =
         else
             GithubTransportOperation.Save
     withActor operation deps operationName
-        (fun _ host _ operation seed -> task {
+        (fun dataDir host _ operation seed -> task {
             let! started =
                 GithubTransportActor.start
-                    host testCaller operation (request seed)
+                    host
+                    testCaller
+                    dataDir
+                    deps
+                    operation
+                    (request seed)
                 |> Async.StartAsTask
             requireOk $"start {operationName}" started
             let! stopped = waitForStop host seed.focusId 1000
