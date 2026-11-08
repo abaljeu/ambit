@@ -68,6 +68,7 @@ module CoreDoor =
         let graph () = graphAtEvent door
         let load nodeId = loadNode door nodeId
         let notice notice = CoreMailboxApi.postNotice door.host notice
+        let since after = CoreMailboxApi.getEventsSince door.host after
         let graphOnly event =
             async {
                 let! result = postGraphOnly door event
@@ -78,4 +79,5 @@ module CoreDoor =
           graphAtEvent = graph
           loadNode = load
           postNotice = notice
+          eventsSince = since
           postGraphOnly = graphOnly }

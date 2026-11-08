@@ -208,14 +208,84 @@ module GithubTransportActor =
             | Ok found -> return! step found
         }
 
-    /// Persist writes the focus node, or the document that holds it, before git.
-    let private persistFocus dataDir graph focusId =
-        let targetId =
-            match DocumentPartition.documentRootForNode graph focusId with
-            | Some documentRootId -> documentRootId
-            | None -> focusId
-        DocumentPersistChange.persistNode dataDir graph targetId
-        |> Result.map ignore
+    let private readFocusNode (changes: ActorChanges) focusId =
+        async {
+            let! state = changes.graphAtEvent ()
+            return
+                state
+                |> Result.bind (fun current ->
+                    match Map.tryFind focusId current.graph.nodes with
+                    | None -> Error "node not found"
+                    | Some node ->
+                        Ok(current.eventId, current.graph, node))
+        }
+
+    /// Parsed is required. A pulling file stays Unparsed.
+    let private focusCanBeParsed (graph: Graph) (focusId: NodeId) =
+        match GraphMutate.setParseState focusId ParseState.Parsed graph with
+        | Error err -> Error err
+        | Ok parsed ->
+            match Map.tryFind focusId parsed.nodes with
+            | Some node when node.parseState = ParseState.Parsed ->
+                Ok ()
+            | Some node when node.documentState.pullingFile ->
+                Error
+                    "focused node stays unparsed while a file is pulling"
+            | _ -> Error "focused node was not marked parsed"
+
+    let private persistFailedSince
+        (changes: ActorChanges)
+        (after: EventId)
+        focusId
+        =
+        async {
+            let! events = changes.eventsSince after
+            return
+                events
+                |> List.tryPick (fun event ->
+                    match event.body with
+                    | EventBody.Notice (Notice.PersistFailed (id, message))
+                        when id = focusId ->
+                        Some message
+                    | _ -> None)
+        }
+
+    let rec private waitUntilPersisted
+        (changes: ActorChanges)
+        (after: EventId)
+        focusId
+        =
+        async {
+            match! readFocusNode changes focusId with
+            | Error err -> return Error err
+            | Ok (_, _, node) when
+                node.parseState = ParseState.Parsed
+                && node.persistState = PersistState.Persisted ->
+                return Ok ()
+            | Ok (_, _, node) when
+                node.parseState <> ParseState.Parsed ->
+                return Error "focused node was not marked parsed"
+            | Ok _ ->
+                match! persistFailedSince changes after focusId with
+                | Some message -> return Error message
+                | None ->
+                    return! waitUntilPersisted changes after focusId
+        }
+
+    /// Mark the focused node Parsed and push that node on the persist stack.
+    /// Unpersisted is the stack's existing condition for a write.
+    let private forcePersistFocus (changes: ActorChanges) focusId =
+        async {
+            match! readFocusNode changes focusId with
+            | Error err -> return Error err
+            | Ok (eventId, graph, _) ->
+                match focusCanBeParsed graph focusId with
+                | Error err -> return Error err
+                | Ok () ->
+                    changes.postNotice (Notice.NodeUnpersisted focusId)
+                    changes.postNotice (Notice.NodeParsed focusId)
+                    return! waitUntilPersisted changes eventId focusId
+        }
 
     /// Save commits, runs Load's pull resolution, and then pushes.
     /// The work-tree gate covers the commit and the pull.
@@ -228,12 +298,12 @@ module GithubTransportActor =
         |> Result.map ignore
 
     let private runSaveBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId (fun (graph, (_, root)) ->
+        withWorkspace dataDir changes focusId (fun (_, (_, root)) ->
             async {
-                return
-                    persistFocus dataDir graph focusId
-                    |> Result.bind (fun () ->
-                        commitPullPush dependencies.git root)
+                match! forcePersistFocus changes focusId with
+                | Error err -> return Error err
+                | Ok () ->
+                    return commitPullPush dependencies.git root
             })
 
     let private runLoadBody dataDir dependencies focusId changes =
@@ -254,7 +324,7 @@ module GithubTransportActor =
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 
-    /// Save persists the focus, commits, pulls, and pushes that Workspace.
+    /// Save marks the focused node parsed, pushes it, then commits.
     let saveActorFunction dataDir dependencies focusId =
         actorFunction (runSaveBody dataDir dependencies focusId)
 
