@@ -10,8 +10,8 @@ let private lifecycleIndexes (events: Ev list) focusId =
     let started =
         tryIndex (fun event ->
             match event.body with
-            | EventBody.Order (Order.ActorOrder order)
-                when order.focusId = focusId -> true
+            | EventBody.ActorStart body
+                when body.focusId = focusId -> true
             | _ -> false)
     let finished =
         tryIndex (fun event ->
@@ -64,7 +64,7 @@ type BrowserAskProofTests() =
                         ()
                     | other ->
                         Assert.Fail(
-                            $"expected ActorOrder then ActorStop, got {other}")
+                            $"expected ActorStarted then ActorFinished, got {other}")
                     let fromPoll =
                         applyPollChanges
                             launched.graphAfterSeed
@@ -78,20 +78,4 @@ type BrowserAskProofTests() =
                             host
                             launched.request.focusId
                             [ "from-agent" ]
-                }))
-
-    [<Fact>]
-    member _.``posted ?ai Run has ActorOrder and no ActorStart`` () =
-        withFake
-            (fun _ -> fakeReply "from-agent")
-            (fun () ->
-                withHost (fun host pool -> task {
-                    let! seeded = seedAskTree host "?ai"
-                    let request = askRequest seeded
-                    do! postLiveAiRun host request
-                    do! expectActorSucceeded
-                            host pool request.focusId
-                    do! expectNoActorStart host request.focusId
-                    let! ordered = hasActorStart host request.focusId
-                    Assert.True(ordered)
                 }))
