@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-11-05
+Updated: 2026-11-08
 Started: 2026-09-29
 Actual: 38.5h
 
@@ -116,6 +116,7 @@ Actual: 38.5h
 - 2026-11-03 — Alan: ready to ticket, then build, the removal of `CoreMsg.PostGraphOnly`. [102 — Place Parse changes as Order.Change](issues/102-place-parse-changes-as-order-change.md) is `coded` and built only the one mailbox Change post, so [146 — Remove CoreMsg.PostGraphOnly](issues/146-remove-coremsg-postgraphonly.md) carries the removal. Stage stays `build`.
 - 2026-11-03 — Alan on 146: refusing every graph-only post that is not a Change, Undo and Redo included, is fine for now and may change later. Dispatch reads `ChangeOrigin`, not a `graphOnly` flag; 146 includes it. Decision 18 names the real Parse posters. Stage stays `build`.
 - 2026-11-05 — Alan: cancel 80 — Place Actor starts through PlaceOrder. 18 — Place ActorOrder through PlaceOrder replaces that place path. The Desk Load/Save start and stop with no Actor stays on 18 — Place ActorOrder through PlaceOrder. Stage stays `build`.
+- 2026-11-08 — 79 — Place git Save as Order.Save is retired. git Save is `LoadSaveOperation.Save` through `CoreMailboxApi.startLoadSaveCommand`. The sequence is Solution 11 — git Save sequence. Stage stays `build`.
 
 ## Issues
 
@@ -205,7 +206,7 @@ Actual: 38.5h
 - [108 — Log Change as EventBody.Order](issues/108-log-change-as-eventbody-order.md) — Contract. `EventBody.Change` leaves; a Change is logged as `EventBody.Order`. Blocked by [107 — Add EventBody.Order](issues/107-add-eventbody-order.md).
 - [65 — Place Undo and Redo as orders](issues/65-undo-and-redo-resolve-their-ops-from-the-target.md) — Change. Undo and Redo are placed as orders with their target and Op list. Blocked by [108 — Log Change as EventBody.Order](issues/108-log-change-as-eventbody-order.md).
 - [109 — Log Undo, Redo, and Load as EventBody.Order](issues/109-log-undo-redo-and-load-as-eventbody-order.md) — Contract. `EventBody.Undo`, `Redo`, and `Load` leave; they are logged as `EventBody.Order`. Blocked by [65 — Place Undo and Redo as orders](issues/65-undo-and-redo-resolve-their-ops-from-the-target.md).
-- [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md) — Change. git Save places `Order.Save`, logged as `EventBody.Order`. Out of the type chain (2026-10-25); no ticket waits on it. Blocked by [109 — Log Undo, Redo, and Load as EventBody.Order](issues/109-log-undo-redo-and-load-as-eventbody-order.md).
+- [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md) — retired. The sequence is Solution 11 — git Save sequence in [github-transport spec](../github-transport/spec.md).
 - [110 — Log ActorStart and Cancel as EventBody.Order](issues/110-log-actorstart-and-cancel-as-eventbody-order.md) — Contract. `EventBody.ActorStart` and `Cancel` leave; they are logged as `EventBody.Order`. Blocked by [109 — Log Undo, Redo, and Load as EventBody.Order](issues/109-log-undo-redo-and-load-as-eventbody-order.md).
 - [81 — Log Actor stops as Notices](issues/81-log-actor-and-search-stops-as-notices.md) — Contract. `EventBody.ActorStop` leaves, so `EventBody` is `Order | Notice`; every Actor stop, the search stop included, is logged as `Notice.ActorStopped`. A stop-only poll starts no catch-up. No blockers; 110 and 45 are coded.
 - [80 — Place Actor starts through PlaceOrder](issues/80-place-actor-orders-through-placeorder.md) — cancelled. Replaced by [18 — Place ActorOrder through PlaceOrder](../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md).
