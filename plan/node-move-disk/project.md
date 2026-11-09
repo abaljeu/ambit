@@ -26,5 +26,4 @@ The operation does not merge.
 
 ## Issues
 
-- [01 — Moving never-parsed File Nodes under a new Directory Node leaves the files behind](issues/01-move-unparsed-files-under-new-directory.md)
 - [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md)

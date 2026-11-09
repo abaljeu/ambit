@@ -6,7 +6,7 @@ Marks: [x] exists today. [ ] required. [o] obsolescent.
 
 ## 1. Bounds
 
-In scope: An Owned File Node or Owned Directory Node whose derived path changes, including a nested path in the same change, a never-parsed File Node under a new Directory Node, a same-Workspace `git mv`, a cross-Workspace delete and add, and a change conflict amended before the change lands.
+In scope: An Owned File Node or Owned Directory Node whose derived path changes, including a nested path in the same change, a File Node moved under a new Directory Node, a same-Workspace `git mv`, a cross-Workspace delete and add, and a change conflict amended before the change lands.
 
 Out of scope: Workspace rename and Workspace relocation.
 
@@ -104,10 +104,7 @@ applyPosted : bool -> EventId -> Ev -> Op list -> GraphAtEvent -> ApplyResult * 
 ```
 
 [x] The mismatch texts are `old text does not match`, `old name does not match`, `old classes do not match`, and `old span does not match`.
-[ ] A change conflict is one of these cases.
-
-- The destination path already exists.
-- The source and the destination disagree.
+[ ] A change conflict is two files going to the same spot: one existing file already at the destination path, and one incoming move or rename that would put a new file at that path. It is not two changes.
 
 [ ] `applyPosted` amends that conflict before the caller stores the graph.
 [ ] The amended change is the change that lands.
@@ -191,10 +188,54 @@ persistNode : string -> Graph -> NodeId -> Result<DateTime, string>
 
 ### Move write gate
 
+Research: [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md).
+
 [ ] While a git move of a Directory or a Workspace runs, no write is allowed under that Directory or that Workspace until the move completes.
 [ ] The gate applies to any Directory or Workspace being moved.
 [ ] The gate generalizes the git pull design, which blocked all persists until the pull completed. That design was Workspace-wide only.
 [ ] The move does not set Unparsed on the moved document root. The gate replaces that approach.
+
+#### Node enclosure lock
+
+[ ] The node enclosure lock is the named type for the node lock. The gate is one node enclosure lock on one node. In this section, "node lock" means the node enclosure lock.
+[ ] The node enclosure lock is the [core-refinement architecture](../core-refinement/arch.md) §6 workspace lock, generalized to a Directory Node. §6 calls it the aggregate lock.
+[ ] The node enclosure lock covers Workspace Nodes and Directory Nodes alike.
+[ ] The node enclosure lock records the node, not the path. Every node under the locked node is locked. The lock does not check whether a path matches.
+[ ] The node enclosure lock does not exist in code yet. It comes through [30 — Expand the workspace lock](../core-refinement/issues/30-expand-the-workspace-lock.md), generalized from the Workspace Node to any Directory Node.
+[ ] git pull locks the Workspace Node. A Directory move locks the Directory Node.
+[ ] The holder is the git pull caller or the relocate caller. The hold lasts for that git operation.
+[ ] A per-member persist lock is the write of one document root. It is §6 **Per-member persist locks**.
+[ ] `writeDocument` and `writeArtifactText` grant the per-member persist lock around the file bytes. The grant stores every owner-chain ancestor id from `GraphQuery.enclosing`, plus the document root.
+[ ] The callee is `GraphQuery.enclosing`. It walks the owner chain and includes the start node.
+[ ] After the post graph is stored, a descendant's owner chain still contains the moved Directory Node. One id covers the source path and the destination path.
+
+#### What the lock holds off
+
+[ ] Node lock acquire marks the lock pending. It then drains every in-flight per-member persist lock that stored that node id.
+[ ] A new per-member persist lock waits while an ancestor node lock is pending or held.
+[ ] A Directory lock holds off parse reads under that Directory the same way the Workspace lock does. It drains in-flight parse reads and holds new ones until it releases.
+[ ] The moved Directory Node's own file waits with its descendants. That file is `DirName/.amb` inside the moved Directory.
+[ ] A single File move holds that File Node's per-member persist lock for the `git mv`.
+[ ] The Workspace lock covers the git Save commit. It also holds while git Save is doing a pull.
+[ ] Sibling files in the source Workspace and the destination Workspace may keep writing during a cross-Workspace move. A sibling whose stored ancestor ids omit the locked node id takes its per-member persist lock.
+
+#### Blocked persist
+
+[ ] A persist blocked by an ancestor node lock treats it as a lock. The persist thread itself blocks and waits until the lock is available.
+[ ] The persist thread does not set the node aside on a deferred list.
+[ ] A blocked persist posts no `Notice.PersistFailed`.
+[ ] This rests on the node lock being held well under ten seconds.
+[ ] **Persist thread write** keeps its Unparsed reject. That is a separate rule. The move keeps the moved document root Parsed, so the node lock is what blocks persist for a move.
+
+#### Work-tree gate and git process lock
+
+[ ] Expand: the node lock stands beside `WorkspaceGit.withWorkTreeGate`. The holder marks the node lock pending, drains, takes `withWorkTreeGate`, runs git, releases `withWorkTreeGate`, and then releases the node lock.
+[ ] While both exist, a persist takes its per-member persist lock first. It takes `withWorkTreeGate` only after that grant. It releases `withWorkTreeGate` before it releases the per-member persist lock.
+[ ] Contract: `withWorkTreeGate` is removed from the persist paths and the git pull paths.
+[ ] `GitRun.gitExec` stays the git process lock. It is taken after the node lock. `GitSave.runGit` calls `gitExec`.
+[ ] Lock order is node lock, then `withWorkTreeGate` while both exist, then the `GitRun` lock.
+[ ] A thread that holds the `GitRun` lock takes no node lock.
+[ ] A holder takes one node lock. A Directory move holds no Workspace lock and no per-member persist lock.
 
 ### Unparsed save gate
 
@@ -258,7 +299,9 @@ Persist thread write
 
 2. **Same-workspace relocate**
 
-[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A never-parsed File Node under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Each selected move is one `git mv`.
+[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A File Node moved under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Each selected move is one `git mv`.
+
+[ ] A same-Workspace move moves the file on disk, whether or not the File Node or its enclosing Directory Node has been parsed. Parse state does not affect this rule. This holds when the strictly enclosing artifact becomes a Directory Node or the Workspace Node.
 
 ```fsharp
 Path comparison
@@ -296,6 +339,17 @@ Cross-workspace move
 Post change
 Change amendment
 Accept validation
+```
+
+6. **Move under the node lock**
+
+[ ] The relocate caller locks the moved Directory Node, or holds the moved File Node's per-member persist lock. The lock drains in-flight persists and parse reads under that node. Same-workspace relocate or Cross-workspace move runs git. The caller releases the lock. A persist that waited on the lock then writes.
+
+```fsharp
+Move write gate
+Same-workspace relocate
+Cross-workspace move
+Persist thread write
 ```
 
 ## 5. Module map
@@ -358,6 +412,7 @@ Accept validation
       1. [ ] Same-workspace relocate
       2. [ ] Cross-workspace move
       3. [ ] Persist thread write
+      4. [ ] Workspace repository
 12. **Unparsed save gate**
     - Interface: `src/Shared/DocumentPartition.fs` `shouldWriteDocumentRoot`
     - Uses:
@@ -394,10 +449,10 @@ A behavior change is a build slice.
 
 ## 8. Open questions
 
-1. Same-Workspace never-parsed enclosure — Is a never-parsed File Node whose enclosing artifact becomes a Workspace Node in the same Workspace in scope?
-2. Cross-Workspace commit — Are the cross-Workspace delete and the cross-Workspace add committed at move time, or at that repository's next commit?
-3. Disagree comparison — Which comparison shows that the source and the destination disagree?
-4. Conflict ops — Which ops does Change amendment emit for a change conflict?
-5. Relocate caller — Which caller runs Same-workspace relocate and Cross-workspace move?
-6. Conflict data directory — How does Change amendment obtain the data directory for the conflict check?
-7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes.
+1. Same-Workspace Workspace enclosure — Resolved (Alan 2026-11-09): yes. When a move makes a File Node's strictly enclosing artifact the Workspace Node, in the same Workspace, the file moves on disk, the same as under a Directory Node. Parse state does not matter: the File moves whether or not it or its enclosing Directory Node has been parsed. **Same-workspace relocate** states the rule.
+2. Cross-Workspace commit — Resolved (Alan 2026-11-09): commit at move time. The cross-Workspace delete and the cross-Workspace add are each committed when the move runs, not at that repository's next commit. Git has no cross-repository transaction, so the move is not atomic across the two repositories. Committing at move time keeps the half-moved window to one step. If the add fails, there is a recovery path: re-add from the source, or flag the half-moved node.
+3. Conflict comparison — Resolved (Alan 2026-11-09): a path comparison. The File Node's derived destination path is checked against the disk for a file that already exists at that path. A pre-existing file there is the conflict.
+4. Conflict ops — Resolved (Alan 2026-11-09): rename. When there is a change conflict, Change amendment resolves it by renaming the incoming moved or renamed node, not the existing file at the destination. The rename is a file name op: it changes the file name, not the directory path.
+5. Relocate caller — Resolved (Alan 2026-11-09): Post change is the single caller that runs the relocate for every kind of move. Right after the path-move check passes, the Post change functions (`FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`) classify each move and run `gitMove` for a same-Workspace move or `moveAcrossWorkspaces` for a cross-Workspace move, under the node lock. They then store the graph and queue the persists. Post change already holds the before and after graphs, the data directory, and the planned moves, and it is where a conflict is caught. Committing at move time (question 2) fits there too. `gitMove` and `moveAcrossWorkspaces` do not exist yet.
+6. Conflict data directory — Resolved (Alan 2026-11-09): Change amendment never takes the data directory. Post change, in `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`, runs the existing path check (`validatePathMoves`) with its own data directory: `FileAgent`'s `dataDir` field or `DbAgent`'s `liveSaveDataDir`. Instead of rejecting the change on `disk path already exists`, it hands Change amendment the conflicting nodes, and Change amendment emits the file name rename for each incoming node. The shared code (`ChangeAmendment.applyPosted`) stays free of disk access. When `DbAgent` has no data directory, nothing is written to disk, so there is no conflict to check. This is the same caller proposed for question 5.
+7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes. Its lock design comes from [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md) and Alan's answers there (2026-11-09).

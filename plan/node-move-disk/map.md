@@ -3,7 +3,7 @@
 ## 1. Problem
 
 - 1 — Stale disk path. A Graph change can give a File Node or a Directory Node a new derived path while its File or its Directory stays at the old path.
-- 2 — Never-parsed File Nodes. [01 — Moving never-parsed File Nodes under a new Directory Node leaves the files behind](plan/node-move-disk/issues/01-move-unparsed-files-under-new-directory.md).
+- 2 — File Nodes under a new Directory Node.
 - 3 — Normal Node. A Normal Node can have a Directory Node as an Owned descendant through other Normal Nodes. A move of that Normal Node can change the derived paths of the File Nodes and Directory Nodes under it.
 - 4 — Write at the new path.
   - Accept validates the destination with `DocumentPersistChange.validatePathMoves` in `FileAgent.validatePostChange` and `DbAgent.validatePostChange`.
