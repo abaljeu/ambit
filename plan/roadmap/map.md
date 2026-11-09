@@ -31,6 +31,13 @@ The main push is cleaning up that architecture:
 - Ticket dependencies set the order
 - Online search resumes after this work
 
+### Graph nodes and their files
+
+- Files are persisted and moved.
+- Active work owned by Ambot2
+- Chapter: [Move nodes with their files](epics/chapters/move-nodes-with-files.md), on Robust outliner
+- Project: [Node move and disk](plan/node-move-disk/project.md)
+
 ## Epics
 
 - [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: [[epics/chapters/automatic-upload-and-download.md]]; vision: [[epics/chapters/two-panel-view.md]])
