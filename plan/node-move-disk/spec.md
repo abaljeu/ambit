@@ -8,6 +8,7 @@ Map: [[map.md]]
 
     - The same derived path leaves that File or that Directory at that path.
     - A different derived path that stays under the same Workspace Node is the input to Relocate with git mv.
+    - A different derived path under a different Workspace Node is the input to Move into a different Workspace.
 2. Relocate with git mv — As a person, I want a different derived path that stays under the same Workspace Node to move that File or that Directory with `git mv`, so that git tracks the move and the file tree matches the graph outline for git push and git pull.
 3. File Node rename — As a person, I want Derived-path comparison on a rename of an Owned File Node in the graph outline, so that the File ends at its derived path and the file tree matches the graph outline for git push and git pull.
 4. File Node under a different Node — As a person, I want Derived-path comparison on an `Op.Replace` that places a File Node as an Owned child under a different Node in the graph outline, so that the File ends at its derived path and the file tree matches the graph outline for git push and git pull.
@@ -25,4 +26,4 @@ Map: [[map.md]]
     The operation does not overwrite.
 
     The operation does not merge.
-10. Move into a different Workspace — As a person, I want to move an Owned File Node or an Owned Directory Node into a different Workspace Node in the graph outline, so that the file tree matches the graph outline and I can share those files through git push and git pull.
+10. Move into a different Workspace — As a person, I want a move of an Owned File Node or an Owned Directory Node into a different Workspace Node in the graph outline to delete that File or that Directory from the source Workspace repository and add it to the destination Workspace repository, so that the file tree matches the graph outline and I can share those files through git push and git pull.
