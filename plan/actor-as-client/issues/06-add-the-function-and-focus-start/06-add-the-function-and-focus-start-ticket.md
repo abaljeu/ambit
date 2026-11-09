@@ -5,7 +5,7 @@ One job: The log has `Order.StartActor` of `ActorOrder`. The pool start stays `s
 [x] `ActorOrder` in `src/Shared/History.fs` holds `actor`, `actorNodeId`, and `actorName`. `encodeActorOrder` in `src/Shared/EventJson.fs` writes `actorNodeId` under the wire key `focusId`. `actorName` stands in for `actor` on the wire. The mailbox supplies `getGraph` on `FunctionStart`.
 [x] `GraphCarrier`, `FunctionRun`, and `Credential` move to `src/Shared/History.fs`. `ActorChanges` and the log `ActorFunction` are added there. `ActorFunction` is `FunctionRun -> ActorChanges -> Async<unit>`. The pool `ActorFunction` stays in `src/Server/Core/CoreActorPool.fs` as `FunctionRun -> CoreChangesDoor -> Async<unit>`. `actorChanges` is in `src/Server/Core/CoreDoor.fs`. The source files are 8. The named test files are 2. `tests/Server.Tests/PersistApplyTests.fs` annotates `CoreMailboxAccess` where `getState` overlaps `ActorChanges`. The size limit is 8 source files and 4 test files.
 [x] The folder name stays `06-add-the-function-and-focus-start` so existing links keep their path.
-[x] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. That ticket renames `Order.Cancel` to `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522. The cancel case is `Order.CancelActor`. The wire kind stays `cancel`. It leaves `MailboxHost.fs` untouched.
 
 Type:
 
@@ -14,7 +14,7 @@ Type:
 Blockers:
 
 [x] [17 — Rename commandId to actorNodeId](../17-rename-command-id-to-actor-node-id/17-rename-command-id-to-actor-node-id-ticket.md). It runs before this ticket.
-[x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 
 ## Inputs
 
@@ -75,7 +75,7 @@ Blockers:
 [ ] Stop when the edit moves `CoreChangesDoor`, `MailboxHost`, or `Caller`.
 [ ] Stop when the edit adds a `CoreMsg` case or a pool start. Leave `Order` as the cases in `src/Shared/History.fs`.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when 112 has not landed.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522.
 
 ## Check
 

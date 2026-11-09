@@ -13,7 +13,7 @@
 [ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 [ ] [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 [ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
-[ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 [ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
 [ ] [115 — The CoreQueue post is private](115-the-corequeue-post-is-private.md)
 [ ] [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md)

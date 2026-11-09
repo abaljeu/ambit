@@ -66,7 +66,7 @@ Blockers: [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-red
 ## Do not load
 
 [ ] `EventBody.ActorStop` stays. Its removal is [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md).
-[ ] Placing Actor starts through `placeOrder` is [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md). Placing Cancel through `placeOrder` is [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md).
+[ ] Placing Actor starts through `placeOrder` is [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md). Placing Cancel through `placeOrder` is [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md), which landed on staging in PR 522.
 [ ] `MailboxEventBody`, `MailboxLog.Ev`, `ofEv` and `toEv` stay. Their removal is [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md).
 
 ## Process

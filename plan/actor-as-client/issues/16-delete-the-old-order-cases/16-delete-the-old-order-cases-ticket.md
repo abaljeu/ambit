@@ -4,7 +4,7 @@ One job: `Order.StartActorDeprecated` is gone. `Order.StartActor` of `ActorOrder
 
 [ ] This ticket is the Order half of 15 — Delete the old Actor starts. That ticket was over the size limit.
 [ ] The source files are 4. The test files are 2. The size limit is 8 source files and 4 test files.
-[ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. The cancel case is `Order.CancelActor`. The wire kind stays `cancel`.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522. The cancel case is `Order.CancelActor`. The wire kind stays `cancel`.
 
 Type:
 
@@ -13,7 +13,7 @@ Type:
 Blockers:
 
 [ ] [15 — Delete the old Actor starts](../15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md)
-[ ] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 
 ## Inputs
 
@@ -63,7 +63,7 @@ Blockers:
 [ ] Stop when the edit deletes `Order.StartActor` or `Order.CancelActor`.
 [ ] Stop when the edit keeps a reader for an old `Order.StartActorDeprecated` row.
 [ ] Stop when the edit adds an `Order` case.
-[ ] Stop when 112 has not landed.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522.
 
 ## Check
 

@@ -22,7 +22,7 @@ Blockers:
 ### Working
 
 [ ] `postActorOrder` on `MailboxHost` puts one `ActorOrder` on the mailbox queue. 06 — Log ActorOrder adds it.
-[ ] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor` and `Order.CancelActor`. On this branch the cancel case is still `Order.Cancel` until 112 lands.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522. The cancel case is `Order.CancelActor`. `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` runs `CoreMailboxActors.replyCancel` for it.
 [ ] `startFunction` in `src/Server/Core/CoreActorPool.fs` mints the Actor credential and the Actor session id.
 [ ] A Desk Load or Save runs no actor function. `startLoadSaveCommand` returns `Ok None` for `LoadSavePath.Desk`.
 [ ] `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/CoreMailboxDoorTests.fs`.
@@ -37,7 +37,7 @@ Blockers:
 [ ] Do not delete `CoreMsg.StartActor` or `CoreMsg.StartPeerActor` here. That delete is 15 — Delete the old Actor starts and 16 — Delete the old Order cases.
 [ ] Do not add `ActorDispatch.fs`, `actorForCommand`, or `Order.RunActor`.
 [ ] Do not add a `CoreMsg` case.
-[ ] The cancel arm. 112 — Place Cancel through PlaceOrder renames it to `Order.CancelActor`.
+[x] The cancel case is `Order.CancelActor`. 112 — Place Cancel through PlaceOrder landed on staging in PR 522.
 [ ] Remote starts.
 
 ## Process

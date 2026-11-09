@@ -6,7 +6,7 @@ One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`,
 [ ] 10 — Start git Load converts Load. 19 — Start git Save converts Save. After both, nothing sends `CoreMsg.StartLoadSaveCommand`. This ticket deletes the message.
 [ ] `runSchedule` is renamed `launchPending`. It takes the Actor's pending work out of the live table and `Async.Start`s it on the thread pool with the row's cancel token.
 [ ] The Order cases stay until 16 — Delete the old Order cases. Putting those files in this ticket made 10 source files. The size limit is 8.
-[ ] This ticket starts after 112 — Place Cancel through PlaceOrder has landed. The cancel case is `Order.CancelActor`. This ticket does not edit it.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522. The cancel case is `Order.CancelActor`. This ticket does not edit it.
 
 Type:
 
@@ -23,7 +23,7 @@ Blockers:
 [ ] [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md)
 [ ] [14 — Move runtime and session tests](../14-move-runtime-and-session-tests/14-move-runtime-and-session-tests-ticket.md)
 [ ] [18 — Place ActorOrder through PlaceOrder](../18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
-[ ] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 
 ## Inputs
 
@@ -76,7 +76,7 @@ Blockers:
 [ ] Stop when the edit deletes `startFunction`.
 [ ] Stop when the edit adds a `CoreMsg` case or an `Order` case.
 [ ] Stop when a send of `StartLoadSaveCommand` remains.
-[ ] Stop when 112 has not landed.
+[x] 112 — Place Cancel through PlaceOrder landed on staging in PR 522.
 
 ## Check
 
