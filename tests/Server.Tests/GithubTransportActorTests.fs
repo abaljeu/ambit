@@ -394,16 +394,25 @@ let ``git Save gates commit then releases before push`` () =
             Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
         })
 
-[<Fact>]
-let ``git Save persists focus then commits pulls and pushes`` () =
+type private NoteSave =
+    { dataDir: string
+      host: MailboxHost
+      operation: GithubTransportOperation
+      seed: Seed
+      fileId: NodeId
+      steps: ResizeArray<string>
+      wroteFile: ResizeArray<bool>
+      deps: GithubTransportActorDependencies }
+
+let private withNoteSave (body: NoteSave -> Task) =
     let steps = ResizeArray<string>()
-    let persisted = ResizeArray<bool>()
+    let wroteFile = ResizeArray<bool>()
     let pull root _ =
         steps.Add($"pull {root}")
         Ok "pulled"
     let commit root _ _ =
         steps.Add($"commit {root}")
-        persisted.Add(File.Exists(Path.Combine(root, "note.txt")))
+        wroteFile.Add(File.Exists(Path.Combine(root, "note.txt")))
         Ok(tracked, "committed")
     let push root _ _ =
         steps.Add($"push {root}")
@@ -421,95 +430,82 @@ let ``git Save persists focus then commits pulls and pushes`` () =
                     seed.workspaceId
                     "note.txt"
             postGraph host fileOps
-            let focusRequest = request seed
-            let fileRequest =
-                { focusRequest with
-                    focusId = fileId
-                    graphIds = focusRequest.graphIds @ [ fileId ] }
-            let! started =
-                startTransport
-                    dataDir
-                    host
-                    deps
-                    operation
-                    fileRequest
-            requireOk "start Save" started
-            let! stopped = waitForStop host fileId 1000
-            Assert.Equal(Some ActorSucceeded, stopped)
-            Assert.Equal<bool list>([ true ], persisted |> Seq.toList)
-            let! after =
-                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            let saved = (requireOk "saved" after).graph
-            Assert.Equal(
-                ParseState.Parsed,
-                saved.nodes.[fileId].parseState)
-            let root = Path.Combine(dataDir, "home")
-            Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
+            do!
+                body
+                    { dataDir = dataDir
+                      host = host
+                      operation = operation
+                      seed = seed
+                      fileId = fileId
+                      steps = steps
+                      wroteFile = wroteFile
+                      deps = deps }
         })
+
+let private fileRequest (save: NoteSave) =
+    let focusRequest = request save.seed
+    { focusRequest with
+        focusId = save.fileId
+        graphIds = focusRequest.graphIds @ [ save.fileId ] }
+
+let private startNoteSave (save: NoteSave) =
+    startTransport
+        save.dataDir
+        save.host
+        save.deps
+        save.operation
+        (fileRequest save)
+
+[<Fact>]
+let ``git Save persists focus then commits pulls and pushes`` () =
+    withNoteSave (fun save -> task {
+        let! started = startNoteSave save
+        requireOk "start Save" started
+        let! stopped = waitForStop save.host save.fileId 1000
+        Assert.Equal(Some ActorSucceeded, stopped)
+        Assert.Equal<bool list>([ true ], save.wroteFile |> Seq.toList)
+        let! after =
+            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
+        let saved = (requireOk "saved" after).graph
+        Assert.Equal(
+            ParseState.Parsed,
+            saved.nodes.[save.fileId].parseState)
+        let root = Path.Combine(save.dataDir, "home")
+        Assert.Equal<string list>(saveOrder root, save.steps |> Seq.toList)
+    })
 
 [<Fact>]
 let ``git Save marks an unparsed file parsed and writes it before commit`` () =
-    let steps = ResizeArray<string>()
-    let persisted = ResizeArray<bool>()
-    let pull root _ =
-        steps.Add($"pull {root}")
-        Ok "pulled"
-    let commit root _ _ =
-        steps.Add($"commit {root}")
-        persisted.Add(File.Exists(Path.Combine(root, "note.txt")))
-        Ok(tracked, "committed")
-    let push root _ _ =
-        steps.Add($"push {root}")
-        Ok "pushed"
-    let deps =
-        dependencies steps pull commit push
-    withActor GithubTransportOperation.Save deps "save"
-        (fun dataDir host _ operation seed -> task {
-            let! state =
-                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            let graph = (requireOk "state" state).graph
-            let fileId, fileOps =
-                FileNodeOps.planCreateOwnedFile
-                    graph
-                    seed.workspaceId
-                    "note.txt"
-            postGraph host fileOps
-            CoreMailboxApi.postNotice host (Notice.NodeUnparsed fileId)
-            let! marked =
-                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            let before = (requireOk "unparsed" marked).graph.nodes.[fileId]
-            Assert.Equal(ParseState.Unparsed, before.parseState)
-            Assert.Equal(PersistState.Persisted, before.persistState)
-            let focusRequest = request seed
-            let fileRequest =
-                { focusRequest with
-                    focusId = fileId
-                    graphIds = focusRequest.graphIds @ [ fileId ] }
-            let! started =
-                startTransport
-                    dataDir
-                    host
-                    deps
-                    operation
-                    fileRequest
-            requireOk "start Save" started
-            let! stopped = waitForStop host fileId 1000
-            Assert.Equal(Some ActorSucceeded, stopped)
-            Assert.Equal<bool list>([ true ], persisted |> Seq.toList)
-            let! after =
-                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            let saved = (requireOk "saved" after).graph.nodes.[fileId]
-            Assert.Equal(ParseState.Parsed, saved.parseState)
-        })
+    withNoteSave (fun save -> task {
+        CoreMailboxApi.postNotice
+            save.host
+            (Notice.NodeUnparsed save.fileId)
+        let! marked =
+            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
+        let before =
+            (requireOk "unparsed" marked).graph.nodes.[save.fileId]
+        Assert.Equal(ParseState.Unparsed, before.parseState)
+        Assert.Equal(PersistState.Persisted, before.persistState)
+        let! started = startNoteSave save
+        requireOk "start Save" started
+        let! stopped = waitForStop save.host save.fileId 1000
+        Assert.Equal(Some ActorSucceeded, stopped)
+        Assert.Equal<bool list>([ true ], save.wroteFile |> Seq.toList)
+        let! after =
+            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
+        let saved = (requireOk "saved" after).graph.nodes.[save.fileId]
+        Assert.Equal(ParseState.Parsed, saved.parseState)
+    })
 
-let private isPersistNotice =
+let private persistNoticeId =
     function
-    | EventBody.Notice (Notice.NodeParsed _)
-    | EventBody.Notice (Notice.NodePersisted _)
-    | EventBody.Notice (Notice.NodePersisting _)
-    | EventBody.Notice (Notice.NodeUnpersisted _)
-    | EventBody.Notice (Notice.PersistFailed _) -> true
-    | _ -> false
+    | EventBody.Notice (Notice.NodeParsed id)
+    | EventBody.Notice (Notice.NodePersisted (id, _, _))
+    | EventBody.Notice (Notice.NodePersisting id)
+    | EventBody.Notice (Notice.NodeUnpersisted id)
+    | EventBody.Notice (Notice.PersistFailed (id, _)) ->
+        Some id
+    | _ -> None
 
 [<Fact>]
 let ``git Save on a Normal Node skips persist then commits pulls and pushes`` () =
@@ -547,15 +543,18 @@ let ``git Save on a Normal Node skips persist then commits pulls and pushes`` ()
                 CoreMailboxApi.getEventsSince host before.eventId
                 |> Async.StartAsTask
             let persisted =
-                events |> List.filter (fun event -> isPersistNotice event.body)
+                events
+                |> List.filter (fun event ->
+                    persistNoticeId event.body = Some seed.focusId)
             Assert.Empty(persisted)
             let! afterState =
                 CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let after = requireOk "after" afterState
             Assert.Equal(focus, after.graph.nodes.[seed.focusId])
             Assert.Equal(
-                workspace,
-                after.graph.nodes.[seed.workspaceId])
+                Filename.tryValue workspace.name,
+                Filename.tryValue
+                    after.graph.nodes.[seed.workspaceId].name)
             let root = Path.Combine(dataDir, "home")
             Assert.Equal<string list>(saveOrder root, steps |> Seq.toList)
         })

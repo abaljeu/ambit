@@ -21,6 +21,7 @@ Blockers:
 [ ] `PersistThread.runRequest` in `src/Server/Core/PersistThread.fs` skips a node that is still Persisted.
 [ ] `GraphMutate.setParseState` in `src/Shared/GraphMutate.fs` refuses a normal node and a directory file, and leaves a pulling file Unparsed.
 [ ] `ActorChanges` in `src/Shared/History.fs` is the actor door. `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills it.
+[ ] `ActorChanges.eventsSince` is the event tail the Save wait reads for `Notice.PersistFailed`.
 [ ] Scope report: [31 — Force-save the focused node — scope](../reports/31-force-save-focused-node-scope.md).
 
 ### Reference
