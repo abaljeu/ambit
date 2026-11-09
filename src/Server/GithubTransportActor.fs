@@ -269,20 +269,34 @@ module GithubTransportActor =
                     return! waitUntilPersisted changes after focusId
         }
 
-    /// An artifact focus is marked Parsed and pushed on the persist stack.
-    /// A Normal Node skips that step. Unpersisted is the write condition.
-    let private forcePersistFocus (changes: ActorChanges) focusId =
+    /// The focus is marked Parsed and pushed on the persistence stack.
+    /// NodeUnpersisted is posted so that the write runs.
+    let private persistFocus
+        (changes: ActorChanges)
+        focusId
+        eventId
+        (graph: Graph)
+        =
+        async {
+            match focusCanBeParsed graph focusId with
+            | Error err -> return Error err
+            | Ok () ->
+                changes.postNotice (Notice.NodeUnpersisted focusId)
+                changes.postNotice (Notice.NodeParsed focusId)
+                return! waitUntilPersisted changes eventId focusId
+        }
+
+    /// The focus is persisted when it is not an ordinary node.
+    let private persistFocusWhenNotOrdinary
+        (changes: ActorChanges)
+        focusId
+        =
         async {
             match! readFocusNode changes focusId with
             | Error err -> return Error err
-            | Ok (_, _, node) when node.kind = Normal -> return Ok ()
-            | Ok (eventId, graph, _) ->
-                match focusCanBeParsed graph focusId with
-                | Error err -> return Error err
-                | Ok () ->
-                    changes.postNotice (Notice.NodeUnpersisted focusId)
-                    changes.postNotice (Notice.NodeParsed focusId)
-                    return! waitUntilPersisted changes eventId focusId
+            | Ok (eventId, graph, node) when node.kind <> Normal ->
+                return! persistFocus changes focusId eventId graph
+            | Ok _ -> return Ok ()
         }
 
     type private SaveCommit =
@@ -313,7 +327,7 @@ module GithubTransportActor =
         withWorkspace dataDir changes focusId
             (fun (_, (workspaceId, root)) ->
                 async {
-                    match! forcePersistFocus changes focusId with
+                    match! persistFocusWhenNotOrdinary changes focusId with
                     | Error err -> return Error err
                     | Ok () ->
                         match commitAndPull dependencies.git root with
@@ -349,8 +363,7 @@ module GithubTransportActor =
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 
-    /// Save marks an artifact focus parsed and pushes it.
-    /// A Normal Node skips that persist. Save then commits, pulls, and pushes.
+    /// Save persists the focus if it is not an ordinary node, then commits, pulls, and pushes.
     let saveActorFunction dataDir dependencies focusId =
         actorFunction (runSaveBody dataDir dependencies focusId)
 
