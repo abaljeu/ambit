@@ -59,8 +59,9 @@ A named Workspace directory and the data directory are separate git roots when e
 
 ## Expected
 
-A person moves an owned File Node or an owned Directory Node under a different Workspace Node. The file or directory on disk is at the derived path under that Workspace Node. Each owned File Node and Directory Node under a moved Directory Node is at its derived path. This holds when the moved node is a direct child or deeper on the Owner chain, and when the File Node is parsed or unparsed. The graph outline matches that file tree. When that move detects a conflict, `ChangeAmendment` disambiguates before the change lands. The rule is Decision in [Node move and disk](plan/node-move-disk/project.md).
+A person moves an owned File Node or an owned Directory Node under a different Workspace Node. The file or directory on disk is at the derived path under that Workspace Node. Each owned File Node and Directory Node under a moved Directory Node is at its derived path. This holds when the moved node is a direct child or deeper on the Owner chain, and when the File Node is parsed or unparsed. The graph outline matches that file tree. When that move detects a conflict, `ChangeAmendment` disambiguates before the change lands. The rule is Decision in [Node move and disk](plan/node-move-disk/project.md). The file or directory is deleted from the source Workspace repository and added to the destination Workspace repository.
 
 ## Notes
 
 - 2026-11-09 — Alan: moving a file or directory to a different workspace is to be supported. Only owned nodes persist. The user story for this move is added in spec.md by [Node move: write the spec](https://github.com/abaljeu/ambit/pull/560).
+- 2026-11-09 — Alan: "The obvious effect. Delete from one. Add to one."
