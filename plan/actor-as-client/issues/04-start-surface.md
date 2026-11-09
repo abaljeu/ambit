@@ -16,7 +16,7 @@ Today CoreActorPool ([[src/Server/Core/CoreActorPool.fs]]) registers `ActorFn` b
 
 1. **Curried in-process start** — In-process start uses a curried function posted to the mailbox — not a named ActorFn registry lookup. A Command closes over what the Actor needs and posts that function.
 2. **CoreActorPool remains with cancel** — CoreActorPool remains; it retains cancel authority. The pool cancels by focus ID (the cancel Focus) alone, through [112 — Place Cancel through PlaceOrder](../../core-refinement/issues/112-place-cancel-through-placeorder.md). Alan, 2026-11-03.
-3. **No in-process registry** — Each endpoint builds its own `FunctionActor`, so there is no in-process registry. Alan, 2026-11-03. Remote or cross-process start is out of scope ([Map](../map.md) section 4).
+3. **No in-process registry** — Each endpoint builds its own `ActorFunction`, so there is no in-process registry. Alan, 2026-11-03. `ActorFunction` is in `src/Shared/History.fs`. Remote or cross-process start is out of scope ([Map](../map.md) section 4).
 4. **ActorStart fields** — In the end state, ActorStart no longer carries the `graphIds` extract (aligned with [02 — Graph handoff](02-graph-handoff.md)’s aim: drop extract; that ticket stays open). The Actor start cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included. It records focus ID for the pool’s cancel path.
 
 Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](02-graph-handoff.md).

@@ -6,16 +6,15 @@ Marks: [x] exists today. [ ] required. [o] obsolescent.
 
 ## 1. Bounds
 
-In scope: `startFunction` is the one pool start, `Order.ActorOrder` carries an `ActorFunction`, and the mailbox pull runs that function on the .NET thread pool.
+In scope: `startFunction` is the one pool start, `Order.StartActor` of `ActorOrder` carries an `ActorFunction`, and the mailbox pull runs that function on the .NET thread pool.
 
 Out of scope: remote starts, per-run endpoints, the `/state` route, and a PersistHandlers rename.
 
 ## 2. Types
 
 [x] `GraphCarrier`, `FunctionRun`, `Credential`, `ActorChanges`, and `ActorOrder` are in `src/Shared/History.fs`.
-[x] The actor field's type name is `FunctionActor`.
+[x] The actor field's type name is `ActorFunction` in `src/Shared/History.fs`.
 [o] `FunctionActor`
-[ ] The type name is `ActorFunction`.
 [x] `ActorChanges.graphAtEvent` returns `GraphAtEvent`.
 
 [x] `FunctionRun` today is `getGraph` and `secret`.
@@ -39,21 +38,20 @@ type ActorChanges =
 
 type ActorOrder =
     { actor: ActorFunction
-      focusId: NodeId
+      actorNodeId: NodeId
       actorName: string }
 ```
 
-[x] `Order.ActorOrder` carries `ActorOrder`. The log stores that member as-is.
+[x] `Order.StartActor` of `ActorOrder` carries `ActorOrder`. The log stores that member as-is.
 
 ```fsharp
-| ActorOrder of ActorOrder
+| StartActor of ActorOrder
 ```
 
 [o] `Order.RunActor`
 
-[x] The pool actor type is in `src/Server/Core/CoreActorPool.fs`. Its name is `FunctionActor`. Its second argument is `CoreChangesDoor`.
+[x] The pool actor type is in `src/Server/Core/CoreActorPool.fs`. Its name is `ActorFunction`. Its second argument is `CoreChangesDoor`.
 [o] The pool name `FunctionActor`.
-[ ] The pool type name is `ActorFunction`. The second argument stays `CoreChangesDoor`.
 
 ```fsharp
 type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
@@ -66,7 +64,6 @@ type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
 type FunctionStart =
     { actor: ActorFunction
       getGraph: GraphCarrier
-      focusId: NodeId
       actorNodeId: NodeId }
 ```
 
@@ -105,17 +102,17 @@ An Actor is a thread from the .NET thread pool. It runs an `ActorFunction`.
 curriedActor : NodeId -> ActorFunction
 ```
 
-The endpoint applies `actorNodeId` before Post actor order. `ActorOrder` stores that `ActorFunction`. `ActorOrder` has no `actorNodeId` field.
+The endpoint sets `actorNodeId` before Post actor order. `ActorOrder` stores `actor`, `actorNodeId`, and `actorName` (`src/Shared/History.fs`).
 
 ### Actor order
 
-[x] `Order.ActorOrder` is the logged order.
+[x] `Order.StartActor` of `ActorOrder` is the logged order.
 
 ```fsharp
-ActorOrder : ActorOrder -> Order
+StartActor : ActorOrder -> Order
 ```
 
-`focusId` is the node that has focus when the command runs. `actorName` is the word after `?`. `actorName` stands in for `actor` on the wire.
+`actorNodeId` is the field on `ActorOrder`. `encodeActorOrder` writes that field under the wire key `focusId` (`src/Shared/EventJson.fs`). `actorName` is the word after `?`. `actorName` stands in for `actor` on the wire.
 
 ### Wire actor order
 
@@ -127,11 +124,11 @@ encodeActorOrder : ActorOrder -> IEncodable
 decodeActorOrder : string -> Result<ActorOrder, string>
 ```
 
-`encodeActorOrder` writes `focusId` and `actorName`. `decodeActorOrder` sets `actor` to `stubActor`. A wire-read `ActorOrder` is a log record. `stubActor` stays unrun.
+`encodeActorOrder` writes the wire key `focusId` from `actorNodeId`, and `actorName`. `decodeActorOrder` sets `actor` to `stubActor`. A wire-read `ActorOrder` is a log record. `stubActor` stays unrun.
 
 ### Log actor order
 
-[x] `MailboxLog` accepts `Order.ActorOrder`.
+[x] `MailboxLog.historyBody` accepts `Order.StartActor` and `Order.StartActorDeprecated` (`src/Shared/MailboxLog.fs`).
 
 ```fsharp
 historyBody : Order -> Result<EventBody, string>
@@ -139,36 +136,32 @@ historyBody : Order -> Result<EventBody, string>
 
 ### Post actor order
 
-[x] `postActorOrder` queues one `ActorOrder`.
+[x] `postActorOrder` queues one `Order.StartActor`.
 
-```fsharp
-postActorOrder : MailboxHost -> ActorOrder -> unit
-```
-
-[x] That post uses `Authority "Actor"` and `Credential ""`.
+[o] `postActorOrder : MailboxHost -> ActorOrder -> unit`
 [o] `Authority "Actor"` and `Credential ""` on this path.
-[ ] The post takes the client's `Caller`.
+[x] The post takes the client's `Caller`. The authority on the placed order is that caller's authority (`src/Server/Core/MailboxHost.fs`).
 
 ```fsharp
-postActorOrder : MailboxHost -> Caller -> ActorOrder -> unit
+postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, string>>
 ```
 
 `Mailbox.placeForCaller` sets the placed authority from that `Caller`.
 
 ### Place actor order
 
-[x] `placeOrder` replies unsupported for `Order.ActorOrder`.
+[x] `placeOrder` runs `replyActorOrder` for `Order.StartActor` of `ActorOrder` (`src/Server/Core/CoreMailboxLoop.fs`).
 
 ```fsharp
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
 ```
 
-[ ] `placeOrder` calls Pool start and runs `order.actor` on the .NET thread pool.
-[ ] The mailbox supplies `getGraph` when it builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
-[ ] `FunctionStart.actorNodeId` is the `actorNodeId` Curried actor applied. `placeOrder` reads that id from the closure.
-[ ] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
+[x] `placeOrder` calls `startFunction` and runs `order.actor` on the .NET thread pool.
+[x] The mailbox supplies `getGraph` when `scheduleActorOrder` builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
+[x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
+[x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] A Desk Load or Save runs no actor.
-[o] `placeOrder` accepts `Order.StartActor`.
+[o] `placeOrder` runs `dispatchStartActor` for `Order.StartActorDeprecated`.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.
@@ -212,21 +205,22 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts a posted `ActorStart` through `startChosen`.
+[x] `postActorStart` starts `?test` through `queueTestOrder` and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
 ```
 
-[ ] `postActorStart` reads `actorNodeId` from that Run, applies Curried actor, builds `ActorOrder`, and calls Post actor order with that `Caller`.
+[x] `postActorStart` for `?test` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postActorOrder` with that `Caller`.
+[ ] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies Curried actor, builds `ActorOrder`, and calls Post actor order with that `Caller`.
 
 ### Test command
 
-[x] `functionActor` is the pool `FunctionActor`.
-[ ] `functionActor` is the test command after Curried actor.
+[x] `functionActor` in `src/Server/TestActor.fs` is the pool `ActorFunction` from `src/Server/Core/CoreActorPool.fs`.
+[x] `functionActorAt` is the test command. It takes `runDefinitionId` and `focusId` and returns the shared `ActorFunction`.
 
 ```fsharp
-functionActor : NodeId -> ActorFunction
+functionActorAt : NodeId -> NodeId -> ActorFunction
 ```
 
 ### AI actor
@@ -257,9 +251,9 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 
 ### Load and save
 
-[x] `postLoadSaveCommand` starts git Load or Save through `CoreMsg.StartLoadSaveCommand`.
+[x] Git Load and Git Save call `GithubTransportActor.start`, which places `Order.StartActor` (`src/Server/RouteRegistration.fs`). Desk calls `CoreMailboxApi.startLoadSaveCommand`.
 [ ] `postLoadSaveCommand` builds the git `ActorFunction` through Curried actor and calls Post actor order.
-[ ] A Desk Load or Save places `Order.ActorOrder` and runs no actor.
+[ ] A Desk Load or Save places `Order.StartActor` and runs no actor.
 
 ```fsharp
 postLoadSaveCommand : LoadSaveCommandRouter -> CoreChangesDoor -> string -> Async<IResult>
@@ -302,7 +296,7 @@ Pool launch
 
 2. **Run a query**
 
-[ ] Query command posts `Order.ActorOrder`. Place actor order runs that `ActorFunction`.
+[ ] Query command posts `Order.StartActor` of `ActorOrder`. Place actor order runs that `ActorFunction`.
 
 ```fsharp
 Query command
@@ -314,7 +308,7 @@ Pool start
 
 3. **Git Load or Save**
 
-[ ] Load and save posts `Order.ActorOrder` for git. Place actor order runs that `ActorFunction`.
+[ ] Load and save posts `Order.StartActor` of `ActorOrder` for git. Place actor order runs that `ActorFunction`.
 
 ```fsharp
 Load and save
@@ -326,7 +320,7 @@ Pool start
 
 4. **Desk Load or Save**
 
-[ ] Load and save posts `Order.ActorOrder`. Place actor order runs no actor.
+[ ] Load and save posts `Order.StartActor` of `ActorOrder`. Place actor order runs no actor.
 
 ```fsharp
 Load and save
@@ -377,7 +371,7 @@ Pool launch
    - Uses:
      1. [ ] Actor function
 3. **Actor order**
-   - Interface: `src/Shared/History.fs` `Order.ActorOrder`
+   - Interface: `src/Shared/History.fs` `Order.StartActor`
    - Type `ActorOrder` in `src/Shared/History.fs`
    - Uses:
      1. [x] Actor function
@@ -424,7 +418,7 @@ Pool launch
       2. [ ] Post actor order
       3. [x] Pool start
 12. **Test command**
-    - Interface: `src/Server/TestActor.fs` `functionActor`
+    - Interface: `src/Server/TestActor.fs` `functionActorAt`
     - Uses:
       1. [ ] Curried actor
 13. **AI actor**

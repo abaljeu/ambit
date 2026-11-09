@@ -34,7 +34,7 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: A started Actor uses `startFunction`, or `postActorOrder` of an `ActorOrder` whose `actor` is that command's `FunctionActor`.
+2. [ ] Change: A started Actor uses `startFunction`, or `postActorOrder` of an `ActorOrder` whose `actor` is that command's `ActorFunction` in `src/Shared/History.fs`.
 3. [ ] Keep each literal's other fields until 15 — Delete the old Actor starts.
 
 ## Outputs

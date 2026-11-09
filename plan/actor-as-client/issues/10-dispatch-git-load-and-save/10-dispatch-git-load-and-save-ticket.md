@@ -1,6 +1,6 @@
 # 10 — Start git Load
 **Status**: defined
-One job: `postLoadSaveCommand` builds `ActorOrder` for Git Load (transport `ActorFunction`, FocusId, `actorName`) and posts it. A Desk Load runs no Actor and does not call `postActorOrder`.
+One job: `postLoadSaveCommand` builds `ActorOrder` for Git Load (transport `ActorFunction`, `actorNodeId`, `actorName`) and posts `Order.StartActor`. A Desk Load runs no Actor and does not call `postActorOrder`. `ActorOrder` in `src/Shared/History.fs` is `actor`, `actorNodeId`, and `actorName`.
 
 The Git Load post is already in the code. Keep that post.
 
@@ -40,8 +40,8 @@ Blockers:
 ### Working
 
 [ ] `postLoadSaveCommand` is in `src/Server/Api.fs`. The route is `MapPost "/ambit/load-save-command"` in `src/Server/RouteRegistration.fs`.
-[ ] `RouteRegistration.fs` calls `pool.registerPeer` for `github-load` and `github-save`, both `GithubTransportActor.actorFn`. This ticket removes the `github-load` call.
-[ ] `GithubTransportActor.actorFn` is an `ActorFn`. `GithubTransportActor.start` posts `CoreMsg.StartPeerActor`. This ticket changes `start` for Load.
+[ ] `registerPeer` is on `CoreActorPool` in `src/Server/Core/CoreActorPool.fs`. `src/Server/RouteRegistration.fs` does not call it.
+[ ] `GithubTransportActor.actorFn` is an `ActorFn`. `GithubTransportActor.start` calls `CoreMailboxApi.coreMailboxStartActorFromFunction` in `src/Server/Core/CoreMailboxApi.fs`. That call places `Order.StartActor`. This ticket keeps that Load post.
 [ ] `startLoadSaveCommand` in `src/Server/Core/CoreActorPool.fs` returns `Ok None` for Desk and calls `pool.startPeerActor` for Git.
 [ ] `CoreMailboxApi.startLoadSaveCommand` is the only send of `CoreMsg.StartLoadSaveCommand`.
 [ ] Callers of that send are `src/Server/RouteRegistration.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/ParseThreadLoadTests.fs`. The calls in `ParseThreadLoadTests.fs` are Load. Save calls stay until 19 — Start git Save.
@@ -56,18 +56,18 @@ Blockers:
 [ ] Find and Move `recordSearchStart`.
 [ ] `DeskLoadPush.fs`. Its caller remains until that delete.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
-[ ] Do not write `Order.StartActor`.
+[ ] Do not write `Order.StartActorDeprecated`.
 [ ] The `github-save` `registerPeer` call. 19 — Start git Save removes it.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postLoadSaveCommand` builds `ActorOrder` for Git Load with the transport `ActorFunction`, the FocusId, and `actorName`, and calls `postActorOrder`.
+2. [ ] Change: `postLoadSaveCommand` builds `ActorOrder` for Git Load with the transport `ActorFunction`, `actorNodeId`, and `actorName`, and calls `postActorOrder`.
 3. [ ] The closure holds the path and the command node. The Desk Load arm runs no Actor and does not call `postActorOrder`.
 4. [ ] Change: `GithubTransportActor.start` for Load uses that same `ActorOrder`. It does not post `CoreMsg.StartPeerActor` for Load.
-5. [ ] Contract: Remove the `github-load` `registerPeer` call.
+5. [ ] Contract: `src/Server/RouteRegistration.fs` has no `registerPeer` call. This ticket adds none.
 6. [ ] Change: Convert each Load caller of `CoreMsg.StartLoadSaveCommand`. Save callers stay until 19 — Start git Save.
-7. [ ] Do not write `Order.StartActor` or `Order.RunActor`.
+7. [ ] Do not write `Order.StartActorDeprecated`. Leave `Order` as the cases in `src/Shared/History.fs`.
 
 ## Outputs
 
@@ -83,7 +83,7 @@ Blockers:
 [ ] Record the stop at `plan/actor-as-client/reports/10-dispatch-git-load-and-save-stop.md`, then ask.
 [ ] Stop when Desk Load must start an Actor.
 [ ] Stop when a test file outside Outputs must change.
-[ ] Stop when this ticket writes `Order.StartActor`.
+[ ] Stop when this ticket writes `Order.StartActorDeprecated`.
 
 ## Check
 

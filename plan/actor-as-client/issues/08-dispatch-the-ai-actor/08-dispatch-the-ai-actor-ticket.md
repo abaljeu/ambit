@@ -1,10 +1,10 @@
 # 08 — Start the AI Actor
 **Status**: defined
-One job: Run on a node that contains `?ai` moves off `CoreMsg.StartActor` onto `Order.ActorOrder`. `actorFn` returns `ActorFunction`. `FunctionRun.sessionId` is the pool-minted Actor session id.
+One job: Run on a node that contains `?ai` moves off `startActor` onto `Order.StartActor` of `ActorOrder`. `actorFn` returns `ActorFunction`. `FunctionRun.sessionId` is the pool-minted Actor session id.
 
 [x] The ask-start seam is the only test start for `?ai`. Suites call that seam.
 [ ] `runSchedule` fills `FunctionRun.sessionId` from the live row. `putFunctionStart` minted that id.
-[ ] `postActorStart` for `?ai` admits the caller, then posts `ActorOrder`. `startActor` still starts the other command names.
+[ ] `postActorStart` for `?ai` admits the caller, then posts `Order.StartActor`. `startActor` still starts the other command names.
 [ ] Cancel uses the focus node id. That id is the actor handle and removes the live row. `startAiRun` does not cancel. `FunctionRun.sessionId` is for the Grok oneshot POST and for `deliver` and `takeInbox`.
 [ ] The source files are 5. The test files are 10. The size limit is 8 source files and 4 test files. The test count is over the limit. The ask suites share one seam, and `actorFn` does not compile while those suites still register an `ActorFn`.
 
@@ -27,7 +27,7 @@ Blockers:
 [ ] `runSchedule` for `FunctionPending` builds `FunctionRun` from `getGraph` and `secret`. It does not copy `row.sessionId`.
 [ ] `deliver` and `takeInbox` key the live row by that Actor session id.
 [ ] `postActorOrder` is on `MailboxHost`.
-[ ] `postActorStart` for `?test` admits the caller, then posts `ActorOrder`.
+[ ] `postActorStart` for `?test` admits the caller, then posts `Order.StartActor`. `queueAdmittedTest` in `src/Server/Core/CoreMailboxActors.fs` builds that order with `TestActor.functionActorAt`.
 [ ] `AskCancelHarness.createHost` registers `ActorName "ai"` as `RunAgentActor.actorFn`.
 [ ] `startAsk`, `startLiveAsk`, and `startBrowserAsk` call `CoreMailboxApi.startActor`. `launchBrowserAsk` calls `startBrowserAsk`.
 [ ] ``second launch on the same Focus is refused`` in `tests/Server.Tests/AgentAskTests.fs` calls `CoreMailboxApi.startActor` for `?ai`.
@@ -67,17 +67,17 @@ Blockers:
 ### 3. ActorOrder for ?ai
 
 10. [ ] Change: `actorFn` is `AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction`. The closure holds `GrokBotBinding`.
-11. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, the FocusId, and `actorName`, and calls `postActorOrder`.
-12. [ ] Contract: The `?ai` path does not post `CoreMsg.StartActor` and does not call `startActor` for `ai`. `startActor` still starts the other command names.
+11. [ ] Change: `postActorStart` for a `?ai` Run closes over the actor node id from that Run in the `ActorFunction`. It admits the caller, builds `ActorOrder` with that function, `actorNodeId`, and `actorName`, and calls `postActorOrder`. `ActorOrder` in `src/Shared/History.fs` is `actor`, `actorNodeId`, and `actorName`.
+12. [ ] Contract: The `?ai` path does not call `startActor` for `ai`. `startActor` still starts the other command names. `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, `ActorStop`, and `PostEvent`.
 13. [ ] Contract: Remove the `ai` pair from `pool.register` in `RouteRegistration.fs` and from `createHost`.
-14. [ ] Change: `startAiRun` posts `ActorOrder`. The actor is `RunAgentActor.actorFn` applied to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
-15. [ ] Do not write `Order.StartActor` or `Order.RunActor`. Do not look up the function from `actorName`.
+14. [ ] Change: `startAiRun` posts `Order.StartActor`. The actor is `RunAgentActor.actorFn` applied to the harness keys, repos, `GrokBotBinding`, and that Run's actor node id.
+15. [ ] Do not write `Order.StartActorDeprecated`. Do not look up the function from `actorName`. Leave `Order` as the cases in `src/Shared/History.fs`.
 
 ## Outputs
 
 [ ] `src/Shared/History.fs` — `FunctionRun.sessionId`
 [ ] `src/Server/Core/CoreActorPool.fs` — `runSchedule` copies `row.sessionId`
-[ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `ActorOrder` after `admitCaller`
+[ ] `src/Server/Core/CoreMailboxActors.fs` — `?ai` posts `Order.StartActor` after `admitCaller`
 [ ] `src/Server/RunAgentActor.fs` — `actorFn` returns `ActorFunction`. The Grok oneshot POST reads `run.sessionId`.
 [ ] `src/Server/RouteRegistration.fs` — remove `ai` from `pool.register`
 [ ] `tests/Server.Tests/AskCancelHarness.fs` — `startAiRun`

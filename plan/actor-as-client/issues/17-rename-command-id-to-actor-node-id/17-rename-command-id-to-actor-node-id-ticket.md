@@ -20,17 +20,17 @@ Blockers:
 
 ### Working
 
-[x] `ActorStart.commandId` is in `src/Shared/History.fs`.
+[x] `ActorStart.runDefinitionId` is in `src/Shared/History.fs`.
 [x] `CommandRequest.actorStart` takes that field in `src/Shared/CommandRequest.fs`.
-[x] `EventJson` encodes it in `src/Shared/EventJson.fs`. The wire key is `"commandId"`.
-[x] `ActorInput.commandId`, `FunctionStart.commandId`, and the live-row field are in `src/Server/Core/CoreActorPool.fs`. `commandIsLive` uses that field.
-[x] `SearchActor`, `TestActor`, and `RunAgentActor` read `commandId` from the Actor input or the start.
-[x] `src/Client/UpdateWorkspaceLoad.fs` sets `commandId` on an `ActorStart`.
+[x] `EventJson` encodes `runDefinitionId` in `src/Shared/EventJson.fs`. The wire key is `"commandId"`.
+[x] `ActorInput.runDefinitionId` and `FunctionStart.actorNodeId` are in `src/Server/Core/CoreActorPool.fs`. The live row stores `actorNodeId` and `runDefinitionId`. `commandIsLive` uses `runDefinitionId`.
+[x] `SearchActor`, `TestActor`, and `RunAgentActor` read `runDefinitionId` from the Actor input or the start.
+[x] `src/Client/UpdateWorkspaceLoad.fs` sets `runDefinitionId` on an `ActorStart`.
 [x] `rg commandId` also hits `CommandId`, `commandIds`, and `GrokBotWakeArgs.CommandId`. Those are editor commands or the wake payload. They are not this field.
 
 ### Reference
 
-[x] [Arch](../../arch.md). `actorNodeId` is the field on `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row. The Run endpoint closes over that id in its `FunctionActor`.
+[x] [Arch](../../arch.md). `ActorStart` in `src/Shared/History.fs` stores that id as `runDefinitionId`. `FunctionStart` and the pool live row in `src/Server/Core/CoreActorPool.fs` store `actorNodeId`. The Run endpoint closes over that id in its `ActorFunction`.
 
 ## Do not load
 
@@ -44,7 +44,7 @@ Blockers:
 ## Process
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] Change: Rename the actor node field from `commandId` to `actorNodeId` on `ActorStart`, `ActorInput`, `FunctionStart`, and the pool live row.
+2. [x] Change: The actor node field is `runDefinitionId` on `ActorStart` and `ActorInput`. It is `actorNodeId` on `FunctionStart` and the pool live row. The wire key stays `"commandId"`.
 3. [x] Change: Rename `commandOnOwnerPath` to `actorNodeOnOwnerPath`. Rename the private binding `noRunnableCommand` to `noRunnableActor`. Leave the string `No command found`.
 4. [x] `EventJson` still writes and reads the wire key `"commandId"`.
 5. [x] Update each test file in Outputs that constructs or reads that field, including the `commandOnOwnerPath` tests.

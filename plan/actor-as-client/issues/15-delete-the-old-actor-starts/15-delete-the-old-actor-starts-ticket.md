@@ -1,6 +1,6 @@
 # 15 — Delete the old Actor starts
 **Status**: defined
-One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand` are gone.
+One job: `startFunction` is the only pool start. `startActor`, `startPeerActor`, their name tables, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand` are gone.
 
 [ ] `startFunction` stays.
 [ ] 10 — Start git Load converts Load. 19 — Start git Save converts Save. After both, nothing sends `CoreMsg.StartLoadSaveCommand`. This ticket deletes the message.
@@ -30,7 +30,8 @@ Blockers:
 ### Working
 
 [ ] `startActor`, `startPeerActor`, `register`, and `registerPeer` are on `CoreActorPool`.
-[ ] `CoreMsg.StartActor` and `CoreMsg.StartPeerActor` are matched in `CoreMailboxLoop.fs` and `CoreMailboxEvents.fs`.
+[ ] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, `ActorStop`, and `PostEvent`.
+[ ] `CoreMsg.StartPeerActor` is matched in `src/Server/Core/CoreMailboxLoop.fs` and `src/Server/Core/CoreMailboxEvents.fs`.
 [ ] `CoreMsg.StartLoadSaveCommand` is built by `CoreMailboxApi.startLoadSaveCommand`. After 10 — Start git Load and 19 — Start git Save, nothing sends it.
 [ ] `CoreMailboxLoad.dispatchStartLoadSaveCommand` runs from the `StartLoadSaveCommand` arm of `runMsg`.
 [ ] `runSchedule` is private in `src/Server/Core/CoreActorPool.fs`. The pool field that calls it is `schedule`.
@@ -43,10 +44,10 @@ Blockers:
 ## Do not load
 
 [ ] `startFunction`. It is the target start.
-[ ] `Order.ActorOrder` and `Order.StartActor`. 16 — Delete the old Order cases deletes the old case and leaves `Order.ActorOrder`.
+[ ] `Order.StartActorDeprecated` and `Order.StartActor` of `ActorOrder`. 16 — Delete the old Order cases deletes `Order.StartActorDeprecated` and leaves `Order.StartActor`.
 [ ] `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`. 09 — Start the query command deletes them.
 [ ] A new `CoreMsg` case.
-[ ] `Order.RunActor` and `ActorDispatch.fs`. They are not added.
+[ ] `ActorDispatch.fs`. Leave `Order` as the cases in `src/Shared/History.fs`.
 [ ] Remote starts.
 
 ## Process
@@ -54,7 +55,7 @@ Blockers:
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Contract: Delete `startActor`, `startPeerActor`, `register`, `registerPeer`, and the two name tables. Leave `startFunction`.
 3. [ ] Change: Rename `runSchedule` to `launchPending`. The body still takes the pending work off the live row and `Async.Start`s it on the row cancel token.
-4. [ ] Contract: Delete `CoreMsg.StartActor`, `CoreMsg.StartPeerActor`, and `CoreMsg.StartLoadSaveCommand`, and their match arms in `CoreMailboxLoop` and `CoreMailboxEvents`.
+4. [ ] Contract: Delete `CoreMsg.StartPeerActor` and `CoreMsg.StartLoadSaveCommand`, and their match arms in `CoreMailboxLoop` and `CoreMailboxEvents`.
 5. [ ] Contract: Delete `CoreMailboxLoad.dispatchStartLoadSaveCommand` when that `runMsg` arm was its only caller.
 6. [ ] Search `src/` and `tests/` for `startActor`, `startPeerActor`, `registerPeer`, and `StartLoadSaveCommand`. The search is empty. `startFunction` remains.
 

@@ -36,7 +36,7 @@ After function-passing at pool construction ships (step one):
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
 
-[o] This hypothesis. Alan, 2026-11-03: each endpoint builds its own `FunctionActor` and posts `Order.ActorOrder`. There is no dispatcher. The pool name tables leave on 15 — Delete the old Actor starts.
+[o] This hypothesis. Alan, 2026-11-03: each endpoint builds its own `ActorFunction` and posts `Order.StartActor` of `ActorOrder`. There is no dispatcher. The pool name tables leave on 15 — Delete the old Actor starts.
 
 ## 3. Lock: hard-cut contract
 
@@ -46,7 +46,7 @@ Alan 2026-09-27 voice. Settled lock on this ticket. The ticket stays Status `def
 
 Expand-alongside during the prove phase stays accurate: the pool can accept or register a function-shaped start alongside today’s ID-bag ActorStart path while proving. Contract is a hard flip when proven — not a gradual drain of the old path.
 
-[o] That hard cut. Alan, 2026-11-03: `startFunction` stays, callers move onto it, and `Order.ActorOrder` is added beside the old orders. No new `CoreMsg` case. Detail: [Arch](../arch.md).
+[o] That hard cut. Alan, 2026-11-03: `startFunction` stays, callers move onto it, and `Order.StartActor` of `ActorOrder` is added beside `Order.StartActorDeprecated`. No new `CoreMsg` case. Detail: [Arch](../arch.md).
 
 ## 4. Lock: TestActor is the pilot
 
@@ -60,7 +60,7 @@ Alan 2026-09-27 voice. Settled lock on this ticket (data model). The ticket stay
 
 The Graph is the universal carrier. Any particular function constructs a Graph and passes it in. The Graph can hold any information needed (full Graph, subgraph, key Nodes, etc.). The receiving function has a specific job to do with that Graph and can simulate any generic function an Actor might want. The **pool and dispatch layer stay dumb** — they just move the Graph. Tests can simulate future Actor shapes by building different Graphs.
 
-[o] The dispatch layer stays dumb and only moves a Graph. Alan, 2026-11-03: each endpoint builds its own `FunctionActor`. Graph ids are in that actor function's closure.
+[o] The dispatch layer stays dumb and only moves a Graph. Alan, 2026-11-03: each endpoint builds its own `ActorFunction`. Graph ids are in that actor function's closure.
 
 ## Comments
 

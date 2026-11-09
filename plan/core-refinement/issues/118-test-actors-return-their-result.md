@@ -40,7 +40,7 @@
 [ ] After 117, an Actor that returns its result is stopped by the pool, and no source file calls `CoreDoor.actorStop`
 [ ] The three test Actors still call `CoreDoor.actorStop` with `ActorSucceeded`, then return it
 [ ] The two `CoreMailboxDoorTests` tests stop a run with `CoreMailboxApi.actorStop` and the Actor's caller
-[ ] Those tests use a recording pool; `dispatchItem` finds the run for a `Notice.ActorStopped` with `trySecretForFocus`
+[ ] Those tests use a recording pool; `dispatchItem` finds the run for a `Notice.ActorStopped` with `trySecretForActorNode` (`src/Server/Core/CoreActorPool.fs`)
 [ ] Tests see internal `CoreMailboxApi.postNotice`
 
 ## 5. Changes
@@ -53,7 +53,7 @@
 
 [ ] The three test Actors return `ActorSucceeded` and do not call `CoreDoor.actorStop`
 [ ] The two `CoreMailboxDoorTests` tests post `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`
-[ ] Their recording pool's `trySecretForFocus` gives the live secret for that focus
+[ ] Their recording pool's `trySecretForActorNode` gives the live secret for that actor node id
 
 ### Size
 
