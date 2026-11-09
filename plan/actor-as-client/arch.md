@@ -18,15 +18,13 @@ Out of scope: remote starts, per-run endpoints, the `/state` route, and a Persis
 [x] `ActorChanges.graphAtEvent` returns `GraphAtEvent`.
 
 [x] `FunctionRun` today is `getGraph` and `secret`.
-[ ] `FunctionRun.sessionId` is the Actor session id `putFunctionStart` mints.
 
 ```fsharp
 type GraphCarrier = unit -> Graph
 
 type FunctionRun =
     { getGraph: GraphCarrier
-      secret: Credential
-      sessionId: string }
+      secret: Credential }
 
 type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
 
@@ -200,8 +198,6 @@ The pool `ActorFunction` keeps `CoreChangesDoor`. `actorChanges` adapts that doo
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
 ```
 
-[ ] `runSchedule` for `FunctionPending` sets `FunctionRun.sessionId` from `row.sessionId`.
-
 ### Posted run
 
 [x] `postActorStart` starts `?test` through `queueTestOrder` and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
@@ -231,13 +227,15 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction
 ```
 
-[ ] The Grok oneshot POST reads `run.sessionId`. `deliver` and `takeInbox` use that id. Pool start minted it. The library call is `GrokBotRunner.wake`.
+[ ] The wake POST sends the session id from `ActorInput.sessionId`.
+[ ] `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs` reads `input.sessionId` and passes that value to the wake call.
+[ ] `putActorStart` in `src/Server/Core/CoreActorPool.fs` mints that id onto `ActorInput.sessionId` and the live-row `sessionId`.
+[ ] `deliver` and `takeInbox` in `src/Server/Core/CoreActorPool.fs` look up the live row by that session id.
 
 ### Cancel by focus node
 
 [x] `cancelByFocus` takes the focus node id.
 [ ] That node id is the actor handle. The live row leaves from that path.
-[ ] `FunctionRun.sessionId` is not the cancel handle.
 
 ### Query command
 
