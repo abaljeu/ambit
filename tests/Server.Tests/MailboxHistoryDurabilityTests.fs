@@ -16,7 +16,7 @@ let private requireOk label result =
 let private sampleActorStart: ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      actorNodeId = Graph.rootId
+      runDefinitionId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
@@ -36,9 +36,9 @@ let private stubPool secret : CoreActorPool =
       admit = fun _ -> Ok ()
       drop = fun _ -> ()
       finish = fun _ _ -> Ok ()
-      liveFocusIds = fun () -> Set.empty
-      getFocusId = fun _ -> Some Graph.rootId
-      trySecretForFocus = fun _ -> None
+      liveActorNodeIds = fun () -> Set.empty
+      getActorNodeId = fun _ -> Some Graph.rootId
+      trySecretForActorNode = fun _ -> None
       deliver = fun _ -> Error "not live"
       takeInbox = fun _ -> Error "not live" }
 

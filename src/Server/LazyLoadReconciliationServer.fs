@@ -41,14 +41,15 @@ module LazyLoadReconciliationServer =
 
     let private readDirInfoArtifacts
         (graph: Graph)
-        (workspace: WorkspaceReconcile)
+        (dataDir: string)
+        (workspaceLabel: string)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Map<string, string> =
-        let root = Path.Combine(workspace.dataDir, workspace.workspaceLabel)
+        let root = Path.Combine(dataDir, workspaceLabel)
         let pathsToRead =
             changedPaths
             |> List.collect (fun change ->
-                if needsDirInfoArtifactRead graph workspace.workspaceLabel change then
+                if needsDirInfoArtifactRead graph workspaceLabel change then
                     match change with
                     | LazyLoadReconciliation.Added path
                     | LazyLoadReconciliation.Modified path when
@@ -87,8 +88,14 @@ module LazyLoadReconciliationServer =
                 failure.path
                 failure.message
 
+    type private ReconcileCaps =
+        { graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
+          postNotice: Notice -> unit
+          postGraphOnly: Ev -> Async<Result<unit, string>> }
+
     type private ListedReconcile =
-        { handle: CoreChangesDoor
+        { postNotice: Notice -> unit
+          postGraphOnly: Ev -> Async<Result<unit, string>>
           dataDir: string
           workspaceLabel: string
           graph: Graph
@@ -98,17 +105,16 @@ module LazyLoadReconciliationServer =
           beside: LazyLoadReconciliationReport.Report -> unit }
 
     let private postNotices
-        (host: MailboxHost)
+        (postNotice: Notice -> unit)
         (notice: NodeId -> Notice)
         (ids: NodeId list)
         =
-        ids
-        |> List.iter (fun id -> CoreMailboxApi.postNotice host (notice id))
+        ids |> List.iter (fun id -> postNotice (notice id))
 
     /// Containing Directory or Workspace from the plan ids.
     /// A PullingFile container gets no NodeUnparsed.
     let private postContainerUnparsed
-        (host: MailboxHost)
+        (postNotice: Notice -> unit)
         (graph: Graph)
         (ids: NodeId list)
         =
@@ -116,7 +122,7 @@ module LazyLoadReconciliationServer =
         |> List.iter (fun id ->
             match Map.tryFind id graph.nodes with
             | Some node when Node.documentStateEnum node <> PullingFile ->
-                CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
+                postNotice (Notice.NodeUnparsed id)
             | _ -> ())
 
     /// Directories this reconcile finishes with NodeParsed.
@@ -137,7 +143,7 @@ module LazyLoadReconciliationServer =
 
     /// Current controlling Special for each id `markUnparsed` received.
     let private postCurrentUnparsed
-        (host: MailboxHost)
+        (postNotice: Notice -> unit)
         (graph: Graph)
         (ids: NodeId list)
         =
@@ -146,34 +152,48 @@ module LazyLoadReconciliationServer =
         |> List.iter (fun id ->
             match Map.tryFind id graph.nodes with
             | Some node when Node.documentStateEnum node = Current ->
-                CoreMailboxApi.postNotice host (Notice.NodeUnparsed id)
+                postNotice (Notice.NodeUnparsed id)
             | _ -> ())
 
     /// NodeUnparsed, then the Change, then NodeParsed for a loaded directory.
     let private postBeforeChange
-        (host: MailboxHost)
+        (postNotice: Notice -> unit)
         (graph: Graph)
         (report: LazyLoadReconciliationReport.Report)
         =
-        postContainerUnparsed host graph report.parsedDirIds
-        postNotices host Notice.NodeParsing report.parsedDirIds
+        postContainerUnparsed postNotice graph report.parsedDirIds
+        postNotices postNotice Notice.NodeParsing report.parsedDirIds
 
     /// Child NodeUnparsed, then the loaded directory's NodeParsed.
     let private postAfterChange
-        (host: MailboxHost)
         (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         listed.beside report
         postContainerUnparsed
-            host
+            listed.postNotice
             listed.graph
             (childContainerIds report listed.renamedDirIds)
-        postCurrentUnparsed host listed.graph report.unparsedIds
+        postCurrentUnparsed
+            listed.postNotice
+            listed.graph
+            report.unparsedIds
         postNotices
-            host
+            listed.postNotice
             Notice.NodeParsed
             (report.parsedDirIds @ listed.renamedDirIds)
+
+    let private acceptedUnit () =
+        CoreChanges.accepted EventId.zero true [] false
+
+    let private postChunk
+        (post: Ev -> Async<Result<unit, string>>)
+        (event: Ev)
+        =
+        async {
+            let! result = post event
+            return Result.map (fun () -> acceptedUnit ()) result
+        }
 
     let private postReconcileReport
         (listed: ListedReconcile)
@@ -181,25 +201,24 @@ module LazyLoadReconciliationServer =
         =
         async {
             logFailures listed.workspaceLabel report.failures
-            let host = listed.handle.host
-            postBeforeChange host listed.graph report
+            postBeforeChange listed.postNotice listed.graph report
             match report.ops with
             | [] ->
-                postAfterChange host listed report
+                postAfterChange listed report
                 return Ok report.failures
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
-                        (CoreDoor.postGraphOnly listed.handle)
+                        (postChunk listed.postGraphOnly)
                         "Parse"
                         (GraphOnlyChangeChunks.split ops)
                 match result with
                 | Ok () ->
-                    postAfterChange host listed report
+                    postAfterChange listed report
                     return Ok report.failures
                 | Error err ->
                     postNotices
-                        host
+                        listed.postNotice
                         (fun id -> Notice.ParseFailed(id, err))
                         report.parsedDirIds
                     return Error err
@@ -211,9 +230,8 @@ module LazyLoadReconciliationServer =
             let artifacts =
                 readDirInfoArtifacts
                     listed.graph
-                    { handle = listed.handle
-                      dataDir = listed.dataDir
-                      workspaceLabel = listed.workspaceLabel }
+                    listed.dataDir
+                    listed.workspaceLabel
                     listed.artifactReads
             match
                 plan
@@ -286,6 +304,70 @@ module LazyLoadReconciliationServer =
                 not (isDirInfoPath oldPath || isDirInfoPath newPath)
             | _ -> true)
 
+    let private listedFrom
+        (caps: ReconcileCaps)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (graph: Graph)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        =
+        let files =
+            LazyLoadReconciliation.receivedFileChanges changedPaths
+        let planned = plannedChanges changedPaths
+        { postNotice = caps.postNotice
+          postGraphOnly = caps.postGraphOnly
+          dataDir = dataDir
+          workspaceLabel = workspaceLabel
+          graph = graph
+          changes = planned
+          artifactReads = planned
+          renamedDirIds =
+            renamedDirectoryIds graph workspaceLabel changedPaths
+          beside =
+            fun report ->
+                receivedFileIds graph workspaceLabel files
+                |> List.append report.renamedReceivedIds
+                |> List.distinct
+                |> List.iter (fun id ->
+                    caps.postNotice (Notice.NodeReceived id)) }
+
+    let private reconcileWith
+        (caps: ReconcileCaps)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        =
+        async {
+            let! stateResult = caps.graphAtEvent ()
+            match stateResult with
+            | Error err -> return Error err
+            | Ok stateResponse ->
+                return!
+                    reconcileListed
+                        LazyLoadReconciliationReport.planReceivedFiles
+                        (listedFrom
+                            caps
+                            dataDir
+                            workspaceLabel
+                            stateResponse.graph
+                            changedPaths)
+        }
+
+    let private doorCaps (door: CoreChangesDoor) : ReconcileCaps =
+        { graphAtEvent = fun () -> CoreDoor.graphAtEvent door
+          postNotice = CoreMailboxApi.postNotice door.host
+          postGraphOnly =
+            fun event ->
+                async {
+                    let! result = CoreDoor.postGraphOnly door event
+                    return Result.map ignore result
+                } }
+
+    let private changesCaps (changes: ActorChanges) : ReconcileCaps =
+        { graphAtEvent = changes.graphAtEvent
+          postNotice = changes.postNotice
+          postGraphOnly = changes.postGraphOnly }
+
     /// Git pull. Added and Modified directory files reach
     /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
     /// Each received file is marked. A directory this reconcile parses
@@ -297,40 +379,22 @@ module LazyLoadReconciliationServer =
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        async {
-            let! stateResult = CoreDoor.graphAtEvent workspace.handle
-            match stateResult with
-            | Error err -> return Error err
-            | Ok stateResponse ->
-                let files =
-                    LazyLoadReconciliation.receivedFileChanges changedPaths
-                let planned = plannedChanges changedPaths
-                return!
-                    reconcileListed
-                        LazyLoadReconciliationReport.planReceivedFiles
-                        { handle = workspace.handle
-                          dataDir = workspace.dataDir
-                          workspaceLabel = workspace.workspaceLabel
-                          graph = stateResponse.graph
-                          changes = planned
-                          artifactReads = planned
-                          renamedDirIds =
-                            renamedDirectoryIds
-                                stateResponse.graph
-                                workspace.workspaceLabel
-                                changedPaths
-                          beside =
-                            fun report ->
-                                receivedFileIds
-                                    stateResponse.graph
-                                    workspace.workspaceLabel
-                                    files
-                                |> List.append report.renamedReceivedIds
-                                |> List.distinct
-                                |> List.iter (fun id ->
-                                    CoreMailboxApi.postNotice
-                                        workspace.handle.host
-                                        (Notice.NodeReceived id)) }
-        }
+        =
+        reconcileWith
+            (doorCaps workspace.handle)
+            workspace.dataDir
+            workspace.workspaceLabel
+            changedPaths
+
+    let internal reconcileFromChanges
+        (changes: ActorChanges)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        =
+        reconcileWith
+            (changesCaps changes)
+            dataDir
+            workspaceLabel
+            changedPaths
 

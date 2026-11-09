@@ -2,7 +2,7 @@
 
 **Status:** `cancelled`
 **Type:** coding
-**Blocked by:** None — split into [79](79-place-git-save-as-order-save.md), [80](80-place-actor-orders-through-placeorder.md), [81](81-log-actor-and-search-stops-as-notices.md)
+**Blocked by:** None — split into [79](79-place-git-save-as-order-save.md) (retired), [80](80-place-actor-orders-through-placeorder.md), [81](81-log-actor-and-search-stops-as-notices.md)
 **Trackers:** architecture
 
 ## Context
@@ -52,7 +52,7 @@ Do these steps in order. Finish each step before starting the next.
 - [62 — Admit at the entry](62-admit-at-the-entry.md)
 - [63 — Move queries to Ask](63-move-queries-to-ask.md)
 - [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
-- [79 — Place git Save as Order.Save](79-place-git-save-as-order-save.md)
+- [79 — Place git Save as Order.Save](79-place-git-save-as-order-save.md) — retired. The sequence is Solution 11 — git Save sequence.
 - [80 — Place Actor orders through PlaceOrder](80-place-actor-orders-through-placeorder.md) — cancelled. 18 — Place ActorOrder through PlaceOrder replaces it.
 - [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
 - [GLOSSARY](../../../GLOSSARY.md)

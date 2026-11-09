@@ -37,13 +37,13 @@ let private withPool body =
             CoreMailboxApi.dispose host
     }
 
-let private startAt host focusId actorNodeId graphIds =
+let private startAt host focusId runDefinitionId graphIds =
     CoreMailboxApi.coreMailboxStartActor
         host
         testCaller
         { zoomId = Graph.rootId
           focusId = focusId
-          actorNodeId = actorNodeId
+          runDefinitionId = runDefinitionId
           graphIds = graphIds
           eventId = EventId.zero }
 
@@ -65,7 +65,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
                 testCaller
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
-                  actorNodeId = Graph.rootId
+                  runDefinitionId = Graph.rootId
                   graphIds = [ Graph.rootId ]
                   eventId = EventId.zero }
             |> Async.RunSynchronously
@@ -79,7 +79,7 @@ let ``mint deliver enqueue drop then deliver fails`` () =
         | Ok texts ->
             Assert.Equal<string list>([ "chunk" ], texts)
         | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForFocus Graph.rootId with
+        match pool.trySecretForActorNode Graph.rootId with
         | None -> Assert.Fail("missing live secret")
         | Some secret -> pool.drop secret
         match pool.deliver (!session, "late") with
@@ -106,7 +106,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
                 testCaller
                 { zoomId = Graph.rootId
                   focusId = Graph.rootId
-                  actorNodeId = Graph.rootId
+                  runDefinitionId = Graph.rootId
                   graphIds = [ Graph.rootId ]
                   eventId = EventId.zero }
             |> Async.RunSynchronously
@@ -121,7 +121,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
         | Ok texts ->
             Assert.Equal<string list>([ ""; "later" ], texts)
         | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForFocus Graph.rootId with
+        match pool.trySecretForActorNode Graph.rootId with
         | None -> Assert.Fail("missing live secret")
         | Some secret -> pool.drop secret
         match pool.deliver (!session, "late") with
@@ -131,7 +131,7 @@ let ``empty deliver keeps session live for a later chunk`` () =
         CoreMailboxApi.dispose host
 
 [<Fact>]
-let ``second start on the same actorNodeId is rejected`` () =
+let ``second start on the same runDefinitionId is rejected`` () =
     withPool (fun host pool -> task {
         let childId = NodeId.New()
         let event =
@@ -165,7 +165,7 @@ let ``second start on the same actorNodeId is rejected`` () =
                 "command already has a live Actor", msg)
         | Ok _ -> Assert.Fail("expected command exclusivity")
         Assert.True(
-            Set.contains Graph.rootId (pool.liveFocusIds ()))
+            Set.contains Graph.rootId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -177,7 +177,7 @@ let ``focus exclusivity still rejects a second live Focus`` () =
         (pool.startActor
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = Graph.rootId
+              runDefinitionId = Graph.rootId
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
             (fun () -> Graph.create ()))
@@ -186,7 +186,7 @@ let ``focus exclusivity still rejects a second live Focus`` () =
         pool.startActor
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = Graph.rootId
+              runDefinitionId = Graph.rootId
               graphIds = [ Graph.rootId ]
               eventId = EventId.zero }
             (fun () -> Graph.create ())

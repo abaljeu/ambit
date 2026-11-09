@@ -66,20 +66,6 @@ module RouteRegistration =
     let private createPersistenceContext (this: AmbitApp) =
         let boot = this.CreateBoot ()
         let core = ParseThread.bootCore boot
-        let github =
-            GithubTransportActor.productionDependencies
-        core.pool.registerPeer
-            (GithubTransportActor.peerName GithubTransportOperation.Load)
-            (GithubTransportActor.actorFn
-                boot.DataDir
-                GithubTransportOperation.Load
-                github)
-        core.pool.registerPeer
-            (GithubTransportActor.peerName GithubTransportOperation.Save)
-            (GithubTransportActor.actorFn
-                boot.DataDir
-                GithubTransportOperation.Save
-                github)
         {
             DataDir = boot.DataDir
             DbStatus = boot.DbStatus
@@ -345,13 +331,23 @@ module RouteRegistration =
                                 LoadSaveRouting.resolvePath persistence.DataDir
                               startCommand =
                                 fun path request ->
-                                    CoreMailboxApi.startLoadSaveCommand
-                                        persistence.Core.host
-                                        caller
-                                        path
-                                        (GithubTransportActor.peerName
-                                            (githubOperation request.operation))
-                                        request }
+                                    if path = LoadSavePath.Desk then
+                                        CoreMailboxApi.startLoadSaveCommand
+                                            persistence.Core.host
+                                            caller
+                                            path
+                                            (GithubTransportActor.peerName
+                                                (githubOperation
+                                                    request.operation))
+                                            request
+                                    else
+                                        GithubTransportActor.start
+                                            persistence.Core.host
+                                            caller
+                                            persistence.DataDir
+                                            GithubTransportActor.productionDependencies
+                                            (githubOperation request.operation)
+                                            request.start }
                         Api.postLoadSaveCommand
                             router
                             (boundChanges persistence caller)

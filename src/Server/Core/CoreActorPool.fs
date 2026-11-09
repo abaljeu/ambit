@@ -8,7 +8,7 @@ type ActorInput =
     { graph: Graph
       zoomId: NodeId
       focusId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       sessionId: string
       secret: Credential }
 
@@ -20,7 +20,7 @@ type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
 type FunctionStart =
     { actor: ActorFunction
       getGraph: GraphCarrier
-      focusId: NodeId }
+      actorNodeId: NodeId }
 
 [<RequireQualifiedAccess>]
 type StartError =
@@ -53,9 +53,9 @@ type CoreActorPool =
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
       finish: Credential -> ActorResult -> Result<unit, string>
-      liveFocusIds: unit -> Set<NodeId>
-      getFocusId: Credential -> NodeId option
-      trySecretForFocus: NodeId -> Credential option
+      liveActorNodeIds: unit -> Set<NodeId>
+      getActorNodeId: Credential -> NodeId option
+      trySecretForActorNode: NodeId -> Credential option
       deliver: string * string -> Result<unit, string>
       takeInbox: string -> Result<string list, string> }
 
@@ -76,8 +76,8 @@ module CoreActorPool =
             secret: Credential
 
     type private LiveRow =
-        { focusId: NodeId
-          actorNodeId: NodeId
+        { actorNodeId: NodeId
+          runDefinitionId: NodeId
           sessionId: string
           inbox: string list
           cancel: System.Threading.CancellationTokenSource
@@ -89,16 +89,16 @@ module CoreActorPool =
           live: Map<Credential, LiveRow>
           bySession: Map<string, Credential> }
 
-    let private liveFocusIds (model: Model) =
+    let private liveActorNodeIds (model: Model) =
         model.live
         |> Map.toList
-        |> List.map (fun (_, row) -> row.focusId)
+        |> List.map (fun (_, row) -> row.actorNodeId)
         |> Set.ofList
 
-    let private trySecretForFocus (model: Model) focusId =
+    let private trySecretForActorNode (model: Model) actorNodeId =
         model.live
         |> Map.tryPick (fun secret row ->
-            if row.focusId = focusId then Some secret
+            if row.actorNodeId = actorNodeId then Some secret
             else None)
 
     let private runAdmit isLive secret =
@@ -149,17 +149,17 @@ module CoreActorPool =
         Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
-    let private commandIsLive (model: Model) actorNodeId =
+    let private commandIsLive (model: Model) runDefinitionId =
         model.live
-        |> Map.exists (fun _ row -> row.actorNodeId = actorNodeId)
+        |> Map.exists (fun _ row -> row.runDefinitionId = runDefinitionId)
 
     let private admitStart request (model: Model) =
         if request.graphIds.IsEmpty then
             Error
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
-        elif Set.contains request.focusId (liveFocusIds model) then
+        elif Set.contains request.focusId (liveActorNodeIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.actorNodeId then
+        elif commandIsLive model request.runDefinitionId then
             Error "command already has a live Actor"
         else
             Ok()
@@ -179,13 +179,13 @@ module CoreActorPool =
             { graph = actorGraph
               zoomId = request.zoomId
               focusId = request.focusId
-              actorNodeId = request.actorNodeId
+              runDefinitionId = request.runDefinitionId
               sessionId = sessionId
               secret = secret }
         putLive
             secret
             request.focusId
-            request.actorNodeId
+            request.runDefinitionId
             sessionId
             (BagPending(actorFn, input))
         Ok secret
@@ -196,7 +196,7 @@ module CoreActorPool =
         | Error err -> Error (StartError.Rejected err)
         | Ok() ->
             let actorGraph = actorGraphFrom fullGraph request
-            match Map.tryFind request.actorNodeId actorGraph.nodes with
+            match Map.tryFind request.runDefinitionId actorGraph.nodes with
             | None ->
                 Error (
                     StartError.Rejected
@@ -214,8 +214,8 @@ module CoreActorPool =
         (request: FunctionStart)
         (model: Model)
         =
-        if Set.contains request.focusId (liveFocusIds model) then
-            Error "focus already has a live Actor"
+        if Set.contains request.actorNodeId (liveActorNodeIds model) then
+            Error "actor node already has a live Actor"
         else
             Ok()
 
@@ -229,8 +229,8 @@ module CoreActorPool =
         let sessionId = Guid.NewGuid().ToString()
         putLive
             secret
-            request.focusId
-            request.focusId
+            request.actorNodeId
+            request.actorNodeId
             sessionId
             (FunctionPending(request.actor, request.getGraph, secret))
         Ok secret
@@ -317,10 +317,10 @@ module CoreActorPool =
               live = Map.empty
               bySession = Map.empty }
         let getModel () = model
-        let putLive secret focusId actorNodeId sessionId pending =
+        let putLive secret actorNodeId runDefinitionId sessionId pending =
             let row =
-                { focusId = focusId
-                  actorNodeId = actorNodeId
+                { actorNodeId = actorNodeId
+                  runDefinitionId = runDefinitionId
                   sessionId = sessionId
                   inbox = []
                   cancel = new System.Threading.CancellationTokenSource()
@@ -395,12 +395,12 @@ module CoreActorPool =
           admit = runAdmit (fun secret -> Map.containsKey secret model.live)
           drop = runDrop takeLive
           finish = runFinish takeLive
-          liveFocusIds = fun () -> liveFocusIds model
-          getFocusId =
+          liveActorNodeIds = fun () -> liveActorNodeIds model
+          getActorNodeId =
             fun secret ->
                 Map.tryFind secret model.live
-                |> Option.map (fun row -> row.focusId)
-          trySecretForFocus =
-            fun focusId -> trySecretForFocus model focusId
+                |> Option.map (fun row -> row.actorNodeId)
+          trySecretForActorNode =
+            fun actorNodeId -> trySecretForActorNode model actorNodeId
           deliver = deliver
           takeInbox = takeInbox }

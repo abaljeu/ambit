@@ -150,7 +150,7 @@ type AgentGrokBotStreamTests() =
                     Assert.True(
                         Set.contains
                             request.focusId
-                            (pool.liveFocusIds ()))
+                            (pool.liveActorNodeIds ()))
                     let! stops =
                         actorStopCount host request.focusId
                     Assert.Equal(0, stops)
@@ -170,7 +170,7 @@ type AgentGrokBotStreamTests() =
                     Assert.True(
                         Set.contains
                             request.focusId
-                            (pool.liveFocusIds ()))
+                            (pool.liveActorNodeIds ()))
                     do! cancelFocus host request.focusId
                     do! expectActorCancelled
                             host pool request.focusId

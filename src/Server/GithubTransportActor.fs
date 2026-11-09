@@ -31,25 +31,17 @@ type GithubTransportGit =
 type GithubTransportActorDependencies =
     { git: GithubTransportGit }
 
-/// Server Peer Actor for person-started git Load and git Save.
+/// Git Load and Git Save for a person Load or Save.
 [<RequireQualifiedAccess>]
 module GithubTransportActor =
 
-    let peerName =
+    let private transportActorName =
         function
-        | GithubTransportOperation.Load ->
-            PeerActorName "github-load"
-        | GithubTransportOperation.Save ->
-            PeerActorName "github-save"
+        | GithubTransportOperation.Load -> "github-load"
+        | GithubTransportOperation.Save -> "github-save"
 
-    let start host caller operation request =
-        CoreMailboxApi.startPeerActor
-            host caller (peerName operation) request
-
-    let private actorCaller (input: ActorInput) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = input.secret }
+    let peerName operation =
+        PeerActorName(transportActorName operation)
 
     let private workspaceFromFocus dataDir graph focusId =
         let workspaceId = GraphQuery.enclosingWorkspace graph focusId
@@ -64,23 +56,15 @@ module GithubTransportActor =
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
 
-    [<RequireQualifiedAccess>]
-    type private LoadCommit =
-        | Committed of WorkspaceTrackedBranch
-        | NothingToCommit of WorkspaceTrackedBranch
-        | Failed of string
-
     type private LoadPullHeads =
         { beforeHead: Result<string option, string>
           afterHead: Result<string option, string> }
 
-    let private readLoadCommit result =
-        match result with
-        | Error err -> LoadCommit.Failed err
-        | Ok(tracked, output)
-            when output = GitSave.nothingToCommitMessage ->
-            LoadCommit.NothingToCommit tracked
-        | Ok(tracked, _) -> LoadCommit.Committed tracked
+    /// Actor changes, data directory, and Workspace id for one Git Load.
+    type private WorkspaceTarget =
+        { changes: ActorChanges
+          dataDir: string
+          workspaceId: NodeId }
 
     let private pullAndReadHeads git workspaceRoot tracked =
         let beforeHead = WorkspaceGit.tryHead workspaceRoot
@@ -89,28 +73,19 @@ module GithubTransportActor =
             { beforeHead = beforeHead
               afterHead = WorkspaceGit.tryHead workspaceRoot })
 
-    let private pullTracked git workspaceRoot =
-        git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
-            match
-                readLoadCommit (
-                    git.commitAll
-                        workspaceRoot
-                        "gambol: git Load"
-                        None)
-            with
-            | LoadCommit.Failed err -> Error err
-            | LoadCommit.Committed tracked
-            | LoadCommit.NothingToCommit tracked ->
-                pullAndReadHeads git workspaceRoot tracked)
+    /// Commit inside the work-tree gate, then run the next step before release.
+    let private commitInGate git root message next =
+        git.withWorkTreeGate.applyAction root (fun () ->
+            git.commitAll root message None
+            |> Result.bind next)
 
-    let private saveTracked git workspaceRoot =
-        git.withWorkTreeGate.applyAction workspaceRoot (fun () ->
-            git.commitAll
-                workspaceRoot
-                "gambol: git Save"
-                None)
-        |> Result.bind (fun (tracked, commitOutput) ->
-            git.pushTracked workspaceRoot tracked commitOutput)
+    let private pullTracked git workspaceRoot =
+        commitInGate
+            git
+            workspaceRoot
+            "gambol: git Load"
+            (fun (tracked, _) ->
+                pullAndReadHeads git workspaceRoot tracked)
 
     /// Paths the pull changed. None when either head cannot be read.
     let private changedAfterPull workspaceRoot heads =
@@ -126,23 +101,47 @@ module GithubTransportActor =
             | Error _ -> None
         | _ -> None
 
+    let private finishLoadOn target label changedPaths =
+        async {
+            match!
+                LazyLoadReconciliationServer.reconcileFromChanges
+                    target.changes
+                    target.dataDir
+                    label
+                    changedPaths
+            with
+            | Error err -> return Error err
+            | Ok _ ->
+                let! loaded = target.changes.loadNode target.workspaceId
+                return loaded |> Result.map (fun _ -> ())
+        }
+
     /// Mark received files and containing Directories, then Load.
     let internal finishLoadPull
         (workspace: LazyLoadReconciliationServer.WorkspaceReconcile)
         workspaceId
         changedPaths
         =
+        finishLoadOn
+            { changes = CoreDoor.actorChanges workspace.handle
+              dataDir = workspace.dataDir
+              workspaceId = workspaceId }
+            workspace.workspaceLabel
+            changedPaths
+
+    let private applyPulledChanges root target heads =
+        let changed =
+            changedAfterPull root heads
+            |> Option.defaultValue []
+        let label = System.IO.Path.GetFileName root
+        finishLoadOn target label changed
+
+    let private runLoadOn dependencies root target =
         async {
-            match!
-                LazyLoadReconciliationServer.reconcileReceivedFiles
-                    workspace
-                    changedPaths
-            with
+            match pullTracked dependencies.git root with
             | Error err -> return Error err
-            | Ok _ ->
-                let! loaded =
-                    CoreDoor.loadNode workspace.handle workspaceId
-                return loaded |> Result.map (fun _ -> ())
+            | Ok heads ->
+                return! applyPulledChanges root target heads
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -154,123 +153,248 @@ module GithubTransportActor =
         workspaceId
         workspaceRoot
         =
-        async {
-            match pullTracked dependencies.git workspaceRoot with
-            | Error err -> return Error err
-            | Ok heads ->
-                let changed =
-                    changedAfterPull workspaceRoot heads
-                    |> Option.defaultValue []
-                return!
-                    finishLoadPull
-                        { handle = changes
-                          dataDir = dataDir
-                          workspaceLabel =
-                            System.IO.Path.GetFileName
-                                workspaceRoot }
-                        workspaceId
-                        changed
-        }
+        runLoadOn
+            dependencies
+            workspaceRoot
+            { changes = CoreDoor.actorChanges changes
+              dataDir = dataDir
+              workspaceId = workspaceId }
 
-    let private loadFocus changes focusId =
+    let private loadFocus (changes: ActorChanges) focusId =
         async {
-            let! loaded = CoreDoor.loadNode changes focusId
+            let! loaded = changes.loadNode focusId
             return loaded |> Result.map (fun _ -> ())
         }
 
     let private missingSubject =
         Error "Focus is not in a Workspace, Directory, or File."
 
-    /// Workspace Load pulls. A Directory or File loads that node only.
-    let private runLoadChoice
-        dependencies
-        dataDir
-        changes
-        choice
-        workspaceId
-        root
-        =
+    /// A Workspace Load pulls. A Directory or a File loads that node only.
+    let private runLoadChoice dependencies root target choice =
         match choice with
         | Some (_, LoadSubject.Workspace) ->
-            runLoad
-                dependencies
-                dataDir
-                changes
-                workspaceId
-                root
+            runLoadOn dependencies root target
         | Some (id, LoadSubject.Directory)
         | Some (id, LoadSubject.File) ->
-            loadFocus changes id
+            loadFocus target.changes id
         | None -> async.Return missingSubject
 
-    let private runStep
-        operation
-        dependencies
-        dataDir
-        changes
-        graph
-        focusId
-        workspaceId
-        root
-        =
-        match operation with
-        | GithubTransportOperation.Load ->
-            runLoadChoice
-                dependencies
-                dataDir
-                changes
-                (LoadSubject.enclosingSubject graph focusId)
-                workspaceId
-                root
-        | GithubTransportOperation.Save ->
-            async.Return(
-                saveTracked dependencies.git root
-                |> Result.map ignore)
+    let private actorOutcome =
+        function
+        | Ok () -> ActorSucceeded
+        | Error err -> ActorFailed err
 
-    let private runBody dataDir operation dependencies input coreChanges =
+    let private finishActor
+        (changes: ActorChanges)
+        (work: Async<Result<unit, string>>)
+        =
         async {
-            let actorChanges =
-                CoreDoor.forCaller (actorCaller input) coreChanges
-            let! state = CoreDoor.graphAtEvent actorChanges
-            match state with
-            | Error err -> return ActorFailed err
-            | Ok current ->
-                match
-                    workspaceFromFocus
-                        dataDir current.graph input.focusId
-                with
-                | Error err -> return ActorFailed err
-                | Ok(workspaceId, root) ->
-                    match!
-                        runStep
-                            operation
-                            dependencies
-                            dataDir
-                            actorChanges
-                            current.graph
-                            input.focusId
-                            workspaceId
-                            root
-                    with
-                    | Ok () -> return ActorSucceeded
-                    | Error err -> return ActorFailed err
+            let! step = work
+            let! _ = changes.actorStop (actorOutcome step)
+            return ()
         }
 
-    let actorFn
-        dataDir
-        operation
-        dependencies
-        : ActorFn =
-        fun input coreChanges ->
-            async {
-                let! result =
-                    runBody
-                        dataDir operation dependencies input coreChanges
-                let actorChanges =
-                    CoreDoor.forCaller (actorCaller input) coreChanges
-                let! _ = CoreDoor.actorStop actorChanges result
-                return ()
-            }
+    let private readWorkspace dataDir (changes: ActorChanges) focusId =
+        async {
+            let! state = changes.graphAtEvent ()
+            return
+                state
+                |> Result.bind (fun current ->
+                    workspaceFromFocus dataDir current.graph focusId
+                    |> Result.map (fun found -> current.graph, found))
+        }
+
+    let private withWorkspace dataDir changes focusId step =
+        async {
+            match! readWorkspace dataDir changes focusId with
+            | Error err -> return Error err
+            | Ok found -> return! step found
+        }
+
+    let private readFocusNode (changes: ActorChanges) focusId =
+        async {
+            let! state = changes.graphAtEvent ()
+            return
+                state
+                |> Result.bind (fun current ->
+                    match Map.tryFind focusId current.graph.nodes with
+                    | None -> Error "node not found"
+                    | Some node ->
+                        Ok(current.eventId, current.graph, node))
+        }
+
+    /// Parsed is required. A pulling file stays Unparsed.
+    let private focusCanBeParsed (graph: Graph) (focusId: NodeId) =
+        match GraphMutate.setParseState focusId ParseState.Parsed graph with
+        | Error err -> Error err
+        | Ok parsed ->
+            match Map.tryFind focusId parsed.nodes with
+            | Some node when node.parseState = ParseState.Parsed ->
+                Ok ()
+            | Some node when node.documentState.pullingFile ->
+                Error
+                    "focused node stays unparsed while a file is pulling"
+            | _ -> Error "focused node was not marked parsed"
+
+    let private failedPersistMessage focusId (event: Ev) =
+        match event.body with
+        | EventBody.Notice (Notice.PersistFailed (id, message))
+            when id = focusId ->
+            Some message
+        | _ -> None
+
+    /// Persisted is the graph state. PersistFailed is the event tail.
+    let rec private waitUntilPersisted
+        (changes: ActorChanges)
+        (after: EventId)
+        focusId
+        =
+        async {
+            match! readFocusNode changes focusId with
+            | Error err -> return Error err
+            | Ok (_, _, node) when
+                node.parseState = ParseState.Parsed
+                && node.persistState = PersistState.Persisted ->
+                return Ok ()
+            | Ok (_, _, node) when
+                node.parseState <> ParseState.Parsed ->
+                return Error "focused node was not marked parsed"
+            | Ok _ ->
+                let! events = changes.eventsSince after
+                match
+                    List.tryPick (failedPersistMessage focusId) events
+                with
+                | Some message -> return Error message
+                | None ->
+                    return! waitUntilPersisted changes after focusId
+        }
+
+    /// The focus is marked Parsed and pushed on the persistence stack.
+    /// NodeUnpersisted is posted so that the write runs.
+    let private persistFocus
+        (changes: ActorChanges)
+        focusId
+        eventId
+        (graph: Graph)
+        =
+        async {
+            match focusCanBeParsed graph focusId with
+            | Error err -> return Error err
+            | Ok () ->
+                changes.postNotice (Notice.NodeUnpersisted focusId)
+                changes.postNotice (Notice.NodeParsed focusId)
+                return! waitUntilPersisted changes eventId focusId
+        }
+
+    /// The focus is persisted when it is not an ordinary node.
+    let private persistFocusWhenNotOrdinary
+        (changes: ActorChanges)
+        focusId
+        =
+        async {
+            match! readFocusNode changes focusId with
+            | Error err -> return Error err
+            | Ok (eventId, graph, node) when node.kind <> Normal ->
+                return! persistFocus changes focusId eventId graph
+            | Ok _ -> return Ok ()
+        }
+
+    type private SaveCommit =
+        { tracked: WorkspaceTrackedBranch
+          output: string
+          heads: LoadPullHeads }
+
+    /// Commit and pull stay inside the work-tree gate.
+    let private commitAndPull git root =
+        commitInGate git root "gambol: git Save" (fun (tracked, output) ->
+            pullAndReadHeads git root tracked
+            |> Result.map (fun heads ->
+                { tracked = tracked
+                  output = output
+                  heads = heads }))
+
+    let private pushAfterPull git root target commit =
+        async {
+            match! applyPulledChanges root target commit.heads with
+            | Error err -> return Error err
+            | Ok () ->
+                return
+                    git.pushTracked root commit.tracked commit.output
+                    |> Result.map ignore
+        }
+
+    let private runSaveBody dataDir dependencies focusId changes =
+        withWorkspace dataDir changes focusId
+            (fun (_, (workspaceId, root)) ->
+                async {
+                    match! persistFocusWhenNotOrdinary changes focusId with
+                    | Error err -> return Error err
+                    | Ok () ->
+                        match commitAndPull dependencies.git root with
+                        | Error err -> return Error err
+                        | Ok commit ->
+                            let target =
+                                { changes = changes
+                                  dataDir = dataDir
+                                  workspaceId = workspaceId }
+                            return!
+                                pushAfterPull
+                                    dependencies.git
+                                    root
+                                    target
+                                    commit
+                })
+
+    let private runLoadBody dataDir dependencies focusId changes =
+        withWorkspace dataDir changes focusId
+            (fun (graph, (workspaceId, root)) ->
+                runLoadChoice
+                    dependencies
+                    root
+                    { changes = changes
+                      dataDir = dataDir
+                      workspaceId = workspaceId }
+                    (LoadSubject.enclosingSubject graph focusId))
+
+    let private actorFunction body : ActorFunction =
+        fun _ changes -> finishActor changes (body changes)
+
+    /// Load reads the enclosing Workspace, then loads that subject.
+    let loadActorFunction dataDir dependencies focusId =
+        actorFunction (runLoadBody dataDir dependencies focusId)
+
+    /// Save persists the focus if it is not an ordinary node, then commits, pulls, and pushes.
+    let saveActorFunction dataDir dependencies focusId =
+        actorFunction (runSaveBody dataDir dependencies focusId)
+
+    /// Save on a door. Same body as the actor, for a direct caller.
+    let internal runSave dependencies dataDir door focusId =
+        runSaveBody
+            dataDir
+            dependencies
+            focusId
+            (CoreDoor.actorChanges door)
+
+    let start host caller dataDir dependencies operation request =
+        let actor =
+            match operation with
+            | GithubTransportOperation.Load ->
+                loadActorFunction dataDir dependencies request.focusId
+            | GithubTransportOperation.Save ->
+                saveActorFunction dataDir dependencies request.focusId
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = transportActorName operation
+              actorNodeIdOf = fun item -> item.focusId }
+        async {
+            let! placed =
+                CoreMailboxApi.coreMailboxStartActorFromFunction
+                    host
+                    caller
+                    placement
+            return Result.map ignore placed
+        }
 
     let private workTreeGate =
         { new GithubTransportWorkTreeGate with

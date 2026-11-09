@@ -20,11 +20,11 @@ let private carrierGraph (text: string) : Graph * NodeId =
 
 let private functionStart
     (getGraph: GraphCarrier)
-    (focusId: NodeId)
+    (actorNodeId: NodeId)
     : FunctionStart =
     { actor = TestActor.functionActor
       getGraph = getGraph
-      focusId = focusId }
+      actorNodeId = actorNodeId }
 
 let private postedTexts (events: Ev list) =
     events
@@ -71,7 +71,7 @@ let ``function start does not invoke Graph carrier`` () =
         |> requireOk "startFunction"
     Assert.Equal(0, !calls)
     Assert.True(pool.isLive secret)
-    Assert.True(Set.contains nodeId (pool.liveFocusIds ()))
+    Assert.True(Set.contains nodeId (pool.liveActorNodeIds ()))
 
 [<Fact>]
 let ``TestActor function start posts hello from Graph carrier`` () =
@@ -129,7 +129,7 @@ let ``ID-bag startActor still starts TestActor hello`` () =
         let request: ActorStart =
             { zoomId = helloGraph.root
               focusId = helloId
-              actorNodeId = helloId
+              runDefinitionId = helloId
               graphIds = [ helloGraph.root; helloId ]
               eventId = EventId.zero }
         let pool = CoreActorPool.create ()

@@ -159,7 +159,7 @@ let ``actorStart records the root`` () =
     let start = SearchActor.actorStart graph EventId.zero
     Assert.Equal(graph.root, start.zoomId)
     Assert.Equal(graph.root, start.focusId)
-    Assert.Equal(graph.root, start.actorNodeId)
+    Assert.Equal(graph.root, start.runDefinitionId)
     Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
     Assert.Equal(EventId.zero, start.eventId)
 
@@ -262,7 +262,7 @@ let ``postSearch records ActorStart at the root`` () = task {
                 failwith "ActorStart missing on the event source"
         Assert.Equal(graph.root, start.zoomId)
         Assert.Equal(graph.root, start.focusId)
-        Assert.Equal(graph.root, start.actorNodeId)
+        Assert.Equal(graph.root, start.runDefinitionId)
         Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
         let stopped =
             history.events

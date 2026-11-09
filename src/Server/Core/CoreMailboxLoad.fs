@@ -38,13 +38,13 @@ module internal CoreMailboxLoad =
         =
         let order =
             { actor = EventJson.stubActor
-              focusId = request.start.focusId
+              actorNodeId = request.start.focusId
               actorName = "" }
         CoreEventDispatch.appendLifecycle
             (CoreMailboxEvents.eventDispatchContext context)
             caller
             (System.Guid.NewGuid())
-            (EventBody.Order(Order.ActorOrderCase order))
+            (EventBody.Order(Order.StartActor order))
         |> Result.map ignore
 
     let internal dispatchStartLoadSaveCommand

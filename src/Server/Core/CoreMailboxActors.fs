@@ -127,14 +127,14 @@ module internal CoreMailboxActors =
         : unit =
         match caller.authority with
         | Authority "Actor" ->
-            match context.pool.getFocusId caller.secret with
+            match context.pool.getActorNodeId caller.secret with
             | None -> reply.Reply(Ok ())
-            | Some focusId ->
+            | Some actorNodeId ->
                 match
                     CoreEventDispatch.actorStop
                         (CoreMailboxEvents.eventDispatchContext context)
                         caller
-                        focusId
+                        actorNodeId
                         result
                 with
                 | Error err -> reply.Reply(Error err)
@@ -150,7 +150,7 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         (submissionId: System.Guid)
         : Result<Ev option, string> =
-        match context.pool.trySecretForFocus focusId with
+        match context.pool.trySecretForActorNode focusId with
         | None -> Ok None
         | Some secret ->
             match
@@ -215,20 +215,10 @@ module internal CoreMailboxActors =
         | None -> None
         | Some node -> CommandRequest.actorNameFromText node.text
 
-    let private replyPlaced
-        (reply: PostedReply)
-        (stored: Ev)
-        (placed: Result<EventId, string>)
-        =
-        match placed with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> CoreMailboxEvents.replyStored reply stored
-
-    /// Admitted `?test` Run. Closes over the actor node and queues ActorOrder.
+    /// Admitted `?test` Run. The ack is the placed StartActor EventId.
     let private queueAdmittedTest
         (context: MailboxContext)
         (caller: Caller)
-        (event: Ev)
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
@@ -236,49 +226,30 @@ module internal CoreMailboxActors =
         | None -> reply.Reply(Error "mailbox not initialized")
         | Some make ->
             let order =
-                { actor =
+                ActorOrderFromStart.orderFromStart
                     TestActor.functionActorAt
-                        request.actorNodeId
-                        request.focusId
-                  focusId = request.focusId
-                  actorName = "test" }
+                    "test"
+                    (fun start -> start.focusId)
+                    request
             let host = (make caller).host
-            let dispatch =
-                CoreMailboxEvents.eventDispatchContext context
-            match
-                CoreEventDispatch.appendLifecycle
-                    dispatch
-                    caller
-                    event.submissionId
-                    (EventBody.ActorStart request)
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok stored ->
-                Async.Start(async {
-                    let! placed =
-                        MailboxHost.postActorOrder host caller order
-                    replyPlaced reply stored placed
-                })
+            Async.Start(async {
+                let! placed =
+                    MailboxHost.postActorOrder host caller order
+                reply.Reply(placed)
+            })
 
     /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
+    /// A refusal starts no Actor, so it stores no lifecycle row.
     let private queueTestOrder
         (context: MailboxContext)
         (caller: Caller)
-        (event: Ev)
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
         match CoreMailboxEvents.admitCaller context caller with
-        | Error err ->
-            recordFailedStart
-                context
-                caller
-                request
-                event.submissionId
-                err
-                reply
+        | Error err -> reply.Reply(Error err)
         | Ok () ->
-            queueAdmittedTest context caller event request reply
+            queueAdmittedTest context caller request reply
 
     let private postChosenStart
         context caller event request reply =
@@ -305,9 +276,9 @@ module internal CoreMailboxActors =
         | Some stored ->
             CoreMailboxEvents.replyStored reply stored
         | None ->
-            match actorNameOn context request.actorNodeId with
+            match actorNameOn context request.runDefinitionId with
             | Some "test" ->
-                queueTestOrder context caller event request reply
+                queueTestOrder context caller request reply
             | _ ->
                 postChosenStart context caller event request reply
 

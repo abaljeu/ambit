@@ -45,7 +45,7 @@ module EventJson =
     let private startRequestFields (start: ActorStart) =
         [ "zoomId", Serialization.encodeNodeId start.zoomId
           "focusId", Serialization.encodeNodeId start.focusId
-          "commandId", Serialization.encodeNodeId start.actorNodeId
+          "commandId", Serialization.encodeNodeId start.runDefinitionId
           "graphIds",
           start.graphIds
           |> List.map Serialization.encodeNodeId
@@ -59,7 +59,7 @@ module EventJson =
         Decode.object (fun get ->
             { zoomId = get.Required.Field "zoomId" Serialization.decodeNodeId
               focusId = get.Required.Field "focusId" Serialization.decodeNodeId
-              actorNodeId =
+              runDefinitionId =
                 get.Required.Field "commandId" Serialization.decodeNodeId
               graphIds =
                 get.Required.Field
@@ -286,7 +286,7 @@ module EventJson =
         fun _ _ -> async.Return ()
 
     let private actorOrderFields (order: ActorOrder) =
-        [ "focusId", Serialization.encodeNodeId order.focusId
+        [ "focusId", Serialization.encodeNodeId order.actorNodeId
           "actorName", Encode.string order.actorName ]
 
     let encodeActorOrder (order: ActorOrder) : IEncodable =
@@ -295,7 +295,7 @@ module EventJson =
     let private decodeActorOrderFields : Decoder<ActorOrder> =
         Decode.object (fun get ->
             { actor = stubActor
-              focusId =
+              actorNodeId =
                   get.Required.Field
                       "focusId"
                       Serialization.decodeNodeId
@@ -332,7 +332,7 @@ module EventJson =
             | true, focus ->
                 Ok
                     { actor = stubActor
-                      focusId = NodeId focus
+                      actorNodeId = NodeId focus
                       actorName = actorName }
 
     let private encodeOrder (order: Order) =
@@ -352,13 +352,13 @@ module EventJson =
                 [ "kind", Encode.string "redo"
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
-        | Order.StartActor start ->
+        | Order.StartActorDeprecated start ->
             Encode.object
                 [ "kind", Encode.string "startActor"
                   "start", encodeStartRequest start ]
         | Order.Load nodeId -> encodeLoad nodeId
         | Order.CancelActor focusId -> encodeCancel focusId
-        | Order.ActorOrderCase order ->
+        | Order.StartActor order ->
             Encode.object
                 (("kind", Encode.string "actorOrder")
                  :: actorOrderFields order)
@@ -383,7 +383,7 @@ module EventJson =
 
     let private decodeOrderStartActor: Decoder<Order> =
         Decode.object (fun get ->
-            Order.StartActor(
+            Order.StartActorDeprecated(
                 get.Required.Field "start" decodeStartRequest))
 
     let private decodeOrderLoad: Decoder<Order> =
@@ -411,7 +411,7 @@ module EventJson =
             | "load" -> decodeOrderLoad
             | "cancel" -> decodeOrderCancel
             | "actorOrder" ->
-                Decode.map Order.ActorOrderCase decodeActorOrderFields
+                Decode.map Order.StartActor decodeActorOrderFields
             | other -> Decode.fail ("Unknown order: " + other))
 
     let private encodeBody (body: EventBody) =

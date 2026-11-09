@@ -26,13 +26,13 @@ module SearchActor =
         { ids = hitIds walk.text walk.zoomRoot walk.graph
           matchKey = walk.matchKey }
 
-    /// Event-source start. `zoomId`, `focusId`, and `actorNodeId` are the
+    /// Event-source start. `zoomId`, `focusId`, and `runDefinitionId` are the
     /// root. `graphIds` is the root. Search does not read a focus.
     /// `focusId` holds the root so ActorStop can pair on that id.
     let actorStart (graph: Graph) (eventId: EventId) : ActorStart =
         { zoomId = graph.root
           focusId = graph.root
-          actorNodeId = graph.root
+          runDefinitionId = graph.root
           graphIds = [ graph.root ]
           eventId = eventId }
 
@@ -50,7 +50,7 @@ module SearchActor =
 
     /// The command Node on the server Graph is a query line.
     let isQueryRequest (graph: Graph) (request: ActorStart) =
-        match Map.tryFind request.actorNodeId graph.nodes with
+        match Map.tryFind request.runDefinitionId graph.nodes with
         | None -> false
         | Some node -> CommandRequest.isQueryText node.text
 
@@ -72,7 +72,7 @@ module SearchActor =
         (request: ActorStart)
         (getGraph: GraphCarrier)
         : FunctionStart =
-        let lineId = request.actorNodeId
+        let lineId = request.runDefinitionId
         { actor =
             fun run changes ->
                 async {
@@ -86,4 +86,4 @@ module SearchActor =
                     return ()
                 }
           getGraph = getGraph
-          focusId = request.focusId }
+          actorNodeId = request.focusId }

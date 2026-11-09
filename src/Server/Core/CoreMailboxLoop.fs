@@ -205,7 +205,7 @@ module internal CoreMailboxLoop =
         let start : FunctionStart =
             { actor = poolActor order.actor
               getGraph = fun () -> CoreMailboxEvents.graphNow context
-              focusId = order.focusId }
+              actorNodeId = order.actorNodeId }
         match context.pool.startFunction start with
         | Error err -> Error err
         | Ok secret ->
@@ -224,7 +224,7 @@ module internal CoreMailboxLoop =
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         (order: ActorOrder)
         =
-        let body = EventBody.Order(Order.ActorOrderCase order)
+        let body = EventBody.Order(Order.StartActor order)
         match
             CoreEventDispatch.appendLifecycle
                 (CoreMailboxEvents.eventDispatchContext context)
@@ -263,9 +263,9 @@ module internal CoreMailboxLoop =
         | Order.CancelActor focusId ->
             CoreMailboxActors.replyCancel
                 context placed caller reply focusId
-        | Order.ActorOrderCase order ->
+        | Order.StartActor order ->
             replyActorOrder context placed caller reply order
-        | Order.StartActor request ->
+        | Order.StartActorDeprecated request ->
             CoreMailboxActors.dispatchStartActor
                 context
                 caller
@@ -280,7 +280,7 @@ module internal CoreMailboxLoop =
             | Ok state ->
                 let graph =
                     GraphSpan.withLockPresent
-                        (context.pool.liveFocusIds ())
+                        (context.pool.liveActorNodeIds ())
                         state.graph
                 reply.Reply(Ok { state with graph = graph })
         | Query.LastEventId reply ->

@@ -34,7 +34,7 @@ module TestActor =
     let private dispatch (input: ActorInput) (coreChanges: CoreChangesDoor) =
         async {
             let! result =
-                match Map.tryFind input.actorNodeId input.graph.nodes with
+                match Map.tryFind input.runDefinitionId input.graph.nodes with
                 | None -> async.Return (ActorFailed "")
                 | Some commandNode ->
                     match
@@ -130,12 +130,12 @@ module TestActor =
     /// Test command after the actor node id is applied.
     /// Hello and ping land under focusId.
     let functionActorAt
-        (actorNodeId: NodeId)
+        (runDefinitionId: NodeId)
         (focusId: NodeId)
         : Gambol.Shared.ActorFunction =
         fun run changes ->
             let graph = run.getGraph ()
             runBehavior
-                (commandText graph actorNodeId)
+                (commandText graph runDefinitionId)
                 focusId
                 changes

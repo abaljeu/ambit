@@ -59,6 +59,7 @@
     <Compile Include="NodeEventExpandTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
+    <Compile Include="ActorOrderFromStartTests.fs" />
     <Compile Include="AskCancelHarness.fs" />
     <Compile Include="AgentAskTests.fs" />
     <Compile Include="AgentActorStreamTests.fs" />

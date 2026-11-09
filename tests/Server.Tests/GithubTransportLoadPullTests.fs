@@ -64,7 +64,7 @@ let private pullAddsExtra root =
         WorkspaceGit.commitAll root "pull" None
         |> Result.map (fun _ -> "pulled")
 
-let private markingDependencies pull =
+let private markingDependencies pull push =
     let tracked =
         { branch = "master"
           remote = "origin"
@@ -74,8 +74,9 @@ let private markingDependencies pull =
             { new GithubTransportWorkTreeGate with
                 member _.applyAction _ action = action () }
           pullTracked = pull
-          commitAll = fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
-          pushTracked = fun _ _ _ -> Error "unused" } }
+          commitAll =
+            fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
+          pushTracked = push } }
 
 [<SkippableFact>]
 let ``git Load pull marks a received file and its directory Unparsed`` () =
@@ -91,7 +92,9 @@ let ``git Load pull marks a received file and its directory Unparsed`` () =
         |> requireOk "seed"
         |> ignore
         GithubTransportActor.runLoad
-            (markingDependencies (pullAddsExtra root))
+            (markingDependencies
+                (pullAddsExtra root)
+                (fun _ _ _ -> Error "unused"))
             dataDir
             changes
             workspaceId
@@ -154,6 +157,52 @@ let private git root arguments =
 let private configureIdentity root =
     git root "config user.email test@gambol" |> ignore
     git root "config user.name test" |> ignore
+
+let private addNormalFocus host workspaceId =
+    let focusId = NodeId.New()
+    let graph = readGraph host
+    let children = Graph.children graph workspaceId
+    postChange
+        host
+        [ Op.NewNode(focusId, "subnode")
+          Op.Replace(
+              workspaceId,
+              children,
+              children @ [ ChildNode.owner focusId ]) ]
+    focusId
+
+[<SkippableFact>]
+let ``git Save pull marks a received file Unparsed before push`` () =
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let host, changes = createAdmittedFile dataDir
+    try
+        let workspaceId, docsId = seedDocs host
+        let focusId = addNormalFocus host workspaceId
+        let root = Path.Combine(dataDir, "home")
+        WorkspaceGit.ensureInit root |> requireOk "init" |> ignore
+        configureIdentity root
+        File.WriteAllText(Path.Combine(root, "seed.txt"), "seed")
+        WorkspaceGit.commitAll root "seed" None
+        |> requireOk "seed"
+        |> ignore
+        let marked = ResizeArray<string>()
+        let push _ _ _ =
+            let extra = fileNamed (readGraph host) docsId "extra.txt"
+            Assert.Equal(ParseState.Unparsed, extra.parseState)
+            marked.Add("unparsed")
+            Ok "pushed"
+        GithubTransportActor.runSave
+            (markingDependencies (pullAddsExtra root) push)
+            dataDir
+            changes
+            focusId
+        |> Async.RunSynchronously
+        |> requireOk "save pull"
+        |> ignore
+        Assert.Equal<string list>([ "unparsed" ], marked |> Seq.toList)
+    finally
+        CoreMailboxApi.dispose host
 
 let private seedCurrentFile (host: MailboxHost) parentId name =
     let graph = readGraph host

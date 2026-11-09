@@ -339,9 +339,18 @@ module CoreMailboxApi =
                     orderId = OrderId.New()
                     authority = caller.authority
                     commandName = None
-                    order = Order.StartActor request }
+                    order = Order.StartActorDeprecated request }
             return Result.map (fun _ -> ()) replied
         }
+
+    /// Place Order.StartActor from a supplied function. Reply is that EventId.
+    let coreMailboxStartActorFromFunction
+        (host: MailboxHost)
+        (caller: Caller)
+        (placement: ActorOrderFromStart.FunctionActorPlacement)
+        : Async<Result<EventId, string>> =
+        ActorOrderFromStart.orderFromPlacement placement
+        |> MailboxHost.postActorOrder host caller
 
     let startPeerActor
         (host: MailboxHost)

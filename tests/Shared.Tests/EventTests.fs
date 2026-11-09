@@ -21,7 +21,7 @@ let private startRequest () : ActorStart =
     let zoom = NodeId.New()
     { zoomId = zoom
       focusId = NodeId.New()
-      actorNodeId = NodeId.New()
+      runDefinitionId = NodeId.New()
       graphIds = [ zoom ]
       eventId = EventIdFixtures.storedId 4 }
 

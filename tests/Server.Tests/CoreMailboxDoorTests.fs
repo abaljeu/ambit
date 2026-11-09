@@ -26,7 +26,7 @@ let private eventPast host =
 let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      actorNodeId = Graph.rootId
+      runDefinitionId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
@@ -63,7 +63,7 @@ let ``CoreMailboxApi.startActor calls pool.startActor and returns bookkeeping re
             CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
             |> Async.StartAsTask
         requireOk "startActor" result
-        Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        Assert.True(Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -251,9 +251,9 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> Some Graph.rootId
-        trySecretForFocus = fun _ -> None
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId = fun _ -> Some Graph.rootId
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -335,9 +335,9 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
             fun secret result ->
                 live.Remove secret |> ignore
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId = fun _ -> Some sampleRequest.focusId
-        trySecretForFocus = fun _ -> None
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId = fun _ -> Some sampleRequest.focusId
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -393,7 +393,7 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
         let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = Graph.rootId
+              runDefinitionId = Graph.rootId
               graphIds = [ Graph.rootId; childId ]
               eventId = EventId.zero }
         
@@ -409,22 +409,22 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             fun event ->
                 match event.body with
                 | Gambol.Shared.EventBody.ActorStart started ->
-                    started.actorNodeId = request.actorNodeId
+                    started.runDefinitionId = request.runDefinitionId
                 | _ -> false)
     })
 
 [<Fact>]
 let ``CoreActorPool.startActor selects actor from command node text`` () =
     withHost (fun host _ -> task {
-        let actorNodeId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
                       body = EventBody.Change
-                                      [ Op.NewNode(actorNodeId, "test")
+                                      [ Op.NewNode(runDefinitionId, "test")
                                         Op.Replace(Graph.rootId, [],
-                                            [ ChildNode.owner actorNodeId ]) ] }
+                                            [ ChildNode.owner runDefinitionId ]) ] }
         let! postResult =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
@@ -433,8 +433,8 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
         let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = actorNodeId
-              graphIds = [ Graph.rootId; actorNodeId ]
+              runDefinitionId = runDefinitionId
+              graphIds = [ Graph.rootId; runDefinitionId ]
               eventId = EventId.zero }
         
         let! result =
@@ -449,7 +449,7 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             fun event ->
                 match event.body with
                 | Gambol.Shared.EventBody.ActorStart started ->
-                    started.actorNodeId = request.actorNodeId
+                    started.runDefinitionId = request.runDefinitionId
                 | _ -> false)
     })
 
@@ -459,7 +459,7 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
         let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = Graph.rootId
+              runDefinitionId = Graph.rootId
               graphIds = []
               eventId = EventId.zero }
         
@@ -473,17 +473,17 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
     })
 
 [<Fact>]
-let ``CoreActorPool.startActor fails when actorNodeId not in graphIds`` () =
+let ``CoreActorPool.startActor fails when runDefinitionId not in graphIds`` () =
     withHost (fun host _ -> task {
-        let actorNodeId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let event = { id = EventId.zero
                       submissionId = Guid.NewGuid()
                       authority = Authority "Browser"
                       commandName = ""
                       body = EventBody.Change
-                                      [ Op.NewNode(actorNodeId, "test")
+                                      [ Op.NewNode(runDefinitionId, "test")
                                         Op.Replace(Graph.rootId, [],
-                                            [ ChildNode.owner actorNodeId ]) ] }
+                                            [ ChildNode.owner runDefinitionId ]) ] }
         let! postResult =
             CoreMailboxApi.postGraphOnly host testCaller event
             |> Async.StartAsTask
@@ -492,8 +492,8 @@ let ``CoreActorPool.startActor fails when actorNodeId not in graphIds`` () =
         let request: Gambol.Shared.ActorStart =
             { zoomId = Graph.rootId
               focusId = Graph.rootId
-              actorNodeId = actorNodeId
-              graphIds = [ Graph.rootId ]  // actorNodeId not included
+              runDefinitionId = runDefinitionId
+              graphIds = [ Graph.rootId ]  // runDefinitionId not included
               eventId = EventId.zero }
         
         let! result =
@@ -537,7 +537,7 @@ let ``CoreActorPool.startActor creates live row synchronously`` () =
             |> Async.StartAsTask
         requireOk "startActor" result
         
-        let focusIds = pool.liveFocusIds ()
+        let focusIds = pool.liveActorNodeIds ()
         Assert.True(Set.contains sampleRequest.focusId focusIds)
     })
 
@@ -720,7 +720,7 @@ let ``CoreMailboxApi.postEvent stores Caller authority without admission`` () =
     })
 
 [<Fact>]
-let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
+let ``ActorStart persist Error leaves Focus out of liveActorNodeIds`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with
@@ -747,7 +747,7 @@ let ``ActorStart persist Error leaves Focus out of liveFocusIds`` () =
             | Error error ->
                 Assert.Contains("actor start persist failed", error)
             Assert.False(
-                Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+                Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
         finally
             CoreMailboxApi.dispose host
     }

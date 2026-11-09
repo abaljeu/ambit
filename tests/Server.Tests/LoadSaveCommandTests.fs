@@ -25,7 +25,7 @@ let private request operation prePick nodeId eventId =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          actorNodeId = nodeId
+          runDefinitionId = nodeId
           graphIds = [ Graph.rootId; nodeId ]
           eventId = eventId } }
 
@@ -95,7 +95,7 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
 
 type private Seed =
     { workspaceId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       focusId: NodeId
       eventId: EventId }
 
@@ -142,18 +142,8 @@ let private createTrackedWorkspace dataDir =
     configureIdentity workspace
     parent, remote, source, workspace
 
-let private registerPeer dataDir pool operation dependencies =
-    pool.registerPeer
-        (GithubTransportActor.peerName operation)
-        (GithubTransportActor.actorFn
-            dataDir operation dependencies)
-
 let private createProductionHost dataDir =
     let pool = CoreActorPool.create ()
-    let dependencies =
-        GithubTransportActor.productionDependencies
-    registerPeer dataDir pool GithubTransportOperation.Load dependencies
-    registerPeer dataDir pool GithubTransportOperation.Save dependencies
     CoreMailbox.host
         pool
         (FileAgent.persist (FileAgent.create dataDir))
@@ -186,23 +176,23 @@ let private markCurrent host nodeId =
 let private seedWorkspace host operationName =
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let actorNodeId, focusId = NodeId.New(), NodeId.New()
+    let runDefinitionId, focusId = NodeId.New(), NodeId.New()
     postSeed host workspaceOps |> ignore
     let graph = markCurrent host workspaceId
     let children = Graph.children graph workspaceId
     let accepted =
         postSeed
             host
-            [ Op.NewNode(actorNodeId, operationName)
+            [ Op.NewNode(runDefinitionId, operationName)
               Op.NewNode(focusId, "focus")
               Op.Replace(
                   workspaceId,
                   children,
                   children
-                  @ [ ChildNode.owner actorNodeId
+                  @ [ ChildNode.owner runDefinitionId
                       ChildNode.owner focusId ]) ]
     { workspaceId = workspaceId
-      actorNodeId = actorNodeId
+      runDefinitionId = runDefinitionId
       focusId = focusId
       eventId = accepted.eventId }
 
@@ -228,13 +218,22 @@ let private productionRouter harness =
     { resolvePath = LoadSaveRouting.resolvePath harness.dataDir
       startCommand =
         fun path command ->
-            CoreMailboxApi.startLoadSaveCommand
-                harness.host
-                testCaller
-                path
-                (GithubTransportActor.peerName
-                    (operationFor command.operation))
-                command }
+            if path = LoadSavePath.Desk then
+                CoreMailboxApi.startLoadSaveCommand
+                    harness.host
+                    testCaller
+                    path
+                    (GithubTransportActor.peerName
+                        (operationFor command.operation))
+                    command
+            else
+                GithubTransportActor.start
+                    harness.host
+                    testCaller
+                    harness.dataDir
+                    GithubTransportActor.productionDependencies
+                    (operationFor command.operation)
+                    command.start }
 
 let private requestFor operation prePick seed =
     { operation = operation
@@ -243,12 +242,12 @@ let private requestFor operation prePick seed =
       start =
         { zoomId = seed.workspaceId
           focusId = seed.focusId
-          actorNodeId = seed.actorNodeId
+          runDefinitionId = seed.runDefinitionId
           graphIds =
             [ Graph.rootId
               Graph.workspacesId
               seed.workspaceId
-              seed.actorNodeId
+              seed.runDefinitionId
               seed.focusId ]
           eventId = seed.eventId } }
 
@@ -336,6 +335,12 @@ let private hasActorStart focusId event =
     | EventBody.ActorStart start -> start.focusId = focusId
     | _ -> false
 
+let private hasStartedActor focusId event =
+    match event.body with
+    | EventBody.Order (Order.StartActor order) ->
+        order.actorNodeId = focusId
+    | _ -> false
+
 let private hasActorStop focusId event =
     match event.body with
     | EventBody.ActorStop(id, ActorSucceeded) -> id = focusId
@@ -372,18 +377,16 @@ let private routeMatrixHarness operation operationName =
     let started =
         TaskCompletionSource<unit>(
             TaskCreationOptions.RunContinuationsAsynchronously)
+    let dependencies = routeMatrixDependencies started
     let pool = CoreActorPool.create ()
-    registerPeer
-        dataDir pool (operationFor operation)
-        (routeMatrixDependencies started)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
-    host, seedWorkspace host operationName, started
+    host, seedWorkspace host operationName, started, dataDir, dependencies
 
-let private routeMatrixRouter host operation =
+let private routeMatrixRouter host dataDir dependencies operation =
     { resolvePath =
         fun _ command ->
             PathPick.resolveCommand
@@ -393,11 +396,22 @@ let private routeMatrixRouter host operation =
                 (fun () -> Result.Ok true)
       startCommand =
         fun path command ->
-            CoreMailboxApi.startLoadSaveCommand
-                host testCaller path
-                (GithubTransportActor.peerName
-                    (operationFor operation))
-                command }
+            if path = LoadSavePath.Desk then
+                CoreMailboxApi.startLoadSaveCommand
+                    host
+                    testCaller
+                    path
+                    (GithubTransportActor.peerName
+                        (operationFor operation))
+                    command
+            else
+                GithubTransportActor.start
+                    host
+                    testCaller
+                    dataDir
+                    dependencies
+                    (operationFor operation)
+                    command.start }
 
 let private operationFromName =
     function
@@ -425,13 +439,18 @@ let ``every Git choice starts the Server Peer Actor``
     = task {
     let operation = operationFromName operationName
     let prePick = prePickFromName prePickName
-    let host, seed, started =
+    let host, seed, started, dataDir, dependencies =
         routeMatrixHarness operation operationName
     try
-        let command = requestFor operation prePick seed
+        let focusId =
+            if operationName = "save" then
+                seed.workspaceId
+            else
+                seed.focusId
+        let command = requestForFocus operation prePick seed focusId
         let! result =
             Api.postLoadSaveCommand
-                (routeMatrixRouter host operation)
+                (routeMatrixRouter host dataDir dependencies operation)
                 (CoreDoor.create true host testCaller)
                 (encodeRequest command)
             |> Async.StartAsTask
@@ -440,7 +459,7 @@ let ``every Git choice starts the Server Peer Actor``
         Assert.True(Option.isSome response.command)
         do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Contains(history.events, hasActorStart seed.focusId)
+        Assert.Contains(history.events, hasStartedActor focusId)
     finally
         CoreMailboxApi.dispose host
 }
@@ -449,14 +468,18 @@ let ``every Git choice starts the Server Peer Actor``
 let ``plain Load of a non-Workspace returns Desk when a remote exists`` () =
     task {
         let operation = LoadSaveOperation.Load
-        let host, seed, started =
+        let host, seed, started, dataDir, dependencies =
             routeMatrixHarness operation "load"
         try
             let command =
                 requestFor operation LoadSavePrePick.Plain seed
             let! result =
                 Api.postLoadSaveCommand
-                    (routeMatrixRouter host operation)
+                    (routeMatrixRouter
+                        host
+                        dataDir
+                        dependencies
+                        operation)
                     (CoreDoor.create true host testCaller)
                     (encodeRequest command)
                 |> Async.StartAsTask
@@ -477,12 +500,13 @@ let ``routed Git Save commits then pushes through Peer Actor`` () = task {
             Path.Combine(harness.workspace, "saved.txt"),
             "saved")
         do!
-            postRouted
+            postRoutedFocus
                 LoadSaveOperation.Save
                 LoadSavePrePick.Git
+                harness.seed.workspaceId
                 harness
         let! stopped =
-            waitForStop harness.host harness.seed.focusId
+            waitForStop harness.host harness.seed.workspaceId
         Assert.Equal(Some ActorSucceeded, stopped)
         let verify = Path.Combine(harness.parent, "verify")
         git harness.parent $"clone {harness.remote} verify" |> ignore
@@ -521,7 +545,7 @@ let ``routed Git Load pulls the tracked branch`` () = task {
         let! poll = pollSince harness
         Assert.Contains(
             poll.events,
-            hasActorStart harness.seed.workspaceId)
+            hasStartedActor harness.seed.workspaceId)
         Assert.Contains(
             poll.events,
             hasActorStop harness.seed.workspaceId)
@@ -933,15 +957,15 @@ let ``Desk load-save places its order and runs no Actor`` () = task {
         let response = requireResponse result
         Assert.Equal(LoadSavePath.Desk, response.path)
         Assert.Equal(None, response.command)
-        Assert.Empty(pool.liveFocusIds ())
+        Assert.Empty(pool.liveActorNodeIds ())
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let stored =
             history.events
             |> List.filter (fun event ->
                 match event.body with
-                | EventBody.Order (Order.ActorOrderCase found) ->
-                    found.focusId = nodeId && found.actorName = ""
+                | EventBody.Order (Order.StartActor found) ->
+                    found.actorNodeId = nodeId && found.actorName = ""
                 | _ -> false)
         match stored with
         | [ event ] -> Assert.Equal(testAuthority, event.authority)

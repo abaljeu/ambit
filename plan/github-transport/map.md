@@ -48,14 +48,14 @@ Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.m
 12. [07 — Actor start door](issues/07-actor-start-door.md) — Not Run and not a `?git` entrée. The Load command sends a core message through the mailbox to the actor pool, which starts the Server Actor when the path is git. It does not send a Command or an Event. The Actor cares about Focus (Workspace / work tree) only. Same wiring for Save as Load.
 13. [08 — Reject UX](issues/08-reject-ux.md) — Conflict: error message naming at least one file path. Other failures: matching short error. Reflect what git reports, condensed. Same reject wording for Load and Save. That wording covers network, credentials, a missing remote, and a non-fast-forward push. It does not mean pull is fast-forward.
 14. [09 — Skip list is .gitignore](issues/09-gitignore-skip-list.md) — No Ambit skip key. Skip list is `.gitignore`; the person edits that file.
-15. [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md) — git Save is `git commit` of the work-tree edits, then push. Graph→file Persist already happens independently; git Save does not own or replace that path. Do not merge Persist into git Save. git Load commits its merge as part of the pull. That merge commit is not a new Save. Commit-before-pull already happens.
+15. [10 — git Save is commit then push](issues/10-git-save-commit-then-push.md) — This lock is retired. The sequence is Solution 11 — git Save sequence.
 16. **Thin remainder after core-refinement** — Locked 2026-09-29 (Alan). When [[plan/core-refinement/project.md]] is done, this Project locks the workspace, receives the files, and informs the revised Core of changes. Core works through the changes. Do not specify Core’s Parse/Persist stacks on this map. Workspace-lock protocol detail: [[plan/core-refinement/arch.md]] §6.
 17. **Core alone knows where files reside** — Locked 2026-09-28 (Alan). One hardened control point: Core alone knows where files reside. Everyone else has a relative path. This Project uses relative paths. Cross-cutting home: [[plan/transport-layer/map.md]].
 18. **Step 1 axes shipped here** — [20 — State axes on special nodes](issues/20-state-axes-on-special-nodes.md) Status `done`. Further axis-migration steps: [[plan/core-refinement/arch.md]] §5.
 
 ## 4. Not yet specified
 
-1. **Transport mechanics** — None open. Core handoff detail: [[plan/core-refinement/map.md]].
+1. **Transport mechanics** — [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md) is coded. [31 — Force-save the focused node](issues/31-force-save-the-focused-node.md) is the persist-focus step in Solution 11 — git Save sequence. Core handoff detail: [[plan/core-refinement/map.md]].
 2. **WebDAV client parse** — None open. Seam **Desk WebDAV** stays. This Project does not redesign it. [26 — Desk WebDAV](issues/26-desk-webdav.md) Status `done`.
 
 ## 5. Out of scope

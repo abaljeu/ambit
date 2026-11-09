@@ -99,22 +99,22 @@ let ``ActorOrder carries command name and FocusId`` () =
         NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
     let order =
         { actor = EventJson.stubActor
-          focusId = focusId
+          actorNodeId = focusId
           actorName = "hello" }
     let event =
-        source "hello" (EventBody.Order(Order.ActorOrderCase order))
+        source "hello" (EventBody.Order(Order.StartActor order))
     let placed = readOrder event
     Assert.Equal(Some "hello", placed.commandName)
     match placed.order with
-    | Order.ActorOrderCase found ->
-        Assert.Equal(focusId, found.focusId)
+    | Order.StartActor found ->
+        Assert.Equal(focusId, found.actorNodeId)
         Assert.Equal("hello", found.actorName)
     | _ -> Assert.Fail("expected ActorOrder")
     let back = restored event
     Assert.Equal("hello", back.commandName)
     match back.body with
-    | EventBody.Order (Order.ActorOrderCase found) ->
-        Assert.Equal(focusId, found.focusId)
+    | EventBody.Order (Order.StartActor found) ->
+        Assert.Equal(focusId, found.actorNodeId)
     | _ -> Assert.Fail("expected ActorOrder")
 
 [<Fact>]

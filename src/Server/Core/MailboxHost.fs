@@ -114,7 +114,7 @@ module MailboxHost =
             { orderId = OrderId(System.Guid.NewGuid())
               authority = caller.authority
               commandName = commandName
-              order = Order.ActorOrderCase order }
+              order = Order.StartActor order }
         postPlacedOrder host caller placed
 
     let isReady (host: MailboxHost) = host.isReady

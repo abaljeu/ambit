@@ -26,7 +26,7 @@ type ActorResult =
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
-      actorNodeId: NodeId
+      runDefinitionId: NodeId
       graphIds: NodeId list
       eventId: EventId }
 
@@ -92,31 +92,34 @@ and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
       actorStop: ActorResult -> Async<Result<unit, string>>
       graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
-      loadNode: NodeId -> Async<Result<EventId, string>> }
+      loadNode: NodeId -> Async<Result<EventId, string>>
+      postNotice: Notice -> unit
+      eventsSince: EventId -> Async<Ev list>
+      postGraphOnly: Ev -> Async<Result<unit, string>> }
 
 and [<CustomEquality; NoComparison>] ActorOrder =
     { actor: ActorFunction
-      focusId: NodeId
+      actorNodeId: NodeId
       actorName: string }
 
     override this.Equals(other: obj) =
         match other with
         | :? ActorOrder as that ->
-            this.focusId = that.focusId
+            this.actorNodeId = that.actorNodeId
             && this.actorName = that.actorName
         | _ -> false
 
     override this.GetHashCode() =
-        hash (this.focusId, this.actorName)
+        hash (this.actorNodeId, this.actorName)
 
 and [<RequireQualifiedAccess>] Order =
     | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
-    | StartActor of ActorStart
+    | StartActorDeprecated of ActorStart
+    | StartActor of ActorOrder
     | Load of nodeId: NodeId
-    | CancelActor of focusId: NodeId
-    | ActorOrderCase of ActorOrder
+    | CancelActor of actorNodeId: NodeId
 
 and [<RequireQualifiedAccess>] EventBody =
     | Order of Order
@@ -170,11 +173,11 @@ module EventBody =
         | _ -> None
 
     let ActorStart (request: ActorStart) : EventBody =
-        EventBody.Order(Order.StartActor request)
+        EventBody.Order(Order.StartActorDeprecated request)
 
     let (|ActorStart|_|) (body: EventBody) =
         match body with
-        | EventBody.Order (Order.StartActor request) ->
+        | EventBody.Order (Order.StartActorDeprecated request) ->
             Some request
         | _ -> None
 

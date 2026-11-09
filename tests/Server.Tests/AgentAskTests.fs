@@ -108,10 +108,10 @@ type AgentAskTests() =
                 }
         withHost (fun host pool -> task {
             registerActor pool "probe" probe
-            let! actorNodeId = seedCommand host "?probe"
-            let! request = startOnCommand host actorNodeId
+            let! runDefinitionId = seedCommand host "?probe"
+            let! request = startOnCommand host runDefinitionId
             do! expectActorSucceeded host pool request.focusId
-            Assert.Equal(Some actorNodeId, !seen)
+            Assert.Equal(Some runDefinitionId, !seen)
         })
 
     [<Fact>]

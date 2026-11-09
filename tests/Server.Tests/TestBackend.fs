@@ -132,12 +132,11 @@ let testCaller =
 /// Queues the test command for an admitted caller.
 let postTestActorOrder (host: MailboxHost) (request: ActorStart) =
     let order =
-        { actor =
+        ActorOrderFromStart.orderFromStart
             TestActor.functionActorAt
-                request.actorNodeId
-                request.focusId
-          focusId = request.focusId
-          actorName = "test" }
+            "test"
+            (fun start -> start.focusId)
+            request
     MailboxHost.postActorOrder host testCaller order
     |> Async.StartAsTask
 

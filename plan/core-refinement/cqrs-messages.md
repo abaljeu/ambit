@@ -110,7 +110,7 @@ type internal CoreQueue =
 [x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
 [ ] `Order.RunActor` stores the command name and the FocusId. Find and Move log that same order. Detail: [Actor as client](../actor-as-client/project.md).
 
-4. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. `Order.Save` of `NodeId` is git Save ([79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md)).
+4. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. git Save is `LoadSaveOperation.Save` on `StartLoadSaveCommand`. The sequence is Solution 11 — git Save sequence in [github-transport spec](../github-transport/spec.md). [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md) is retired.
 7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice
 

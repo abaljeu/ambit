@@ -20,7 +20,7 @@ let private requireOk label result =
 let private sampleRequest: Gambol.Shared.ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      actorNodeId = Graph.rootId
+      runDefinitionId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
@@ -53,14 +53,14 @@ let private recordingPool () =
                 live.Remove secret |> ignore
                 stopped.Add(secret, result)
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId =
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId =
             fun secret ->
                 if live.Contains secret then
                     Some sampleRequest.focusId
                 else
                     None
-        trySecretForFocus = fun _ -> None
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -99,7 +99,7 @@ let ``StartActor with live credentials calls startActor with ActorStart`` () =
         let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         Assert.Equal(sampleRequest.zoomId, handed.zoomId)
         Assert.Equal(sampleRequest.focusId, handed.focusId)
-        Assert.Equal(sampleRequest.actorNodeId, handed.actorNodeId)
+        Assert.Equal(sampleRequest.runDefinitionId, handed.runDefinitionId)
         Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
         Assert.Equal(sampleRequest.eventId, handed.eventId)
     })
@@ -116,7 +116,7 @@ let ``StartActor reply is startActor bookkeeping without waiting for an Actor bo
         sw.Stop()
         requireOk "StartActor" result
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
-        Assert.True(Set.contains sampleRequest.focusId (pool.liveFocusIds ()))
+        Assert.True(Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
@@ -276,14 +276,14 @@ let ``ActorStop checks the live receipt once`` () =
             fun secret _ ->
                 live.Remove secret |> ignore
                 Ok ()
-        liveFocusIds = fun () -> Set.empty
-        getFocusId =
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId =
             fun secret ->
                 if live.Contains secret then
                     Some sampleRequest.focusId
                 else
                     None
-        trySecretForFocus = fun _ -> None
+        trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
     }
@@ -419,7 +419,7 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
             async.Return ()
     let order =
         { actor = actor
-          focusId = focusId
+          actorNodeId = focusId
           actorName = "test" }
     try
         let! placed =
@@ -431,15 +431,15 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
             let! secret = ran.Task
             Assert.NotEqual<Credential>(testSecret, secret)
             Assert.True(pool.isLive secret)
-            Assert.Contains(focusId, pool.liveFocusIds ())
+            Assert.Contains(focusId, pool.liveActorNodeIds ())
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let stored =
                 history.events
                 |> List.filter (fun event ->
                     match event.body with
-                    | EventBody.Order (Order.ActorOrderCase found) ->
-                        found.focusId = focusId
+                    | EventBody.Order (Order.StartActor found) ->
+                        found.actorNodeId = focusId
                     | _ -> false)
             match stored with
             | [ event ] ->

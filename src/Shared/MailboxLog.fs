@@ -29,9 +29,9 @@ module MailboxLog =
         | Order.Undo _
         | Order.Redo _
         | Order.Load _
-        | Order.StartActor _
+        | Order.StartActorDeprecated _
         | Order.CancelActor _
-        | Order.ActorOrderCase _ ->
+        | Order.StartActor _ ->
             Ok (EventBody.Order order)
 
     let placedOrderFromEvent (event: Ev) : Result<PlacedOrder, string> =

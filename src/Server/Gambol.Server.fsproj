@@ -54,6 +54,7 @@
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\MailboxHost.fs" />
     <Compile Include="Core\CoreChangesDoor.fs" />
+    <Compile Include="ActorOrderFromStart.fs" />
     <Compile Include="Core\CoreMailboxApi.fs" />
     <Compile Include="Core\CoreDoor.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
