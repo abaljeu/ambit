@@ -1,14 +1,28 @@
 # Node move and disk
 
 Stage: chart
-Summary: Moving a File Node or Directory Node in the Graph moves its linked file or directory on disk to match.
-Updated: 2026-10-29
+Summary: Moving a File Node or Directory Node in the Graph moves its linked file or directory on disk to match. A conflict rejects that operation.
+Updated: 2026-11-08
 
 **Part of:** [[plan/roadmap/epics/chapters/move-nodes-with-files.md]] on [[plan/roadmap/epics/robust-outliner.md]]
+
+## Decision
+
+A node move or a disk operation rejects a conflict.
+
+A conflict is one of these:
+
+- The destination path already exists.
+- The source and the destination disagree.
+
+The rejected operation does not overwrite.
+
+The rejected operation does not merge.
 
 ## Notes
 
 - 2026-10-29 — Opened by Alan for bugs in moving File Nodes and Directory Nodes and their linked disk elements. Not a Load or git question.
+- 2026-11-08 — Alan set the conflict rule in Decision. Overlap: [78 — Persist thread moves a renamed node's file](../core-refinement/issues/78-persist-thread-moves-a-renamed-node-file.md).
 
 ## Issues
 
