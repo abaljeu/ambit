@@ -300,7 +300,9 @@ Persist thread write
 
 2. **Same-workspace relocate**
 
-[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A File Node moved under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Parse state does not affect this rule. Each selected move is one `git mv`.
+[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A File Node moved under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Each selected move is one `git mv`.
+
+[ ] A same-Workspace move moves the file on disk, whether or not the File Node or its enclosing Directory Node has been parsed. Parse state does not affect this rule. This holds when the strictly enclosing artifact becomes a Directory Node or the Workspace Node.
 
 ```fsharp
 Path comparison
@@ -448,8 +450,7 @@ A behavior change is a build slice.
 
 ## 8. Open questions
 
-1. Same-Workspace Workspace enclosure — When a move makes a File Node's strictly enclosing artifact the Workspace Node, in the same Workspace, is that move in scope?
-   - Note (Alan 2026-11-09): parse state is irrelevant to the move rule. This question is about enclosure by a Workspace Node versus a Directory Node.
+1. Same-Workspace Workspace enclosure — Resolved (Alan 2026-11-09): yes. When a move makes a File Node's strictly enclosing artifact the Workspace Node, in the same Workspace, the file moves on disk, the same as under a Directory Node. Parse state does not matter: the File moves whether or not it or its enclosing Directory Node has been parsed. **Same-workspace relocate** states the rule.
 2. Cross-Workspace commit — Are the cross-Workspace delete and the cross-Workspace add committed at move time, or at that repository's next commit?
 3. Disagree comparison — Which comparison shows that the source and the destination disagree?
 4. Conflict ops — Which ops does Change amendment emit for a change conflict?
