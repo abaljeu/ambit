@@ -161,7 +161,13 @@ The directory-level persist gate is the core-refinement architecture §6 aggrega
   - Answer (Alan 2026-11-09): yes. A Directory lock holds off parse reads under that Directory the same way the workspace lock does: it drains in-flight parse reads and holds new ones off until it releases.
 - [x] Directory File of the locked node — Should persist of the moved Directory Node wait with its descendants?
   - Answer (Alan 2026-11-09): yes. The moved Directory Node's own file waits with its descendants under the Directory lock, the same way the workspace lock drains in-flight reads and writes.
-- [ ] File move — **Move write gate** names a Directory or a Workspace. Should a File move hold that File Node's per-member persist lock for the `git mv`?
-- [ ] git Save commit — `commitAndPull` holds `withWorkTreeGate` across the Save commit and the pull. §6 defines the workspace lock for the pull. Should the Workspace aggregate include that Save commit?
-- [ ] Blocked descendant — Is defer-and-stay-Unpersisted the result, or `Notice.PersistFailed`?
-- [ ] Cross-workspace siblings — Does one Directory Node aggregate leave sibling persists in the source Workspace and the destination Workspace free to write during `moveAcrossWorkspaces`?
+- [x] File move — **Move write gate** names a Directory or a Workspace. Should a File move hold that File Node's per-member persist lock for the `git mv`?
+  - Answer (Alan 2026-11-09): yes. A single File move holds that File Node's per-member persist lock for the `git mv`.
+- [x] git Save commit — `commitAndPull` holds `withWorkTreeGate` across the Save commit and the pull. §6 defines the workspace lock for the pull. Should the Workspace aggregate include that Save commit?
+  - Answer (Alan 2026-11-09): yes. The Workspace aggregate covers the git Save commit, and it also holds while the git Save function is doing a pull.
+- [x] Blocked descendant — Is defer-and-stay-Unpersisted the result, or `Notice.PersistFailed`?
+  - Answer (Alan 2026-11-09): treat it as a lock. The persist tries to acquire the lock, cannot get it, and waits until it is available. No `Notice.PersistFailed`.
+  - Clarification (Alan 2026-11-09): the persist thread itself blocks and waits for the lock; it does not set the node aside on a deferred list. This rests on the lock not being held for as long as ten seconds.
+- [x] Cross-workspace siblings — Does one Directory Node aggregate leave sibling persists in the source Workspace and the destination Workspace free to write during `moveAcrossWorkspaces`?
+  - Answer (Alan 2026-11-09): yes. There was never a prohibition against writing siblings. Sibling files in the source and destination Workspaces may keep writing during a cross-Workspace move.
+- [x] Lock key — Added by Alan 2026-11-09: the Directory lock and the Workspace lock record the node, not the path. Every node under the locked node is locked. The lock does not check whether a path matches.
