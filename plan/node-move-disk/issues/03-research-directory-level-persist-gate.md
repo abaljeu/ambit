@@ -158,7 +158,8 @@ The directory-level persist gate is the core-refinement architecture §6 aggrega
 ### 4. Questions for Alan
 
 - [ ] Directory move and parse reads — §6 item 9 drains parse reads for the workspace lock. Should a Directory aggregate drain parse reads of that Directory the same way?
-- [ ] Directory File of the locked node — Should persist of the moved Directory Node wait with its descendants?
+- [x] Directory File of the locked node — Should persist of the moved Directory Node wait with its descendants?
+  - Answer (Alan 2026-11-09): yes. The moved Directory Node's own file waits with its descendants under the Directory lock, the same way the workspace lock drains in-flight reads and writes.
 - [ ] File move — **Move write gate** names a Directory or a Workspace. Should a File move hold that File Node's per-member persist lock for the `git mv`?
 - [ ] git Save commit — `commitAndPull` holds `withWorkTreeGate` across the Save commit and the pull. §6 defines the workspace lock for the pull. Should the Workspace aggregate include that Save commit?
 - [ ] Blocked descendant — Is defer-and-stay-Unpersisted the result, or `Notice.PersistFailed`?
