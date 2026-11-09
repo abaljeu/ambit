@@ -189,6 +189,13 @@ persistNode : string -> Graph -> NodeId -> Result<DateTime, string>
 [ ] `PersistThread.runRequest` rejects the request at the top of the persist request stack when `PersistThread.unparsedNode` is true for that node. It does not call `persistNode`.
 [ ] Today's code does not satisfy this rule. `runRequest` checks only `persistedNode`. The Unparsed check was dropped when [71 — Persist thread takes from the stack](../core-refinement/issues/71-persist-thread-takes-from-the-stack.md) (PR 330, 2026-10-21) moved the thread to take from the stack.
 
+### Move write gate
+
+[ ] While a git move of a Directory or a Workspace runs, no write is allowed under that Directory or that Workspace until the move completes.
+[ ] The gate applies to any Directory or Workspace being moved.
+[ ] The gate generalizes the git pull design, which blocked all persists until the pull completed. That design was Workspace-wide only.
+[ ] The move does not set Unparsed on the moved document root. The gate replaces that approach.
+
 ### Unparsed save gate
 
 [x] `DocumentPartition.shouldWriteDocumentRoot` is true when `Node.documentStateEnum` is Current.
@@ -346,6 +353,11 @@ Accept validation
     - Interface: `src/Server/DocumentPersistChange.fs` `persistNode`
     - Uses:
       1. [x] none
+11a. **Move write gate**
+    - Uses:
+      1. [ ] Same-workspace relocate
+      2. [ ] Cross-workspace move
+      3. [ ] Persist thread write
 12. **Unparsed save gate**
     - Interface: `src/Shared/DocumentPartition.fs` `shouldWriteDocumentRoot`
     - Uses:
@@ -388,4 +400,4 @@ A behavior change is a build slice.
 4. Conflict ops — Which ops does Change amendment emit for a change conflict?
 5. Relocate caller — Which caller runs Same-workspace relocate and Cross-workspace move?
 6. Conflict data directory — How does Change amendment obtain the data directory for the conflict check?
-7. Unparsed during the move — Does the move set Unparsed on the moved document root for the time the disk relocation runs?
+7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes.
