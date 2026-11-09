@@ -6,7 +6,7 @@ Marks: [x] exists today. [ ] required. [o] obsolescent.
 
 ## 1. Bounds
 
-In scope: An Owned File Node or Owned Directory Node whose derived path changes, including a nested path in the same change, a never-parsed File Node under a new Directory Node, a same-Workspace `git mv`, a cross-Workspace delete and add, and a change conflict amended before the change lands.
+In scope: An Owned File Node or Owned Directory Node whose derived path changes, including a nested path in the same change, a File Node moved under a new Directory Node, a same-Workspace `git mv`, a cross-Workspace delete and add, and a change conflict amended before the change lands.
 
 Out of scope: Workspace rename and Workspace relocation.
 
@@ -300,7 +300,7 @@ Persist thread write
 
 2. **Same-workspace relocate**
 
-[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A never-parsed File Node under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Each selected move is one `git mv`.
+[ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A File Node moved under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Parse state does not affect this rule. Each selected move is one `git mv`.
 
 ```fsharp
 Path comparison
@@ -448,8 +448,8 @@ A behavior change is a build slice.
 
 ## 8. Open questions
 
-1. Same-Workspace never-parsed enclosure — Is a never-parsed File Node whose enclosing artifact becomes a Workspace Node in the same Workspace in scope?
-   - Note (Alan 2026-11-09): "never-parsed" is not defined in this arch or in the spec. It needs a definition before this question can be answered. The same phrase appears in **In scope**, the same-workspace move selection rule, spec story 8, and ticket 01.
+1. Same-Workspace Workspace enclosure — When a move makes a File Node's strictly enclosing artifact the Workspace Node, in the same Workspace, is that move in scope?
+   - Note (Alan 2026-11-09): parse state is irrelevant to the move rule. This question is about enclosure by a Workspace Node versus a Directory Node.
 2. Cross-Workspace commit — Are the cross-Workspace delete and the cross-Workspace add committed at move time, or at that repository's next commit?
 3. Disagree comparison — Which comparison shows that the source and the destination disagree?
 4. Conflict ops — Which ops does Change amendment emit for a change conflict?
