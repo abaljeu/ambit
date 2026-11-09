@@ -57,7 +57,7 @@ These are exclusions from this map, not product-wide exclusions. See [[doc/agent
 
 ## 6. Order
 
-[ ] [10 — Start git Load and Save](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) converts every caller of `CoreMsg.StartLoadSaveCommand`. `postLoadSaveCommand` puts `Order.ActorOrder` on the mailbox queue. After that ticket, nothing sends `StartLoadSaveCommand`.
+[ ] Git Load and Git Save already post `Order.StartActor` through `GithubTransportActor.start`. [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) still has Load sends of `CoreMsg.StartLoadSaveCommand`. [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) still has Save sends of that message.
 [ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes that message, with `Order.StartActor`.
 [ ] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. Find and Move posts `Order.ActorOrder`, and that order runs the Search Actor.
 [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is owned by Ambot2. It shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
