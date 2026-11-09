@@ -2,6 +2,25 @@
 **Status**: defined
 One job: `postLoadSaveCommand` builds the git Save `ActorFunction` and puts `Order.ActorOrder` on the mailbox queue. A Desk Save runs no Actor.
 
+The Git Save post is already in the code. Keep that post.
+
+[x] `RouteRegistration.registerStateRoutes` calls `GithubTransportActor.start` when the path is Git.
+[x] `GithubTransportActor.start` calls `saveActorFunction` for Save.
+[x] `GithubTransportActor.start` calls `CoreMailboxApi.coreMailboxStartActorFromFunction`.
+[x] `ActorOrderFromStart.orderFromPlacement` builds the `ActorOrder`.
+[x] `MailboxHost.postActorOrder` posts `Order.StartActor`.
+[x] `CoreMailboxLoop.scheduleActorOrder` runs that order through `CoreActorPool.startFunction`.
+[x] `GithubTransportActor.transportActorName` returns `github-save` for Save.
+[x] `CoreActorPool.startLoadSaveCommand` returns `Ok None` for `LoadSavePath.Desk`.
+
+This remains.
+
+[ ] `CoreMailboxApi.startLoadSaveCommand` is the only builder of `CoreMsg.StartLoadSaveCommand`.
+[ ] `RouteRegistration.registerStateRoutes` calls that builder when the path is Desk.
+[ ] `LoadSaveCommandTests.productionRouter` calls that builder when the path is Desk.
+[ ] `LoadSaveCommandTests.routeMatrixRouter` calls that builder when the path is Desk.
+[ ] 10 — Start git Load still has Load sends of the same message.
+
 [ ] This ticket converts every remaining Save caller of `CoreMsg.StartLoadSaveCommand`.
 [ ] After this ticket and 10 — Start git Load, nothing sends `StartLoadSaveCommand`.
 [ ] 15 — Delete the old Actor starts deletes the message.
