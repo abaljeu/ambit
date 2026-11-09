@@ -1,6 +1,6 @@
 # github-transport
 
-Updated: 2026-11-08
+Updated: 2026-11-09
 
 Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md); [31 — Force-save the focused node](issues/31-force-save-the-focused-node.md); [project.md](project.md). Core handoff after files land: [[plan/core-refinement/project.md]]. Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes transport locks. It does not invent new product behavior.
 
@@ -25,12 +25,12 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 10. **Git Load/Save are Workspace-scoped** — When git Load or git Save runs, including explicit git Load from a subnode, pull/push operates on the whole Workspace work tree / tracked branch — never file-level git. Plain Load of a File or a Directory does not start that actor. After files land, inform Core ([[plan/core-refinement/project.md]]).
 11. **git Save sequence** — git Save runs these stages, in this order.
 
-    - An artifact focus is marked Parsed and pushed on the persistence stack, including when that node is already Persisted. A Normal Node skips this stage. Save then commits, pulls, and pushes. Any other focus that cannot take parse state fails this stage. Save keeps that focus.
+    - An artifact focus is marked Parsed and pushed on the persistence stack, including when that node is already Persisted. A Normal Node skips this stage. Any other focus that cannot take parse state fails this stage. Save keeps that focus.
     - commit
     - pull
     - push
 
-    Pull uses the same resolution as Solution 4 — Fast-forward push, remote-wins pull. A conflict is merged automatically. A conflict alone leaves the pull successful.
+    Pull uses the same resolution as Solution 4 — Fast-forward push, remote-wins pull. That pull then reconciles received files and loads that Workspace, the same steps as git Load. A conflict is merged automatically. A conflict alone leaves the pull successful.
 
 ## 3. User Stories
 

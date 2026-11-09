@@ -129,16 +129,19 @@ module GithubTransportActor =
             workspace.workspaceLabel
             changedPaths
 
+    let private applyPulledChanges root target heads =
+        let changed =
+            changedAfterPull root heads
+            |> Option.defaultValue []
+        let label = System.IO.Path.GetFileName root
+        finishLoadOn target label changed
+
     let private runLoadOn dependencies root target =
         async {
             match pullTracked dependencies.git root with
             | Error err -> return Error err
             | Ok heads ->
-                let changed =
-                    changedAfterPull root heads
-                    |> Option.defaultValue []
-                let label = System.IO.Path.GetFileName root
-                return! finishLoadOn target label changed
+                return! applyPulledChanges root target heads
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -233,23 +236,14 @@ module GithubTransportActor =
                     "focused node stays unparsed while a file is pulling"
             | _ -> Error "focused node was not marked parsed"
 
-    let private persistFailedSince
-        (changes: ActorChanges)
-        (after: EventId)
-        focusId
-        =
-        async {
-            let! events = changes.eventsSince after
-            return
-                events
-                |> List.tryPick (fun event ->
-                    match event.body with
-                    | EventBody.Notice (Notice.PersistFailed (id, message))
-                        when id = focusId ->
-                        Some message
-                    | _ -> None)
-        }
+    let private failedPersistMessage focusId (event: Ev) =
+        match event.body with
+        | EventBody.Notice (Notice.PersistFailed (id, message))
+            when id = focusId ->
+            Some message
+        | _ -> None
 
+    /// Persisted is the graph state. PersistFailed is the event tail.
     let rec private waitUntilPersisted
         (changes: ActorChanges)
         (after: EventId)
@@ -266,7 +260,10 @@ module GithubTransportActor =
                 node.parseState <> ParseState.Parsed ->
                 return Error "focused node was not marked parsed"
             | Ok _ ->
-                match! persistFailedSince changes after focusId with
+                let! events = changes.eventsSince after
+                match
+                    List.tryPick (failedPersistMessage focusId) events
+                with
                 | Some message -> return Error message
                 | None ->
                     return! waitUntilPersisted changes after focusId
@@ -288,24 +285,51 @@ module GithubTransportActor =
                     return! waitUntilPersisted changes eventId focusId
         }
 
-    /// Save commits, runs Load's pull resolution, and then pushes.
-    /// The work-tree gate covers the commit and the pull.
-    let private commitPullPush git root =
+    type private SaveCommit =
+        { tracked: WorkspaceTrackedBranch
+          output: string
+          heads: LoadPullHeads }
+
+    /// Commit and pull stay inside the work-tree gate.
+    let private commitAndPull git root =
         commitInGate git root "gambol: git Save" (fun (tracked, output) ->
-            git.pullTracked root tracked
-            |> Result.map (fun _ -> tracked, output))
-        |> Result.bind (fun (tracked, output) ->
-            git.pushTracked root tracked output)
-        |> Result.map ignore
+            pullAndReadHeads git root tracked
+            |> Result.map (fun heads ->
+                { tracked = tracked
+                  output = output
+                  heads = heads }))
+
+    let private pushAfterPull git root target commit =
+        async {
+            match! applyPulledChanges root target commit.heads with
+            | Error err -> return Error err
+            | Ok () ->
+                return
+                    git.pushTracked root commit.tracked commit.output
+                    |> Result.map ignore
+        }
 
     let private runSaveBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId (fun (_, (_, root)) ->
-            async {
-                match! forcePersistFocus changes focusId with
-                | Error err -> return Error err
-                | Ok () ->
-                    return commitPullPush dependencies.git root
-            })
+        withWorkspace dataDir changes focusId
+            (fun (_, (workspaceId, root)) ->
+                async {
+                    match! forcePersistFocus changes focusId with
+                    | Error err -> return Error err
+                    | Ok () ->
+                        match commitAndPull dependencies.git root with
+                        | Error err -> return Error err
+                        | Ok commit ->
+                            let target =
+                                { changes = changes
+                                  dataDir = dataDir
+                                  workspaceId = workspaceId }
+                            return!
+                                pushAfterPull
+                                    dependencies.git
+                                    root
+                                    target
+                                    commit
+                })
 
     let private runLoadBody dataDir dependencies focusId changes =
         withWorkspace dataDir changes focusId
@@ -325,10 +349,18 @@ module GithubTransportActor =
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 
-    /// Save marks an artifact focus parsed, pushes it, then commits.
-    /// A Normal Node skips that persist.
+    /// Save marks an artifact focus parsed and pushes it.
+    /// A Normal Node skips that persist. Save then commits, pulls, and pushes.
     let saveActorFunction dataDir dependencies focusId =
         actorFunction (runSaveBody dataDir dependencies focusId)
+
+    /// Save on a door. Same body as the actor, for a direct caller.
+    let internal runSave dependencies dataDir door focusId =
+        runSaveBody
+            dataDir
+            dependencies
+            focusId
+            (CoreDoor.actorChanges door)
 
     let start host caller dataDir dependencies operation request =
         let actor =
