@@ -27,3 +27,4 @@ The operation does not merge.
 ## Issues
 
 - [01 — Moving never-parsed File Nodes under a new Directory Node leaves the files behind](issues/01-move-unparsed-files-under-new-directory.md)
+- [02 — Moving an owned File or Directory into a different Workspace](issues/02-move-owned-file-or-directory-into-different-workspace.md)
