@@ -508,7 +508,7 @@ let private persistNoticeId =
     | _ -> None
 
 [<Fact>]
-let ``git Save on a Normal Node skips persist then commits pulls and pushes`` () =
+let ``git Save on a Normal Node leaves that node unchanged then commits pulls and pushes`` () =
     let steps = ResizeArray<string>()
     let pull root _ =
         steps.Add($"pull {root}")

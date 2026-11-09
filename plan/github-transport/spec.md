@@ -23,9 +23,9 @@ Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Worksp
 8. **Host git credentials** — Ambit does not store GitHub credentials in appsettings, user-secrets, Graph, or DataDir. The Actor invokes `git`. git loads credentials (credential helper / host setup). On Server that is the host’s git.
 9. **Skip list is `.gitignore`** — No special Ambit config key. Skip on the GitHub remote is whatever `.gitignore` already says; the person edits that file. When `.amb` or other notes are listed there, they are skipped on the remote. When excluded, offsite backup of those notes is Ambit Server DataDir (WebDAV Upload/Download + Server git / daily save), not the mapped repo remote.
 10. **Git Load/Save are Workspace-scoped** — When git Load or git Save runs, including explicit git Load from a subnode, pull/push operates on the whole Workspace work tree / tracked branch — never file-level git. Plain Load of a File or a Directory does not start that actor. After files land, inform Core ([[plan/core-refinement/project.md]]).
-11. **git Save sequence** — git Save runs these stages, in this order.
+11. **git Save sequence** — Save persists the focus if it is not an ordinary node, then commits, pulls, and pushes.
 
-    - An artifact focus is marked Parsed and pushed on the persistence stack, including when that node is already Persisted. A Normal Node skips this stage. Any other focus that cannot take parse state fails this stage. Save keeps that focus.
+    - That persist marks the focus Parsed and pushes it on the persistence stack, including when that node is already Persisted. When that persist cannot mark the focus Parsed, Save fails. Save keeps that focus.
     - commit
     - pull
     - push
