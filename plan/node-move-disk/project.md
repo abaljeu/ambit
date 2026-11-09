@@ -28,3 +28,9 @@ The operation does not merge.
 
 - [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md)
 - [04 — Expand the node enclosure lock](issues/04-expand-the-node-enclosure-lock.md)
+- [05 — Relocate in the same workspace](issues/05-relocate-in-the-same-workspace.md)
+- [06 — Keep a nested node whose derived path differs](issues/06-keep-a-nested-node-whose-derived-path-differs.md)
+- [07 — Move an owned node across workspaces](issues/07-move-an-owned-node-across-workspaces.md)
+- [08 — Amend a change conflict before the graph is stored](issues/08-amend-a-change-conflict-before-the-graph-is-stored.md)
+- [09 — Relocate under the node enclosure lock](issues/09-relocate-under-the-node-enclosure-lock.md)
+- [10 — Reject an unparsed persist request](issues/10-reject-an-unparsed-persist-request.md)
