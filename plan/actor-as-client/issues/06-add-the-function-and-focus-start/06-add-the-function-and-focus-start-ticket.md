@@ -38,7 +38,7 @@ Blockers:
 [ ] Do not add `ActorDispatch.fs` or `actorForCommand`. Leave `Order` as the cases in `src/Shared/History.fs`.
 [ ] Do not add a pool field. Do not change `startFunction`'s arguments.
 [ ] Do not move a caller. That is 07 — Start the test command and the tickets after it.
-[ ] Do not delete `startActor` or `startPeerActor`. That is 15 — Delete the old Actor starts.
+[ ] Do not delete `startActor`. Do not delete `startPeerActor`. 15 — Delete the old Actor starts deletes `startPeerActor`.
 [ ] Do not run `stubActor`. A wire-read `ActorOrder` is a log record.
 [ ] Do not move `CoreChangesDoor`, `MailboxHost`, or `Caller`.
 [ ] Closed: `src/Client`. Remote starts stay out of scope.

@@ -57,8 +57,9 @@ These are exclusions from this map, not product-wide exclusions. See [[doc/agent
 
 ## 6. Order
 
-[ ] Git Load and Git Save already post `Order.StartActor` through `GithubTransportActor.start`. [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) still has Load sends of `CoreMsg.StartLoadSaveCommand`. [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) still has Save sends of that message.
-[ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes `CoreMsg.StartLoadSaveCommand` and `CoreMsg.StartPeerActor`.
+[ ] Git Load and Git Save already post `Order.StartActor` through `GithubTransportActor.start`. [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) and [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) keep that post. Desk still sends `CoreMsg.StartLoadSaveCommand` until 20 — Move Desk Load and Desk Save.
+[ ] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes `CoreMsg.StartPeerActor`.
+[ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off `CoreMsg.StartLoadSaveCommand` and deletes that message at the end. Desk Load probably uses `Order.Load`. Where Desk Save goes is open.
 [ ] [16 — Delete the old Order cases](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated` and keeps `Order.StartActor` of `ActorOrder`.
 [ ] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. Find and Move posts `Order.StartActor` of `ActorOrder`, and that order runs the Search Actor.
 [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.

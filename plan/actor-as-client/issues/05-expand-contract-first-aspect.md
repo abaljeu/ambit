@@ -36,7 +36,7 @@ After function-passing at pool construction ships (step one):
 4. **Command** — which command is running determines the information that goes with the command.
 5. **Polymorphism** — lives in the function signatures, not in the pool or the mailbox.
 
-[o] This hypothesis. Alan, 2026-11-03: each endpoint builds its own `ActorFunction` and posts `Order.StartActor` of `ActorOrder`. There is no dispatcher. The pool name tables leave on 15 — Delete the old Actor starts.
+[o] This hypothesis. Alan, 2026-11-03: each endpoint builds its own `ActorFunction` and posts `Order.StartActor` of `ActorOrder`. There is no dispatcher. `registerPeer` leaves on 15 — Delete the old Actor starts.
 
 ## 3. Lock: hard-cut contract
 

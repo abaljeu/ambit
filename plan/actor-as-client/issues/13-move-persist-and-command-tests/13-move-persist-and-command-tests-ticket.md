@@ -35,7 +35,7 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Change: A started Actor uses `startFunction`. A booted command uses that command's `ActorFunction` and `postActorOrder`. `ActorFunction` is in `src/Shared/History.fs`.
-3. [ ] Keep old pool fields until 15 — Delete the old Actor starts.
+3. [ ] Keep `startPeerActor` and `registerPeer` until 15 — Delete the old Actor starts.
 
 ## Outputs
 

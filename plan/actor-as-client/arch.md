@@ -200,7 +200,6 @@ The pool `ActorFunction` keeps `CoreChangesDoor`. `actorChanges` adapts that doo
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
 ```
 
-[ ] 15 — Delete the old Actor starts renames `runSchedule` to `launchPending`.
 [ ] `runSchedule` for `FunctionPending` sets `FunctionRun.sessionId` from `row.sessionId`.
 
 ### Posted run
@@ -253,7 +252,7 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 
 [x] Git Load and Git Save call `GithubTransportActor.start`, which places `Order.StartActor` (`src/Server/RouteRegistration.fs`). Desk calls `CoreMailboxApi.startLoadSaveCommand`.
 [ ] `postLoadSaveCommand` builds the git `ActorFunction` through Curried actor and calls Post actor order.
-[ ] A Desk Load or Save places `Order.StartActor` and runs no actor.
+[ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off `CoreMsg.StartLoadSaveCommand`. Desk Load probably uses `Order.Load`. Where Desk Save goes is open. The message is deleted at the end of that ticket.
 
 ```fsharp
 postLoadSaveCommand : LoadSaveCommandRouter -> CoreChangesDoor -> string -> Async<IResult>
@@ -320,7 +319,7 @@ Pool start
 
 4. **Desk Load or Save**
 
-[ ] Load and save posts `Order.StartActor` of `ActorOrder`. Place actor order runs no actor.
+[ ] Desk Load and Desk Save leave `CoreMsg.StartLoadSaveCommand` in 20 — Move Desk Load and Desk Save. Desk Load probably uses `Order.Load`. Where Desk Save goes is open.
 
 ```fsharp
 Load and save

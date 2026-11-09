@@ -34,7 +34,7 @@ Blockers:
 
 ## Do not load
 
-[ ] Do not delete `CoreMsg.StartActor` or `CoreMsg.StartPeerActor` here. That delete is 15 — Delete the old Actor starts and 16 — Delete the old Order cases.
+[ ] Do not delete `CoreMsg.StartPeerActor` here. 15 — Delete the old Actor starts deletes it. 16 — Delete the old Order cases deletes `Order.StartActorDeprecated`.
 [ ] Do not add `ActorDispatch.fs`, `actorForCommand`, or `Order.RunActor`.
 [ ] Do not add a `CoreMsg` case.
 [x] The cancel case is `Order.CancelActor`. 112 — Place Cancel through PlaceOrder landed on staging in PR 522.

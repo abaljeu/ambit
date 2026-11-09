@@ -24,7 +24,7 @@ This remains.
 [ ] Desk Load tests in `tests/Server.Tests/LoadSaveCommandTests.fs` call the builder.
 
 [ ] This ticket converts git Load. Save callers of `CoreMsg.StartLoadSaveCommand` stay until [19 — Start git Save](../19-dispatch-git-save/19-dispatch-git-save-ticket.md).
-[ ] 15 — Delete the old Actor starts deletes the message.
+[ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off the message and deletes `CoreMsg.StartLoadSaveCommand` at the end.
 [ ] The source files are 3. The test files are 3. The size limit is 8 source files and 4 test files.
 
 Type:
@@ -52,7 +52,7 @@ Blockers:
 
 ## Do not load
 
-[ ] Do not delete `registerPeer`, `startPeerActor`, or the `CoreMsg.StartLoadSaveCommand` case. 15 — Delete the old Actor starts deletes them.
+[ ] Do not delete `registerPeer` or `startPeerActor`. 15 — Delete the old Actor starts deletes them. Do not delete `CoreMsg.StartLoadSaveCommand`. 20 — Move Desk Load and Desk Save deletes it.
 [ ] Find and Move `recordSearchStart`.
 [ ] `DeskLoadPush.fs`. Its caller remains until that delete.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.

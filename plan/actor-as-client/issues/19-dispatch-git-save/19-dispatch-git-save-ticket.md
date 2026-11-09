@@ -23,7 +23,7 @@ This remains.
 
 [ ] This ticket converts every remaining Save caller of `CoreMsg.StartLoadSaveCommand`.
 [ ] After this ticket and 10 — Start git Load, nothing sends `StartLoadSaveCommand`.
-[ ] 15 — Delete the old Actor starts deletes the message.
+[ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off the message and deletes `CoreMsg.StartLoadSaveCommand` at the end.
 [ ] The source files are 3. The test files are 2. The size limit is 8 source files and 4 test files.
 
 Type:
@@ -51,7 +51,7 @@ Blockers:
 
 ## Do not load
 
-[ ] Do not delete `registerPeer`, `startPeerActor`, or the `CoreMsg.StartLoadSaveCommand` case. 15 — Delete the old Actor starts deletes them.
+[ ] Do not delete `registerPeer` or `startPeerActor`. 15 — Delete the old Actor starts deletes them. Do not delete `CoreMsg.StartLoadSaveCommand`. 20 — Move Desk Load and Desk Save deletes it.
 [ ] Find and Move `recordSearchStart`.
 [ ] `DeskLoadPush.fs`.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
