@@ -14,7 +14,7 @@ The File Nodes sit under the new Directory Node in the Graph. Their files on dis
 
 ## Expected
 
-A File Node's file directory comes from its strictly enclosing artifact. Moving a File Node so that its strictly enclosing artifact is a different Directory Node or Workspace Node moves the file on disk into that node's directory. This holds whether the File Node lands as a direct child or deeper in the Body, and whether or not it has been parsed. When that move detects a conflict, the move is rejected. The rule is Decision in [Node move and disk](../project.md).
+A File Node's file directory comes from its strictly enclosing artifact. Moving a File Node so that its strictly enclosing artifact is a different Directory Node or Workspace Node moves the file on disk into that node's directory. This holds whether the File Node lands as a direct child or deeper in the Body, and whether or not it has been parsed. When that move detects a conflict, amendment disambiguates before the change lands. The rule is Decision in [Node move and disk](../project.md).
 
 ## Notes
 

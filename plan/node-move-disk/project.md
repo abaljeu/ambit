@@ -1,23 +1,23 @@
 # Node move and disk
 
 Stage: chart
-Summary: Moving a File Node or Directory Node in the Graph moves its linked file or directory on disk to match. A conflict rejects that operation.
-Updated: 2026-11-08
+Summary: Moving a File Node or Directory Node in the Graph moves its linked file or directory on disk to match. A conflict causes amendment to disambiguate before the change lands.
+Updated: 2026-11-09
 
 **Part of:** [[plan/roadmap/epics/chapters/move-nodes-with-files.md]] on [[plan/roadmap/epics/robust-outliner.md]]
 
 ## Decision
 
-A node move or a disk operation rejects a conflict.
+A node move or a disk operation amends a conflict to disambiguate before the change lands.
 
 A conflict is one of these:
 
 - The destination path already exists.
 - The source and the destination disagree.
 
-The rejected operation does not overwrite.
+The operation does not overwrite.
 
-The rejected operation does not merge.
+The operation does not merge.
 
 ## Notes
 
