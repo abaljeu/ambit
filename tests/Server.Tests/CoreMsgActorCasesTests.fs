@@ -37,13 +37,11 @@ let private recordingPool () =
     let live = ResizeArray<Credential>()
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
-        registerPeer = fun _ _ -> ()
         startActor =
             fun request _ ->
                 started.TrySetResult request |> ignore
                 Ok (Credential "recorded")
         startFunction = fun _ -> Error "unused"
-        startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive = fun secret -> live.Contains secret
         admit = fun _ -> Ok ()
@@ -259,12 +257,10 @@ let ``ActorStop checks the live receipt once`` () =
     live.Add actorSecret
     let pool: CoreActorPool = {
         register = fun _ _ -> ()
-        registerPeer = fun _ _ -> ()
         startActor =
             fun _ _ ->
                 Ok actorSecret
         startFunction = fun _ -> Error "unused"
-        startPeerActor = fun _ _ _ -> Error "unused"
         schedule = fun _ _ -> ()
         isLive =
             fun secret ->

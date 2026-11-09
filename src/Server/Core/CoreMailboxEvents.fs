@@ -37,8 +37,6 @@ module internal CoreMailboxEvents =
 
     let operationContext msg =
         match msg with
-        | StartPeerActor (_, PeerActorName name, _, _) ->
-            "StartPeerActor", name
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
             "StartLoadSaveCommand", $"{path}:{name}"
         | RecordSearchStart _ -> "RecordSearchStart", ""
@@ -53,7 +51,6 @@ module internal CoreMailboxEvents =
 
     let replyFailure error msg =
         match msg with
-        | StartPeerActor (_, _, _, reply) -> reply.Reply(Error error)
         | StartLoadSaveCommand (_, _, _, _, reply) ->
             reply.Reply(Error error)
         | RecordSearchStart (_, _, reply) ->
