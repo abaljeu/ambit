@@ -27,3 +27,4 @@ The operation does not merge.
 ## Issues
 
 - [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md)
+- [04 — Expand the node enclosure lock](issues/04-expand-the-node-enclosure-lock.md)

@@ -35,3 +35,7 @@ The workspace lock and the per-member persist locks stand beside `withWorkTreeGa
 - [32 — Workspace lock handoff](plan/core-refinement/issues/32-workspace-lock-handoff.md)
 - [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md)
 - [Parse and persist](doc/current/parse-persist.md)
+
+## Notes
+
+- 2026-11-09 — Superseded by [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock.md), because the move project builds the node enclosure lock that covers the Workspace lock.
