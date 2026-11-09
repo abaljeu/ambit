@@ -449,6 +449,7 @@ A behavior change is a build slice.
 ## 8. Open questions
 
 1. Same-Workspace never-parsed enclosure — Is a never-parsed File Node whose enclosing artifact becomes a Workspace Node in the same Workspace in scope?
+   - Note (Alan 2026-11-09): "never-parsed" is not defined in this arch or in the spec. It needs a definition before this question can be answered. The same phrase appears in **In scope**, the same-workspace move selection rule, spec story 8, and ticket 01.
 2. Cross-Workspace commit — Are the cross-Workspace delete and the cross-Workspace add committed at move time, or at that repository's next commit?
 3. Disagree comparison — Which comparison shows that the source and the destination disagree?
 4. Conflict ops — Which ops does Change amendment emit for a change conflict?
