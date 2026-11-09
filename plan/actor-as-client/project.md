@@ -1,7 +1,7 @@
 # Actor as client
 
 Stage: build
-Summary: `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool and runs an actor function. `Order.ActorOrder` carries that function, and the log stores it as-is.
+Summary: `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool and runs an actor function. `Order.StartActor` of `ActorOrder` carries that function, and the log stores it as-is.
 Updated: 2026-11-08
 Started: 2026-09-27
 Actual: 2h
