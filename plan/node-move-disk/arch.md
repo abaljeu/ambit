@@ -195,13 +195,15 @@ Research: [03 — Research: directory-level persist gate for moves](issues/03-re
 [ ] The gate generalizes the git pull design, which blocked all persists until the pull completed. That design was Workspace-wide only.
 [ ] The move does not set Unparsed on the moved document root. The gate replaces that approach.
 
-#### Node lock
+#### `NodeLock`
 
-[ ] The gate is a lock on one node. That node is a Directory Node or a Workspace Node.
-[ ] The lock records the node, not the path. Every node under the locked node is locked. The lock does not check whether a path matches.
+[ ] `NodeLock` is the named type for the node lock. The gate is one `NodeLock` on one node. In this section, "node lock" means `NodeLock`.
+[ ] `NodeLock` is the [core-refinement architecture](../core-refinement/arch.md) §6 workspace lock, generalized to a Directory Node. §6 calls it the aggregate lock.
+[ ] `NodeLock` covers Workspace Nodes and Directory Nodes alike.
+[ ] `NodeLock` records the node, not the path. Every node under the locked node is locked. The lock does not check whether a path matches.
+[ ] `NodeLock` does not exist in code yet. It comes through [30 — Expand the workspace lock](../core-refinement/issues/30-expand-the-workspace-lock.md), generalized from the Workspace Node to any Directory Node.
 [ ] git pull locks the Workspace Node. A Directory move locks the Directory Node.
 [ ] The holder is the git pull caller or the relocate caller. The hold lasts for that git operation.
-[ ] The node lock is the [core-refinement architecture](../core-refinement/arch.md) §6 workspace lock, generalized to a Directory Node. §6 calls it the aggregate lock.
 [ ] A per-member persist lock is the write of one document root. It is §6 **Per-member persist locks**.
 [ ] `writeDocument` and `writeArtifactText` grant the per-member persist lock around the file bytes. The grant stores every owner-chain ancestor id from `GraphQuery.enclosing`, plus the document root.
 [ ] The callee is `GraphQuery.enclosing`. It walks the owner chain and includes the start node.
