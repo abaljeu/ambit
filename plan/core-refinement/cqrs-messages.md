@@ -8,7 +8,7 @@ This note is the end-game spec of the mailbox and the event log. §2 **Target sh
 
 `CoreMsg` in [CoreMsg.fs](../../src/Server/Core/CoreMsg.fs) mixes orders and queries. An order carries a `Caller` and an `AsyncReplyChannel`. A query carries an `AsyncReplyChannel` and no `Caller`. `Login`, `Logout`, and `AdmitCaller` sit on that same queue today. They leave it. Decision 8 **Session leaves**.
 
-1. **Orders** — `PostEvent`, `PostGraphOnly`, `StartActor`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, `LoadNode`, `ActorStop`, `CancelActor`.
+1. **Orders** — `PostEvent`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, and `ActorStop` (`src/Server/Core/CoreMsg.fs`). 15 — Delete the old Actor starts carries `StartPeerActor`. 20 — Move Desk Load and Desk Save carries `StartLoadSaveCommand`. 09 — Start the query command, 111 — Place search start as an order, and post SearchStopped, and 114 — Remove CoreMsg.ActorStop carry the other actor cases.
 2. **Queries** — `GetState`, `GetEventId`, `GetEventsSince`, `GetEventHistory`, `EventsSince`.
 
 `Notice` is `NodeParsed`, `NodePersisted` of `nodeId`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`. `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` is a second door onto that same queue.
@@ -35,8 +35,7 @@ type Order =
     | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
-    | RunActor of commandName: string * focusId: NodeId
-    | StartSearch of ActorStart
+    | StartActor of ActorOrder
     | Load of nodeId: NodeId
     | Save of nodeId: NodeId
     | Cancel of focusId: NodeId
@@ -103,15 +102,14 @@ type internal CoreQueue =
 ### Order
 1. **Change** — `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`. `ChangeOrigin` is `Edit` or `Parse`. `CoreEventDispatch` reads that `origin`. The logged Change holds the op list and the `origin`.
 2. **Undo and Redo** — `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list. Accept fills an empty Op list from the inverse ops of the target. The logged Undo or Redo holds the target and the filled Op list.
-3. **StartActor** — `Order.StartActor` of `ActorStart` replaces `CoreMsg.StartActor`. `Order.StartSearch` of `ActorStart` replaces `CoreMsg.RecordSearchStart`. `StartSearch` records the start and does not run the walk.
+3. **StartActor** — `Order.StartActor` of `ActorOrder` is the actor start. Find and Move post that same order. [16 — Delete the old Order cases](../actor-as-client/issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated`. [09 — Start the query command](../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) carries the old search start. The server posts `Notice.SearchStopped` when the search ends.
 
-[o] `Order.StartActor` of `ActorStart` is the pool start. `CoreMsg.StartActor` is that start path.
-[o] `Order.StartActor` remains in the log. Alan, 2026-11-03: 15 — Delete the old Actor starts deletes it completely. No reader keeps an old row.
+[o] `Order.StartActorDeprecated` of `ActorStart`. 16 — Delete the old Order cases deletes it. No reader keeps an old row.
 [x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
-[ ] `Order.RunActor` stores the command name and the FocusId. Find and Move log that same order. Detail: [Actor as client](../actor-as-client/project.md).
+[x] The logged actor start is `Order.StartActor` of `ActorOrder`. Detail: [Actor as client](../actor-as-client/project.md).
 
-4. **Load and Save** — `Order.Load` of `NodeId` replaces `CoreMsg.LoadNode`. git Save is `LoadSaveOperation.Save` on `StartLoadSaveCommand`. The sequence is Solution 11 — git Save sequence in [github-transport spec](../github-transport/spec.md). [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md) is retired.
-7. **Cancel** — `Order.Cancel` of the focus `NodeId` replaces `CoreMsg.CancelActor` and the old History `EventBody.Cancel`. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
+4. **Load and Save** — `Order.Load` of `NodeId` is the load order. git Save is `LoadSaveOperation.Save`. [20 — Move Desk Load and Desk Save](../actor-as-client/issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off `CoreMsg.StartLoadSaveCommand` and deletes that message at the end. [19 — Start git Save](../actor-as-client/issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) carries Git Save. The sequence is Solution 11 — git Save sequence in [github-transport spec](../github-transport/spec.md). [79 — Place git Save as Order.Save](issues/79-place-git-save-as-order-save.md) is retired.
+7. **Cancel** — `Order.CancelActor` of the focus `NodeId` is the cancel order. [112 — Place Cancel through PlaceOrder](issues/112-place-cancel-through-placeorder.md) places it. A Cancel of a live run logs `Notice.ActorStopped` of that focus and `ActorCancelled`. Names follow `Order.Cancel*`. Open decision: `Order.CancelSearch` of the root `NodeId` is not added. Its future consumers are the Cancel button of the server-mode Search dialog and the cancel of an Amble search-query run. Neither exists yet.
 ### Notice
 
 8. **Notice** — Each Notice, who posts it, when, and its effect on the node:
@@ -164,8 +162,8 @@ Only a holder of the notice function posts a Notice. No Notice is inferred from 
 18. **ChangeOrigin** — . `ParseThread.postParseOps`, and `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks`, post through `CoreDoor.postGraphOnly`, which places `Change` with origin `Parse`. Every other `Change` poster places origin `Edit`. `CoreEventDispatch` reads the `origin` of the Change, not a `graphOnly` flag. It writes document files for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. Parse posts its Changes, then `NodeParsed`.
 19. **One case each** — . Each `CoreMsg` case moves to its own case. The two stops are `Notice` cases. Every other case is an `Order` case. Cases are not merged on the move.
 
-[o] Actor starts stay two `CoreMsg` cases, `StartActor` and `StartPeerActor`.
-[ ] The logged Actor start is `Order.RunActor`. Alan, 2026-11-03. Detail: [Actor as client](../actor-as-client/project.md).
+[o] `CoreMsg.StartPeerActor`. [15 — Delete the old Actor starts](../actor-as-client/issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes it.
+[x] The logged actor start is `Order.StartActor` of `ActorOrder`. Alan, 2026-11-09. Detail: Actor as client.
 20. **Type cleanup** — . Existing `EventBody` cases are not renamed. `Notice.ActorStopped` tells the client it can drop its hold on the Actor. The same-focus race in [117 — The pool posts Notice.ActorStopped when an Actor ends](issues/117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md) is a known limit, accepted for now.
 
 ## 4. Migration

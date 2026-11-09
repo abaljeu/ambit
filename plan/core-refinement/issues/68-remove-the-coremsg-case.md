@@ -13,7 +13,7 @@
 [ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 [ ] [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 [ ] [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md)
-[ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 [ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
 [ ] [115 — The CoreQueue post is private](115-the-corequeue-post-is-private.md)
 [ ] [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md)
@@ -27,16 +27,16 @@
 ### Source
 
 [ ] [MailboxHost.fs](src/Server/Core/MailboxHost.fs) `coreMsgItem`
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `reply`, `postEventAccepted`, `postedMailbox`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `runMsg`, `messageCaller`, `rejectDropped`, `dispatchMailbox`, `isStartupRead`, `placeOrder`
+[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `reply`, `postEventAccepted`, `messageForPosted`
+[ ] [CoreMailboxLoop.fs](src/Server/Core/CoreMailboxLoop.fs) `runMsg`, `messageCaller`, `rejectDropped`, `dispatchMailbox`, `isStartupRead`, `placeOrder`
 [ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `operationContext`, `replyFailure`
 [ ] [CoreMailboxActors.fs](src/Server/Core/CoreMailboxActors.fs) `dispatchPostEvent`, `postActorStart`, `postCancel`
 
 ### Match sites and constructors
 
 [ ] After 102, 65, 18 — Place ActorOrder through PlaceOrder, 111, 112, and 114, `CoreMsg` has one case, `PostEvent`
-[ ] `PostEvent` is built in `postEventAccepted` and in `postedMailbox`
-[ ] `postedMailbox` sends a client `ActorStart`, a client `Cancel`, and a posted `Ev` with a non-zero id to `PostEvent`
+[ ] `PostEvent` is built in `postEventAccepted` and in `messageForPosted` (`src/Server/Core/CoreMailboxApi.fs`)
+[ ] `messageForPosted` sends a client `ActorStart`, a client `Cancel`, and a posted `Ev` with a non-zero id to `PostEvent` when `sendsAsOrder` is false
 [ ] `Mailbox.CoreMsg` is matched in `dispatchMailbox`, `isStartupRead`, and `MailboxExpandTests.mailboxKind`
 
 ### Tests this ticket names
@@ -65,9 +65,9 @@
 
 ### CoreMailboxApi.fs
 
-[ ] `postedMailbox` places the client `ActorStart` and `Cancel` through `Mailbox.PlaceOrder`, as it already places every other order body
-[ ] `postedMailbox` replies `Error "posted EventId must be zero"` for a non-zero id, before it places
-[ ] `postEventAccepted` uses `postedMailbox`
+[ ] `messageForPosted` places the client `ActorStart` and `Cancel` through `Mailbox.PlaceOrder`, as it already places every other order body
+[ ] `messageForPosted` replies `Error "posted EventId must be zero"` for a non-zero id, before it places
+[ ] `postEventAccepted` uses `messageForPosted`
 [ ] Remove `reply`
 
 ### Server
@@ -80,7 +80,7 @@
 
 ### Size
 
-[ ] 6 source files: `CoreMsg.fs`, `MailboxHost.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMailboxActors.fs`
+[ ] 6 source files: `CoreMsg.fs`, `MailboxHost.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoop.fs`, `CoreMailboxEvents.fs`, `CoreMailboxActors.fs`
 [ ] 3 test files: `MailboxExpandTests.fs`, `CoreMailboxDoorTests.fs`, `Issue41CoreMailboxTests.fs`
 
 ## 6. Tests

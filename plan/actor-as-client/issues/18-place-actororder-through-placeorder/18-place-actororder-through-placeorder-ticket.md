@@ -1,6 +1,6 @@
 # 18 — Place ActorOrder through PlaceOrder
 **Status**: coded
-One job: The client and the server place `Order.ActorOrder` through `Mailbox.PlaceOrder`. The pull runs that order's `ActorFunction` on the .NET thread pool. `startFunction` mints the credential and the session id.
+One job: The client and the server place `Order.StartActor` of `ActorOrder` through `Mailbox.PlaceOrder`. The pull runs that order's `ActorFunction` on the .NET thread pool. `startFunction` mints the credential and the session id.
 
 [x] This ticket replaces [80 — Place Actor starts through PlaceOrder](../../../core-refinement/issues/80-place-actor-orders-through-placeorder.md).
 [x] The client's `Caller` is the `Caller` on that `Mailbox.PlaceOrder`.
@@ -20,9 +20,9 @@ Blockers:
 ### Working
 
 [x] `postActorOrder` on `MailboxHost` puts one `ActorOrder` on the mailbox queue. It posts `Authority "Actor"` and `Credential ""`.
-[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies unsupported for `Order.StartActor` and `Order.ActorOrder`. `Order.CancelActor` is already accepted.
+[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` runs `replyActorOrder` for `Order.StartActor` and `dispatchStartActor` for `Order.StartActorDeprecated`. `Order.CancelActor` is accepted.
 [x] `startFunction` in `src/Server/Core/CoreActorPool.fs` mints the Actor credential and the Actor session id.
-[x] The Shared actor type and the pool actor type are both named `FunctionActor`.
+[x] The shared actor type in `src/Shared/History.fs` and the pool actor type in `src/Server/Core/CoreActorPool.fs` are both named `ActorFunction`.
 [x] `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/LoadSaveCommandTests.fs`, and `tests/Server.Tests/CoreMailboxDoorTests.fs`.
 
 ### Reference
@@ -31,8 +31,8 @@ Blockers:
 
 ## Do not load
 
-[x] `ActorOrder` gains no `actorNodeId` field. Curried actor applies that id before the post.
-[x] `Order.StartActor` stays unsupported. 15 — Delete the old Actor starts and 16 — Delete the old Order cases delete the old case.
+[x] `ActorOrder` in `src/Shared/History.fs` stores `actor`, `actorNodeId`, and `actorName`.
+[x] `Order.StartActorDeprecated` stays until 16 — Delete the old Order cases. That ticket deletes `Order.StartActorDeprecated` and keeps `Order.StartActor` of `ActorOrder`.
 [x] `src/Server/ActorDispatch.fs`. This ticket does not add it.
 [x] A new `CoreMsg` case.
 [x] A lookup of the actor from `actorName`.
@@ -44,9 +44,9 @@ Blockers:
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
 2. [x] Types stay on Arch. Rename the Shared actor type and the pool actor type to `ActorFunction`.
 3. [x] Change: `postActorOrder` takes the client's `Caller` and posts `Mailbox.PlaceOrder` with that `Caller`.
-4. [x] Change: `placeOrder` accepts `Order.ActorOrder`. The pull calls `startFunction` and runs `order.actor` on the .NET thread pool through Shared changes. The mailbox supplies `getGraph`. `ActorOrder` carries `focusId` and `ActorFunction`.
-5. [x] A Desk Load or Save places `Order.ActorOrder` and runs no actor.
-6. [x] Leave `Order.StartActor` unsupported.
+4. [x] Change: `placeOrder` accepts `Order.StartActor`. The pull calls `startFunction` and runs `order.actor` on the .NET thread pool through shared changes. The mailbox supplies `getGraph`. `ActorOrder` carries `actorNodeId` and `ActorFunction`.
+5. [x] A Desk Load or Save places `Order.StartActor` and runs no actor.
+6. [x] Leave `Order.StartActorDeprecated` on `dispatchStartActor`.
 7. [x] A wire-read order stays a log record. Leave `stubActor` unrun.
 
 ## Outputs
@@ -67,7 +67,7 @@ Blockers:
 [x] Record the stop at `plan/actor-as-client/reports/18-place-actororder-through-placeorder-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs and Outputs.
 [ ] Stop when the pull cannot both call `startFunction` and run `order.actor`.
-[ ] Stop when `ActorOrder` carries `actorNodeId`, or the pull reads that id from `actorName`.
+[ ] Stop when the pull reads `actorNodeId` from `actorName`. `ActorOrder.actorNodeId` is the field in `src/Shared/History.fs`.
 [ ] Stop when the edit adds `ActorDispatch.fs` or a `CoreMsg` case.
 [ ] Stop when the edit runs `stubActor`.
 [ ] Stop when this path posts `Authority "Actor"` and `Credential ""`.

@@ -16,7 +16,7 @@
 
 ### Owner
 
-[ ] [CoreActorPool.fs](src/Server/Core/CoreActorPool.fs) owns `runSchedule`, `trySecretForFocus`, and `finish`
+[ ] [CoreActorPool.fs](src/Server/Core/CoreActorPool.fs) owns `runSchedule`, `trySecretForActorNode`, and `finish`
 
 ### Source
 
@@ -72,12 +72,12 @@
 
 ### CoreActorPool.fs
 
-[ ] `runSchedule` runs the work, then posts `Notice.ActorStopped(row.focusId, result)` with `CoreMailboxApi.postNotice coreChanges.host`
+[ ] `runSchedule` runs the work, then posts `Notice.ActorStopped(row.actorNodeId, result)` with `CoreMailboxApi.postNotice coreChanges.host`. The live row field is `actorNodeId` in `src/Server/Core/CoreActorPool.fs`.
 [ ] Work that is cancelled posts nothing
 
 ### CoreMailboxLoad.fs
 
-[ ] For `Notice.ActorStopped`, `dispatchItem` finds the run with `pool.trySecretForFocus`
+[ ] For `Notice.ActorStopped`, `dispatchItem` finds the run with `pool.trySecretForActorNode` (`src/Server/Core/CoreActorPool.fs`)
 [ ] With a run, `dispatchItem` logs the Notice, then calls `pool.finish` with that secret and the result
 [ ] With no run, `dispatchItem` logs nothing; a Cancel already logged the stop
 [ ] Every other Notice is logged and applied as today
@@ -98,7 +98,7 @@
 
 [ ] Add `an Actor that returns logs Notice.ActorStopped` in `CoreMailboxDoorTests.fs`
 [ ] A `root` Actor returns `ActorSucceeded` without calling `CoreDoor.actorStop`
-[ ] The log holds the start, then `Notice.ActorStopped` of the focus and `ActorSucceeded`, and the focus is not in `pool.liveFocusIds`
+[ ] The log holds the start, then `Notice.ActorStopped` of the focus and `ActorSucceeded`, and that id is not in `pool.liveActorNodeIds` (`src/Server/Core/CoreActorPool.fs`)
 [ ] Filter: `an Actor that returns logs Notice.ActorStopped`
 [ ] Add `ActorStopped for an idle focus logs nothing`
 [ ] The test posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice` for a focus with no run; the log gains no entry

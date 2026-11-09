@@ -1,6 +1,6 @@
 # 19 — Start git Save
 **Status**: defined
-One job: `postLoadSaveCommand` builds the git Save `ActorFunction` and puts `Order.ActorOrder` on the mailbox queue. A Desk Save runs no Actor.
+One job: `postLoadSaveCommand` builds the git Save `ActorFunction` and puts `Order.StartActor` of `ActorOrder` on the mailbox queue. A Desk Save runs no Actor.
 
 The Git Save post is already in the code. Keep that post.
 
@@ -23,7 +23,7 @@ This remains.
 
 [ ] This ticket converts every remaining Save caller of `CoreMsg.StartLoadSaveCommand`.
 [ ] After this ticket and 10 — Start git Load, nothing sends `StartLoadSaveCommand`.
-[ ] 15 — Delete the old Actor starts deletes the message.
+[ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off the message and deletes `CoreMsg.StartLoadSaveCommand` at the end.
 [ ] The source files are 3. The test files are 2. The size limit is 8 source files and 4 test files.
 
 Type:
@@ -40,8 +40,8 @@ Blockers:
 ### Working
 
 [ ] `postLoadSaveCommand` is in `src/Server/Api.fs`. The route is `MapPost "/ambit/load-save-command"` in `src/Server/RouteRegistration.fs`.
-[ ] `RouteRegistration.fs` calls `pool.registerPeer` for `github-save` as `GithubTransportActor.actorFn`. 10 — Start git Load removes the `github-load` call.
-[ ] `GithubTransportActor.actorFn` is an `ActorFn`. `GithubTransportActor.start` for Save posts `CoreMsg.StartPeerActor`.
+[ ] `registerPeer` is on `CoreActorPool` in `src/Server/Core/CoreActorPool.fs`. `src/Server/RouteRegistration.fs` does not call it.
+[ ] `GithubTransportActor.actorFn` is an `ActorFn`. `GithubTransportActor.start` for Save calls `CoreMailboxApi.coreMailboxStartActorFromFunction`, which places `Order.StartActor`.
 [ ] `CoreMailboxApi.startLoadSaveCommand` is the only send of `CoreMsg.StartLoadSaveCommand`.
 [ ] Save callers of that send are `src/Server/RouteRegistration.fs` and `tests/Server.Tests/LoadSaveCommandTests.fs`.
 
@@ -51,21 +51,21 @@ Blockers:
 
 ## Do not load
 
-[ ] Do not delete `registerPeer`, `startPeerActor`, or the `CoreMsg.StartLoadSaveCommand` case. 15 — Delete the old Actor starts deletes them.
+[ ] Do not delete `registerPeer` or `startPeerActor`. 15 — Delete the old Actor starts deletes them. Do not delete `CoreMsg.StartLoadSaveCommand`. 20 — Move Desk Load and Desk Save deletes it.
 [ ] Find and Move `recordSearchStart`.
 [ ] `DeskLoadPush.fs`.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
-[ ] Do not write `Order.StartActor`.
+[ ] Do not write `Order.StartActorDeprecated`.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postLoadSaveCommand` builds the git Save `ActorFunction` and puts `Order.ActorOrder` on the mailbox queue.
+2. [ ] Change: `postLoadSaveCommand` builds the git Save `ActorFunction` and puts `Order.StartActor` of `ActorOrder` on the mailbox queue.
 3. [ ] The closure holds the path and the command node. The Desk Save arm runs no Actor and does not call `postActorOrder`.
 4. [ ] Change: `GithubTransportActor.start` for Save uses that same `ActorOrder`. It does not post `CoreMsg.StartPeerActor` for Save.
-5. [ ] Contract: Remove the `github-save` `registerPeer` call.
+5. [ ] Contract: `src/Server/RouteRegistration.fs` has no `registerPeer` call. This ticket adds none.
 6. [ ] Change: Convert every remaining Save caller of `CoreMsg.StartLoadSaveCommand`. After this step and 10 — Start git Load, nothing sends `StartLoadSaveCommand`.
-7. [ ] Do not write `Order.StartActor` or `Order.RunActor`.
+7. [ ] Do not write `Order.StartActorDeprecated`. Leave `Order` as the cases in `src/Shared/History.fs`.
 
 ## Outputs
 
@@ -80,7 +80,7 @@ Blockers:
 [ ] Record the stop at `plan/actor-as-client/reports/19-dispatch-git-save-stop.md`, then ask.
 [ ] Stop when Desk Save must start an Actor.
 [ ] Stop when a test file outside Outputs must change.
-[ ] Stop when this ticket writes `Order.StartActor`.
+[ ] Stop when this ticket writes `Order.StartActorDeprecated`.
 [ ] Stop when a send of `StartLoadSaveCommand` remains.
 
 ## Check

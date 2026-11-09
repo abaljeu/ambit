@@ -9,7 +9,7 @@
 
 ## 2. Blockers
 
-[ ] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md)
+[x] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 
 ## 3. Look at
 

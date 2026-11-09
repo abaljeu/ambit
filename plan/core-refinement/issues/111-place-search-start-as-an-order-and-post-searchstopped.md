@@ -22,7 +22,7 @@
 
 [ ] [EventJson.fs](src/Shared/EventJson.fs) the order codec
 [ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `recordSearchStart`, `recordSearchStop`, `postNotice`
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `placeOrder`, `runMsg`, `messageCaller`
+[ ] [CoreMailboxLoop.fs](src/Server/Core/CoreMailboxLoop.fs) `placeOrder`, `runMsg`, `messageCaller`
 [ ] [CoreMailboxEvents.fs](src/Server/Core/CoreMailboxEvents.fs) `operationContext`, `replyFailure`
 [ ] [CoreMsg.fs](src/Server/Core/CoreMsg.fs) `CoreMsg.RecordSearchStart`, `CoreMsg.RecordSearchStop`
 [ ] [RouteRegistration.fs](src/Server/RouteRegistration.fs) `searchDoor`
@@ -32,7 +32,7 @@
 
 [ ] `recordSearchStart` and `recordSearchStop` are called only from `RouteRegistration.searchDoor` and `SearchActorTests.fs`
 [ ] `Api.searchReply` records the start, runs the walk, then calls `door.recordStop` with the root id
-[ ] `Order` is matched with no wildcard in `EventJson`, `MailboxLog.historyBody`, `CoreMailboxLoad.placeOrder`, and `Ev.withOps`
+[ ] `Order` is matched with no wildcard in `EventJson`, `MailboxLog.historyBody`, `CoreMailboxLoop.placeOrder`, and `Ev.withOps`
 [ ] The two `CoreMsg` cases are matched in `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`
 
 ### Tests this ticket names
@@ -44,7 +44,7 @@
 
 ### Today
 
-[ ] `CoreMsg.RecordSearchStart` appends `EventBody.ActorStart` of the request and does not call `pool.startActor`
+[ ] `CoreMsg.RecordSearchStart` appends `EventBody.ActorStart` of the request and does not call `pool.startActor`. `EventBody.ActorStart` is `Order.StartActorDeprecated` in `src/Shared/History.fs`.
 [ ] After 81, `CoreMsg.RecordSearchStop` appends `Notice.ActorStopped` of the root id and `ActorSucceeded`. 81 does not add `Notice.SearchStopped`; this ticket adds it
 [ ] The search route sends that stop as a message with the Browser caller when the walk ends
 [ ] The walk runs inside the search route; no pool row exists for a search
@@ -85,7 +85,7 @@
 
 ### Size
 
-[ ] 7 source files: `History.fs`, `EventJson.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoad.fs`, `CoreMailboxEvents.fs`, `CoreMsg.fs`, `RouteRegistration.fs`
+[ ] 7 source files: `History.fs`, `EventJson.fs`, `CoreMailboxApi.fs`, `CoreMailboxLoop.fs`, `CoreMailboxEvents.fs`, `CoreMsg.fs`, `RouteRegistration.fs`
 [ ] 2 test files: `SearchActorTests.fs`, `EventJsonTests.fs`
 
 ## 6. Tests
