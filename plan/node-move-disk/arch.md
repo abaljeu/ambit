@@ -186,6 +186,8 @@ persistNode : string -> Graph -> NodeId -> Result<DateTime, string>
 [x] `writeDocument` writes the artifact at the post-graph path.
 [x] The old path is left in place.
 [x] `CoreEventDispatch.pushChangeSpecials` calls `pushPersist` for each id from `DocumentOpImpact.owningSpecials`.
+[ ] `PersistThread.runRequest` rejects the request at the top of the persist request stack when `PersistThread.unparsedNode` is true for that node. It does not call `persistNode`.
+[ ] Today's code does not satisfy this rule. `runRequest` checks only `persistedNode`. The Unparsed check was dropped when [71 — Persist thread takes from the stack](../core-refinement/issues/71-persist-thread-takes-from-the-stack.md) (PR 330, 2026-10-21) moved the thread to take from the stack.
 
 ### Unparsed save gate
 
