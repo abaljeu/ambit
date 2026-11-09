@@ -451,7 +451,7 @@ A behavior change is a build slice.
 ## 8. Open questions
 
 1. Same-Workspace Workspace enclosure — Resolved (Alan 2026-11-09): yes. When a move makes a File Node's strictly enclosing artifact the Workspace Node, in the same Workspace, the file moves on disk, the same as under a Directory Node. Parse state does not matter: the File moves whether or not it or its enclosing Directory Node has been parsed. **Same-workspace relocate** states the rule.
-2. Cross-Workspace commit — Are the cross-Workspace delete and the cross-Workspace add committed at move time, or at that repository's next commit?
+2. Cross-Workspace commit — Resolved (Alan 2026-11-09): commit at move time. The cross-Workspace delete and the cross-Workspace add are each committed when the move runs, not at that repository's next commit. Git has no cross-repository transaction, so the move is not atomic across the two repositories. Committing at move time keeps the half-moved window to one step. If the add fails, there is a recovery path: re-add from the source, or flag the half-moved node.
 3. Disagree comparison — Which comparison shows that the source and the destination disagree?
 4. Conflict ops — Which ops does Change amendment emit for a change conflict?
 5. Relocate caller — Which caller runs Same-workspace relocate and Cross-workspace move?
