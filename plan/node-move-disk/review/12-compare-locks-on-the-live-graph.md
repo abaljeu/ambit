@@ -35,6 +35,6 @@ Arch: [[../arch.md]]
 
 The following issues were found beyond the ticket scope.  The fixes are suggested.
 
-- 1. **Ticket 11 NodeAbsent record** — Accept.
+- 1. **NodeAbsent record** — Accept.
   - **Problem.** `plan/node-move-disk/issues/11-expand-the-node-lock-pool.md` line 16 and line 112, and `plan/node-move-disk/review/11-expand-the-node-lock-pool.md` line 24, still describe `NodeAbsent` as the result for an id absent from `Graph.create()`.
-  - **Fix.** Leave those as the record of ticket 11. A later reader should use ticket 12 for the current rejection type.
+  - **Fix.** Leave those as the record of 11 — Expand the node lock pool. A later reader should use 12 — Compare locks on the live graph for the current rejection type.
