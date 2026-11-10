@@ -239,6 +239,21 @@ let doorForThrownRead (message: string) : CoreChangesDoor =
     let host = CoreMailbox.host pool filling admittedCredentials
     CoreDoor.create true host testCaller
 
+/// Start returns this secret. Finish leaves the row. The actor node is ROOT.
+let poolForFixedSecret (secret: Credential) : CoreActorPool =
+    { CoreActorPool.create () with
+        register = fun _ _ -> ()
+        startActor = fun _ _ -> Ok secret
+        startFunction = fun _ -> Error "unused"
+        schedule = fun _ _ -> ()
+        isLive = fun candidate -> candidate = secret
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish = fun _ _ -> Ok ()
+        liveActorNodeIds = fun () -> Set.empty
+        getActorNodeId = fun _ -> Some Graph.rootId
+        trySecretForActorNode = fun _ -> None }
+
 /// Mailbox that accepts Change and ActorStop without a File graph.
 let acceptingHost (pool: CoreActorPool) : MailboxHost =
     let state =

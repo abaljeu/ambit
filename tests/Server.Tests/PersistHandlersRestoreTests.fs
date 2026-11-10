@@ -96,22 +96,7 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
 let ``ActorStart persists across File restart`` () = task {
     let dir = newTempDir ()
     let actorSecret = Credential "persist-restore-actor"
-    let pool: CoreActorPool =
-        { register = fun _ _ -> ()
-          startActor = fun _ _ -> Ok actorSecret
-          startFunction = fun _ -> Error "unused"
-          schedule = fun _ _ -> ()
-          isLive = fun secret -> secret = actorSecret
-          admit = fun _ -> Ok ()
-          drop = fun _ -> ()
-          finish = fun _ _ -> Ok ()
-          liveActorNodeIds = fun () -> Set.empty
-          getActorNodeId = fun _ -> Some Graph.rootId
-          trySecretForActorNode = fun _ -> None
-          deliver = fun _ -> Error "not live"
-          takeInbox = fun _ -> Error "not live"
-          sessionIdFor = fun _ -> None
-          aiInstall = None }
+    let pool = poolForFixedSecret actorSecret
     let first =
         CoreMailbox.host
             pool
@@ -153,22 +138,7 @@ let private sampleActorStart: ActorStart =
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
-let private stubPool secret : CoreActorPool =
-    { register = fun _ _ -> ()
-      startActor = fun _ _ -> Ok secret
-      startFunction = fun _ -> Error "unused"
-      schedule = fun _ _ -> ()
-      isLive = fun s -> s = secret
-      admit = fun _ -> Ok ()
-      drop = fun _ -> ()
-      finish = fun _ _ -> Ok ()
-      liveActorNodeIds = fun () -> Set.empty
-      getActorNodeId = fun _ -> Some Graph.rootId
-      trySecretForActorNode = fun _ -> None
-      deliver = fun _ -> Error "not live"
-      takeInbox = fun _ -> Error "not live"
-      sessionIdFor = fun _ -> None
-      aiInstall = None }
+let private stubPool secret = poolForFixedSecret secret
 
 let private withFilling filling pool body = task {
     let host = CoreMailbox.host pool filling admittedCredentials

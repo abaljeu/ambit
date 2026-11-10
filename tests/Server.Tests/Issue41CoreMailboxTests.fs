@@ -234,22 +234,7 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
 [<Fact>]
 let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
     let actorSecret = Credential "issue-41-actor"
-    let pool: CoreActorPool =
-        { register = fun _ _ -> ()
-          startActor = fun _ _ -> Ok actorSecret
-          startFunction = fun _ -> Error "unused"
-          schedule = fun _ _ -> ()
-          isLive = fun secret -> secret = actorSecret
-          admit = fun _ -> Ok ()
-          drop = fun _ -> ()
-          finish = fun _ _ -> Ok ()
-          liveActorNodeIds = fun () -> Set.empty
-          getActorNodeId = fun _ -> Some Graph.rootId
-          trySecretForActorNode = fun _ -> None
-          deliver = fun _ -> Error "not live"
-          takeInbox = fun _ -> Error "not live"
-          sessionIdFor = fun _ -> None
-          aiInstall = None }
+    let pool = poolForFixedSecret actorSecret
     task {
         let host =
             CoreMailbox.host
