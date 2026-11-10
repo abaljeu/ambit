@@ -5,7 +5,7 @@ One job: The Server posts Find and Move and a query Run as `Order.StartActor` of
 [ ] `startFunction` stays. A query Run leaves `startChosen` and posts through `postBuiltOrder`.
 [ ] Find and Move stays on `recordSearchStart`. That function posts `Order.StartActor`, and the Search Actor runs.
 [ ] This ticket adds no session id. `FunctionRun` stays `getGraph` and `secret`.
-[ ] The source files are 8. The test facts are 3. The size limit is 8 source files and 4 tests.
+[ ] The source files are 10. The test facts are 3. The size limit is 8 source files and 4 tests. The source count is over the limit. `AiInstall` already carries the boot value, so the extra files are that record and `RouteRegistration`.
 
 Type:
 
@@ -29,6 +29,10 @@ Blockers:
 [ ] `SearchActor.functionStart` in `src/Server/SearchActor.fs` builds a pool `FunctionStart`. `actorNodeId` is `request.focusId`. The body stops with `ActorQuery`. `FunctionStart` is in `src/Server/Core/CoreActorPool.fs`.
 [ ] `SearchActor.isQueryRequest` is true when `CommandRequest.isQueryText` is true for the run-definition node.
 [ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
+[ ] The Server project file lists `Core/CoreMailboxApi.fs` before `SearchActor.fs`. `RouteRegistration.fs` is listed after `SearchActor.fs`.
+[ ] `AiInstall` in `src/Server/GrokBotSettings.fs` is `keys`, `repos`, and `grok`. `CoreBoot.aiInstall` holds that record. `CoreRuntime.createPublishing` passes `Some install` to `CoreActorPool.createWithInstall`. `CoreActorPool.aiInstall` stores it. `queueAdmittedAi` reads it.
+[ ] `RouteRegistration.CreateBoot` sets `aiInstall`. `RouteRegistration.searchDoor` is the production caller of `recordSearchStart`.
+[ ] `tests/Server.Tests/AskCancelHarness.fs` builds the other `AiInstall` literal and calls `CoreActorPool.createWithInstall`.
 [ ] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActorDeprecated` in `src/Shared/History.fs`. That `runMsg` arm is its only caller.
 [ ] `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure` match `RecordSearchStart`.
 [ ] `CoreMailboxLoop.replyActorOrder` logs `Order.StartActor` and calls `scheduleActorOrder`. `scheduleActorOrder` calls `startFunction`.
@@ -56,7 +60,7 @@ Blockers:
 3. [ ] Change: `postActorStart` calls `whenAdmitted` and a queue function when `SearchActor.isQueryRequest` is true. That queue function copies `queueAdmittedTest`. It builds `ActorOrder` with `ActorOrderFromStart.orderFromStart` and `SearchActor.functionActorAt`, sets `actorName` to `query` and `actorNodeId` to `ActorStart.focusId`, and calls `postBuiltOrder`.
 4. [ ] Contract: `startChosen` stays `context.pool.startActor`. A query Run does not call `startChosen`. A named start that is not `?test` or `?ai` still calls `startChosen`.
 5. [ ] Change: `SearchActor.searchActorAt` returns the shared `ActorFunction`. The body calls `ActorChanges.actorStop` with `ActorSucceeded`. `Api.searchReply` still returns `SearchActor.reply`.
-6. [ ] Change: `recordSearchStart` builds that Find and Move order with `ActorOrderFromStart.orderFromStart` and `SearchActor.searchActorAt`. `actorName` is `search`. `actorNodeId` is `ActorStart.focusId`. It calls `MailboxHost.postActorOrder`. `CoreMailboxLoop.replyActorOrder` calls `admitCaller` before it appends that order.
+6. [ ] Change: `recordSearchStart` receives the search `ActorFunction` as a value. It does not name `SearchActor`. It builds the Find and Move order with `ActorOrderFromStart.orderFromStart` and that value. `actorName` is `search`. `actorNodeId` is `ActorStart.focusId`. It calls `MailboxHost.postActorOrder`. `CoreMailboxLoop.replyActorOrder` calls `admitCaller` before it appends that order. The value is `AiInstall.search`. Extend `AiInstall` in `src/Server/GrokBotSettings.fs` with `search`. `RouteRegistration.CreateBoot` sets `search` to `SearchActor.searchActorAt`. `CoreRuntime.createPublishing` and `CoreActorPool.createWithInstall` already copy that record onto the pool. `RouteRegistration.searchDoor` reads `persistence.Core.pool.aiInstall` and passes `search` into `recordSearchStart`. This ticket extends `AiInstall`. A sibling field on `CoreBoot` would copy the actor a second time. The `AiInstall` literal in `tests/Server.Tests/AskCancelHarness.fs` sets `search`.
 7. [ ] Contract: `Api.searchReply` no longer calls `recordStop`. The Search Actor posts that stop.
 8. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
 9. [ ] Change: ``equals-line ActorStart does not run the query function`` observes `Order.StartActor` and `ActorQuery` for an equals line. ``query start error stores ActorStart and ActorFailed and keeps the edit`` observes the refusal `actor node already has a live Actor` from `admitFunctionStart`, and the edit stays. ``postSearch records ActorStart at the root`` observes `Order.StartActor` and `ActorSucceeded` at the root.
@@ -72,6 +76,9 @@ Blockers:
 [ ] `src/Server/Core/CoreMsg.fs`
 [ ] `src/Server/Core/CoreMailboxEvents.fs`
 [ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
+[ ] `src/Server/GrokBotSettings.fs` — `AiInstall.search`
+[ ] `src/Server/RouteRegistration.fs` — `CreateBoot` sets `search`; `searchDoor` passes it
+[ ] `tests/Server.Tests/AskCancelHarness.fs` — the `AiInstall` literal sets `search`
 [ ] `tests/Server.Tests/QueryActorTests.fs` — ``equals-line ActorStart does not run the query function`` and ``query start error stores ActorStart and ActorFailed and keeps the edit``
 [ ] `tests/Server.Tests/SearchActorTests.fs` — ``postSearch records ActorStart at the root``
 [ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — `startFunction` stays green, and this file stays unchanged
