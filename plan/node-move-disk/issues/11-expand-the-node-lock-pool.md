@@ -20,7 +20,9 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [x] The pool removes the entry in `finally` when the action returns and when the action raises. The pool lets that exception propagate. `Error` before the entry is queued leaves the table as it was.
 [x] `Ok` is the action's value. `HolderHoldsLock` and `NodeAbsent` leave the action uncalled.
 [x] Persist, a move or a rename, and git pull plus marking nodes Unparsed are the holders of `withLock`. Each holder runs its algorithm and then releases.
-[x] Whether a parse read takes `withLock` is open. The pool's public function is `withLock`.
+[x] Alan, 2026-11-10: keep the existing rule. A Directory or Workspace lock holds off a parse read under it. An in-flight parse read drains. A new parse read waits until release.
+[x] A parse read is a pool lock request on its node. The one conflict rule covers it: same node, taken ancestor, taken descendant.
+[x] That request calls `NodeLockPool.withLock`. `withLock` stays the pool's public function.
 
 #### One conflict rule
 
@@ -69,10 +71,11 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 ### Reference
 
 [x] Alan, 2026-11-10: one pool, one conflict rule, a request is one node id, and the pool derives the owner chain.
+[x] Alan, 2026-11-10: a parse read keeps the existing Directory and Workspace hold-off, as one `withLock` request under that conflict rule.
 [x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Move write gate**. Pending then drain stays. The two-kind grant model is the text this pool replaces.
 [x] [core-refinement architecture](plan/core-refinement/arch.md) §6 **Workspace lock** and **Per-member persist locks**. Those two kinds are one request in this pool.
 [x] [11 — Expand the node lock pool scope](plan/node-move-disk/reports/11-expand-the-node-lock-pool-scope.md).
-[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests. The parse-read amendment adds a fifth test on Alan's 2026-11-10 instruction.
 
 ## Do not load
 
@@ -92,6 +95,7 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 5. [x] Expand `tests/Server.Tests/NodeLockPoolTests.fs` as module `Gambol.Server.Tests.NodeLockPoolTests` with the four tests in Outputs. The graph has one Workspace Node, one Directory Node owned by that Workspace, two File Nodes owned by that Directory, and one sibling File Node owned by that Workspace. Build it with `Graph.create`, `Node.Create`, `Graph.addDetachedNode`, and `Graph.replace`.
 6. [x] Contract `tests/Server.Tests/NodeEnclosureLockTests.fs`.
 7. [x] Change `tests/Server.Tests/Gambol.Server.Tests.fsproj` so `<Compile Include="NodeLockPoolTests.fs" />` stands where `NodeEnclosureLockTests.fs` stands, immediately after `WorkspaceGitTests.fs`.
+8. [x] Close the parse-read question in Working, and add the parse-read test in `tests/Server.Tests/NodeLockPoolTests.fs`.
 
 ## Outputs
 
@@ -99,12 +103,13 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [x] `src/Server/NodeEnclosureLock.fs` — removed.
 [x] `src/Server/Gambol.Server.fsproj` — compile include for `NodeLockPool.fs`.
 [x] Distinct source files: 3. `src/Server/NodeLockPool.fs`, `src/Server/NodeEnclosureLock.fs`, and `src/Server/Gambol.Server.fsproj`.
-[x] `tests/Server.Tests/NodeLockPoolTests.fs` — the four tests below. The test file is a test output, and it is outside the source-file count.
+[x] `tests/Server.Tests/NodeLockPoolTests.fs` — the tests below. The test file is a test output, and it is outside the source-file count.
 [x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` — compile include for `NodeLockPoolTests.fs`.
 [x] ``taking a directory waits while a descendant file is held and a sibling file enters`` — `withLock` on a File under the Directory is inside its action. `withLock` on that Directory stays outside. `withLock` on the sibling File, owned by the Workspace, enters and returns during the File hold. After the File releases, the Directory enters.
 [x] ``taking a workspace waits while a descendant file is held and a file waits while an ancestor is held`` — `withLock` on the sibling File keeps `withLock` on the Workspace outside until release. `withLock` on the Directory keeps `withLock` on the child File outside until release.
 [x] ``a second request on a held node waits and the same thread is rejected`` — a second thread's `withLock` on the held File stays outside until release. The holding thread's nested `withLock` returns `Error NodeLockRejection.HolderHoldsLock` and the first entry stays. `withLock` on an id absent from `Graph.create()` returns `Error NodeLockRejection.NodeAbsent`. The holding action then raises, and the waiting thread enters after release.
 [x] ``a pending directory lock runs before a new descendant file`` — `withLock` on a File under the Directory is inside its action. `withLock` on that Directory stays outside. `withLock` on the other File under that Directory stays outside, and `withLock` on the sibling File owned by the Workspace enters during that wait. After the held File releases, the Directory enters and the other File stays outside. After the Directory releases, the other File enters.
+[x] ``a parse read under a locked directory waits until release`` — `withLock` on the Directory is inside its action. A parse read is `withLock` on the File under that Directory and stays outside. `withLock` on the sibling File owned by the Workspace enters during that wait. After the Directory releases, the parse read enters. Then that parse read is inside its action. `withLock` on the Directory stays outside. The sibling File enters during that wait. After the parse read releases, the Directory enters.
 
 ## Stop when
 
@@ -122,6 +127,7 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
   - `tests/Server.Tests`: ``taking a workspace waits while a descendant file is held and a file waits while an ancestor is held``
   - `tests/Server.Tests`: ``a second request on a held node waits and the same thread is rejected``
   - `tests/Server.Tests`: ``a pending directory lock runs before a new descendant file``
+  - `tests/Server.Tests`: ``a parse read under a locked directory waits until release``
 [x] All executed tests pass.
 [x] Write the verdict to `plan/node-move-disk/reports/11-expand-the-node-lock-pool-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [x] A reader who reads only the One job line can say what the ticket builds.

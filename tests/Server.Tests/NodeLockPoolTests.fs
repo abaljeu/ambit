@@ -77,6 +77,18 @@ let private enter
         NodeLockPool.withLock graph nodeId (fun () -> entered.SetResult())
         |> assertOk "enter")
 
+let private enterAfterRelease
+    (graph: Graph)
+    (nodeId: NodeId)
+    (release: TaskCompletionSource<unit>)
+    (entered: TaskCompletionSource<unit>)
+    =
+    Task.Run(fun () ->
+        NodeLockPool.withLock graph nodeId (fun () ->
+            Assert.True(release.Task.IsCompleted)
+            entered.SetResult())
+        |> assertOk "enter after release")
+
 let private holdAndReject
     (graph: Graph)
     (fileId: NodeId)
@@ -200,3 +212,37 @@ let ``a pending directory lock runs before a new descendant file`` () =
     releaseDir.SetResult()
     otherEntered.Task.Wait()
     Task.WaitAll(fileHold, dirHold, otherWait)
+
+[<Fact>]
+let ``a parse read under a locked directory waits until release`` () =
+    let graph, _, dirId, fileId, _, siblingId = poolGraph ()
+    let releaseDir = TaskCompletionSource<unit>()
+    let dirEntered = TaskCompletionSource<unit>()
+    let parseEntered = TaskCompletionSource<unit>()
+    let siblingEntered = TaskCompletionSource<unit>()
+    let dirHold = holdUntil graph dirId releaseDir dirEntered
+    dirEntered.Task.Wait()
+    let parseWait = enterAfterRelease graph fileId releaseDir parseEntered
+    stayedOutside parseEntered
+    let sibling = enter graph siblingId siblingEntered
+    sibling.Wait()
+    Assert.True(siblingEntered.Task.IsCompleted)
+    stayedOutside parseEntered
+    releaseDir.SetResult()
+    parseEntered.Task.Wait()
+    Task.WaitAll(dirHold, parseWait)
+    let releaseParse = TaskCompletionSource<unit>()
+    let parseHeld = TaskCompletionSource<unit>()
+    let dirWaits = TaskCompletionSource<unit>()
+    let siblingAgain = TaskCompletionSource<unit>()
+    let parseHold = holdUntil graph fileId releaseParse parseHeld
+    parseHeld.Task.Wait()
+    let dirWait = enterAfterRelease graph dirId releaseParse dirWaits
+    stayedOutside dirWaits
+    let siblingDuringParse = enter graph siblingId siblingAgain
+    siblingDuringParse.Wait()
+    Assert.True(siblingAgain.Task.IsCompleted)
+    stayedOutside dirWaits
+    releaseParse.SetResult()
+    dirWaits.Task.Wait()
+    Task.WaitAll(parseHold, dirWait)
