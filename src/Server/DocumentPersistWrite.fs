@@ -13,16 +13,6 @@ type DocumentWriteOk = {
 [<RequireQualifiedAccess>]
 module DocumentPersistWrite =
 
-    let private underLock
-        (graph: Graph)
-        (nodeId: NodeId)
-        (action: unit -> Result<'value, string>)
-        : Result<'value, string> =
-        match NodeLockPool.withLock graph nodeId action with
-        | Error NodeLockRejection.HolderHoldsLock ->
-            Error "holder already holds a lock"
-        | Ok result -> result
-
     let private writeArtifactTextCore
         (dataDir: string)
         (graph: Graph)
@@ -68,7 +58,7 @@ module DocumentPersistWrite =
         (fileId: NodeId)
         (text: string)
         : Result<unit, string> =
-        underLock graph fileId (fun () ->
+        NodeLockPool.withLockResult graph fileId (fun () ->
             writeArtifactTextCore dataDir graph fileId text)
 
     let private preparedParseText
@@ -90,7 +80,7 @@ module DocumentPersistWrite =
             if DocumentBinary.isBinaryExtension relativePath then
                 Error DocumentBinary.parseError
             else
-                underLock graph fileId (fun () ->
+                NodeLockPool.withLockResult graph fileId (fun () ->
                     DocumentPersistPath.readFileTextAtRelative
                         dataDir
                         relativePath)
@@ -290,7 +280,7 @@ module DocumentPersistWrite =
         (graph: Graph)
         (documentRootId: NodeId)
         : Result<DocumentWriteOk, string> =
-        underLock graph documentRootId (fun () ->
+        NodeLockPool.withLockResult graph documentRootId (fun () ->
             writeDocumentCore dataDir graph documentRootId)
 
     let private joinWriteMessages (messages: string list) : string option =

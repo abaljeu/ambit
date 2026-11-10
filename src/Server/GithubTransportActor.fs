@@ -66,26 +66,21 @@ module GithubTransportActor =
             { beforeHead = beforeHead
               afterHead = WorkspaceGit.tryHead workspaceRoot })
 
-    /// Commit and the next step hold the Workspace lock. Push stays outside.
-    let private commitInLock git graph workspaceId root message next =
-        match
-            NodeLockPool.withLock graph workspaceId (fun () ->
-                git.commitAll root message None
-                |> Result.bind next)
-        with
-        | Error NodeLockRejection.HolderHoldsLock ->
-            Error "holder already holds a lock"
-        | Ok result -> result
+    type private LockedWorkspace = {
+        graph: Graph
+        workspaceId: NodeId
+        root: string
+    }
 
-    let private pullTracked git graph workspaceId workspaceRoot =
-        commitInLock
-            git
-            graph
-            workspaceId
-            workspaceRoot
-            "gambol: git Load"
-            (fun (tracked, _) ->
-                pullAndReadHeads git workspaceRoot tracked)
+    /// Commit and the next step hold the Workspace lock. Push stays outside.
+    let private commitInLock git locked message next =
+        NodeLockPool.withLockResult locked.graph locked.workspaceId (fun () ->
+            git.commitAll locked.root message None
+            |> Result.bind next)
+
+    let private pullTracked git locked =
+        commitInLock git locked "gambol: git Load" (fun (tracked, _) ->
+            pullAndReadHeads git locked.root tracked)
 
     /// Paths the pull changed. None when either head cannot be read.
     let private changedAfterPull workspaceRoot heads =
@@ -142,13 +137,12 @@ module GithubTransportActor =
             match state with
             | Error err -> return Error err
             | Ok current ->
-                match
-                    pullTracked
-                        dependencies.git
-                        current.graph
-                        target.workspaceId
-                        root
-                with
+                let locked = {
+                    graph = current.graph
+                    workspaceId = target.workspaceId
+                    root = root
+                }
+                match pullTracked dependencies.git locked with
                 | Error err -> return Error err
                 | Ok heads ->
                     return! applyPulledChanges root target heads
@@ -315,19 +309,13 @@ module GithubTransportActor =
           heads: LoadPullHeads }
 
     /// Commit and pull stay inside the Workspace lock. Push stays outside.
-    let private commitAndPull git graph workspaceId root =
-        commitInLock
-            git
-            graph
-            workspaceId
-            root
-            "gambol: git Save"
-            (fun (tracked, output) ->
-                pullAndReadHeads git root tracked
-                |> Result.map (fun heads ->
-                    { tracked = tracked
-                      output = output
-                      heads = heads }))
+    let private commitAndPull git locked =
+        commitInLock git locked "gambol: git Save" (fun (tracked, output) ->
+            pullAndReadHeads git locked.root tracked
+            |> Result.map (fun heads ->
+                { tracked = tracked
+                  output = output
+                  heads = heads }))
 
     let private pushAfterPull git root target commit =
         async {
@@ -346,13 +334,12 @@ module GithubTransportActor =
                     match! persistFocusWhenNotOrdinary changes focusId with
                     | Error err -> return Error err
                     | Ok () ->
-                        match
-                            commitAndPull
-                                dependencies.git
-                                graph
-                                workspaceId
-                                root
-                        with
+                        let locked = {
+                            graph = graph
+                            workspaceId = workspaceId
+                            root = root
+                        }
+                        match commitAndPull dependencies.git locked with
                         | Error err -> return Error err
                         | Ok commit ->
                             let target =

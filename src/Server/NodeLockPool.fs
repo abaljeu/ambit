@@ -240,3 +240,13 @@ module NodeLockPool =
                     Ok (action ())
                 finally
                     release seq
+
+    let internal withLockResult
+        (graph: Graph)
+        (nodeId: NodeId)
+        (action: unit -> Result<'value, string>)
+        : Result<'value, string> =
+        match withLock graph nodeId action with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            Error "holder already holds a lock"
+        | Ok result -> result

@@ -99,18 +99,13 @@ module ParseThread =
         (graph: Graph)
         (directoryId: NodeId)
         =
-        match
-            NodeLockPool.withLock graph directoryId (fun () ->
-                DirectoryReconcile.planDirectoryReconcile
-                    { dataDir = deps.dataDir
-                      graph = graph
-                      directoryId = directoryId
-                      discover =
-                        DocumentPersistPath.discoverImmediateMembers })
-        with
-        | Error NodeLockRejection.HolderHoldsLock ->
-            Error "holder already holds a lock"
-        | Ok result -> result
+        NodeLockPool.withLockResult graph directoryId (fun () ->
+            DirectoryReconcile.planDirectoryReconcile
+                { dataDir = deps.dataDir
+                  graph = graph
+                  directoryId = directoryId
+                  discover =
+                    DocumentPersistPath.discoverImmediateMembers })
 
     let private parseDirectory
         (deps: InnerDeps)
