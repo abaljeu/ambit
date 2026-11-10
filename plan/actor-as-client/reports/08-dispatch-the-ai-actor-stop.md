@@ -20,11 +20,7 @@ Ticket: [08 — Start the AI Actor](../issues/08-dispatch-the-ai-actor/08-dispat
 
 [x] The ticket rewrite names `startAiRun`, `CoreMailboxApi.coreMailboxStartActor`, and `CoreMailboxApi.coreMailboxStartActorFromFunction`.
 
-[ ] Product code is not started.
-
-[ ] `scripts/agent-test.sh` did not run.
-
-[ ] `plan/actor-as-client/reports/08-dispatch-the-ai-actor-check.md` was not written.
+[x] Product code posts `Order.StartActor` for `?ai`. The check is `plan/actor-as-client/reports/08-dispatch-the-ai-actor-check.md`.
 
 ## 2026-11-10 input mismatch
 
