@@ -15,7 +15,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 
 ## 2. Notes
 
-1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 18, and section 6 records their order. The 2026-09-27 park is [o].
+1. **Unparked 2026-11-03** — Alan. `startFunction` is the one pool start. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 18. The 2026-09-27 park is [o].
 2. **Skills** — [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]], [[.agents/skills/domain-modeling/SKILL.md]], [[.agents/skills/project-work/SKILL.md]]. Use [[.agents/skills/implement-fsharp-feature/SKILL.md]] only after the way is clear.
 3. **Part of** — [[plan/roadmap/epics/chapters/actors-supported.md]] on [[plan/roadmap/epics/robust-outliner.md]].
 4. **Core baseline** — Existing pool and mailbox stay [[plan/core-creation/project.md]]. This Project charts the remake. It does not replace that baseline while the way is fog.
@@ -39,7 +39,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 ## 4. Not yet specified
 
 1. **Remote or cross-process start** — Out of scope for this cutover. Later question: how a command reaches a worker in another process. The 2026-09-27 named-registry fog is [o] for this cutover. [04 — Start surface](issues/04-start-surface.md).
-2. **Existing Actor migration** — Tickets 07 through 10 move TestActor, the AI Actor, the query command, and git Load and Save onto the one start, then delete the old starts.
+2. **Existing Actor migration** — [07 — Start the test command](issues/07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md), [08 — Start the AI Actor](issues/08-dispatch-the-ai-actor/08-dispatch-the-ai-actor-ticket.md), [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md), [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md), and [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) move those actors onto the one start. [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deleted the old starts.
 3. **Lifecycle Events after remake** — In the end state, ActorStart records focus ID and name for cancel and has no `graphIds` ([04 — Start surface](issues/04-start-surface.md)). This cutover's intermediate state keeps `graphIds`. What ActorStop and any other Event fields must still record stays open.
 4. **Worker isolation** — whether filesystem and database workers stay in-process with Core or later move out.
 5. **Graph handoff remainder** — live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](issues/02-graph-handoff.md).
@@ -52,19 +52,10 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 4. **Rewriting all existing Actors in one go** — Migration of each Actor body is later work, not this chart.
 5. **Product code on this chart** — The map finds the way. It does not implement CoreActorPool or mailbox F#.
 6. **Dropping `graphIds`** — The end state drops `graphIds` from ActorStart. This cutover's intermediate state keeps the browser `ActorStart` payload, `graphIds` included.
+7. **core-refinement tickets 111 through 118** — Those tickets stay in that project. [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is one of them.
 
 These are exclusions from this map, not product-wide exclusions. See [[doc/agents/scope-vs-commitment.md]].
 
 ## 6. Order
 
-[ ] Git Load and Git Save already post `Order.StartActor` through `GithubTransportActor.start`. [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md) and [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md) keep that post. Desk still sends `CoreMsg.StartLoadSaveCommand` until 20 — Move Desk Load and Desk Save.
-[x] [15 — Delete the old Actor starts](issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deleted `CoreMsg.StartPeerActor`. `CoreActorPool.startLoadSaveCommand` returns `Ok None` for Desk and for Git.
-[ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off `CoreMsg.StartLoadSaveCommand` and deletes that message at the end. Desk Load probably uses `Order.Load`. Where Desk Save goes is open.
-[ ] [16 — Delete the old Order cases](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated` and keeps `Order.StartActor` of `ActorOrder`.
-[ ] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) deletes `CoreMsg.RecordSearchStart`. Find and Move posts `Order.StartActor` of `ActorOrder`, and that order runs the Search Actor.
-[ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) shrinks to posting `Notice.SearchStopped` and removing `CoreMsg.RecordSearchStop`. It runs after 15 — Delete the old Actor starts.
-[x] [146 — Remove CoreMsg.PostGraphOnly](../core-refinement/issues/146-remove-coremsg-postgraphonly.md) landed on staging in PR #520, before the cutover builds [06 — Log ActorOrder](issues/06-add-the-function-and-focus-start/06-add-the-function-and-focus-start-ticket.md).
-[x] [112 — Place Cancel through PlaceOrder](../core-refinement/issues/112-place-cancel-through-placeorder.md) is `coded` and landed on staging in PR 522. `CoreMailboxApi.cancelByFocus` posts `Order.CancelActor` through `MailboxHost.postPlacedOrder`. `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` runs `CoreMailboxActors.replyCancel`. The start condition for 06 — Log ActorOrder, 15 — Delete the old Actor starts, and 16 — Delete the old Order cases is met.
-[x] 80 — Place Actor starts through PlaceOrder is cancelled.
-[ ] [18 — Place ActorOrder through PlaceOrder](issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md) places `Order.StartActor` of `ActorOrder` through `Mailbox.PlaceOrder`. The pull runs that order's `ActorFunction`. Blocked by 06 — Log ActorOrder.
-[ ] This Project does not edit tickets 111 through 118 in core-refinement. The order is recorded here.
+The run order is [Sequence](sequence.md).
