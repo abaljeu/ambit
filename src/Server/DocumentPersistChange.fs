@@ -161,6 +161,17 @@ module DocumentPersistChange =
                 with ex ->
                     Error ex.Message
 
+    let private executeCoalescedMove
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (move: DocumentPathMove)
+        : Result<unit, string> =
+        NodeLockPool.withLockResult postGraph move.nodeId (fun () ->
+            match resolveMovePaths dataDir preGraph postGraph move with
+            | Error msg -> Error msg
+            | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
+
     let executePathMoves
         (dataDir: string)
         (preGraph: Graph)
@@ -174,9 +185,7 @@ module DocumentPersistChange =
                 match acc with
                 | Error msg -> Error msg
                 | Ok () ->
-                    match resolveMovePaths dataDir preGraph postGraph move with
-                    | Error msg -> Error msg
-                    | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
+                    executeCoalescedMove dataDir preGraph postGraph move)
             (Ok ())
 
     /// Path-moves and successful writes. A failed write is not in this set.
