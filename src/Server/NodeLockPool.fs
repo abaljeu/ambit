@@ -59,6 +59,13 @@ module NodeLockPool =
     let internal entryCount () =
         lock gate (fun () -> entryTotal ())
 
+    /// True while a request for this node is Held. Does not take a lock.
+    let internal nodeIsHeld (nodeId: NodeId) =
+        lock gate (fun () ->
+            table.Value.entries
+            |> List.exists (fun entry ->
+                entry.nodeId = nodeId && entry.phase = Held))
+
     let internal pendingCount () =
         lock gate (fun () -> countPending ())
 

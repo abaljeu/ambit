@@ -359,7 +359,8 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { pullTracked =
+        { fetchTracked = fun _ _ -> Result.Ok "fetched"
+          pullTracked =
             fun _ _ ->
                 markStarted ()
                 Result.Ok "pulled"

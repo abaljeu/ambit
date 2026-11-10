@@ -8,7 +8,9 @@ type GithubTransportOperation =
     | Save
 
 type GithubTransportGit =
-    { pullTracked:
+    { fetchTracked:
+        string -> WorkspaceTrackedBranch -> Result<string, string>
+      pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       commitAll:
         string ->
@@ -54,33 +56,44 @@ module GithubTransportActor =
           afterHead: Result<string option, string> }
 
     /// Actor changes, data directory, and Workspace id for one Git Load.
-    type private WorkspaceTarget =
+    type internal WorkspaceTarget =
         { changes: ActorChanges
           dataDir: string
           workspaceId: NodeId }
 
-    let private pullAndReadHeads git workspaceRoot tracked =
-        let beforeHead = WorkspaceGit.tryHead workspaceRoot
-        git.pullTracked workspaceRoot tracked
-        |> Result.map (fun _ ->
-            { beforeHead = beforeHead
-              afterHead = WorkspaceGit.tryHead workspaceRoot })
-
-    type private LockedWorkspace = {
+    type internal LockedWorkspace = {
         graph: Graph
         workspaceId: NodeId
         root: string
     }
 
-    /// Commit and the next step hold the Workspace lock. Push stays outside.
+    /// One Workspace lock. The action releases when it returns.
+    let internal withWorkspaceLock graph workspaceId action =
+        NodeLockPool.withLockResult graph workspaceId action
+
+    /// Commit holds the Workspace lock. The next step runs inside it.
     let private commitInLock git locked message next =
-        NodeLockPool.withLockResult locked.graph locked.workspaceId (fun () ->
+        withWorkspaceLock locked.graph locked.workspaceId (fun () ->
             git.commitAll locked.root message None
             |> Result.bind next)
 
-    let private pullTracked git locked =
-        commitInLock git locked "gambol: git Load" (fun (tracked, _) ->
-            pullAndReadHeads git locked.root tracked)
+    /// Commit under the Workspace lock, then fetch with no lock.
+    let private commitFetched git locked message =
+        match
+            commitInLock git locked message (fun committed ->
+                Ok committed)
+        with
+        | Error err -> Error err
+        | Ok (tracked, output) ->
+            git.fetchTracked locked.root tracked
+            |> Result.map (fun _ -> tracked, output)
+
+    let private mergeLocked git locked tracked =
+        let beforeHead = WorkspaceGit.tryHead locked.root
+        git.pullTracked locked.root tracked
+        |> Result.map (fun _ ->
+            { beforeHead = beforeHead
+              afterHead = WorkspaceGit.tryHead locked.root })
 
     /// Paths the pull changed. None when either head cannot be read.
     let private changedAfterPull workspaceRoot heads =
@@ -96,20 +109,44 @@ module GithubTransportActor =
             | Error _ -> None
         | _ -> None
 
+    let private markChanged target label changedPaths =
+        LazyLoadReconciliationServer.reconcileFromChanges
+            target.changes
+            target.dataDir
+            label
+            changedPaths
+
+    let private startParse target =
+        async {
+            let! loaded = target.changes.loadNode target.workspaceId
+            return loaded |> Result.map (fun _ -> ())
+        }
+
     let private finishLoadOn target label changedPaths =
         async {
-            match!
-                LazyLoadReconciliationServer.reconcileFromChanges
-                    target.changes
-                    target.dataDir
-                    label
-                    changedPaths
-            with
+            match! markChanged target label changedPaths with
             | Error err -> return Error err
-            | Ok _ ->
-                let! loaded = target.changes.loadNode target.workspaceId
-                return loaded |> Result.map (fun _ -> ())
+            | Ok _ -> return! startParse target
         }
+
+    let private markHeads root target heads =
+        let changed =
+            changedAfterPull root heads |> Option.defaultValue []
+        let label = System.IO.Path.GetFileName root
+        Async.RunSynchronously (markChanged target label changed)
+
+    /// Merge and the Unparsed mark share one Workspace lock.
+    let internal lockMergeAndMark git locked target tracked =
+        withWorkspaceLock locked.graph locked.workspaceId (fun () ->
+            mergeLocked git locked tracked
+            |> Result.bind (markHeads locked.root target))
+
+    /// Commit, unlocked fetch, then the locked merge and Unparsed mark.
+    let private commitFetchAndMark git locked target message =
+        commitFetched git locked message
+        |> Result.bind (fun (tracked, output) ->
+            lockMergeAndMark git locked target tracked
+            |> Result.map (fun _ -> tracked, output))
 
     /// Mark received files and containing Directories, then Load.
     let internal finishLoadPull
@@ -124,13 +161,6 @@ module GithubTransportActor =
             workspace.workspaceLabel
             changedPaths
 
-    let private applyPulledChanges root target heads =
-        let changed =
-            changedAfterPull root heads
-            |> Option.defaultValue []
-        let label = System.IO.Path.GetFileName root
-        finishLoadOn target label changed
-
     let private runLoadOn dependencies root target =
         async {
             let! state = target.changes.graphAtEvent ()
@@ -142,10 +172,15 @@ module GithubTransportActor =
                     workspaceId = target.workspaceId
                     root = root
                 }
-                match pullTracked dependencies.git locked with
+                match
+                    commitFetchAndMark
+                        dependencies.git
+                        locked
+                        target
+                        "gambol: git Load"
+                with
                 | Error err -> return Error err
-                | Ok heads ->
-                    return! applyPulledChanges root target heads
+                | Ok _ -> return! startParse target
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -303,29 +338,28 @@ module GithubTransportActor =
             | Ok _ -> return Ok ()
         }
 
-    type private SaveCommit =
-        { tracked: WorkspaceTrackedBranch
-          output: string
-          heads: LoadPullHeads }
-
-    /// Commit and pull stay inside the Workspace lock. Push stays outside.
-    let private commitAndPull git locked =
-        commitInLock git locked "gambol: git Save" (fun (tracked, output) ->
-            pullAndReadHeads git locked.root tracked
-            |> Result.map (fun heads ->
-                { tracked = tracked
-                  output = output
-                  heads = heads }))
-
-    let private pushAfterPull git root target commit =
+    let private pushAfterMark git root target tracked output =
         async {
-            match! applyPulledChanges root target commit.heads with
+            match! startParse target with
             | Error err -> return Error err
             | Ok () ->
                 return
-                    git.pushTracked root commit.tracked commit.output
+                    git.pushTracked root tracked output
                     |> Result.map ignore
         }
+
+    let private saveFetched dataDir git focusChanges locked =
+        let target = {
+            changes = focusChanges
+            dataDir = dataDir
+            workspaceId = locked.workspaceId
+        }
+        match
+            commitFetchAndMark git locked target "gambol: git Save"
+        with
+        | Error err -> async.Return (Error err)
+        | Ok (tracked, output) ->
+            pushAfterMark git locked.root target tracked output
 
     let private runSaveBody dataDir dependencies focusId changes =
         withWorkspace dataDir changes focusId
@@ -339,19 +373,12 @@ module GithubTransportActor =
                             workspaceId = workspaceId
                             root = root
                         }
-                        match commitAndPull dependencies.git locked with
-                        | Error err -> return Error err
-                        | Ok commit ->
-                            let target =
-                                { changes = changes
-                                  dataDir = dataDir
-                                  workspaceId = workspaceId }
-                            return!
-                                pushAfterPull
-                                    dependencies.git
-                                    root
-                                    target
-                                    commit
+                        return!
+                            saveFetched
+                                dataDir
+                                dependencies.git
+                                changes
+                                locked
                 })
 
     let private runLoadBody dataDir dependencies focusId changes =
@@ -406,7 +433,8 @@ module GithubTransportActor =
         }
 
     let workspaceGit : GithubTransportGit =
-        { pullTracked = WorkspaceGit.pullTrackedBranch
+        { fetchTracked = WorkspaceGit.fetchTrackedBranch
+          pullTracked = WorkspaceGit.mergeFetchedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }
 

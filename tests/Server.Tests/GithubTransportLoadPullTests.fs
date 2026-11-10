@@ -71,7 +71,8 @@ let private markingDependencies pull push =
           remote = "origin"
           upstream = "refs/heads/master" }
     { git =
-        { pullTracked = pull
+        { fetchTracked = fun _ _ -> Ok "fetched"
+          pullTracked = pull
           commitAll =
             fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
           pushTracked = push } }
@@ -115,6 +116,9 @@ let ``git Load commits before pull`` () =
         Assert.Equal("gambol: git Load", message)
         Assert.Equal(None, hint)
         Ok(tracked, GitSave.nothingToCommitMessage)
+    let fetch _ _ =
+        steps.Add("fetch")
+        Ok "fetched"
     let pull _ _ =
         steps.Add("pull")
         Ok "pulled"
@@ -123,7 +127,8 @@ let ``git Load commits before pull`` () =
         Error "push unused"
     let deps =
         { git =
-            { pullTracked = pull
+            { fetchTracked = fetch
+              pullTracked = pull
               commitAll = commit
               pushTracked = push } }
     let dataDir = newTempDir ()
@@ -137,7 +142,7 @@ let ``git Load commits before pull`` () =
         |> requireOk "load"
         |> ignore
         Assert.Equal<string list>(
-            [ "commit"; "pull" ],
+            [ "commit"; "fetch"; "pull" ],
             steps |> Seq.toList)
     finally
         CoreMailboxApi.dispose host
@@ -428,7 +433,8 @@ let ``git Load and git Save wait while the Workspace lock is held`` () =
         held.Task.Wait()
         let loadCommit = TaskCompletionSource<unit>()
         let git =
-            { pullTracked = fun _ _ -> Ok "pulled"
+            { fetchTracked = fun _ _ -> Ok "fetched"
+              pullTracked = fun _ _ -> Ok "pulled"
               commitAll =
                 fun _ _ _ ->
                     loadCommit.SetResult()
@@ -486,5 +492,197 @@ let ``git Load and git Save wait while the Workspace lock is held`` () =
         save.Wait()
         save.Result |> requireOk "save" |> ignore
         holderSave.Wait()
+    finally
+        CoreMailboxApi.dispose host
+
+let private holdsWorkspace graph workspaceId =
+    match NodeLockPool.withLock graph workspaceId (fun () -> ()) with
+    | Error NodeLockRejection.HolderHoldsLock -> true
+    | Ok () -> false
+
+[<Fact>]
+let ``fetch completes before the workspace lock then the pull merges and marks`` () =
+    let steps = ResizeArray<string>()
+    let dataDir = newTempDir ()
+    let host, changes = createAdmittedFile dataDir
+    try
+        let workspaceId, docsId = seedDocs host
+        let graph = readGraph host
+        let root = Path.Combine(dataDir, "home")
+        WorkspaceGit.ensureInit root |> requireOk "init" |> ignore
+        File.WriteAllText(Path.Combine(root, "seed.txt"), "seed")
+        WorkspaceGit.commitAll root "seed" None
+        |> requireOk "seed"
+        |> ignore
+        let marked = ResizeArray<string>()
+        let markChanges = {
+            postChanges = fun _ -> async.Return (Ok ())
+            actorStop = fun _ -> async.Return (Ok ())
+            graphAtEvent =
+                fun () ->
+                    async.Return (
+                        Ok { graph = graph; eventId = EventId.zero })
+            loadNode = fun _ -> async.Return (Ok EventId.zero)
+            postNotice =
+                fun _ ->
+                    marked.Add("mark")
+                    Assert.True(NodeLockPool.nodeIsHeld workspaceId)
+            eventsSince = fun _ -> async.Return []
+            postGraphOnly = fun _ -> async.Return (Ok ())
+        }
+        let mergeAndMark =
+            GithubTransportActor.lockMergeAndMark
+                { fetchTracked = fun _ _ -> Ok "fetched"
+                  pullTracked =
+                    fun workspace tracked ->
+                        steps.Add("merge")
+                        Assert.True(holdsWorkspace graph workspaceId)
+                        pullAddsExtra root workspace tracked
+                  commitAll =
+                    fun _ _ _ ->
+                        Ok(trackedBranch, GitSave.nothingToCommitMessage)
+                  pushTracked = fun _ _ _ -> Error "unused" }
+                { graph = graph
+                  workspaceId = workspaceId
+                  root = root }
+                { changes = markChanges
+                  dataDir = dataDir
+                  workspaceId = workspaceId }
+                trackedBranch
+        mergeAndMark |> requireOk "locked pull" |> ignore
+        match
+            NodeLockPool.withLock graph workspaceId (fun () -> "free")
+        with
+        | Ok "free" -> ()
+        | other -> Assert.Fail($"released: {other}")
+        Assert.Contains("merge", steps)
+        Assert.Contains("mark", marked)
+        steps.Clear()
+        let fetchEntered =
+            TaskCompletionSource<unit>(
+                TaskCreationOptions.RunContinuationsAsynchronously)
+        let fetchRelease = TaskCompletionSource<unit>()
+        let mergeEntered =
+            TaskCompletionSource<unit>(
+                TaskCreationOptions.RunContinuationsAsynchronously)
+        let fetch _ _ =
+            steps.Add("fetch")
+            fetchEntered.TrySetResult() |> ignore
+            fetchRelease.Task.Wait()
+            Ok "fetched"
+        let merge _ _ =
+            steps.Add("merge")
+            Assert.True(holdsWorkspace graph workspaceId)
+            mergeEntered.TrySetResult() |> ignore
+            Ok "merged"
+        let deps = {
+            git = {
+                fetchTracked = fetch
+                pullTracked = merge
+                commitAll =
+                    fun _ _ _ ->
+                        steps.Add("commit")
+                        Ok(trackedBranch, GitSave.nothingToCommitMessage)
+                pushTracked = fun _ _ _ -> Error "push unused"
+            }
+        }
+        let load =
+            Task.Run(fun () ->
+                GithubTransportActor.runLoad
+                    deps
+                    dataDir
+                    changes
+                    workspaceId
+                    root
+                |> Async.RunSynchronously)
+        fetchEntered.Task.Wait()
+        Assert.False(mergeEntered.Task.IsCompleted)
+        let before = NodeLockPool.entryCount ()
+        let probeHeld =
+            TaskCompletionSource<unit>(
+                TaskCreationOptions.RunContinuationsAsynchronously)
+        let probeRelease = TaskCompletionSource<unit>()
+        let probe =
+            Task.Run(fun () ->
+                match
+                    NodeLockPool.withLock graph docsId (fun () ->
+                        probeHeld.TrySetResult() |> ignore
+                        probeRelease.Task.Wait()
+                        ())
+                with
+                | Ok () -> ()
+                | Error rejection -> Assert.Fail($"probe: {rejection}"))
+        probeHeld.Task.Wait()
+        fetchRelease.TrySetResult() |> ignore
+        (NodeLockPool.waitUntilQueued (before + 2)).Wait()
+        Assert.False(mergeEntered.Task.IsCompleted)
+        probeRelease.TrySetResult() |> ignore
+        load.Wait()
+        load.Result |> requireOk "load" |> ignore
+        probe.Wait()
+        Assert.Equal<string list>(
+            [ "commit"; "fetch"; "merge" ],
+            steps |> Seq.toList)
+        let events =
+            CoreMailboxApi.getEventsSince host EventId.zero
+            |> Async.RunSynchronously
+        Assert.Contains(
+            events,
+            fun event ->
+                match event.body with
+                | EventBody.Load id -> id = workspaceId
+                | _ -> false)
+    finally
+        CoreMailboxApi.dispose host
+
+[<Fact>]
+let ``upload lands and marks Unparsed inside the workspace lock`` () =
+    let steps = ResizeArray<string>()
+    let dataDir = newTempDir ()
+    let host, _changes = createAdmittedFile dataDir
+    try
+        let workspaceId, _ = seedDocs host
+        let _fileId = seedCurrentFile host workspaceId "note.txt"
+        let graph = readGraph host
+        let handoff = {
+            readState =
+                fun () ->
+                    async.Return (
+                        Ok { graph = graph; eventId = EventId.zero })
+            postNotice =
+                fun notice ->
+                    steps.Add("mark")
+                    match notice with
+                    | Notice.NodeReceived _ -> ()
+                    | other -> Assert.Fail($"notice: {other}")
+                    Assert.True(holdsWorkspace graph workspaceId)
+            loadNode =
+                fun _ ->
+                    async {
+                        steps.Add("parse")
+                        match
+                            NodeLockPool.withLock
+                                graph
+                                workspaceId
+                                (fun () -> ())
+                        with
+                        | Ok () -> return Ok ()
+                        | Error rejection ->
+                            return Error $"parse saw {rejection}"
+                    }
+        }
+        WorkspaceUploadLock.landMarkRelease
+            handoff
+            "home"
+            "note.txt"
+            (fun () ->
+                steps.Add("land")
+                Assert.True(holdsWorkspace graph workspaceId)
+                Ok ())
+        |> requireOk "upload"
+        |> ignore
+        Assert.Equal<string list>(
+            [ "land"; "mark"; "parse" ],
+            steps |> Seq.toList)
     finally
         CoreMailboxApi.dispose host

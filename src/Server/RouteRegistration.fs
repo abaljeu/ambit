@@ -436,6 +436,26 @@ module RouteRegistration =
                 postSaveRequest persistence (prepareGitSave persistence)))
         |> ignore
 
+    let private uploadHandoff (persistence: PersistenceContext) =
+        let host = persistence.Core.host
+        let caller = persistence.Core.parseCaller
+        { readState = fun () -> CoreMailboxApi.graphAtEvent host
+          postNotice = CoreMailboxApi.postNotice host
+          loadNode =
+            fun nodeId ->
+                async {
+                    let! loaded =
+                        CoreMailboxApi.mbLoadNode host caller nodeId
+                    return Result.map ignore loaded
+                } }
+
+    let private landUpload persistence label relative land =
+        WorkspaceUploadLock.landMarkRelease
+            (uploadHandoff persistence)
+            label
+            relative
+            land
+
     let private mailboxIsAuthenticated persistence req =
         match BrowserRequestCreds.tryCookieCaller req with
         | None -> false
@@ -472,7 +492,7 @@ module RouteRegistration =
             registerSaveRoutes routes
             registerErrorReportRoute routes
             LazyLoadReconciliationDiagnostics.registerRoute this
-            WorkspaceWebDav.registerRoutes this
+            WorkspaceWebDav.registerRoutes this (landUpload persistence)
             RouteAppShell.registerCssAndShellRoutes routes
             DailyGitSave.register this
             this

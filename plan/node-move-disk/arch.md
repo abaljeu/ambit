@@ -209,8 +209,8 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
 [x] The lock records the node. A path match is outside this lock.
 [x] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node. 13 — Lock the persist path moves holds this gate around each coalesced path move in `persistGraphChangeWith`.
-[ ] Fetch runs to completion first. Fetch holds no `withLock`.
-[ ] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
+[x] Fetch runs to completion first. Fetch holds no `withLock`.
+[x] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
 [ ] A Directory move calls `withLock` on the Directory Node.
 [ ] The holder is the git pull caller, the relocate caller, or the persist caller. The holder runs that algorithm and then releases.
 [x] `writeDocument` and `writeArtifactText` call `withLock` on the document-root node around the file bytes.
@@ -224,7 +224,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [x] A Directory or Workspace `withLock` holds off a parse read under it. An in-flight parse read is a `Held` request and finishes. A new parse read waits until that `withLock` releases.
 [x] A request on a Directory node id waits while that same id is taken. That id is the Directory node's own file (`DirName/.amb`).
 [ ] A single File move holds `withLock` on that File Node for the `git mv`.
-[ ] `withLock` on the Workspace Node covers the git Save commit. When git Save pulls, fetch runs to completion first and holds no `withLock`. The pull holds that `withLock`.
+[x] `withLock` on the Workspace Node covers the git Save commit. When git Save pulls, fetch runs to completion first and holds no `withLock`. The pull holds that `withLock`.
 [ ] Sibling files in the source Workspace and the destination Workspace may keep writing during a cross-Workspace move. A sibling `withLock` whose owner chain does not reach the locked node id runs during that hold.
 
 #### Blocked persist
