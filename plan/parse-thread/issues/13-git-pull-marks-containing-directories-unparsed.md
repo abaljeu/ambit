@@ -53,6 +53,7 @@ An added file marks the Directory Node that will contain it Unparsed. A removed 
 ## See also
 
 1. [12 — Git pull marks each received file Unparsed](12-git-pull-marks-each-received-file-unparsed.md)
-2. [Parse thread spec — story 18 Pull handoff stays the pull sentence](../spec.md)
-3. [core-refinement architecture — §5 git pull finish](../../core-refinement/arch.md)
-4. [Mark each file a git pull receives Unparsed](https://github.com/abaljeu/ambit/pull/231)
+2. [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md) — superseded by 12 — Git pull marks each received file Unparsed and this ticket
+3. [Parse thread spec — story 18 Pull handoff stays the pull sentence](../spec.md)
+4. [core-refinement architecture — §5 git pull finish](../../core-refinement/arch.md)
+5. [Mark each file a git pull receives Unparsed](https://github.com/abaljeu/ambit/pull/231)

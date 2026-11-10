@@ -61,3 +61,4 @@ match commitFetched dependencies.git locked "gambol: git Load" with
 - **Fix.** Restore the incoming-file ops for the state named in [core-refinement spec](../spec.md) **Upload and non-File create**, in a ticket that owns that planner.
 - **Problem.** [07 — Git changed list sets Unparsed](../issues/07-git-changed-list-unparsed.md) is still `defined`. [12 — Git pull marks each received file Unparsed](../../parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md) is `done` and [13 — Git pull marks containing Directories Unparsed](../../parse-thread/issues/13-git-pull-marks-containing-directories-unparsed.md) is `coded`.
 - **Fix.** Point 07 at 12 and 13, or mark 07 superseded. Alan decides.
+- 2026-11-10 — Alan: 07 — Git changed list sets Unparsed is superseded by 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed.

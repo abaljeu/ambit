@@ -7,7 +7,7 @@
 
 ## Context
 
-The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` and removes `withWorkTreeGate` and the `GitRun` private gate in that same change. `NodeLockPool.withLock` is the only protocol on Persist and git paths. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed owns the File Nodes and Directory Nodes that the changed list marks. This ticket runs that mark inside the pull.
+The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` and removes `withWorkTreeGate` and the `GitRun` private gate in that same change. `NodeLockPool.withLock` is the only protocol on Persist and git paths. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed is superseded by 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed. Those tickets own the pull mark. This ticket runs that mark inside the pull.
 
 ## What to build
 
@@ -18,7 +18,7 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 1. [x] **Fetch** — Fetch runs to completion. Fetch holds no `NodeLockPool.withLock`.
 2. [x] **Drain** — `withLock` on the Workspace node drains in-flight member file use.
 3. [x] **Pull** — The pull merges the fetched commits inside that `withLock`.
-4. [x] **Mark Unparsed** — Arrived nodes are marked Unparsed inside that same `withLock`. The git changed list supplies that mark. The changed-list rules stay on 07 — Git changed list sets Unparsed.
+4. [x] **Mark Unparsed** — Arrived nodes are marked Unparsed inside that same `withLock`. The git pull mark supplies that Unparsed. The rules stay on 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed.
 5. [x] **Release** — That `withLock` releases after that mark.
 6. [x] **Parse thread** — Unparsed starts the parse thread. Core pushes the work onto the Parse stack.
 7. [x] **Upload** — Upload uses that same `withLock` for the land, the Unparsed mark, and the release. Upload has no fetch.
@@ -33,7 +33,9 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 - [core-refinement architecture](plan/core-refinement/arch.md)
 - [core-refinement](plan/core-refinement/project.md)
 - [02 — Git Load: Unparsed then Parse stack](plan/core-refinement/issues/02-git-load-unparsed-then-parse-stack.md)
-- [07 — Git changed list sets Unparsed](plan/core-refinement/issues/07-git-changed-list-unparsed.md)
+- [07 — Git changed list sets Unparsed](plan/core-refinement/issues/07-git-changed-list-unparsed.md) — superseded by 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed
+- [12 — Git pull marks each received file Unparsed](plan/parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md)
+- [13 — Git pull marks containing Directories Unparsed](plan/parse-thread/issues/13-git-pull-marks-containing-directories-unparsed.md)
 - [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md)
 - [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md)
 - [Parse and persist](doc/current/parse-persist.md)

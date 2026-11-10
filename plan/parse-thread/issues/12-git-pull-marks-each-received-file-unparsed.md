@@ -39,7 +39,7 @@ A git pull receives files. A received file can sit at any depth. The pull marks 
 3. [Parse thread architecture — story path 18 Pull handoff stays the pull sentence](../arch.md)
 4. [Parse thread spec — story 18 Pull handoff stays the pull sentence](../spec.md)
 5. [core-refinement architecture — §5 item 4 git pull finish](../../core-refinement/arch.md)
-6. [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md)
+6. [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md) — superseded by this ticket and [13 — Git pull marks containing Directories Unparsed](13-git-pull-marks-containing-directories-unparsed.md)
 7. [Workspace git](../../../src/Server/WorkspaceGit.fs)
 
 ## Implementation

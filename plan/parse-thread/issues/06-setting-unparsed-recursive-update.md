@@ -47,3 +47,4 @@ These leaves moved from [05 — Directory reconcile](05-directory-reconcile.md).
 
 - 2026-10-07 — Alan. MarkUnparsed is an accepted Notice case. Document it on [core-refinement architecture](../../core-refinement/arch.md) §10 Core loop and under [doc/current](../../../doc/current/).
 - 2026-10-07 — This ticket stays disk-newer File Node Unparsed only. Siblings: [07 — Directory Unparsed during reconcile](07-directory-unparsed-during-reconcile.md) and [07 — Git changed list sets Unparsed](../../core-refinement/issues/07-git-changed-list-unparsed.md).
+- 2026-11-10 — Alan: 07 — Git changed list sets Unparsed is superseded by [12 — Git pull marks each received file Unparsed](12-git-pull-marks-each-received-file-unparsed.md) and [13 — Git pull marks containing Directories Unparsed](13-git-pull-marks-containing-directories-unparsed.md).

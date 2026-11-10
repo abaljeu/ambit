@@ -31,7 +31,7 @@ Alan, 2026-11-10: fetch runs to completion first and holds no `NodeLockPool.with
 ## Copy-from
 
 - `NodeLockPool.withLock` is the lock. A nested call on the holder returns `Error HolderHoldsLock`.
-- `LazyLoadReconciliationServer.reconcileFromChanges` is the Unparsed mark. This ticket does not restate the changed-list rules. Those stay on [07 — Git changed list sets Unparsed](../issues/07-git-changed-list-unparsed.md), and the code home is [12 — Git pull marks each received file Unparsed](../../parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md) and [13 — Git pull marks containing Directories Unparsed](../../parse-thread/issues/13-git-pull-marks-containing-directories-unparsed.md).
+- `LazyLoadReconciliationServer.reconcileFromChanges` is the Unparsed mark. This ticket does not restate the changed-list rules. [07 — Git changed list sets Unparsed](../issues/07-git-changed-list-unparsed.md) is superseded by 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed. The code home is those two tickets.
 
 ## implement
 
