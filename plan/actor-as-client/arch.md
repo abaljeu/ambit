@@ -236,7 +236,7 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 
 ### Query command
 
-[x] `postSearchRequest` places Find and Move through `recordSearchStart`. That function posts `Order.StartActor`. The actor is `AiInstall.search`, set by `RouteRegistration.CreateBoot` to `SearchActor.searchActorAt`.
+[x] `postSearchRequest` places Find and Move through `recordSearchStart`. That function posts `Order.StartActor`. The actor is `BootActors.search`, set by `RouteRegistration.CreateBoot` to `SearchActor.searchActorAt`.
 [ ] `postSearchRequest` builds the query `ActorFunction` through Curried actor and calls Post actor order.
 
 ```fsharp

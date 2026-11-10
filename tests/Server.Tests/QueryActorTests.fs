@@ -243,7 +243,11 @@ let ``equals-line ActorStart does not run the query function`` () =
                     | EventBody.Change _ -> true
                     | _ -> false)
             let! stopped = waitStopEvent host lineId
-            Assert.True(stopped.IsSome, "ActorQuery missing")
+            match stopped with
+            | Some { body = EventBody.ActorStop(stopId, ActorQuery _) } ->
+                Assert.Equal(lineId, stopId)
+            | _ ->
+                failwith "ActorQuery missing"
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let started =
@@ -310,20 +314,32 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                     host testCaller
                     [ edit; queryStart root lineId again ]
                 |> Async.StartAsTask
+            let liveActorRefusal =
+                "actor node already has a live Actor"
             match result with
             | Error err ->
-                Assert.Contains(
-                    "actor node already has a live Actor",
-                    err)
+                Assert.Contains(liveActorRefusal, err)
             | Ok _ ->
                 failwith "expected the live-actor refusal"
             let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match after with
             | Error err -> failwith err
             | Ok afterState ->
-                Assert.Equal(
-                    lineText,
-                    afterState.graph.nodes.[lineId].text)
+                let editedLine = afterState.graph.nodes.[lineId].text
+                Assert.Equal(lineText, editedLine)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let storedQueryStart =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Order (Order.StartActor order) ->
+                        order.actorName = "query"
+                        && order.actorNodeId = lineId
+                    | _ -> false)
+            Assert.True(
+                storedQueryStart,
+                "StartActor missing after the refusal")
         finally
             hold.TrySetResult() |> ignore
             CoreMailboxApi.dispose host

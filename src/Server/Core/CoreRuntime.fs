@@ -18,7 +18,7 @@ type CoreBoot =
         AuthUser: string
         AuthPass: string
         Actors: (ActorName * ActorFn) list
-        aiInstall: AiInstall option
+        bootActors: BootActors option
     }
 
 [<RequireQualifiedAccess>]
@@ -68,7 +68,7 @@ module CoreRuntime =
         : CoreRuntime * (NodeId -> unit) =
         let browserCaller, parseCaller = bootCallers boot
         let pool =
-            match boot.aiInstall with
+            match boot.bootActors with
             | None -> CoreActorPool.create ()
             | Some install ->
                 CoreActorPool.createWithInstall install

@@ -9,8 +9,10 @@ type GrokBotBinding =
     { Config: GrokBotConfig
       ResponseUrl: string }
 
-/// Keys, repos, grok bind, and the Find and Move actor for one boot.
-type AiInstall =
+/// Actor functions installed at one boot.
+/// The AI actor uses keys, repos, and the grok bind.
+/// Find and Move uses search.
+type BootActors =
     { keys: AiKeySet
       repos: AiRepo list
       grok: GrokBotBinding

@@ -13,7 +13,7 @@ Ticket: [09 — Start the query command](09-dispatch-the-query-command-ticket.md
 [x] `startChosen` stays `context.pool.startActor`.
 [x] `SearchActor.searchActorAt` posts `ActorSucceeded`.
 [x] `recordSearchStart` takes that `ActorFunction` and posts `Order.StartActor`.
-[x] `AiInstall.search` carries the actor. `RouteRegistration.CreateBoot` sets it. `searchDoor` passes `pool.aiInstall.search`.
+[x] `BootActors.search` carries the actor. `RouteRegistration.CreateBoot` sets it. `searchDoor` passes `pool.bootActors.search`.
 [x] `replyActorOrder` calls `admitCaller` before it appends the order.
 [x] `Api.searchReply` no longer calls `recordStop`.
 [x] `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart` are deleted.

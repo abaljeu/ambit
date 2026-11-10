@@ -227,6 +227,14 @@ let ``postSearch records ActorStart at the root`` () = task {
               startId = NodeId.New()
               generation = None }
         let body = Enc.toString 0 (SearchPicture.encodeRequest request)
+        let actorStopped = TaskCompletionSource<unit>()
+        let searchActor run changes =
+            async {
+                try
+                    do! SearchActor.searchActorAt run changes
+                finally
+                    actorStopped.TrySetResult() |> ignore
+            }
         let searchDoor: Api.SearchActorDoor =
             { changes = handle
               recordStart =
@@ -234,7 +242,7 @@ let ``postSearch records ActorStart at the root`` () = task {
                     CoreMailboxApi.recordSearchStart
                         host
                         testCaller
-                        SearchActor.searchActorAt
+                        searchActor
                         start
               recordStop =
                 fun rootId ->
@@ -251,31 +259,24 @@ let ``postSearch records ActorStart at the root`` () = task {
         | :? ContentHttpResult -> ()
         | other ->
             failwith $"expected JSON content, got {other.GetType().Name}"
-        let mutable started = false
-        let mutable stopped = false
-        let deadline = System.DateTime.UtcNow.AddSeconds 2.0
-        while
-            (not started || not stopped)
-            && System.DateTime.UtcNow < deadline do
-            let! log =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            started <-
-                log.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorName = "search"
-                        && order.actorNodeId = graph.root
-                    | _ -> false)
-            stopped <-
-                log.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
-                        stoppedId = graph.root
-                    | _ -> false)
-            if not started || not stopped then
-                do! System.Threading.Tasks.Task.Delay 10
+        do! actorStopped.Task
+        let! log =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let started =
+            log.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorName = "search"
+                    && order.actorNodeId = graph.root
+                | _ -> false)
+        let stopped =
+            log.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
+                    stoppedId = graph.root
+                | _ -> false)
         Assert.True(started, "StartActor missing on the event source")
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally

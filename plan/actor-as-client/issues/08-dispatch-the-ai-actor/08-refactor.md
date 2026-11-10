@@ -43,6 +43,6 @@ Stage is refactor in [08 — Start the AI Actor](CONTEXT.md).
 
 ## 7. Still open
 
-1. **Boot records.** `fileRuntime` in `tests/Server.Tests/CoreRuntimeTests.fs`, `fileRuntime` in `tests/Server.Tests/CredentialedChangePostsTests.fs`, and `devRuntime` in `tests/Server.Tests/SessionTests.fs` build a `CoreBoot` with `aiInstall = None`. `CoreRuntime.create` reads that field.
+1. **Boot records.** `fileRuntime` in `tests/Server.Tests/CoreRuntimeTests.fs`, `fileRuntime` in `tests/Server.Tests/CredentialedChangePostsTests.fs`, and `devRuntime` in `tests/Server.Tests/SessionTests.fs` build a `CoreBoot` with `bootActors = None`. `CoreRuntime.create` reads that field.
 2. **Door overrides.** ``Actor start rejects a secret the pool does not admit`` and ``Actor post with a secret the pool does not hold is dropped`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` already start from `CoreActorPool.create` and override `startActor` plus `admit` or `isLive`.
 3. **Model cell.** The pool model stays a mutable cell. The scan names that line.

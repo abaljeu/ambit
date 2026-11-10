@@ -77,7 +77,8 @@ module internal CoreMailboxActors =
             | Error err -> Error err
             | Ok _ -> Ok ()
 
-    /// Query and named starts both use the ID-bag start.
+    /// A named start uses the ID-bag start.
+    /// A query Run uses `queueAdmittedQuery`.
     /// `startFunction` stays unused on this path.
     let private startChosen
         (context: MailboxContext)
@@ -251,7 +252,7 @@ module internal CoreMailboxActors =
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
-        match context.pool.aiInstall with
+        match context.pool.bootActors with
         | None -> reply.Reply(Error "ai actor is not installed")
         | Some install ->
             let order =

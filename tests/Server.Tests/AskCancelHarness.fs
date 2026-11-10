@@ -300,7 +300,7 @@ let startAiRun (host: MailboxHost) (request: ActorStart) =
     match aiPools.TryGetValue host with
     | false, _ -> Task.FromResult(Error "ai host binding missing")
     | true, pool ->
-        match pool.aiInstall with
+        match pool.bootActors with
         | None -> Task.FromResult(Error "ai host binding missing")
         | Some install ->
             let order =

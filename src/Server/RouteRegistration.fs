@@ -28,7 +28,7 @@ module RouteRegistration =
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
                 Actors = []
-                aiInstall =
+                bootActors =
                     Some
                         { keys = AiKeys.fromConfig this.Config
                           repos = AiRepos.fromConfig this.Config
@@ -213,7 +213,7 @@ module RouteRegistration =
         { changes = changes
           recordStart =
             fun start ->
-                match persistence.Core.pool.aiInstall with
+                match persistence.Core.pool.bootActors with
                 | None ->
                     async.Return
                         (Error "search actor is not installed")

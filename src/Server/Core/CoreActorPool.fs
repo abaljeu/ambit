@@ -53,7 +53,7 @@ type CoreActorPool =
       deliver: string * string -> Result<unit, string>
       takeInbox: string -> Result<string list, string>
       sessionIdFor: Credential -> string option
-      aiInstall: AiInstall option }
+      bootActors: BootActors option }
 
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
@@ -376,7 +376,7 @@ module CoreActorPool =
     let private addDef (model: Model) name actor =
         { model with defs = Map.add name actor model.defs }
 
-    let private newPool (aiInstall: AiInstall option) : CoreActorPool =
+    let private newPool (bootActors: BootActors option) : CoreActorPool =
         let mutable model = emptyModel ()
         let getModel () = model
         let commit (next, value) =
@@ -412,9 +412,9 @@ module CoreActorPool =
             fun sessionId ->
                 apply (fun current -> takeInboxOf current sessionId)
           sessionIdFor = fun secret -> sessionOf model secret
-          aiInstall = aiInstall }
+          bootActors = bootActors }
 
     let create () = newPool None
 
-    let createWithInstall (install: AiInstall) =
+    let createWithInstall (install: BootActors) =
         newPool (Some install)
