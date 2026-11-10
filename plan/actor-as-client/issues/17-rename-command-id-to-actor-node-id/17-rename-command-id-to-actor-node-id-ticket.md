@@ -70,7 +70,6 @@ Blockers:
 [x] `tests/Shared.Tests/EventTests.fs`
 [x] `tests/Server.Tests/GithubTransportActorTests.fs`
 [x] `tests/Server.Tests/Issue41CoreMailboxTests.fs`
-[x] `tests/Server.Tests/Issue42PersistHandlersTests.fs`
 [x] `tests/Server.Tests/LoadSaveCommandClientTests.fs`
 [x] `tests/Server.Tests/LoadSaveCommandTests.fs`
 [x] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs`

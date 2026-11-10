@@ -69,7 +69,6 @@ Blockers:
 [x] `tests/Server.Tests/CoreMailboxDoorTests.fs`
 [x] `tests/Server.Tests/CoreMsgActorCasesTests.fs`
 [x] `tests/Server.Tests/Issue41CoreMailboxTests.fs`
-[x] `tests/Server.Tests/Issue42PersistHandlersTests.fs`
 [x] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs`
 [x] `tests/Server.Tests/PersistHandlersRestoreTests.fs`
 
