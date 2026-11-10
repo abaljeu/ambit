@@ -70,6 +70,7 @@ Parse and persist move text between disk and the graph.
 [Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
 [o] `WorkspaceGit.withWorkTreeGate`: the exclusive gate on Persist and git paths. [Workspace git](../../src/Server/WorkspaceGit.fs).
 [ ] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`.
+[ ] `withWorkTreeGate` is gone from Persist and git paths.
 [x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
 [x] An absent node conflicts with nothing.
 [ ] A request waits on the same node, a taken ancestor, or a taken descendant.

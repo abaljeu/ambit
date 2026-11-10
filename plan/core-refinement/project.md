@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Sequel to [[plan/core-creation/project.md]]: refine Core so that after transport lands files, Core works through disk and Graph changes (Parse stack, Persist stack, state axes) until everything is updated.
-Updated: 2026-11-08
+Updated: 2026-11-10
 Started: 2026-09-29
 Actual: 38.5h
 
@@ -24,6 +24,7 @@ Actual: 38.5h
 - 2026-09-30 — Alan approved Candidate A: stand §6 workspace lock and per-member persist locks beside `withWorkTreeGate`, migrate Persist/parse/git onto §6, then contract the gate. Home: [[arch.md]] §3 step 4 **§6 locks catch-up**.
 - 2026-11-10 — Alan: one `NodeLockPool.withLock` replaces the aggregate lock and the per-member persist locks. A request is one node id. The pool derives the owner chain. Home: [[arch.md]] §6.
 - 2026-11-10 — Alan: there is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request. An absent node conflicts with nothing. A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. Fetch runs to completion first and holds no `withLock`. The pull holds the Workspace `withLock` for the merge of the fetched commits and the Unparsed mark. Home: §6, in the note above.
+- 2026-11-10 — Alan: fold [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) into [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md). 31 moves Persist, parse reads, git Load, and git Save onto `NodeLockPool.withLock` and removes `withWorkTreeGate` from Persist and git paths in that same change. There is no dual-run. 31 and [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) are blocked by [11 — Expand the node lock pool](../node-move-disk/issues/11-expand-the-node-lock-pool.md). Status of 33 is `superseded`.
 - 2026-09-30 — Alan rejected Candidate B (reading path / index). Sole Core seam authority is this Project ([[arch.md]]). Compact description of the same target: [[plan/architecture/server-core.md]], linked from [[arch.md]] Target — Server Core. Map decision 14.
 - 2026-10-01 — [[arch.md]] stays expand-contract. Stage stays `build`. Committed claim marks for Core are on [[doc/current/core.md]] and the pages that hub links. Workspace graph and the persistence model keep their own claim homes. Map §4 (mailbox enable, call, and stop) stays on [[arch.md]] §3 step 6 and is not on [[doc/current/]].
 - 2026-10-01 — Alan: axis completion queue. Message type `AxisCompletion`. Queue type `AxisCompletionQueue`. Module **Core loop** holds the queue. File: `src/Server/Core/CoreMailboxBackend.fs`. Story paths, the Module map, and Seams stay on [[arch.md]]. Decision 9 does not skip them. Stage stays `build`. Map decision 15. Superseded later the same day by InMsg on the one mailbox queue.
@@ -122,7 +123,7 @@ Actual: 38.5h
 
 ## Issues
 
-- [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — exclusive gate revoked as lasting protocol; stand §6 then contract `withWorkTreeGate` ([[arch.md]] §3 step 4 **§6 locks catch-up**).
+- [01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) — exclusive gate revoked as lasting protocol. The 31 migrate removes `withWorkTreeGate` from Persist and git paths ([[arch.md]] §3 step 4 **§6 locks catch-up**).
 - [02 — Git Load: Unparsed then Parse stack](issues/02-git-load-unparsed-then-parse-stack.md) — workspace lock → drain → pull → mark Unparsed → release → parse thread.
 - [03 — One Parse thread stack](issues/03-one-parse-thread-stack.md) — one long-lived Parse stack; Core pushes; consumer is the parse thread.
 - [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) — special-node axes and Core Persist stack; locks on [[arch.md]] §6.
@@ -151,10 +152,10 @@ Actual: 38.5h
 - [27 — Stop the old git path](issues/27-stop-the-old-git-path.md) — the old git path stops.
 - [28 — Parsed when clear](issues/28-parsed-when-clear.md) — `ParseFinished` sets a File Node Parsed only when `pullingFile` is clear.
 - [29 — Graph change crosses Core loop](issues/29-graph-change-crosses-core-loop.md) — history. Superseded by [38 — Mailbox parse-state writer logs the Event](issues/38-mailbox-parse-state-writer-logs-the-event.md) through [42 — Public post refuses SetDocumentState](issues/42-public-post-refuses-set-document-state.md).
-- [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md) — superseded by node-move-disk ticket 11.
-- [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md) — Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including git Save.
-- [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) — fetch completes first, unlocked. The Workspace `withLock` covers the pull: merge the fetched commits, mark arrived nodes Unparsed, then release.
-- [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) — `withWorkTreeGate` leaves Persist and git paths.
+- [30 — Expand the workspace lock](issues/30-expand-the-workspace-lock.md) — superseded by 11 — Expand the node lock pool.
+- [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md) — Persist, parse reads, git Load, and git Save follow `NodeLockPool.withLock`, including the git Save commit. The same change removes `withWorkTreeGate` from Persist and git paths. Blocked by 11 — Expand the node lock pool.
+- [32 — Workspace lock handoff](issues/32-workspace-lock-handoff.md) — fetch completes first, unlocked. The Workspace `withLock` covers the pull: merge the fetched commits, mark arrived nodes Unparsed, then release. Blocked by 11 — Expand the node lock pool.
+- [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) — superseded by 31 — Migrate onto the workspace lock. The gate removal is that migrate.
 - [34 — Upload and import use the parse-state writer](issues/34-upload-and-import-use-the-parse-state-writer.md) — `DocumentStateEnum` and its converters leave. `Op.SetDocumentState` stays and carries the three-way parse state. Upload and import write through `GraphMutate.setParseState`.
 - [35 — Wire three-way parse state](issues/35-wire-three-way-parse-state.md) — node JSON sends the three-way parse state once, plus `persistState`. The derived `documentState` key leaves.
 - [36 — Add the persist column](issues/36-add-the-persist-column.md) — a persist column stores persist state across reload. `document_state` stores Parsed or Unparsed only. PullingFile is not stored.

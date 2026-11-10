@@ -2,12 +2,12 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 30 — Expand the workspace lock
+**Blocked by:** 11 — Expand the node lock pool
 **Trackers:** architecture
 
 ## Context
 
-The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by node-move-disk ticket 11. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` while `withWorkTreeGate` still runs. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed owns the File Nodes and Directory Nodes that the changed list marks. This ticket runs that mark inside the pull.
+The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` and removes `withWorkTreeGate` from Persist and git paths in that same change. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed owns the File Nodes and Directory Nodes that the changed list marks. This ticket runs that mark inside the pull.
 
 ## What to build
 
@@ -34,10 +34,11 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 - [core-refinement](plan/core-refinement/project.md)
 - [02 — Git Load: Unparsed then Parse stack](plan/core-refinement/issues/02-git-load-unparsed-then-parse-stack.md)
 - [07 — Git changed list sets Unparsed](plan/core-refinement/issues/07-git-changed-list-unparsed.md)
-- [30 — Expand the workspace lock](plan/core-refinement/issues/30-expand-the-workspace-lock.md)
+- [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md)
 - [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md)
 - [Parse and persist](doc/current/parse-persist.md)
 
 ## Notes
 
 - 2026-11-10 — Alan: fetch runs to completion first, unlocked. The pull holds the Workspace `withLock`. The pull is the merge of the fetched commits plus marking the arrived nodes Unparsed.
+- 2026-11-10 — Alan: blocked by 11 — Expand the node lock pool, not by 30 — Expand the workspace lock. 31 — Migrate onto the workspace lock removes `withWorkTreeGate` from Persist and git paths in the same change as the move onto `withLock`.

@@ -88,8 +88,8 @@ The mailbox and the event log follow [Message shape](cqrs-messages.md) §4 **Mig
 4. **§6 locks catch-up**
    Code still runs today’s `WorkspaceGit.withWorkTreeGate` on Persist and git paths. That exclusive gate is not the workspace lock ([01 — Persist/git work-tree gate](issues/01-persist-git-work-tree-gate.md) revoked). Axes stay drift markers; locks are §6. Do not drop the workspace lock. Do not invent a new write body or a new git process home: DocumentPersistChange stays the write body; mailbox/parse-thread placement stays as already charted. [04 — Parsed/Unparsed and Persisted/Unpersisted](issues/04-parsed-unparsed-and-persisted-unpersisted.md) git Save is permitted while Unparsed or Unpersisted. Catch-up when the code meets §6 and the old gate leaves:
    1. **Expand** — [ ] Stand `NodeLockPool.withLock` beside `withWorkTreeGate`, matching §6 (pending, drain in-flight member file writes and parse reads, then the pull merges the fetched commits and marks arrived nodes Unparsed, release). Fetch runs to completion first and holds no `withLock`. While a Workspace or Directory `withLock` is pending, a conflicting `withLock` waits.
-   2. **Migrate** — [ ] Persist, parse-thread file use, and git Load/Save follow §6. `withWorkTreeGate` remains only while dual-running is required.
-   3. **Contract** — [ ] Remove `withWorkTreeGate` from Persist and git paths once §6 is the only protocol. Claim home: [Parse and persist](doc/current/parse-persist.md) (workspace lock claims).
+   2. **Migrate** — [ ] Persist, parse-thread file use, and git Load and git Save follow §6, including the git Save commit. The same change removes `withWorkTreeGate` from Persist and git paths. [31 — Migrate onto the workspace lock](issues/31-migrate-onto-the-workspace-lock.md).
+   3. **Contract** — [ ] That removal is the Migrate change. [33 — Contract the work-tree gate](issues/33-contract-the-work-tree-gate.md) is superseded by 31 — Migrate onto the workspace lock. Claim home: [Parse and persist](doc/current/parse-persist.md) (workspace lock claims).
 
 5. **Path control**
    1. **Expand** — [ ] Core owns four operations that hold absolute residency: read file, write file, read directory, write directory. Callers pass a node, or a relative path derived from a node, to say where ([[plan/transport-layer/map.md]]).
@@ -209,8 +209,8 @@ Sequence stays `expand-contract`. These paths are that implementation sequence. 
 
 4. **Workspace lock catch-up**
    1. [ ] **Expand** — `NodeLockPool.withLock` stands beside `withWorkTreeGate`.
-   2. [ ] **Migrate** — Persist, parse-thread file use, and git Load/Save follow §6.
-   3. [ ] **Contract** — `withWorkTreeGate` is gone from Persist and git paths.
+   2. [ ] **Migrate** — Persist, parse-thread file use, and git Load and git Save follow §6, including the git Save commit. The same change removes `withWorkTreeGate` from Persist and git paths.
+   3. [ ] **Contract** — That removal is the Migrate change. 33 — Contract the work-tree gate is superseded by 31 — Migrate onto the workspace lock.
 
 5. **Path control**
    1. [ ] **Expand** — Core owns read file, write file, read directory, and write directory.
