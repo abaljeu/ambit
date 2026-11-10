@@ -17,15 +17,16 @@ Locked 2026-09-28 (Alan, chat). Supersedes the Reconciling cascade on this ticke
 
 Git Load / Core github pull (current truth: [[../arch.md]] §6 Core locking model):
 
-1. Call `NodeLockPool.withLock` on the Workspace node (announces member files may change; the request waits while the same node, a taken ancestor, or a taken descendant is taken; while pending, a conflicting `withLock` waits).
-2. When current file changes have drained, **pull** files.
-3. Mark arrived files **Unparsed**.
-4. **Release** that `withLock`.
-5. **Unparsed** starts the **parse thread** (Core pushes the Workspace onto the one long-lived Parse stack).
+1. **Fetch** runs to completion. Fetch holds no `NodeLockPool.withLock`.
+2. Call `NodeLockPool.withLock` on the Workspace node (announces member files may change; the request waits while the same node, a taken ancestor, or a taken descendant is taken; while pending, a conflicting `withLock` waits).
+3. When current file changes have drained, the **pull** merges the fetched commits.
+4. Mark arrived nodes **Unparsed** inside that `withLock`.
+5. **Release** that `withLock`.
+6. **Unparsed** starts the **parse thread** (Core pushes the Workspace onto the one long-lived Parse stack).
 
 Nobody starts an Actor after pull. Core pushes a reconcile target onto the one long-lived Parse stack. See [03 — One Parse thread stack](03-one-parse-thread-stack.md).
 
-Client **Upload** uses the same path when it changes member files: `NodeLockPool.withLock` on the Workspace node, then land on disk, then mark the relevant node Unparsed, then release, then Unparsed starts the parse thread. No special Upload pipeline.
+Client **Upload** uses `NodeLockPool.withLock` on the Workspace node, then land on disk, then mark the relevant node Unparsed, then release, then Unparsed starts the parse thread. Upload has no fetch. No special Upload pipeline.
 
 Workspace/directory Parse reconciles **immediate members only** (spot disk vs graph discrepancies, update the graph). Then set **Unparsed** on children that need updating, and mark this node **Parsed**.
 
@@ -45,6 +46,7 @@ Map gist: [[../map.md]] Decisions so far item 2.
 - 2026-09-28: Alan replaced the Reconciling cascade. Status `done`. Sequence was Unparsed on Workspace → pull → push Parse. Upload is the same path. No new Actor after pull.
 - 2026-09-29: Moved from github-transport into core-refinement as [02 — Git Load: Unparsed then Parse stack](02-git-load-unparsed-then-parse-stack.md).
 - 2026-09-30: Alan locked pull order on [[../arch.md]] §6: workspace lock → drain → pull → mark Unparsed → release → parse thread. Answer updated; the older “mark Unparsed then pull” sequence is not current truth.
+- 2026-11-10: Alan: fetch runs to completion first, unlocked. The pull holds the Workspace `withLock`. The pull is the merge of the fetched commits plus marking the arrived nodes Unparsed. Answer updated.
 
 ## Time
 

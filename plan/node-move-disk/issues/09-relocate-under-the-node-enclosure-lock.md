@@ -3,7 +3,7 @@
 One job: The Server relocates each owned File or Directory whose derived path changed, under one `NodeLockPool.withLock` on the moved node, and then stores the graph. Story 2 Relocate with git mv and story 10 Move into a different Workspace in [Node move and disk](plan/node-move-disk/spec.md) are those relocates.
 
 Type: coding
-Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-lock.md), [05 — Relocate in the same workspace](05-relocate-in-the-same-workspace.md), [07 — Move an owned node across workspaces](07-move-an-owned-node-across-workspaces.md), [08 — Amend a change conflict before the graph is stored](08-amend-a-change-conflict-before-the-graph-is-stored.md)
+Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-lock.md), [05 — Relocate in the same workspace](05-relocate-in-the-same-workspace.md), [07 — Move an owned node across workspaces](07-move-an-owned-node-across-workspaces.md), [08 — Amend a change conflict before the graph is stored](08-amend-a-change-conflict-before-the-graph-is-stored.md), [12 — Compare locks on the live graph](12-compare-locks-on-the-live-graph.md)
 
 ## Inputs
 
@@ -61,7 +61,7 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 
 #### Copy-from
 
-[ ] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` has type `Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>`. The caller passes one `Graph` and the node id.
+[ ] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` takes the live graph, the node id, and the action. There is one graph. The pool stores no graph. Conflict checks read the graph passed with that request. An absent node conflicts with nothing. A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. The caller passes that live graph. Ticket 12 changes the pool. This ticket does not edit the pool.
 [ ] `gitMove`, `repositoryRoot`, and `gitPath` come from the blocker ticket 05.
 [ ] `moveAcrossWorkspaces` comes from the blocker ticket 07.
 [ ] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` is the `FileAgent.create` and `applyEvent` seam.
@@ -75,7 +75,8 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Move write gate**, **Same-workspace relocate**, and **Cross-workspace move**, §4 flow 6 **Move under the node lock**, and §8 questions 5 and 7.
+[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Move write gate**, **Node lock**, **Same-workspace relocate**, and **Cross-workspace move**, §4 flow 6 **Move under the node lock**, and §8 questions 5 and 7.
+[ ] Alan, 2026-11-10: there is one graph, and the pool stores no graph. Locks are compared on the live graph passed in to the request. An absent node conflicts with nothing. A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
 [ ] [09 — Relocate under the node lock scope](plan/node-move-disk/reports/09-relocate-under-the-node-enclosure-lock-scope.md).
 [ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 

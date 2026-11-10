@@ -201,12 +201,15 @@ Research: [03 — Research: directory-level persist gate for moves](issues/03-re
 NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>
 ```
 
-[x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` is the node lock. One request is the `Graph` and one `NodeId`. The pool derives the owner chain from that graph. The caller passes no owner chain.
+[x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` is the node lock. One request is the live `Graph` and one `NodeId`. The caller passes no owner chain.
+[ ] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md).
+[ ] An absent node conflicts with nothing.
+[x] A holder that already holds a pool lock and requests another gets `Error NodeLockRejection.HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
 [x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
-[x] `NodeLockRejection` is `HolderHoldsLock` or `NodeAbsent`. The same thread already `Pending` or `Held` is `HolderHoldsLock`. A missing `graph.nodes` entry is `NodeAbsent`.
 [x] The lock records the node. A path match is outside this lock.
 [ ] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node.
-[ ] git pull calls `withLock` on the Workspace Node. That same hold marks the arrived nodes Unparsed, then releases.
+[ ] Fetch runs to completion first. Fetch holds no `withLock`.
+[ ] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
 [ ] A Directory move calls `withLock` on the Directory Node.
 [ ] The holder is the git pull caller, the relocate caller, or the persist caller. The holder runs that algorithm and then releases.
 [ ] `writeDocument` and `writeArtifactText` call `withLock` on the document-root node around the file bytes.
@@ -220,7 +223,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [ ] A Directory or Workspace `withLock` holds off a parse read under it. An in-flight parse read is a `Held` request and finishes. A new parse read waits until that `withLock` releases.
 [x] A request on a Directory node id waits while that same id is taken. That id is the Directory node's own file (`DirName/.amb`).
 [ ] A single File move holds `withLock` on that File Node for the `git mv`.
-[ ] `withLock` on the Workspace Node covers the git Save commit. It also holds while git Save is doing a pull.
+[ ] `withLock` on the Workspace Node covers the git Save commit. When git Save pulls, fetch runs to completion first and holds no `withLock`. The pull holds that `withLock`.
 [ ] Sibling files in the source Workspace and the destination Workspace may keep writing during a cross-Workspace move. A sibling `withLock` whose owner chain does not reach the locked node id runs during that hold.
 
 #### Blocked persist

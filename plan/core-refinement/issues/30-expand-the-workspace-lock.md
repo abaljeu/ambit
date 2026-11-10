@@ -1,6 +1,6 @@
 # 30 — Expand the workspace lock
 
-**Status:** `defined`
+**Status:** `superseded`
 **Type:** coding
 **Blocked by:** None — can start immediately
 **Trackers:** architecture
@@ -38,5 +38,5 @@ Persist and git paths still run `withWorkTreeGate`. That exclusive gate is not t
 
 ## Notes
 
-- 2026-11-09 — Superseded by [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock.md), because the move project builds the node enclosure lock that covers the Workspace lock.
-- 2026-11-10 — [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md) replaces that module with `NodeLockPool.withLock`. One request is one node id. The pool derives the owner chain.
+- 2026-11-09 — An earlier mark named [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock.md). The 2026-11-10 note names the superseding ticket.
+- 2026-11-10 — Alan: this ticket is superseded by [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md).
