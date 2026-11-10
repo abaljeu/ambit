@@ -6,7 +6,7 @@
 
 ## 2. User
 
-User pages leave this protocol on [Parse and persist](../../../doc/current/parse-persist.md).
+User pages leave this protocol on the current page above.
 
 ## 3. Found elsewhere
 
