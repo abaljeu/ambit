@@ -70,6 +70,7 @@ Parse and persist move text between disk and the graph.
 [Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
 [x] `WorkspaceGit.withWorkTreeGate` ([Workspace git](../../src/Server/WorkspaceGit.fs)) and the `GitRun` private gate in `gitExec` ([Git run](../../src/Shared/dotnet/GitRun.fs)) are removed by [31 — Migrate onto the workspace lock](../../plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md).
 [x] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`, including the git Save commit.
+[x] A coalesced path move holds `NodeLockPool.withLock` on the moved node. `File.Move` or `Directory.Move` runs inside that action.
 [x] `withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths. `NodeLockPool.withLock` is the only protocol on those paths.
 [x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
 [x] An absent node conflicts with nothing.
