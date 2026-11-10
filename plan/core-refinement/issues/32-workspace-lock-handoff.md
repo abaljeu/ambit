@@ -7,7 +7,7 @@
 
 ## Context
 
-The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` and removes `withWorkTreeGate` from Persist and git paths in that same change. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed owns the File Nodes and Directory Nodes that the changed list marks. This ticket runs that mark inside the pull.
+The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate. 30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. The lock in this handoff is `NodeLockPool.withLock`. 31 — Migrate onto the workspace lock stays a separate beat. That migrate moves Persist, parse-thread file use, and git Load and git Save onto `withLock` and removes `withWorkTreeGate` and the `GitRun` private gate in that same change. `NodeLockPool.withLock` is the only protocol on Persist and git paths. This ticket is the landing order. 02 — Git Load: Unparsed then Parse stack names that order. This ticket builds it. 07 — Git changed list sets Unparsed owns the File Nodes and Directory Nodes that the changed list marks. This ticket runs that mark inside the pull.
 
 ## What to build
 
@@ -42,3 +42,4 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 
 - 2026-11-10 — Alan: fetch runs to completion first, unlocked. The pull holds the Workspace `withLock`. The pull is the merge of the fetched commits plus marking the arrived nodes Unparsed.
 - 2026-11-10 — Alan: blocked by 11 — Expand the node lock pool, not by 30 — Expand the workspace lock. 31 — Migrate onto the workspace lock removes `withWorkTreeGate` from Persist and git paths in the same change as the move onto `withLock`.
+- 2026-11-10 — Alan: that removal includes the `GitRun` private gate. `NodeLockPool.withLock` is the only protocol on Persist and git paths.

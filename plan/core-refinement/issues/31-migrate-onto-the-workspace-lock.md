@@ -7,11 +7,11 @@
 
 ## Context
 
-30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. `NodeLockPool` replaces the lock this ticket used. Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including git Save. The same change removes `withWorkTreeGate` from Persist and git paths. 33 — Contract the work-tree gate is superseded by this ticket. The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate, blocked by 11 — Expand the node lock pool. This migrate is a different beat. Parse-thread file use here is the drain and the hold of parse reads while a Workspace `withLock` is pending. 32 — Workspace lock handoff owns the landing order after that drain: pull or Upload lands, arrived files are marked Unparsed, the lock releases, and Unparsed starts the parse thread. 01 — Persist/git work-tree gate names this caller shift. This ticket builds it.
+30 — Expand the workspace lock is superseded by 11 — Expand the node lock pool. `NodeLockPool` replaces the lock this ticket used. Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including git Save. The same change removes `withWorkTreeGate` and the `GitRun` private gate. `NodeLockPool.withLock` is the only protocol on Persist and git paths. 33 — Contract the work-tree gate is superseded by this ticket. The architecture keeps Workspace lock handoff as its own beat under Parse stack Migrate, blocked by 11 — Expand the node lock pool. This migrate is a different beat. Parse-thread file use here is the drain and the hold of parse reads while a Workspace `withLock` is pending. 32 — Workspace lock handoff owns the landing order after that drain: pull or Upload lands, arrived files are marked Unparsed, the lock releases, and Unparsed starts the parse thread. 01 — Persist/git work-tree gate names this caller shift. This ticket builds it.
 
 ## What to build
 
-Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including the git Save commit. The same change removes `withWorkTreeGate` from Persist and git paths.
+Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including the git Save commit. The same change removes `withWorkTreeGate` and the `GitRun` private gate (`GitRun.withWorkTreeGate` around `gitExec`). `NodeLockPool.withLock` is the only protocol on Persist and git paths.
 
 ### Migrate
 
@@ -21,14 +21,14 @@ Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.w
 
 ### Contract
 
-1. [ ] **Remove the gate** — `withWorkTreeGate` is removed from Persist and git paths.
+1. [ ] **Remove the gates** — `withWorkTreeGate` and the `GitRun` private gate are removed from Persist and git paths. `NodeLockPool.withLock` is the only protocol on those paths.
 2. [ ] **Lock protocol** — Persist, parse-thread file use, and git Load and git Save use `NodeLockPool.withLock`, including the git Save commit.
 
 ### Obligations
 
-1. [ ] **Parse and persist claim** — The Parse and persist claim says Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including the git Save commit, and `withWorkTreeGate` is gone from Persist and git paths.
+1. [ ] **Parse and persist claim** — The Parse and persist claim says Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.withLock`, including the git Save commit, and `withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths.
 2. [ ] **Caller test** — A test shows Persist calls `NodeLockPool.withLock` on the document-root node, a parse read waits while a Workspace `withLock` is pending, and git Load and git Save call `withLock` on the Workspace node.
-3. [ ] **Gate test** — A test shows Persist and git Load and git Save run without `withWorkTreeGate`.
+3. [ ] **Gate test** — A test shows Persist and git Load and git Save run with `NodeLockPool.withLock` as the only protocol, and shows `withWorkTreeGate` and the `GitRun` private gate absent from those paths.
 
 ## See also
 
@@ -44,3 +44,4 @@ Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.w
 
 - 2026-11-10 — Alan: `NodeLockPool` replaces the lock this ticket used. The lock is `NodeLockPool.withLock`, including git Save.
 - 2026-11-10 — Alan: this ticket also removes `withWorkTreeGate` from Persist and git paths in the same change. There is no dual-run. 33 — Contract the work-tree gate is superseded by this ticket. Blocked by 11 — Expand the node lock pool, not by 30 — Expand the workspace lock.
+- 2026-11-10 — Alan: the `GitRun` private gate goes in this same change. `NodeLockPool.withLock` is the only protocol on Persist and git paths.
