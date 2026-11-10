@@ -352,14 +352,24 @@ module CoreMailboxApi =
         ActorOrderFromStart.orderFromPlacement placement
         |> MailboxHost.postActorOrder host caller
 
-    /// Append ActorStart for a Search Actor. The walk stays off this queue.
+    /// Place Find and Move as Order.StartActor. The actor is supplied at boot.
     let recordSearchStart
         (host: MailboxHost)
         (caller: Caller)
+        (actor: ActorFunction)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStart(caller, request, channel))
+        let order =
+            ActorOrderFromStart.orderFromStart
+                (fun _ _ -> actor)
+                "search"
+                (fun item -> item.focusId)
+                request
+        async {
+            let! placed =
+                MailboxHost.postActorOrder host caller order
+            return Result.map (fun _ -> ()) placed
+        }
 
     /// Enqueue ActorStop for that Search Actor. The id is the root.
     let recordSearchStop

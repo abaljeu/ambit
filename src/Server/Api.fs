@@ -498,7 +498,6 @@ module Api =
                     SearchActor.reply
                         (fun () -> state.graph)
                         request
-                do! door.recordStop start.zoomId
                 return
                     answer
                     |> SearchPicture.encodeReply
@@ -506,7 +505,7 @@ module Api =
                     |> jsonResult
         }
 
-    /// One Find and Move reply. ActorStart is recorded, then the walk, then ActorStop.
+    /// One Find and Move reply. The start is placed, then the walk runs.
     let postSearch (door: SearchActorDoor) (body: string) : Async<IResult> =
         async {
             match Decode.fromString SearchPicture.decodeRequest body with

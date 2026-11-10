@@ -229,6 +229,21 @@ module internal CoreMailboxActors =
                 request
         postBuiltOrder context caller reply order
 
+    /// Admitted query Run. `actorNodeId` is the focus id.
+    let private queueAdmittedQuery
+        (context: MailboxContext)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        let order =
+            ActorOrderFromStart.orderFromStart
+                SearchActor.functionActorAt
+                "query"
+                (fun start -> start.focusId)
+                request
+        postBuiltOrder context caller reply order
+
     /// Admitted `?ai` Run. `actorNodeId` is the focus id `cancelByFocus` uses.
     let private queueAdmittedAi
         (context: MailboxContext)
@@ -289,6 +304,12 @@ module internal CoreMailboxActors =
             | Some "ai" ->
                 whenAdmitted context caller reply (fun () ->
                     queueAdmittedAi context caller request reply)
+            | _ when
+                SearchActor.isQueryRequest
+                    (CoreMailboxEvents.graphNow context)
+                    request ->
+                whenAdmitted context caller reply (fun () ->
+                    queueAdmittedQuery context caller request reply)
             | _ ->
                 postChosenStart context caller event request reply
 

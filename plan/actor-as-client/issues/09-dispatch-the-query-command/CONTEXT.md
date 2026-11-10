@@ -8,4 +8,4 @@ This folder is ticket 09 — Start the query command.
 
 ## Stage
 
-defined
+build

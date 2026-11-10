@@ -15,9 +15,6 @@ module internal CoreMailboxLoop =
         | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
             CoreMailboxLoad.dispatchStartLoadSaveCommand
                 context caller path peerName request reply
-        | RecordSearchStart (caller, request, reply) ->
-            let dispatch = CoreMailboxEvents.eventDispatchContext context
-            reply.Reply(CoreEventDispatch.actorStart dispatch caller request)
         | RecordSearchStop (caller, rootId, reply) ->
             let dispatch = CoreMailboxEvents.eventDispatchContext context
             reply.Reply(
@@ -59,7 +56,6 @@ module internal CoreMailboxLoop =
     let private messageCaller (msg: CoreMsg) =
         match msg with
         | StartLoadSaveCommand (caller, _, _, _, _)
-        | RecordSearchStart (caller, _, _)
         | RecordSearchStop (caller, _, _)
         | ActorStop (caller, _, _)
         | PostEvent (caller, _, _) -> caller
@@ -220,19 +216,22 @@ module internal CoreMailboxLoop =
         (reply: AsyncReplyChannel<Result<EventId, string>>)
         (order: ActorOrder)
         =
-        let body = EventBody.Order(Order.StartActor order)
-        match
-            CoreEventDispatch.appendLifecycle
-                (CoreMailboxEvents.eventDispatchContext context)
-                caller
-                placed.orderId.Value
-                body
-        with
+        match CoreMailboxEvents.admitCaller context caller with
         | Error err -> reply.Reply(Error err)
-        | Ok stored ->
-            match scheduleActorOrder context caller order with
+        | Ok () ->
+            let body = EventBody.Order(Order.StartActor order)
+            match
+                CoreEventDispatch.appendLifecycle
+                    (CoreMailboxEvents.eventDispatchContext context)
+                    caller
+                    placed.orderId.Value
+                    body
+            with
             | Error err -> reply.Reply(Error err)
-            | Ok () -> reply.Reply(Ok stored.id)
+            | Ok stored ->
+                match scheduleActorOrder context caller order with
+                | Error err -> reply.Reply(Error err)
+                | Ok () -> reply.Reply(Ok stored.id)
 
     let private replyStarted
         (reply: AsyncReplyChannel<Result<EventId, string>>)

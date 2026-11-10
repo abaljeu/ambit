@@ -9,11 +9,12 @@ type GrokBotBinding =
     { Config: GrokBotConfig
       ResponseUrl: string }
 
-/// Keys, repos, and grok bind for one `?ai` Run.
+/// Keys, repos, grok bind, and the Find and Move actor for one boot.
 type AiInstall =
     { keys: AiKeySet
       repos: AiRepo list
-      grok: GrokBotBinding }
+      grok: GrokBotBinding
+      search: Gambol.Shared.ActorFunction }
 
 /// Binds GrokBotConfig from IConfiguration. Library stays settings-blind.
 [<RequireQualifiedAccess>]

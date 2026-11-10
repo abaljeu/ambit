@@ -231,7 +231,11 @@ let ``postSearch records ActorStart at the root`` () = task {
             { changes = handle
               recordStart =
                 fun start ->
-                    CoreMailboxApi.recordSearchStart host testCaller start
+                    CoreMailboxApi.recordSearchStart
+                        host
+                        testCaller
+                        SearchActor.searchActorAt
+                        start
               recordStop =
                 fun rootId ->
                     async {
@@ -247,30 +251,32 @@ let ``postSearch records ActorStart at the root`` () = task {
         | :? ContentHttpResult -> ()
         | other ->
             failwith $"expected JSON content, got {other.GetType().Name}"
-        let! history =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let recorded =
-            history.events
-            |> List.tryPick (fun event ->
-                match event.body with
-                | EventBody.ActorStart start -> Some start
-                | _ -> None)
-        let start =
-            match recorded with
-            | Some start -> start
-            | None ->
-                failwith "ActorStart missing on the event source"
-        Assert.Equal(graph.root, start.zoomId)
-        Assert.Equal(graph.root, start.focusId)
-        Assert.Equal(graph.root, start.runDefinitionId)
-        Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
-        let stopped =
-            history.events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
-                    stoppedId = graph.root
-                | _ -> false)
+        let mutable started = false
+        let mutable stopped = false
+        let deadline = System.DateTime.UtcNow.AddSeconds 2.0
+        while
+            (not started || not stopped)
+            && System.DateTime.UtcNow < deadline do
+            let! log =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            started <-
+                log.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Order (Order.StartActor order) ->
+                        order.actorName = "search"
+                        && order.actorNodeId = graph.root
+                    | _ -> false)
+            stopped <-
+                log.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
+                        stoppedId = graph.root
+                    | _ -> false)
+            if not started || not stopped then
+                do! System.Threading.Tasks.Task.Delay 10
+        Assert.True(started, "StartActor missing on the event source")
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally
         CoreMailboxApi.dispose host

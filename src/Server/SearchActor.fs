@@ -87,3 +87,24 @@ module SearchActor =
                 }
           getGraph = getGraph
           actorNodeId = request.focusId }
+
+    /// Query command. `runDefinitionId` is the equals line.
+    let functionActorAt
+        (runDefinitionId: NodeId)
+        (_focusId: NodeId)
+        : ActorFunction =
+        fun run changes ->
+            async {
+                let result =
+                    ActorQuery (queryIds run.getGraph runDefinitionId)
+                let! _ = changes.actorStop result
+                return ()
+            }
+
+    /// Find and Move actor. The walk stays in the search reply.
+    let searchActorAt : ActorFunction =
+        fun _run changes ->
+            async {
+                let! _ = changes.actorStop ActorSucceeded
+                return ()
+            }

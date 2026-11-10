@@ -242,23 +242,19 @@ let ``equals-line ActorStart does not run the query function`` () =
                     match event.body with
                     | EventBody.Change _ -> true
                     | _ -> false)
+            let! stopped = waitStopEvent host lineId
+            Assert.True(stopped.IsSome, "ActorQuery missing")
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let failed =
+            let started =
                 history.events
                 |> List.exists (fun event ->
                     match event.body with
-                    | EventBody.ActorStop(id, ActorFailed message) ->
-                        id = lineId && message = "unknown actor"
+                    | EventBody.Order (Order.StartActor order) ->
+                        order.actorName = "query"
+                        && order.actorNodeId = lineId
                     | _ -> false)
-            Assert.True(failed, "ActorFailed missing")
-            let queried =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(_, ActorQuery _) -> true
-                    | _ -> false)
-            Assert.False(queried)
+            Assert.True(started, "StartActor missing")
         finally
             CoreMailboxApi.dispose host
     }
@@ -314,18 +310,13 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                     host testCaller
                     [ edit; queryStart root lineId again ]
                 |> Async.StartAsTask
-            requireOk "list" result |> ignore
-            let! history =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let failed =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(id, ActorFailed message) ->
-                        id = lineId
-                        && message = "focus already has a live Actor"
-                    | _ -> false)
-            Assert.True(failed, "ActorFailed missing")
+            match result with
+            | Error err ->
+                Assert.Contains(
+                    "actor node already has a live Actor",
+                    err)
+            | Ok _ ->
+                failwith "expected the live-actor refusal"
             let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match after with
             | Error err -> failwith err

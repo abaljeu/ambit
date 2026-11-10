@@ -200,7 +200,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts `?test` through `queueTestOrder` and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
+[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, a query Run through `queueAdmittedQuery`, and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
@@ -208,6 +208,7 @@ postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> 
 
 [x] `postActorStart` for `?test` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postActorOrder` with that `Caller`.
 [x] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies `RunAgentActor.actorFn` to that `ActorStart`, builds `ActorOrder`, and calls **Post actor order** with that `Caller`.
+[x] `postActorStart` for a query Run calls `SearchActor.isQueryRequest`, applies `SearchActor.functionActorAt`, builds `ActorOrder` with `actorName` `query`, and calls **Post actor order**.
 
 ### Test command
 
@@ -235,7 +236,7 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 
 ### Query command
 
-[x] `postSearchRequest` records a search start.
+[x] `postSearchRequest` places Find and Move through `recordSearchStart`. That function posts `Order.StartActor`. The actor is `AiInstall.search`, set by `RouteRegistration.CreateBoot` to `SearchActor.searchActorAt`.
 [ ] `postSearchRequest` builds the query `ActorFunction` through Curried actor and calls Post actor order.
 
 ```fsharp
@@ -333,10 +334,12 @@ Log actor order
 
 6. **Query start today**
 
-[x] `startChosen` builds the function inside the mailbox, then calls Pool start.
+[x] `postActorStart` posts `Order.StartActor` for a query Run. `startChosen` stays `pool.startActor` for a named start.
 
 ```fsharp
 Posted run
+Post actor order
+Place actor order
 Pool start
 Pool launch
 ```
@@ -423,7 +426,7 @@ Pool launch
     - Interface: `src/Server/RouteRegistration.fs` `postSearchRequest`
     - Uses:
       1. [ ] Curried actor
-      2. [ ] Post actor order
+      2. [x] Post actor order
 15. **Load and save**
     - Interface: `src/Server/Api.fs` `postLoadSaveCommand`
     - Uses:

@@ -76,7 +76,8 @@ let private createHost keys repos grok =
     let install =
         { keys = keys
           repos = repos
-          grok = grok }
+          grok = grok
+          search = SearchActor.searchActorAt }
     let pool = CoreActorPool.createWithInstall install
     pool.register (ActorName "test") TestActor.actorFn
     let host =
