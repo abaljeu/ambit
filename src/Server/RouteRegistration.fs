@@ -21,18 +21,17 @@ module RouteRegistration =
                     DatabaseSetup.PersistenceMode.Db
                     dbConnString
                     dataDir
+            RunAgentActor.installActorBinding
+                (AiKeys.fromConfig this.Config)
+                (AiRepos.fromConfig this.Config)
+                (GrokBotSettings.fromConfigBinding this.Config)
             {
                 DbStatus = dbStatus
                 DbConnectionString = dbConnString
                 DataDir = dataDir
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
-                Actors =
-                    [ ActorName "ai", RunAgentActor.actorFn
-                            (AiKeys.fromConfig this.Config)
-                            (AiRepos.fromConfig this.Config)
-                            (GrokBotSettings.fromConfigBinding
-                                this.Config) ]
+                Actors = []
             }
 
     let private errorTemplate (message: string) =
