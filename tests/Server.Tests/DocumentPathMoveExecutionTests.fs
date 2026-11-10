@@ -17,6 +17,20 @@ let private lockOk label result =
     | Ok () -> ()
     | Error rejection -> failwith $"{label}: {rejection}"
 
+let private holdOnOtherThread (graph: Graph) (nodeId: NodeId) =
+    let release = TaskCompletionSource<unit>()
+    let entered = TaskCompletionSource<unit>()
+
+    let holder =
+        Task.Run(fun () ->
+            NodeLockPool.withLock graph nodeId (fun () ->
+                entered.SetResult()
+                release.Task.Wait())
+            |> lockOk "hold")
+
+    entered.Task.Wait()
+    release, holder
+
 let private persistWhileHeld
     (graph: Graph)
     (postGraph: Graph)
@@ -24,17 +38,7 @@ let private persistWhileHeld
     (dataDir: string)
     (duringHold: unit -> unit)
     =
-    let release = TaskCompletionSource<unit>()
-    let entered = TaskCompletionSource<unit>()
-
-    let holder =
-        Task.Run(fun () ->
-            NodeLockPool.withLock postGraph heldId (fun () ->
-                entered.SetResult()
-                release.Task.Wait())
-            |> lockOk "hold")
-
-    entered.Task.Wait()
+    let release, holder = holdOnOtherThread postGraph heldId
 
     let persist =
         Task.Run(fun () ->
@@ -212,8 +216,6 @@ let ``a sibling file lock lets a file path move finish`` () =
     let docsDir = Path.Combine(dataDir, "home", "docs")
     let oldPath = Path.Combine(docsDir, "readme.txt")
     let newPath = Path.Combine(docsDir, "notes.txt")
-    let release = TaskCompletionSource<unit>()
-    let entered = TaskCompletionSource<unit>()
     let moved = TaskCompletionSource<unit>()
 
     use watcher = new FileSystemWatcher(docsDir, "notes.txt")
@@ -222,14 +224,7 @@ let ``a sibling file lock lets a file path move finish`` () =
     watcher.Renamed.Add(fun _ -> moved.TrySetResult() |> ignore)
     watcher.EnableRaisingEvents <- true
 
-    let holder =
-        Task.Run(fun () ->
-            NodeLockPool.withLock postGraph siblingId (fun () ->
-                entered.SetResult()
-                release.Task.Wait())
-            |> lockOk "hold")
-
-    entered.Task.Wait()
+    let release, holder = holdOnOtherThread postGraph siblingId
 
     let persist =
         Task.Run(fun () ->
