@@ -39,7 +39,7 @@ Blockers:
 
 [ ] `startFunction`. It is the target start.
 [ ] `startActor` and `register`. They stay.
-[ ] `CoreMsg.StartLoadSaveCommand`, `CoreMailboxApi.startLoadSaveCommand`, `CoreMailboxLoad.dispatchStartLoadSaveCommand`, and `CoreMailboxLoad.logDeskOrder`. 20 — Move Desk Load and Desk Save deletes the message at its end.
+[ ] `CoreMsg.StartLoadSaveCommand`, `CoreMailboxApi.startLoadSaveCommand`, and `CoreMailboxLoad.dispatchStartLoadSaveCommand`. 20 — Move Desk Load and Desk Save deletes the message at its end.
 [ ] `Order.StartActorDeprecated` and `Order.StartActor` of `ActorOrder`. 16 — Delete the old Order cases deletes `Order.StartActorDeprecated` and leaves `Order.StartActor`.
 [ ] `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`. 09 — Start the query command deletes them.
 [ ] A new `CoreMsg` case.
