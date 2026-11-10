@@ -14,9 +14,9 @@ Actual: 15m
 
 Locked 2026-09-26 (Alan, Github Sync room). **Revoked 2026-09-28** (Alan, chat).
 
-The exclusive Persist/git work-tree gate does **not** still stand as the lasting protocol. Axes (Unparsed / Unpersisted) are drift markers; they are not a lock table that replaces that gate. Current protocol is the workspace lock and per-member persist locks: [[../arch.md]] §6 Core locking model. Axes: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
+The exclusive Persist/git work-tree gate does **not** still stand as the lasting protocol. Axes (Unparsed / Unpersisted) are drift markers; they are not a lock table that replaces that gate. Current protocol is `NodeLockPool.withLock`: [[../arch.md]] §6 Core locking model. Axes: [04 — Parsed/Unparsed and Persisted/Unpersisted](04-parsed-unparsed-and-persisted-unpersisted.md).
 
-Code still runs `WorkspaceGit.withWorkTreeGate` on Persist and git paths. That is not permission to keep the exclusive gate, and it is not permission to skip standing up the workspace lock. Catch-up is [[../arch.md]] §3 step 4 **§6 locks catch-up**: Expand stands the workspace lock and per-member persist locks beside the gate; Migrate moves Persist, parse-thread file use, and git Load/Save onto §6; Contract removes `withWorkTreeGate` once §6 is the only protocol.
+Code still runs `WorkspaceGit.withWorkTreeGate` on Persist and git paths. That is not permission to keep the exclusive gate, and it is not permission to skip standing up the workspace lock. Catch-up is [[../arch.md]] §3 step 4 **§6 locks catch-up**: Expand stands `NodeLockPool.withLock` beside the gate; Migrate moves Persist, parse-thread file use, and git Load/Save onto §6; Contract removes `withWorkTreeGate` once §6 is the only protocol.
 
 git Save remains commit then push ([10 — git Save is commit then push](../../github-transport/issues/10-git-save-commit-then-push.md)). Persist stays independent of git Save. git Save is permitted while nodes are Unparsed or Unpersisted.
 

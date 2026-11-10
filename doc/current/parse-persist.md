@@ -55,7 +55,7 @@ Parse and persist move text between disk and the graph.
 [o] [Route registration](../../src/Server/RouteRegistration.fs) calls [Parse thread](../../src/Server/ParseThread.fs) `bootCore`. That function builds the stack and starts the consumer. Route registration does not hold the push function.
 [ ] Parse setup (stack, push, and consumer) lives only in [Core](../../src/Server/Core). Route registration does not construct Parse, does not start Parse, and does not hold Parse handles.
 [ ] Every handoff uses the Parse stack.
-[ ] Unparsed starts the parse thread after the workspace lock releases.
+[ ] Unparsed starts the parse thread after the Workspace `NodeLockPool.withLock` releases.
 [x] Existing member: Directory reconcile does not mark an existing File Node or an existing child Directory Node Unparsed. A disk-newer member is an existing member.
 [o] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
 [ ] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, directory parse posts `Notice.NodeParsing` and `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
@@ -67,16 +67,22 @@ Parse and persist move text between disk and the graph.
 [ ] No caller outside Core builds or holds a `DataDir` absolute path.
 ## Lock
 
-[Core locking model](../../plan/core-refinement/arch.md) Working detail of this protocol.
+[Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
 [o] `WorkspaceGit.withWorkTreeGate`: the exclusive gate on Persist and git paths. [Workspace git](../../src/Server/WorkspaceGit.fs).
-[ ] Persist, parse-thread file use, and git Load/Save use the workspace lock and per-member persist locks as their only protocol.
-[ ] Locks: held only long enough to transfer data. No holder takes more than one lock. Aggregate locks exist.
-[ ] Workspace lock: an aggregate lock. It announces that member files may change. Taking it waits while those member files are already changing.
-[ ] Pending: new per-member persist locks cannot be taken. In-flight member file writes and parse reads drain. Then pull or Upload land proceeds, arrived files are marked Unparsed, and the lock releases.
-[ ] Parse: reads the member file and does not take a persist lock. The pending workspace lock holds new reads off until release.
-[ ] After release: persist of a member waits until that node is Parsed.
-[ ] Unpersisted through pull: a member can be Unpersisted when the workspace lock is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
-[ ] File backstop: a write that finds the file still being written waits until the file is released, then proceeds.
+[ ] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`.
+[ ] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
+[ ] An absent node conflicts with nothing.
+[ ] A request waits on the same node, a taken ancestor, or a taken descendant.
+[ ] Locks are held only long enough to transfer data. A holder calls `withLock` once, runs a finite algorithm, and then releases.
+[x] A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
+[ ] A Directory or Workspace `withLock` waits while a conflicting request is in flight. A new conflicting `withLock` waits until that release.
+[ ] Fetch runs to completion first. Fetch holds no `withLock`.
+[ ] The Workspace `withLock` covers the pull. The pull merges the fetched commits and marks the arrived nodes Unparsed. The lock then releases.
+[ ] git Save calls `withLock` on the Workspace node for the commit.
+[ ] A parse read is `withLock` on its node. Directory reconcile calls `withLock` on that Directory node.
+[ ] After release, persist of a member waits until that node is Parsed.
+[ ] A member can be Unpersisted when the Workspace `withLock` is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
+[ ] A write that finds the file still being written waits until the file is released, then proceeds.
 ## Explanation
 
 An Actor is a different worker.

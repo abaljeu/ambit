@@ -84,7 +84,7 @@ Blockers: [05 — Relocate in the same workspace](05-relocate-in-the-same-worksp
 [ ] `src/Server/DocumentPersistChange.fs` stays as it is. `executePathMoves` keeps `File.Move` and `Directory.Move`.
 [ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
 [ ] `src/Shared/ChangeAmendment.fs` stays as it is.
-[ ] `src/Server/NodeEnclosureLock.fs` stays as it is.
+[ ] `src/Server/NodeLockPool.fs` stays as it is.
 
 ## Process
 
