@@ -56,6 +56,12 @@
 ## Comments
 
 1. After-step — A git Load response completes the command. The Browser does not start a second reconcile or a second Parse. Desk Load and desk Save still continue on Desk WebDAV.
+
+## Open design
+
+Desktop_mapped is the WebDAV branch inside the Load actor and inside a Save actor. It waits until the Git case and the Neither case in [23 — Run the Load actor for Git and Neither](../../actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md) are straight.
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style.
 2. Server Actor — That Actor is unchanged. When the files land, it still informs Core.
 3. Basis — Spec stories git Load and Inform Core after files land stay as written. Architecture module App already keeps the App thin. Fetch and Poll stay. This ticket does not specify the Parse stack or the Persist stack.
 

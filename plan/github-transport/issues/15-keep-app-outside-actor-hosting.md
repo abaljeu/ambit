@@ -26,6 +26,12 @@ Complete the open **App** constraint in the Module map in [[../arch.md]]. This c
 
 - 2026-09-27 15m — Added App repository-boundary, Server request-door, and Load/Save command-surface proofs; ran focused and broader Server tests.
 
+## Open design
+
+Desktop_mapped is the WebDAV branch inside the Load actor and inside a Save actor. It waits until the Git case and the Neither case in [23 — Run the Load actor for Git and Neither](../../actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md) are straight.
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style.
+
 ## See also
 
 - [github-transport architecture](../arch.md)

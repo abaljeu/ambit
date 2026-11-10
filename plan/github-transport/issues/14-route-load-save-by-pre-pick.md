@@ -38,3 +38,9 @@ Extend **Command Load/Save** as defined by the Module map in [[../arch.md]]. Thi
 - 2026-09-27 30m — drove Desk continuations through final HTTP requests and stabilized routed Git completion under full-suite load
 - 2026-09-27 15m — replaced delegate-only Desk proof with real HttpClient handler POST observations and removed the orphaned inventory wrapper
 - 2026-09-28 5m — annotated 1.2.6 / 1.3.4 `parseFileOp` / directory-reconciliation hops as superseded by Unparsed → push onto Parse (#151)
+
+## Open design
+
+Desktop_mapped is the WebDAV branch inside the Load actor and inside a Save actor. It waits until the Git case and the Neither case in [23 — Run the Load actor for Git and Neither](../../actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md) are straight.
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style.

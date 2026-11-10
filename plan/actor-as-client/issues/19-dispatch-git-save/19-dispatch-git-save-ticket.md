@@ -1,6 +1,6 @@
 # 19 — Start git Save
 **Status**: defined
-One job: `GithubTransportActor.start` builds the git Save `ActorFunction` in `saveActorFunction` and puts `Order.StartActor` of `ActorOrder` on the mailbox queue. `postLoadSaveCommand` reaches that post through `router.startCommand`. A Desk Save runs no Actor.
+One job: `GithubTransportActor.start` builds the git Save `ActorFunction` in `saveActorFunction` and puts `Order.StartActor` of `ActorOrder` on the mailbox queue. `postLoadSaveCommand` reaches that post through `router.startCommand`. The Neither case for Save is the Save-actor follow-on named by [23 — Run the Load actor for Git and Neither](../23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md).
 
 The Git Save post is already in the code. Keep that post.
 
@@ -63,7 +63,7 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Keep: `GithubTransportActor.start` for Save calls `saveActorFunction` and `CoreMailboxApi.coreMailboxStartActorFromFunction`. `postLoadSaveCommand` reaches that post through `router.startCommand`.
-3. [ ] Keep: the Desk arm of `RouteRegistration.registerStateRoutes` calls `CoreMailboxApi.startLoadSaveCommand`. `CoreActorPool.startLoadSaveCommand` returns `Ok None`. That Desk Save runs no Actor.
+3. [ ] Keep: the Desk arm of `RouteRegistration.registerStateRoutes` calls `CoreMailboxApi.startLoadSaveCommand`. `CoreActorPool.startLoadSaveCommand` returns `Ok None`. That arm stays until the Save-actor follow-on.
 4. [ ] Keep: `LoadSaveCommandTests.productionRouter` and `LoadSaveCommandTests.routeMatrixRouter` call `GithubTransportActor.start` when the path is Git and `CoreMailboxApi.startLoadSaveCommand` when the path is Desk.
 5. [ ] Keep: `src/Server/RouteRegistration.fs` has no `registerPeer` call. `startPeerActor` and `registerPeer` stay deleted.
 6. [ ] A Desk send of `CoreMsg.StartLoadSaveCommand` stays until 20 — Move Desk Load and Desk Save.
@@ -78,7 +78,7 @@ Blockers:
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/19-dispatch-git-save-stop.md`, then ask.
-[ ] Stop when Desk Save must start an Actor.
+[ ] Stop when this ticket starts a Save actor for the Neither case.
 [ ] Stop when a test file outside Outputs must change.
 [ ] Stop when this ticket writes `Order.StartActorDeprecated`.
 [ ] Stop when a Git Save send of `StartLoadSaveCommand` remains. A Desk send stays for 20 — Move Desk Load and Desk Save.

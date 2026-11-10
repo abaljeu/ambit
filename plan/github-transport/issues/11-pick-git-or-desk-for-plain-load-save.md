@@ -29,3 +29,9 @@ Build the pure **PathPick** module from the Module map in [[../arch.md]]. This m
 ## 3. Time
 
 - 2026-09-27 30m — implemented and tested the pure PathPick choice seam
+
+## Open design
+
+A directory with no desktop access and no upload is the Neither case in [23 — Run the Load actor for Git and Neither](../../actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). `PathPick.plainLoadStaysDesk` still keeps a plain Load of a Directory on the desk path.
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style.

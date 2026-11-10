@@ -2,6 +2,8 @@
 **Status**: coded
 One job: The client and the server place `Order.StartActor` of `ActorOrder` through `Mailbox.PlaceOrder`. The pull runs that order's `ActorFunction` on the .NET thread pool. `startFunction` mints the credential and the session id.
 
+The Neither case is [23 — Run the Load actor for Git and Neither](../23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Pull request 589 dropped the unmatched `Order.StartActor` on the old desk path. That ticket replaces the drop by running the Load actor.
+
 [x] This ticket replaces [80 — Place Actor starts through PlaceOrder](../../../core-refinement/issues/80-place-actor-orders-through-placeorder.md).
 [x] The client's `Caller` is the `Caller` on that `Mailbox.PlaceOrder`.
 [x] A Desk Load or Save runs no actor.

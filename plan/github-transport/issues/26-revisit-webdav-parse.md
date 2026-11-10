@@ -11,6 +11,10 @@
 
 Trial step 8. Server-side paced parsing replaces the client Desktop-sourced parse. The WebDAV transit stays. What goes is the Browser path that reads a desktop file and asks the server to parse it.
 
+Desktop_mapped is the WebDAV branch inside the Load actor and inside a Save actor. It waits until the Git case and the Neither case in [23 — Run the Load actor for Git and Neither](../../actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md) are straight.
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style.
+
 Alan, 2026-10-09. The server that stored the bytes posts that node to the parse stack. [25 — Pace server functions](25-pace-server-functions.md) spaces that work. The Browser does not source the parse text.
 
 ## Recommendation

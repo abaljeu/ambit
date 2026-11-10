@@ -161,7 +161,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] The mailbox supplies `getGraph` when `scheduleActorOrder` builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
-[ ] A Desk Load or Save runs no actor.
+[ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
 [o] `placeOrder` runs `dispatchStartActor` for `Order.StartActorDeprecated`.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
@@ -252,7 +252,7 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 
 [x] Git Load and Git Save call `GithubTransportActor.start`, which places `Order.StartActor` (`src/Server/RouteRegistration.fs`). Desk calls `CoreMailboxApi.startLoadSaveCommand`.
 [ ] `postLoadSaveCommand` builds the git `ActorFunction` through Curried actor and calls Post actor order.
-[ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md) moves Desk off `CoreMsg.StartLoadSaveCommand`. Desk Load probably uses `Order.Load`. Where Desk Save goes is open. The message is deleted at the end of that ticket.
+[ ] 20 — Move Desk Load and Desk Save takes Desktop_mapped callers off `CoreMsg.StartLoadSaveCommand` after 23 — Run the Load actor for Git and Neither. WebDAV has its own design effort first. The message is deleted at the end of that ticket.
 
 ```fsharp
 postLoadSaveCommand : LoadSaveCommandRouter -> CoreChangesDoor -> string -> Async<IResult>
@@ -319,9 +319,9 @@ Pool launch
 Place actor order
 ```
 
-4. **Desk Load or Save**
+4. **Desktop_mapped Load or Save**
 
-[ ] Desk Load and Desk Save leave `CoreMsg.StartLoadSaveCommand` in 20 — Move Desk Load and Desk Save. Desk Load probably uses `Order.Load`. Where Desk Save goes is open.
+[ ] Desktop_mapped Load and Save leave `CoreMsg.StartLoadSaveCommand` in 20 — Move Desk Load and Desk Save after the Git case and the Neither case are straight.
 
 ```fsharp
 Load and save

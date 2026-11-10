@@ -278,7 +278,7 @@ Narrowest shared test seam:
       4. [x] After git Load files land, inform Core ([[plan/core-refinement/project.md]])
 
 5. **Desk Load/Save**
-   File: existing [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]]. Shape unchanged for this Project.
+   File: existing [[src/Client/UpdateWorkspaceLoad.fs]], [[src/Client/UpdateSave.fs]], [[src/Shared/dotnet/WorkspaceFileSync.fs]]. The checked shape is the current seam. Desktop_mapped waits for the WebDAV design in the spec.
    1. State
       1. [x] Desktop map + WebDAV sync ledger
    2. Interface
@@ -331,7 +331,7 @@ Narrowest shared test seam:
    7. [x] pull and commit acquire and release the Workspace work-tree gate — **superseded**; exclusive gate revoked
 
 4. **Desk WebDAV**
-   Interface on **Desk Load/Save**. Existing seam. This Project does not redesign it.
+   Interface on **Desk Load/Save**. Existing seam. WebDAV has its own design effort before the next build. That design is in the spec.
    1. [x] Upload / Download / `loadOp` desk transit
 
 5. **Host git credentials**
