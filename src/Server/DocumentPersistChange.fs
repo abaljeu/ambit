@@ -199,34 +199,27 @@ module DocumentPersistChange =
         (preGraph: Graph)
         (postGraph: Graph)
         : Result<PersistGraphOk, string> =
-        let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
+        let moves =
+            DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
         let moveIds = moves |> List.map (fun move -> move.nodeId)
         let affected = affectedRoots moveIds
-        let gatedIds = Set.toList affected @ moveIds
-        let workTreeRoots =
-            [ for nodeId in gatedIds do
-                  DocumentPersistPath.workspaceRootFor dataDir preGraph nodeId
-                  DocumentPersistPath.workspaceRootFor dataDir postGraph nodeId ]
-            |> List.choose id
-            |> DocumentPersistPath.normalizedWorkTreeRoots
-        DocumentPersistPath.withWorkTreeGates workTreeRoots (fun () ->
-            match executePathMoves dataDir preGraph postGraph moves with
-            | Error msg -> Error msg
-            | Ok () ->
-                let stamped, message, writtenIds =
-                    affected
-                    |> Set.toList
-                    |> DocumentPersistWrite.writeDocumentsSoft dataDir postGraph
+        match executePathMoves dataDir preGraph postGraph moves with
+        | Error msg -> Error msg
+        | Ok () ->
+            let stamped, message, writtenIds =
+                affected
+                |> Set.toList
+                |> DocumentPersistWrite.writeDocumentsSoft dataDir postGraph
 
-                Ok {
-                    graph =
-                        DocumentPersistPath.stampExistingDocuments
-                            dataDir
-                            (persistedContentIds moveIds affected writtenIds)
-                            (existingStampRoots moveIds)
-                            stamped
-                    message = message
-                })
+            Ok {
+                graph =
+                    DocumentPersistPath.stampExistingDocuments
+                        dataDir
+                        (persistedContentIds moveIds affected writtenIds)
+                        (existingStampRoots moveIds)
+                        stamped
+                message = message
+            }
 
     /// File diff when no accepted operation batch is available.
     let persistGraphChange

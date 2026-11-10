@@ -359,10 +359,7 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { withWorkTreeGate =
-            { new GithubTransportWorkTreeGate with
-                member _.applyAction _ action = action () }
-          pullTracked =
+        { pullTracked =
             fun _ _ ->
                 markStarted ()
                 Result.Ok "pulled"

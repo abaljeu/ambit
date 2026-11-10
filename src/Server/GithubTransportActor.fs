@@ -7,15 +7,8 @@ type GithubTransportOperation =
     | Load
     | Save
 
-type GithubTransportWorkTreeGate =
-    abstract applyAction<'value> :
-        string ->
-        (unit -> Result<'value, string>) ->
-        Result<'value, string>
-
 type GithubTransportGit =
-    { withWorkTreeGate: GithubTransportWorkTreeGate
-      pullTracked:
+    { pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       commitAll:
         string ->
@@ -73,15 +66,22 @@ module GithubTransportActor =
             { beforeHead = beforeHead
               afterHead = WorkspaceGit.tryHead workspaceRoot })
 
-    /// Commit inside the work-tree gate, then run the next step before release.
-    let private commitInGate git root message next =
-        git.withWorkTreeGate.applyAction root (fun () ->
-            git.commitAll root message None
-            |> Result.bind next)
+    /// Commit and the next step hold the Workspace lock. Push stays outside.
+    let private commitInLock git graph workspaceId root message next =
+        match
+            NodeLockPool.withLock graph workspaceId (fun () ->
+                git.commitAll root message None
+                |> Result.bind next)
+        with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            Error "holder already holds a lock"
+        | Ok result -> result
 
-    let private pullTracked git workspaceRoot =
-        commitInGate
+    let private pullTracked git graph workspaceId workspaceRoot =
+        commitInLock
             git
+            graph
+            workspaceId
             workspaceRoot
             "gambol: git Load"
             (fun (tracked, _) ->
@@ -138,10 +138,20 @@ module GithubTransportActor =
 
     let private runLoadOn dependencies root target =
         async {
-            match pullTracked dependencies.git root with
+            let! state = target.changes.graphAtEvent ()
+            match state with
             | Error err -> return Error err
-            | Ok heads ->
-                return! applyPulledChanges root target heads
+            | Ok current ->
+                match
+                    pullTracked
+                        dependencies.git
+                        current.graph
+                        target.workspaceId
+                        root
+                with
+                | Error err -> return Error err
+                | Ok heads ->
+                    return! applyPulledChanges root target heads
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -304,14 +314,20 @@ module GithubTransportActor =
           output: string
           heads: LoadPullHeads }
 
-    /// Commit and pull stay inside the work-tree gate.
-    let private commitAndPull git root =
-        commitInGate git root "gambol: git Save" (fun (tracked, output) ->
-            pullAndReadHeads git root tracked
-            |> Result.map (fun heads ->
-                { tracked = tracked
-                  output = output
-                  heads = heads }))
+    /// Commit and pull stay inside the Workspace lock. Push stays outside.
+    let private commitAndPull git graph workspaceId root =
+        commitInLock
+            git
+            graph
+            workspaceId
+            root
+            "gambol: git Save"
+            (fun (tracked, output) ->
+                pullAndReadHeads git root tracked
+                |> Result.map (fun heads ->
+                    { tracked = tracked
+                      output = output
+                      heads = heads }))
 
     let private pushAfterPull git root target commit =
         async {
@@ -325,12 +341,18 @@ module GithubTransportActor =
 
     let private runSaveBody dataDir dependencies focusId changes =
         withWorkspace dataDir changes focusId
-            (fun (_, (workspaceId, root)) ->
+            (fun (graph, (workspaceId, root)) ->
                 async {
                     match! persistFocusWhenNotOrdinary changes focusId with
                     | Error err -> return Error err
                     | Ok () ->
-                        match commitAndPull dependencies.git root with
+                        match
+                            commitAndPull
+                                dependencies.git
+                                graph
+                                workspaceId
+                                root
+                        with
                         | Error err -> return Error err
                         | Ok commit ->
                             let target =
@@ -396,14 +418,8 @@ module GithubTransportActor =
             return Result.map ignore placed
         }
 
-    let private workTreeGate =
-        { new GithubTransportWorkTreeGate with
-            member _.applyAction root action =
-                WorkspaceGit.withWorkTreeGate root action }
-
     let workspaceGit : GithubTransportGit =
-        { withWorkTreeGate = workTreeGate
-          pullTracked = WorkspaceGit.pullTrackedBranch
+        { pullTracked = WorkspaceGit.pullTrackedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }
 

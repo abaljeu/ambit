@@ -68,9 +68,9 @@ Parse and persist move text between disk and the graph.
 ## Lock
 
 [Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
-[o] `WorkspaceGit.withWorkTreeGate` ([Workspace git](../../src/Server/WorkspaceGit.fs)) and the `GitRun` private gate in `gitExec` ([Git run](../../src/Shared/dotnet/GitRun.fs)) are removed by [31 — Migrate onto the workspace lock](../../plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md).
-[ ] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`, including the git Save commit.
-[ ] `withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths. `NodeLockPool.withLock` is the only protocol on those paths.
+[x] `WorkspaceGit.withWorkTreeGate` ([Workspace git](../../src/Server/WorkspaceGit.fs)) and the `GitRun` private gate in `gitExec` ([Git run](../../src/Shared/dotnet/GitRun.fs)) are removed by [31 — Migrate onto the workspace lock](../../plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md).
+[x] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`, including the git Save commit.
+[x] `withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths. `NodeLockPool.withLock` is the only protocol on those paths.
 [x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
 [x] An absent node conflicts with nothing.
 [ ] A request waits on the same node, a taken ancestor, or a taken descendant.
@@ -79,8 +79,8 @@ Parse and persist move text between disk and the graph.
 [ ] A Directory or Workspace `withLock` waits while a conflicting request is in flight. A new conflicting `withLock` waits until that release.
 [ ] Fetch runs to completion first. Fetch holds no `withLock`.
 [ ] The Workspace `withLock` covers the pull. The pull merges the fetched commits and marks the arrived nodes Unparsed. The lock then releases.
-[ ] git Save calls `withLock` on the Workspace node for the commit.
-[ ] A parse read is `withLock` on its node. Directory reconcile calls `withLock` on that Directory node.
+[x] git Save calls `withLock` on the Workspace node for the commit.
+[x] A parse read is `withLock` on its node. Directory reconcile calls `withLock` on that Directory node.
 [ ] After release, persist of a member waits until that node is Parsed.
 [ ] A member can be Unpersisted when the Workspace `withLock` is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
 [ ] A write that finds the file still being written waits until the file is released, then proceeds.

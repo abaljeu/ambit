@@ -48,19 +48,6 @@ module DocumentPersistPath =
         |> Option.bind (fun relativePath ->
             resolveUnderDataDir dataDir relativePath |> Result.toOption)
 
-    let rec withWorkTreeGates
-        (workspaceRoots: string list)
-        (action: unit -> Result<'value, string>)
-        : Result<'value, string> =
-        match workspaceRoots with
-        | [] -> action ()
-        | root :: rest ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                withWorkTreeGates rest action)
-
-    let normalizedWorkTreeRoots (workspaceRoots: string list) =
-        WorkspaceGit.normalizeWorkTreeRoots workspaceRoots
-
     let enumerateDocumentRoots (graph: Graph) : NodeId list =
         graph.nodes
         |> Map.toSeq

@@ -94,20 +94,31 @@ module ParseThread =
                 return afterPost deps fileId [] posted
         }
 
+    let private reconcileDirectory
+        (deps: InnerDeps)
+        (graph: Graph)
+        (directoryId: NodeId)
+        =
+        match
+            NodeLockPool.withLock graph directoryId (fun () ->
+                DirectoryReconcile.planDirectoryReconcile
+                    { dataDir = deps.dataDir
+                      graph = graph
+                      directoryId = directoryId
+                      discover =
+                        DocumentPersistPath.discoverImmediateMembers })
+        with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            Error "holder already holds a lock"
+        | Ok result -> result
+
     let private parseDirectory
         (deps: InnerDeps)
         (graph: Graph)
         (directoryId: NodeId)
         =
         async {
-            match
-                DirectoryReconcile.planDirectoryReconcile
-                    { dataDir = deps.dataDir
-                      graph = graph
-                      directoryId = directoryId
-                      discover =
-                        DocumentPersistPath.discoverImmediateMembers }
-            with
+            match reconcileDirectory deps graph directoryId with
             | Error _ -> return ()
             | Ok planned ->
                 let! posted = deps.postOps directoryId planned.ops

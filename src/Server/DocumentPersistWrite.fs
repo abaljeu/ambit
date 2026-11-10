@@ -13,6 +13,16 @@ type DocumentWriteOk = {
 [<RequireQualifiedAccess>]
 module DocumentPersistWrite =
 
+    let private underLock
+        (graph: Graph)
+        (nodeId: NodeId)
+        (action: unit -> Result<'value, string>)
+        : Result<'value, string> =
+        match NodeLockPool.withLock graph nodeId action with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            Error "holder already holds a lock"
+        | Ok result -> result
+
     let private writeArtifactTextCore
         (dataDir: string)
         (graph: Graph)
@@ -58,11 +68,8 @@ module DocumentPersistWrite =
         (fileId: NodeId)
         (text: string)
         : Result<unit, string> =
-        match DocumentPersistPath.workspaceRootFor dataDir graph fileId with
-        | None -> writeArtifactTextCore dataDir graph fileId text
-        | Some root ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                writeArtifactTextCore dataDir graph fileId text)
+        underLock graph fileId (fun () ->
+            writeArtifactTextCore dataDir graph fileId text)
 
     let private preparedParseText
         (dataDir: string)
@@ -83,7 +90,10 @@ module DocumentPersistWrite =
             if DocumentBinary.isBinaryExtension relativePath then
                 Error DocumentBinary.parseError
             else
-                DocumentPersistPath.readFileTextAtRelative dataDir relativePath
+                underLock graph fileId (fun () ->
+                    DocumentPersistPath.readFileTextAtRelative
+                        dataDir
+                        relativePath)
                 |> Result.bind (fun text ->
                     DocumentParseLimits.refuseText text
                     |> Result.bind (fun () ->
@@ -280,11 +290,8 @@ module DocumentPersistWrite =
         (graph: Graph)
         (documentRootId: NodeId)
         : Result<DocumentWriteOk, string> =
-        match DocumentPersistPath.workspaceRootFor dataDir graph documentRootId with
-        | None -> writeDocumentCore dataDir graph documentRootId
-        | Some root ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                writeDocumentCore dataDir graph documentRootId)
+        underLock graph documentRootId (fun () ->
+            writeDocumentCore dataDir graph documentRootId)
 
     let private joinWriteMessages (messages: string list) : string option =
         match messages |> List.distinct with
@@ -306,7 +313,7 @@ module DocumentPersistWrite =
                 match acc with
                 | Error msg -> Error msg
                 | Ok stamps ->
-                    match writeDocumentCore dataDir graph documentRootId with
+                    match writeDocument dataDir graph documentRootId with
                     | Error msg -> Error msg
                     | Ok written ->
                         let mtime = File.GetLastWriteTimeUtc written.path
@@ -334,7 +341,7 @@ module DocumentPersistWrite =
             rootIds
             |> List.fold
                 (fun (stamps, messages) documentRootId ->
-                    match writeDocumentCore dataDir graph documentRootId with
+                    match writeDocument dataDir graph documentRootId with
                     | Error _ ->
                         let msg =
                             softWritePathHint graph documentRootId
@@ -363,9 +370,4 @@ module DocumentPersistWrite =
             |> List.filter (fun documentRootId ->
                 DocumentPartition.shouldWriteDocumentRoot
                     graph.nodes.[documentRootId])
-        let workTreeRoots =
-            roots
-            |> List.choose (DocumentPersistPath.workspaceRootFor dataDir graph)
-            |> DocumentPersistPath.normalizedWorkTreeRoots
-        DocumentPersistPath.withWorkTreeGates workTreeRoots (fun () ->
-            writeDocuments dataDir graph roots)
+        writeDocuments dataDir graph roots
