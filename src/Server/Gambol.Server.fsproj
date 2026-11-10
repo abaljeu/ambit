@@ -30,7 +30,7 @@
     <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
-    <Compile Include="NodeEnclosureLock.fs" />
+    <Compile Include="NodeLockPool.fs" />
     <Compile Include="WorkspaceFileMedia.fs" />
     <Compile Include="WorkspaceWebDav.fs" />
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />

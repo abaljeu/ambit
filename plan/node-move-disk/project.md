@@ -2,7 +2,7 @@
 
 Stage: chart
 Summary: Moving a File Node or Directory Node in the Graph moves its linked file or directory on disk to match. A conflict causes amendment to disambiguate before the change lands.
-Updated: 2026-11-09
+Updated: 2026-11-10
 
 **Part of:** [[plan/roadmap/epics/chapters/move-nodes-with-files.md]] on [[plan/roadmap/epics/robust-outliner.md]]
 
@@ -34,3 +34,4 @@ The operation does not merge.
 - [08 — Amend a change conflict before the graph is stored](issues/08-amend-a-change-conflict-before-the-graph-is-stored.md)
 - [09 — Relocate under the node enclosure lock](issues/09-relocate-under-the-node-enclosure-lock.md)
 - [10 — Reject an unparsed persist request](issues/10-reject-an-unparsed-persist-request.md)
+- [11 — Expand the node lock pool](issues/11-expand-the-node-lock-pool.md)
