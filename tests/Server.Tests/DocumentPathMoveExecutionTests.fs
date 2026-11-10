@@ -12,6 +12,42 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
+let private lockOk label result =
+    match result with
+    | Ok () -> ()
+    | Error rejection -> failwith $"{label}: {rejection}"
+
+let private persistWhileHeld
+    (graph: Graph)
+    (postGraph: Graph)
+    (heldId: NodeId)
+    (dataDir: string)
+    (duringHold: unit -> unit)
+    =
+    let release = TaskCompletionSource<unit>()
+    let entered = TaskCompletionSource<unit>()
+
+    let holder =
+        Task.Run(fun () ->
+            NodeLockPool.withLock postGraph heldId (fun () ->
+                entered.SetResult()
+                release.Task.Wait())
+            |> lockOk "hold")
+
+    entered.Task.Wait()
+
+    let persist =
+        Task.Run(fun () ->
+            DocumentPersistChange.persistGraphChange dataDir graph postGraph)
+
+    (NodeLockPool.waitUntilQueued 2).Wait()
+    Assert.False(persist.IsCompleted)
+    duringHold ()
+    release.SetResult()
+    persist.Result |> requireOk "persistGraphChange" |> ignore
+    holder.Wait()
+    Assert.Equal(0, NodeLockPool.entryCount ())
+
 let private owned = ChildNode.owners
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
@@ -110,33 +146,13 @@ let ``persist path move waits while the moved file is held`` () =
     let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
     let oldPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
     let newPath = Path.Combine(dataDir, "home", "docs", "notes.txt")
-    let release = TaskCompletionSource<unit>()
-    let entered = TaskCompletionSource<unit>()
 
-    let holder =
-        Task.Run(fun () ->
-            match NodeLockPool.withLock postGraph fileId (fun () ->
-                entered.SetResult()
-                release.Task.Wait()) with
-            | Ok () -> ()
-            | Error rejection -> failwith $"hold: {rejection}")
+    persistWhileHeld graph postGraph fileId dataDir (fun () ->
+        Assert.True(File.Exists oldPath)
+        Assert.False(File.Exists newPath))
 
-    entered.Task.Wait()
-
-    let persist =
-        Task.Run(fun () ->
-            DocumentPersistChange.persistGraphChange dataDir graph postGraph)
-
-    (NodeLockPool.waitUntilQueued 2).Wait()
-    Assert.False(persist.IsCompleted)
-    Assert.True(File.Exists oldPath)
-    Assert.False(File.Exists newPath)
-    release.SetResult()
-    persist.Result |> requireOk "persistGraphChange" |> ignore
-    holder.Wait()
     Assert.False(File.Exists oldPath)
     Assert.True(File.Exists newPath)
-    Assert.Equal(0, NodeLockPool.entryCount ())
 
 let private graphWithSiblingFile () : Graph * NodeId * NodeId =
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
@@ -158,31 +174,11 @@ let ``persist path move waits while a file under the moved directory is held`` (
     let postGraph = Graph.setName dirId "docs" "archive" graph |> requireOk "rename dir"
     let oldDir = Path.Combine(dataDir, "home", "docs")
     let newDir = Path.Combine(dataDir, "home", "archive")
-    let release = TaskCompletionSource<unit>()
-    let entered = TaskCompletionSource<unit>()
 
-    let holder =
-        Task.Run(fun () ->
-            match NodeLockPool.withLock postGraph fileId (fun () ->
-                entered.SetResult()
-                release.Task.Wait()) with
-            | Ok () -> ()
-            | Error rejection -> failwith $"hold: {rejection}")
+    persistWhileHeld graph postGraph fileId dataDir (fun () ->
+        Assert.True(Directory.Exists oldDir))
 
-    entered.Task.Wait()
-
-    let persist =
-        Task.Run(fun () ->
-            DocumentPersistChange.persistGraphChange dataDir graph postGraph)
-
-    (NodeLockPool.waitUntilQueued 2).Wait()
-    Assert.False(persist.IsCompleted)
-    Assert.True(Directory.Exists oldDir)
-    release.SetResult()
-    persist.Result |> requireOk "persistGraphChange" |> ignore
-    holder.Wait()
     Assert.True(Directory.Exists newDir)
-    Assert.Equal(0, NodeLockPool.entryCount ())
 
 [<Fact>]
 let ``a path move on a thread that already holds a lock leaves the artifact`` () =
@@ -192,21 +188,17 @@ let ``a path move on a thread that already holds a lock leaves the artifact`` ()
     let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
     let oldPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
 
-    let held =
-        NodeLockPool.withLock postGraph siblingId (fun () ->
-            Assert.Equal(1, NodeLockPool.entryCount ())
+    NodeLockPool.withLock postGraph siblingId (fun () ->
+        Assert.Equal(1, NodeLockPool.entryCount ())
 
-            let persist =
-                DocumentPersistChange.persistGraphChange dataDir graph postGraph
+        let persist =
+            DocumentPersistChange.persistGraphChange dataDir graph postGraph
 
-            Assert.Equal(Error "holder already holds a lock", persist)
-            Assert.True(File.Exists oldPath)
-            Assert.False(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))
-            Assert.Equal(1, NodeLockPool.entryCount ()))
-
-    match held with
-    | Ok () -> ()
-    | Error rejection -> failwith $"hold: {rejection}"
+        Assert.Equal(Error "holder already holds a lock", persist)
+        Assert.True(File.Exists oldPath)
+        Assert.False(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))
+        Assert.Equal(1, NodeLockPool.entryCount ()))
+    |> lockOk "hold"
 
     Assert.Equal(0, NodeLockPool.entryCount ())
     Assert.True(File.Exists oldPath)
@@ -232,11 +224,10 @@ let ``a sibling file lock lets a file path move finish`` () =
 
     let holder =
         Task.Run(fun () ->
-            match NodeLockPool.withLock postGraph siblingId (fun () ->
+            NodeLockPool.withLock postGraph siblingId (fun () ->
                 entered.SetResult()
-                release.Task.Wait()) with
-            | Ok () -> ()
-            | Error rejection -> failwith $"hold: {rejection}")
+                release.Task.Wait())
+            |> lockOk "hold")
 
     entered.Task.Wait()
 
