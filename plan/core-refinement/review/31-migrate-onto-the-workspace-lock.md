@@ -37,6 +37,7 @@ match NodeLockPool.withLock graph nodeId action with
 - `bash scripts/check-test.sh 8040` prints `DONE` and `/tmp/ambit-full-suite-20261110-183104.log`.
 - Server.Tests passed 762, skipped 1, total 763.
 - Shared.Tests passed 1937, skipped 3, total 1940.
+- The same counts passed again on the head after the refactor. That run is pid 16491, log `/tmp/ambit-full-suite-20261110-183815.log`.
 
 ## 5. Miss
 
