@@ -207,7 +207,7 @@ postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> 
 ```
 
 [x] `postActorStart` for `?test` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postActorOrder` with that `Caller`.
-[ ] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies Curried actor, builds `ActorOrder`, and calls Post actor order with that `Caller`.
+[x] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies `RunAgentActor.actorFn` to that `ActorStart`, builds `ActorOrder`, and calls **Post actor order** with that `Caller`.
 
 ### Test command
 
@@ -220,12 +220,8 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 
 ### AI actor
 
-[x] `actorFn` returns `ActorFn`.
-[ ] `actorFn` returns Curried actor. The closure holds `GrokBotBinding` only.
-
-```fsharp
-actorFn : AiKeySet -> AiRepo list -> GrokBotBinding -> NodeId -> ActorFunction
-```
+[o] `actorFn` returns `ActorFn`.
+[x] `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs` is **Actor function** (`ActorFunction` in `src/Shared/History.fs`) for the `ActorStart` on that Run.
 
 [ ] The wake POST sends the session id from `ActorInput.sessionId`.
 [ ] `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs` reads `input.sessionId` and passes that value to the wake call.
@@ -421,7 +417,7 @@ Pool launch
 13. **AI actor**
     - Interface: `src/Server/RunAgentActor.fs` `actorFn`
     - Uses:
-      1. [ ] Curried actor
+      1. [x] Actor function
       2. [x] Pool start
 14. **Query command**
     - Interface: `src/Server/RouteRegistration.fs` `postSearchRequest`

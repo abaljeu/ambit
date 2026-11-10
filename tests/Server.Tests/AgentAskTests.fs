@@ -132,7 +132,9 @@ type AgentAskTests() =
                     let! second = startAiRun host request
                     match second with
                     | Error err ->
-                        Assert.Contains("focus", err)
+                        Assert.Contains(
+                            "actor node already has a live Actor",
+                            err)
                     | Ok () ->
                         Assert.Fail("expected Focus exclusivity")
                     let! _ =

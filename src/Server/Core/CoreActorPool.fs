@@ -51,7 +51,9 @@ type CoreActorPool =
       getActorNodeId: Credential -> NodeId option
       trySecretForActorNode: NodeId -> Credential option
       deliver: string * string -> Result<unit, string>
-      takeInbox: string -> Result<string list, string> }
+      takeInbox: string -> Result<string list, string>
+      sessionIdFor: Credential -> string option
+      aiInstall: AiInstall option }
 
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
@@ -347,6 +349,9 @@ module CoreActorPool =
                                 { row with inbox = [] }
                                 model.live }
                 Ok texts
+        let sessionIdFor secret =
+            Map.tryFind secret model.live
+            |> Option.map (fun row -> row.sessionId)
         let clearLive () =
             let live = model.live
             model <-
@@ -373,4 +378,6 @@ module CoreActorPool =
           trySecretForActorNode =
             fun actorNodeId -> trySecretForActorNode model actorNodeId
           deliver = deliver
-          takeInbox = takeInbox }
+          takeInbox = takeInbox
+          sessionIdFor = sessionIdFor
+          aiInstall = None }

@@ -38,7 +38,9 @@ let private stubPool secret : CoreActorPool =
       getActorNodeId = fun _ -> Some Graph.rootId
       trySecretForActorNode = fun _ -> None
       deliver = fun _ -> Error "not live"
-      takeInbox = fun _ -> Error "not live" }
+      takeInbox = fun _ -> Error "not live"
+      sessionIdFor = fun _ -> None
+      aiInstall = None }
 
 let private hostFile dir secret =
     CoreMailbox.host

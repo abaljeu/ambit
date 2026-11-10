@@ -9,6 +9,12 @@ type GrokBotBinding =
     { Config: GrokBotConfig
       ResponseUrl: string }
 
+/// Keys, repos, and grok bind for one `?ai` Run.
+type AiInstall =
+    { keys: AiKeySet
+      repos: AiRepo list
+      grok: GrokBotBinding }
+
 /// Binds GrokBotConfig from IConfiguration. Library stays settings-blind.
 [<RequireQualifiedAccess>]
 module GrokBotSettings =

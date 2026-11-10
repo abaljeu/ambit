@@ -28,6 +28,7 @@ let private fileRuntime () =
             AuthUser = "alice"
             AuthPass = "secret"
             Actors = []
+            aiInstall = None
         }
         (fun _ -> ())
 

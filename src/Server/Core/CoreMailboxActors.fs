@@ -221,6 +221,31 @@ module internal CoreMailboxActors =
                 reply.Reply(placed)
             })
 
+    /// Admitted `?ai` Run. `actorNodeId` is the focus id `cancelByFocus` uses.
+    let private queueAdmittedAi
+        (context: MailboxContext)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match context.pool.aiInstall with
+        | None -> reply.Reply(Error "ai actor is not installed")
+        | Some install ->
+            match context.coreChanges.Value with
+            | None -> reply.Reply(Error "mailbox not initialized")
+            | Some make ->
+                let order =
+                    RunAgentActor.aiActorOrder
+                        install
+                        context.pool.sessionIdFor
+                        request
+                let host = (make caller).host
+                Async.Start(async {
+                    let! placed =
+                        MailboxHost.postActorOrder host caller order
+                    reply.Reply(placed)
+                })
+
     /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
     /// A refusal starts no Actor, so it stores no lifecycle row.
     let private queueTestOrder
@@ -233,6 +258,18 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok () ->
             queueAdmittedTest context caller request reply
+
+    /// Same `admitCaller` gate as `queueTestOrder`, then queue the `?ai` order.
+    let private queueAiOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        =
+        match CoreMailboxEvents.admitCaller context caller with
+        | Error err -> reply.Reply(Error err)
+        | Ok () ->
+            queueAdmittedAi context caller request reply
 
     let private postChosenStart
         context caller event request reply =
@@ -262,6 +299,8 @@ module internal CoreMailboxActors =
             match actorNameOn context request.runDefinitionId with
             | Some "test" ->
                 queueTestOrder context caller request reply
+            | Some "ai" ->
+                queueAiOrder context caller request reply
             | _ ->
                 postChosenStart context caller event request reply
 

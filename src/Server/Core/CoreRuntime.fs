@@ -18,6 +18,7 @@ type CoreBoot =
         AuthUser: string
         AuthPass: string
         Actors: (ActorName * ActorFn) list
+        aiInstall: AiInstall option
     }
 
 [<RequireQualifiedAccess>]
@@ -66,7 +67,9 @@ module CoreRuntime =
         (parsePush: NodeId -> unit)
         : CoreRuntime * (NodeId -> unit) =
         let browserCaller, parseCaller = bootCallers boot
-        let pool = CoreActorPool.create ()
+        let pool =
+            { CoreActorPool.create () with
+                aiInstall = boot.aiInstall }
         boot.Actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
         let host, push =

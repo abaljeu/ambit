@@ -34,11 +34,6 @@ module RunAgentActor =
               { ModelParam.Id = "fast"
                 ModelParam.Value = "true" } ] }
 
-    let private actorCaller (input: ActorInput) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = input.secret }
-
     let private systemPrompt =
         "You are Ambit AI. You edit outline children under Focus."
         + Environment.NewLine
@@ -106,8 +101,8 @@ module RunAgentActor =
     let private nodeGuid (NodeId value) = value.ToString()
 
     let private postReplace
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
+        (_input: ActorInput)
+        (changes: ActorChanges)
         ops
         =
         async {
@@ -117,10 +112,7 @@ module RunAgentActor =
                   authority = Authority "Actor"
                   commandName = ""
                   body = EventBody.Change ops }
-            let! _ =
-                CoreDoor.postEvents
-                    (CoreDoor.forCaller (actorCaller input) coreChanges)
-                    [ event ]
+            let! _ = changes.postChanges [ event ]
             return ()
         }
 
@@ -160,12 +152,12 @@ module RunAgentActor =
 
     let private postAdd
         (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
+        (changes: ActorChanges)
         (lists: Map<NodeId, ChildNode list>)
         (add: FocusXmlStream.PlannedAdd)
         =
         async {
-            let! state = CoreDoor.graphAtEvent coreChanges
+            let! state = changes.graphAtEvent ()
             let graph =
                 match state with
                 | Ok s -> s.graph
@@ -185,7 +177,7 @@ module RunAgentActor =
                 [ Op.NewNode(add.childId, add.text)
                   ChildListWire.replace
                     add.parentId oldChildren newChildren ]
-            do! postReplace input coreChanges ops
+            do! postReplace input changes ops
             return Map.add add.parentId newChildren lists
         }
 
@@ -368,26 +360,19 @@ module RunAgentActor =
                                 fold)
         }
 
-    let private stop
-        (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
-        result
-        =
+    let private stop (changes: ActorChanges) result =
         async {
-            let! _ =
-                CoreDoor.actorStop
-                    (CoreDoor.forCaller (actorCaller input) coreChanges)
-                    result
+            let! _ = changes.actorStop result
             return ()
         }
 
     let private planOnCurrent
         (input: ActorInput)
-        (coreChanges: CoreChangesDoor)
+        (changes: ActorChanges)
         text
         =
         async {
-            let! state = CoreDoor.graphAtEvent coreChanges
+            let! state = changes.graphAtEvent ()
             let graph =
                 match state with
                 | Ok s -> s.graph
@@ -425,14 +410,49 @@ module RunAgentActor =
                         return ActorSucceeded
         }
 
-    /// ActorFn for Actor name `ai`. Selection is CoreActorPool's job.
+    let private inputFor
+        (run: FunctionRun)
+        (start: ActorStart)
+        (sessionId: string)
+        : ActorInput =
+        { graph = run.getGraph ()
+          zoomId = start.zoomId
+          focusId = start.focusId
+          runDefinitionId = start.runDefinitionId
+          sessionId = sessionId
+          secret = run.secret }
+
+    /// Shared ActorFunction for one Run. The live row holds the session id.
     let actorFn
-        (keys: AiKeySet)
-        (repos: AiRepo list)
-        (grok: GrokBotBinding)
-        : ActorFn =
-        fun input coreChanges ->
+        (install: AiInstall)
+        (sessionIdFor: Credential -> string option)
+        (start: ActorStart)
+        : Gambol.Shared.ActorFunction =
+        fun run changes ->
             async {
-                let! result = runBody keys repos grok input coreChanges
-                do! stop input coreChanges result
+                match sessionIdFor run.secret with
+                | None ->
+                    do! stop changes (ActorFailed "not live")
+                | Some sessionId ->
+                    let input = inputFor run start sessionId
+                    let! result =
+                        runBody
+                            install.keys
+                            install.repos
+                            install.grok
+                            input
+                            changes
+                    do! stop changes result
             }
+
+    /// `?ai` ActorOrder. `actorNodeId` is the focus id.
+    let aiActorOrder
+        (install: AiInstall)
+        (sessionIdFor: Credential -> string option)
+        (start: ActorStart)
+        : ActorOrder =
+        ActorOrderFromStart.orderFromStart
+            (fun _ _ -> actorFn install sessionIdFor start)
+            "ai"
+            (fun item -> item.focusId)
+            start

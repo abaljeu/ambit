@@ -27,12 +27,13 @@ module RouteRegistration =
                 DataDir = dataDir
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
-                Actors =
-                    [ ActorName "ai", RunAgentActor.actorFn
-                            (AiKeys.fromConfig this.Config)
-                            (AiRepos.fromConfig this.Config)
-                            (GrokBotSettings.fromConfigBinding
-                                this.Config) ]
+                Actors = []
+                aiInstall =
+                    Some
+                        { keys = AiKeys.fromConfig this.Config
+                          repos = AiRepos.fromConfig this.Config
+                          grok =
+                            GrokBotSettings.fromConfigBinding this.Config }
             }
 
     let private errorTemplate (message: string) =

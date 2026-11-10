@@ -109,7 +109,9 @@ let ``ActorStart persists across File restart`` () = task {
           getActorNodeId = fun _ -> Some Graph.rootId
           trySecretForActorNode = fun _ -> None
           deliver = fun _ -> Error "not live"
-          takeInbox = fun _ -> Error "not live" }
+          takeInbox = fun _ -> Error "not live"
+          sessionIdFor = fun _ -> None
+          aiInstall = None }
     let first =
         CoreMailbox.host
             pool
@@ -164,7 +166,9 @@ let private stubPool secret : CoreActorPool =
       getActorNodeId = fun _ -> Some Graph.rootId
       trySecretForActorNode = fun _ -> None
       deliver = fun _ -> Error "not live"
-      takeInbox = fun _ -> Error "not live" }
+      takeInbox = fun _ -> Error "not live"
+      sessionIdFor = fun _ -> None
+      aiInstall = None }
 
 let private withFilling filling pool body = task {
     let host = CoreMailbox.host pool filling admittedCredentials

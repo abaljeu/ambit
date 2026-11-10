@@ -67,18 +67,33 @@ let private grokBinding config =
     { Config = config
       ResponseUrl = unusedResponseUrl }
 
+type private HostAi =
+    { install: AiInstall
+      sessionIdFor: Credential -> string option }
+
+let private aiHosts =
+    System.Runtime.CompilerServices.ConditionalWeakTable<
+        MailboxHost, HostAi>()
+
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
-    let pool = CoreActorPool.create ()
+    let install =
+        { keys = keys
+          repos = repos
+          grok = grok }
+    let pool =
+        { CoreActorPool.create () with
+            aiInstall = Some install }
     pool.register (ActorName "test") TestActor.actorFn
-    pool.register
-        (ActorName "ai")
-        (RunAgentActor.actorFn keys repos grok)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
+    aiHosts.Add(
+        host,
+        { install = install
+          sessionIdFor = pool.sessionIdFor })
     host, pool
 
 let private clearFake () =
@@ -288,10 +303,22 @@ let seedAskTree host commandText =
               graphIds = [ zoomId; runDefinitionId; noteId ] }
     }
 
-/// Ask start for `?ai`. The first body calls `startActor`.
+/// Ask start for `?ai`. Posts `Order.StartActor` for this host's binding.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
-    CoreMailboxApi.coreMailboxStartActor host testCaller request
-    |> Async.StartAsTask
+    match aiHosts.TryGetValue host with
+    | false, _ -> Task.FromResult(Error "ai host binding missing")
+    | true, held ->
+        let order =
+            RunAgentActor.aiActorOrder
+                held.install
+                held.sessionIdFor
+                request
+        async {
+            let! placed =
+                MailboxHost.postActorOrder host testCaller order
+            return Result.map (fun _ -> ()) placed
+        }
+        |> Async.StartAsTask
 
 let startAsk host (seeded: SeededAsk) =
     task {
@@ -476,8 +503,9 @@ let hasActorStart host focusId =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStart started ->
-                    started.focusId = focusId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = focusId
+                    && order.actorName = "ai"
                 | _ -> false)
     }
 
