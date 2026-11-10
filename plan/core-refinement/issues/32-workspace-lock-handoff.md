@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** 11 — Expand the node lock pool
+**Blocked by:** 11 — Expand the node lock pool. 11 has passed review, so this ticket is unblocked. It does not wait for 11 to be `done`.
 **Trackers:** architecture
 
 ## Context
@@ -41,5 +41,5 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 ## Notes
 
 - 2026-11-10 — Alan: fetch runs to completion first, unlocked. The pull holds the Workspace `withLock`. The pull is the merge of the fetched commits plus marking the arrived nodes Unparsed.
-- 2026-11-10 — Alan: blocked by 11 — Expand the node lock pool, not by 30 — Expand the workspace lock. 31 — Migrate onto the workspace lock removes `withWorkTreeGate` from Persist and git paths in the same change as the move onto `withLock`.
+- 2026-11-10 — Alan: the listed blocker is 11 — Expand the node lock pool, not 30 — Expand the workspace lock. 11 has passed review, so this ticket is unblocked. It does not wait for 11 to be `done`. 31 — Migrate onto the workspace lock removes `withWorkTreeGate` from Persist and git paths in the same change as the move onto `withLock`.
 - 2026-11-10 — Alan: that removal includes the `GitRun` private gate. `NodeLockPool.withLock` is the only protocol on Persist and git paths.
