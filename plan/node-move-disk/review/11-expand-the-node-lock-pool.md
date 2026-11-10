@@ -50,5 +50,5 @@ The following issues were found beyond the ticket scope.  The fixes are suggeste
     - 10 — Reject an unparsed persist request names `NodeEnclosureLock`.
     - 31 — Migrate onto the workspace lock names per-member persist locks and a separate parse-read drain.
     - 32 — Workspace lock handoff names git pull plus marking Unparsed under the workspace lock.
-    - 33 — Contract the work-tree gate names the workspace lock and per-member persist locks as two kinds.
+    - 33 — Contract the work-tree gate is superseded by 31 — Migrate onto the workspace lock. The gate removal is that migrate.
   - **Fix.** Retarget each listed ticket at `withLock` before it is built.

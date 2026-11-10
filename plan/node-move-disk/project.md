@@ -35,4 +35,4 @@ The operation does not merge.
 - [09 — Relocate under the node lock](issues/09-relocate-under-the-node-enclosure-lock.md)
 - [10 — Reject an unparsed persist request](issues/10-reject-an-unparsed-persist-request.md)
 - [11 — Expand the node lock pool](issues/11-expand-the-node-lock-pool.md)
-- [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md) — blocked by 11. The pool stores no graph. Conflict checks read the live graph passed with the request. An absent node conflicts with nothing. `HolderHoldsLock` stays.
+- [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md) — 11 has passed review, so this ticket is unblocked. The pool stores no graph. Conflict checks read the live graph passed with the request. An absent node conflicts with nothing. `HolderHoldsLock` stays.

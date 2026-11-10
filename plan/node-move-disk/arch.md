@@ -236,12 +236,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 
 #### Work-tree gate and git process lock
 
-[ ] Expand: the node lock stands beside `WorkspaceGit.withWorkTreeGate`. The holder calls `withLock`. Inside the action, after the request is `Held`, the holder takes `withWorkTreeGate`, runs git, releases `withWorkTreeGate`, and then returns. `withLock` releases when the action returns.
-[ ] While both exist, a persist calls `withLock` first. The action takes `withWorkTreeGate` after the request is `Held`. The action releases `withWorkTreeGate` before it returns.
-[ ] Contract: `withWorkTreeGate` is removed from the persist paths and the git pull paths.
-[ ] `GitRun.gitExec` stays the git process lock. It is taken after `withLock`. `GitSave.runGit` calls `gitExec`.
-[ ] Lock order is `withLock`, then `withWorkTreeGate` while both exist, then the `GitRun` lock.
-[ ] A thread that holds the `GitRun` lock calls no `withLock`.
+[ ] `WorkspaceGit.withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths once [31 — Migrate onto the workspace lock](../core-refinement/issues/31-migrate-onto-the-workspace-lock.md) lands. `NodeLockPool.withLock` is the protocol on those paths.
 [ ] A holder calls `withLock` once. A Directory move is that one call on the Directory node.
 
 ### Unparsed save gate

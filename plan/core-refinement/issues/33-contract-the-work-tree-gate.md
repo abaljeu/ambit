@@ -1,6 +1,6 @@
 # 33 — Contract the work-tree gate
 
-**Status:** `defined`
+**Status:** `superseded`
 **Type:** coding
 **Blocked by:** 31 — Migrate onto the workspace lock
 **Trackers:** architecture
@@ -35,3 +35,5 @@
 ## Notes
 
 - 2026-11-10 — Alan: `NodeLockPool` replaces the lock this ticket used. The lock is `NodeLockPool.withLock`, including git Save.
+- 2026-11-10 — Alan: this ticket is superseded by 31 — Migrate onto the workspace lock. The gate removal is that migrate. There is no dual-run.
+- 2026-11-10 — What to build is the old removal of `withWorkTreeGate` only. 31 — Migrate onto the workspace lock also removes the `GitRun` private gate. `NodeLockPool.withLock` is the protocol on Persist and git paths.

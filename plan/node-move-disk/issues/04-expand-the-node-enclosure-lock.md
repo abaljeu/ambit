@@ -75,7 +75,7 @@ Blockers: none
 [x] `src/Server/Core/PersistThread.fs` stays as it is. The persist thread's wait is the later caller of `withPersist`.
 [x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Flow 6's relocate caller, `gitMove`, and `moveAcrossWorkspaces` are a later ticket.
 [x] git pull, git Save, and a single File move's `git mv` stay off this lock until a later migrate ticket.
-[x] Removing `WorkspaceGit.withWorkTreeGate` is [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md).
+[x] Removing `WorkspaceGit.withWorkTreeGate` is [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md). [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md) is superseded by that ticket.
 [x] `src/Shared/GraphQuery.fs` stays as it is.
 [x] `src/Shared/History.fs` stays as it is. `Notice.PersistFailed` stays off this module.
 
