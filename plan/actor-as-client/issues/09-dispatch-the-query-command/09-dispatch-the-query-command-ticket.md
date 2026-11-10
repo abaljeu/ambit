@@ -1,10 +1,11 @@
 # 09 — Start the query command
 **Status**: defined
-One job: `postSearchRequest` builds the query `ActorFunction` and puts `Order.StartActor` of `ActorOrder` on the mailbox queue. This ticket deletes `CoreMsg.RecordSearchStart` and `CoreEventDispatch.actorStart`. `ActorFunction` is in `src/Shared/History.fs`.
+One job: The Server posts Find and Move and a query Run as `Order.StartActor` of `ActorOrder` after `admitCaller`. This ticket deletes `CoreMsg.RecordSearchStart`, and that delete removes `CoreEventDispatch.actorStart`.
 
-[ ] `startFunction` stays. The query start on `startChosen` leaves.
-[ ] Find and Move stays on `recordSearchStart`. That call posts `Order.StartActor`, and the Search Actor runs.
-[ ] The source files are 7. The test files are 3. The size limit is 8 source files and 4 test files.
+[ ] `startFunction` stays. A query Run leaves `startChosen` and posts through `postBuiltOrder`.
+[ ] Find and Move stays on `recordSearchStart`. That function posts `Order.StartActor`, and the Search Actor runs.
+[ ] This ticket adds no session id. `FunctionRun` stays `getGraph` and `secret`.
+[ ] The source files are 8. The test facts are 3. The size limit is 8 source files and 4 tests.
 
 Type:
 
@@ -18,48 +19,62 @@ Blockers:
 
 ### Working
 
-[ ] `postSearchRequest` is in `src/Server/RouteRegistration.fs`. It calls `Api.postSearch`.
-[ ] `searchDoor` calls `CoreMailboxApi.recordSearchStart`.
-[ ] `startChosen` calls `SearchActor.functionStart` and then `pool.startFunction` when `SearchActor.isQueryRequest` is true. `startChosen` is in `src/Server/Core/CoreMailboxActors.fs`.
-[ ] `SearchActor.functionStart` builds a `FunctionStart` with `getGraph` and `actorNodeId`. `actorNodeId` is `request.focusId`. `FunctionStart` is in `src/Server/Core/CoreActorPool.fs`. `functionStart` is in `src/Server/SearchActor.fs`.
-[x] The actor function's input is `FunctionRun` and `ActorChanges`.
+[ ] `postSearchRequest` in `src/Server/RouteRegistration.fs` calls `Api.postSearch`.
+[ ] `searchDoor` calls `CoreMailboxApi.recordSearchStart`. `recordStop` calls `CoreMailboxApi.recordSearchStop`.
+[ ] `Api.searchReply` in `src/Server/Api.fs` builds `SearchActor.actorStart`, calls `recordStart`, calls `SearchActor.reply`, then calls `recordStop`.
+[ ] `startChosen` in `src/Server/Core/CoreMailboxActors.fs` calls `context.pool.startActor` for a query start and for a named start. `startFunction` stays unused on that path.
+[ ] `postActorStart` sends `?test` through `queueAdmittedTest` and `?ai` through `queueAdmittedAi`. Every other name calls `postChosenStart`, which calls `startChosen`.
+[ ] `whenAdmitted` calls `CoreMailboxEvents.admitCaller`, then the queue function. `queueAdmittedTest` builds `ActorOrder` with `ActorOrderFromStart.orderFromStart` and `TestActor.functionActorAt`, then calls `postBuiltOrder`.
+[ ] `postBuiltOrder` calls `MailboxHost.postActorOrder`.
+[ ] `SearchActor.functionStart` in `src/Server/SearchActor.fs` builds a pool `FunctionStart`. `actorNodeId` is `request.focusId`. The body stops with `ActorQuery`. `FunctionStart` is in `src/Server/Core/CoreActorPool.fs`.
+[ ] `SearchActor.isQueryRequest` is true when `CommandRequest.isQueryText` is true for the run-definition node.
 [ ] `recordSearchStart` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.RecordSearchStart`. That function is the only constructor.
 [ ] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActorDeprecated` in `src/Shared/History.fs`. That `runMsg` arm is its only caller.
 [ ] `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure` match `RecordSearchStart`.
-[ ] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart`.
+[ ] `CoreMailboxLoop.replyActorOrder` logs `Order.StartActor` and calls `scheduleActorOrder`. `scheduleActorOrder` calls `startFunction`.
+[ ] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart` in ``postSearch records ActorStart at the root``.
+[ ] ``equals-line ActorStart does not run the query function`` and ``query start error stores ActorStart and ActorFailed and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` post `EventBody.ActorStart` through `CoreMailboxApi.postEvents`.
 
 ### Reference
 
-[ ] [Arch](../../arch.md). `postSearchRequest` is the query handler.
+[ ] [Arch](../../arch.md). **Query command** names `postSearchRequest`. **Posted run** names `postActorStart`. **Post actor order** names `MailboxHost.postActorOrder`.
+[ ] [08 — Start the AI Actor](../08-dispatch-the-ai-actor/08-dispatch-the-ai-actor-ticket.md). The copy from 07 — Start the test command and from that ticket is `whenAdmitted`, `postBuiltOrder`, and `MailboxHost.postActorOrder`.
 
 ## Do not load
 
 [ ] `RunAgentActor.fs`.
 [ ] `SearchActor.actorStart`. That function builds an `ActorStart`. It is not `CoreEventDispatch.actorStart`.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
-[ ] A new `CoreMsg` case. Remote starts stay out of scope.
+[ ] A new `CoreMsg` case.
+[ ] `CoreMsg.RecordSearchStop`. [111 — Place search start as an order, and post SearchStopped](../../../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) removes that case.
+[ ] A session id on `FunctionRun`, on `ActorOrder`, or in the `ActorFunction` closure.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Change: `postSearchRequest` builds the query `ActorFunction` and closes over that path's data in the function. It builds `ActorOrder` from that function, `actorNodeId`, and `actorName`, and calls `postActorOrder`.
-3. [ ] Contract: `startChosen` no longer starts a query. Other names still call `startActor`.
-4. [ ] Change: `recordSearchStart` builds the Find and Move `ActorFunction` and closes over that path's data in the function. It posts `Order.StartActor` of that function, `actorNodeId`, and `actorName`. The Search Actor runs. Find and Move stays on `recordSearchStart`.
-5. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
-6. [ ] Do not write `Order.StartActorDeprecated`. Do not add an `Order` case. Leave `Order` as the cases in `src/Shared/History.fs`.
+2. [ ] Change: `SearchActor.functionActorAt` in `src/Server/SearchActor.fs` returns the shared `ActorFunction` in `src/Shared/History.fs`. It takes `runDefinitionId` and `focusId`. The body is the query eval in `SearchActor.functionStart`: `ActorQuery` of those node ids, then `ActorChanges.actorStop`. `SearchActor.functionStart` stays for the pool tests.
+3. [ ] Change: `postActorStart` calls `whenAdmitted` and a queue function when `SearchActor.isQueryRequest` is true. That queue function copies `queueAdmittedTest`. It builds `ActorOrder` with `ActorOrderFromStart.orderFromStart` and `SearchActor.functionActorAt`, sets `actorName` to `query` and `actorNodeId` to `ActorStart.focusId`, and calls `postBuiltOrder`.
+4. [ ] Contract: `startChosen` stays `context.pool.startActor`. A query Run does not call `startChosen`. A named start that is not `?test` or `?ai` still calls `startChosen`.
+5. [ ] Change: `SearchActor.searchActorAt` returns the shared `ActorFunction`. The body calls `ActorChanges.actorStop` with `ActorSucceeded`. `Api.searchReply` still returns `SearchActor.reply`.
+6. [ ] Change: `recordSearchStart` builds that Find and Move order with `ActorOrderFromStart.orderFromStart` and `SearchActor.searchActorAt`. `actorName` is `search`. `actorNodeId` is `ActorStart.focusId`. It calls `MailboxHost.postActorOrder`. `CoreMailboxLoop.replyActorOrder` calls `admitCaller` before it appends that order.
+7. [ ] Contract: `Api.searchReply` no longer calls `recordStop`. The Search Actor posts that stop.
+8. [ ] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
+9. [ ] Change: ``equals-line ActorStart does not run the query function`` observes `Order.StartActor` and `ActorQuery` for an equals line. ``query start error stores ActorStart and ActorFailed and keeps the edit`` observes the refusal `actor node already has a live Actor` from `admitFunctionStart`, and the edit stays. ``postSearch records ActorStart at the root`` observes `Order.StartActor` and `ActorSucceeded` at the root.
+10. [ ] Do not write `Order.StartActorDeprecated`. Do not add an `Order` case. Leave `Order` as the cases in `src/Shared/History.fs`.
 
 ## Outputs
 
-[ ] `src/Server/RouteRegistration.fs`
+[ ] `src/Server/SearchActor.fs`
 [ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/Core/CoreMailboxApi.fs`
-[ ] `src/Server/Core/CoreMsg.fs`
 [ ] `src/Server/Core/CoreMailboxLoop.fs`
+[ ] `src/Server/Api.fs`
+[ ] `src/Server/Core/CoreMsg.fs`
 [ ] `src/Server/Core/CoreMailboxEvents.fs`
 [ ] `src/Server/Core/CoreEventDispatch.fs` — delete `actorStart`
-[ ] `tests/Server.Tests/QueryActorTests.fs` — the existing query start tests
-[ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — keep the `startFunction` tests green
-[ ] `tests/Server.Tests/SearchActorTests.fs` — Find and Move runs the Search Actor through `Order.StartActor`
+[ ] `tests/Server.Tests/QueryActorTests.fs` — ``equals-line ActorStart does not run the query function`` and ``query start error stores ActorStart and ActorFailed and keeps the edit``
+[ ] `tests/Server.Tests/SearchActorTests.fs` — ``postSearch records ActorStart at the root``
+[ ] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — `startFunction` stays green, and this file stays unchanged
 
 ## Stop when
 
@@ -68,6 +83,7 @@ Blockers:
 [ ] Stop when Find and Move posts an `ActorOrder` that does not run the Search Actor.
 [ ] Stop when a constructor of `CoreMsg.RecordSearchStart` sits outside `CoreMailboxApi.recordSearchStart`.
 [ ] Stop when a test file outside Outputs must change.
+[ ] Stop when the edit adds a session id.
 
 ## Check
 
