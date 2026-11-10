@@ -7,7 +7,7 @@ Arch: [[plan/actor-as-client/arch.md]]
 ## 1. Standards
 
 1. **Scan.** `python3 scripts/standards-scan.py --diff origin/staging` printed no line and exited 0. No `LONG`, `TAB`, `MUTABLE`, `BARE_ID`, `PHRASE`, `BLANK_BLANK`, or `FILE` line.
-2. **Pool literals.** **Judgement.** Shotgun Surgery, suppressed. Removing `registerPeer` and `startPeerActor` from `CoreActorPool` forces the same two fields out of each pool literal. [15 — Delete the old Actor starts](15-delete-the-old-actor-starts-ticket.md) names those test files in Outputs. Source: [[plan/context/SMELLS.md]]. The hunk is the deleted `registerPeer` and `startPeerActor` fields beside `register` in `tests/Server.Tests/CoreMailboxDoorTests.fs:236`.
+2. **Pool literals.** **Judgement.** Shotgun Surgery, suppressed. Removing `registerPeer` and `startPeerActor` from `CoreActorPool` forces the same two fields out of each pool literal. [15 — Delete the old Actor starts](15-delete-the-old-actor-starts-ticket.md) names those test files in Outputs. Source: [[plan/context/SMELLS.md]]. The hunk is the deleted `registerPeer` and `startPeerActor` fields beside `register` in `tests/Server.Tests/CoreMailboxDoorTests.fs:238`.
 
 ## 2. Spec
 
@@ -37,5 +37,5 @@ Arch: [[plan/actor-as-client/arch.md]]
 
 "The following issues were found beyond the ticket scope.  The fixes are suggested."
 
-1. **Problem.** `tests/Server.Tests/Issue42PersistHandlersTests.fs` is absent from `tests/Server.Tests/Gambol.Server.Tests.fsproj`, so its six facts do not run. The diff still updates the pool literal at `tests/Server.Tests/Issue42PersistHandlersTests.fs:98`. Accepted.
+1. **Problem.** `tests/Server.Tests/Issue42PersistHandlersTests.fs` is absent from `tests/Server.Tests/Gambol.Server.Tests.fsproj`, so its six facts do not run. The diff still updates the pool literal at `tests/Server.Tests/Issue42PersistHandlersTests.fs:100`. Accepted.
 2. **Fix.** Add the Compile item, or drop the file from the ticket outputs if it is retired. The user confirms the fix.
