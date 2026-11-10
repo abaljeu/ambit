@@ -42,7 +42,7 @@ let private orderFor
 let ``orderFromStart sets actorNodeId from the selector and the actor name`` () =
     let start = startWithDistinctIds ()
     let order, marker =
-        orderFor (fun item -> item.focusId) "test" start
+        orderFor ActorOrderFromStart.focusIdOf "test" start
     Assert.Equal(start.focusId, order.actorNodeId)
     Assert.Equal("test", order.actorName)
     Assert.Same(marker, order.actor)

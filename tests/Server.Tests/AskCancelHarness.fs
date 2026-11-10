@@ -76,7 +76,8 @@ let private createHost keys repos grok =
     let install =
         { keys = keys
           repos = repos
-          grok = grok }
+          grok = grok
+          search = SearchActor.searchActorAt }
     let pool = CoreActorPool.createWithInstall install
     pool.register (ActorName "test") TestActor.actorFn
     let host =
@@ -299,7 +300,7 @@ let startAiRun (host: MailboxHost) (request: ActorStart) =
     match aiPools.TryGetValue host with
     | false, _ -> Task.FromResult(Error "ai host binding missing")
     | true, pool ->
-        match pool.aiInstall with
+        match pool.bootActors with
         | None -> Task.FromResult(Error "ai host binding missing")
         | Some install ->
             let order =

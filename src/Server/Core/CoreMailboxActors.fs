@@ -77,7 +77,8 @@ module internal CoreMailboxActors =
             | Error err -> Error err
             | Ok _ -> Ok ()
 
-    /// Query and named starts both use the ID-bag start.
+    /// A named start uses the ID-bag start.
+    /// A query Run uses `queueAdmittedQuery`.
     /// `startFunction` stays unused on this path.
     let private startChosen
         (context: MailboxContext)
@@ -214,8 +215,10 @@ module internal CoreMailboxActors =
                 reply.Reply(placed)
             })
 
-    /// Admitted `?test` Run. The ack is the placed StartActor EventId.
-    let private queueAdmittedTest
+    /// Admitted Run. `actorNodeId` is the focus id.
+    let private queueAdmittedFocus
+        (makeActor: NodeId -> NodeId -> Gambol.Shared.ActorFunction)
+        (actorName: string)
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
@@ -223,11 +226,19 @@ module internal CoreMailboxActors =
         =
         let order =
             ActorOrderFromStart.orderFromStart
-                TestActor.functionActorAt
-                "test"
-                (fun start -> start.focusId)
+                makeActor
+                actorName
+                ActorOrderFromStart.focusIdOf
                 request
         postBuiltOrder context caller reply order
+
+    /// Admitted `?test` Run. The ack is the placed StartActor EventId.
+    let private queueAdmittedTest =
+        queueAdmittedFocus TestActor.functionActorAt "test"
+
+    /// Admitted query Run. `actorNodeId` is the focus id.
+    let private queueAdmittedQuery =
+        queueAdmittedFocus SearchActor.functionActorAt "query"
 
     /// Admitted `?ai` Run. `actorNodeId` is the focus id `cancelByFocus` uses.
     let private queueAdmittedAi
@@ -236,7 +247,7 @@ module internal CoreMailboxActors =
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
-        match context.pool.aiInstall with
+        match context.pool.bootActors with
         | None -> reply.Reply(Error "ai actor is not installed")
         | Some install ->
             let order =
@@ -277,19 +288,31 @@ module internal CoreMailboxActors =
             | Ok stored ->
                 CoreMailboxEvents.replyStored reply stored
 
+    let private admittedQueue context caller request reply =
+        match actorNameOn context request.runDefinitionId with
+        | Some "test" ->
+            Some (fun () ->
+                queueAdmittedTest context caller request reply)
+        | Some "ai" ->
+            Some (fun () ->
+                queueAdmittedAi context caller request reply)
+        | _ when
+            SearchActor.isQueryRequest
+                (CoreMailboxEvents.graphNow context)
+                request ->
+            Some (fun () ->
+                queueAdmittedQuery context caller request reply)
+        | _ -> None
+
     let private postActorStart context caller event request reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with
         | Some stored ->
             CoreMailboxEvents.replyStored reply stored
         | None ->
-            match actorNameOn context request.runDefinitionId with
-            | Some "test" ->
-                whenAdmitted context caller reply (fun () ->
-                    queueAdmittedTest context caller request reply)
-            | Some "ai" ->
-                whenAdmitted context caller reply (fun () ->
-                    queueAdmittedAi context caller request reply)
-            | _ ->
+            match admittedQueue context caller request reply with
+            | Some queue ->
+                whenAdmitted context caller reply queue
+            | None ->
                 postChosenStart context caller event request reply
 
     let private postCancel context caller event focusId reply =

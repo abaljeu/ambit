@@ -395,7 +395,7 @@ module GithubTransportActor =
             { request = request
               actor = actor
               actorName = transportActorName operation
-              actorNodeIdOf = fun item -> item.focusId }
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
         async {
             let! placed =
                 CoreMailboxApi.coreMailboxStartActorFromFunction

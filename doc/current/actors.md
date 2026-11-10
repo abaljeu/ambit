@@ -20,12 +20,10 @@ An Actor is a thread from the .NET thread pool. It runs an actor function.
 [o] An Actor is the actor function.
 [o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
 [x] `startFunction` is the pool start. The actor function's input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id.
-[o] The mailbox calls `startActor` through `CoreMsg.StartActor`. Detail: Mailbox.
 [o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path.
-[o] `Order.StartActor` is a logged start.
+[x] `Order.StartActor` of `ActorOrder` is the logged actor start.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `actorNodeId`, `graphIds`, and `eventId`. The wire key for `actorNodeId` is `"commandId"`.
 [o] The browser `ActorStart` payload changes in this cutover.
-[ ] A dispatcher outside Core, `src/Server/ActorDispatch.fs`, maps a command name to an actor function. `Order.RunActor` stores the command name and the FocusId. Find and Move use that same order. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 [ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
 [o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
@@ -40,5 +38,6 @@ An Actor is a thread from the .NET thread pool. It runs an actor function.
 ## Pool
 
 [x] `CoreActorPool` keeps the live table: public Actor identity, secret, termination handle, and Focus. The mailbox is the only thread that reads or writes that table.
+[x] `BootActors` is the boot install record: `keys`, `repos`, `grok`, and `search`. The pool stores that record on `bootActors`.
 [o] The pool keeps a name table for `startActor` and a second name table for `startPeerActor`.
 [x] Persist thread: a thread. Detail: Parse and persist.

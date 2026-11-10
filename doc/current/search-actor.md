@@ -13,9 +13,8 @@ Find and Move share one Actor. Query does not use this Actor.
 ## Sources
 
 [GraphBuild](../../src/Shared/GraphBuild.fs) — TRASH id `trashId`
-[History](../../src/Shared/History.fs) — `ActorStart`
+[History](../../src/Shared/History.fs) — `Order.StartActor` of `ActorOrder`
 [ViewModelSearch](../../src/Shared/ViewModelSearch.fs) — `startSearch` and `takeResults`
-[Mailbox](mailbox.md) — the event source records that `ActorStart`
 
 ## Data
 
@@ -79,13 +78,12 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Uses
 
 [x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The zoom is the root. Detail: [Server](server.md).
-[o] ActorStart: the running Actor is recorded on the event source as `ActorStart`. `zoomId`, `actorNodeId`, and `graphIds` are the root. The shared `focusId` field holds that same root so `ActorStop` can pair with the start. Search does not read a focus. The walk reads the full server Graph from State at that start. One reply, then the queue puts `ActorStop` on the event source. Detail: [Mailbox](mailbox.md).
-[o] ActorStart: the running Actor is recorded on the event source as `Order.StartActor`. The shared `focusId` field holds the root so the stop notice can pair with the start. The walk reads the full server Graph from `Query.State` at that start. One reply, then the notice function posts `Notice.SearchStopped` on the event source. Detail: [Mailbox](mailbox.md).
-[o] `zoomId`, `actorNodeId`, and `graphIds` are fields of that start record. The wire key for `actorNodeId` is `"commandId"`.
-[ ] Find and Move `recordSearchStart` logs `Order.RunActor` of the command name and the FocusId. It does not write `Order.StartActor`. Detail: [Actor as client](../../plan/actor-as-client/project.md).
-[o] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. The mailbox cases are `RecordSearchStart` and `RecordSearchStop`. `changes` reads State. `recordStart` records `ActorStart`. `recordStop` is a queue message. The queue puts `ActorStop` on the event source. The id is the root.
-[o] Door: `recordStart` places `Order.RecordSearchStart`.
-[ ] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. `recordStart` logs `Order.RunActor`. `recordStop` posts `Notice.SearchStopped` of the root id through the notice function. It records the stop as `ActorSucceeded` for that root. `changes` asks `Query.State`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[x] Find and Move: `recordSearchStart` places `Order.StartActor` of `ActorOrder`. The actor name is `search`. The actor node id is the root, taken from `ActorStart.focusId`. The actor is `BootActors.search`.
+[x] Install: `RouteRegistration.CreateBoot` sets `BootActors.search` to `SearchActor.searchActorAt`. `searchDoor` passes that value into `recordSearchStart`. A pool with no install replies `search actor is not installed`.
+[x] Reply: `Api.searchReply` places the start, then returns `SearchActor.reply`. The Search Actor posts `ActorStop` of `ActorSucceeded` at the root. The walk reads the full server Graph from `Query.State`. Search does not read a focus.
+[x] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. `changes` asks `Query.State`. `CoreMsg` has `RecordSearchStop`.
+[ ] Door: `recordStop` posts `Notice.SearchStopped` of the root id through the notice function. It records the stop as `ActorSucceeded` for that root. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[x] A refused Find and Move start returns `400`. The body is `{ "error": "<failure>" }`.
 
 ## Seams
 

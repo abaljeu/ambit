@@ -69,13 +69,6 @@ module internal CoreEventDispatch =
           commandName = ""
           body = body }
 
-    let actorStart (context: Context) caller request =
-        lifecycleEvent
-            caller
-            (Gambol.Shared.EventBody.ActorStart request)
-        |> commit context
-        |> Result.map ignore
-
     let actorStop (context: Context) caller focusId result =
         let sharedResult =
             match result with

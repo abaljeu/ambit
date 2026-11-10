@@ -154,7 +154,10 @@ postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, st
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
 ```
 
-[x] `placeOrder` calls `startFunction` and runs `order.actor` on the .NET thread pool.
+[x] `replyActorOrder` sends the start to the pool before it appends `Order.StartActor`.
+[x] `startFunction` admits the actor. `schedule` launches `order.actor` on the .NET thread pool. The `Ok` credential is the affirmation.
+[x] `replyActorOrder` appends `Order.StartActor` after that affirmation.
+[x] A refusal from `admitFunctionStart` leaves the event log as it stood. The caller reply is that failure.
 [x] The mailbox supplies `getGraph` when `scheduleActorOrder` builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
@@ -174,6 +177,8 @@ startActor : ActorStart -> (unit -> Graph) -> Result<Credential, StartError>
 startPeerActor : PeerActorName -> ActorStart -> (unit -> Graph) -> Result<Credential, string>
 ```
 
+[x] `startFunction` returns `Ok` secret when `admitFunctionStart` accepts the node. That `Ok` is the affirmation. `replyActorOrder` appends `Order.StartActor` after it.
+[x] `admitFunctionStart` returns `Error "actor node already has a live Actor"` when that node is live. `startFunction` returns that error. The mailbox posts no row.
 [x] `putFunctionStart` mints the Actor credential and the Actor session id.
 
 ```fsharp
@@ -200,7 +205,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts `?test` through `queueTestOrder` and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
+[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, a query Run through `queueAdmittedQuery`, and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
@@ -208,6 +213,7 @@ postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> 
 
 [x] `postActorStart` for `?test` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postActorOrder` with that `Caller`.
 [x] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies `RunAgentActor.actorFn` to that `ActorStart`, builds `ActorOrder`, and calls **Post actor order** with that `Caller`.
+[x] `postActorStart` for a query Run calls `SearchActor.isQueryRequest`, applies `SearchActor.functionActorAt`, builds `ActorOrder` with `actorName` `query`, and calls **Post actor order**.
 
 ### Test command
 
@@ -235,7 +241,7 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 
 ### Query command
 
-[x] `postSearchRequest` records a search start.
+[x] `postSearchRequest` places Find and Move through `recordSearchStart`. That function posts `Order.StartActor`. The actor is `BootActors.search`, set by `RouteRegistration.CreateBoot` to `SearchActor.searchActorAt`.
 [ ] `postSearchRequest` builds the query `ActorFunction` through Curried actor and calls Post actor order.
 
 ```fsharp
@@ -274,41 +280,43 @@ actorNameFromText : string -> string option
 
 1. **Place an ActorOrder**
 
-[ ] The endpoint applies Curried actor. Post actor order sends the client's Caller. Place actor order runs the `ActorFunction`.
+[ ] The endpoint applies Curried actor. Post actor order sends the client's Caller. The pool admits and launches the `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
 
 ```fsharp
 Run command
 Posted run
 Curried actor
 Post actor order
-Place actor order
 Pool start
-Shared changes
 Pool launch
+Shared changes
+Place actor order
 ```
 
 2. **Run a query**
 
-[ ] Query command posts `Order.StartActor` of `ActorOrder`. Place actor order runs that `ActorFunction`.
+[ ] Query command sends the start to the pool. The pool admits and launches that `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
 
 ```fsharp
 Query command
 Curried actor
 Post actor order
-Place actor order
 Pool start
+Pool launch
+Place actor order
 ```
 
 3. **Git Load or Save**
 
-[ ] Load and save posts `Order.StartActor` of `ActorOrder` for git. Place actor order runs that `ActorFunction`.
+[ ] Load and save sends the git start to the pool. The pool admits and launches that `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
 
 ```fsharp
 Load and save
 Curried actor
 Post actor order
-Place actor order
 Pool start
+Pool launch
+Place actor order
 ```
 
 4. **Desk Load or Save**
@@ -333,12 +341,14 @@ Log actor order
 
 6. **Query start today**
 
-[x] `startChosen` builds the function inside the mailbox, then calls Pool start.
+[x] `postActorStart` sends a query Run to the pool. `replyActorOrder` appends `Order.StartActor` after the pool affirms. `startChosen` stays `pool.startActor` for a named start.
 
 ```fsharp
 Posted run
+Post actor order
 Pool start
 Pool launch
+Place actor order
 ```
 
 7. **Named start today**
@@ -423,7 +433,7 @@ Pool launch
     - Interface: `src/Server/RouteRegistration.fs` `postSearchRequest`
     - Uses:
       1. [ ] Curried actor
-      2. [ ] Post actor order
+      2. [x] Post actor order
 15. **Load and save**
     - Interface: `src/Server/Api.fs` `postLoadSaveCommand`
     - Uses:

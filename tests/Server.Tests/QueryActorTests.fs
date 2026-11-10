@@ -242,29 +242,30 @@ let ``equals-line ActorStart does not run the query function`` () =
                     match event.body with
                     | EventBody.Change _ -> true
                     | _ -> false)
+            let! stopped = waitStopEvent host lineId
+            match stopped with
+            | Some { body = EventBody.ActorStop(stopId, ActorQuery _) } ->
+                Assert.Equal(lineId, stopId)
+            | _ ->
+                failwith "ActorQuery missing"
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let failed =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(id, ActorFailed message) ->
-                        id = lineId && message = "unknown actor"
-                    | _ -> false)
-            Assert.True(failed, "ActorFailed missing")
-            let queried =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(_, ActorQuery _) -> true
-                    | _ -> false)
-            Assert.False(queried)
+            Assert.True(
+                hasStartActor "query" lineId history.events,
+                "StartActor missing")
         finally
             CoreMailboxApi.dispose host
     }
 
+let private hasActorFailed (events: Ev list) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStop(_, ActorFailed _) -> true
+        | _ -> false)
+
 [<Fact>]
-let ``query start error stores ActorStart and ActorFailed and keeps the edit`` () =
+let ``query start error posts no rows, fails the reply, and keeps the edit`` () =
     task {
         let hold = TaskCompletionSource<unit>()
         let actor (input: ActorInput) (changes: CoreChangesDoor) =
@@ -314,25 +315,27 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                     host testCaller
                     [ edit; queryStart root lineId again ]
                 |> Async.StartAsTask
-            requireOk "list" result |> ignore
-            let! history =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let failed =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(id, ActorFailed message) ->
-                        id = lineId
-                        && message = "focus already has a live Actor"
-                    | _ -> false)
-            Assert.True(failed, "ActorFailed missing")
+            let liveActorRefusal =
+                "actor node already has a live Actor"
+            match result with
+            | Error err ->
+                Assert.Contains(liveActorRefusal, err)
+            | Ok _ ->
+                failwith "expected the live-actor refusal"
             let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match after with
             | Error err -> failwith err
             | Ok afterState ->
-                Assert.Equal(
-                    lineText,
-                    afterState.graph.nodes.[lineId].text)
+                let editedLine = afterState.graph.nodes.[lineId].text
+                Assert.Equal(lineText, editedLine)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.False(
+                hasStartActor "query" lineId history.events,
+                "StartActor posted after the refusal")
+            Assert.False(
+                hasActorFailed history.events,
+                "ActorFailed posted after the refusal")
         finally
             hold.TrySetResult() |> ignore
             CoreMailboxApi.dispose host

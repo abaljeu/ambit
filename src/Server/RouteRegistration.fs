@@ -28,12 +28,13 @@ module RouteRegistration =
                 AuthUser = this.Auth.ExpectedUser
                 AuthPass = this.Auth.ExpectedPass
                 Actors = []
-                aiInstall =
+                bootActors =
                     Some
                         { keys = AiKeys.fromConfig this.Config
                           repos = AiRepos.fromConfig this.Config
                           grok =
-                            GrokBotSettings.fromConfigBinding this.Config }
+                            GrokBotSettings.fromConfigBinding this.Config
+                          search = SearchActor.searchActorAt }
             }
 
     let private errorTemplate (message: string) =
@@ -212,7 +213,16 @@ module RouteRegistration =
         { changes = changes
           recordStart =
             fun start ->
-                CoreMailboxApi.recordSearchStart host caller start
+                match persistence.Core.pool.bootActors with
+                | None ->
+                    async.Return
+                        (Error "search actor is not installed")
+                | Some install ->
+                    CoreMailboxApi.recordSearchStart
+                        host
+                        caller
+                        install.search
+                        start
           recordStop =
             fun rootId ->
                 async {

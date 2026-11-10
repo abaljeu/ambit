@@ -9,11 +9,6 @@ type internal CoreMsg =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest *
         AsyncReplyChannel<Result<unit, string>>
-    /// Search Actor bookkeeping. Records ActorStart. Does not run the walk.
-    | RecordSearchStart of
-        caller: Caller *
-        request: Gambol.Shared.ActorStart *
-        AsyncReplyChannel<Result<unit, string>>
     /// Search Actor bookkeeping. Puts ActorStop on the event source.
     /// The id is the root.
     | RecordSearchStop of

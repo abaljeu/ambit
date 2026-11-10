@@ -13,6 +13,10 @@ module ActorOrderFromStart =
           actorName: string
           actorNodeIdOf: ActorStart -> NodeId }
 
+    /// Actor node for a Run that cancels on the focus id.
+    let focusIdOf (start: ActorStart) : NodeId =
+        start.focusId
+
     let orderFromStart
         (makeActor: NodeId -> NodeId -> Gambol.Shared.ActorFunction)
         (actorName: string)

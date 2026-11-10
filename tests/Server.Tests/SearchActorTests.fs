@@ -227,11 +227,23 @@ let ``postSearch records ActorStart at the root`` () = task {
               startId = NodeId.New()
               generation = None }
         let body = Enc.toString 0 (SearchPicture.encodeRequest request)
+        let actorStopped = TaskCompletionSource<unit>()
+        let searchActor run changes =
+            async {
+                try
+                    do! SearchActor.searchActorAt run changes
+                finally
+                    actorStopped.TrySetResult() |> ignore
+            }
         let searchDoor: Api.SearchActorDoor =
             { changes = handle
               recordStart =
                 fun start ->
-                    CoreMailboxApi.recordSearchStart host testCaller start
+                    CoreMailboxApi.recordSearchStart
+                        host
+                        testCaller
+                        searchActor
+                        start
               recordStop =
                 fun rootId ->
                     async {
@@ -247,30 +259,19 @@ let ``postSearch records ActorStart at the root`` () = task {
         | :? ContentHttpResult -> ()
         | other ->
             failwith $"expected JSON content, got {other.GetType().Name}"
-        let! history =
+        do! actorStopped.Task
+        let! log =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let recorded =
-            history.events
-            |> List.tryPick (fun event ->
-                match event.body with
-                | EventBody.ActorStart start -> Some start
-                | _ -> None)
-        let start =
-            match recorded with
-            | Some start -> start
-            | None ->
-                failwith "ActorStart missing on the event source"
-        Assert.Equal(graph.root, start.zoomId)
-        Assert.Equal(graph.root, start.focusId)
-        Assert.Equal(graph.root, start.runDefinitionId)
-        Assert.Equal<NodeId list>([ graph.root ], start.graphIds)
+        let started =
+            hasStartActor "search" graph.root log.events
         let stopped =
-            history.events
+            log.events
             |> List.exists (fun event ->
                 match event.body with
                 | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
                     stoppedId = graph.root
                 | _ -> false)
+        Assert.True(started, "StartActor missing on the event source")
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally
         CoreMailboxApi.dispose host

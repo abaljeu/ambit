@@ -66,6 +66,18 @@ module SearchActor =
         | None -> []
         | Some node -> ExprRun.answerNodeIds lineId graph node.text
 
+    /// One query eval. The caller supplies the stop door.
+    let private queryActorBody
+        (getGraph: unit -> Graph)
+        (lineId: NodeId)
+        (stop: ActorResult -> Async<Result<unit, string>>)
+        =
+        async {
+            let result = ActorQuery (queryIds getGraph lineId)
+            let! _ = stop result
+            return ()
+        }
+
     /// Query Actor body. ActorStop carries the Node ids. It does not use
     /// the Find walk.
     let functionStart
@@ -75,15 +87,30 @@ module SearchActor =
         let lineId = request.runDefinitionId
         { actor =
             fun run changes ->
-                async {
-                    let result = ActorQuery (queryIds run.getGraph lineId)
-                    let! _ =
-                        CoreDoor.actorStop
-                            (CoreDoor.forCaller
-                                (actorCaller run.secret)
-                                changes)
-                            result
-                    return ()
-                }
+                let door =
+                    CoreDoor.forCaller (actorCaller run.secret) changes
+                queryActorBody
+                    run.getGraph
+                    lineId
+                    (CoreDoor.actorStop door)
           getGraph = getGraph
           actorNodeId = request.focusId }
+
+    /// Query command. `runDefinitionId` is the equals line.
+    let functionActorAt
+        (runDefinitionId: NodeId)
+        (_focusId: NodeId)
+        : ActorFunction =
+        fun run changes ->
+            queryActorBody
+                run.getGraph
+                runDefinitionId
+                changes.actorStop
+
+    /// Find and Move actor. The walk stays in the search reply.
+    let searchActorAt : ActorFunction =
+        fun _run changes ->
+            async {
+                let! _ = changes.actorStop ActorSucceeded
+                return ()
+            }

@@ -14,6 +14,8 @@ Keys: Ctrl+Enter and Alt+Enter. Any Mode.
 
 What it does: A line that starts with `?` starts that [Actor](doc/user/guide/actor.md). A line that contains `=` (including `= expr` and `name = expr`) starts a query [Actor](doc/user/guide/query-language.md). The [Amble](doc/user/reference/amble-language.md) evaluator runs on a line that starts with `>`, or on a line under an `=` owner when no `?` owner sits above it.
 
+[x] A second query Run on a line that already has a live Actor fails. A change sent with that Run stays in the outline.
+
 Related: [Cancel](#cancel).
 
 ## Cancel

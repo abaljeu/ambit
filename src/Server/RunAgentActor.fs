@@ -420,7 +420,7 @@ module RunAgentActor =
 
     /// Shared ActorFunction for one Run. The live row holds the session id.
     let actorFn
-        (install: AiInstall)
+        (install: BootActors)
         (sessionIdFor: Credential -> string option)
         (start: ActorStart)
         : Gambol.Shared.ActorFunction =
@@ -443,12 +443,12 @@ module RunAgentActor =
 
     /// `?ai` ActorOrder. `actorNodeId` is the focus id.
     let aiActorOrder
-        (install: AiInstall)
+        (install: BootActors)
         (sessionIdFor: Credential -> string option)
         (start: ActorStart)
         : ActorOrder =
         ActorOrderFromStart.orderFromStart
             (fun _ _ -> actorFn install sessionIdFor start)
             "ai"
-            (fun item -> item.focusId)
+            ActorOrderFromStart.focusIdOf
             start
