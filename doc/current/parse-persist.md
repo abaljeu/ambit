@@ -70,8 +70,8 @@ Parse and persist move text between disk and the graph.
 [Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
 [o] `WorkspaceGit.withWorkTreeGate`: the exclusive gate on Persist and git paths. [Workspace git](../../src/Server/WorkspaceGit.fs).
 [ ] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`.
-[ ] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
-[ ] An absent node conflicts with nothing.
+[x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
+[x] An absent node conflicts with nothing.
 [ ] A request waits on the same node, a taken ancestor, or a taken descendant.
 [ ] Locks are held only long enough to transfer data. A holder calls `withLock` once, runs a finite algorithm, and then releases.
 [x] A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
