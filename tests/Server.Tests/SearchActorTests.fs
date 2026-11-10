@@ -263,13 +263,7 @@ let ``postSearch records ActorStart at the root`` () = task {
         let! log =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let started =
-            log.events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorName = "search"
-                    && order.actorNodeId = graph.root
-                | _ -> false)
+            hasStartActor "search" graph.root log.events
         let stopped =
             log.events
             |> List.exists (fun event ->

@@ -450,5 +450,5 @@ module RunAgentActor =
         ActorOrderFromStart.orderFromStart
             (fun _ _ -> actorFn install sessionIdFor start)
             "ai"
-            (fun item -> item.focusId)
+            ActorOrderFromStart.focusIdOf
             start

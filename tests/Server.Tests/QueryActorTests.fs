@@ -250,15 +250,9 @@ let ``equals-line ActorStart does not run the query function`` () =
                 failwith "ActorQuery missing"
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let started =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorName = "query"
-                        && order.actorNodeId = lineId
-                    | _ -> false)
-            Assert.True(started, "StartActor missing")
+            Assert.True(
+                hasStartActor "query" lineId history.events,
+                "StartActor missing")
         finally
             CoreMailboxApi.dispose host
     }
@@ -329,16 +323,8 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                 Assert.Equal(lineText, editedLine)
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let storedQueryStart =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorName = "query"
-                        && order.actorNodeId = lineId
-                    | _ -> false)
             Assert.True(
-                storedQueryStart,
+                hasStartActor "query" lineId history.events,
                 "StartActor missing after the refusal")
         finally
             hold.TrySetResult() |> ignore

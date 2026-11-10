@@ -359,16 +359,18 @@ module CoreMailboxApi =
         (actor: ActorFunction)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        let order =
-            ActorOrderFromStart.orderFromStart
-                (fun _ _ -> actor)
-                "search"
-                (fun item -> item.focusId)
-                request
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = "search"
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
         async {
             let! placed =
-                MailboxHost.postActorOrder host caller order
-            return Result.map (fun _ -> ()) placed
+                coreMailboxStartActorFromFunction
+                    host
+                    caller
+                    placement
+            return Result.map ignore placed
         }
 
     /// Enqueue ActorStop for that Search Actor. The id is the root.

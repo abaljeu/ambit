@@ -482,6 +482,20 @@ let changeEvent commandName (id: EventId) submissionId ops : Ev =
       commandName = commandName
       body = EventBody.Change ops }
 
+/// True when the log holds Order.StartActor for that name and actor node.
+let hasStartActor
+    (actorName: string)
+    (actorNodeId: NodeId)
+    (events: Ev list)
+    =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.Order (Order.StartActor order) ->
+            order.actorName = actorName
+            && order.actorNodeId = actorNodeId
+        | _ -> false)
+
 /// Persisted changes also append Notice.NodePersisted. These are the other events.
 let changesOnly (events: Ev list) =
     events
