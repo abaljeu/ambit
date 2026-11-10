@@ -18,4 +18,4 @@
 
 One suggested fix waits for confirmation. This ticket folder has no review report that accepts it.
 
-[21 — Convert CoreMsg.ActorStop](plan/actor-as-client/issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) names ``query start error stores ActorStart and ActorFailed and keeps the edit``. The suggested fix points that input at ``query start error posts no rows, fails the reply, and keeps the edit``. The gate actor in that fact still calls `CoreDoor.actorStop`.
+[21 — Convert CoreMsg.ActorStop](plan/actor-as-client/issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) names ``query start error posts no rows, fails the reply, and keeps the edit``. The gate actor in that fact still calls `CoreDoor.actorStop`.
