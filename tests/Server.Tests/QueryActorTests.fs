@@ -257,8 +257,15 @@ let ``equals-line ActorStart does not run the query function`` () =
             CoreMailboxApi.dispose host
     }
 
+let private hasActorFailed (events: Ev list) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStop(_, ActorFailed _) -> true
+        | _ -> false)
+
 [<Fact>]
-let ``query start error stores ActorStart and ActorFailed and keeps the edit`` () =
+let ``query start error posts no rows, fails the reply, and keeps the edit`` () =
     task {
         let hold = TaskCompletionSource<unit>()
         let actor (input: ActorInput) (changes: CoreChangesDoor) =
@@ -323,9 +330,12 @@ let ``query start error stores ActorStart and ActorFailed and keeps the edit`` (
                 Assert.Equal(lineText, editedLine)
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            Assert.True(
+            Assert.False(
                 hasStartActor "query" lineId history.events,
-                "StartActor missing after the refusal")
+                "StartActor posted after the refusal")
+            Assert.False(
+                hasActorFailed history.events,
+                "ActorFailed posted after the refusal")
         finally
             hold.TrySetResult() |> ignore
             CoreMailboxApi.dispose host

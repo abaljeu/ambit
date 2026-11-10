@@ -189,16 +189,21 @@ module internal CoreMailboxLoop =
                     door)
         actor run changes
 
+    let private functionStartOf
+        (context: MailboxContext)
+        (order: ActorOrder)
+        : FunctionStart =
+        { actor = poolActor order.actor
+          getGraph = fun () -> CoreMailboxEvents.graphNow context
+          actorNodeId = order.actorNodeId }
+
+    /// The pool admits and launches. Ok secret is the affirmation.
     let private scheduleActorOrder
         (context: MailboxContext)
         (caller: Caller)
         (order: ActorOrder)
-        : Result<unit, string> =
-        let start : FunctionStart =
-            { actor = poolActor order.actor
-              getGraph = fun () -> CoreMailboxEvents.graphNow context
-              actorNodeId = order.actorNodeId }
-        match context.pool.startFunction start with
+        : Result<Credential, string> =
+        match context.pool.startFunction (functionStartOf context order) with
         | Error err -> Error err
         | Ok secret ->
             match context.coreChanges.Value with
@@ -207,8 +212,30 @@ module internal CoreMailboxLoop =
                 Error "mailbox not initialized"
             | Some make ->
                 context.pool.schedule secret (make caller)
-                Ok ()
+                Ok secret
 
+    let private replyAffirmedStart
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: AsyncReplyChannel<Result<EventId, string>>)
+        (order: ActorOrder)
+        (secret: Credential)
+        =
+        let body = EventBody.Order(Order.StartActor order)
+        match
+            CoreEventDispatch.appendLifecycle
+                (CoreMailboxEvents.eventDispatchContext context)
+                caller
+                placed.orderId.Value
+                body
+        with
+        | Error err ->
+            context.pool.drop secret
+            reply.Reply(Error err)
+        | Ok stored -> reply.Reply(Ok stored.id)
+
+    /// Pool first. StartActor is posted only after the affirmation.
     let private replyActorOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -219,19 +246,11 @@ module internal CoreMailboxLoop =
         match CoreMailboxEvents.admitCaller context caller with
         | Error err -> reply.Reply(Error err)
         | Ok () ->
-            let body = EventBody.Order(Order.StartActor order)
-            match
-                CoreEventDispatch.appendLifecycle
-                    (CoreMailboxEvents.eventDispatchContext context)
-                    caller
-                    placed.orderId.Value
-                    body
-            with
+            match scheduleActorOrder context caller order with
             | Error err -> reply.Reply(Error err)
-            | Ok stored ->
-                match scheduleActorOrder context caller order with
-                | Error err -> reply.Reply(Error err)
-                | Ok () -> reply.Reply(Ok stored.id)
+            | Ok secret ->
+                replyAffirmedStart
+                    context placed caller reply order secret
 
     let private replyStarted
         (reply: AsyncReplyChannel<Result<EventId, string>>)

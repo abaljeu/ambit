@@ -26,7 +26,7 @@ Stage is refactor in [09 — Start the query command](CONTEXT.md).
 
 1. **hasStartActor.** `hasStartActor` in `tests/Server.Tests/TestBackend.fs` matches `Order.StartActor` on actor name and actor node id.
 2. **Equals line.** ``equals-line ActorStart does not run the query function`` in `tests/Server.Tests/QueryActorTests.fs` calls `hasStartActor` for `query`.
-3. **Live actor.** ``query start error stores ActorStart and ActorFailed and keeps the edit`` calls `hasStartActor` for `query`.
+3. **Live actor.** ``query start error posts no rows, fails the reply, and keeps the edit`` checks the failed reply, the kept edit, and the absent start rows.
 4. **Find and Move.** ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` calls `hasStartActor` for `search`.
 5. **Selector fact.** ``orderFromStart sets actorNodeId from the selector and the actor name`` in `tests/Server.Tests/ActorOrderFromStartTests.fs` passes `focusIdOf`.
 
@@ -52,4 +52,4 @@ Stage is refactor in [09 — Start the query command](CONTEXT.md).
 
 1. **Transport start.** `start` in `src/Server/GithubTransportActor.fs` builds `FunctionActorPlacement` with a focus-id lambda and maps the placed `EventId` to unit.
 2. **Equals-line name.** The review judgement Mysterious Name stays on ``equals-line ActorStart does not run the query function``. The failure text is `ActorQuery missing`.
-3. **Refusal name.** The review judgement Mysterious Name stays on ``query start error stores ActorStart and ActorFailed and keeps the edit``. The failure text is `expected the live-actor refusal`.
+3. **Refusal name.** The review judgement Mysterious Name stays on ``query start error posts no rows, fails the reply, and keeps the edit``. The failure text is `expected the live-actor refusal`.

@@ -1,6 +1,6 @@
 # 09 — Start the query command
 **Status**: coded
-One job: The Server posts Find and Move and a query Run as `Order.StartActor` of `ActorOrder` after `admitCaller`. This ticket deletes `CoreMsg.RecordSearchStart`, and that delete removes `CoreEventDispatch.actorStart`.
+One job: The Server posts Find and Move and a query Run as `Order.StartActor` of `ActorOrder` after the pool admits the actor and launches it. A pool refusal posts no row. The reply is the failure. This ticket deletes `CoreMsg.RecordSearchStart`, and that delete removes `CoreEventDispatch.actorStart`.
 
 [x] `startFunction` stays. A query Run leaves `startChosen` and posts through `postBuiltOrder`.
 [x] Find and Move stays on `recordSearchStart`. That function posts `Order.StartActor`, and the Search Actor runs.
@@ -35,9 +35,9 @@ Blockers:
 [x] `tests/Server.Tests/AskCancelHarness.fs` builds the other `BootActors` literal and calls `CoreActorPool.createWithInstall`.
 [x] `CoreMailboxLoop.runMsg` calls `CoreEventDispatch.actorStart` for `RecordSearchStart`. `actorStart` logs `EventBody.ActorStart`, which is `Order.StartActorDeprecated` in `src/Shared/History.fs`. That `runMsg` arm is its only caller.
 [x] `CoreMailboxLoop.messageCaller`, `CoreMailboxEvents.operationContext`, and `CoreMailboxEvents.replyFailure` match `RecordSearchStart`.
-[x] `CoreMailboxLoop.replyActorOrder` logs `Order.StartActor` and calls `scheduleActorOrder`. `scheduleActorOrder` calls `startFunction`.
+[x] `CoreMailboxLoop.replyActorOrder` calls `startFunction` and `schedule` before it appends `Order.StartActor`. `admitFunctionStart` can refuse. A refusal posts no row. The reply is the failure.
 [x] `tests/Server.Tests/SearchActorTests.fs` calls `recordSearchStart` in ``postSearch records ActorStart at the root``.
-[x] ``equals-line ActorStart does not run the query function`` and ``query start error stores ActorStart and ActorFailed and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` post `EventBody.ActorStart` through `CoreMailboxApi.postEvents`.
+[x] ``equals-line ActorStart does not run the query function`` and ``query start error posts no rows, fails the reply, and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` post `EventBody.ActorStart` through `CoreMailboxApi.postEvents`.
 
 ### Reference
 
@@ -60,10 +60,10 @@ Blockers:
 3. [x] Change: `postActorStart` calls `whenAdmitted` and a queue function when `SearchActor.isQueryRequest` is true. That queue function copies `queueAdmittedTest`. It builds `ActorOrder` with `ActorOrderFromStart.orderFromStart` and `SearchActor.functionActorAt`, sets `actorName` to `query` and `actorNodeId` to `ActorStart.focusId`, and calls `postBuiltOrder`.
 4. [x] Contract: `startChosen` stays `context.pool.startActor`. A query Run does not call `startChosen`. A named start that is not `?test` or `?ai` still calls `startChosen`.
 5. [x] Change: `SearchActor.searchActorAt` returns the shared `ActorFunction`. The body calls `ActorChanges.actorStop` with `ActorSucceeded`. `Api.searchReply` still returns `SearchActor.reply`.
-6. [x] Change: `recordSearchStart` receives the search `ActorFunction` as a value. It does not name `SearchActor`. It builds the Find and Move order with `ActorOrderFromStart.orderFromStart` and that value. `actorName` is `search`. `actorNodeId` is `ActorStart.focusId`. It calls `MailboxHost.postActorOrder`. `CoreMailboxLoop.replyActorOrder` calls `admitCaller` before it appends that order. The value is `BootActors.search`. Extend `BootActors` in `src/Server/GrokBotSettings.fs` with `search`. `RouteRegistration.CreateBoot` sets `search` to `SearchActor.searchActorAt`. `CoreRuntime.createPublishing` and `CoreActorPool.createWithInstall` already copy that record onto the pool. `RouteRegistration.searchDoor` reads `persistence.Core.pool.bootActors` and passes `search` into `recordSearchStart`. This ticket extends `BootActors`. A sibling field on `CoreBoot` would copy the actor a second time. The `BootActors` literal in `tests/Server.Tests/AskCancelHarness.fs` sets `search`. `searchDoor` returns `Error "search actor is not installed"` when `bootActors` is `None`. A second query on a live actor node appends `Order.StartActor` before `admitFunctionStart` returns `actor node already has a live Actor`. That order stays in the log. `replyActorOrder` logs the order, and then `scheduleActorOrder` calls `startFunction`.
+6. [x] Change: `recordSearchStart` receives the search `ActorFunction` as a value. It does not name `SearchActor`. It builds the Find and Move order with `ActorOrderFromStart.orderFromStart` and that value. `actorName` is `search`. `actorNodeId` is `ActorStart.focusId`. It calls `MailboxHost.postActorOrder`. `CoreMailboxLoop.replyActorOrder` calls `admitCaller`, then the pool. The pool admits the actor and launches it. `replyActorOrder` appends `Order.StartActor` after that affirmation. The value is `BootActors.search`. Extend `BootActors` in `src/Server/GrokBotSettings.fs` with `search`. `RouteRegistration.CreateBoot` sets `search` to `SearchActor.searchActorAt`. `CoreRuntime.createPublishing` and `CoreActorPool.createWithInstall` already copy that record onto the pool. `RouteRegistration.searchDoor` reads `persistence.Core.pool.bootActors` and passes `search` into `recordSearchStart`. This ticket extends `BootActors`. A sibling field on `CoreBoot` would copy the actor a second time. The `BootActors` literal in `tests/Server.Tests/AskCancelHarness.fs` sets `search`. `searchDoor` returns `Error "search actor is not installed"` when `bootActors` is `None`. A second query on a live actor node asks the pool first. `startFunction` calls `admitFunctionStart`. The refusal is `actor node already has a live Actor`. `replyActorOrder` posts no `Order.StartActor` and no `ActorFailed`. The reply is that failure. The edit stays.
 7. [x] Contract: `Api.searchReply` no longer calls `recordStop`. The Search Actor posts that stop.
 8. [x] Contract: Delete `CoreMsg.RecordSearchStart`. Delete the `runMsg` arm, the `messageCaller` arm, the `operationContext` arm, and the `replyFailure` arm. Delete `CoreEventDispatch.actorStart` with that `runMsg` arm.
-9. [x] Change: ``equals-line ActorStart does not run the query function`` observes `Order.StartActor` and `ActorStop` of `ActorQuery` for an equals line. ``query start error stores ActorStart and ActorFailed and keeps the edit`` observes the refusal `actor node already has a live Actor` from `admitFunctionStart`, the edited equals line, and the `Order.StartActor` that stays after that refusal. ``postSearch records ActorStart at the root`` observes `Order.StartActor` and `ActorSucceeded` at the root.
+9. [x] Change: ``equals-line ActorStart does not run the query function`` observes `Order.StartActor` and `ActorStop` of `ActorQuery` for an equals line. ``query start error posts no rows, fails the reply, and keeps the edit`` observes the refusal `actor node already has a live Actor` from `admitFunctionStart`, the edited equals line, a failed reply, and no new `Order.StartActor` or `ActorFailed` row. ``postSearch records ActorStart at the root`` observes `Order.StartActor` and `ActorSucceeded` at the root.
 10. [x] Do not write `Order.StartActorDeprecated`. Do not add an `Order` case. Leave `Order` as the cases in `src/Shared/History.fs`.
 
 ## Outputs
@@ -79,7 +79,7 @@ Blockers:
 [x] `src/Server/GrokBotSettings.fs` — `BootActors.search`
 [x] `src/Server/RouteRegistration.fs` — `CreateBoot` sets `search`; `searchDoor` passes it
 [x] `tests/Server.Tests/AskCancelHarness.fs` — the `BootActors` literal sets `search`
-[x] `tests/Server.Tests/QueryActorTests.fs` — ``equals-line ActorStart does not run the query function`` and ``query start error stores ActorStart and ActorFailed and keeps the edit``
+[x] `tests/Server.Tests/QueryActorTests.fs` — ``equals-line ActorStart does not run the query function`` and ``query start error posts no rows, fails the reply, and keeps the edit``
 [x] `tests/Server.Tests/SearchActorTests.fs` — ``postSearch records ActorStart at the root``
 [x] `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs` — `startFunction` stays green, and this file stays unchanged
 
