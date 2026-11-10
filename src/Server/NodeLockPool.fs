@@ -2,6 +2,7 @@ namespace Gambol.Server
 
 open System
 open System.Threading
+open System.Threading.Tasks
 open Gambol.Shared
 
 [<RequireQualifiedAccess>]
@@ -29,9 +30,53 @@ module NodeLockPool =
         entries: Entry list
     }
 
+    type private QueueWait = {
+        count: int
+        ready: TaskCompletionSource<unit>
+    }
+
     let private gate = obj ()
 
     let private table = ref { nextSeq = 0; entries = [] }
+
+    let private queueWaits = ref ([]: QueueWait list)
+
+    let private entryTotal () = List.length table.Value.entries
+
+    let private signalQueued () =
+        let count = entryTotal ()
+
+        let ready, waiting =
+            queueWaits.Value
+            |> List.partition (fun wait -> count >= wait.count)
+
+        queueWaits.Value <- waiting
+        ready |> List.iter (fun wait -> wait.ready.TrySetResult() |> ignore)
+
+    let private countPending () =
+        table.Value.entries
+        |> List.filter (fun entry -> entry.phase = Pending)
+        |> List.length
+
+    let internal entryCount () =
+        lock gate (fun () -> entryTotal ())
+
+    let internal pendingCount () =
+        lock gate (fun () -> countPending ())
+
+    let internal waitUntilQueued (count: int) =
+        lock gate (fun () ->
+            if entryTotal () >= count then
+                Task.CompletedTask
+            else
+                let ready =
+                    TaskCompletionSource<unit>(
+                        TaskCreationOptions.RunContinuationsAsynchronously)
+
+                queueWaits.Value <-
+                    { count = count; ready = ready } :: queueWaits.Value
+
+                ready.Task)
 
     let private ownerChain (graph: Graph) (startId: NodeId) : NodeId list =
         let rec walk
@@ -81,23 +126,28 @@ module NodeLockPool =
         | Pending -> taken.seq < request.seq
 
     let private conflicts (request: Entry) (taken: Entry) =
+        let eitherReaches (startId: NodeId) (targetId: NodeId) =
+            chainReaches request.graph startId targetId
+            || chainReaches taken.graph startId targetId
+
         if request.seq = taken.seq then
             false
+        elif not (takenBlocks request taken) then
+            false
+        elif request.nodeId = taken.nodeId then
+            true
         else
             let kind = kindOf request
-            let sameId = request.nodeId = taken.nodeId
 
             let ancestor =
-                (not sameId)
-                && waitsOnAncestor kind
-                && chainReaches request.graph request.nodeId taken.nodeId
+                waitsOnAncestor kind
+                && eitherReaches request.nodeId taken.nodeId
 
             let descendant =
-                (not sameId)
-                && NodeKind.container kind
-                && chainReaches taken.graph taken.nodeId request.nodeId
+                NodeKind.container kind
+                && eitherReaches taken.nodeId request.nodeId
 
-            takenBlocks request taken && (sameId || ancestor || descendant)
+            ancestor || descendant
 
     let private waiting (request: Entry) (entries: Entry list) =
         List.exists (conflicts request) entries
@@ -159,9 +209,14 @@ module NodeLockPool =
                 entries = entry :: table.Value.entries
             }
 
-            waitForTurn seq
-            update seq Held
-            Ok seq
+            try
+                signalQueued ()
+                waitForTurn seq
+                update seq Held
+                Ok seq
+            with _ ->
+                drop seq
+                reraise ()
 
     let private release (seq: int) =
         lock gate (fun () -> drop seq)

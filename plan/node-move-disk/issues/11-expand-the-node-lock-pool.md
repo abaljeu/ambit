@@ -18,6 +18,8 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [x] The pool is process-wide. One gate object guards the table. The action runs outside the gate. Table edits run inside the gate.
 [x] The gate uses `Monitor.Wait` and `Monitor.PulseAll` the way `NodeEnclosureLock` does. `PulseAll` runs when an entry is removed. A woken request checks the wait again inside the gate.
 [x] The pool removes the entry in `finally` when the action returns and when the action raises. The pool lets that exception propagate. `Error` before the entry is queued leaves the table as it was.
+[x] A throw after the entry is queued, and before that seq is returned to the caller, drops that seq and pulses. The action stays uncalled.
+[x] `waitUntilQueued`, `entryCount`, and `pendingCount` are internal. A test waits until the table holds that many entries, then checks the request stayed outside.
 [x] `Ok` is the action's value. `HolderHoldsLock` and `NodeAbsent` leave the action uncalled.
 [x] Persist, a move or a rename, and git pull plus marking nodes Unparsed are the holders of `withLock`. Each holder runs its algorithm and then releases.
 [x] Alan, 2026-11-10: keep the existing rule. A Directory or Workspace lock holds off a parse read under it. An in-flight parse read drains. A new parse read waits until release.
@@ -31,8 +33,8 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [x] A missing `graph.nodes` entry for the requested id returns `Error NodeLockRejection.NodeAbsent` before a wait.
 [x] The same thread id already `Pending` or `Held` returns `Error NodeLockRejection.HolderHoldsLock` before a second entry is queued. The first entry stays.
 [x] The owner chain is a walk of `graph.ownerParentByChild` on the request's `Graph`. The walk includes the start id. A visited set stops a cycle. That is the parent step `GraphQuery.enclosing` uses. The pool keeps the walk private and calls no `GraphQuery` function.
-[x] A taken id is an ancestor of the requested id when the walk from the requested id reaches the taken id and the two ids differ.
-[x] A taken id is a descendant of the requested id when the walk from the taken id reaches the requested id and the two ids differ. The descendant check walks taken ids.
+[x] A taken id is an ancestor of the requested id when a walk on the request's graph or the taken entry's graph, from the requested id, reaches the taken id, and the two ids differ.
+[x] A taken id is a descendant of the requested id when a walk on the request's graph or the taken entry's graph, from the taken id, reaches the requested id, and the two ids differ.
 [x] Taken means `Pending` or `Held`.
 [x] The same id conflicts for every kind.
 [x] A Workspace or Directory request conflicts while a descendant id is taken.
@@ -110,6 +112,8 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [x] ``a second request on a held node waits and the same thread is rejected`` — a second thread's `withLock` on the held File stays outside until release. The holding thread's nested `withLock` returns `Error NodeLockRejection.HolderHoldsLock` and the first entry stays. `withLock` on an id absent from `Graph.create()` returns `Error NodeLockRejection.NodeAbsent`. The holding action then raises, and the waiting thread enters after release.
 [x] ``a pending directory lock runs before a new descendant file`` — `withLock` on a File under the Directory is inside its action. `withLock` on that Directory stays outside. `withLock` on the other File under that Directory stays outside, and `withLock` on the sibling File owned by the Workspace enters during that wait. After the held File releases, the Directory enters and the other File stays outside. After the Directory releases, the other File enters.
 [x] ``a parse read under a locked directory waits until release`` — `withLock` on the Directory is inside its action. A parse read is `withLock` on the File under that Directory and stays outside. `withLock` on the sibling File owned by the Workspace enters during that wait. After the Directory releases, the parse read enters. Then that parse read is inside its action. `withLock` on the Directory stays outside. The sibling File enters during that wait. After the parse read releases, the Directory enters.
+[x] ``a request waits when the graphs disagree on a held file`` — the requester's graph places a held File under the requested Directory and the holder's graph does not, and the request stays pending. The reverse, a held Directory whose graph places the File under it while the requester's graph does not, also stays pending. Each request enters after release.
+[x] ``a thrown wait drops the pending entry`` — a wait that throws drops that pending row. The table then holds only the holder. After the holder releases, the table is empty.
 
 ## Stop when
 
