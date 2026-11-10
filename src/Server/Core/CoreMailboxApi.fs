@@ -352,15 +352,6 @@ module CoreMailboxApi =
         ActorOrderFromStart.orderFromPlacement placement
         |> MailboxHost.postActorOrder host caller
 
-    let startPeerActor
-        (host: MailboxHost)
-        (caller: Caller)
-        (peerName: PeerActorName)
-        (request: Gambol.Shared.ActorStart)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartPeerActor(caller, peerName, request, channel))
-
     /// Append ActorStart for a Search Actor. The walk stays off this queue.
     let recordSearchStart
         (host: MailboxHost)

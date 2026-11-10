@@ -12,9 +12,6 @@ module internal CoreMailboxLoop =
 
     let private runMsg (context: MailboxContext) (msg: CoreMsg) =
         match msg with
-        | StartPeerActor (caller, peerName, request, reply) ->
-            CoreMailboxActors.dispatchStartPeerActor
-                context caller peerName request reply
         | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
             CoreMailboxLoad.dispatchStartLoadSaveCommand
                 context caller path peerName request reply
@@ -61,7 +58,6 @@ module internal CoreMailboxLoop =
 
     let private messageCaller (msg: CoreMsg) =
         match msg with
-        | StartPeerActor (caller, _, _, _)
         | StartLoadSaveCommand (caller, _, _, _, _)
         | RecordSearchStart (caller, _, _)
         | RecordSearchStop (caller, _, _)

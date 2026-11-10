@@ -352,68 +352,6 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
     }
 
 [<Fact>]
-let ``plain Load of a Workspace still requires the git actor`` () =
-    task {
-        let dataDir = newTempDir ()
-        let pushed = ResizeArray<NodeId>()
-        let host =
-            CoreMailbox.hostWithParsePush
-                (CoreActorPool.create ())
-                (FileAgent.persist (FileAgent.create dataDir))
-                admittedCredentials
-                pushed.Add
-        try
-            let! _, workspaceId =
-                seedWorkspaceFile host "home" "note.txt"
-            let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest
-                        workspaceId
-                        LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                loaded)
-            Assert.Empty(pushed)
-        finally
-            CoreMailboxApi.dispose host
-    }
-
-[<Fact>]
-let ``explicit git Load of a File still requires the git actor`` () =
-    task {
-        let dataDir = newTempDir ()
-        let pushed = ResizeArray<NodeId>()
-        let host =
-            CoreMailbox.hostWithParsePush
-                (CoreActorPool.create ())
-                (FileAgent.persist (FileAgent.create dataDir))
-                admittedCredentials
-                pushed.Add
-        try
-            let! fileId, _ =
-                seedWorkspaceFile host "home" "note.txt"
-            let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest fileId LoadSavePrePick.Git)
-                |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                loaded)
-            Assert.Empty(pushed)
-        finally
-            CoreMailboxApi.dispose host
-    }
-
-[<Fact>]
 let ``ParseThread loop runs planParseFile for stacked File`` () =
     task {
         let dataDir = newTempDir ()

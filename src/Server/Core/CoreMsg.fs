@@ -3,11 +3,6 @@ namespace Gambol.Server
 open Gambol.Shared
 
 type internal CoreMsg =
-    | StartPeerActor of
-        caller: Caller *
-        peerName: PeerActorName *
-        request: Gambol.Shared.ActorStart *
-        AsyncReplyChannel<Result<unit, string>>
     | StartLoadSaveCommand of
         caller: Caller *
         path: LoadSavePath *

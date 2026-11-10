@@ -8,4 +8,4 @@ This folder is ticket 15 — Delete the old Actor starts.
 
 ## Stage
 
-defined
+coded

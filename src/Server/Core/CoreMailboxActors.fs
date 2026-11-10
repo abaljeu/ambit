@@ -102,23 +102,6 @@ module internal CoreMailboxActors =
                     context.pool.startActor start getState
                     |> Result.map Some))
 
-    let dispatchStartPeerActor
-        context
-        caller
-        peerName
-        request
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        =
-        let started =
-            dispatchActorStartResult
-                context
-                caller
-                request
-                (fun start getState ->
-                    context.pool.startPeerActor peerName start getState
-                    |> Result.mapError StartError.Rejected
-                    |> Result.map Some)
-        reply.Reply started
     let dispatchActorStop
         (context: MailboxContext)
         (caller: Caller)

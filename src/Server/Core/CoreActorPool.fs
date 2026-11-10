@@ -37,17 +37,11 @@ module StartError =
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      registerPeer: PeerActorName -> ActorFn -> unit
       startActor:
         Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, StartError>
       startFunction: FunctionStart -> Result<Credential, string>
-      startPeerActor:
-        PeerActorName ->
-            Gambol.Shared.ActorStart ->
-            (unit -> Graph) ->
-            Result<Credential, string>
       schedule: Credential -> CoreChangesDoor -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
@@ -85,7 +79,6 @@ module CoreActorPool =
 
     type private Model =
         { defs: Map<string, ActorFn>
-          peerDefs: Map<string, ActorFn>
           live: Map<Credential, LiveRow>
           bySession: Map<string, Credential> }
 
@@ -244,32 +237,16 @@ module CoreActorPool =
         | Error err -> Error err
         | Ok() -> putFunctionStart putLive request
 
-    let private runStartPeerActor putLive getModel peerName request getState =
-        let fullGraph = getState ()
-        match admitStart request (getModel ()) with
-        | Error err -> Error err
-        | Ok () ->
-            let (PeerActorName name) = peerName
-            match Map.tryFind name (getModel ()).peerDefs with
-            | None -> Error $"Peer Actor '{name}' not registered"
-            | Some actorFn ->
-                putActorStart putLive request fullGraph actorFn
-
     let startLoadSaveCommand
-        (run: LoadSaveContext)
+        (_run: LoadSaveContext)
         (path: LoadSavePath)
-        (choice: LoadPathChoice)
-        (request: LoadSaveCommandRequest)
+        (_choice: LoadPathChoice)
+        (_request: LoadSaveCommandRequest)
         : Result<Credential option, string>
         =
         match path with
-        | LoadSavePath.Desk -> Ok None
-        | LoadSavePath.Git ->
-            run.pool.startPeerActor
-                run.peerName
-                request.start
-                run.getGraph
-            |> Result.map Some
+        | LoadSavePath.Desk
+        | LoadSavePath.Git -> Ok None
 
     let private takePending (model: Model) secret =
         match Map.tryFind secret model.live with
@@ -313,7 +290,6 @@ module CoreActorPool =
     let create () : CoreActorPool =
         let mutable model =
             { defs = Map.empty
-              peerDefs = Map.empty
               live = Map.empty
               bySession = Map.empty }
         let getModel () = model
@@ -382,14 +358,8 @@ module CoreActorPool =
         { register =
             fun (ActorName name) actor ->
                 model <- { model with defs = Map.add name actor model.defs }
-          registerPeer =
-            fun (PeerActorName name) actor ->
-                model <-
-                    { model with
-                        peerDefs = Map.add name actor model.peerDefs }
           startActor = runStartActor putLive getModel
           startFunction = runStartFunction putLive getModel
-          startPeerActor = runStartPeerActor putLive getModel
           schedule = runSchedule takePendingBody
           isLive = fun secret -> Map.containsKey secret model.live
           admit = runAdmit (fun secret -> Map.containsKey secret model.live)
