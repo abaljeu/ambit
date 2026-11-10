@@ -23,11 +23,11 @@ One Event source means one ordered stream. Connected Events are queued in order,
 3. [x] Mailbox order — The one mailbox queue handles one message, then the next. A later message on that queue does not pass an earlier message. Detail: [Mailbox](mailbox.md).
 4. [o] Posted list — `postEvents` pushes each event onto the mailbox queue back to back. Another client's list cannot enter inside that push.
 5. [ ] Posted list — `PlaceOrder` pushes each `Order` onto the mailbox queue back to back. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
-6. [o] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. On ActorStart, a refusal and a fail are the same stored pair (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
-7. [ ] Credential only — The route checks the logged-in user before `PlaceOrder`. A client places `Order.RunActor` and `Order.Cancel`. A holder of the notice function posts `Notice.ActorStopped`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 9 Admission at the entry and §2 Cancel.
+6. [o] Credential only — The credential check refuses the whole list before anything applies. Client ActorStart and Cancel apply. A named start that uses `startChosen` stores a refusal as ActorStart and a failed ActorStop (`unknown actor`, or the `Rejected` message). A client ActorStop is not a client event type.
+7. [ ] Credential only — The route checks the logged-in user before `PlaceOrder`. A client places `Order.StartActor` of `ActorOrder` and `Order.Cancel`. A holder of the notice function posts `Notice.ActorStopped`.
 8. [o] A missing Actor name fails in the pool as `unknown actor`.
-9. [ ] The dispatcher outside Core maps the command name to an actor function. The pool start is `startFunction`. `Order.RunActor` stores the command name and the FocusId. Detail: [Actor as client](../../plan/actor-as-client/project.md).
-10. [o] `Order.StartActor` is a logged start.
+9. [x] A query Run and Find and Move place `Order.StartActor` of `ActorOrder`. The pool start for that order is `startFunction`.
+10. [x] A refused query Run returns `400` and an `error` string. Detail: HTTP contract.
 
 ## Parties
 
