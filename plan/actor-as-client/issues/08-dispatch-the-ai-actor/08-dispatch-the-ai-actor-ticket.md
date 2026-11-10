@@ -37,7 +37,7 @@ Blockers:
 
 ### Reference
 
-[x] [Arch](../../arch.md). The closure holds `GrokBotBinding`. Curried actor is `NodeId -> ActorFunction`.
+[x] [Arch](../../arch.md) **AI actor** names `RunAgentActor.actorFn` and `ActorStart`.
 [x] [07 — Start the test command](../07-dispatch-the-test-command/07-dispatch-the-test-command-ticket.md). The copy-from is `queueAdmittedTest`, `TestActor.functionActorAt`, `MailboxHost.postActorOrder`, and `admitCaller`.
 
 ## Do not load
