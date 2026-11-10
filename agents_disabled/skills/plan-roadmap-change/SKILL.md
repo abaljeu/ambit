@@ -5,7 +5,7 @@ description: Plans roadmap and architecture doc changes in doc/ with incremental
 
 # Plan Roadmap Change
 
-Follow [[.agents/rules/planning-docs.md]] and [[.agents/rules/markdown-writing.md]].
+Follow [[.agents/rules/markdown-writing.md]].
 
 ## Workflow
 

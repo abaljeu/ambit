@@ -25,7 +25,7 @@ This skill turns User Stories and map Decisions so far into a whole-feature arch
    - Pick **Sequence** once for the Project: `tracer-cut` | `module-build` | `expand-contract` (modes in [[.agents/skills/to-tickets/SKILL.md]]). Derive it from the story paths and seams. [[.agents/skills/to-tickets/SKILL.md]] propagates this field — it does not re-choose.
    - For Alternative considered, design it twice when the arrangement is non-obvious: invoke [[.agents/skills/codebase-design/DESIGN-IT-TWICE.md]].
    - Escape hatch: when a path will not settle, record it under Unsettled only. Do not open Wayfinder map tickets for unsettled paths. Resolve during Stage `arch` (grill / research / prototype as needed), then clear or shrink Unsettled. Do not send Stage back to `chart`.
-   - Status notes in arch cite tickets, sections, or Points — not git branch names ([[.agents/rules/planning-docs.md]]).
+   - Status notes in arch cite tickets, sections, or Points — not git branch names.
 
    Done: a complete draft exists for Story paths, Module map, Seams, Sequence, Alternative considered, and any Unsettled items; no uncommitted detail sits outside Unsettled.
 
