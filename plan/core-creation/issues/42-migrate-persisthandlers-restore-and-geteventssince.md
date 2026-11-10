@@ -43,7 +43,7 @@ Migrate the Poll/Load persist tail on **CoreMailboxAccess** and **CoreMailbox**.
 ## Comments
 
 - 2026-09-15 — Filed via `/to-tickets` for Story **Caller, persist, and Poll** only. CoreMailboxAccess migrate batch. Blocked by the story 5 expand and the Core migrate batch so ActorStart / ActorStop exist to persist.
-- 2026-09-19 — Independent Spec review approve → Status `done`. Report: [spec-review-41-42](../reports/spec-review-41-42.md). [46 — Mailbox History durability](46-mailbox-history-durability.md) three-way drop/apply is not a 42 gap. Compiled restore proof is [PersistHandlersRestoreTests](tests/Server.Tests/PersistHandlersRestoreTests.fs); [Issue42PersistHandlersTests](tests/Server.Tests/Issue42PersistHandlersTests.fs) is a duplicate and is not in the Server.Tests fsproj.
+- 2026-09-19 — Independent Spec review approve → Status `done`. Report: [spec-review-41-42](../reports/spec-review-41-42.md). [46 — Mailbox History durability](46-mailbox-history-durability.md) three-way drop/apply is not a 42 gap. Compiled restore proof is [PersistHandlersRestoreTests](tests/Server.Tests/PersistHandlersRestoreTests.fs).
 
 ## Time
 

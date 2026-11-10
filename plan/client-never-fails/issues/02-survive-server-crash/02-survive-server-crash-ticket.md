@@ -20,7 +20,7 @@ Blockers: [01 — Accept Notices](plan/client-never-fails/issues/01-accept-notic
 [ ] `SyncLogic.applySyncResponse` already folds `response.events`. This ticket leaves that function as it is.
 [ ] ``FileAgent applyEvent applies Ev Ops without leftover Change`` and ``DbAgent applyEvent applies Ev Ops without leftover Change`` in [[tests/Server.Tests/PersistApplyTests.fs]] call `applyEvent` then `appendEvent`.
 [ ] ``File startup does not replay the event log`` and ``Db recover applies Ops Ev ahead of projection revision`` in [[tests/Server.Tests/MailboxHistoryDurabilityTests.fs]] restart from an appended log.
-[ ] ``ActorStart persist Error does not keep Ev in mailbox log`` in [[tests/Server.Tests/Issue42PersistHandlersTests.fs]] covers an append `Error` of a string.
+[ ] ``ActorStart persist Error does not keep Ev in mailbox log`` in [[tests/Server.Tests/PersistHandlersRestoreTests.fs]] covers an append `Error` of a string.
 [ ] Private `applyThenAppend` in `tests/Server.Tests/PersistApplyTests.fs` already separates apply from append.
 [ ] `DbAgent.createForTestWithDependencies` in `src/Server/Core/DbAgent.fs` is the seam for a projection `Error` of a string.
 [ ] [[src/Server/Core/CoreEventDispatch.fs]] — append the Event, then write the durable Graph.

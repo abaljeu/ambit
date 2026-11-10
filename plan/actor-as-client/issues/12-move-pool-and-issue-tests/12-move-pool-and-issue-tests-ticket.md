@@ -2,7 +2,7 @@
 **Status**: defined
 One job: The pool deliver tests and the issue mailbox tests start an Actor with `startFunction` or with `postActorOrder`.
 
-[ ] Four test files. Same split as 11 — Move door and case tests.
+[ ] Three test files. Same split as 11 — Move door and case tests.
 
 Type:
 
@@ -18,7 +18,6 @@ Blockers:
 
 [ ] `tests/Server.Tests/CoreActorPoolDeliverTests.fs` calls `pool.startActor`.
 [ ] `tests/Server.Tests/Issue41CoreMailboxTests.fs` builds a `CoreActorPool` literal and starts an Actor.
-[ ] `tests/Server.Tests/Issue42PersistHandlersTests.fs` builds two `CoreActorPool` literals.
 [ ] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` builds a `CoreActorPool` literal.
 
 ### Reference
@@ -41,13 +40,12 @@ Blockers:
 
 [ ] `tests/Server.Tests/CoreActorPoolDeliverTests.fs`
 [ ] `tests/Server.Tests/Issue41CoreMailboxTests.fs`
-[ ] `tests/Server.Tests/Issue42PersistHandlersTests.fs`
 [ ] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs`
 
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/12-move-pool-and-issue-tests-stop.md`, then ask.
-[ ] Stop when a fifth test file must change.
+[ ] Stop when a fourth test file must change.
 
 ## Check
 
@@ -55,7 +53,6 @@ Blockers:
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: `CoreActorPoolDeliverTests`
   - `tests/Server.Tests`: `Issue41CoreMailboxTests`
-  - `tests/Server.Tests`: `Issue42PersistHandlersTests`
   - `tests/Server.Tests`: `MailboxHistoryDurabilityTests`
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/actor-as-client/reports/12-move-pool-and-issue-tests-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
