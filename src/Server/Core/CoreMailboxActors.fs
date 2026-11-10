@@ -198,6 +198,22 @@ module internal CoreMailboxActors =
         | None -> None
         | Some node -> CommandRequest.actorNameFromText node.text
 
+    let private postBuiltOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (reply: PostedReply)
+        (order: ActorOrder)
+        =
+        match context.coreChanges.Value with
+        | None -> reply.Reply(Error "mailbox not initialized")
+        | Some make ->
+            let host = (make caller).host
+            Async.Start(async {
+                let! placed =
+                    MailboxHost.postActorOrder host caller order
+                reply.Reply(placed)
+            })
+
     /// Admitted `?test` Run. The ack is the placed StartActor EventId.
     let private queueAdmittedTest
         (context: MailboxContext)
@@ -205,21 +221,13 @@ module internal CoreMailboxActors =
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
-        match context.coreChanges.Value with
-        | None -> reply.Reply(Error "mailbox not initialized")
-        | Some make ->
-            let order =
-                ActorOrderFromStart.orderFromStart
-                    TestActor.functionActorAt
-                    "test"
-                    (fun start -> start.focusId)
-                    request
-            let host = (make caller).host
-            Async.Start(async {
-                let! placed =
-                    MailboxHost.postActorOrder host caller order
-                reply.Reply(placed)
-            })
+        let order =
+            ActorOrderFromStart.orderFromStart
+                TestActor.functionActorAt
+                "test"
+                (fun start -> start.focusId)
+                request
+        postBuiltOrder context caller reply order
 
     /// Admitted `?ai` Run. `actorNodeId` is the focus id `cancelByFocus` uses.
     let private queueAdmittedAi
@@ -231,45 +239,23 @@ module internal CoreMailboxActors =
         match context.pool.aiInstall with
         | None -> reply.Reply(Error "ai actor is not installed")
         | Some install ->
-            match context.coreChanges.Value with
-            | None -> reply.Reply(Error "mailbox not initialized")
-            | Some make ->
-                let order =
-                    RunAgentActor.aiActorOrder
-                        install
-                        context.pool.sessionIdFor
-                        request
-                let host = (make caller).host
-                Async.Start(async {
-                    let! placed =
-                        MailboxHost.postActorOrder host caller order
-                    reply.Reply(placed)
-                })
+            let order =
+                RunAgentActor.aiActorOrder
+                    install
+                    context.pool.sessionIdFor
+                    request
+            postBuiltOrder context caller reply order
 
-    /// Same `admitCaller` gate as other command starts, then queue ActorOrder.
-    /// A refusal starts no Actor, so it stores no lifecycle row.
-    let private queueTestOrder
+    /// Admitted caller queues an ActorOrder. A refusal stores no lifecycle row.
+    let private whenAdmitted
         (context: MailboxContext)
         (caller: Caller)
-        (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
+        (queue: unit -> unit)
         =
         match CoreMailboxEvents.admitCaller context caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            queueAdmittedTest context caller request reply
-
-    /// Same `admitCaller` gate as `queueTestOrder`, then queue the `?ai` order.
-    let private queueAiOrder
-        (context: MailboxContext)
-        (caller: Caller)
-        (request: Gambol.Shared.ActorStart)
-        (reply: PostedReply)
-        =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            queueAdmittedAi context caller request reply
+        | Ok () -> queue ()
 
     let private postChosenStart
         context caller event request reply =
@@ -298,9 +284,11 @@ module internal CoreMailboxActors =
         | None ->
             match actorNameOn context request.runDefinitionId with
             | Some "test" ->
-                queueTestOrder context caller request reply
+                whenAdmitted context caller reply (fun () ->
+                    queueAdmittedTest context caller request reply)
             | Some "ai" ->
-                queueAiOrder context caller request reply
+                whenAdmitted context caller reply (fun () ->
+                    queueAdmittedAi context caller request reply)
             | _ ->
                 postChosenStart context caller event request reply
 

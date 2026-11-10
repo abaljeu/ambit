@@ -68,8 +68,10 @@ module CoreRuntime =
         : CoreRuntime * (NodeId -> unit) =
         let browserCaller, parseCaller = bootCallers boot
         let pool =
-            { CoreActorPool.create () with
-                aiInstall = boot.aiInstall }
+            match boot.aiInstall with
+            | None -> CoreActorPool.create ()
+            | Some install ->
+                CoreActorPool.createWithInstall install
         boot.Actors
         |> List.iter (fun (name, actorFn) -> pool.register name actorFn)
         let host, push =

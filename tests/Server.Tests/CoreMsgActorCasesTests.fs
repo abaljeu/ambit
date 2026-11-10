@@ -35,35 +35,24 @@ let private recordingPool () =
     let started = TaskCompletionSource<Gambol.Shared.ActorStart>()
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
-    let pool: CoreActorPool = {
-        register = fun _ _ -> ()
-        startActor =
-            fun request _ ->
-                started.TrySetResult request |> ignore
-                Ok (Credential "recorded")
-        startFunction = fun _ -> Error "unused"
-        schedule = fun _ _ -> ()
-        isLive = fun secret -> live.Contains secret
-        admit = fun _ -> Ok ()
-        drop = fun _ -> ()
-        finish =
-            fun secret result ->
-                live.Remove secret |> ignore
-                stopped.Add(secret, result)
-                Ok ()
-        liveActorNodeIds = fun () -> Set.empty
-        getActorNodeId =
-            fun secret ->
-                if live.Contains secret then
-                    Some sampleRequest.focusId
-                else
-                    None
-        trySecretForActorNode = fun _ -> None
-        deliver = fun _ -> Error "not live"
-        takeInbox = fun _ -> Error "not live"
-        sessionIdFor = fun _ -> None
-        aiInstall = None
-    }
+    let pool =
+        { poolForFixedSecret (Credential "recorded") with
+            startActor =
+                fun request _ ->
+                    started.TrySetResult request |> ignore
+                    Ok (Credential "recorded")
+            isLive = fun secret -> live.Contains secret
+            finish =
+                fun secret result ->
+                    live.Remove secret |> ignore
+                    stopped.Add(secret, result)
+                    Ok ()
+            getActorNodeId =
+                fun secret ->
+                    if live.Contains secret then
+                        Some sampleRequest.focusId
+                    else
+                        None }
     started, stopped, live, pool
 
 let private createHost dataDir pool =
@@ -257,36 +246,22 @@ let ``ActorStop checks the live receipt once`` () =
     let live = ResizeArray<Credential>()
     let actorSecret = Credential "actor-once"
     live.Add actorSecret
-    let pool: CoreActorPool = {
-        register = fun _ _ -> ()
-        startActor =
-            fun _ _ ->
-                Ok actorSecret
-        startFunction = fun _ -> Error "unused"
-        schedule = fun _ _ -> ()
-        isLive =
-            fun secret ->
-                isLiveCalls.Add secret
-                live.Contains secret
-        admit = fun _ -> Ok ()
-        drop = fun _ -> ()
-        finish =
-            fun secret _ ->
-                live.Remove secret |> ignore
-                Ok ()
-        liveActorNodeIds = fun () -> Set.empty
-        getActorNodeId =
-            fun secret ->
-                if live.Contains secret then
-                    Some sampleRequest.focusId
-                else
-                    None
-        trySecretForActorNode = fun _ -> None
-        deliver = fun _ -> Error "not live"
-        takeInbox = fun _ -> Error "not live"
-        sessionIdFor = fun _ -> None
-        aiInstall = None
-    }
+    let pool =
+        { poolForFixedSecret actorSecret with
+            isLive =
+                fun secret ->
+                    isLiveCalls.Add secret
+                    live.Contains secret
+            finish =
+                fun secret _ ->
+                    live.Remove secret |> ignore
+                    Ok ()
+            getActorNodeId =
+                fun secret ->
+                    if live.Contains secret then
+                        Some sampleRequest.focusId
+                    else
+                        None }
     withHost pool (fun host -> task {
         let! result =
             postActorStop

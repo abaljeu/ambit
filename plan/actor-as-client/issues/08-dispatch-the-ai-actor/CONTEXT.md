@@ -8,4 +8,4 @@ This folder is ticket 08 — Start the AI Actor.
 
 ## Stage
 
-defined
+refactor

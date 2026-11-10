@@ -25,22 +25,7 @@ let private actorCaller secret =
       name = ""
       secret = secret }
 
-let private stubPool secret : CoreActorPool =
-    { register = fun _ _ -> ()
-      startActor = fun _ _ -> Ok secret
-      startFunction = fun _ -> Error "unused"
-      schedule = fun _ _ -> ()
-      isLive = fun s -> s = secret
-      admit = fun _ -> Ok ()
-      drop = fun _ -> ()
-      finish = fun _ _ -> Ok ()
-      liveActorNodeIds = fun () -> Set.empty
-      getActorNodeId = fun _ -> Some Graph.rootId
-      trySecretForActorNode = fun _ -> None
-      deliver = fun _ -> Error "not live"
-      takeInbox = fun _ -> Error "not live"
-      sessionIdFor = fun _ -> None
-      aiInstall = None }
+let private stubPool secret = poolForFixedSecret secret
 
 let private hostFile dir secret =
     CoreMailbox.host

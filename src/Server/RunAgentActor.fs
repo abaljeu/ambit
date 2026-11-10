@@ -100,11 +100,7 @@ module RunAgentActor =
 
     let private nodeGuid (NodeId value) = value.ToString()
 
-    let private postReplace
-        (_input: ActorInput)
-        (changes: ActorChanges)
-        ops
-        =
+    let private postReplace (changes: ActorChanges) ops =
         async {
             let event =
                 { id = EventId.zero
@@ -177,7 +173,7 @@ module RunAgentActor =
                 [ Op.NewNode(add.childId, add.text)
                   ChildListWire.replace
                     add.parentId oldChildren newChildren ]
-            do! postReplace input changes ops
+            do! postReplace changes ops
             return Map.add add.parentId newChildren lists
         }
 
@@ -406,7 +402,7 @@ module RunAgentActor =
                     match planned with
                     | Error _ -> return ActorFailed ""
                     | Ok ops ->
-                        do! postReplace input coreChanges ops
+                        do! postReplace coreChanges ops
                         return ActorSucceeded
         }
 

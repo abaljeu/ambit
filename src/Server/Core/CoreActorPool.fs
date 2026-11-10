@@ -289,95 +289,132 @@ module CoreActorPool =
         pool.drop secret
         reply.Reply(Error err)
 
-    let create () : CoreActorPool =
-        let mutable model =
-            { defs = Map.empty
-              live = Map.empty
-              bySession = Map.empty }
-        let getModel () = model
-        let putLive secret actorNodeId runDefinitionId sessionId pending =
-            let row =
-                { actorNodeId = actorNodeId
-                  runDefinitionId = runDefinitionId
-                  sessionId = sessionId
-                  inbox = []
-                  cancel = new System.Threading.CancellationTokenSource()
-                  pending = Some pending }
-            model <-
+    let private emptyModel () =
+        { defs = Map.empty
+          live = Map.empty
+          bySession = Map.empty }
+
+    let private liveRow actorNodeId runDefinitionId sessionId pending =
+        { actorNodeId = actorNodeId
+          runDefinitionId = runDefinitionId
+          sessionId = sessionId
+          inbox = []
+          cancel = new System.Threading.CancellationTokenSource()
+          pending = Some pending }
+
+    let private addLive
+        (model: Model)
+        secret
+        actorNodeId
+        runDefinitionId
+        sessionId
+        pending
+        =
+        let row =
+            liveRow actorNodeId runDefinitionId sessionId pending
+        { model with
+            live = Map.add secret row model.live
+            bySession = Map.add sessionId secret model.bySession }
+
+    let private removeLive (model: Model) secret =
+        match Map.tryFind secret model.live with
+        | None -> model, None
+        | Some row ->
+            let next =
                 { model with
-                    live = Map.add secret row model.live
-                    bySession = Map.add sessionId secret model.bySession }
-        let takeLive secret =
-            match Map.tryFind secret model.live with
-            | None -> None
-            | Some row ->
-                model <-
-                    { model with
-                        live = Map.remove secret model.live
-                        bySession =
-                            Map.remove row.sessionId model.bySession }
-                Some row
-        let takePendingBody secret =
-            let next, pending = takePending model secret
-            model <- next
-            pending
-        let liveRowFor sessionId =
-            Map.tryFind sessionId model.bySession
-            |> Option.bind (fun secret ->
-                Map.tryFind secret model.live
-                |> Option.map (fun row -> secret, row))
-        let deliver (sessionId, text) =
-            match liveRowFor sessionId with
-            | None -> Error "not live"
-            | Some(secret, row) ->
-                let next =
-                    { row with inbox = text :: row.inbox }
-                model <-
-                    { model with
-                        live = Map.add secret next model.live }
-                Ok()
-        let takeInbox sessionId =
-            match liveRowFor sessionId with
-            | None -> Error "not live"
-            | Some(secret, row) ->
-                let texts = List.rev row.inbox
-                model <-
-                    { model with
-                        live =
-                            Map.add
-                                secret
-                                { row with inbox = [] }
-                                model.live }
-                Ok texts
-        let sessionIdFor secret =
+                    live = Map.remove secret model.live
+                    bySession =
+                        Map.remove row.sessionId model.bySession }
+            next, Some row
+
+    let private rowForSession (model: Model) sessionId =
+        Map.tryFind sessionId model.bySession
+        |> Option.bind (fun secret ->
             Map.tryFind secret model.live
-            |> Option.map (fun row -> row.sessionId)
-        let clearLive () =
-            let live = model.live
-            model <-
+            |> Option.map (fun row -> secret, row))
+
+    let private deliverTo (model: Model) (sessionId, text) =
+        match rowForSession model sessionId with
+        | None -> model, Error "not live"
+        | Some(secret, row) ->
+            let next = { row with inbox = text :: row.inbox }
+            let updated =
                 { model with
-                    live = Map.empty
-                    bySession = Map.empty }
-            live |> Map.iter (fun _ row -> row.cancel.Cancel())
+                    live = Map.add secret next model.live }
+            updated, Ok ()
+
+    let private takeInboxOf (model: Model) sessionId =
+        match rowForSession model sessionId with
+        | None -> model, Error "not live"
+        | Some(secret, row) ->
+            let texts = List.rev row.inbox
+            let updated =
+                { model with
+                    live =
+                        Map.add
+                            secret
+                            { row with inbox = [] }
+                            model.live }
+            updated, Ok texts
+
+    let private sessionOf (model: Model) secret =
+        Map.tryFind secret model.live
+        |> Option.map (fun row -> row.sessionId)
+
+    let private actorNodeOf (model: Model) secret =
+        Map.tryFind secret model.live
+        |> Option.map (fun row -> row.actorNodeId)
+
+    let private clearRows (model: Model) =
+        let live = model.live
+        let next =
+            { model with
+                live = Map.empty
+                bySession = Map.empty }
+        next, live
+
+    let private addDef (model: Model) name actor =
+        { model with defs = Map.add name actor model.defs }
+
+    let private newPool (aiInstall: AiInstall option) : CoreActorPool =
+        let mutable model = emptyModel ()
+        let getModel () = model
+        let commit (next, value) =
+            model <- next
+            value
+        let putLive secret actorNodeId runDefinitionId sessionId pending =
+            model <-
+                addLive model secret actorNodeId runDefinitionId sessionId pending
+        let takeLive secret = commit (removeLive model secret)
+        let takePendingBody secret = commit (takePending model secret)
+        let apply change = commit (change model)
+        let clearLive () =
+            let live = commit (clearRows model)
+            Map.iter (fun _ row -> row.cancel.Cancel()) live
+        let contains secret = Map.containsKey secret model.live
         ServerRunRegistry.registerPool clearLive
         { register =
             fun (ActorName name) actor ->
-                model <- { model with defs = Map.add name actor model.defs }
+                model <- addDef model name actor
           startActor = runStartActor putLive getModel
           startFunction = runStartFunction putLive getModel
           schedule = runSchedule takePendingBody
-          isLive = fun secret -> Map.containsKey secret model.live
-          admit = runAdmit (fun secret -> Map.containsKey secret model.live)
+          isLive = contains
+          admit = runAdmit contains
           drop = runDrop takeLive
           finish = runFinish takeLive
           liveActorNodeIds = fun () -> liveActorNodeIds model
-          getActorNodeId =
-            fun secret ->
-                Map.tryFind secret model.live
-                |> Option.map (fun row -> row.actorNodeId)
+          getActorNodeId = fun secret -> actorNodeOf model secret
           trySecretForActorNode =
             fun actorNodeId -> trySecretForActorNode model actorNodeId
-          deliver = deliver
-          takeInbox = takeInbox
-          sessionIdFor = sessionIdFor
-          aiInstall = None }
+          deliver = fun pair -> apply (fun current -> deliverTo current pair)
+          takeInbox =
+            fun sessionId ->
+                apply (fun current -> takeInboxOf current sessionId)
+          sessionIdFor = fun secret -> sessionOf model secret
+          aiInstall = aiInstall }
+
+    let create () = newPool None
+
+    let createWithInstall (install: AiInstall) =
+        newPool (Some install)

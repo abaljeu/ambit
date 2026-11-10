@@ -234,29 +234,14 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
     live.Add actorSecret
-    let recordingPool: CoreActorPool = {
-        register = fun _ _ -> ()
-        startActor =
-            fun _ _ ->
-                Ok actorSecret
-        startFunction = fun _ -> Error "unused"
-        schedule = fun _ _ -> ()
-        isLive = fun secret -> live.Contains secret
-        admit = fun _ -> Ok ()
-        drop = fun _ -> ()
-        finish =
-            fun secret result ->
-                live.Remove secret |> ignore
-                stopped.Add(secret, result)
-                Ok ()
-        liveActorNodeIds = fun () -> Set.empty
-        getActorNodeId = fun _ -> Some Graph.rootId
-        trySecretForActorNode = fun _ -> None
-        deliver = fun _ -> Error "not live"
-        takeInbox = fun _ -> Error "not live"
-        sessionIdFor = fun _ -> None
-        aiInstall = None
-    }
+    let recordingPool =
+        { poolForFixedSecret actorSecret with
+            isLive = fun secret -> live.Contains secret
+            finish =
+                fun secret result ->
+                    live.Remove secret |> ignore
+                    stopped.Add(secret, result)
+                    Ok () }
     task {
         let dataDir = newTempDir ()
         let host =
@@ -319,28 +304,14 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
     let actorSecret = Credential "actor-live"
     let live = ResizeArray<Credential>()
     live.Add actorSecret
-    let recordingPool: CoreActorPool = {
-        register = fun _ _ -> ()
-        startActor =
-            fun _ _ ->
-                Ok actorSecret
-        startFunction = fun _ -> Error "unused"
-        schedule = fun _ _ -> ()
-        isLive = fun secret -> live.Contains secret
-        admit = fun _ -> Ok ()
-        drop = fun _ -> ()
-        finish =
-            fun secret result ->
-                live.Remove secret |> ignore
-                Ok ()
-        liveActorNodeIds = fun () -> Set.empty
-        getActorNodeId = fun _ -> Some sampleRequest.focusId
-        trySecretForActorNode = fun _ -> None
-        deliver = fun _ -> Error "not live"
-        takeInbox = fun _ -> Error "not live"
-        sessionIdFor = fun _ -> None
-        aiInstall = None
-    }
+    let recordingPool =
+        { poolForFixedSecret actorSecret with
+            isLive = fun secret -> live.Contains secret
+            finish =
+                fun secret _ ->
+                    live.Remove secret |> ignore
+                    Ok ()
+            getActorNodeId = fun _ -> Some sampleRequest.focusId }
     task {
         let dataDir = newTempDir ()
         let host =
