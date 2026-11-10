@@ -33,3 +33,7 @@
 ## 4. Ask
 
 [x] Land 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, 07 — Move an owned node across workspaces, and 08 — Amend a change conflict before the graph is stored on staging. Then run this build again.
+
+## 5. Persist path lock
+
+[x] [13 — Lock the persist path moves](../issues/13-lock-the-persist-path-moves.md) wraps the `File.Move` and `Directory.Move` path in `persistGraphChangeWith`. 09 — Relocate under the node lock puts the relocation from 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, 07 — Move an owned node across workspaces, and 08 — Amend a change conflict before the graph is stored under that lock.

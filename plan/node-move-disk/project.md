@@ -36,3 +36,4 @@ The operation does not merge.
 - [10 — Reject an unparsed persist request](issues/10-reject-an-unparsed-persist-request.md)
 - [11 — Expand the node lock pool](issues/11-expand-the-node-lock-pool.md)
 - [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md) — 11 has passed review, so this ticket is unblocked. The pool stores no graph. Conflict checks read the live graph passed with the request. An absent node conflicts with nothing. `HolderHoldsLock` stays.
+- [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves.md) — `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced `File.Move` and `Directory.Move`. 11 — Expand the node lock pool, 12 — Compare locks on the live graph, and 31 — Migrate onto the workspace lock have passed review.

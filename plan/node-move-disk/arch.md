@@ -138,6 +138,7 @@ persistGraphOps : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, 
 [x] `persistGraphChange` and `persistGraphOps` call `persistGraphChangeWith`.
 [x] Call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are in `tests/Server.Tests`.
 [o] `File.Move` and `Directory.Move` are the relocation.
+[ ] `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced path move from `planPathMovesBetweenGraphs` and `coalescePathMoves` before `File.Move` or `Directory.Move`. Ticket: [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves.md).
 
 ### Same-workspace relocate
 
@@ -207,7 +208,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [x] A holder that already holds a pool lock and requests another gets `Error NodeLockRejection.HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
 [x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
 [x] The lock records the node. A path match is outside this lock.
-[ ] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node.
+[ ] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node. 13 — Lock the persist path moves holds this gate around each coalesced path move in `persistGraphChangeWith`.
 [ ] Fetch runs to completion first. Fetch holds no `withLock`.
 [ ] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
 [ ] A Directory move calls `withLock` on the Directory Node.
@@ -346,6 +347,7 @@ Accept validation
 6. **Move under the node lock**
 
 [ ] The relocate caller calls `NodeLockPool.withLock` on the moved node. That request waits while a conflicting persist or parse read is taken. Same-workspace relocate or Cross-workspace move runs git inside the action. The action's return releases the request. A persist that waited on that request then writes.
+[ ] 13 — Lock the persist path moves holds that `withLock` around the coalesced `File.Move` and `Directory.Move` in `persistGraphChangeWith`. 09 — Relocate under the node lock runs the relocation from 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, 07 — Move an owned node across workspaces, and 08 — Amend a change conflict before the graph is stored under that lock.
 
 ```fsharp
 Move write gate
@@ -391,6 +393,7 @@ Persist thread write
 8. **Disk relocate**
    - Interface: `src/Server/DocumentPersistChange.fs` `executePathMoves`
    - [o] `File.Move` and `Directory.Move`
+   - [ ] `NodeLockPool.withLock` around each coalesced move. 13 — Lock the persist path moves.
    - Uses:
      1. [x] Path comparison
      2. [x] Path coalesce
