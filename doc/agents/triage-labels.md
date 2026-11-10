@@ -1,6 +1,6 @@
 # Status
 
-This file is the single source of truth for the **Status** list on every ticket. Glossary names: [[GLOSSARY.md]]. **Stage** is [[project-status.md]]. Tracker operations: [[issue-tracker.md]].
+This file is the single source of truth for the **Status** list on every ticket. Glossary names: [[GLOSSARY.md]]. **Stage** is [[project-status.md]].
 
 `**Status:**` is a ticket field only. Projects, Epics, Chapters, and the Roadmap do not carry Status.
 
@@ -12,4 +12,4 @@ This file is the single source of truth for the **Status** list on every ticket.
 | `done` | Alan has tried the program |
 | `cancelled` | Reject or abandon this ticket |
 
-Each value names the next action, or a closed end. Use `defined` when the spec is complete. `Blocked by:` is the list of blocking issues and carries dependency order; Status is spec readiness. An unblocked `defined` ticket is the implement frontier. Represent an external wait with a blocking issue instead of a Status value. Closed is `done` only. Implement writes `coded`. Alan, 2026-11-10: Status becomes `done` only after Alan has tried the program. Review approval and land leave the ticket `coded`. Git **agent-done** is not `coded` and not `done`. Do not write `blocked`, `ready-for-agent`, `ready-for-human`, or `ready-to-implement` on new tickets. Existing tickets may still carry retired values; when touched, replace them with a current Status without rewriting unrelated history. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.
+Each value names the next action, or a closed end. Use `defined` when the spec is complete. `Blocked by:` is the list of blocking issues and carries dependency order; Status is spec readiness. A ticket is unblocked when every listed ticket is `done`. An unblocked `defined` ticket is the implement frontier. Represent an external wait with a blocking issue instead of a Status value. Closed is `done` only. Implement writes `coded`. Alan, 2026-11-10: Status becomes `done` only after Alan has tried the program. Review approval and land leave the ticket `coded`. Git **agent-done** is not `coded` and not `done`. Do not write `blocked`, `ready-for-agent`, `ready-for-human`, or `ready-to-implement` on new tickets. Existing tickets may still carry retired values; when touched, replace them with a current Status without rewriting unrelated history. `cancelled` is reject or abandon of a ticket, not Stage `dead`. Do not use `needs-triage`, `wontfix`, `open`, `resolved`, `claimed`, `closed`, `agent-done`, or `in-progress`. Do not use `dead` on a ticket; `dead` is a Stage.

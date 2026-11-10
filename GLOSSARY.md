@@ -36,7 +36,7 @@ An interview method that refines a concept that is already clear. Not a Stage an
 _Avoid_: Stage: grilling, Status: grilling
 
 **Issue tracker**:
-Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
+Local Markdown under `plan/` for specs and issues; see [[plan/CONTEXT.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **master**:
