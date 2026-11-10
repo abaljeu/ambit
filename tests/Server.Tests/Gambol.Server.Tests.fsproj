@@ -28,7 +28,7 @@
     <Compile Include="GitSaveTests.fs" />
     <Compile Include="DailyGitSaveTests.fs" />
     <Compile Include="WorkspaceGitTests.fs" />
-    <Compile Include="NodeEnclosureLockTests.fs" />
+    <Compile Include="NodeLockPoolTests.fs" />
     <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GraphOnlyChangePostTests.fs" />
     <Compile Include="CoreChangesTests.fs" />
