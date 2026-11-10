@@ -228,16 +228,17 @@ module internal CoreMailboxActors =
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
         =
-        match RunAgentActor.installedActor request with
+        match context.pool.aiInstall with
         | None -> reply.Reply(Error "ai actor is not installed")
-        | Some actor ->
+        | Some install ->
             match context.coreChanges.Value with
             | None -> reply.Reply(Error "mailbox not initialized")
             | Some make ->
                 let order =
-                    { actor = actor
-                      actorNodeId = request.focusId
-                      actorName = "ai" }
+                    RunAgentActor.aiActorOrder
+                        install
+                        context.pool.sessionIdFor
+                        request
                 let host = (make caller).host
                 Async.Start(async {
                     let! placed =

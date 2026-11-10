@@ -61,6 +61,7 @@ let private devRuntime dataDir =
             AuthUser = "alice"
             AuthPass = "secret"
             Actors = []
+            aiInstall = None
         }
         ignore
 

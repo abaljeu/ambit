@@ -61,6 +61,8 @@ let private recordingPool () =
         trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
+        sessionIdFor = fun _ -> None
+        aiInstall = None
     }
     started, stopped, live, pool
 
@@ -282,6 +284,8 @@ let ``ActorStop checks the live receipt once`` () =
         trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
+        sessionIdFor = fun _ -> None
+        aiInstall = None
     }
     withHost pool (fun host -> task {
         let! result =

@@ -51,7 +51,9 @@ type CoreActorPool =
       getActorNodeId: Credential -> NodeId option
       trySecretForActorNode: NodeId -> Credential option
       deliver: string * string -> Result<unit, string>
-      takeInbox: string -> Result<string list, string> }
+      takeInbox: string -> Result<string list, string>
+      sessionIdFor: Credential -> string option
+      aiInstall: AiInstall option }
 
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
@@ -259,32 +261,6 @@ module CoreActorPool =
                     Map.add secret { row with pending = None } model.live
                 { model with live = live }, Some (pending, row)
 
-    module private LiveSession =
-
-        let private gate = obj ()
-
-        let private readers =
-            ref Map.empty<Guid, Credential -> string option>
-
-        let register (read: Credential -> string option) =
-            let id = Guid.NewGuid()
-            lock gate (fun () ->
-                readers.Value <- Map.add id read readers.Value)
-            id
-
-        let unregister id =
-            lock gate (fun () ->
-                readers.Value <- Map.remove id readers.Value)
-
-        let sessionIdFor (secret: Credential) =
-            lock gate (fun () ->
-                readers.Value
-                |> Map.toList
-                |> List.tryPick (fun (_, read) -> read secret))
-
-    /// Live-row session id for an Actor credential. `putFunctionStart` stores it.
-    let sessionIdFor = LiveSession.sessionIdFor
-
     let private runSchedule
         (takePendingBody: Credential -> (PendingBody * LiveRow) option)
         (secret: Credential)
@@ -373,12 +349,10 @@ module CoreActorPool =
                                 { row with inbox = [] }
                                 model.live }
                 Ok texts
-        let readSession secret =
+        let sessionIdFor secret =
             Map.tryFind secret model.live
             |> Option.map (fun row -> row.sessionId)
-        let readerId = LiveSession.register readSession
         let clearLive () =
-            LiveSession.unregister readerId
             let live = model.live
             model <-
                 { model with
@@ -404,4 +378,6 @@ module CoreActorPool =
           trySecretForActorNode =
             fun actorNodeId -> trySecretForActorNode model actorNodeId
           deliver = deliver
-          takeInbox = takeInbox }
+          takeInbox = takeInbox
+          sessionIdFor = sessionIdFor
+          aiInstall = None }

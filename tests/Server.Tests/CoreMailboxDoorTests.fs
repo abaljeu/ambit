@@ -254,6 +254,8 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
         trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
+        sessionIdFor = fun _ -> None
+        aiInstall = None
     }
     task {
         let dataDir = newTempDir ()
@@ -336,6 +338,8 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
         trySecretForActorNode = fun _ -> None
         deliver = fun _ -> Error "not live"
         takeInbox = fun _ -> Error "not live"
+        sessionIdFor = fun _ -> None
+        aiInstall = None
     }
     task {
         let dataDir = newTempDir ()

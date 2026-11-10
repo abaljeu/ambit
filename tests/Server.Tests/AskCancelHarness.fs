@@ -67,18 +67,23 @@ let private grokBinding config =
     { Config = config
       ResponseUrl = unusedResponseUrl }
 
-type private AiHostBinding =
-    { keys: AiKeySet
-      repos: AiRepo list
-      grok: GrokBotBinding }
+type private HostAi =
+    { install: AiInstall
+      sessionIdFor: Credential -> string option }
 
 let private aiHosts =
     System.Runtime.CompilerServices.ConditionalWeakTable<
-        MailboxHost, AiHostBinding>()
+        MailboxHost, HostAi>()
 
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
-    let pool = CoreActorPool.create ()
+    let install =
+        { keys = keys
+          repos = repos
+          grok = grok }
+    let pool =
+        { CoreActorPool.create () with
+            aiInstall = Some install }
     pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host
@@ -87,9 +92,8 @@ let private createHost keys repos grok =
             admittedCredentials
     aiHosts.Add(
         host,
-        { keys = keys
-          repos = repos
-          grok = grok })
+        { install = install
+          sessionIdFor = pool.sessionIdFor })
     host, pool
 
 let private clearFake () =
@@ -301,19 +305,14 @@ let seedAskTree host commandText =
 
 /// Ask start for `?ai`. Posts `Order.StartActor` for this host's binding.
 let startAiRun (host: MailboxHost) (request: ActorStart) =
-    let mutable bound =
-        { keys = AiKeys.empty
-          repos = []
-          grok = unusedGrokBinding }
-    if not (aiHosts.TryGetValue(host, &bound)) then
-        Task.FromResult(Error "ai host binding missing")
-    else
+    match aiHosts.TryGetValue host with
+    | false, _ -> Task.FromResult(Error "ai host binding missing")
+    | true, held ->
         let order =
-            { actor =
-                RunAgentActor.actorFn
-                    bound.keys bound.repos bound.grok request
-              actorNodeId = request.focusId
-              actorName = "ai" }
+            RunAgentActor.aiActorOrder
+                held.install
+                held.sessionIdFor
+                request
         async {
             let! placed =
                 MailboxHost.postActorOrder host testCaller order

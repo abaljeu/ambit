@@ -410,26 +410,6 @@ module RunAgentActor =
                         return ActorSucceeded
         }
 
-    type private AiInstall =
-        { keys: AiKeySet
-          repos: AiRepo list
-          grok: GrokBotBinding }
-
-    let private aiInstall = ref Option<AiInstall>.None
-
-    /// Boot binding for a `?ai` Run.
-    let installActorBinding keys repos grok =
-        aiInstall :=
-            Some
-                { keys = keys
-                  repos = repos
-                  grok = grok }
-
-    let private sessionFor (secret: Credential) =
-        match CoreActorPool.sessionIdFor secret with
-        | Some id -> id
-        | None -> ""
-
     let private inputFor
         (run: FunctionRun)
         (start: ActorStart)
@@ -442,25 +422,37 @@ module RunAgentActor =
           sessionId = sessionId
           secret = run.secret }
 
-    /// Shared ActorFunction for one Run. The pool mints the session id.
+    /// Shared ActorFunction for one Run. The live row holds the session id.
     let actorFn
-        (keys: AiKeySet)
-        (repos: AiRepo list)
-        (grok: GrokBotBinding)
+        (install: AiInstall)
+        (sessionIdFor: Credential -> string option)
         (start: ActorStart)
         : Gambol.Shared.ActorFunction =
         fun run changes ->
             async {
-                let input =
-                    inputFor run start (sessionFor run.secret)
-                let! result =
-                    runBody keys repos grok input changes
-                do! stop changes result
+                match sessionIdFor run.secret with
+                | None ->
+                    do! stop changes (ActorFailed "not live")
+                | Some sessionId ->
+                    let input = inputFor run start sessionId
+                    let! result =
+                        runBody
+                            install.keys
+                            install.repos
+                            install.grok
+                            input
+                            changes
+                    do! stop changes result
             }
 
-    /// Installed binding applied to this Run. None before boot.
-    let installedActor (start: ActorStart) =
-        match aiInstall.Value with
-        | None -> None
-        | Some row ->
-            Some (actorFn row.keys row.repos row.grok start)
+    /// `?ai` ActorOrder. `actorNodeId` is the focus id.
+    let aiActorOrder
+        (install: AiInstall)
+        (sessionIdFor: Credential -> string option)
+        (start: ActorStart)
+        : ActorOrder =
+        ActorOrderFromStart.orderFromStart
+            (fun _ _ -> actorFn install sessionIdFor start)
+            "ai"
+            (fun item -> item.focusId)
+            start
