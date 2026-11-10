@@ -121,26 +121,81 @@ let private enterAfterRelease
             entered.SetResult())
         |> assertOk "enter after release")
 
-let private holdAndReject
+let private absentProceeds (graph: Graph) (fileId: NodeId) =
+    let fileEntered = TaskCompletionSource<unit>()
+
+    let result =
+        NodeLockPool.withLock (Graph.create ()) (NodeId.New()) (fun () ->
+            Assert.Equal(0, NodeLockPool.entryCount ())
+            let file = enter graph fileId fileEntered
+            fileEntered.Task.Wait()
+            file.Wait())
+
+    assertOk "absent" result
+    Assert.True(fileEntered.Task.IsCompleted)
+    Assert.Equal(0, NodeLockPool.entryCount ())
+
+let private holdRejectsSibling
     (graph: Graph)
     (fileId: NodeId)
-    (release: TaskCompletionSource<unit>)
-    (entered: TaskCompletionSource<unit>)
-    (nested: TaskCompletionSource<Result<unit, NodeLockRejection>>)
-    (absent: TaskCompletionSource<Result<unit, NodeLockRejection>>)
+    (siblingId: NodeId)
     =
-    Task.Run(fun () ->
-        NodeLockPool.withLock graph fileId (fun () ->
-            entered.SetResult()
-            nested.SetResult(NodeLockPool.withLock graph fileId (fun () -> ()))
-            let absentId = NodeId.New()
+    let release = TaskCompletionSource<unit>()
+    let holderEntered = TaskCompletionSource<unit>()
+    let absentResult = TaskCompletionSource<Result<unit, NodeLockRejection>>()
+    let siblingResult = TaskCompletionSource<Result<unit, NodeLockRejection>>()
+    let siblingCalled = TaskCompletionSource<unit>()
 
-            absent.SetResult(
-                NodeLockPool.withLock (Graph.create ()) absentId (fun () -> ()))
+    let holder =
+        Task.Run(fun () ->
+            NodeLockPool.withLock graph fileId (fun () ->
+                holderEntered.SetResult()
 
-            release.Task.Wait()
-            failwith "holder raises")
-        |> assertOk "holder")
+                absentResult.SetResult(
+                    NodeLockPool.withLock graph (NodeId.New()) (fun () ->
+                        Assert.Equal(1, NodeLockPool.entryCount ())))
+
+                siblingResult.SetResult(
+                    NodeLockPool.withLock graph siblingId (fun () ->
+                        siblingCalled.SetResult()))
+
+                release.Task.Wait())
+            |> assertOk "holder")
+
+    holderEntered.Task.Wait()
+    Assert.Equal(Ok (), absentResult.Task.Result)
+    Assert.Equal(Error NodeLockRejection.HolderHoldsLock, siblingResult.Task.Result)
+    Assert.False(siblingCalled.Task.IsCompleted)
+    Assert.Equal(1, NodeLockPool.entryCount ())
+    Assert.Equal(0, NodeLockPool.pendingCount ())
+    let waiterEntered = TaskCompletionSource<unit>()
+    let waiter = enter graph fileId waiterEntered
+    stayedOutside 2 waiterEntered
+    release.SetResult()
+    waiterEntered.Task.Wait()
+    waiter.Wait()
+    holder.Wait()
+    Assert.Equal(0, NodeLockPool.entryCount ())
+
+let private assertEntersDuringHold
+    (heldGraph: Graph)
+    (heldId: NodeId)
+    (requestGraph: Graph)
+    (requestId: NodeId)
+    =
+    let release = TaskCompletionSource<unit>()
+    let heldEntered = TaskCompletionSource<unit>()
+    let requestEntered = TaskCompletionSource<unit>()
+    let held = holdUntil heldGraph heldId release heldEntered
+    heldEntered.Task.Wait()
+    let request = enter requestGraph requestId requestEntered
+    (NodeLockPool.waitUntilQueued 2).Wait()
+    Assert.Equal(0, NodeLockPool.pendingCount ())
+    requestEntered.Task.Wait()
+    Assert.False(release.Task.IsCompleted)
+    release.SetResult()
+    Task.WaitAll(held, request)
+    Assert.Equal(0, NodeLockPool.entryCount ())
 
 let private assertRequestWaits
     (heldGraph: Graph)
@@ -170,10 +225,10 @@ let private waitFault (holder: Task) =
     | :? AggregateException -> true
 
 [<Fact>]
-let ``a request waits when the graphs disagree on a held file`` () =
+let ``a request uses its own graph when the holder's graph disagrees`` () =
     let fileUnderDir, fileBesideDir, dirId, fileId = disagreeGraphs ()
     assertRequestWaits fileBesideDir fileId fileUnderDir dirId
-    assertRequestWaits fileUnderDir dirId fileBesideDir fileId
+    assertEntersDuringHold fileUnderDir fileId fileBesideDir dirId
 
 [<Fact>]
 let ``a thrown wait drops the pending entry`` () =
@@ -252,26 +307,10 @@ let ``taking a workspace waits while a descendant file is held and a file waits 
     Task.WaitAll(dirHold, childWait)
 
 [<Fact>]
-let ``a second request on a held node waits and the same thread is rejected`` () =
-    let graph, _, _, fileId, _, _ = poolGraph ()
-    let release = TaskCompletionSource<unit>()
-    let holderEntered = TaskCompletionSource<unit>()
-    let waiterEntered = TaskCompletionSource<unit>()
-    let nested = TaskCompletionSource<Result<unit, NodeLockRejection>>()
-    let absent = TaskCompletionSource<Result<unit, NodeLockRejection>>()
-
-    let holder =
-        holdAndReject graph fileId release holderEntered nested absent
-
-    holderEntered.Task.Wait()
-    Assert.Equal(Error NodeLockRejection.HolderHoldsLock, nested.Task.Result)
-    Assert.Equal(Error NodeLockRejection.NodeAbsent, absent.Task.Result)
-    let waiter = enter graph fileId waiterEntered
-    stayedOutside 2 waiterEntered
-    release.SetResult()
-    waiterEntered.Task.Wait()
-    waiter.Wait()
-    Assert.True(waitFault holder)
+let ``an absent node proceeds and the same thread is rejected`` () =
+    let graph, _, _, fileId, _, siblingId = poolGraph ()
+    absentProceeds graph fileId
+    holdRejectsSibling graph fileId siblingId
 
 [<Fact>]
 let ``a pending directory lock runs before a new descendant file`` () =

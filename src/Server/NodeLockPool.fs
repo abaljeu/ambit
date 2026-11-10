@@ -8,7 +8,6 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 type NodeLockRejection =
     | HolderHoldsLock
-    | NodeAbsent
 
 [<RequireQualifiedAccess>]
 module NodeLockPool =
@@ -20,7 +19,6 @@ module NodeLockPool =
     type private Entry = {
         seq: int
         phase: Phase
-        graph: Graph
         nodeId: NodeId
         threadId: int
     }
@@ -90,19 +88,11 @@ module NodeLockPool =
                 let visited = Set.add current visited
                 let acc = current :: acc
 
-                match Map.tryFind current graph.nodes with
+                match Map.tryFind current graph.ownerParentByChild with
                 | None -> List.rev acc
-                | Some _ ->
-                    match Map.tryFind current graph.ownerParentByChild with
-                    | None -> List.rev acc
-                    | Some parentId -> walk parentId visited acc
+                | Some parentId -> walk parentId visited acc
 
         walk startId Set.empty []
-
-    let private kindOf (entry: Entry) : NodeKind =
-        match Map.tryFind entry.nodeId entry.graph.nodes with
-        | Some node -> node.kind
-        | None -> Normal
 
     let private waitsOnAncestor (kind: NodeKind) =
         match kind with
@@ -125,11 +115,12 @@ module NodeLockPool =
         | Held -> true
         | Pending -> taken.seq < request.seq
 
-    let private conflicts (request: Entry) (taken: Entry) =
-        let eitherReaches (startId: NodeId) (targetId: NodeId) =
-            chainReaches request.graph startId targetId
-            || chainReaches taken.graph startId targetId
-
+    let private conflicts
+        (graph: Graph)
+        (kind: NodeKind)
+        (request: Entry)
+        (taken: Entry)
+        =
         if request.seq = taken.seq then
             false
         elif not (takenBlocks request taken) then
@@ -137,22 +128,25 @@ module NodeLockPool =
         elif request.nodeId = taken.nodeId then
             true
         else
-            let kind = kindOf request
-
             let ancestor =
                 waitsOnAncestor kind
-                && eitherReaches request.nodeId taken.nodeId
+                && chainReaches graph request.nodeId taken.nodeId
 
             let descendant =
                 NodeKind.container kind
-                && eitherReaches taken.nodeId request.nodeId
+                && chainReaches graph taken.nodeId request.nodeId
 
             ancestor || descendant
 
-    let private waiting (request: Entry) (entries: Entry list) =
-        List.exists (conflicts request) entries
+    let private waiting
+        (graph: Graph)
+        (kind: NodeKind)
+        (request: Entry)
+        (entries: Entry list)
+        =
+        List.exists (conflicts graph kind request) entries
 
-    let private waitForTurn (seq: int) =
+    let private waitForTurn (graph: Graph) (kind: NodeKind) (seq: int) =
         let rec loop () =
             let request =
                 table.Value.entries
@@ -160,7 +154,7 @@ module NodeLockPool =
 
             match request with
             | None -> ()
-            | Some request when waiting request table.Value.entries ->
+            | Some request when waiting graph kind request table.Value.entries ->
                 Monitor.Wait gate |> ignore
                 loop ()
             | Some _ -> ()
@@ -186,7 +180,12 @@ module NodeLockPool =
         table.Value <- { table.Value with entries = entries }
         Monitor.PulseAll gate
 
-    let private enqueue (graph: Graph) (nodeId: NodeId) (threadId: int) =
+    let private enqueue
+        (graph: Graph)
+        (kind: NodeKind)
+        (nodeId: NodeId)
+        (threadId: int)
+        =
         let threadHolds =
             table.Value.entries
             |> List.exists (fun entry -> entry.threadId = threadId)
@@ -199,7 +198,6 @@ module NodeLockPool =
             let entry = {
                 seq = seq
                 phase = Pending
-                graph = graph
                 nodeId = nodeId
                 threadId = threadId
             }
@@ -211,7 +209,7 @@ module NodeLockPool =
 
             try
                 signalQueued ()
-                waitForTurn seq
+                waitForTurn graph kind seq
                 update seq Held
                 Ok seq
             with _ ->
@@ -227,10 +225,13 @@ module NodeLockPool =
         (action: unit -> 'a)
         : Result<'a, NodeLockRejection> =
         match Map.tryFind nodeId graph.nodes with
-        | None -> Error NodeLockRejection.NodeAbsent
-        | Some _ ->
+        | None -> Ok (action ())
+        | Some node ->
             let threadId = Environment.CurrentManagedThreadId
-            let queued = lock gate (fun () -> enqueue graph nodeId threadId)
+
+            let queued =
+                lock gate (fun () ->
+                    enqueue graph node.kind nodeId threadId)
 
             match queued with
             | Error rejection -> Error rejection
