@@ -49,7 +49,7 @@ Blockers:
 [ ] ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` call `CoreMailboxApi.actorStop`.
 [ ] `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` calls `CoreMailboxApi.actorStop`.
 [ ] ``ActorStart body does not run inside the mailbox turn`` in `tests/Server.Tests/OrderedEventStreamTests.fs` calls `CoreDoor.actorStop`.
-[ ] ``query start error stores ActorStart and ActorFailed and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` calls `CoreDoor.actorStop`.
+[ ] ``query start error posts no rows, fails the reply, and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` calls `CoreDoor.actorStop`. A start asks the pool first. `Order.StartActor` is appended only after the pool affirms. A refused start posts nothing and replies with the failure.
 [ ] ``Ask extract carries Graph.focus from launch`` in `tests/Server.Tests/AgentAskTests.fs` calls `CoreDoor.actorStop`.
 [ ] ``ActorStop with Test credentials is refused``, ``ActorStop with Browser credentials is refused``, and ``ActorStop with Parse credentials is refused`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` send `CoreMsg.ActorStop`.
 
