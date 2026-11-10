@@ -113,7 +113,7 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 
 ## Stop when
 
-[ ] Record the stop at `plan/node-move-disk/reports/09-relocate-under-the-node-enclosure-lock-stop.md`, then ask.
+[x] Record the stop at `plan/node-move-disk/reports/09-relocate-under-the-node-enclosure-lock-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs.
 [ ] Stop when the edit changes `PersistThread.runRequest`, `pushChangeSpecials`, `gitMove`, `moveAcrossWorkspaces`, or `NodeLockPool`.
 [ ] Stop when the edit contradicts story 2 Relocate with git mv or story 10 Move into a different Workspace in the spec.
