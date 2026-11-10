@@ -18,6 +18,8 @@ Ticket: [08 — Start the AI Actor](../issues/08-dispatch-the-ai-actor/08-dispat
 
 ## Build
 
+[x] The ticket rewrite names `startAiRun`, `CoreMailboxApi.coreMailboxStartActor`, and `CoreMailboxApi.coreMailboxStartActorFromFunction`.
+
 [ ] Product code is not started.
 
 [ ] `scripts/agent-test.sh` did not run.
@@ -59,5 +61,5 @@ Process step 1: an input is missing or does not match the ticket. The edit did n
 
 ### Ask
 
-[ ] Which symbol is the `?ai` test start this ticket should call: `CoreMailboxApi.coreMailboxStartActor`, or a `CoreMailboxApi.startActor` that this checkout does not have?
-[ ] Should process step 8 drop `StartPeerActor`, or is that case required before this ticket runs?
+[x] The `?ai` test start is `startAiRun` in `tests/Server.Tests/AskCancelHarness.fs`. That seam calls `CoreMailboxApi.coreMailboxStartActor`. This ticket moves `?ai` off that call.
+[x] Process drops `CoreMsg.StartPeerActor`. [15 — Delete the old Actor starts](../issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) already deleted that case.
