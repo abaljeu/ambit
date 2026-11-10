@@ -202,8 +202,8 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 ```
 
 [x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` is the node lock. One request is the live `Graph` and one `NodeId`. The caller passes no owner chain.
-[ ] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md).
-[ ] An absent node conflicts with nothing.
+[x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md).
+[x] An absent node conflicts with nothing.
 [x] A holder that already holds a pool lock and requests another gets `Error NodeLockRejection.HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
 [x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
 [x] The lock records the node. A path match is outside this lock.
