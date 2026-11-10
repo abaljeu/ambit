@@ -203,6 +203,38 @@ let private deskLoadRequest (nodeId: NodeId) =
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 
+/// The client shows Cancel while this id is in the live set.
+[<Fact>]
+let ``Desk Load of a Directory does not leave a cancelable actor`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.hostWithParsePush
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+                ignore
+        try
+            let! _, dirId = seedDocsFile host
+            let! started =
+                CoreMailboxApi.startLoadSaveCommand
+                    host
+                    testCaller
+                    LoadSavePath.Desk
+                    (PeerActorName "unregistered")
+                    (deskLoadRequest dirId)
+                |> Async.StartAsTask
+            requireOk "directory" started
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let live = ActorLive.applyEvents history.events Set.empty
+            Assert.False(
+                Set.contains dirId live,
+                "Directory Load left a live actor, so Cancel stays")
+        finally
+            CoreMailboxApi.dispose host
+    }
+
 [<Fact>]
 let ``held Desk Load does not push and the follow-up Load does`` () =
     task {

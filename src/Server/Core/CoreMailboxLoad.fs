@@ -31,22 +31,6 @@ module internal CoreMailboxLoad =
             | Error err -> Error err
             | Ok () -> context.parsePush subject
 
-    let private logDeskOrder
-        (context: MailboxContext)
-        (caller: Caller)
-        (request: LoadSaveCommandRequest)
-        =
-        let order =
-            { actor = EventJson.stubActor
-              actorNodeId = request.start.focusId
-              actorName = "" }
-        CoreEventDispatch.appendLifecycle
-            (CoreMailboxEvents.eventDispatchContext context)
-            caller
-            (System.Guid.NewGuid())
-            (EventBody.Order(Order.StartActor order))
-        |> Result.map ignore
-
     let internal dispatchStartLoadSaveCommand
         (context: MailboxContext)
         (caller: Caller)
@@ -55,29 +39,21 @@ module internal CoreMailboxLoad =
         (request: LoadSaveCommandRequest)
         (reply: AsyncReplyChannel<Result<unit, string>>)
         =
-        let logged =
-            if path = LoadSavePath.Desk then
-                logDeskOrder context caller request
-            else
-                Ok ()
-        match logged with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            let started =
-                CoreMailboxActors.dispatchActorStartResult
-                    context
-                    caller
-                    request.start
-                    (fun _ getGraph ->
-                        DeskLoadPush.runLoadSave
-                            { pool = context.pool
-                              getGraph = getGraph
-                              peerName = peerName }
-                            (dispatchLoad context caller)
-                            request
-                            path
-                        |> Result.mapError StartError.Rejected)
-            reply.Reply started
+        let started =
+            CoreMailboxActors.dispatchActorStartResult
+                context
+                caller
+                request.start
+                (fun _ getGraph ->
+                    DeskLoadPush.runLoadSave
+                        { pool = context.pool
+                          getGraph = getGraph
+                          peerName = peerName }
+                        (dispatchLoad context caller)
+                        request
+                        path
+                    |> Result.mapError StartError.Rejected)
+        reply.Reply started
 
     let internal replyLoad
         (context: MailboxContext)
