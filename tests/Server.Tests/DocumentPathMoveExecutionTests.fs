@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.DocumentPathMoveExecutionTests
 
 open System.IO
+open System.Threading.Tasks
 open Gambol.Server
 open Gambol.Server.Tests.TestBackend
 open Gambol.Shared
@@ -10,6 +11,46 @@ let private requireOk label r =
     match r with
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
+
+let private lockOk label result =
+    match result with
+    | Ok () -> ()
+    | Error rejection -> failwith $"{label}: {rejection}"
+
+let private holdOnOtherThread (graph: Graph) (nodeId: NodeId) =
+    let release = TaskCompletionSource<unit>()
+    let entered = TaskCompletionSource<unit>()
+
+    let holder =
+        Task.Run(fun () ->
+            NodeLockPool.withLock graph nodeId (fun () ->
+                entered.SetResult()
+                release.Task.Wait())
+            |> lockOk "hold")
+
+    entered.Task.Wait()
+    release, holder
+
+let private persistWhileHeld
+    (graph: Graph)
+    (postGraph: Graph)
+    (heldId: NodeId)
+    (dataDir: string)
+    (duringHold: unit -> unit)
+    =
+    let release, holder = holdOnOtherThread postGraph heldId
+
+    let persist =
+        Task.Run(fun () ->
+            DocumentPersistChange.persistGraphChange dataDir graph postGraph)
+
+    (NodeLockPool.waitUntilQueued 2).Wait()
+    Assert.False(persist.IsCompleted)
+    duringHold ()
+    release.SetResult()
+    persist.Result |> requireOk "persistGraphChange" |> ignore
+    holder.Wait()
+    Assert.Equal(0, NodeLockPool.entryCount ())
 
 let private owned = ChildNode.owners
 
@@ -100,3 +141,100 @@ let ``persistGraphChange rejects destination artifact conflict`` () =
 
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))
+
+[<Fact>]
+let ``persist path move waits while the moved file is held`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
+    let oldPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+    let newPath = Path.Combine(dataDir, "home", "docs", "notes.txt")
+
+    persistWhileHeld graph postGraph fileId dataDir (fun () ->
+        Assert.True(File.Exists oldPath)
+        Assert.False(File.Exists newPath))
+
+    Assert.False(File.Exists oldPath)
+    Assert.True(File.Exists newPath)
+
+let private graphWithSiblingFile () : Graph * NodeId * NodeId =
+    let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
+    let siblingId = NodeId.New()
+
+    let withSibling =
+        graph
+        |> Graph.addDetachedNode (specialNode siblingId File "other.txt" dirId)
+        |> Graph.replace dirId 0 [] (owned [ fileId; siblingId ])
+        |> requireOk "dir owns sibling"
+
+    withSibling, fileId, siblingId
+
+[<Fact>]
+let ``persist path move waits while a file under the moved directory is held`` () =
+    let dataDir = newTempDir ()
+    let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let postGraph = Graph.setName dirId "docs" "archive" graph |> requireOk "rename dir"
+    let oldDir = Path.Combine(dataDir, "home", "docs")
+    let newDir = Path.Combine(dataDir, "home", "archive")
+
+    persistWhileHeld graph postGraph fileId dataDir (fun () ->
+        Assert.True(Directory.Exists oldDir))
+
+    Assert.True(Directory.Exists newDir)
+
+[<Fact>]
+let ``a path move on a thread that already holds a lock leaves the artifact`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, siblingId = graphWithSiblingFile ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
+    let oldPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+
+    NodeLockPool.withLock postGraph siblingId (fun () ->
+        Assert.Equal(1, NodeLockPool.entryCount ())
+
+        let persist =
+            DocumentPersistChange.persistGraphChange dataDir graph postGraph
+
+        Assert.Equal(Error "holder already holds a lock", persist)
+        Assert.True(File.Exists oldPath)
+        Assert.False(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))
+        Assert.Equal(1, NodeLockPool.entryCount ()))
+    |> lockOk "hold"
+
+    Assert.Equal(0, NodeLockPool.entryCount ())
+    Assert.True(File.Exists oldPath)
+
+[<Fact>]
+let ``a sibling file lock lets a file path move finish`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, siblingId = graphWithSiblingFile ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
+    let docsDir = Path.Combine(dataDir, "home", "docs")
+    let oldPath = Path.Combine(docsDir, "readme.txt")
+    let newPath = Path.Combine(docsDir, "notes.txt")
+    let moved = TaskCompletionSource<unit>()
+
+    use watcher = new FileSystemWatcher(docsDir, "notes.txt")
+    watcher.NotifyFilter <- NotifyFilters.FileName
+    watcher.Created.Add(fun _ -> moved.TrySetResult() |> ignore)
+    watcher.Renamed.Add(fun _ -> moved.TrySetResult() |> ignore)
+    watcher.EnableRaisingEvents <- true
+
+    let release, holder = holdOnOtherThread postGraph siblingId
+
+    let persist =
+        Task.Run(fun () ->
+            DocumentPersistChange.persistGraphChange dataDir graph postGraph)
+
+    moved.Task.Wait()
+    Assert.False(release.Task.IsCompleted)
+    Assert.False(File.Exists oldPath)
+    Assert.True(File.Exists newPath)
+    release.SetResult()
+    persist.Result |> requireOk "persistGraphChange" |> ignore
+    holder.Wait()
+    Assert.Equal(0, NodeLockPool.entryCount ())
