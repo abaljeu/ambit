@@ -28,15 +28,7 @@ let private dependencies
     push
     =
     let git =
-        { withWorkTreeGate =
-            { new GithubTransportWorkTreeGate with
-                member _.applyAction root action =
-                    steps.Add($"gate acquire {root}")
-                    try
-                        action ()
-                    finally
-                        steps.Add($"gate release {root}") }
-          pullTracked = pull
+        { pullTracked = pull
           commitAll = commit
           pushTracked = push }
     { git = git }
@@ -139,10 +131,8 @@ let private startTransport dataDir host deps operation actorRequest =
     |> Async.StartAsTask
 
 let private saveOrder root =
-    [ $"gate acquire {root}"
-      $"commit {root}"
+    [ $"commit {root}"
       $"pull {root}"
-      $"gate release {root}"
       $"push {root}" ]
 
 let private runActor operation dependencies operationName onPush body =
@@ -275,10 +265,8 @@ let ``git Load gates pull from subnode Focus`` () =
             Assert.Equal(Some ActorSucceeded, stopped)
             let root = Path.Combine(dataDir, "home")
             Assert.Equal<string list>(
-                [ $"gate acquire {root}"
-                  $"commit {root}"
-                  $"pull {root}"
-                  $"gate release {root}" ],
+                [ $"commit {root}"
+                  $"pull {root}" ],
                 steps |> Seq.toList)
             Assert.False(
                 Set.contains seed.focusId (pool.liveActorNodeIds ()))

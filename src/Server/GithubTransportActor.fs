@@ -7,15 +7,8 @@ type GithubTransportOperation =
     | Load
     | Save
 
-type GithubTransportWorkTreeGate =
-    abstract applyAction<'value> :
-        string ->
-        (unit -> Result<'value, string>) ->
-        Result<'value, string>
-
 type GithubTransportGit =
-    { withWorkTreeGate: GithubTransportWorkTreeGate
-      pullTracked:
+    { pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       commitAll:
         string ->
@@ -73,19 +66,21 @@ module GithubTransportActor =
             { beforeHead = beforeHead
               afterHead = WorkspaceGit.tryHead workspaceRoot })
 
-    /// Commit inside the work-tree gate, then run the next step before release.
-    let private commitInGate git root message next =
-        git.withWorkTreeGate.applyAction root (fun () ->
-            git.commitAll root message None
+    type private LockedWorkspace = {
+        graph: Graph
+        workspaceId: NodeId
+        root: string
+    }
+
+    /// Commit and the next step hold the Workspace lock. Push stays outside.
+    let private commitInLock git locked message next =
+        NodeLockPool.withLockResult locked.graph locked.workspaceId (fun () ->
+            git.commitAll locked.root message None
             |> Result.bind next)
 
-    let private pullTracked git workspaceRoot =
-        commitInGate
-            git
-            workspaceRoot
-            "gambol: git Load"
-            (fun (tracked, _) ->
-                pullAndReadHeads git workspaceRoot tracked)
+    let private pullTracked git locked =
+        commitInLock git locked "gambol: git Load" (fun (tracked, _) ->
+            pullAndReadHeads git locked.root tracked)
 
     /// Paths the pull changed. None when either head cannot be read.
     let private changedAfterPull workspaceRoot heads =
@@ -138,10 +133,19 @@ module GithubTransportActor =
 
     let private runLoadOn dependencies root target =
         async {
-            match pullTracked dependencies.git root with
+            let! state = target.changes.graphAtEvent ()
+            match state with
             | Error err -> return Error err
-            | Ok heads ->
-                return! applyPulledChanges root target heads
+            | Ok current ->
+                let locked = {
+                    graph = current.graph
+                    workspaceId = target.workspaceId
+                    root = root
+                }
+                match pullTracked dependencies.git locked with
+                | Error err -> return Error err
+                | Ok heads ->
+                    return! applyPulledChanges root target heads
         }
 
     /// A successful pull marks received files, then posts that Workspace.
@@ -304,10 +308,10 @@ module GithubTransportActor =
           output: string
           heads: LoadPullHeads }
 
-    /// Commit and pull stay inside the work-tree gate.
-    let private commitAndPull git root =
-        commitInGate git root "gambol: git Save" (fun (tracked, output) ->
-            pullAndReadHeads git root tracked
+    /// Commit and pull stay inside the Workspace lock. Push stays outside.
+    let private commitAndPull git locked =
+        commitInLock git locked "gambol: git Save" (fun (tracked, output) ->
+            pullAndReadHeads git locked.root tracked
             |> Result.map (fun heads ->
                 { tracked = tracked
                   output = output
@@ -325,12 +329,17 @@ module GithubTransportActor =
 
     let private runSaveBody dataDir dependencies focusId changes =
         withWorkspace dataDir changes focusId
-            (fun (_, (workspaceId, root)) ->
+            (fun (graph, (workspaceId, root)) ->
                 async {
                     match! persistFocusWhenNotOrdinary changes focusId with
                     | Error err -> return Error err
                     | Ok () ->
-                        match commitAndPull dependencies.git root with
+                        let locked = {
+                            graph = graph
+                            workspaceId = workspaceId
+                            root = root
+                        }
+                        match commitAndPull dependencies.git locked with
                         | Error err -> return Error err
                         | Ok commit ->
                             let target =
@@ -396,14 +405,8 @@ module GithubTransportActor =
             return Result.map ignore placed
         }
 
-    let private workTreeGate =
-        { new GithubTransportWorkTreeGate with
-            member _.applyAction root action =
-                WorkspaceGit.withWorkTreeGate root action }
-
     let workspaceGit : GithubTransportGit =
-        { withWorkTreeGate = workTreeGate
-          pullTracked = WorkspaceGit.pullTrackedBranch
+        { pullTracked = WorkspaceGit.pullTrackedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }
 

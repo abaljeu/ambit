@@ -2,6 +2,7 @@ module Gambol.Server.Tests.GithubTransportLoadPullTests
 
 open System
 open System.IO
+open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -70,10 +71,7 @@ let private markingDependencies pull push =
           remote = "origin"
           upstream = "refs/heads/master" }
     { git =
-        { withWorkTreeGate =
-            { new GithubTransportWorkTreeGate with
-                member _.applyAction _ action = action () }
-          pullTracked = pull
+        { pullTracked = pull
           commitAll =
             fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
           pushTracked = push } }
@@ -125,10 +123,7 @@ let ``git Load commits before pull`` () =
         Error "push unused"
     let deps =
         { git =
-            { withWorkTreeGate =
-                { new GithubTransportWorkTreeGate with
-                    member _.applyAction _ action = action () }
-              pullTracked = pull
+            { pullTracked = pull
               commitAll = commit
               pushTracked = push } }
     let dataDir = newTempDir ()
@@ -389,5 +384,107 @@ let ``git Load pulls a clean work tree and writes no commit`` () =
         let countAfter =
             (git root "rev-list --count HEAD").Trim()
         Assert.Equal(int countBefore + 1, int countAfter)
+    finally
+        CoreMailboxApi.dispose host
+
+let private trackedBranch =
+    { branch = "master"
+      remote = "origin"
+      upstream = "refs/heads/master" }
+
+[<Fact>]
+let ``git Load and git Save wait while the Workspace lock is held`` () =
+    let dataDir = newTempDir ()
+    let host, changes = createAdmittedFile dataDir
+    try
+        let workspaceId, workspaceOps =
+            FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+        postChange host workspaceOps
+        let focusId = NodeId.New()
+        let seeded = readGraph host
+        let children = Graph.children seeded workspaceId
+        postChange
+            host
+            [ Op.NewNode(focusId, "subnode")
+              Op.Replace(
+                  workspaceId,
+                  children,
+                  children @ [ ChildNode.owner focusId ]) ]
+        let graph = readGraph host
+        let root = Path.Combine(dataDir, "home")
+        let release = TaskCompletionSource<unit>()
+        let held = TaskCompletionSource<unit>()
+        let before = NodeLockPool.entryCount ()
+        let holder =
+            Task.Run(fun () ->
+                match
+                    NodeLockPool.withLock graph workspaceId (fun () ->
+                        held.SetResult()
+                        release.Task.Wait()
+                        ())
+                with
+                | Ok () -> ()
+                | Error rejection -> Assert.Fail($"holder: {rejection}"))
+        held.Task.Wait()
+        let loadCommit = TaskCompletionSource<unit>()
+        let git =
+            { pullTracked = fun _ _ -> Ok "pulled"
+              commitAll =
+                fun _ _ _ ->
+                    loadCommit.SetResult()
+                    Ok(trackedBranch, "committed")
+              pushTracked = fun _ _ _ -> Ok "pushed" }
+        let load =
+            Task.Run(fun () ->
+                GithubTransportActor.runLoad
+                    { git = git }
+                    dataDir
+                    changes
+                    workspaceId
+                    root
+                |> Async.RunSynchronously)
+        (NodeLockPool.waitUntilQueued (before + 2)).Wait()
+        Assert.False(loadCommit.Task.IsCompleted)
+        release.SetResult()
+        load.Wait()
+        load.Result |> requireOk "load" |> ignore
+        holder.Wait()
+        let releaseSave = TaskCompletionSource<unit>()
+        let heldSave = TaskCompletionSource<unit>()
+        let beforeSave = NodeLockPool.entryCount ()
+        let holderSave =
+            Task.Run(fun () ->
+                match
+                    NodeLockPool.withLock graph workspaceId (fun () ->
+                        heldSave.SetResult()
+                        releaseSave.Task.Wait()
+                        ())
+                with
+                | Ok () -> ()
+                | Error rejection ->
+                    Assert.Fail($"save holder: {rejection}"))
+        heldSave.Task.Wait()
+        let saveCommit = TaskCompletionSource<unit>()
+        let saveGit =
+            { git with
+                commitAll =
+                    fun _ message _ ->
+                        Assert.Equal("gambol: git Save", message)
+                        saveCommit.SetResult()
+                        Ok(trackedBranch, "committed") }
+        let save =
+            Task.Run(fun () ->
+                GithubTransportActor.runSave
+                    { git = saveGit }
+                    dataDir
+                    changes
+                    focusId
+                |> Async.RunSynchronously)
+        (NodeLockPool.waitUntilQueued (beforeSave + 2)).Wait()
+        Assert.False(saveCommit.Task.IsCompleted)
+        releaseSave.SetResult()
+        save.Wait()
+        save.Result |> requireOk "save" |> ignore
+        holderSave.Wait()
     finally
         CoreMailboxApi.dispose host

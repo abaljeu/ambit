@@ -1,10 +1,7 @@
 namespace Gambol.Server
 
 open System
-open System.Collections.Concurrent
 open System.IO
-open System.Linq
-open System.Threading
 open Gambol.Shared
 
 type WorkspaceTrackedBranch = {
@@ -15,44 +12,6 @@ type WorkspaceTrackedBranch = {
 
 [<RequireQualifiedAccess>]
 module WorkspaceGit =
-
-    let private gateComparer =
-        if OperatingSystem.IsWindows() then
-            StringComparer.OrdinalIgnoreCase
-        else
-            StringComparer.Ordinal
-
-    let private workTreeGates =
-        ConcurrentDictionary<string, SemaphoreSlim>(gateComparer)
-
-    let normalizeWorkTreeRoot (workspaceRoot: string) =
-        let fullPath = Path.GetFullPath(workspaceRoot)
-        let trimmed =
-            fullPath.TrimEnd(
-                Path.DirectorySeparatorChar,
-                Path.AltDirectorySeparatorChar)
-        if String.IsNullOrEmpty trimmed then fullPath else trimmed
-
-    let normalizeWorkTreeRoots (workspaceRoots: string list) =
-        workspaceRoots
-        |> Seq.map normalizeWorkTreeRoot
-        |> fun roots -> roots.Distinct(gateComparer)
-        |> Seq.sortWith (fun left right -> gateComparer.Compare(left, right))
-        |> Seq.toList
-
-    let withWorkTreeGate
-        (workspaceRoot: string)
-        (action: unit -> Result<'value, string>)
-        : Result<'value, string> =
-        let gate =
-            workTreeGates.GetOrAdd(
-                normalizeWorkTreeRoot workspaceRoot,
-                fun _ -> new SemaphoreSlim(1, 1))
-        gate.Wait()
-        try
-            action ()
-        finally
-            gate.Release() |> ignore
 
     [<Literal>]
     let private reservedSystemFileExclude = "[gG][aA][mM][bB][oO][lL].*"
@@ -275,9 +234,8 @@ module WorkspaceGit =
                     (runGitCondensed workspaceRoot arguments))
 
     let pullTracked (workspaceRoot: string) : Result<string, string> =
-        withWorkTreeGate workspaceRoot (fun () ->
-            trackedBranch workspaceRoot
-            |> Result.bind (pullTrackedBranch workspaceRoot))
+        trackedBranch workspaceRoot
+        |> Result.bind (pullTrackedBranch workspaceRoot)
 
     let internal commitTracked
         (workspaceRoot: string)
@@ -315,8 +273,7 @@ module WorkspaceGit =
         (baseMsg: string)
         (clientHint: string option)
         : Result<string, string> =
-        withWorkTreeGate workspaceRoot (fun () ->
-            commitTracked workspaceRoot baseMsg clientHint)
+        commitTracked workspaceRoot baseMsg clientHint
         |> Result.bind (fun (tracked, commitOutput) ->
             pushTrackedBranch workspaceRoot tracked commitOutput)
 

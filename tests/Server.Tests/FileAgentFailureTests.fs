@@ -218,19 +218,9 @@ let ``Failed write posts PersistFailed`` () = task {
 [<Fact>]
 let ``Edit reply returns while the persist thread still holds the write`` () = task {
     let dataDir = newTempDir ()
-    let workspaceRoot = Path.Combine(dataDir, "home")
-    let holderEntered = TaskCompletionSource<unit>()
     let releaseHolder = TaskCompletionSource<unit>()
     let persistAttempted = TaskCompletionSource<unit>()
     let writes = ConcurrentQueue<string>()
-    let holder =
-        Task.Run(fun () ->
-            WorkspaceGit.withWorkTreeGate workspaceRoot (fun () ->
-                holderEntered.SetResult()
-                releaseHolder.Task.Wait()
-                Ok ()))
-    holderEntered.Task.Wait()
-
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies =
         {
@@ -238,10 +228,9 @@ let ``Edit reply returns while the persist thread still holds the write`` () = t
                 persistNode =
                     fun _ _ _ ->
                         persistAttempted.SetResult()
-                        WorkspaceGit.withWorkTreeGate workspaceRoot (fun () ->
-                            writes.Enqueue("persisted")
-                            Ok ())
-                        |> Result.map (fun () -> DateTime.UtcNow)
+                        releaseHolder.Task.Wait()
+                        writes.Enqueue("persisted")
+                        Ok DateTime.UtcNow
         }
     let agent = FileAgent.createWithDependencies dependencies dataDir
     try
@@ -263,7 +252,6 @@ let ``Edit reply returns while the persist thread still holds the write`` () = t
         Assert.Single(writes) |> ignore
     finally
         releaseHolder.TrySetResult() |> ignore
-        holder.Wait()
         CoreMailboxApi.dispose (host agent)
 }
 

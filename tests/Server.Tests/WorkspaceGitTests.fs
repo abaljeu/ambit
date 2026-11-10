@@ -1,9 +1,7 @@
 module Gambol.Server.Tests.WorkspaceGitTests
 
 open System
-open System.Collections.Concurrent
 open System.IO
-open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -544,128 +542,151 @@ let ``pullTracked condenses other git failures`` () =
         Assert.Contains("does not appear to be a git repository", error)
         Assert.True(error.Length <= 400)
 
-[<Fact>]
-let ``work tree gate waits then continues without overlap`` () =
-    let root = Path.Combine(newTempDir (), "home")
-    let entered = ConcurrentQueue<string>()
-    let holderEntered = TaskCompletionSource<unit>()
-    let releaseHolder = TaskCompletionSource<unit>()
-    let waiterAttempted = TaskCompletionSource<unit>()
-    let waiterEntered = TaskCompletionSource<unit>()
-
-    let holder =
-        Task.Run(fun () ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                entered.Enqueue("holder entered")
-                holderEntered.SetResult()
-                releaseHolder.Task.Wait()
-                entered.Enqueue("holder exited")
-                Ok ()))
-
-    holderEntered.Task.Wait()
-    let waiter =
-        Task.Run(fun () ->
-            waiterAttempted.SetResult()
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                entered.Enqueue("waiter entered")
-                waiterEntered.SetResult()
-                Ok ()))
-    waiterAttempted.Task.Wait()
-    Assert.False(waiterEntered.Task.Wait(100))
-    releaseHolder.SetResult()
-    Task.WaitAll(holder, waiter)
-    Assert.Equal<string list>(
-        [ "holder entered"; "holder exited"; "waiter entered" ],
-        entered |> Seq.toList)
+let private holdWorkspace
+    (graph: Graph)
+    (workspaceId: NodeId)
+    (release: TaskCompletionSource<unit>)
+    (held: TaskCompletionSource<unit>)
+    =
+    Task.Run(fun () ->
+        match
+            NodeLockPool.withLock graph workspaceId (fun () ->
+                held.SetResult()
+                release.Task.Wait()
+                ())
+        with
+        | Ok () -> ()
+        | Error rejection -> Assert.Fail($"holder: {rejection}"))
 
 [<Fact>]
-let ``work tree root aliases acquire one gate without deadlock`` () =
-    let root = Path.Combine(newTempDir (), "home")
-    let aliases =
-        [ root
-          root + string Path.DirectorySeparatorChar
-          if OperatingSystem.IsWindows() then root.ToUpperInvariant() ]
-    let normalized = DocumentPersistPath.normalizedWorkTreeRoots aliases
-    Assert.Single(normalized) |> ignore
-    let acquired =
-        Task.Run(fun () ->
-            DocumentPersistPath.withWorkTreeGates normalized (fun () -> Ok ()))
-    Assert.True(acquired.Wait(1000))
-    acquired.Result |> requireOk "aliased gates" |> ignore
-
-[<Fact>]
-let ``Persist write waits on the Workspace work tree gate`` () =
+let ``Persist write waits while the Workspace lock is held`` () =
     let dataDir = newTempDir ()
     let graph, wsId = graphWithWorkspace "home"
-    let root = Path.Combine(dataDir, "home")
-    let holderEntered = TaskCompletionSource<unit>()
-    let releaseHolder = TaskCompletionSource<unit>()
-
-    let holder =
-        Task.Run(fun () ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                holderEntered.SetResult()
-                releaseHolder.Task.Wait()
-                Ok ()))
-
-    holderEntered.Task.Wait()
+    let release = TaskCompletionSource<unit>()
+    let held = TaskCompletionSource<unit>()
+    let before = NodeLockPool.entryCount ()
+    let holder = holdWorkspace graph wsId release held
+    held.Task.Wait()
+    let entered = TaskCompletionSource<unit>()
     let persist =
-        Task.Run(fun () -> DocumentPersistWrite.writeDocument dataDir graph wsId)
-    Assert.False(persist.Wait(100))
-    Assert.False(File.Exists(Path.Combine(root, ".amb")))
-    releaseHolder.SetResult()
-    Task.WaitAll(holder, persist)
+        Task.Run(fun () ->
+            let result =
+                DocumentPersistWrite.writeDocument dataDir graph wsId
+            entered.SetResult()
+            result)
+    (NodeLockPool.waitUntilQueued (before + 2)).Wait()
+    Assert.False(entered.Task.IsCompleted)
+    Assert.False(File.Exists(Path.Combine(dataDir, "home", ".amb")))
+    release.SetResult()
+    persist.Wait()
     persist.Result |> requireOk "Persist" |> ignore
-    Assert.True(File.Exists(Path.Combine(root, ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", ".amb")))
+    holder.Wait()
+    Assert.Equal(before, NodeLockPool.entryCount ())
 
-[<SkippableFact>]
-let ``pullTracked waits for the work tree gate then continues`` () =
-    Skip.IfNot(gitOnPath(), "git not on PATH")
-    let _, _, _, workspace = trackedWorkspace ()
-    let holderEntered = TaskCompletionSource<unit>()
-    let releaseHolder = TaskCompletionSource<unit>()
-    let holder =
+[<Fact>]
+let ``parse reads wait while the Workspace lock is held`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, dirId, fileId, _ =
+        DocumentPersistenceTests.Fixtures.graphWithNestedDocs ()
+    DocumentPersistWrite.writeAllDocuments dataDir graph
+    |> requireOk "layout"
+    |> ignore
+    let release = TaskCompletionSource<unit>()
+    let held = TaskCompletionSource<unit>()
+    let before = NodeLockPool.entryCount ()
+    let holder = holdWorkspace graph wsId release held
+    held.Task.Wait()
+    let fileEntered = TaskCompletionSource<unit>()
+    let parse =
         Task.Run(fun () ->
-            WorkspaceGit.withWorkTreeGate workspace (fun () ->
-                holderEntered.SetResult()
-                releaseHolder.Task.Wait()
-                Ok ()))
-    holderEntered.Task.Wait()
-    let pull = Task.Run(fun () -> WorkspaceGit.pullTracked workspace)
+            let result =
+                DocumentPersistWrite.planParseFile
+                    dataDir
+                    graph
+                    fileId
+                    None
+            fileEntered.SetResult()
+            result)
+    let fileQueued = NodeLockPool.waitUntilQueued (before + 2)
+    Task.WaitAny(fileQueued, fileEntered.Task) |> ignore
+    Assert.True(fileQueued.IsCompleted, "parse read did not request the lock")
+    Assert.False(fileEntered.Task.IsCompleted)
+    release.SetResult()
+    parse.Wait()
+    parse.Result |> requireOk "parse" |> ignore
+    holder.Wait()
+    let graph =
+        GraphMutate.setParseState dirId ParseState.Unparsed graph
+        |> requireOk "unparsed directory"
+    let releaseDir = TaskCompletionSource<unit>()
+    let heldDir = TaskCompletionSource<unit>()
+    let beforeDir = NodeLockPool.entryCount ()
+    let holderDir = holdWorkspace graph wsId releaseDir heldDir
+    heldDir.Task.Wait()
+    let posted = TaskCompletionSource<unit>()
+    let threadDone = TaskCompletionSource<unit>()
+    let once = ref true
+    ParseThread.start
+        { dataDir = dataDir
+          consumer =
+            fun () ->
+                if once.Value then
+                    once.Value <- false
+                    Some dirId
+                else
+                    threadDone.SetResult()
+                    None
+          push = ignore
+          getGraph = fun () -> async.Return (Ok graph)
+          postOps =
+            fun _ _ ->
+                posted.SetResult()
+                async.Return (Ok ())
+          markUnparsed = ignore
+          finishParse = ignore }
+    let dirQueued = NodeLockPool.waitUntilQueued (beforeDir + 2)
+    Task.WaitAny(dirQueued, threadDone.Task) |> ignore
     Assert.True(
-        SpinWait.SpinUntil(
-            (fun () -> pull.Status = TaskStatus.Running),
-            2000))
-    Assert.False(pull.Wait(100))
-    releaseHolder.SetResult()
-    Task.WaitAll(holder, pull)
-    pull.Result |> requireOk "queued pull" |> ignore
+        dirQueued.IsCompleted,
+        "directory reconcile did not request the lock")
+    Assert.False(posted.Task.IsCompleted)
+    releaseDir.SetResult()
+    posted.Task.Wait()
+    holderDir.Wait()
+    Assert.Equal(beforeDir, NodeLockPool.entryCount ())
 
-[<SkippableFact>]
-let ``saveTracked waits for the work tree gate then continues`` () =
-    Skip.IfNot(gitOnPath(), "git not on PATH")
-    let _, _, _, workspace = trackedWorkspace ()
-    File.WriteAllText(Path.Combine(workspace, "queued.txt"), "queued")
-    let holderEntered = TaskCompletionSource<unit>()
-    let releaseHolder = TaskCompletionSource<unit>()
-    let holder =
-        Task.Run(fun () ->
-            WorkspaceGit.withWorkTreeGate workspace (fun () ->
-                holderEntered.SetResult()
-                releaseHolder.Task.Wait()
-                Ok ()))
-    holderEntered.Task.Wait()
-    let save =
-        Task.Run(fun () -> WorkspaceGit.saveTracked workspace "queued-save" None)
-    Assert.True(
-        SpinWait.SpinUntil(
-            (fun () -> save.Status = TaskStatus.Running),
-            1000))
-    Assert.False(save.Wait(100))
-    releaseHolder.SetResult()
-    Task.WaitAll(holder, save)
-    save.Result |> requireOk "queued save" |> ignore
-    Assert.Equal("queued-save", git workspace "log -1 --pretty=%s")
+[<Fact>]
+let ``Persist and git paths have no work tree gate`` () =
+    let flags =
+        Reflection.BindingFlags.Static
+        ||| Reflection.BindingFlags.Public
+        ||| Reflection.BindingFlags.NonPublic
+        ||| Reflection.BindingFlags.DeclaredOnly
+    let methodNames (typeName: string) =
+        let moduleType =
+            typeof<GithubTransportGit>.Assembly.GetType typeName
+        Assert.NotNull moduleType
+        moduleType.GetMethods flags
+        |> Array.map (fun method -> method.Name)
+    let sharedNames =
+        System.Reflection.Assembly.Load("Gambol.Shared.DotNet")
+            .GetType("Gambol.Shared.GitRun")
+    Assert.NotNull sharedNames
+    let gitRunNames =
+        sharedNames.GetMethods flags
+        |> Array.map (fun method -> method.Name)
+    Assert.DoesNotContain("withWorkTreeGate", gitRunNames)
+    Assert.DoesNotContain(
+        "withWorkTreeGate",
+        methodNames "Gambol.Server.WorkspaceGit")
+    Assert.DoesNotContain(
+        "withWorkTreeGates",
+        methodNames "Gambol.Server.DocumentPersistPath")
+    let gitFields =
+        typeof<GithubTransportGit>.GetProperties()
+        |> Array.map (fun property -> property.Name)
+    Assert.DoesNotContain("withWorkTreeGate", gitFields)
 
 [<SkippableFact>]
 let ``remoteTip is absent until a remote exists then reports ahead`` () =
