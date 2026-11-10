@@ -7,16 +7,16 @@
 
 ## Context
 
-31 — Migrate onto the workspace lock moves Persist, parse-thread file use, and git Load and git Save onto the workspace lock. `withWorkTreeGate` still runs for that dual-run. 01 — Persist/git work-tree gate revoked the gate as the lasting protocol. This ticket removes the gate. 32 — Workspace lock handoff is the separate landing beat. It uses the workspace lock. This ticket removes the gate once the lock protocol is the only protocol on Persist and git paths.
+31 — Migrate onto the workspace lock moves Persist, parse-thread file use, and git Load and git Save onto `NodeLockPool.withLock`. `withWorkTreeGate` still runs for that dual-run. 01 — Persist/git work-tree gate revoked the gate as the lasting protocol. This ticket removes the gate. 32 — Workspace lock handoff is the separate landing beat. It uses `withLock` on the Workspace node. This ticket removes the gate once that protocol is the only protocol on Persist and git paths.
 
 ## What to build
 
-`withWorkTreeGate` leaves Persist and git paths. The workspace lock and the per-member persist locks are the protocol on those paths.
+`withWorkTreeGate` leaves Persist and git paths. `NodeLockPool.withLock` is the protocol on those paths.
 
 ### Contract
 
 1. [ ] **Remove the gate** — `withWorkTreeGate` is removed from Persist and git paths.
-2. [ ] **Lock protocol** — Persist, parse-thread file use, and git Load and git Save use the workspace lock and the per-member persist locks.
+2. [ ] **Lock protocol** — Persist, parse-thread file use, and git Load and git Save use `NodeLockPool.withLock`.
 
 ### Obligations
 

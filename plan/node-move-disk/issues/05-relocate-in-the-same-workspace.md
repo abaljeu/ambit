@@ -85,7 +85,7 @@ Blockers: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-l
 [ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Post change becomes the relocate caller in a later ticket.
 [ ] `crossWorkspaceMoves` and `moveAcrossWorkspaces` stay absent.
 [ ] `coalescePathMoves` stays as it is.
-[ ] `src/Server/NodeEnclosureLock.fs` stays as it is. This ticket takes no node enclosure lock.
+[ ] `src/Server/NodeLockPool.fs` stays as it is. This ticket takes no node lock.
 [ ] `src/Shared/ChangeAmendment.fs` stays as it is.
 
 ## Process

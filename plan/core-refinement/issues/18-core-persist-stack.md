@@ -37,7 +37,7 @@ Home: [core-refinement architecture](../arch.md) §3 step 3 **Core Persist stack
 
 ## Out of scope
 
-1. **§6 locks catch-up** — Workspace lock, per-member persist locks, and removing `withWorkTreeGate` stay [core-refinement architecture](../arch.md) §3 step 4 **§6 locks catch-up**.
+1. **§6 locks catch-up** — `NodeLockPool.withLock` and removing `withWorkTreeGate` stay [core-refinement architecture](../arch.md) §3 step 4 **§6 locks catch-up**.
 2. **Parse thread setup** — Parse setup stays where it is. This ticket does not move it into Core.
 3. **State axes on special nodes** — Dual-write of `DocumentState` and removal of `DocumentState` stay [core-refinement architecture](../arch.md) §3 step 1 **State axes on special nodes**.
 4. **New write body** — This ticket does not add a writer beside `DocumentPersistChange`.

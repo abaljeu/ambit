@@ -195,33 +195,37 @@ Research: [03 — Research: directory-level persist gate for moves](issues/03-re
 [ ] The gate generalizes the git pull design, which blocked all persists until the pull completed. That design was Workspace-wide only.
 [ ] The move does not set Unparsed on the moved document root. The gate replaces that approach.
 
-#### Node enclosure lock
+#### Node lock
 
-[ ] The node enclosure lock is the named type for the node lock. The gate is one node enclosure lock on one node. In this section, "node lock" means the node enclosure lock.
-[ ] The node enclosure lock is the [core-refinement architecture](../core-refinement/arch.md) §6 workspace lock, generalized to a Directory Node. §6 calls it the aggregate lock.
-[ ] The node enclosure lock covers Workspace Nodes and Directory Nodes alike.
-[ ] The node enclosure lock records the node, not the path. Every node under the locked node is locked. The lock does not check whether a path matches.
-[ ] The node enclosure lock does not exist in code yet. It comes through [30 — Expand the workspace lock](../core-refinement/issues/30-expand-the-workspace-lock.md), generalized from the Workspace Node to any Directory Node.
-[ ] git pull locks the Workspace Node. A Directory move locks the Directory Node.
-[ ] The holder is the git pull caller or the relocate caller. The hold lasts for that git operation.
-[ ] A per-member persist lock is the write of one document root. It is §6 **Per-member persist locks**.
-[ ] `writeDocument` and `writeArtifactText` grant the per-member persist lock around the file bytes. The grant stores every owner-chain ancestor id from `GraphQuery.enclosing`, plus the document root.
-[ ] The callee is `GraphQuery.enclosing`. It walks the owner chain and includes the start node.
+```fsharp
+NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>
+```
+
+[x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` is the node lock. One request is the `Graph` and one `NodeId`. The pool derives the owner chain from that graph. The caller passes no owner chain.
+[x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
+[x] `NodeLockRejection` is `HolderHoldsLock` or `NodeAbsent`. The same thread already `Pending` or `Held` is `HolderHoldsLock`. A missing `graph.nodes` entry is `NodeAbsent`.
+[x] The lock records the node. A path match is outside this lock.
+[ ] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node.
+[ ] git pull calls `withLock` on the Workspace Node. That same hold marks the arrived nodes Unparsed, then releases.
+[ ] A Directory move calls `withLock` on the Directory Node.
+[ ] The holder is the git pull caller, the relocate caller, or the persist caller. The holder runs that algorithm and then releases.
+[ ] `writeDocument` and `writeArtifactText` call `withLock` on the document-root node around the file bytes.
+[ ] A parse read calls `withLock` on its node.
 [ ] After the post graph is stored, a descendant's owner chain still contains the moved Directory Node. One id covers the source path and the destination path.
+[ ] This lock is [core-refinement architecture](../core-refinement/arch.md) §6 **Workspace lock** and §6 **Per-member persist locks**. Both are this one request.
 
 #### What the lock holds off
 
-[ ] Node lock acquire marks the lock pending. It then drains every in-flight per-member persist lock that stored that node id.
-[ ] A new per-member persist lock waits while an ancestor node lock is pending or held.
-[ ] A Directory lock holds off parse reads under that Directory the same way the Workspace lock does. It drains in-flight parse reads and holds new ones until it releases.
-[ ] The moved Directory Node's own file waits with its descendants. That file is `DirName/.amb` inside the moved Directory.
-[ ] A single File move holds that File Node's per-member persist lock for the `git mv`.
-[ ] The Workspace lock covers the git Save commit. It also holds while git Save is doing a pull.
-[ ] Sibling files in the source Workspace and the destination Workspace may keep writing during a cross-Workspace move. A sibling whose stored ancestor ids omit the locked node id takes its per-member persist lock.
+[x] `withLock` marks the request `Pending`. The request waits while a conflicting `Held` entry exists, and while a conflicting `Pending` entry has a smaller seq. The pool then marks the request `Held` and runs the action. The action's return releases the entry.
+[ ] A Directory or Workspace `withLock` holds off a parse read under it. An in-flight parse read is a `Held` request and finishes. A new parse read waits until that `withLock` releases.
+[x] A request on a Directory node id waits while that same id is taken. That id is the Directory node's own file (`DirName/.amb`).
+[ ] A single File move holds `withLock` on that File Node for the `git mv`.
+[ ] `withLock` on the Workspace Node covers the git Save commit. It also holds while git Save is doing a pull.
+[ ] Sibling files in the source Workspace and the destination Workspace may keep writing during a cross-Workspace move. A sibling `withLock` whose owner chain does not reach the locked node id runs during that hold.
 
 #### Blocked persist
 
-[ ] A persist blocked by an ancestor node lock treats it as a lock. The persist thread itself blocks and waits until the lock is available.
+[ ] A persist blocked by a conflicting `withLock` waits until that request releases.
 [ ] The persist thread does not set the node aside on a deferred list.
 [ ] A blocked persist posts no `Notice.PersistFailed`.
 [ ] This rests on the node lock being held well under ten seconds.
@@ -229,13 +233,13 @@ Research: [03 — Research: directory-level persist gate for moves](issues/03-re
 
 #### Work-tree gate and git process lock
 
-[ ] Expand: the node lock stands beside `WorkspaceGit.withWorkTreeGate`. The holder marks the node lock pending, drains, takes `withWorkTreeGate`, runs git, releases `withWorkTreeGate`, and then releases the node lock.
-[ ] While both exist, a persist takes its per-member persist lock first. It takes `withWorkTreeGate` only after that grant. It releases `withWorkTreeGate` before it releases the per-member persist lock.
+[ ] Expand: the node lock stands beside `WorkspaceGit.withWorkTreeGate`. The holder calls `withLock`. Inside the action, after the request is `Held`, the holder takes `withWorkTreeGate`, runs git, releases `withWorkTreeGate`, and then returns. `withLock` releases when the action returns.
+[ ] While both exist, a persist calls `withLock` first. The action takes `withWorkTreeGate` after the request is `Held`. The action releases `withWorkTreeGate` before it returns.
 [ ] Contract: `withWorkTreeGate` is removed from the persist paths and the git pull paths.
-[ ] `GitRun.gitExec` stays the git process lock. It is taken after the node lock. `GitSave.runGit` calls `gitExec`.
-[ ] Lock order is node lock, then `withWorkTreeGate` while both exist, then the `GitRun` lock.
-[ ] A thread that holds the `GitRun` lock takes no node lock.
-[ ] A holder takes one node lock. A Directory move holds no Workspace lock and no per-member persist lock.
+[ ] `GitRun.gitExec` stays the git process lock. It is taken after `withLock`. `GitSave.runGit` calls `gitExec`.
+[ ] Lock order is `withLock`, then `withWorkTreeGate` while both exist, then the `GitRun` lock.
+[ ] A thread that holds the `GitRun` lock calls no `withLock`.
+[ ] A holder calls `withLock` once. A Directory move is that one call on the Directory node.
 
 ### Unparsed save gate
 
@@ -343,7 +347,7 @@ Accept validation
 
 6. **Move under the node lock**
 
-[ ] The relocate caller locks the moved Directory Node, or holds the moved File Node's per-member persist lock. The lock drains in-flight persists and parse reads under that node. Same-workspace relocate or Cross-workspace move runs git. The caller releases the lock. A persist that waited on the lock then writes.
+[ ] The relocate caller calls `NodeLockPool.withLock` on the moved node. That request waits while a conflicting persist or parse read is taken. Same-workspace relocate or Cross-workspace move runs git inside the action. The action's return releases the request. A persist that waited on that request then writes.
 
 ```fsharp
 Move write gate
@@ -408,6 +412,7 @@ Persist thread write
     - Uses:
       1. [x] none
 11a. **Move write gate**
+    - Interface: `src/Server/NodeLockPool.fs` `withLock`
     - Uses:
       1. [ ] Same-workspace relocate
       2. [ ] Cross-workspace move
@@ -455,4 +460,4 @@ A behavior change is a build slice.
 4. Conflict ops — Resolved (Alan 2026-11-09): rename. When there is a change conflict, Change amendment resolves it by renaming the incoming moved or renamed node, not the existing file at the destination. The rename is a file name op: it changes the file name, not the directory path.
 5. Relocate caller — Resolved (Alan 2026-11-09): Post change is the single caller that runs the relocate for every kind of move. Right after the path-move check passes, the Post change functions (`FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`) classify each move and run `gitMove` for a same-Workspace move or `moveAcrossWorkspaces` for a cross-Workspace move, under the node lock. They then store the graph and queue the persists. Post change already holds the before and after graphs, the data directory, and the planned moves, and it is where a conflict is caught. Committing at move time (question 2) fits there too. `gitMove` and `moveAcrossWorkspaces` do not exist yet.
 6. Conflict data directory — Resolved (Alan 2026-11-09): Change amendment never takes the data directory. Post change, in `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`, runs the existing path check (`validatePathMoves`) with its own data directory: `FileAgent`'s `dataDir` field or `DbAgent`'s `liveSaveDataDir`. Instead of rejecting the change on `disk path already exists`, it hands Change amendment the conflicting nodes, and Change amendment emits the file name rename for each incoming node. The shared code (`ChangeAmendment.applyPosted`) stays free of disk access. When `DbAgent` has no data directory, nothing is written to disk, so there is no conflict to check. This is the same caller proposed for question 5.
-7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes. Its lock design comes from [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md) and Alan's answers there (2026-11-09).
+7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes. Its lock design comes from [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md) and Alan's answers there (2026-11-09). Alan, 2026-11-10: that design is one `NodeLockPool.withLock` request. **Move write gate** states the rule.

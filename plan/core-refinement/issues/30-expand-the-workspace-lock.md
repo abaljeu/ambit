@@ -11,20 +11,20 @@ Persist and git paths still run `withWorkTreeGate`. That exclusive gate is not t
 
 ## What to build
 
-The workspace lock and the per-member persist locks stand beside `withWorkTreeGate`. Callers stay on the gate. The gate stays.
+`NodeLockPool.withLock` stands beside `withWorkTreeGate`. Callers stay on the gate. The gate stays.
 
 ### Expand
 
-1. [ ] **Workspace lock** — The workspace lock stands beside `withWorkTreeGate`. It is an aggregate lock. It announces that member files may change.
-2. [ ] **Pending** — While the workspace lock is pending, new per-member persist locks for those member files cannot be taken.
-3. [ ] **Drain** — The workspace lock waits until in-flight member file writes and parse reads have drained.
-4. [ ] **Per-member persist locks** — Per-member persist locks stand beside `withWorkTreeGate`.
+1. [ ] **Workspace lock** — `NodeLockPool.withLock` stands beside `withWorkTreeGate`. A request on the Workspace node announces that member files may change.
+2. [ ] **Pending** — While that request is pending, a conflicting `withLock` waits.
+3. [ ] **Drain** — The request waits until in-flight member file writes and parse reads have drained.
+4. [ ] **Per-member persist locks** — A persist is the same `NodeLockPool.withLock` on the document-root node, beside `withWorkTreeGate`.
 5. [ ] **Gate stays** — `withWorkTreeGate` stays on Persist and git paths.
 
 ### Obligations
 
-1. [ ] **Parse and persist claim** — The Parse and persist claim says the workspace lock and the per-member persist locks stand beside `withWorkTreeGate`.
-2. [ ] **Lock test** — A test takes the workspace lock beside `withWorkTreeGate`, shows that a pending lock blocks a new per-member persist lock, and shows that the lock waits for an in-flight member write and an in-flight parse read to drain.
+1. [ ] **Parse and persist claim** — The Parse and persist claim says `NodeLockPool.withLock` stands beside `withWorkTreeGate`.
+2. [ ] **Lock test** — A test calls `NodeLockPool.withLock` beside `withWorkTreeGate`, shows that a pending request blocks a conflicting `withLock`, and shows that the request waits for an in-flight member write and an in-flight parse read to drain.
 
 ## See also
 
@@ -39,3 +39,4 @@ The workspace lock and the per-member persist locks stand beside `withWorkTreeGa
 ## Notes
 
 - 2026-11-09 — Superseded by [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock.md), because the move project builds the node enclosure lock that covers the Workspace lock.
+- 2026-11-10 — [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md) replaces that module with `NodeLockPool.withLock`. One request is one node id. The pool derives the owner chain.

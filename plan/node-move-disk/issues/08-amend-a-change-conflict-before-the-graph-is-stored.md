@@ -81,7 +81,7 @@ Blockers: [06 — Keep a nested node whose derived path differs](06-keep-a-neste
 ## Do not load
 
 [ ] `src/Server/WorkspaceGit.fs` stays as it is. This ticket runs no `gitMove` and no `moveAcrossWorkspaces`.
-[ ] `src/Server/NodeEnclosureLock.fs` stays as it is.
+[ ] `src/Server/NodeLockPool.fs` stays as it is.
 [ ] `src/Shared/GraphQuery.fs` stays as it is. `unusedOwnedName` stays the name picker.
 [ ] `executePathMoves` and `persistGraphChange` stay on `validatePathMoves`.
 [ ] `src/Server/Core/PersistThread.fs` stays as it is.

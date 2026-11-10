@@ -44,7 +44,7 @@ Blockers: none
 
 ## Do not load
 
-[ ] `src/Server/NodeEnclosureLock.fs` stays as it is. This skip is separate from the node enclosure lock.
+[ ] `src/Server/NodeLockPool.fs` stays as it is. This skip is separate from the node lock.
 [ ] `src/Server/DocumentPersistWrite.fs` stays as it is.
 [ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
 [ ] `src/Server/Core/CoreEventDispatch.fs` stays as it is.
@@ -67,7 +67,7 @@ Blockers: none
 
 [ ] Record the stop at `plan/node-move-disk/reports/10-reject-an-unparsed-persist-request-stop.md`, then ask.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when the edit changes `unparsedNode`, `DbAgent.startFileDiff`, `writeDocument`, or `NodeEnclosureLock`.
+[ ] Stop when the edit changes `unparsedNode`, `DbAgent.startFileDiff`, `writeDocument`, or `NodeLockPool`.
 [ ] Stop when the edit contradicts story 1 Derived-path comparison in the spec.
 
 ## Check

@@ -8,7 +8,7 @@
 
 Today's gate is `WorkspaceGit.withWorkTreeGate` ([src/Server/WorkspaceGit.fs](../../../src/Server/WorkspaceGit.fs)). It is one `SemaphoreSlim` per normalized Workspace root. The git pull (`WorkspaceGit.pullTracked`, wrapped by `commitInGate` in `GithubTransportActor`), git Save (`WorkspaceGit.saveTracked`), and the persist writes (`DocumentPersistWrite.writeArtifactText`, `writeDocument`, `writeAllDocuments`) all take it. `DocumentPersistPath.withWorkTreeGates` takes several roots in sorted order. The path-move persist in `DocumentPersistChange` gates the Workspace roots of both the pre graph and the post graph before `executePathMoves`. Shared `GitRun` holds its own separate per-folder lock around each git command.
 
-The gate is Workspace-wide only. [core-refinement architecture](../../core-refinement/arch.md) §6 and [Parse and persist](../../../doc/current/parse-persist.md) mark it obsolescent and plan a workspace lock plus per-member persist locks. Those locks are not built.
+The gate is Workspace-wide only. [core-refinement architecture](../../core-refinement/arch.md) §6 and [Parse and persist](../../../doc/current/parse-persist.md) mark it obsolescent. Alan, 2026-11-10: one `NodeLockPool.withLock` replaces the two grants this research records. [11 — Expand the node lock pool](11-expand-the-node-lock-pool.md) built that pool. The answers below stay the 2026-11-09 record.
 
 [Node move and disk architecture](../arch.md) **Move write gate** needs a lock below Workspace scope: while a git move of a Directory runs, no write is allowed under that Directory until the move completes.
 
