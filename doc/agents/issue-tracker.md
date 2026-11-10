@@ -47,7 +47,7 @@ Every issue carries `**Type:**` near the top (with `**Status:**`).
 - `coding` — build or prove a defined feature/task
 - `bug-fixing` — diagnose and fix a defect (repro → fix → proof)
 
-Wayfinder maps still chart with the four types above. Hand off feature build with `coding`. File defect work with `bug-fixing`. Status triage is unchanged (`defined` → implement sets `coded` → review accept sets `done`).
+Wayfinder maps still chart with the four types above. Hand off feature build with `coding`. File defect work with `bug-fixing`. Status triage is unchanged (`defined` → implement sets `coded` → Alan sets `done` after he has tried the program).
 
 Do not invent other Type values without updating this section. Older tickets may omit Type; when you touch one, add Type.
 
@@ -122,4 +122,4 @@ The Wayfinder map is one file with one child file per decision ticket.
 - **Frontier**: Scan the effort's `issues/` directory for tickets whose Blocked-by list is clear (every listed ticket is `done`, or None) and whose Status names the next action you were asked to do (`defined` when the ask is implement and Blocked-by is clear; `coded` when the ask is review). A `defined` ticket with open Blocked-by links is not the frontier. Existing tickets may still use retired Status values; do not rewrite them until touched. First by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Do not change Status while work is in flight. Blocking issues do not change a fully specified ticket from `defined`. When implementation finishes, set `coded` ([[triage-labels.md]]).
 - **Resolve (decision ticket)**: Append the resolution under `## Answer`, set `**Status:** done` when that answer is accepted, then append a one-line gist and link to the map's Decisions so far.
-- **Resolve (implementation ticket)**: Set `**Status:** done` only when review approves a `coded` ticket. Implement sets `coded`. A review report alone does not set `done`.
+- **Resolve (implementation ticket)**: Set `**Status:** done` only after Alan has tried the program. Implement sets `coded`. Review approval and land leave the ticket `coded`.
