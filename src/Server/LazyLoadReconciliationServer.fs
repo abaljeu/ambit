@@ -293,6 +293,34 @@ module LazyLoadReconciliationServer =
             | _ -> None)
         |> List.distinct
 
+    /// A File node this pull creates, absent from the pre-pull graph.
+    let private absentFileIds (graph: Graph) (ops: Op list) =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(id, kind, _) when
+                kind = File && not (Map.containsKey id graph.nodes) ->
+                Some id
+            | _ -> None)
+
+    /// PullingFile has no bytes yet. An absent node has not been held.
+    let private serverHeldBytes (graph: Graph) (id: NodeId) =
+        match Map.tryFind id graph.nodes with
+        | Some node -> Node.documentStateEnum node <> PullingFile
+        | None -> false
+
+    /// NodeReceived once, for a file the server never held.
+    let private postFirstReceipt
+        (postNotice: Notice -> unit)
+        (graph: Graph)
+        (knownIds: NodeId list)
+        (ops: Op list)
+        =
+        knownIds
+        |> List.append (absentFileIds graph ops)
+        |> List.distinct
+        |> List.filter (fun id -> not (serverHeldBytes graph id))
+        |> List.iter (fun id -> postNotice (Notice.NodeReceived id))
+
     /// Directory-file renames stay off the plan. Added and Modified
     /// directory files stay, so `parseDirInfoIfPresent` still runs.
     let private plannedChanges
@@ -325,11 +353,14 @@ module LazyLoadReconciliationServer =
             renamedDirectoryIds graph workspaceLabel changedPaths
           beside =
             fun report ->
-                receivedFileIds graph workspaceLabel files
-                |> List.append report.renamedReceivedIds
-                |> List.distinct
-                |> List.iter (fun id ->
-                    caps.postNotice (Notice.NodeReceived id)) }
+                let known =
+                    receivedFileIds graph workspaceLabel files
+                    |> List.append report.renamedReceivedIds
+                postFirstReceipt
+                    caps.postNotice
+                    graph
+                    known
+                    report.ops }
 
     let private reconcileWith
         (caps: ReconcileCaps)
@@ -374,8 +405,10 @@ module LazyLoadReconciliationServer =
     /// is NodeUnparsed before the Change and NodeParsed after it.
     /// A child container is NodeUnparsed between those two.
     /// The list does not discover members.
-    /// `NodeReceived` uses the received-file list. A Modified directory
-    /// file with no text stays here and lands on `unparsedIds`.
+    /// `NodeReceived` fires once, for a file the server never held.
+    /// A file already received is marked Unparsed and gets no
+    /// `NodeReceived`. A Modified directory file with no text stays
+    /// here and lands on `unparsedIds`.
     let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)

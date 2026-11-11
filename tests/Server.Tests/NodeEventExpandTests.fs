@@ -187,10 +187,13 @@ let private setState host id oldState newState =
     CoreMailboxApi.postNotice host notice
     Assert.Equal(newState, documentState host id)
 
-let private received host id =
-    hasCase host (function
-        | Notice.NodeReceived found -> found = id
+let private receivedCount host id =
+    orderedEvents host
+    |> List.filter (function
+        | { body = EventBody.Notice (Notice.NodeReceived found) } ->
+            found = id
         | _ -> false)
+    |> List.length
 
 let private loggedUnparsed host id =
     hasCase host (function
@@ -243,9 +246,10 @@ let private assertLogged host id newState present =
     Assert.Equal(newState, documentState host id)
     Assert.True(present)
 
-let private assertReceivedUnparsed host id =
+let private assertEditedUnparsed host id =
+    Assert.Equal(0, receivedCount host id)
     Assert.True(loggedUnparsed host id)
-    assertLogged host id Unparsed (received host id)
+    Assert.Equal(Unparsed, documentState host id)
 
 let private waitParsed host id = task {
     let! parsed =
@@ -356,7 +360,7 @@ let private parsingIds host =
         | _ -> None)
 
 [<Fact>]
-let ``git changed file posts NodeReceived and NodeUnparsed`` () =
+let ``git pull of an already received file posts no NodeReceived`` () =
     withHome (fun dataDir host handle wsId -> task {
         let fileId = addFile host wsId "note.txt"
         setState host fileId Unparsed Current
@@ -367,7 +371,22 @@ let ``git changed file posts NodeReceived and NodeUnparsed`` () =
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Modified "note.txt" ]
-        assertReceivedUnparsed host fileId
+        assertEditedUnparsed host fileId
+    })
+
+[<Fact>]
+let ``git pull of a new file posts NodeReceived once`` () =
+    withHome (fun dataDir host handle wsId -> task {
+        placeFile dataDir "note.txt" "body"
+        do!
+            pullReceived
+                host
+                handle
+                dataDir
+                [ LazyLoadReconciliation.Added "note.txt" ]
+        let fileId = childIdNamed host wsId "note.txt"
+        Assert.Equal(1, receivedCount host fileId)
+        Assert.Equal(Unparsed, documentState host fileId)
     })
 
 [<Fact>]
@@ -593,7 +612,7 @@ let ``reconcile emits NodeReceived`` () =
                 dataDir
                 [ LazyLoadReconciliation.Modified "note.txt" ]
         let node = (stateOf host).graph.nodes.[fileId]
-        Assert.True(received host fileId)
+        Assert.Equal(1, receivedCount host fileId)
         Assert.Equal(Unparsed, documentState host fileId)
         Assert.False(node.documentState.pullingFile)
         Assert.Equal(
@@ -602,7 +621,7 @@ let ``reconcile emits NodeReceived`` () =
     })
 
 [<Fact>]
-let ``renamed file posts NodeReceived`` () =
+let ``renamed file posts no NodeReceived`` () =
     withHome (fun dataDir host handle wsId -> task {
         let fileId = addFile host wsId "note.txt"
         setState host wsId Unparsed Current
@@ -625,11 +644,11 @@ let ``renamed file posts NodeReceived`` () =
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        assertReceivedUnparsed host fileId
+        assertEditedUnparsed host fileId
     })
 
 [<Fact>]
-let ``moved file posts NodeReceived`` () =
+let ``moved file posts no NodeReceived`` () =
     withHome (fun dataDir host handle wsId -> task {
         let docsId = addDirectory host wsId "docs"
         let otherId = addDirectory host wsId "other"
@@ -650,11 +669,11 @@ let ``moved file posts NodeReceived`` () =
                 dataDir
                 [ LazyLoadReconciliation.Renamed(
                     "docs/note.txt", "other/note.txt") ]
-        assertReceivedUnparsed host fileId
+        assertEditedUnparsed host fileId
     })
 
 [<Fact>]
-let ``renamed and modified file posts NodeReceived`` () =
+let ``renamed and modified file posts no NodeReceived`` () =
     withHome (fun dataDir host handle wsId -> task {
         let fileId = addFile host wsId "note.txt"
         setState host wsId Unparsed Current
@@ -666,7 +685,7 @@ let ``renamed and modified file posts NodeReceived`` () =
                 handle
                 dataDir
                 [ LazyLoadReconciliation.Renamed("note.txt", "renamed.txt") ]
-        assertReceivedUnparsed host fileId
+        assertEditedUnparsed host fileId
     })
 
 [<Fact>]

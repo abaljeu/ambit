@@ -635,6 +635,64 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
     finally
         CoreMailboxApi.dispose host
 
+let private noticeCount host notice =
+    CoreMailboxApi.getEventsSince host EventId.zero
+    |> Async.RunSynchronously
+    |> List.filter (fun event -> event.body = EventBody.Notice notice)
+    |> List.length
+
+let private uploadHandoff host =
+    { readState = fun () -> CoreMailboxApi.graphAtEvent host
+      postNotice = CoreMailboxApi.postNotice host
+      loadNode = fun _ -> async { return Ok () } }
+
+let private landUpload host relative =
+    WorkspaceUploadLock.landMarkRelease
+        (uploadHandoff host)
+        "home"
+        relative
+        (fun () -> Ok ())
+    |> requireOk "upload"
+    |> ignore
+
+let private seedPullingFile (host: MailboxHost) parentId name =
+    let graph = readGraph host
+    let fileId, ops =
+        FileNodeOps.planCreateOwnedFile graph parentId name
+    postChange host ops
+    CoreMailboxApi.postNotice host (Notice.NodeUploading fileId)
+    fileId
+
+let private withPullingUpload body =
+    let dataDir = newTempDir ()
+    let host, _changes = createAdmittedFile dataDir
+    try
+        let workspaceId, _ = seedDocs host
+        let fileId = seedPullingFile host workspaceId "note.txt"
+        body host fileId
+    finally
+        CoreMailboxApi.dispose host
+
+let private fileDocument host fileId =
+    (readGraph host).nodes.[fileId].documentState
+
+[<Fact>]
+let ``one upload posts NodeReceived once`` () =
+    withPullingUpload (fun host fileId ->
+        landUpload host "note.txt"
+        Assert.Equal(1, noticeCount host (Notice.NodeReceived fileId))
+        Assert.Equal(Unparsed, (fileDocument host fileId).AsEnum)
+        Assert.False((fileDocument host fileId).pullingFile))
+
+[<Fact>]
+let ``a second upload posts no NodeReceived and marks Unparsed`` () =
+    withPullingUpload (fun host fileId ->
+        landUpload host "note.txt"
+        landUpload host "note.txt"
+        Assert.Equal(1, noticeCount host (Notice.NodeReceived fileId))
+        Assert.Equal(1, noticeCount host (Notice.NodeUnparsed fileId))
+        Assert.Equal(Unparsed, (fileDocument host fileId).AsEnum))
+
 [<Fact>]
 let ``upload lands and marks Unparsed inside the workspace lock`` () =
     let steps = ResizeArray<string>()
@@ -653,7 +711,7 @@ let ``upload lands and marks Unparsed inside the workspace lock`` () =
                 fun notice ->
                     steps.Add("mark")
                     match notice with
-                    | Notice.NodeReceived _ -> ()
+                    | Notice.NodeUnparsed _ -> ()
                     | other -> Assert.Fail($"notice: {other}")
                     Assert.True(holdsWorkspace graph workspaceId)
             loadNode =

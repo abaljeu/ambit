@@ -16,10 +16,17 @@ module WorkspaceUploadLock =
     let private fileAt graph label relative =
         WorkspaceUploadStructure.tryResolveFileNode graph label relative
 
+    /// First bytes post NodeReceived. A later PUT is an edit.
+    let private markForUpload (graph: Graph) (fileId: NodeId) =
+        match Map.tryFind fileId graph.nodes with
+        | Some node when Node.documentStateEnum node = PullingFile ->
+            Notice.NodeReceived fileId
+        | _ -> Notice.NodeUnparsed fileId
+
     let private applyMark handoff fileId =
-        handoff.postNotice (Notice.NodeReceived fileId)
         Async.RunSynchronously (handoff.readState ())
-        |> Result.map (fun _ -> ())
+        |> Result.map (fun state ->
+            handoff.postNotice (markForUpload state.graph fileId))
 
     type private LandWork = {
         handoff: UploadHandoff
