@@ -85,17 +85,22 @@ let ``compose after Loaded split does not want the parent`` () =
     Assert.DoesNotContain(zoomId, want)
 
 [<Fact>]
-let ``applyLoadResponse answer-only with pending is raced Load answer`` () =
+let ``applyLoadResponse answer-only with pending applies the Load reply`` () =
     let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
     let split, suffixId = applyMiddleSplit helloId sibId zoomId graph
+    let pending =
+        [ pendingSplit
+            (System.Guid.NewGuid())
+            (middleSplitOps helloId sibId zoomId graph suffixId) ]
     let st =
         { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
           with
-            pending =
-                [ pendingSplit (System.Guid.NewGuid()) [] ] }
+            pending = pending }
+    let staleHello =
+        { split.graph.nodes.[helloId] with text = "hello" }
     let response: SyncResponse =
         { events = []
-          nodes = [ split.graph.nodes.[helloId] ]
+          nodes = [ staleHello; split.graph.nodes.[sibId] ]
           childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
     match
         SyncLogic.applyLoadResponse
@@ -104,19 +109,27 @@ let ``applyLoadResponse answer-only with pending is raced Load answer`` () =
             response
             st
     with
-    | Error msg -> Assert.Equal("raced Load answer", msg)
-    | Ok _ -> failwith "expected raced Load answer"
-    Assert.True(Map.containsKey suffixId split.graph.nodes)
+    | Error msg -> failwith $"expected apply, got {msg}"
+    | Ok next ->
+        Assert.Equal<NodeId list>(
+            [ helloId; suffixId; sibId ],
+            Graph.children next.graph zoomId |> List.map _.id)
+        Assert.Equal("hel", next.graph.nodes.[helloId].text)
+        Assert.Equal("lo", next.graph.nodes.[suffixId].text)
+        Assert.Equal<Ev list>(pending, next.pending)
 
 [<Fact>]
-let ``applyLoadResponse ignores a Notice when guarding a raced Load answer`` () =
+let ``applyLoadResponse applies a Notice with a nodes-only Load answer`` () =
     let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
-    let split, _ = applyMiddleSplit helloId sibId zoomId graph
+    let split, suffixId = applyMiddleSplit helloId sibId zoomId graph
+    let pending =
+        [ pendingSplit
+            (System.Guid.NewGuid())
+            (middleSplitOps helloId sibId zoomId graph suffixId) ]
     let st =
         { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
           with
-            pending =
-                [ pendingSplit (System.Guid.NewGuid()) [] ] }
+            pending = pending }
     let notice =
         { pendingSplit (System.Guid.NewGuid()) [] with
             id = EventIdFixtures.storedId 9
@@ -128,9 +141,11 @@ let ``applyLoadResponse ignores a Notice when guarding a raced Load answer`` () 
                         helloId,
                         EventId.zero,
                         System.DateTime.UtcNow)) }
+    let staleHello =
+        { split.graph.nodes.[helloId] with text = "hello" }
     let response: SyncResponse =
         { events = [ notice ]
-          nodes = [ split.graph.nodes.[helloId] ]
+          nodes = [ staleHello; split.graph.nodes.[sibId] ]
           childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
     match
         SyncLogic.applyLoadResponse
@@ -139,8 +154,15 @@ let ``applyLoadResponse ignores a Notice when guarding a raced Load answer`` () 
             response
             st
     with
-    | Error msg -> Assert.Equal("raced Load answer", msg)
-    | Ok _ -> failwith "expected raced Load answer"
+    | Error msg -> failwith $"expected apply, got {msg}"
+    | Ok next ->
+        Assert.Equal(EventIdFixtures.storedId 9, next.eventId)
+        Assert.Equal<NodeId list>(
+            [ helloId; suffixId; sibId ],
+            Graph.children next.graph zoomId |> List.map _.id)
+        Assert.Equal("hel", next.graph.nodes.[helloId].text)
+        Assert.Equal("lo", next.graph.nodes.[suffixId].text)
+        Assert.Equal<Ev list>(pending, next.pending)
 
 [<Fact>]
 let ``applySyncResponse stale Want re-applies the pending split for visibility`` () =

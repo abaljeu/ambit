@@ -170,8 +170,8 @@ let ``answer-only Load at the same event id preserves ClientHistory`` () =
         Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
-let ``answer-only Load at the same event id refuses pending local work`` () =
-    let graph, _, ws = unloadedWorkspace ()
+let ``answer-only Load at the same event id applies with pending local work`` () =
+    let graph, wsId, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
     match
@@ -180,11 +180,14 @@ let ``answer-only Load at the same event id refuses pending local work`` () =
             true
             { events = []
               nodes = [ ws ]
-              childMap = Map.ofList [ ws.id, [] ] }
+              childMap = Map.ofList [ wsId, [] ] }
             state
     with
-    | Ok _ -> failwith "Expected raced Load answer refusal"
-    | Error msg -> Assert.Contains("raced", msg)
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal(state.history, result.history)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
 let ``approve stamps matching zero when a foreign event leads the stream`` () =
@@ -234,8 +237,8 @@ let ``approve stamps Redo target written while undo id was zero`` () =
                 | _ -> failwith "expected Redo body"
 
 [<Fact>]
-let ``answer-only Load refuses an event id mismatch`` () =
-    let graph, _, ws = unloadedWorkspace ()
+let ``answer-only Load applies when the event id differs`` () =
+    let graph, wsId, ws = unloadedWorkspace ()
     let state: ClientSyncState =
         ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
     match
@@ -244,8 +247,11 @@ let ``answer-only Load refuses an event id mismatch`` () =
             false
             { events = []
               nodes = [ ws ]
-              childMap = Map.ofList [ ws.id, [] ] }
+              childMap = Map.ofList [ wsId, [] ] }
             state
     with
-    | Ok _ -> failwith "Expected raced Load answer refusal"
-    | Error msg -> Assert.Contains("raced", msg)
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal(state.history, result.history)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
