@@ -279,7 +279,7 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     })
 
 [<Fact>]
-let ``CoreMailboxApi.startActor appends ActorStart to lifecycle events`` () =
+let ``CoreMailboxApi.startActor appends StartActor after the pool affirms`` () =
     withHost (fun host _ -> task {
         let! result =
             CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
@@ -292,9 +292,9 @@ let ``CoreMailboxApi.startActor appends ActorStart to lifecycle events`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart request
-                    when request.focusId = sampleRequest.focusId ->
-                    Some request.focusId
+                | EventBody.Order (Order.StartActor order)
+                    when order.actorNodeId = sampleRequest.focusId ->
+                    Some order.actorNodeId
                 | _ -> None)
         Assert.Equal(1, actorStartedEvents.Length)
     })
@@ -379,8 +379,9 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             history.events,
             fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart started ->
-                    started.runDefinitionId = request.runDefinitionId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = request.focusId
+                    && order.actorName = "root"
                 | _ -> false)
     })
 
@@ -419,8 +420,9 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             history.events,
             fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart started ->
-                    started.runDefinitionId = request.runDefinitionId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = request.focusId
+                    && order.actorName = "test"
                 | _ -> false)
     })
 
@@ -441,6 +443,10 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
         match result with
         | Error msg -> Assert.Contains("graphIds required", msg)
         | Ok _ -> Assert.Fail("expected error for empty graphIds")
+        let! history =
+            CoreMailboxApi.eventHistory host
+            |> Async.StartAsTask
+        Assert.Empty(history.events)
     })
 
 [<Fact>]
@@ -472,8 +478,23 @@ let ``CoreActorPool.startActor fails when runDefinitionId not in graphIds`` () =
             |> Async.StartAsTask
         
         match result with
-        | Error msg -> Assert.Contains("command node not found in provided graphIds", msg)
-        | Ok _ -> Assert.Fail("expected error when command not in graphIds")
+        | Error msg ->
+            Assert.Contains(
+                "command node not found in provided graphIds",
+                msg)
+        | Ok _ ->
+            Assert.Fail("expected error when command not in graphIds")
+        let! history =
+            CoreMailboxApi.eventHistory host
+            |> Async.StartAsTask
+        let lifecycle =
+            history.events
+            |> List.filter (fun event ->
+                match event.body with
+                | EventBody.Order (Order.StartActor _)
+                | EventBody.ActorStop _ -> true
+                | _ -> false)
+        Assert.Empty(lifecycle)
     })
 
 [<Fact>]
@@ -492,9 +513,9 @@ let ``mailbox records ActorStarted before actor body runs`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | Gambol.Shared.EventBody.ActorStart request
-                    when request.focusId = sampleRequest.focusId ->
-                    Some request.focusId
+                | EventBody.Order (Order.StartActor order)
+                    when order.actorNodeId = sampleRequest.focusId ->
+                    Some order.actorNodeId
                 | _ -> None)
         
         Assert.Equal(1, actorStartedEvents.Length)
@@ -700,7 +721,7 @@ let ``ActorStart persist Error leaves Focus out of liveActorNodeIds`` () =
                     appendEvent =
                         fun event ->
                             match event.body with
-                            | EventBody.ActorStart _ ->
+                            | EventBody.Order (Order.StartActor _) ->
                                 Error "actor start persist failed"
                             | _ -> persist.handlers.appendEvent event } }
     let pool = CoreActorPool.create ()
@@ -1221,7 +1242,12 @@ let ``Undo and Redo post as orders; ActorStart and Cancel still post as PostEven
         requireOk "actor start" started |> ignore
         let! startedBody = storedBody host start.submissionId
         Assert.Equal(
-            Some (EventBody.ActorStart sampleRequest),
+            Some(
+                EventBody.Order(
+                    Order.StartActor
+                        { actor = EventJson.stubActor
+                          actorNodeId = sampleRequest.focusId
+                          actorName = "root" })),
             startedBody)
         let _, create = addRootChildEvent "undo-target"
         let! created =
@@ -1420,6 +1446,38 @@ let private assertStoredChange host event origin =
         | other ->
             Assert.Fail($"stored Change keeps origin, got {other}")
     }
+
+[<Fact>]
+let ``postEvent returns the stored start when that start stops at once`` () =
+    withHost (fun host pool -> task {
+        let start =
+            postedBody "Run" (EventBody.ActorStart sampleRequest)
+        let! first =
+            CoreMailboxApi.postEvent host testCaller start
+            |> Async.StartAsTask
+        let stored = requireOk "start" first
+        match pool.trySecretForActorNode sampleRequest.focusId with
+        | None -> Assert.Fail("affirmed start has no live secret")
+        | Some secret ->
+            let! stopped =
+                CoreMailboxApi.actorStop
+                    host
+                    (actorCaller secret)
+                    ActorSucceeded
+                |> Async.StartAsTask
+            requireOk "stop" stopped |> ignore
+            let! again =
+                CoreMailboxApi.postEvent host testCaller start
+                |> Async.StartAsTask
+            let returned = requireOk "stored start" again
+            Assert.Equal(stored.id, returned.id)
+            match returned.body with
+            | EventBody.Order (Order.StartActor order) ->
+                Assert.Equal(sampleRequest.focusId, order.actorNodeId)
+                Assert.Equal("root", order.actorName)
+            | other ->
+                Assert.Fail($"stored start, got {other}")
+    })
 
 [<Fact>]
 let ``a stored Edit Change keeps origin Edit`` () =

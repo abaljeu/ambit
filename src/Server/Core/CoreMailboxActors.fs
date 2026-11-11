@@ -37,6 +37,37 @@ module internal CoreMailboxActors =
                         context.pool.drop secret
                         Error (StartError.Rejected err)
 
+    let private classActorName (node: Node) =
+        node.cssClasses
+        |> CssClass.toList
+        |> List.tryPick (fun cls ->
+            if cls.StartsWith("actor-") && cls.Length > 6 then
+                Some(cls.Substring(6))
+            else
+                None)
+
+    let private actorNameFor (node: Node) =
+        match CommandRequest.actorNameFromText node.text with
+        | Some name -> name
+        | None ->
+            match classActorName node with
+            | Some name -> name
+            | None -> node.text.Trim().ToLowerInvariant()
+
+    /// The pool already admitted this start. The log keeps the wire actor.
+    let private orderOfAffirmedStart
+        (context: MailboxContext)
+        (request: Gambol.Shared.ActorStart)
+        : ActorOrder =
+        let actorName =
+            let nodes = (CoreMailboxEvents.graphNow context).nodes
+            match Map.tryFind request.runDefinitionId nodes with
+            | Some node -> actorNameFor node
+            | None -> ""
+        { actor = EventJson.stubActor
+          actorNodeId = request.focusId
+          actorName = actorName }
+
     let private finishReadyStart
         (context: MailboxContext)
         (caller: Caller)
@@ -45,12 +76,15 @@ module internal CoreMailboxActors =
         (make: Caller -> CoreChangesDoor)
         (submissionId: System.Guid)
         =
+        let body =
+            EventBody.Order(
+                Order.StartActor(orderOfAffirmedStart context request))
         match
             CoreEventDispatch.appendLifecycle
                 (CoreMailboxEvents.eventDispatchContext context)
                 caller
                 submissionId
-                (EventBody.ActorStart request)
+                body
         with
         | Error err ->
             context.pool.drop secret
@@ -173,25 +207,9 @@ module internal CoreMailboxActors =
         | StartError.UnknownActor _ -> "unknown actor"
         | StartError.Rejected message -> message
 
-    let private recordFailedStart
-        context caller (request: Gambol.Shared.ActorStart)
-        submissionId message (reply: PostedReply) =
-        let dispatch = CoreMailboxEvents.eventDispatchContext context
-        let stop =
-            EventBody.ActorStop(request.focusId, ActorFailed message)
-        match
-            CoreEventDispatch.appendLifecycle
-                dispatch caller submissionId (EventBody.ActorStart request)
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok started ->
-            match
-                CoreEventDispatch.appendLifecycle
-                    dispatch caller (Guid.NewGuid()) stop
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok stopped ->
-                CoreMailboxEvents.replyStored reply started
+    /// Refusal leaves the log empty and returns the error to the caller.
+    let private recordFailedStart (reply: PostedReply) message =
+        reply.Reply(Error message)
 
     let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
         let graph = CoreMailboxEvents.graphNow context
@@ -274,9 +292,7 @@ module internal CoreMailboxActors =
             startChosen context req getState
         match prepareActorStart context caller request start with
         | Error error ->
-            recordFailedStart
-                context caller request event.submissionId
-                (failedMessage error) reply
+            recordFailedStart reply (failedMessage error)
         | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
         | Ok (Some secret, make) ->
             match

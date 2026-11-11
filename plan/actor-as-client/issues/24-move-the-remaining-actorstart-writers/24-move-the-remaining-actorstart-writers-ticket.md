@@ -1,5 +1,5 @@
 # 24 — Move the remaining ActorStart writers onto StartActor
-**Status**: defined
+**Status**: stopped
 One job: No code outside the `Order.StartActorDeprecated` case itself builds or matches `EventBody.ActorStart`. Each writer posts `Order.StartActor` of `ActorOrder`, and each reader reads that case.
 
 [ ] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket. 16 deletes the case once nothing here writes or reads it.

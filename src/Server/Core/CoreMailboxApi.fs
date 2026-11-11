@@ -133,15 +133,28 @@ module CoreMailboxApi =
 
     let private expandStored log (stored: Ev) =
         match stored.body with
-        | EventBody.ActorStart request ->
+        | EventBody.Order (Order.StartActor order) ->
             match EventLog.tryFind (EventId.next stored.id) log with
             | Some stopped ->
                 match stopped.body with
-                | EventBody.ActorStop(id, _) when id = request.focusId ->
+                | EventBody.ActorStop(id, _)
+                    when id = order.actorNodeId ->
                     [ stored; stopped ]
                 | _ -> [ stored ]
             | None -> [ stored ]
         | _ -> [ stored ]
+
+    let private affirmedStart events =
+        match events with
+        | [ stored ] -> Ok stored
+        | [ stored; stopped ] ->
+            match stored.body, stopped.body with
+            | EventBody.Order (Order.StartActor order),
+              EventBody.ActorStop(id, _)
+                when id = order.actorNodeId ->
+                Ok stored
+            | _ -> Error "stored Event not found"
+        | _ -> Error "stored Event not found"
 
     let private storedEvents log ids =
         let rec take acc remaining =
@@ -220,8 +233,7 @@ module CoreMailboxApi =
                 let! log = eventsSince host (afterId [ eventId ])
                 match storedEvents log [ eventId ] with
                 | Error err -> return Error err
-                | Ok [ stored ] -> return Ok stored
-                | Ok _ -> return Error "stored Event not found"
+                | Ok events -> return affirmedStart events
         }
 
     let private clientBatchError (events: Ev list) =
