@@ -257,3 +257,29 @@ module NodeLockPool =
         | Error NodeLockRejection.HolderHoldsLock ->
             Error "holder already holds a lock"
         | Ok result -> result
+
+    /// Hold the lock across an async mark. Acquire stays synchronous.
+    let internal withLockAsync
+        (graph: Graph)
+        (nodeId: NodeId)
+        (action: Async<'value>)
+        : Async<Result<'value, NodeLockRejection>> =
+        async {
+            match Map.tryFind nodeId graph.nodes with
+            | None ->
+                let! value = action
+                return Ok value
+            | Some node ->
+                let threadId = Environment.CurrentManagedThreadId
+                let queued =
+                    lock gate (fun () ->
+                        enqueue graph node.kind nodeId threadId)
+                match queued with
+                | Error rejection -> return Error rejection
+                | Ok seq ->
+                    try
+                        let! value = action
+                        return Ok value
+                    finally
+                        release seq
+        }

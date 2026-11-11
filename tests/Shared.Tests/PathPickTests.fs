@@ -8,8 +8,7 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private staysDesk subject =
-    let remoteExists () = Error "remote check must not run"
+let private plainLoad subject remoteExists =
     PathPick.resolveCommand
         (choice
             LoadSaveOperation.Load
@@ -55,24 +54,26 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
     Assert.Equal(Ok expected, actual)
 
 [<Fact>]
-let ``plain Load of a Directory, File, or non-subject stays Desk`` () =
-    let subjects = [
-        Some LoadSubject.Directory
-        Some LoadSubject.File
-        None
-    ]
-    for subject in subjects do
-        Assert.Equal(Ok LoadSavePath.Desk, staysDesk subject)
+let ``plain Load of a Directory or a File chooses the Load actor`` () =
+    let untouched () = Error "remote check must not run"
+    for subject in
+        [ Some LoadSubject.Directory
+          Some LoadSubject.File
+          None ] do
+        Assert.Equal(Ok LoadSavePath.Git, plainLoad subject untouched)
+    Assert.Equal(
+        Ok LoadSavePath.Git,
+        plainLoad (Some LoadSubject.Directory) (fun () -> Ok true))
+    Assert.Equal(
+        Ok LoadSavePath.Git,
+        plainLoad (Some LoadSubject.Directory) (fun () -> Ok false))
 
 [<Fact>]
-let ``plain Load of a Workspace uses the remote`` () =
+let ``plain Load of a Workspace chooses the Load actor`` () =
     let actual =
-        PathPick.resolveCommand
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                (Some LoadSubject.Workspace))
-            (fun () -> Ok true)
+        plainLoad
+            (Some LoadSubject.Workspace)
+            (fun () -> Error "remote check must not run")
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
@@ -96,17 +97,6 @@ let ``plain Save of a Directory still asks the remote`` () =
                 (Some LoadSubject.Directory))
             (fun () -> Ok true)
     Assert.Equal(Ok LoadSavePath.Git, actual)
-
-[<Fact>]
-let ``effective path forces Desk for plain File Load`` () =
-    let path =
-        PathPick.effectiveLoadPath
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                (Some LoadSubject.File))
-            LoadSavePath.Git
-    Assert.Equal(LoadSavePath.Desk, path)
 
 let private mustApply (graph: Graph) (ops: Op list) =
     let state = { graph = graph; eventId = EventId.zero }

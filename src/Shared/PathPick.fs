@@ -83,36 +83,21 @@ module PathPick =
         | Ok subject -> Some subject
         | Error _ -> None
 
-    /// Plain Load stays Desk unless the subject is a Workspace.
-    let private plainLoadStaysDesk (choice: LoadPathChoice) =
+    /// Plain Load enters the Load actor. An explicit Desk pre-pick stays Desk.
+    let private plainLoad (choice: LoadPathChoice) =
         choice.operation = LoadSaveOperation.Load
         && choice.prePick = LoadSavePrePick.Plain
-        && (match choice.subject with
-            | Some LoadSubject.Workspace -> false
-            | Some LoadSubject.Directory
-            | Some LoadSubject.File
-            | None -> true)
 
-    /// Plain Load of a Directory, a File, or a non-subject stays Desk.
-    /// Explicit git Load still chooses Git.
+    /// Plain Load chooses the Load actor. Save still asks whether a remote exists.
+    /// Explicit git Load still chooses Git. Explicit desk Load still chooses Desk.
     let resolveCommand
         (choice: LoadPathChoice)
         (remoteExists: unit -> Result<bool, string>)
         : Result<LoadSavePath, string> =
-        if plainLoadStaysDesk choice then
-            Ok LoadSavePath.Desk
+        if plainLoad choice then
+            Ok LoadSavePath.Git
         else
             resolve choice.prePick remoteExists
-
-    /// A Git path already chosen for that plain Load becomes Desk.
-    let effectiveLoadPath
-        (choice: LoadPathChoice)
-        (path: LoadSavePath)
-        : LoadSavePath =
-        if plainLoadStaysDesk choice then
-            LoadSavePath.Desk
-        else
-            path
 
     let private normalizedLabel (label: string) =
         if isNull label then ""

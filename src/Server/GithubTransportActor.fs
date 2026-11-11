@@ -8,7 +8,8 @@ type GithubTransportOperation =
     | Save
 
 type GithubTransportGit =
-    { fetchTracked:
+    { remoteExists: string -> Result<bool, string>
+      fetchTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
@@ -50,6 +51,30 @@ module GithubTransportActor =
             with
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
+
+    type private FocusWorkTree = {
+        graph: Graph
+        workspaceId: NodeId
+        root: string
+    }
+
+    /// Graph at the event, then the focus work tree. None when the focus
+    /// has no workspace work tree. A graph read error stays an error.
+    let private readFocusWorkspace dataDir focusId (changes: ActorChanges) =
+        async {
+            match! changes.graphAtEvent () with
+            | Error err -> return Error err
+            | Ok current ->
+                match workspaceFromFocus dataDir current.graph focusId with
+                | Error _ -> return Ok None
+                | Ok (workspaceId, root) ->
+                    return
+                        Ok (Some {
+                            graph = current.graph
+                            workspaceId = workspaceId
+                            root = root
+                        })
+        }
 
     type private LoadPullHeads =
         { beforeHead: Result<string option, string>
@@ -129,24 +154,41 @@ module GithubTransportActor =
             | Ok _ -> return! startParse target
         }
 
-    let private markHeads root target heads =
-        let changed =
-            changedAfterPull root heads |> Option.defaultValue []
-        let label = System.IO.Path.GetFileName root
-        Async.RunSynchronously (markChanged target label changed)
+    let private changedPaths heads root =
+        changedAfterPull root heads |> Option.defaultValue []
 
-    /// Merge and the Unparsed mark share one Workspace lock.
-    let internal lockMergeAndMark git locked target tracked =
-        withWorkspaceLock locked.graph locked.workspaceId (fun () ->
-            mergeLocked git locked tracked
-            |> Result.bind (markHeads locked.root target))
+    /// Merge, then await the Unparsed mark, under one Workspace lock.
+    let internal lockMergeAndMark git locked target tracked = async {
+        let mergeAndMark = async {
+            match mergeLocked git locked tracked with
+            | Error err -> return Error err
+            | Ok heads ->
+                return!
+                    markChanged
+                        target
+                        (System.IO.Path.GetFileName locked.root)
+                        (changedPaths heads locked.root)
+        }
+        let! held =
+            NodeLockPool.withLockAsync
+                locked.graph
+                locked.workspaceId
+                mergeAndMark
+        match held with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            return Error "holder already holds a lock"
+        | Ok result -> return result
+    }
 
     /// Commit, unlocked fetch, then the locked merge and Unparsed mark.
-    let private commitFetchAndMark git locked target message =
-        commitFetched git locked message
-        |> Result.bind (fun (tracked, output) ->
-            lockMergeAndMark git locked target tracked
-            |> Result.map (fun _ -> tracked, output))
+    let private commitFetchAndMark git locked target message = async {
+        match commitFetched git locked message with
+        | Error err -> return Error err
+        | Ok (tracked, output) ->
+            let! merged =
+                lockMergeAndMark git locked target tracked
+            return merged |> Result.map (fun _ -> tracked, output)
+    }
 
     /// Mark received files and containing Directories, then Load.
     let internal finishLoadPull
@@ -172,13 +214,13 @@ module GithubTransportActor =
                     workspaceId = target.workspaceId
                     root = root
                 }
-                match
+                let! fetched =
                     commitFetchAndMark
                         dependencies.git
                         locked
                         target
                         "gambol: git Load"
-                with
+                match fetched with
                 | Error err -> return Error err
                 | Ok _ -> return! startParse target
         }
@@ -199,24 +241,46 @@ module GithubTransportActor =
               dataDir = dataDir
               workspaceId = workspaceId }
 
-    let private loadFocus (changes: ActorChanges) focusId =
-        async {
-            let! loaded = changes.loadNode focusId
-            return loaded |> Result.map (fun _ -> ())
-        }
-
     let private missingSubject =
         Error "Focus is not in a Workspace, Directory, or File."
 
-    /// A Workspace Load pulls. A Directory or a File loads that node only.
+    /// Neither. The arm is empty. Reconcile records no received paths.
+    let private runNeither (target: WorkspaceTarget) (label: string) =
+        finishLoadOn target label []
+
+    /// A missing work tree has no repository. Git says the same with
+    /// `not a git repository`. Any other message is a real git failure.
+    let private gitHasNoRepository (root: string) (message: string) =
+        not (System.IO.Directory.Exists root)
+        || message.Contains(
+            "not a git repository",
+            System.StringComparison.OrdinalIgnoreCase)
+
+    /// A remote pulls. No work tree, no remote, and a directory that is
+    /// not a repository are Neither. Any other git error fails the actor.
+    let private runGitOrNeither dependencies (root: string) target =
+        let label = System.IO.Path.GetFileName root
+        match dependencies.git.remoteExists root with
+        | Ok true -> runLoadOn dependencies root target
+        | Ok false -> runNeither target label
+        | Error message when gitHasNoRepository root message ->
+            runNeither target label
+        | Error message -> async.Return (Error message)
+
+    /// Workspace, Directory, and File share the work-tree remote check.
     let private runLoadChoice dependencies root target choice =
         match choice with
-        | Some (_, LoadSubject.Workspace) ->
-            runLoadOn dependencies root target
-        | Some (id, LoadSubject.Directory)
-        | Some (id, LoadSubject.File) ->
-            loadFocus target.changes id
+        | Some _ -> runGitOrNeither dependencies root target
         | None -> async.Return missingSubject
+
+    /// No workspace work tree: Neither, then reconcile. No git pull.
+    /// An empty receipt still needs a sync root, so the label is SYSTEM.
+    let private runOutsideWorkspace changes dataDir focusId =
+        runNeither
+            { changes = changes
+              dataDir = dataDir
+              workspaceId = focusId }
+            "SYSTEM"
 
     let private actorOutcome =
         function
@@ -231,23 +295,6 @@ module GithubTransportActor =
             let! step = work
             let! _ = changes.actorStop (actorOutcome step)
             return ()
-        }
-
-    let private readWorkspace dataDir (changes: ActorChanges) focusId =
-        async {
-            let! state = changes.graphAtEvent ()
-            return
-                state
-                |> Result.bind (fun current ->
-                    workspaceFromFocus dataDir current.graph focusId
-                    |> Result.map (fun found -> current.graph, found))
-        }
-
-    let private withWorkspace dataDir changes focusId step =
-        async {
-            match! readWorkspace dataDir changes focusId with
-            | Error err -> return Error err
-            | Ok found -> return! step found
         }
 
     let private readFocusNode (changes: ActorChanges) focusId =
@@ -348,49 +395,61 @@ module GithubTransportActor =
                     |> Result.map ignore
         }
 
-    let private saveFetched dataDir git focusChanges locked =
+    let private saveFetched dataDir git focusChanges locked = async {
         let target = {
             changes = focusChanges
             dataDir = dataDir
             workspaceId = locked.workspaceId
         }
-        match
+        let! committed =
             commitFetchAndMark git locked target "gambol: git Save"
-        with
-        | Error err -> async.Return (Error err)
+        match committed with
+        | Error err -> return Error err
         | Ok (tracked, output) ->
-            pushAfterMark git locked.root target tracked output
+            return! pushAfterMark git locked.root target tracked output
+    }
 
+    /// No workspace work tree: the actor runs and does not commit, pull, or push.
     let private runSaveBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId
-            (fun (graph, (workspaceId, root)) ->
-                async {
-                    match! persistFocusWhenNotOrdinary changes focusId with
-                    | Error err -> return Error err
-                    | Ok () ->
-                        let locked = {
-                            graph = graph
-                            workspaceId = workspaceId
-                            root = root
-                        }
-                        return!
-                            saveFetched
-                                dataDir
-                                dependencies.git
-                                changes
-                                locked
-                })
+        async {
+            match! readFocusWorkspace dataDir focusId changes with
+            | Error err -> return Error err
+            | Ok None -> return Ok ()
+            | Ok (Some place) ->
+                match! persistFocusWhenNotOrdinary changes focusId with
+                | Error err -> return Error err
+                | Ok () ->
+                    let locked = {
+                        graph = place.graph
+                        workspaceId = place.workspaceId
+                        root = place.root
+                    }
+                    return!
+                        saveFetched
+                            dataDir
+                            dependencies.git
+                            changes
+                            locked
+        }
 
     let private runLoadBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId
-            (fun (graph, (workspaceId, root)) ->
-                runLoadChoice
-                    dependencies
-                    root
-                    { changes = changes
-                      dataDir = dataDir
-                      workspaceId = workspaceId }
-                    (LoadSubject.enclosingSubject graph focusId))
+        async {
+            match! readFocusWorkspace dataDir focusId changes with
+            | Error err -> return Error err
+            | Ok None ->
+                return! runOutsideWorkspace changes dataDir focusId
+            | Ok (Some place) ->
+                return!
+                    runLoadChoice
+                        dependencies
+                        place.root
+                        { changes = changes
+                          dataDir = dataDir
+                          workspaceId = place.workspaceId }
+                        (LoadSubject.enclosingSubject
+                            place.graph
+                            focusId)
+        }
 
     let private actorFunction body : ActorFunction =
         fun _ changes -> finishActor changes (body changes)
@@ -433,7 +492,8 @@ module GithubTransportActor =
         }
 
     let workspaceGit : GithubTransportGit =
-        { fetchTracked = WorkspaceGit.fetchTrackedBranch
+        { remoteExists = WorkspaceGit.remoteExists
+          fetchTracked = WorkspaceGit.fetchTrackedBranch
           pullTracked = WorkspaceGit.mergeFetchedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }

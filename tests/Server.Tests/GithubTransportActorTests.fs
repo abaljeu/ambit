@@ -28,7 +28,8 @@ let private dependencies
     push
     =
     let git =
-        { fetchTracked = fun _ _ -> Ok "fetched"
+        { remoteExists = fun _ -> Ok true
+          fetchTracked = fun _ _ -> Ok "fetched"
           pullTracked = pull
           commitAll = commit
           pushTracked = push }
