@@ -164,37 +164,42 @@ module GithubTransportActor =
               dataDir = dataDir
               workspaceId = workspaceId }
 
-    let private loadFocus (changes: ActorChanges) focusId =
-        async {
-            let! loaded = changes.loadNode focusId
-            return loaded |> Result.map (fun _ -> ())
-        }
-
     let private missingSubject =
         Error "Focus is not in a Workspace, Directory, or File."
 
     /// Neither. The arm is empty. Reconcile records no received paths.
-    let private runNeither (target: WorkspaceTarget) (root: string) =
-        finishLoadOn target (System.IO.Path.GetFileName root) []
+    let private runNeither (target: WorkspaceTarget) (label: string) =
+        finishLoadOn target label []
 
-    /// A Directory with a Git remote pulls. No remote is the Neither arm.
-    let private runDirectory dependencies root target =
+    /// A Git remote pulls. No remote, and a directory that is not a
+    /// repository, are the Neither arm.
+    let private runGitOrNeither dependencies root target =
         match WorkspaceGit.remoteExists root with
         | Ok true -> runLoadOn dependencies root target
-        | Ok false
-        | Error _ -> runNeither target root
+        | Ok false ->
+            runNeither target (System.IO.Path.GetFileName root)
+        | Error _ ->
+            runNeither target (System.IO.Path.GetFileName root)
 
-    /// A Workspace Load pulls. A Directory Load pulls or is empty.
-    /// A File loads that node only.
+    /// A Workspace Load pulls. A Directory or a File pulls when the work
+    /// tree has a remote, and is Neither otherwise.
     let private runLoadChoice dependencies root target choice =
         match choice with
         | Some (_, LoadSubject.Workspace) ->
             runLoadOn dependencies root target
-        | Some (_, LoadSubject.Directory) ->
-            runDirectory dependencies root target
-        | Some (id, LoadSubject.File) ->
-            loadFocus target.changes id
+        | Some (_, LoadSubject.Directory)
+        | Some (_, LoadSubject.File) ->
+            runGitOrNeither dependencies root target
         | None -> async.Return missingSubject
+
+    /// No workspace work tree: Neither, then reconcile. No git pull.
+    /// An empty receipt still needs a sync root, so the label is SYSTEM.
+    let private runOutsideWorkspace changes dataDir focusId =
+        runNeither
+            { changes = changes
+              dataDir = dataDir
+              workspaceId = focusId }
+            "SYSTEM"
 
     let private actorOutcome =
         function
@@ -209,23 +214,6 @@ module GithubTransportActor =
             let! step = work
             let! _ = changes.actorStop (actorOutcome step)
             return ()
-        }
-
-    let private readWorkspace dataDir (changes: ActorChanges) focusId =
-        async {
-            let! state = changes.graphAtEvent ()
-            return
-                state
-                |> Result.bind (fun current ->
-                    workspaceFromFocus dataDir current.graph focusId
-                    |> Result.map (fun found -> current.graph, found))
-        }
-
-    let private withWorkspace dataDir changes focusId step =
-        async {
-            match! readWorkspace dataDir changes focusId with
-            | Error err -> return Error err
-            | Ok found -> return! step found
         }
 
     let private readFocusNode (changes: ActorChanges) focusId =
@@ -340,43 +328,80 @@ module GithubTransportActor =
                     |> Result.map ignore
         }
 
+    let private runSaveOnTree
+        dataDir
+        dependencies
+        focusId
+        changes
+        graph
+        workspaceId
+        root
+        =
+        async {
+            match! persistFocusWhenNotOrdinary changes focusId with
+            | Error err -> return Error err
+            | Ok () ->
+                let locked = {
+                    graph = graph
+                    workspaceId = workspaceId
+                    root = root
+                }
+                match commitAndPull dependencies.git locked with
+                | Error err -> return Error err
+                | Ok commit ->
+                    let target = {
+                        changes = changes
+                        dataDir = dataDir
+                        workspaceId = workspaceId
+                    }
+                    return!
+                        pushAfterPull
+                            dependencies.git
+                            root
+                            target
+                            commit
+        }
+
+    /// No workspace work tree: the actor runs and does not pull or push.
     let private runSaveBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId
-            (fun (graph, (workspaceId, root)) ->
-                async {
-                    match! persistFocusWhenNotOrdinary changes focusId with
-                    | Error err -> return Error err
-                    | Ok () ->
-                        let locked = {
-                            graph = graph
-                            workspaceId = workspaceId
-                            root = root
-                        }
-                        match commitAndPull dependencies.git locked with
-                        | Error err -> return Error err
-                        | Ok commit ->
-                            let target =
-                                { changes = changes
-                                  dataDir = dataDir
-                                  workspaceId = workspaceId }
-                            return!
-                                pushAfterPull
-                                    dependencies.git
-                                    root
-                                    target
-                                    commit
-                })
+        async {
+            match! changes.graphAtEvent () with
+            | Error err -> return Error err
+            | Ok current ->
+                match workspaceFromFocus dataDir current.graph focusId with
+                | Error _ -> return Ok ()
+                | Ok (workspaceId, root) ->
+                    return!
+                        runSaveOnTree
+                            dataDir
+                            dependencies
+                            focusId
+                            changes
+                            current.graph
+                            workspaceId
+                            root
+        }
 
     let private runLoadBody dataDir dependencies focusId changes =
-        withWorkspace dataDir changes focusId
-            (fun (graph, (workspaceId, root)) ->
-                runLoadChoice
-                    dependencies
-                    root
-                    { changes = changes
-                      dataDir = dataDir
-                      workspaceId = workspaceId }
-                    (LoadSubject.enclosingSubject graph focusId))
+        async {
+            match! changes.graphAtEvent () with
+            | Error err -> return Error err
+            | Ok current ->
+                match workspaceFromFocus dataDir current.graph focusId with
+                | Error _ ->
+                    return! runOutsideWorkspace changes dataDir focusId
+                | Ok (workspaceId, root) ->
+                    return!
+                        runLoadChoice
+                            dependencies
+                            root
+                            { changes = changes
+                              dataDir = dataDir
+                              workspaceId = workspaceId }
+                            (LoadSubject.enclosingSubject
+                                current.graph
+                                focusId)
+        }
 
     let private actorFunction body : ActorFunction =
         fun _ changes -> finishActor changes (body changes)

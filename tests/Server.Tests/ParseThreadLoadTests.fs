@@ -391,7 +391,7 @@ let private plainLoadRequest (nodeId: NodeId) (prePick: LoadSavePrePick) =
     { deskLoadRequest nodeId with prePick = prePick }
 
 [<Fact>]
-let ``plain Load of a File or Directory ignores a Git path`` () =
+let ``plain Load does not coerce a Git path onto the parse stack`` () =
     task {
         let dataDir = newTempDir ()
         let pushed = ResizeArray<NodeId>()
@@ -421,9 +421,7 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
                     (plainLoadRequest fileId LoadSavePrePick.Plain)
                 |> Async.StartAsTask
             requireOk "file" file
-            Assert.Equal<NodeId list>(
-                [ dirId; fileId ],
-                pushed |> Seq.toList)
+            Assert.Empty(pushed)
         finally
             CoreMailboxApi.dispose host
     }

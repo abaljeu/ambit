@@ -10,10 +10,12 @@ Load x =
 
 A directory with no desktop access and no upload is the Neither case. `GithubTransportActor.start` in `src/Server/GithubTransportActor.fs` posts `Order.StartActor` for `loadActorFunction`. Pull request 589 removed `CoreMailboxLoad.logDeskOrder`, which appended `Order.StartActor` with `EventJson.stubActor` and an empty `actorName` and posted no stop. This ticket replaces that removal. The Neither case runs the Load actor. Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). A later Save actor is the follow-on: Git commit, pull, and push under the existing Save rules; Desktop_mapped WebDAV after that design; an empty Neither arm.
 
+A plain Load enters the Load actor. It does not take the Desk path. A work tree with a Git remote takes the Git arm: pull, then reconcile. A Directory or a File with no Git takes the Neither arm: no transport, then reconcile, then stop. An explicit Git Load of a Directory that is not a repository takes that same Neither arm. An object outside a workspace work tree takes the Neither arm and does not pull or push.
+
 [ ] `loadActorFunction` builds the Load `ActorFunction`. `GithubTransportActor.start` calls it for Load and posts through `CoreMailboxApi.coreMailboxStartActorFromFunction`.
 [ ] `finishActor` calls `changes.actorStop` after the Load body.
 [ ] `runLoad` pulls through `pullTracked`. `finishLoadOn` calls `LazyLoadReconciliationServer.reconcileFromChanges`, then `loadNode`.
-[ ] `PathPick.plainLoadStaysDesk` in `src/Shared/PathPick.fs` keeps a plain Load of a Directory, a File, or a missing subject on `LoadSavePath.Desk`. `PathPick.resolveCommand` and `PathPick.effectiveLoadPath` use that result.
+[ ] `PathPick.resolveCommand` in `src/Shared/PathPick.fs` sends a plain Load to `LoadSavePath.Git`, which starts the Load actor. It does not keep that Load on `LoadSavePath.Desk`. `DeskLoadPush.runLoadSave` does not coerce it back.
 [ ] `CoreMailboxApi.startLoadSaveCommand` in `src/Server/Core/CoreMailboxApi.fs` is the send for that desk path. `CoreMailboxLoad.dispatchStartLoadSaveCommand` runs `DeskLoadPush.runLoadSave`.
 [ ] `saveActorFunction` is the Git Save body. This ticket leaves it for the Save-actor follow-on.
 
@@ -52,7 +54,7 @@ Blockers:
 4. [x] The Neither arm is an empty step.
 5. [x] After that arm, the actor reconciles the subject. The Git pull keeps `finishLoadOn`.
 6. [x] The actor posts `Order.StartActor` at start and posts its stop through `finishActor`.
-7. [x] A plain Load of the Neither case reaches `GithubTransportActor.start`. `PathPick.plainLoadStaysDesk` is the function that currently keeps that Load on `LoadSavePath.Desk`.
+7. [x] A plain Load reaches `GithubTransportActor.start`. A remote takes the Git arm. No Git takes the Neither arm. The Load does not stay on `LoadSavePath.Desk`.
 8. [x] Leave the Desktop_mapped arm unused.
 9. [x] Leave `saveActorFunction` unchanged.
 

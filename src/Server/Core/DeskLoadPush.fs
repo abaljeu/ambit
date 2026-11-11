@@ -20,7 +20,7 @@ module internal DeskLoadPush =
                 | Error _ -> None
             | _ -> None
 
-    /// Coerce plain Load of a Directory or a File onto Desk, then mailbox-Load when Desk.
+    /// Mailbox-Load when the path is Desk. A plain Load is not moved onto Desk.
     let runLoadSave
         (run: LoadSaveContext)
         (load: NodeId -> Result<unit, string>)
@@ -29,7 +29,6 @@ module internal DeskLoadPush =
         =
         let graph = run.getGraph ()
         let chosen = LoadPathChoice.ofRequest request graph
-        let path = PathPick.effectiveLoadPath chosen path
         CoreActorPool.startLoadSaveCommand run path chosen request
         |> Result.bind (fun secret ->
             match subjectToLoad request path graph with
