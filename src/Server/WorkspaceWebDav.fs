@@ -13,6 +13,19 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module WorkspaceWebDav =
 
+    /// Label, relative path, and the byte write. The lock lives in the caller.
+    type WorkspaceFileLand =
+        string
+            -> string
+            -> (unit -> Result<unit, string>)
+            -> Result<unit, string>
+
+    type private DavCall = {
+        land: WorkspaceFileLand
+        isAuthenticated: HttpRequest -> bool
+        dataDir: string
+    }
+
     type private Depth =
         | Depth0
         | Depth1
@@ -392,7 +405,34 @@ module WorkspaceWebDav =
                 | _ -> None)
         | _ -> None
 
-    let private handlePut (resolved: Resolved) (req: HttpRequest) =
+    let private readAllBytes (req: HttpRequest) = task {
+        use buffer = new MemoryStream()
+        do! req.Body.CopyToAsync(buffer)
+        return buffer.ToArray()
+    }
+
+    let private writeLandedFile fullPath (bytes: byte[]) mtime =
+        match ensureParents fullPath with
+        | Error err -> Error err
+        | Ok () ->
+            try
+                File.WriteAllBytes(fullPath, bytes)
+                match mtime with
+                | Some utc ->
+                    try
+                        File.SetLastWriteTimeUtc(fullPath, utc)
+                    with _ ->
+                        ()
+                | None -> ()
+                Ok ()
+            with ex ->
+                Error ex.Message
+
+    let private handlePut
+        (land: WorkspaceFileLand)
+        (resolved: Resolved)
+        (req: HttpRequest)
+        =
         task {
             match rejectIfIgnored resolved with
             | Error "ignored" ->
@@ -405,45 +445,23 @@ module WorkspaceWebDav =
             | Ok () when Directory.Exists resolved.fullPath ->
                 return Results.Conflict("is a collection")
             | Ok () ->
-                match ensureParents resolved.fullPath with
-                | Error e ->
-                    return Results.Problem(detail = e, statusCode = 500)
+                let! bytes = readAllBytes req
+                let existed = File.Exists resolved.fullPath
+                let written =
+                    land resolved.label resolved.relative (fun () ->
+                        writeLandedFile
+                            resolved.fullPath
+                            bytes
+                            (trySourceMtime req))
+                match written with
+                | Error msg ->
+                    return Results.Problem(detail = msg, statusCode = 500)
                 | Ok () ->
-                    let existed = File.Exists resolved.fullPath
-                    let! writeResult =
-                        task {
-                            try
-                                use fs =
-                                    new FileStream(
-                                        resolved.fullPath,
-                                        FileMode.Create,
-                                        FileAccess.Write)
-                                do! req.Body.CopyToAsync(fs)
-                                return Ok()
-                            with ex ->
-                                return Error ex.Message
-                        }
-                    match writeResult with
-                    | Error msg ->
-                        return Results.Problem(detail = msg, statusCode = 500)
-                    | Ok () ->
-                        match trySourceMtime req with
-                        | Some utc ->
-                            // AV / indexer may briefly lock the new file; mtime
-                            // is best-effort — must not turn a successful write
-                            // into an unhandled 500.
-                            try
-                                File.SetLastWriteTimeUtc(
-                                    resolved.fullPath,
-                                    utc)
-                            with _ ->
-                                ()
-                        | None -> ()
-                        let href =
-                            hrefOf resolved.label resolved.relative false
-                        return
-                            if existed then Results.NoContent()
-                            else Results.Created(href, null)
+                    let href =
+                        hrefOf resolved.label resolved.relative false
+                    return
+                        if existed then Results.NoContent()
+                        else Results.Created(href, null)
         }
 
     let private handleMkcol (resolved: Resolved) =
@@ -522,8 +540,7 @@ module WorkspaceWebDav =
                     Results.Json {| result = msg; head = head |}
 
     let private dispatch
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
+        (call: DavCall)
         (ctx: HttpContext)
         (label: string)
         (pathTail: string)
@@ -531,24 +548,24 @@ module WorkspaceWebDav =
         task {
             if not (String.IsNullOrEmpty pathTail) then
                 HttpResponseLog.noteTargetRelative ctx pathTail
-            if not (isAuthenticated ctx.Request) then
+            if not (call.isAuthenticated ctx.Request) then
                 return Results.Unauthorized()
             else
-                match resolve dataDir label pathTail with
+                match resolve call.dataDir label pathTail with
                 | Error e -> return Results.BadRequest(e)
                 | Ok resolved ->
                     match ctx.Request.Method.ToUpperInvariant() with
                     | "PROPFIND" ->
                         return handlePropfind resolved ctx.Request
                     | "GET" -> return handleGet resolved
-                    | "PUT" -> return! handlePut resolved ctx.Request
+                    | "PUT" ->
+                        return! handlePut call.land resolved ctx.Request
                     | "MKCOL" -> return handleMkcol resolved
                     | _ -> return Results.StatusCode(405)
         }
 
     let private dispatchOpaque
-        (isAuthenticated: HttpRequest -> bool)
-        (dataDir: string)
+        (call: DavCall)
         (ctx: HttpContext)
         (token: string)
         : Task<IResult> =
@@ -556,7 +573,7 @@ module WorkspaceWebDav =
             match WorkspaceDavClient.decodeResourceToken token with
             | Error e -> return Results.BadRequest(e)
             | Ok(label, relative) ->
-                return! dispatch isAuthenticated dataDir ctx label relative
+                return! dispatch call ctx label relative
         }
 
     let private decodeGrantRequest (req: HttpRequest) = task {
@@ -641,7 +658,7 @@ module WorkspaceWebDav =
             UploadCapability.validate secret user DateTimeOffset.UtcNow token
         | _ -> Error "invalid_upload_capability"
 
-    let private directUpload dataDir user secret (ctx: HttpContext) = task {
+    let private directUpload (call: DavCall) user secret (ctx: HttpContext) = task {
         match directCapability secret user ctx.Request with
         | Error e -> return Results.Json({| error = e |}, statusCode = 401)
         | Ok claim when
@@ -667,87 +684,111 @@ module WorkspaceWebDav =
                         mtime.ToString("O")
                 return!
                     dispatch
-                        (fun _ -> true)
-                        dataDir
+                        { call with isAuthenticated = fun _ -> true }
                         ctx
                         claim.label
                         claim.relative
     }
 
-    let registerRoutes (this: AmbitApp) =
-        let isAuthenticated = this.Auth.IsAuthenticated
-        let dataDir = this.DataDir
-        let user = this.Auth.ExpectedUser
-        let capabilitySecret = this.Auth.ExpectedPass
-        let methods = [| "PROPFIND"; "GET"; "PUT"; "MKCOL" |]
-        let clientHint (req: HttpRequest) =
-            match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
-            | true, values -> ClientIdentity.tryFromValues values
-            | _ -> None
+    type private DavHost = {
+        app: AmbitApp
+        call: DavCall
+        user: string
+        secret: string
+        methods: string[]
+        clientHint: HttpRequest -> string option
+    }
 
-        this.MapPost(
+    let private mapUploadRoutes (host: DavHost) =
+        host.app.MapPost(
             "/ambit/upload-capability",
             Func<HttpRequest, Task<IResult>>(fun req ->
-                if isAuthenticated req then
-                    issueGrant dataDir user capabilitySecret req
+                if host.call.isAuthenticated req then
+                    issueGrant host.call.dataDir host.user host.secret req
                 else
                     Task.FromResult<IResult>(Results.Unauthorized()))
         )
         |> ignore
-
-        this.MapPost(
+        host.app.MapPost(
             "/ambit/direct-upload",
             Func<HttpContext, Task<IResult>>(fun ctx ->
-                directUpload dataDir user capabilitySecret ctx)
+                directUpload host.call host.user host.secret ctx)
         )
         |> ignore
 
-        this.MapPost(
+    let private mapCommitRoutes (host: DavHost) =
+        host.app.MapPost(
             "/ambit/dav/{label}/_prepare-push",
             Func<HttpRequest, string, Task<IResult>>(fun req label ->
                 task {
-                    if not (isAuthenticated req) then
+                    if not (host.call.isAuthenticated req) then
                         return Results.Unauthorized()
                     else
-                        return handlePrepare dataDir label (clientHint req)
+                        return
+                            handlePrepare
+                                host.call.dataDir
+                                label
+                                (host.clientHint req)
                 })
         )
         |> ignore
-
-        this.MapPost(
+        host.app.MapPost(
             "/ambit/dav/{label}/_finish-commit",
             Func<HttpRequest, string, Task<IResult>>(fun req label ->
                 task {
-                    if not (isAuthenticated req) then
+                    if not (host.call.isAuthenticated req) then
                         return Results.Unauthorized()
                     else
-                        return handleFinish dataDir label (clientHint req)
+                        return
+                            handleFinish
+                                host.call.dataDir
+                                label
+                                (host.clientHint req)
                 })
         )
         |> ignore
 
-        this.MapMethods(
+    let private mapMethodRoutes (host: DavHost) =
+        host.app.MapMethods(
             "/ambit/dav-resource/{token}",
             [| "PROPFIND"; "GET"; "MKCOL" |],
-            Func<HttpContext, string, Task<IResult>>(
-                fun ctx token ->
-                    dispatchOpaque isAuthenticated dataDir ctx token)
+            Func<HttpContext, string, Task<IResult>>(fun ctx token ->
+                dispatchOpaque host.call ctx token)
         )
         |> ignore
-
-        this.MapMethods(
+        host.app.MapMethods(
             "/ambit/dav/{label}/{*path}",
-            methods,
+            host.methods,
             Func<HttpContext, string, string, Task<IResult>>(
                 fun ctx label path ->
-                    dispatch isAuthenticated dataDir ctx label path)
+                    dispatch host.call ctx label path)
+        )
+        |> ignore
+        host.app.MapMethods(
+            "/ambit/dav/{label}",
+            host.methods,
+            Func<HttpContext, string, Task<IResult>>(fun ctx label ->
+                dispatch host.call ctx label "")
         )
         |> ignore
 
-        this.MapMethods(
-            "/ambit/dav/{label}",
-            methods,
-            Func<HttpContext, string, Task<IResult>>(fun ctx label ->
-                dispatch isAuthenticated dataDir ctx label "")
-        )
-        |> ignore
+    let registerRoutes (this: AmbitApp) (landFile: WorkspaceFileLand) =
+        let host = {
+            app = this
+            call = {
+                land = landFile
+                isAuthenticated = this.Auth.IsAuthenticated
+                dataDir = this.DataDir
+            }
+            user = this.Auth.ExpectedUser
+            secret = this.Auth.ExpectedPass
+            methods = [| "PROPFIND"; "GET"; "PUT"; "MKCOL" |]
+            clientHint =
+                fun req ->
+                    match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
+                    | true, values -> ClientIdentity.tryFromValues values
+                    | _ -> None
+        }
+        mapUploadRoutes host
+        mapCommitRoutes host
+        mapMethodRoutes host

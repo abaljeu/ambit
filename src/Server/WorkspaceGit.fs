@@ -218,20 +218,37 @@ module WorkspaceGit =
                 |> Result.bind (fun _ ->
                     runGitCondensed workspaceRoot "commit --no-edit")
 
-    let internal pullTrackedBranch
+    /// Fetch the tracked upstream. Holds no workspace lock.
+    let internal fetchTrackedBranch
         (workspaceRoot: string)
         (tracked: WorkspaceTrackedBranch)
+        : Result<string, string> =
+        runGitCondensed
+            workspaceRoot
+            $"fetch {tracked.remote} {tracked.upstream}"
+
+    /// Merge FETCH_HEAD from the unlocked fetch. Remote wins.
+    let internal mergeFetchedBranch
+        (workspaceRoot: string)
+        (_tracked: WorkspaceTrackedBranch)
         : Result<string, string> =
         unmergedPath workspaceRoot
         |> Result.bind (function
             | Some path -> Error $"Git conflict: {path}"
             | None ->
-                let arguments =
-                    "pull --no-rebase --no-edit -X theirs "
-                    + $"{tracked.remote} {tracked.upstream}"
                 completeRemoteWins
                     workspaceRoot
-                    (runGitCondensed workspaceRoot arguments))
+                    (runGitCondensed
+                        workspaceRoot
+                        "merge --no-edit -X theirs FETCH_HEAD"))
+
+    let internal pullTrackedBranch
+        (workspaceRoot: string)
+        (tracked: WorkspaceTrackedBranch)
+        : Result<string, string> =
+        fetchTrackedBranch workspaceRoot tracked
+        |> Result.bind (fun _ ->
+            mergeFetchedBranch workspaceRoot tracked)
 
     let pullTracked (workspaceRoot: string) : Result<string, string> =
         trackedBranch workspaceRoot

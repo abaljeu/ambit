@@ -1,7 +1,7 @@
 # 07 — Git changed list sets Unparsed
 
 **Type:** coding
-**Status:** defined
+**Status:** `superseded`
 **Blocked by:** None — can start immediately
 
 ## Context
@@ -42,3 +42,5 @@ The list marks File Nodes and Directory Nodes.
 ## Comments
 
 - 2026-10-10 — Alan locked discovery depth on 09 — Grill reconcile discovery depth. A git pull marks each received file Unparsed, at any depth. The changed list does not drive discovery otherwise. The coding home is 12 — Git pull marks each received file Unparsed. §5 item 4 **git pull finish** states that lock.
+- 2026-11-10 — Alan: this ticket is superseded by [12 — Git pull marks each received file Unparsed](plan/parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md) and [13 — Git pull marks containing Directories Unparsed](plan/parse-thread/issues/13-git-pull-marks-containing-directories-unparsed.md).
+- 2026-11-10 — What to build is the superseded changed-list mark. 12 — Git pull marks each received file Unparsed marks each received file. 13 — Git pull marks containing Directories Unparsed marks the containing Directory Nodes.
