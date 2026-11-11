@@ -216,26 +216,25 @@ let private persistTipSettled
         else changes = 0 || persisted >= 1
     enough && second.eventId = first.eventId
 
-let private waitForPersist requireEach (client: HttpClient) = task {
-    let deadline = DateTime.UtcNow.AddSeconds 20.0
-    let rec poll () = task {
-        let! first = readPoll client
-        do! Task.Delay 40
-        let! second = readPoll client
-        if persistTipSettled requireEach first second then
-            return second.eventId
-        elif DateTime.UtcNow >= deadline then
-            let changes, persisted = countPersistProgress second.events
-            let message =
-                $"persist did not settle: changes {changes}, "
-                + $"persisted {persisted}"
-            return failwith message
-        else
-            do! Task.Delay 20
-            return! poll ()
-    }
-    return! poll ()
+let rec private pollPersist requireEach (client: HttpClient) (deadline: DateTime) = task {
+    let! first = readPoll client
+    do! Task.Delay 40
+    let! second = readPoll client
+    if persistTipSettled requireEach first second then
+        return second.eventId
+    elif DateTime.UtcNow >= deadline then
+        let changes, persisted = countPersistProgress second.events
+        let message =
+            $"persist did not settle: changes {changes}, "
+            + $"persisted {persisted}"
+        return failwith message
+    else
+        do! Task.Delay 20
+        return! pollPersist requireEach client deadline
 }
+
+let private waitForPersist requireEach (client: HttpClient) =
+    pollPersist requireEach client (DateTime.UtcNow.AddSeconds 20.0)
 
 /// One persisted notice per Change already on this client's log.
 let private waitUntilPersistSettled client =
