@@ -57,6 +57,63 @@ let private pendingSplit localId ops : Ev =
       commandName = "Split at cursor"
       body = EventBody.Change ops }
 
+type private SplitLoadFixture =
+    { zoomId: NodeId
+      helloId: NodeId
+      sibId: NodeId
+      suffixId: NodeId
+      eventId: EventId
+      pending: Ev list
+      state: ClientSyncState
+      nodes: Node list
+      childMap: Map<NodeId, ChildNode list> }
+
+let private splitLoadFixture () =
+    let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
+    let split, suffixId = applyMiddleSplit helloId sibId zoomId graph
+    let pending =
+        [ pendingSplit
+            (System.Guid.NewGuid())
+            (middleSplitOps helloId sibId zoomId graph suffixId) ]
+    let state =
+        { ClientSyncState.create
+            split.graph
+            split.eventId
+            (ClientHistory.clear ())
+          with
+            pending = pending }
+    let staleHello =
+        { split.graph.nodes.[helloId] with text = "hello" }
+    { zoomId = zoomId
+      helloId = helloId
+      sibId = sibId
+      suffixId = suffixId
+      eventId = split.eventId
+      pending = pending
+      state = state
+      nodes = [ staleHello; split.graph.nodes.[sibId] ]
+      childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
+
+let private assertVisibleSplit
+    (fix: SplitLoadFixture)
+    (next: ClientSyncState)
+    =
+    Assert.Equal<NodeId list>(
+        [ fix.helloId; fix.suffixId; fix.sibId ],
+        Graph.children next.graph fix.zoomId |> List.map _.id)
+    Assert.Equal("hel", next.graph.nodes.[fix.helloId].text)
+    Assert.Equal("lo", next.graph.nodes.[fix.suffixId].text)
+    Assert.Equal<Ev list>(fix.pending, next.pending)
+
+let private applySplitLoad (events: Ev list) (fix: SplitLoadFixture) =
+    SyncLogic.applyLoadResponse
+        fix.eventId
+        true
+        { events = events
+          nodes = fix.nodes
+          childMap = fix.childMap }
+        fix.state
+
 [<Fact>]
 let ``stale installWantAnswer after split drops suffix and restores hello text`` () =
     let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
@@ -86,50 +143,14 @@ let ``compose after Loaded split does not want the parent`` () =
 
 [<Fact>]
 let ``applyLoadResponse answer-only with pending applies the Load reply`` () =
-    let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
-    let split, suffixId = applyMiddleSplit helloId sibId zoomId graph
-    let pending =
-        [ pendingSplit
-            (System.Guid.NewGuid())
-            (middleSplitOps helloId sibId zoomId graph suffixId) ]
-    let st =
-        { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
-          with
-            pending = pending }
-    let staleHello =
-        { split.graph.nodes.[helloId] with text = "hello" }
-    let response: SyncResponse =
-        { events = []
-          nodes = [ staleHello; split.graph.nodes.[sibId] ]
-          childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
-    match
-        SyncLogic.applyLoadResponse
-            split.eventId
-            true
-            response
-            st
-    with
+    let fix = splitLoadFixture ()
+    match applySplitLoad [] fix with
     | Error msg -> failwith $"expected apply, got {msg}"
-    | Ok next ->
-        Assert.Equal<NodeId list>(
-            [ helloId; suffixId; sibId ],
-            Graph.children next.graph zoomId |> List.map _.id)
-        Assert.Equal("hel", next.graph.nodes.[helloId].text)
-        Assert.Equal("lo", next.graph.nodes.[suffixId].text)
-        Assert.Equal<Ev list>(pending, next.pending)
+    | Ok next -> assertVisibleSplit fix next
 
 [<Fact>]
 let ``applyLoadResponse applies a Notice with a nodes-only Load answer`` () =
-    let graph, _, zoomId, helloId, sibId = zoomHelloSib ()
-    let split, suffixId = applyMiddleSplit helloId sibId zoomId graph
-    let pending =
-        [ pendingSplit
-            (System.Guid.NewGuid())
-            (middleSplitOps helloId sibId zoomId graph suffixId) ]
-    let st =
-        { ClientSyncState.create split.graph split.eventId (ClientHistory.clear ())
-          with
-            pending = pending }
+    let fix = splitLoadFixture ()
     let notice =
         { pendingSplit (System.Guid.NewGuid()) [] with
             id = EventIdFixtures.storedId 9
@@ -138,31 +159,14 @@ let ``applyLoadResponse applies a Notice with a nodes-only Load answer`` () =
             body =
                 EventBody.Notice(
                     Notice.NodePersisted(
-                        helloId,
+                        fix.helloId,
                         EventId.zero,
                         System.DateTime.UtcNow)) }
-    let staleHello =
-        { split.graph.nodes.[helloId] with text = "hello" }
-    let response: SyncResponse =
-        { events = [ notice ]
-          nodes = [ staleHello; split.graph.nodes.[sibId] ]
-          childMap = Map.ofList [ zoomId, owned [ helloId; sibId ] ] }
-    match
-        SyncLogic.applyLoadResponse
-            split.eventId
-            true
-            response
-            st
-    with
+    match applySplitLoad [ notice ] fix with
     | Error msg -> failwith $"expected apply, got {msg}"
     | Ok next ->
         Assert.Equal(EventIdFixtures.storedId 9, next.eventId)
-        Assert.Equal<NodeId list>(
-            [ helloId; suffixId; sibId ],
-            Graph.children next.graph zoomId |> List.map _.id)
-        Assert.Equal("hel", next.graph.nodes.[helloId].text)
-        Assert.Equal("lo", next.graph.nodes.[suffixId].text)
-        Assert.Equal<Ev list>(pending, next.pending)
+        assertVisibleSplit fix next
 
 [<Fact>]
 let ``applySyncResponse stale Want re-applies the pending split for visibility`` () =

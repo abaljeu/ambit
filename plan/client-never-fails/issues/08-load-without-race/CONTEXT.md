@@ -8,4 +8,4 @@ This folder is ticket 08 — Load without a race.
 
 ## Stage
 
-review
+doc
