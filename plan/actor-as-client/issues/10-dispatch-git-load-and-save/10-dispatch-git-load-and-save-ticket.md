@@ -1,6 +1,6 @@
 # 10 — Start git Load
 **Status**: defined
-One job: `GithubTransportActor.start` builds `ActorOrder` for Git Load (`loadActorFunction`, `actorNodeId`, `actorName`) and posts `Order.StartActor`. `postLoadSaveCommand` reaches that post through `router.startCommand`. A Desk Load runs no Actor. `ActorOrder` in `src/Shared/History.fs` is `actor`, `actorNodeId`, and `actorName`.
+One job: `GithubTransportActor.start` builds `ActorOrder` for Git Load (`loadActorFunction`, `actorNodeId`, `actorName`) and posts `Order.StartActor`. `postLoadSaveCommand` reaches that post through `router.startCommand`. The Neither case is [23 — Run the Load actor for Git and Neither](../23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). `ActorOrder` in `src/Shared/History.fs` is `actor`, `actorNodeId`, and `actorName`.
 
 The Git Load post is already in the code. Keep that post.
 
@@ -64,8 +64,8 @@ Blockers:
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] Keep: `GithubTransportActor.start` for Load calls `loadActorFunction` and `CoreMailboxApi.coreMailboxStartActorFromFunction`. `postLoadSaveCommand` reaches that post through `router.startCommand`.
-3. [ ] Keep: the Desk arm of `RouteRegistration.registerStateRoutes` calls `CoreMailboxApi.startLoadSaveCommand`. `CoreActorPool.startLoadSaveCommand` returns `Ok None`. That Desk Load runs no Actor.
-4. [ ] Keep: ``plain Load of a File or Directory ignores a Git path`` sends `LoadSavePath.Git` to `CoreMailboxApi.startLoadSaveCommand`. `PathPick.effectiveLoadPath` makes that plain Load Desk. The push stays a Desk Load.
+3. [ ] Keep: the Desk arm of `RouteRegistration.registerStateRoutes` calls `CoreMailboxApi.startLoadSaveCommand`. `CoreActorPool.startLoadSaveCommand` returns `Ok None`. That arm is the Neither case until 23 — Run the Load actor for Git and Neither starts the Load actor for it.
+4. [ ] Keep: ``plain Load of a File or Directory ignores a Git path`` sends `LoadSavePath.Git` to `CoreMailboxApi.startLoadSaveCommand`. `PathPick.plainLoadStaysDesk` makes that plain Load `LoadSavePath.Desk` through `PathPick.effectiveLoadPath`. The push stays the Neither case until that ticket.
 5. [ ] Keep: `src/Server/RouteRegistration.fs` has no `registerPeer` call. `startPeerActor` and `registerPeer` stay deleted.
 6. [ ] Save callers of `CoreMsg.StartLoadSaveCommand` stay until 19 — Start git Save.
 7. [ ] Leave `Order` as the cases in `src/Shared/History.fs`. `Order.StartActor` of `ActorOrder` stays the Git Load post.
@@ -80,7 +80,7 @@ Blockers:
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/10-dispatch-git-load-and-save-stop.md`, then ask.
-[ ] Stop when Desk Load must start an Actor.
+[ ] Stop when this ticket starts the Load actor for the Neither case.
 [ ] Stop when a test file outside Outputs must change.
 [ ] Stop when this ticket writes `Order.StartActorDeprecated`.
 

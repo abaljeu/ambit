@@ -1,6 +1,8 @@
 # github-transport
 
-Updated: 2026-11-09
+Updated: 2026-11-10
+
+WebDAV needs its own design effort before it is built. That design also considers the Grok Bot AI response channel. `GrokBotSettings.deliverResponseUrl` in `src/Server/GrokBotSettings.fs` names `POST /ambit/actors/deliver`, `RouteRegistration` maps that route, and `RunAgentActor` in `src/Server/RunAgentActor.fs` sends the address as `ResponseUrl`. One part of the design is the desktop sending material to the server. `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` pull and push when a person runs Load or Save, and the design has to place a desktop send beside that request style. Desktop_mapped is that WebDAV branch inside the Load actor and inside a Save actor.
 
 Sources: [map.md](map.md) Destination and Decisions so far; [01 — Which Workspaces and remotes](issues/01-which-workspace-labels-and-remotes.md)–[10 — git Save is commit then push](issues/10-git-save-commit-then-push.md); [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md); [31 — Force-save the focused node](issues/31-force-save-the-focused-node.md); [project.md](project.md). Core handoff after files land: [[plan/core-refinement/project.md]]. Chapter: [Send to and from GitHub](../roadmap/epics/chapters/send-to-and-from-github.md). This spec synthesizes transport locks. It does not invent new product behavior.
 

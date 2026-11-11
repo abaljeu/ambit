@@ -598,6 +598,95 @@ let private fetchSwitchStaging workspace remote =
     git workspace "fetch" |> ignore
     git workspace "switch staging" |> ignore
 
+let private applyTail label events state =
+    match SyncLogic.applyServerTail events state with
+    | Ok next -> next
+    | Error err ->
+        Assert.Fail($"{label}: {err}")
+        Unchecked.defaultof<_>
+
+let private pollFrom host after = task {
+    let body =
+        ApiResponseSerialization.encodePollRequest
+            { eventId = after; want = [] }
+        |> Encode.toString 0
+    let! result =
+        Api.postPoll
+            (CoreDoor.create true host testCaller)
+            10
+            20
+            body
+        |> Async.StartAsTask
+    return decodePoll result
+}
+
+/// Git Load of a Directory still posts github-load. The client must drop Cancel.
+[<Fact>]
+let ``git Load of a Directory clears Cancel after the actor stops`` () = task {
+    let operation = LoadSaveOperation.Load
+    let host, seed, _started, dataDir, dependencies =
+        routeMatrixHarness operation "load"
+    try
+        let dirId, dirOps =
+            FileNodeOps.planCreateOwnedDirectory
+                (readGraph host)
+                seed.workspaceId
+                "docs"
+        postChange host dirOps
+        let! before =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let before = requireOk "before" before
+        let command =
+            requestForFocus operation LoadSavePrePick.Git seed dirId
+        let command =
+            { command with
+                start = { command.start with eventId = before.eventId } }
+        let! result =
+            Api.postLoadSaveCommand
+                (routeMatrixRouter host dataDir dependencies operation)
+                (CoreDoor.create true host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let commandEvents =
+            match response.command with
+            | Some loaded -> loaded.events
+            | None -> []
+        let baseline =
+            ClientSyncState.create
+                before.graph
+                before.eventId
+                (ClientHistory.clear ())
+        let afterCommand = applyTail "command response" commandEvents baseline
+        let! stopped = waitForStop host dirId
+        Assert.True(
+            stopped.IsSome,
+            "github-load posted no stop for the Directory")
+        Assert.True(
+            ActorLive.offersCancel dirId afterCommand.actorLiveFocusIds,
+            "command response already included the stop; this case did not show Cancel")
+        let! poll = pollFrom host afterCommand.eventId
+        let afterPoll = applyTail "poll" poll.events afterCommand
+        Assert.False(
+            ActorLive.offersCancel dirId afterPoll.actorLiveFocusIds,
+            "Cancel stays: poll did not clear the Directory actor")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let started =
+            history.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = dirId
+                    && order.actorName = "github-load"
+                | _ -> false)
+        Assert.True(started, "github-load StartActor was not for the Directory")
+        Assert.Equal(Some ActorSucceeded, stopped)
+    finally
+        CoreMailboxApi.dispose host
+}
+
 [<SkippableFact>]
 let ``git Load pulls a staging checkout and does not reconcile`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
@@ -919,7 +1008,7 @@ let ``explicit Desk Save with a GitHub remote takes the Desk path`` () = task {
 }
 
 [<Fact>]
-let ``Desk load-save places its order and runs no Actor`` () = task {
+let ``Desk load-save runs no Actor and posts no StartActor`` () = task {
     let pool = CoreActorPool.create ()
     let host =
         CoreMailbox.host
@@ -957,17 +1046,16 @@ let ``Desk load-save places its order and runs no Actor`` () = task {
         Assert.Empty(pool.liveActorNodeIds ())
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let stored =
+        let live = ActorLive.applyEvents history.events Set.empty
+        Assert.False(Set.contains nodeId live)
+        let started =
             history.events
-            |> List.filter (fun event ->
+            |> List.exists (fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor found) ->
-                    found.actorNodeId = nodeId && found.actorName = ""
+                | EventBody.Order (Order.StartActor _)
+                | EventBody.ActorStop _ -> true
                 | _ -> false)
-        match stored with
-        | [ event ] -> Assert.Equal(testAuthority, event.authority)
-        | other ->
-            Assert.Fail($"expected one ActorOrder, got {other.Length}")
+        Assert.False(started, "Desk Load posted an actor lifecycle row")
     finally
         CoreMailboxApi.dispose host
 }
