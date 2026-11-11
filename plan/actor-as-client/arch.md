@@ -94,13 +94,15 @@ An Actor is a thread from the .NET thread pool. It runs an `ActorFunction`.
 
 ### Curried actor
 
-[ ] An old-style actor takes `actorNodeId` and yields `ActorFunction`.
+[ ] Client start requests are their own types. Each kind of start has its own request type. The client never builds an `ActorOrder`. The client never builds an `ActorFunction`.
+[ ] Each server handler converts its client request into `Order.StartActor` of `ActorOrder`. The handler fills in the curried `ActorFunction`. Every start then has the same shape on the server.
 
 ```fsharp
 curriedActor : NodeId -> ActorFunction
 ```
 
-The endpoint sets `actorNodeId` before Post actor order. `ActorOrder` stores `actor`, `actorNodeId`, and `actorName` (`src/Shared/History.fs`).
+[ ] An old-style actor takes `actorNodeId` and yields `ActorFunction`. The handler sets `actor`, `actorNodeId`, and `actorName` on that `ActorOrder` before Post actor order (`src/Shared/History.fs`).
+[x] That conversion feeds Place actor order. The request goes to the pool. The pool launches the `ActorFunction` and affirms the start. The server posts `Order.StartActor` only after that affirmation. A refused start posts nothing. The server replies with the failure to the caller.
 
 ### Actor order
 
@@ -154,10 +156,8 @@ postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, st
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
 ```
 
-[x] `replyActorOrder` sends the start to the pool before it appends `Order.StartActor`.
-[x] `startFunction` admits the actor. `schedule` launches `order.actor` on the .NET thread pool. The `Ok` credential is the affirmation.
-[x] `replyActorOrder` appends `Order.StartActor` after that affirmation.
-[x] A refusal from `admitFunctionStart` leaves the event log as it stood. The caller reply is that failure.
+[x] `replyActorOrder` sends the request to `startFunction`. `startFunction` admits the actor. `schedule` launches `order.actor` on the .NET thread pool. The `Ok` credential is the affirmation.
+[x] A refusal comes from `admitFunctionStart`.
 [x] The mailbox supplies `getGraph` when `scheduleActorOrder` builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
@@ -177,8 +177,8 @@ startActor : ActorStart -> (unit -> Graph) -> Result<Credential, StartError>
 startPeerActor : PeerActorName -> ActorStart -> (unit -> Graph) -> Result<Credential, string>
 ```
 
-[x] `startFunction` returns `Ok` secret when `admitFunctionStart` accepts the node. That `Ok` is the affirmation. `replyActorOrder` appends `Order.StartActor` after it.
-[x] `admitFunctionStart` returns `Error "actor node already has a live Actor"` when that node is live. `startFunction` returns that error. The mailbox posts no row.
+[x] `startFunction` returns `Ok` secret when `admitFunctionStart` accepts the node. That `Ok` is the affirmation.
+[x] `admitFunctionStart` returns `Error "actor node already has a live Actor"` when that node is live. `startFunction` returns that error.
 [x] `putFunctionStart` mints the Actor credential and the Actor session id.
 
 ```fsharp
@@ -280,8 +280,6 @@ actorNameFromText : string -> string option
 
 1. **Place an ActorOrder**
 
-[ ] The endpoint applies Curried actor. Post actor order sends the client's Caller. The pool admits and launches the `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
-
 ```fsharp
 Run command
 Posted run
@@ -295,8 +293,6 @@ Place actor order
 
 2. **Run a query**
 
-[ ] Query command sends the start to the pool. The pool admits and launches that `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
-
 ```fsharp
 Query command
 Curried actor
@@ -307,8 +303,6 @@ Place actor order
 ```
 
 3. **Git Load or Save**
-
-[ ] Load and save sends the git start to the pool. The pool admits and launches that `ActorFunction`. Place actor order appends `Order.StartActor` after the affirmation.
 
 ```fsharp
 Load and save
@@ -341,7 +335,7 @@ Log actor order
 
 6. **Query start today**
 
-[x] `postActorStart` sends a query Run to the pool. `replyActorOrder` appends `Order.StartActor` after the pool affirms. `startChosen` stays `pool.startActor` for a named start.
+[x] `postActorStart` sends a query Run to the pool. `startChosen` stays `pool.startActor` for a named start.
 
 ```fsharp
 Posted run
