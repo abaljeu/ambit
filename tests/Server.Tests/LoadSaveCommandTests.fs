@@ -346,6 +346,25 @@ let private hasActorStop focusId event =
     | EventBody.ActorStop(id, ActorSucceeded) -> id = focusId
     | _ -> false
 
+let private actorLeft focusId event =
+    match event.body with
+    | EventBody.ActorStop(id, _) -> id = focusId
+    | _ -> false
+
+/// Dispose joins the persist thread, not the Git actor. After start,
+/// that actor can still hold the Workspace lock, so wait until it stops.
+let rec private waitUntilActorStops host focusId remainingMs = task {
+    let! history =
+        CoreMailboxApi.eventHistory host |> Async.StartAsTask
+    if List.exists (actorLeft focusId) history.events then
+        return true
+    elif remainingMs <= 0 then
+        return false
+    else
+        do! Task.Delay 10
+        return! waitUntilActorStops host focusId (remainingMs - 10)
+}
+
 let private isParseChange event =
     event.commandName = "Parse"
     && match event.body with
@@ -359,7 +378,8 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { pullTracked =
+        { fetchTracked = fun _ _ -> Result.Ok "fetched"
+          pullTracked =
             fun _ _ ->
                 markStarted ()
                 Result.Ok "pulled"
@@ -438,6 +458,7 @@ let ``every Git choice starts the Server Peer Actor``
     let prePick = prePickFromName prePickName
     let host, seed, started, dataDir, dependencies =
         routeMatrixHarness operation operationName
+    let locksBefore = NodeLockPool.entryCount ()
     try
         let focusId =
             if operationName = "save" then
@@ -457,8 +478,11 @@ let ``every Git choice starts the Server Peer Actor``
         do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
         Assert.Contains(history.events, hasStartedActor focusId)
+        let! stopped = waitUntilActorStops host focusId 2000
+        Assert.True(stopped, "git actor still holds the workspace lock")
     finally
         CoreMailboxApi.dispose host
+    Assert.Equal(locksBefore, NodeLockPool.entryCount ())
 }
 
 [<Fact>]

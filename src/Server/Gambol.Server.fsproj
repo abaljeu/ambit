@@ -91,6 +91,7 @@
     <Compile Include="RouteTypes.fs" />
     <Compile Include="RouteAuthentication.fs" />
     <Compile Include="RouteAppShell.fs" />
+    <Compile Include="WorkspaceUploadLock.fs" />
     <Compile Include="RouteRegistration.fs" />
     <Compile Include="ConfigurationOrder.fs" />
     <Compile Include="Server.fs" />
