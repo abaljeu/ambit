@@ -1,5 +1,5 @@
 # 23 — Run the Load actor for Git and Neither
-**Status**: defined
+**Status**: build
 One job: A Load starts the Load actor. The Git arm pulls. The Neither arm is empty. The actor then reconciles the subject, and it posts its start and its stop.
 
 ```fsharp
@@ -46,15 +46,15 @@ Blockers:
 
 ## Process
 
-1. [ ] If an input is missing, stop and name that input.
-2. [ ] A Git Load and a Neither Load call `GithubTransportActor.start` with `loadActorFunction`.
-3. [ ] The Git arm keeps the existing pull in `runLoad`.
-4. [ ] The Neither arm is an empty step.
-5. [ ] After that arm, the actor reconciles the subject. The Git pull keeps `finishLoadOn`.
-6. [ ] The actor posts `Order.StartActor` at start and posts its stop through `finishActor`.
-7. [ ] A plain Load of the Neither case reaches `GithubTransportActor.start`. `PathPick.plainLoadStaysDesk` is the function that currently keeps that Load on `LoadSavePath.Desk`.
-8. [ ] Leave the Desktop_mapped arm unused.
-9. [ ] Leave `saveActorFunction` unchanged.
+1. [x] If an input is missing, stop and name that input.
+2. [x] A Git Load and a Neither Load call `GithubTransportActor.start` with `loadActorFunction`.
+3. [x] The Git arm keeps the existing pull in `runLoad`.
+4. [x] The Neither arm is an empty step.
+5. [x] After that arm, the actor reconciles the subject. The Git pull keeps `finishLoadOn`.
+6. [x] The actor posts `Order.StartActor` at start and posts its stop through `finishActor`.
+7. [x] A plain Load of the Neither case reaches `GithubTransportActor.start`. `PathPick.plainLoadStaysDesk` is the function that currently keeps that Load on `LoadSavePath.Desk`.
+8. [x] Leave the Desktop_mapped arm unused.
+9. [x] Leave `saveActorFunction` unchanged.
 
 ## Outputs
 

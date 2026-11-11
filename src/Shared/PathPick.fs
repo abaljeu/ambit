@@ -93,13 +93,31 @@ module PathPick =
             | Some LoadSubject.File
             | None -> true)
 
-    /// Plain Load of a Directory, a File, or a non-subject stays Desk.
+    let private plainDirectoryLoad (choice: LoadPathChoice) =
+        choice.operation = LoadSaveOperation.Load
+        && choice.prePick = LoadSavePrePick.Plain
+        && choice.subject = Some LoadSubject.Directory
+
+    /// No Git remote, including a missing repository, is the Neither path.
+    /// A remote keeps that plain Directory Load on Desk.
+    let private pathForPlainDirectory
+        (remoteExists: unit -> Result<bool, string>)
+        : Result<LoadSavePath, string> =
+        match remoteExists () with
+        | Ok true -> Ok LoadSavePath.Desk
+        | Ok false
+        | Error _ -> Ok LoadSavePath.Git
+
+    /// Plain Load of a File or a non-subject stays Desk.
+    /// Plain Load of a Directory with no Git chooses Git.
     /// Explicit git Load still chooses Git.
     let resolveCommand
         (choice: LoadPathChoice)
         (remoteExists: unit -> Result<bool, string>)
         : Result<LoadSavePath, string> =
-        if plainLoadStaysDesk choice then
+        if plainDirectoryLoad choice then
+            pathForPlainDirectory remoteExists
+        elif plainLoadStaysDesk choice then
             Ok LoadSavePath.Desk
         else
             resolve choice.prePick remoteExists

@@ -663,9 +663,20 @@ let ``git Load of a Directory clears Cancel after the actor stops`` () = task {
         Assert.True(
             stopped.IsSome,
             "github-load posted no stop for the Directory")
-        Assert.True(
-            ActorLive.offersCancel dirId afterCommand.actorLiveFocusIds,
-            "command response already included the stop; this case did not show Cancel")
+        let stopInCommand =
+            commandEvents
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStop(id, _) -> id = dirId
+                | _ -> false)
+        if stopInCommand then
+            Assert.False(
+                ActorLive.offersCancel dirId afterCommand.actorLiveFocusIds,
+                "the command response included the stop and left Cancel up")
+        else
+            Assert.True(
+                ActorLive.offersCancel dirId afterCommand.actorLiveFocusIds,
+                "command response did not show Cancel")
         let! poll = pollFrom host afterCommand.eventId
         let afterPoll = applyTail "poll" poll.events afterCommand
         Assert.False(

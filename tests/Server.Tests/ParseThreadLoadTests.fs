@@ -203,9 +203,25 @@ let private deskLoadRequest (nodeId: NodeId) =
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 
-/// The client shows Cancel while this id is in the live set.
+let rec private waitForActorStop host focusId remaining = task {
+    let! history =
+        CoreMailboxApi.eventHistory host |> Async.StartAsTask
+    let stopped =
+        history.events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.ActorStop(id, _) -> id = focusId
+            | _ -> false)
+    if stopped || remaining <= 0 then
+        return history
+    else
+        do! Task.Delay 10
+        return! waitForActorStop host focusId (remaining - 10)
+}
+
+/// Neither: no Git and no desktop mapping. The Load actor starts, reconciles, and stops.
 [<Fact>]
-let ``Desk Load of a Directory does not leave a cancelable actor`` () =
+let ``Neither Load of a Directory starts the Load actor and then stops`` () =
     task {
         let dataDir = newTempDir ()
         let host =
@@ -216,18 +232,47 @@ let ``Desk Load of a Directory does not leave a cancelable actor`` () =
                 ignore
         try
             let! _, dirId = seedDocsFile host
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let state = requireOk "state" state
+            let request =
+                { deskLoadRequest dirId with
+                    prePick = LoadSavePrePick.Plain }
+            let path =
+                requireOk
+                    "path"
+                    (LoadSaveRouting.resolvePath dataDir state request)
+            Assert.Equal(LoadSavePath.Git, path)
             let! started =
-                CoreMailboxApi.startLoadSaveCommand
+                GithubTransportActor.start
                     host
                     testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
-                    (deskLoadRequest dirId)
+                    dataDir
+                    GithubTransportActor.productionDependencies
+                    GithubTransportOperation.Load
+                    request.start
                 |> Async.StartAsTask
-            requireOk "directory" started
-            let! history =
-                CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            let live = ActorLive.applyEvents history.events Set.empty
+            requireOk "start" started
+            let! history = waitForActorStop host dirId 3000
+            let startedActor =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.Order (Order.StartActor order) ->
+                        order.actorNodeId = dirId
+                        && order.actorName = "github-load"
+                    | _ -> false)
+            let stopped =
+                history.events
+                |> List.tryPick (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(id, result) when id = dirId ->
+                        Some result
+                    | _ -> None)
+            Assert.True(startedActor, "Load actor posted no StartActor")
+            Assert.Equal(Some ActorSucceeded, stopped)
+            let live =
+                ActorLive.applyEvents (List.rev history.events) Set.empty
             Assert.False(
                 Set.contains dirId live,
                 "Directory Load left a live actor, so Cancel stays")

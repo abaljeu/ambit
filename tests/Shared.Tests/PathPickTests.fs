@@ -55,13 +55,20 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
     Assert.Equal(Ok expected, actual)
 
 [<Fact>]
-let ``plain Load of a Directory, File, or non-subject stays Desk`` () =
-    let subjects = [
-        Some LoadSubject.Directory
-        Some LoadSubject.File
-        None
-    ]
-    for subject in subjects do
+let ``plain Directory Load with no Git chooses Git and a File stays Desk`` () =
+    let directory remoteExists =
+        PathPick.resolveCommand
+            (choice
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                (Some LoadSubject.Directory))
+            remoteExists
+    Assert.Equal(Ok LoadSavePath.Git, directory (fun () -> Ok false))
+    Assert.Equal(
+        Ok LoadSavePath.Git,
+        directory (fun () -> Error "No git repository in workspace."))
+    Assert.Equal(Ok LoadSavePath.Desk, directory (fun () -> Ok true))
+    for subject in [ Some LoadSubject.File; None ] do
         Assert.Equal(Ok LoadSavePath.Desk, staysDesk subject)
 
 [<Fact>]

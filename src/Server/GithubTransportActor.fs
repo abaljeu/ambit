@@ -173,12 +173,25 @@ module GithubTransportActor =
     let private missingSubject =
         Error "Focus is not in a Workspace, Directory, or File."
 
-    /// A Workspace Load pulls. A Directory or a File loads that node only.
+    /// Neither. The arm is empty. Reconcile records no received paths.
+    let private runNeither (target: WorkspaceTarget) (root: string) =
+        finishLoadOn target (System.IO.Path.GetFileName root) []
+
+    /// A Directory with a Git remote pulls. No remote is the Neither arm.
+    let private runDirectory dependencies root target =
+        match WorkspaceGit.remoteExists root with
+        | Ok true -> runLoadOn dependencies root target
+        | Ok false
+        | Error _ -> runNeither target root
+
+    /// A Workspace Load pulls. A Directory Load pulls or is empty.
+    /// A File loads that node only.
     let private runLoadChoice dependencies root target choice =
         match choice with
         | Some (_, LoadSubject.Workspace) ->
             runLoadOn dependencies root target
-        | Some (id, LoadSubject.Directory)
+        | Some (_, LoadSubject.Directory) ->
+            runDirectory dependencies root target
         | Some (id, LoadSubject.File) ->
             loadFocus target.changes id
         | None -> async.Return missingSubject
