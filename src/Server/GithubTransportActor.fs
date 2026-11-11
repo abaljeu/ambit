@@ -129,24 +129,41 @@ module GithubTransportActor =
             | Ok _ -> return! startParse target
         }
 
-    let private markHeads root target heads =
-        let changed =
-            changedAfterPull root heads |> Option.defaultValue []
-        let label = System.IO.Path.GetFileName root
-        Async.RunSynchronously (markChanged target label changed)
+    let private changedPaths heads root =
+        changedAfterPull root heads |> Option.defaultValue []
 
-    /// Merge and the Unparsed mark share one Workspace lock.
-    let internal lockMergeAndMark git locked target tracked =
-        withWorkspaceLock locked.graph locked.workspaceId (fun () ->
-            mergeLocked git locked tracked
-            |> Result.bind (markHeads locked.root target))
+    /// Merge, then await the Unparsed mark, under one Workspace lock.
+    let internal lockMergeAndMark git locked target tracked = async {
+        let mergeAndMark = async {
+            match mergeLocked git locked tracked with
+            | Error err -> return Error err
+            | Ok heads ->
+                return!
+                    markChanged
+                        target
+                        (System.IO.Path.GetFileName locked.root)
+                        (changedPaths heads locked.root)
+        }
+        let! held =
+            NodeLockPool.withLockAsync
+                locked.graph
+                locked.workspaceId
+                mergeAndMark
+        match held with
+        | Error NodeLockRejection.HolderHoldsLock ->
+            return Error "holder already holds a lock"
+        | Ok result -> return result
+    }
 
     /// Commit, unlocked fetch, then the locked merge and Unparsed mark.
-    let private commitFetchAndMark git locked target message =
-        commitFetched git locked message
-        |> Result.bind (fun (tracked, output) ->
-            lockMergeAndMark git locked target tracked
-            |> Result.map (fun _ -> tracked, output))
+    let private commitFetchAndMark git locked target message = async {
+        match commitFetched git locked message with
+        | Error err -> return Error err
+        | Ok (tracked, output) ->
+            let! merged =
+                lockMergeAndMark git locked target tracked
+            return merged |> Result.map (fun _ -> tracked, output)
+    }
 
     /// Mark received files and containing Directories, then Load.
     let internal finishLoadPull
@@ -172,13 +189,13 @@ module GithubTransportActor =
                     workspaceId = target.workspaceId
                     root = root
                 }
-                match
+                let! fetched =
                     commitFetchAndMark
                         dependencies.git
                         locked
                         target
                         "gambol: git Load"
-                with
+                match fetched with
                 | Error err -> return Error err
                 | Ok _ -> return! startParse target
         }
@@ -349,18 +366,19 @@ module GithubTransportActor =
                     |> Result.map ignore
         }
 
-    let private saveFetched dataDir git focusChanges locked =
+    let private saveFetched dataDir git focusChanges locked = async {
         let target = {
             changes = focusChanges
             dataDir = dataDir
             workspaceId = locked.workspaceId
         }
-        match
+        let! committed =
             commitFetchAndMark git locked target "gambol: git Save"
-        with
-        | Error err -> async.Return (Error err)
+        match committed with
+        | Error err -> return Error err
         | Ok (tracked, output) ->
-            pushAfterMark git locked.root target tracked output
+            return! pushAfterMark git locked.root target tracked output
+    }
 
     /// No workspace work tree: the actor runs and does not commit, pull, or push.
     let private runSaveBody dataDir dependencies focusId changes =

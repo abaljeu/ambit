@@ -852,6 +852,7 @@ let private countingGit () =
     }
     let dependencies = {
         git = {
+            fetchTracked = fun _ _ -> Result.Ok "fetched"
             pullTracked =
                 fun root _ ->
                     pulls.Add root

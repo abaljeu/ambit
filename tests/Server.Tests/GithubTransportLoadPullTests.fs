@@ -549,7 +549,10 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
                   dataDir = dataDir
                   workspaceId = workspaceId }
                 trackedBranch
-        mergeAndMark |> requireOk "locked pull" |> ignore
+        mergeAndMark
+        |> Async.RunSynchronously
+        |> requireOk "locked pull"
+        |> ignore
         match
             NodeLockPool.withLock graph workspaceId (fun () -> "free")
         with
