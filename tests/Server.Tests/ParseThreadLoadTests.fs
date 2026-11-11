@@ -255,13 +255,7 @@ let ``Neither Load of a Directory starts the Load actor and then stops`` () =
             requireOk "start" started
             let! history = waitForActorStop host dirId 3000
             let startedActor =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorNodeId = dirId
-                        && order.actorName = "github-load"
-                    | _ -> false)
+                history.events |> List.exists (githubLoadStarted dirId)
             let stopped =
                 history.events
                 |> List.tryPick (fun event ->

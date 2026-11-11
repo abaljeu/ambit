@@ -1,5 +1,5 @@
 # 23 — Run the Load actor for Git and Neither
-**Status**: build
+**Status**: coded
 One job: A Load starts the Load actor. The Git arm pulls. The Neither arm is empty. The actor then reconciles the subject, and it posts its start and its stop.
 
 ```fsharp
@@ -10,7 +10,7 @@ Load x =
 
 A directory with no desktop access and no upload is the Neither case. `GithubTransportActor.start` in `src/Server/GithubTransportActor.fs` posts `Order.StartActor` for `loadActorFunction`. Pull request 589 removed `CoreMailboxLoad.logDeskOrder`, which appended `Order.StartActor` with `EventJson.stubActor` and an empty `actorName` and posted no stop. This ticket replaces that removal. The Neither case runs the Load actor. Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). A later Save actor is the follow-on: Git commit, pull, and push under the existing Save rules; Desktop_mapped WebDAV after that design; an empty Neither arm.
 
-A plain Load enters the Load actor. It does not take the Desk path. A work tree with a Git remote takes the Git arm: pull, then reconcile. A Directory or a File with no Git takes the Neither arm: no transport, then reconcile, then stop. An explicit Git Load of a Directory that is not a repository takes that same Neither arm. An object outside a workspace work tree takes the Neither arm and does not pull or push.
+A plain Load enters the Load actor. It does not take the Desk path. A work tree with a Git remote takes the Git arm: pull, then reconcile. A Workspace, a Directory, or a File with no Git remote takes the Neither arm: no transport, then reconcile, then stop. A missing work tree takes that same arm. An explicit Git Load of a Directory that is not a repository takes that same Neither arm. A git error other than not a repository fails the Load actor. An object outside a workspace work tree takes the Neither arm and does not pull or push.
 
 [ ] `loadActorFunction` builds the Load `ActorFunction`. `GithubTransportActor.start` calls it for Load and posts through `CoreMailboxApi.coreMailboxStartActorFromFunction`.
 [ ] `finishActor` calls `changes.actorStop` after the Load body.
@@ -32,7 +32,7 @@ Blockers:
 ### Working
 
 [ ] `GithubTransportActor.start` matches `GithubTransportOperation.Load` to `loadActorFunction` and `GithubTransportOperation.Save` to `saveActorFunction`.
-[ ] `runLoadChoice` pulls for `LoadSubject.Workspace` and calls `loadFocus` for a Directory or a File.
+[ ] `runLoadChoice` sends a Workspace, a Directory, and a File through the work-tree remote check. A remote pulls. No work tree, no remote, and not a repository are Neither. Any other git error fails the actor.
 [ ] The Desk arm of `RouteRegistration.registerStateRoutes` calls `CoreMailboxApi.startLoadSaveCommand`.
 [ ] `CoreActorPool.startLoadSaveCommand` returns `Ok None` for `LoadSavePath.Desk`.
 

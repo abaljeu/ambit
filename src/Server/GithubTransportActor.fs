@@ -8,7 +8,8 @@ type GithubTransportOperation =
     | Save
 
 type GithubTransportGit =
-    { fetchTracked:
+    { remoteExists: string -> Result<bool, string>
+      fetchTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
       pullTracked:
         string -> WorkspaceTrackedBranch -> Result<string, string>
@@ -50,6 +51,30 @@ module GithubTransportActor =
             with
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
+
+    type private FocusWorkTree = {
+        graph: Graph
+        workspaceId: NodeId
+        root: string
+    }
+
+    /// Graph at the event, then the focus work tree. None when the focus
+    /// has no workspace work tree. A graph read error stays an error.
+    let private readFocusWorkspace dataDir focusId (changes: ActorChanges) =
+        async {
+            match! changes.graphAtEvent () with
+            | Error err -> return Error err
+            | Ok current ->
+                match workspaceFromFocus dataDir current.graph focusId with
+                | Error _ -> return Ok None
+                | Ok (workspaceId, root) ->
+                    return
+                        Ok (Some {
+                            graph = current.graph
+                            workspaceId = workspaceId
+                            root = root
+                        })
+        }
 
     type private LoadPullHeads =
         { beforeHead: Result<string option, string>
@@ -223,25 +248,29 @@ module GithubTransportActor =
     let private runNeither (target: WorkspaceTarget) (label: string) =
         finishLoadOn target label []
 
-    /// A Git remote pulls. No remote, and a directory that is not a
-    /// repository, are the Neither arm.
-    let private runGitOrNeither dependencies root target =
-        match WorkspaceGit.remoteExists root with
-        | Ok true -> runLoadOn dependencies root target
-        | Ok false ->
-            runNeither target (System.IO.Path.GetFileName root)
-        | Error _ ->
-            runNeither target (System.IO.Path.GetFileName root)
+    /// A missing work tree has no repository. Git says the same with
+    /// `not a git repository`. Any other message is a real git failure.
+    let private gitHasNoRepository (root: string) (message: string) =
+        not (System.IO.Directory.Exists root)
+        || message.Contains(
+            "not a git repository",
+            System.StringComparison.OrdinalIgnoreCase)
 
-    /// A Workspace Load pulls. A Directory or a File pulls when the work
-    /// tree has a remote, and is Neither otherwise.
+    /// A remote pulls. No work tree, no remote, and a directory that is
+    /// not a repository are Neither. Any other git error fails the actor.
+    let private runGitOrNeither dependencies (root: string) target =
+        let label = System.IO.Path.GetFileName root
+        match dependencies.git.remoteExists root with
+        | Ok true -> runLoadOn dependencies root target
+        | Ok false -> runNeither target label
+        | Error message when gitHasNoRepository root message ->
+            runNeither target label
+        | Error message -> async.Return (Error message)
+
+    /// Workspace, Directory, and File share the work-tree remote check.
     let private runLoadChoice dependencies root target choice =
         match choice with
-        | Some (_, LoadSubject.Workspace) ->
-            runLoadOn dependencies root target
-        | Some (_, LoadSubject.Directory)
-        | Some (_, LoadSubject.File) ->
-            runGitOrNeither dependencies root target
+        | Some _ -> runGitOrNeither dependencies root target
         | None -> async.Return missingSubject
 
     /// No workspace work tree: Neither, then reconcile. No git pull.
@@ -383,47 +412,43 @@ module GithubTransportActor =
     /// No workspace work tree: the actor runs and does not commit, pull, or push.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
-            match! changes.graphAtEvent () with
+            match! readFocusWorkspace dataDir focusId changes with
             | Error err -> return Error err
-            | Ok current ->
-                match workspaceFromFocus dataDir current.graph focusId with
-                | Error _ -> return Ok ()
-                | Ok (workspaceId, root) ->
-                    match! persistFocusWhenNotOrdinary changes focusId with
-                    | Error err -> return Error err
-                    | Ok () ->
-                        let locked = {
-                            graph = current.graph
-                            workspaceId = workspaceId
-                            root = root
-                        }
-                        return!
-                            saveFetched
-                                dataDir
-                                dependencies.git
-                                changes
-                                locked
+            | Ok None -> return Ok ()
+            | Ok (Some place) ->
+                match! persistFocusWhenNotOrdinary changes focusId with
+                | Error err -> return Error err
+                | Ok () ->
+                    let locked = {
+                        graph = place.graph
+                        workspaceId = place.workspaceId
+                        root = place.root
+                    }
+                    return!
+                        saveFetched
+                            dataDir
+                            dependencies.git
+                            changes
+                            locked
         }
 
     let private runLoadBody dataDir dependencies focusId changes =
         async {
-            match! changes.graphAtEvent () with
+            match! readFocusWorkspace dataDir focusId changes with
             | Error err -> return Error err
-            | Ok current ->
-                match workspaceFromFocus dataDir current.graph focusId with
-                | Error _ ->
-                    return! runOutsideWorkspace changes dataDir focusId
-                | Ok (workspaceId, root) ->
-                    return!
-                        runLoadChoice
-                            dependencies
-                            root
-                            { changes = changes
-                              dataDir = dataDir
-                              workspaceId = workspaceId }
-                            (LoadSubject.enclosingSubject
-                                current.graph
-                                focusId)
+            | Ok None ->
+                return! runOutsideWorkspace changes dataDir focusId
+            | Ok (Some place) ->
+                return!
+                    runLoadChoice
+                        dependencies
+                        place.root
+                        { changes = changes
+                          dataDir = dataDir
+                          workspaceId = place.workspaceId }
+                        (LoadSubject.enclosingSubject
+                            place.graph
+                            focusId)
         }
 
     let private actorFunction body : ActorFunction =
@@ -467,7 +492,8 @@ module GithubTransportActor =
         }
 
     let workspaceGit : GithubTransportGit =
-        { fetchTracked = WorkspaceGit.fetchTrackedBranch
+        { remoteExists = WorkspaceGit.remoteExists
+          fetchTracked = WorkspaceGit.fetchTrackedBranch
           pullTracked = WorkspaceGit.mergeFetchedBranch
           commitAll = WorkspaceGit.commitTracked
           pushTracked = WorkspaceGit.pushTrackedBranch }

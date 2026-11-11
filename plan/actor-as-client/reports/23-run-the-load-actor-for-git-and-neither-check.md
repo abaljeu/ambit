@@ -1,8 +1,7 @@
 pass
 
-[x] Server suite: passed 768, skipped 1, total 769.
-[x] Shared suite: passed 1937, skipped 3, total 1940.
-[x] `GithubTransportActorTests` passed 14, skipped 0.
-[x] `LoadSaveCommandTests` passed 16, skipped 0.
-[x] `ParseThreadLoadTests` passed 24, skipped 0.
-[x] `PathPickTests` passed 12, skipped 0.
+Server `AMBIT_FULL_SUITE=1`: 777 passed, 1 skipped, 778 total.
+
+Shared `AMBIT_FULL_SUITE=1`: 1936 passed, 3 skipped, 1939 total.
+
+Server used `WarningsNotAsErrors=FS3511` on the command line. The project file is unchanged.

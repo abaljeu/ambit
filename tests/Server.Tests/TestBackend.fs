@@ -120,6 +120,13 @@ let newTempDir () =
     Directory.CreateDirectory(dir) |> ignore
     dir
 
+/// `Order.StartActor` for the Load actor on one focus.
+let githubLoadStarted focusId (event: Ev) =
+    match event.body with
+    | EventBody.Order (Order.StartActor order) ->
+        order.actorNodeId = focusId && order.actorName = "github-load"
+    | _ -> false
+
 let testAuthority = Authority "Test"
 
 let testSecret = Credential "test-secret"

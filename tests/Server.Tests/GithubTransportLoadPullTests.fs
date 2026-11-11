@@ -71,7 +71,8 @@ let private markingDependencies pull push =
           remote = "origin"
           upstream = "refs/heads/master" }
     { git =
-        { fetchTracked = fun _ _ -> Ok "fetched"
+        { remoteExists = fun _ -> Ok true
+          fetchTracked = fun _ _ -> Ok "fetched"
           pullTracked = pull
           commitAll =
             fun _ _ _ -> Ok(tracked, GitSave.nothingToCommitMessage)
@@ -127,7 +128,8 @@ let ``git Load commits before pull`` () =
         Error "push unused"
     let deps =
         { git =
-            { fetchTracked = fetch
+            { remoteExists = fun _ -> Ok true
+              fetchTracked = fetch
               pullTracked = pull
               commitAll = commit
               pushTracked = push } }
@@ -433,7 +435,8 @@ let ``git Load and git Save wait while the Workspace lock is held`` () =
         held.Task.Wait()
         let loadCommit = TaskCompletionSource<unit>()
         let git =
-            { fetchTracked = fun _ _ -> Ok "fetched"
+            { remoteExists = fun _ -> Ok true
+              fetchTracked = fun _ _ -> Ok "fetched"
               pullTracked = fun _ _ -> Ok "pulled"
               commitAll =
                 fun _ _ _ ->
@@ -532,7 +535,8 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
         }
         let mergeAndMark =
             GithubTransportActor.lockMergeAndMark
-                { fetchTracked = fun _ _ -> Ok "fetched"
+                { remoteExists = fun _ -> Ok true
+                  fetchTracked = fun _ _ -> Ok "fetched"
                   pullTracked =
                     fun workspace tracked ->
                         steps.Add("merge")
@@ -580,6 +584,7 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
             Ok "merged"
         let deps = {
             git = {
+                remoteExists = fun _ -> Ok true
                 fetchTracked = fetch
                 pullTracked = merge
                 commitAll =

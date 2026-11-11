@@ -9,16 +9,16 @@ Ticket: [23 — Run the Load actor for Git and Neither](23-run-the-load-actor-fo
 
 ## Edits
 
-[x] `PathPick.resolveCommand` sends a plain Directory Load with no Git remote to `LoadSavePath.Git`.
-[x] A plain Directory Load with a remote stays `LoadSavePath.Desk`.
-[x] A plain File Load and a non-subject stay `LoadSavePath.Desk`.
-[x] `GithubTransportActor.runDirectory` pulls through `runLoadOn` when `WorkspaceGit.remoteExists` is true.
-[x] The same function runs `runNeither` when the remote is absent or the work tree is not a repository.
+[x] `runLoadChoice` sends a Workspace, a Directory, and a File through `runGitOrNeither`.
+[x] A work tree with a Git remote pulls through `runLoadOn`.
+[x] No work tree, no remote, and a directory that is not a repository take `runNeither`.
+[x] Any other `WorkspaceGit.remoteExists` error fails the Load actor.
 [x] `runNeither` calls `finishLoadOn` with an empty received-path list.
-[x] A Workspace Load still pulls through `runLoad`. A File Load still calls `loadFocus`.
+[x] `readFocusWorkspace` is the shared `graphAtEvent` then `workspaceFromFocus` step for `runLoadBody` and `runSaveBody`.
+[x] `githubLoadStarted` is the shared `Order.StartActor` scan for `actorName = "github-load"`.
 [x] `GithubTransportActor.start` still posts `Order.StartActor` through `CoreMailboxApi.coreMailboxStartActorFromFunction`.
 [x] `finishActor` still calls `changes.actorStop`.
-[x] `saveActorFunction` is unchanged. The Desk command path is unchanged.
+[x] `saveActorFunction` is unchanged. The Desk command path is unchanged. Desktop_mapped stays unused.
 
 ## Check
 

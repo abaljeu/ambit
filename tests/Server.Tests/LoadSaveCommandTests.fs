@@ -399,7 +399,8 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { fetchTracked = fun _ _ -> Result.Ok "fetched"
+        { remoteExists = fun _ -> Result.Ok true
+          fetchTracked = fun _ _ -> Result.Ok "fetched"
           pullTracked =
             fun _ _ ->
                 markStarted ()
@@ -735,13 +736,7 @@ let ``git Load of a Directory clears Cancel after the actor stops`` () = task {
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let started =
-            history.events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorNodeId = dirId
-                    && order.actorName = "github-load"
-                | _ -> false)
+            history.events |> List.exists (githubLoadStarted dirId)
         Assert.True(started, "github-load StartActor was not for the Directory")
         Assert.Equal(Some ActorSucceeded, stopped)
     finally
@@ -830,13 +825,7 @@ let ``plain Directory Load with a remote pulls through the Load actor`` () =
                 CoreMailboxApi.eventHistory harness.host
                 |> Async.StartAsTask
             let started =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorNodeId = dirId
-                        && order.actorName = "github-load"
-                    | _ -> false)
+                history.events |> List.exists (githubLoadStarted dirId)
             Assert.True(started, "github-load did not start for the Directory")
         finally
             CoreMailboxApi.dispose harness.host
@@ -852,6 +841,7 @@ let private countingGit () =
     }
     let dependencies = {
         git = {
+            remoteExists = WorkspaceGit.remoteExists
             fetchTracked = fun _ _ -> Result.Ok "fetched"
             pullTracked =
                 fun root _ ->
@@ -927,13 +917,7 @@ let ``plain File Load with no Git is Neither through the Load actor`` () =
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let started =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorNodeId = fileId
-                        && order.actorName = "github-load"
-                    | _ -> false)
+                history.events |> List.exists (githubLoadStarted fileId)
             Assert.True(started, "Neither File Load posted no StartActor")
         finally
             CoreMailboxApi.dispose host
@@ -975,17 +959,102 @@ let ``explicit Git Load of a non-repo Directory is Neither`` () = task {
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let started =
-            history.events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorNodeId = dirId
-                    && order.actorName = "github-load"
-                | _ -> false)
+            history.events |> List.exists (githubLoadStarted dirId)
         Assert.True(started, "non-repo Directory Load posted no StartActor")
     finally
         CoreMailboxApi.dispose host
 }
+
+let private withRemote (remoteExists: string -> Result<bool, string>) =
+    let pulls, pushes, dependencies = countingGit ()
+    pulls,
+    pushes,
+    { git = { dependencies.git with remoteExists = remoteExists } }
+
+[<Fact>]
+let ``plain Workspace Load with no Git remote is Neither`` () = task {
+    let dataDir = newTempDir ()
+    let host = createProductionHost dataDir
+    let pulls, pushes, dependencies =
+        withRemote (fun _ -> Result.Ok false)
+    try
+        let seed = seedWorkspace host "load"
+        let command =
+            requestForFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                seed
+                seed.workspaceId
+        let! result =
+            Api.postLoadSaveCommand
+                (actorRouter
+                    host
+                    dataDir
+                    dependencies
+                    LoadSaveOperation.Load)
+                (CoreDoor.create true host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+        let! stopped = waitForStop host seed.workspaceId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        Assert.Empty(pulls)
+        Assert.Empty(pushes)
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.True(
+            history.events
+            |> List.exists (githubLoadStarted seed.workspaceId),
+            "Neither Workspace Load posted no StartActor")
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``Load actor fails when git remote fails besides no repository`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = createProductionHost dataDir
+        let gitError = "fatal: bad config line 1 in file .git/config"
+        let pulls, _, dependencies =
+            withRemote (fun _ -> Result.Error gitError)
+        try
+            Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
+            let seed = seedWorkspace host "load"
+            let dirId, dirOps =
+                FileNodeOps.planCreateOwnedDirectory
+                    (readGraph host)
+                    seed.workspaceId
+                    "docs"
+            postChange host dirOps
+            let command =
+                requestForFocus
+                    LoadSaveOperation.Load
+                    LoadSavePrePick.Plain
+                    seed
+                    dirId
+            let! result =
+                Api.postLoadSaveCommand
+                    (actorRouter
+                        host
+                        dataDir
+                        dependencies
+                        LoadSaveOperation.Load)
+                    (CoreDoor.create true host testCaller)
+                    (encodeRequest command)
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+            let! stopped = waitForStop host dirId
+            Assert.Equal(Some (ActorFailed gitError), stopped)
+            Assert.Empty(pulls)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.True(
+                history.events |> List.exists (githubLoadStarted dirId),
+                "failed Load posted no StartActor")
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``Load of an object outside a workspace runs the actor and skips git`` () =
@@ -1062,13 +1131,7 @@ let ``Load of an object outside a workspace runs the actor and skips git`` () =
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
             let started =
-                history.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.Order (Order.StartActor order) ->
-                        order.actorNodeId = fileId
-                        && order.actorName = "github-load"
-                    | _ -> false)
+                history.events |> List.exists (githubLoadStarted fileId)
             Assert.True(started, "outside-workspace Load posted no StartActor")
         finally
             CoreMailboxApi.dispose host
