@@ -7,20 +7,20 @@
 
 ## Context
 
-Graph change apply has an `Notice.NodeReceived` handler in `CoreMailboxLoad.applyNotice`. The handler applies `Notice.NodeReceived` and logs it. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeReceived` directly for a changed File Node already on the server (pull request 263). Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeReceived` for an incoming file. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) is that Actor. The Actor posts `Notice.NodeReceived` once it exists. A second Load repairs a file that never arrived.
+Graph change apply has an `Notice.NodeReceived` handler in `CoreMailboxLoad.applyNotice`. The handler applies `Notice.NodeReceived` and logs it. `Notice.NodeReceived` fires once per node, when the server first holds that node's bytes. Two places post it. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts it after a git pull, only for a file the server never held. `WorkspaceUploadLock` posts it from the WebDAV PUT, under the Workspace lock, only while the File node is still PullingFile. A later pull or PUT of a file already received marks it Unparsed and posts no `Notice.NodeReceived`. `Api.postEvents` posts no notice. It decodes the client's events and places them as one `Order.Change` with origin `Edit`. [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md) moves the upload post into the upload Actor once that Actor exists. A second Load repairs a file that never arrived.
 
 ## What to build
 
-Until the upload Actor exists, `Api.postEvents` posts `Notice.NodeReceived` for an incoming file. The upload Actor posts `Notice.NodeReceived` once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
+The PUT and the git pull reconcile post `Notice.NodeReceived` once, at first receipt. `Api.postEvents` posts no notice. The upload Actor takes over the upload post once it exists. That Actor is [57 — Upload Actor posts Node notices](57-upload-actor-posts-document-state.md).
 
 ### 1. Arrival
 
-1. [x] **Arrival post** — `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for an incoming file.
+1. [x] **Arrival post** — `WorkspaceUploadLock` posts `Notice.NodeReceived` from the WebDAV PUT, under the Workspace lock, only while the File node is PullingFile. A later PUT posts `Notice.NodeUnparsed`. `Api.postEvents` posts no notice. (Corrected 2026-11-10: this step had said `Api.postEvents` posts the notice. The code never did.)
 
 ### Acceptance Criteria
 
-1. [x] **Reconcile test** — `reconcile emits NodeReceived`. The test calls `LazyLoadReconciliationServer.reconcileReceivedFiles`. It posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice` for a changed File Node. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
-2. [x] **Arrival test** — `incoming file emits NodeReceived`. The test calls `Api.postEvents` for the incoming-file Change. `Api.postEvents` posts `Notice.NodeReceived` through `CoreMailboxApi.postNotice`. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
+1. [x] **Reconcile tests** — ``git pull of a new file posts NodeReceived once`` and ``git pull of an already received file posts no NodeReceived`` in `tests/Server.Tests/NodeEventExpandTests.fs`. `LazyLoadReconciliationServer.reconcileReceivedFiles` posts `Notice.NodeReceived` only for a file the server never held. The `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile.
+2. [x] **Arrival tests** — ``one upload posts NodeReceived once`` and ``a second upload posts no NodeReceived and marks Unparsed`` in `tests/Server.Tests/GithubTransportLoadPullTests.fs`. ``NodeReceived applies Unparsed`` in `tests/Server.Tests/CoreLoopNoticeTests.fs`: the `Notice.NodeReceived` handler sets Unparsed and Persisted and clears PullingFile. (Corrected 2026-11-10: the earlier `incoming file emits NodeReceived` test through `Api.postEvents` did not exist.)
 
 ## See also
 
