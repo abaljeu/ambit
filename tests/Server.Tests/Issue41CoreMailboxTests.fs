@@ -276,9 +276,12 @@ let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
             Assert.Equal(
                 Gambol.Shared.Authority "Actor",
                 stopEvent.authority)
-            Assert.Equal(
-                Gambol.Shared.EventBody.ActorStart request,
-                startEvent.body)
+            match startEvent.body with
+            | EventBody.Order (Order.StartActor order) ->
+                Assert.Equal(request.focusId, order.actorNodeId)
+                Assert.Equal("root", order.actorName)
+            | other ->
+                Assert.Fail($"expected StartActor, got {other}")
             Assert.Equal(
                 Gambol.Shared.EventBody.ActorStop(
                     request.focusId,

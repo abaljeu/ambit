@@ -186,13 +186,20 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
         let accepted = requireOk "list" result
         let started =
             accepted.events
-            |> List.exists (fun event ->
+            |> List.tryPick (fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorNodeId = runDefinitionId
-                    && order.actorName = "test"
-                | _ -> false)
-        Assert.True(started, "stored StartActor missing")
+                | EventBody.Order (Order.StartActor order)
+                    when
+                        order.actorNodeId = runDefinitionId
+                        && order.actorName = "test" ->
+                    Some order
+                | _ -> None)
+        match started with
+        | None -> Assert.Fail("stored StartActor missing")
+        | Some order ->
+            Assert.DoesNotContain(
+                "orderOfAffirmedStart",
+                order.actor.GetType().Name)
         let! hello = waitHello host runDefinitionId 1000
         Assert.True(hello, "hello child missing; edit was not visible")
     finally
@@ -268,6 +275,33 @@ let private seedOwned (client: HttpClient) text = task {
     let! _ = requireHttp "seed" response
     return runDefinitionId
 }
+
+let private pollEvents (client: HttpClient) = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = EventId.zero; want = [] })
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    let! response = client.PostAsync("/ambit/poll", content)
+    let! json = response.Content.ReadAsStringAsync()
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    match
+        Thoth.Json.Newtonsoft.Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok accepted -> return accepted.events
+    | Error err -> return failwith err
+}
+
+let private storesRefusedStart (events: Ev list) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.Order (Order.StartActor _) -> true
+        | EventBody.ActorStart _ -> true
+        | EventBody.ActorStop(_, ActorFailed _) -> true
+        | _ -> false)
 
 let private graphFromState (client: HttpClient) = task {
     let! response = client.GetAsync("/ambit/state?scope=full")
@@ -347,7 +381,7 @@ let ``events door accepts an edit followed by Cancel`` () = task {
 }
 
 [<Fact>]
-let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
+let ``edit then unknown ActorStart stores no failed ActorStop`` () = task {
     use client = createClientForDir (newTempDir ())
     let! runDefinitionId = seedOwned client "row"
     let edit =
@@ -357,27 +391,15 @@ let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
                 [ Op.SetText(runDefinitionId, "row", "?nope") ])
     let! response =
         postEventsHttp client [ edit; launch runDefinitionId EventId.zero ]
-    let! accepted = requireHttp "unknown" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart start ->
-                start.runDefinitionId = runDefinitionId
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
-                id = runDefinitionId
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+    let! body = response.Content.ReadAsStringAsync()
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
+    Assert.Contains("unknown actor", body)
+    let! events = pollEvents client
+    Assert.False(storesRefusedStart events)
 }
 
 [<Fact>]
-let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
+let ``edit then rejected ActorStart stores no failed ActorStop`` () = task {
     use client = createClientForDir (newTempDir ())
     let! runDefinitionId = seedOwned client "row"
     let edit =
@@ -393,22 +415,11 @@ let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
           eventId = EventId.zero }
     let start = posted "Exec" (EventBody.ActorStart request)
     let! response = postEventsHttp client [ edit; start ]
-    let! accepted = requireHttp "rejected" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart _ -> true
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed message) ->
-                id = runDefinitionId && message.StartsWith("graphIds required")
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+    let! body = response.Content.ReadAsStringAsync()
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
+    Assert.Contains("graphIds required", body)
+    let! events = pollEvents client
+    Assert.False(storesRefusedStart events)
 }
 
 [<Fact>]

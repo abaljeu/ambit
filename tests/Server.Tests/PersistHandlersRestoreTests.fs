@@ -124,9 +124,11 @@ let ``ActorStart persists across File restart`` () = task {
             events
             |> List.exists (fun e ->
                 match e.body with
-                | EventBody.ActorStart _ -> true
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = Graph.rootId
+                    && order.actorName = "root"
                 | _ -> false),
-            "ActorStart missing after restore")
+            "StartActor missing after restore")
     finally
         CoreMailboxApi.dispose second
 }

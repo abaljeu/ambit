@@ -70,10 +70,12 @@ let private mixedIds (history: EventLog) =
     match kept with
     | stop :: change :: start :: [] ->
         match stop.body, change.body, start.body with
-        | EventBody.ActorStop _, EventBody.Change _, EventBody.ActorStart _ ->
+        | EventBody.ActorStop _,
+          EventBody.Change _,
+          EventBody.Order (Order.StartActor _) ->
             stop.id, change.id, start.id
         | _ ->
-            Assert.Fail("expected ActorStop, Change, ActorStart newest-head")
+            Assert.Fail("expected ActorStop, Change, StartActor newest-head")
             EventId.zero, EventId.zero, EventId.zero
     | _ ->
         Assert.Fail("expected three EventLog events")

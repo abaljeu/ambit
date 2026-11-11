@@ -54,7 +54,7 @@ module internal CoreMailboxActors =
             | Some name -> name
             | None -> node.text.Trim().ToLowerInvariant()
 
-    /// The pool already admitted this start. The log keeps the wire actor.
+    /// Bag start. `ActorFn` is not an `ActorFunction`, so the log keeps the stand-in.
     let private orderOfAffirmedStart
         (context: MailboxContext)
         (request: Gambol.Shared.ActorStart)
@@ -211,12 +211,6 @@ module internal CoreMailboxActors =
     let private recordFailedStart (reply: PostedReply) message =
         reply.Reply(Error message)
 
-    let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
-        let graph = CoreMailboxEvents.graphNow context
-        match Map.tryFind nodeId graph.nodes with
-        | None -> None
-        | Some node -> CommandRequest.actorNameFromText node.text
-
     let private postBuiltOrder
         (context: MailboxContext)
         (caller: Caller)
@@ -304,21 +298,36 @@ module internal CoreMailboxActors =
             | Ok stored ->
                 CoreMailboxEvents.replyStored reply stored
 
-    let private admittedQueue context caller request reply =
-        match actorNameOn context request.runDefinitionId with
-        | Some "test" ->
-            Some (fun () ->
-                queueAdmittedTest context caller request reply)
-        | Some "ai" ->
-            Some (fun () ->
-                queueAdmittedAi context caller request reply)
-        | _ when
-            SearchActor.isQueryRequest
-                (CoreMailboxEvents.graphNow context)
-                request ->
-            Some (fun () ->
-                queueAdmittedQuery context caller request reply)
+    let private functionStartFor (name: string) =
+        match name with
+        | "test" -> Some queueAdmittedTest
+        | "ai" -> Some queueAdmittedAi
+        | "query" -> Some queueAdmittedQuery
         | _ -> None
+
+    /// Text name, then a query line, then an `actor-*` class.
+    let private admittedQueue context caller request reply =
+        let graph = CoreMailboxEvents.graphNow context
+        let node =
+            Map.tryFind request.runDefinitionId graph.nodes
+        let fromText =
+            node
+            |> Option.bind (fun item ->
+                CommandRequest.actorNameFromText item.text)
+            |> Option.bind functionStartFor
+        let chosen =
+            match fromText with
+            | Some start -> Some start
+            | None when SearchActor.isQueryRequest graph request ->
+                Some queueAdmittedQuery
+            | None ->
+                node
+                |> Option.bind classActorName
+                |> Option.bind functionStartFor
+        match chosen with
+        | Some start ->
+            Some (fun () -> start context caller request reply)
+        | None -> None
 
     let private postActorStart context caller event request reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with
