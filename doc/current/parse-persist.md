@@ -80,6 +80,7 @@ Parse and persist move text between disk and the graph.
 [ ] A Directory or Workspace `withLock` waits while a conflicting request is in flight. A new conflicting `withLock` waits until that release.
 [x] Fetch runs to completion first. Fetch holds no `withLock`.
 [x] The Workspace `withLock` covers the pull. The pull merges the fetched commits and marks the arrived nodes Unparsed. The lock then releases.
+[x] `Notice.NodeReceived` fires once per node, when the server first holds that node's bytes. A WebDAV PUT posts it while the File node is still PullingFile. A later PUT posts `Notice.NodeUnparsed` and posts no `Notice.NodeReceived`. Git pull posts `Notice.NodeReceived` only for a file the server never held. A file already received is marked Unparsed and gets no `Notice.NodeReceived`.
 [x] git Save calls `withLock` on the Workspace node for the commit.
 [x] A parse read is `withLock` on its node. Directory reconcile calls `withLock` on that Directory node.
 [ ] After release, persist of a member waits until that node is Parsed.

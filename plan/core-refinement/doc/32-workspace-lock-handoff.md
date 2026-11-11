@@ -4,6 +4,8 @@
 
 [Parse and persist](../../../doc/current/parse-persist.md)
 
+The pull still marks arrived nodes Unparsed. `Notice.NodeReceived` fires once, at first receipt, from the PUT land or from the git pull reconcile.
+
 ## 2. User
 
 - [Files](../../../doc/user/reference/commands/files.md) already says git Load pulls when a git upstream is defined. This ticket leaves that sentence.
