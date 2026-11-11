@@ -12,8 +12,12 @@ Type:
 
 Blockers:
 
-[ ] [15 — Delete the old Actor starts](../15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md)
+[x] [15 — Delete the old Actor starts](../15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) landed on staging.
 [x] [112 — Place Cancel through PlaceOrder](../../../core-refinement/issues/112-place-cancel-through-placeorder.md) landed on staging in PR 522.
+[ ] [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md). The `EventBody.ActorStart` helper in `src/Shared/History.fs` builds `Order.StartActorDeprecated`. It is called by `dispatchStartActor` and `recordFailedStart` in `src/Server/Core/CoreMailboxActors.fs`, by `expandStored` in `src/Server/Core/CoreMailboxApi.fs`, and by `queueStart` in `src/Shared/RunLaunch.fs`. 24 converts those callers. [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) covers only the `dispatchPostEvent` arm.
+[ ] [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md). `CoreMailboxApi.coreMailboxStartActor` places `Order.StartActorDeprecated`. [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md), [12 — Move pool and issue tests](../12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md), and [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md) move most of its test callers. 25 moves `GithubTransportActorTests.fs` and `TestActorCommandErrorTests.fs` and deletes the door.
+[ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). `PeerActorName` is carried by `CoreMsg.StartLoadSaveCommand`, which 20 deletes. `CoreActorPool` also carries a `peerName`, and no ticket removes it, so the `PeerActorName` delete in this ticket stays conditional.
+[ ] Size: this ticket stays within 8 source files and 4 test files only after 24, 25, 11, 12, 13, and 20 land.
 
 ## Inputs
 
