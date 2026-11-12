@@ -9,41 +9,41 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 
 ### Signatures
 
-[ ] `DocumentPathMove` in `src/Shared/DocumentPathMove.fs` is `{ nodeId: NodeId; oldPath: string; newPath: string }`.
-[ ] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> DocumentPathMove list -> DocumentPathMove list`.
-[ ] `DocumentPathMove.planPathMovesBetweenGraphs` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list`.
+[x] `DocumentPathMove` in `src/Shared/DocumentPathMove.fs` is `{ nodeId: NodeId; oldPath: string; newPath: string }`.
+[x] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> DocumentPathMove list -> DocumentPathMove list`.
+[x] `DocumentPathMove.planPathMovesBetweenGraphs` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list`.
 [ ] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` after [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) lands; this ticket does not add it.
-[ ] `NodeDesktopPath.expandedPathForNodeId` in `src/Shared/NodeDesktopPath.fs` has type `Graph -> NodeId -> string option` and supplies the desktop `oldPath` and `newPath` strings on each move.
-[ ] `DocumentPartition.artifactFileRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
-[ ] `DocumentPartition.artifactDirectoryRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
+[x] `NodeDesktopPath.expandedPathForNodeId` in `src/Shared/NodeDesktopPath.fs` has type `Graph -> NodeId -> string option` and supplies the desktop `oldPath` and `newPath` strings on each move.
+[x] `DocumentPartition.artifactFileRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
+[x] `DocumentPartition.artifactDirectoryRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
 
 ### Match sites
 
-[ ] `DocumentPathMove.moveSourceRelative` in `src/Shared/DocumentPathMove.fs` is private and maps a move to `Option<bool * string>` using `artifactFileRelative` for `Special File` and `artifactDirectoryRelative` for container kinds.
-[ ] `DocumentPathMove.isStrictPrefix` in `src/Shared/DocumentPathMove.fs` is private with body `path.Length > prefix.Length && path.StartsWith(prefix, System.StringComparison.Ordinal)`.
-[ ] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` calls `moveSourceRelative` inside `List.choose` and `isStrictPrefix` inside `List.fold` when `keptIsDirectory` is true.
-[ ] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` today drops a later move when a kept Directory move has `isStrictPrefix keptOldRelative oldRelative` and does not read the nested `newPath`.
+[x] `DocumentPathMove.moveSourceRelative` in `src/Shared/DocumentPathMove.fs` is private and maps a move to `Option<bool * string>` using `artifactFileRelative` for `Special File` and `artifactDirectoryRelative` for container kinds.
+[x] `DocumentPathMove.isStrictPrefix` in `src/Shared/DocumentPathMove.fs` is private with body `path.Length > prefix.Length && path.StartsWith(prefix, System.StringComparison.Ordinal)`.
+[x] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` calls `moveSourceRelative` inside `List.choose` and `isStrictPrefix` inside `List.fold` when `keptIsDirectory` is true.
+[x] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` today drops a later move when a kept Directory move has `isStrictPrefix keptOldRelative oldRelative` and does not read the nested `newPath`.
 [ ] The required drop rule keeps using `isStrictPrefix` on pre-graph relative paths and additionally compares the nested move `newPath` to the produced desktop path `directory.newPath` plus the suffix of `nested.oldPath` after `directory.oldPath`.
-[ ] `DocumentPathMove.joinParentName` in `src/Shared/DocumentPathMove.fs` is private and joins a parent desktop path with a name segment.
-[ ] `DocumentPersistChange.validatePathMoves` in `src/Server/DocumentPersistChange.fs` pipes `DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph` into `DocumentPathMove.coalescePathMoves preGraph`.
-[ ] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` pipes the input move list into `DocumentPathMove.coalescePathMoves preGraph`.
-[ ] Search finds no other production caller of `DocumentPathMove.coalescePathMoves`.
-[ ] This ticket keeps the `coalescePathMoves` signature, so `validatePathMoves` and `executePathMoves` need no edit for the signature.
+[x] `DocumentPathMove.joinParentName` in `src/Shared/DocumentPathMove.fs` is private and joins a parent desktop path with a name segment.
+[x] `DocumentPersistChange.validatePathMoves` in `src/Server/DocumentPersistChange.fs` pipes `DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph` into `DocumentPathMove.coalescePathMoves preGraph`.
+[x] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` pipes the input move list into `DocumentPathMove.coalescePathMoves preGraph`.
+[x] Search finds no other production caller of `DocumentPathMove.coalescePathMoves`.
+[x] This ticket keeps the `coalescePathMoves` signature, so `validatePathMoves` and `executePathMoves` need no edit for the signature.
 [ ] Callers may see an extra kept move in the coalesced list when a nested derived path differs; that behavior change does not force a caller edit in this slice.
-[ ] This ticket adds no union case and does not add `crossWorkspaceMoves` or `moveAcrossWorkspaces`.
+[x] This ticket adds no union case and does not add `crossWorkspaceMoves` or `moveAcrossWorkspaces`.
 
 ### Existing tests
 
-[ ] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames `docs` to `archive` via `graphWithNestedDocs`, coalesces, expects one Directory move, and expects the nested `readme.txt` File move absent because `newPath` `//home/archive/readme.txt` matches the produced path.
-[ ] ``coalescePathMoves keeps file-owned directory separate from file move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames a File that owns a Directory and expects both File and Directory moves in the coalesced list.
-[ ] ``planPathMovesBetweenGraphs includes nested roots after directory rename`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` supplies both Directory and nested File moves before coalesce for the `docs` to `archive` rename.
+[x] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames `docs` to `archive` via `graphWithNestedDocs`, coalesces, expects one Directory move, and expects the nested `readme.txt` File move absent because `newPath` `//home/archive/readme.txt` matches the produced path.
+[x] ``coalescePathMoves keeps file-owned directory separate from file move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames a File that owns a Directory and expects both File and Directory moves in the coalesced list.
+[x] ``planPathMovesBetweenGraphs includes nested roots after directory rename`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` supplies both Directory and nested File moves before coalesce for the `docs` to `archive` rename.
 [ ] Seam 6 in [Node move and disk architecture](plan/node-move-disk/arch.md) names ``coalesce keeps a nested node whose derived path differs`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` at the **Path coalesce** / **Path class** seam.
 
 ### Copy-from
 
-[ ] `DocumentPathMove.joinParentName` in `src/Shared/DocumentPathMove.fs` already joins parent and child desktop path segments when a trailing `/` is present on the parent.
-[ ] `DocumentPathMove.isStrictPrefix` in `src/Shared/DocumentPathMove.fs` already expresses strict prefix on artifact-relative strings for the Directory drop gate.
-[ ] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` already builds the graph, plans moves, and calls `coalescePathMoves` for the keep-when-produced-path-matches case.
+[x] `DocumentPathMove.joinParentName` in `src/Shared/DocumentPathMove.fs` already joins parent and child desktop path segments when a trailing `/` is present on the parent.
+[x] `DocumentPathMove.isStrictPrefix` in `src/Shared/DocumentPathMove.fs` already expresses strict prefix on artifact-relative strings for the Directory drop gate.
+[x] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` already builds the graph, plans moves, and calls `coalescePathMoves` for the keep-when-produced-path-matches case.
 
 ### write-ticket
 

@@ -9,13 +9,13 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 
 ### Signatures
 
-[ ] `DocumentPathMove.crossWorkspaceMoves` is absent from `src/Shared/DocumentPathMove.fs`. [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class** requires type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list`.
-[ ] `WorkspaceGit.moveAcrossWorkspaces` is absent from `src/Server/WorkspaceGit.fs`. [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Cross-workspace move** requires type `string -> string -> string -> string -> Result<unit, string>` for source repository root, source git path, destination repository root, and destination git path.
-[ ] `GraphQuery.enclosingWorkspace` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> NodeId option` and returns the Workspace id or `Graph.rootId` for ROOT.
-[ ] `DocumentPersistPath.repositoryRoot` and `DocumentPersistPath.gitPath` are specified in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) and are absent from `src/Server/DocumentPersistPath.fs` today. This slice reuses them and does not reimplement them.
-[ ] `GitSave.runGit` in `src/Server/GitSave.fs` has type `string -> string -> Result<string, string>` and calls `GitRun.gitExec`.
-[ ] `GitSave.commitAll` in `src/Server/GitSave.fs` commits with `-c user.email=gambol@save -c user.name=gambol commit -m "<message>"` after `add -A` (with nested-repo excludes).
-[ ] `WorkspaceGit.commitAll` in `src/Server/WorkspaceGit.fs` forwards to `GitSave.commitAll` with the same gambol identity flags.
+[x] `DocumentPathMove.crossWorkspaceMoves` is absent from `src/Shared/DocumentPathMove.fs`. [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class** requires type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list`.
+[x] `WorkspaceGit.moveAcrossWorkspaces` is absent from `src/Server/WorkspaceGit.fs`. [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Cross-workspace move** requires type `string -> string -> string -> string -> Result<unit, string>` for source repository root, source git path, destination repository root, and destination git path.
+[x] `GraphQuery.enclosingWorkspace` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> NodeId option` and returns the Workspace id or `Graph.rootId` for ROOT.
+[x] `DocumentPersistPath.repositoryRoot` and `DocumentPersistPath.gitPath` are specified in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) and are absent from `src/Server/DocumentPersistPath.fs` today. This slice reuses them and does not reimplement them.
+[x] `GitSave.runGit` in `src/Server/GitSave.fs` has type `string -> string -> Result<string, string>` and calls `GitRun.gitExec`.
+[x] `GitSave.commitAll` in `src/Server/GitSave.fs` commits with `-c user.email=gambol@save -c user.name=gambol commit -m "<message>"` after `add -A` (with nested-repo excludes).
+[x] `WorkspaceGit.commitAll` in `src/Server/WorkspaceGit.fs` forwards to `GitSave.commitAll` with the same gambol identity flags.
 
 ### Match sites
 
@@ -26,28 +26,28 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 [ ] `DocumentPartition.isDocumentRootNode` in `src/Shared/DocumentPartition.fs` is true for `Special Workspace`, `Special Directory`, and `Special File`. Classification still excludes `Special Workspace` explicitly so a Workspace Node is in neither path-class list.
 [ ] `moveAcrossWorkspaces` has no production caller in this slice. The seam test is the caller: it classifies with `crossWorkspaceMoves`, resolves four paths with `repositoryRoot` and `gitPath` on pre and post graphs, places the artifact on disk under the destination work tree, then calls `moveAcrossWorkspaces` once.
 [ ] `moveAcrossWorkspaces` distinguishes File from Directory with `File.Exists` and `Directory.Exists` on `Path.Combine(destinationRepositoryRoot, destinationGitPath)` because the destination work tree already holds the moved artifact.
-[ ] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` stays unchanged. `persistGraphChange` still runs `File.Move` and `Directory.Move` through `executePathMoves`. This slice does not wire cross-workspace git into `persistGraphChange`.
-[ ] `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange` stay unchanged. [Node move and disk architecture](plan/node-move-disk/arch.md) §8 question 5 names Post change as the later relocate caller; this slice does not add that caller.
+[x] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` stays unchanged. `persistGraphChange` still runs `File.Move` and `Directory.Move` through `executePathMoves`. This slice does not wire cross-workspace git into `persistGraphChange`.
+[x] `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange` stay unchanged. [Node move and disk architecture](plan/node-move-disk/arch.md) §8 question 5 names Post change as the later relocate caller; this slice does not add that caller.
 
 ### Existing tests
 
-[ ] ``planPathMovesBetweenGraphs includes file reparent across workspaces`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` builds `home` and `other` Workspace nodes, reparents a File from `//home/readme.txt` to `//other/readme.txt`, and asserts one `DocumentPathMove`.
-[ ] ``enclosingWorkspace resolves named workspace and canonical roots`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `GraphQuery.enclosingWorkspace` for a named Workspace, descendants, `Graph.rootId`, and `Graph.workspacesId`.
-[ ] ``persistGraphChange moves renamed file artifact before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` uses on-disk `File.Move` for a same-Workspace rename.
-[ ] ``persistGraphChange moves renamed directory tree before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks directory rename relocation on disk.
-[ ] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `validateDestinationAvailable` rejects an occupied destination.
-[ ] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks coalesce keeps the directory move for `docs` to `archive`.
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §6 seam 8 names ``cross-workspace move deletes from the source repository and adds to the destination repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`. That test is absent today.
+[x] ``planPathMovesBetweenGraphs includes file reparent across workspaces`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` builds `home` and `other` Workspace nodes, reparents a File from `//home/readme.txt` to `//other/readme.txt`, and asserts one `DocumentPathMove`.
+[x] ``enclosingWorkspace resolves named workspace and canonical roots`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `GraphQuery.enclosingWorkspace` for a named Workspace, descendants, `Graph.rootId`, and `Graph.workspacesId`.
+[x] ``persistGraphChange moves renamed file artifact before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` uses on-disk `File.Move` for a same-Workspace rename.
+[x] ``persistGraphChange moves renamed directory tree before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks directory rename relocation on disk.
+[x] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `validateDestinationAvailable` rejects an occupied destination.
+[x] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks coalesce keeps the directory move for `docs` to `archive`.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §6 seam 8 names ``cross-workspace move deletes from the source repository and adds to the destination repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`. That test is absent today.
 
 ### Copy-from
 
 [ ] [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) specifies `sameWorkspaceMoves` as the complement classifier in `src/Shared/DocumentPathMove.fs`. `crossWorkspaceMoves` mirrors its `GraphQuery.enclosingWorkspace` checks with the keep/drop condition inverted for differing Workspace ids.
 [ ] `WorkspaceGit.gitMove` in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is one `GitSave.runGit` call with `mv --`, old path, and new path. `moveAcrossWorkspaces` uses the same `GitSave.runGit` entry point with `rm`, `rm -r`, and `add` instead of `mv`.
 [ ] ``same-workspace relocate runs git mv in the Workspace repository`` in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is the seam-test caller pattern: initialize repos with `WorkspaceGit.ensureInit`, seed git paths, classify, resolve `repositoryRoot` and `gitPath`, call `gitMove`, assert with `ls-files`.
-[ ] `WorkspaceGit.ensureInit` in `src/Server/WorkspaceGit.fs` creates `workspaceRoot/.git` and is the init path `DocumentPersistWrite.ensureWorkspaceRepo` uses.
-[ ] `GitSave.commitAll` in `src/Server/GitSave.fs` is the copy-from for path-scoped commit flags. Recommended shape for each repository commit in `moveAcrossWorkspaces`: stage only the moved path (`rm -- <path>`, `rm -r -- <path>`, or `add -- <path>`), then `runGit repositoryRoot "-c user.email=gambol@save -c user.name=gambol commit -m \"gambol: cross-workspace move\" -- <path>"` so unrelated dirty files stay uncommitted.
-[ ] `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` already imports `Gambol.Server.Tests.TestBackend` `newTempDir` and defines `graphWithNestedDocs` for disk layout under `home/docs`.
-[ ] `tests/Shared.Tests/DocumentPathMoveTests.fs` `graphWithWorkspaceFile` builds the `home` plus File graph used in ``planPathMovesBetweenGraphs includes file reparent across workspaces``.
+[x] `WorkspaceGit.ensureInit` in `src/Server/WorkspaceGit.fs` creates `workspaceRoot/.git` and is the init path `DocumentPersistWrite.ensureWorkspaceRepo` uses.
+[x] `GitSave.commitAll` in `src/Server/GitSave.fs` is the copy-from for path-scoped commit flags. Recommended shape for each repository commit in `moveAcrossWorkspaces`: stage only the moved path (`rm -- <path>`, `rm -r -- <path>`, or `add -- <path>`), then `runGit repositoryRoot "-c user.email=gambol@save -c user.name=gambol commit -m \"gambol: cross-workspace move\" -- <path>"` so unrelated dirty files stay uncommitted.
+[x] `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` already imports `Gambol.Server.Tests.TestBackend` `newTempDir` and defines `graphWithNestedDocs` for disk layout under `home/docs`.
+[x] `tests/Shared.Tests/DocumentPathMoveTests.fs` `graphWithWorkspaceFile` builds the `home` plus File graph used in ``planPathMovesBetweenGraphs includes file reparent across workspaces``.
 
 ### write-ticket
 

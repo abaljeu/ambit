@@ -211,7 +211,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [x] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node. 13 — Lock the persist path moves holds this gate around each coalesced path move in `persistGraphChangeWith`.
 [x] Fetch runs to completion first. Fetch holds no `withLock`.
 [x] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
-[ ] A Directory move calls `withLock` on the Directory Node.
+[x] A Directory move calls `withLock` on the Directory Node.
 [ ] The holder is the git pull caller, the relocate caller, or the persist caller. The holder runs that algorithm and then releases.
 [x] `writeDocument` and `writeArtifactText` call `withLock` on the document-root node around the file bytes.
 [x] A parse read calls `withLock` on its node.
@@ -238,7 +238,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 #### Work-tree gate and git process lock
 
 [x] `WorkspaceGit.withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths once [31 — Migrate onto the workspace lock](../core-refinement/issues/31-migrate-onto-the-workspace-lock.md) lands. `NodeLockPool.withLock` is the protocol on those paths.
-[ ] A holder calls `withLock` once. A Directory move is that one call on the Directory node.
+[x] A holder calls `withLock` once. A Directory move is that one call on the Directory node.
 
 ### Unparsed save gate
 

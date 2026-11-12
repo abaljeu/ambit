@@ -11,58 +11,58 @@ Slice: Flow 5 **Change conflict** in [arch.md](plan/node-move-disk/arch.md) sect
 
 ### Signatures
 
-[ ] `DocumentPersistChange.validatePathMoves` is `string -> Graph -> Graph -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs`.
-[ ] `DocumentPersistChange.validatePathMoves` calls private `validateDestinationAvailable`, which returns `Error $"disk path already exists: {newFullPath}"` when the destination path exists and differs from the source.
+[x] `DocumentPersistChange.validatePathMoves` is `string -> Graph -> Graph -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs`.
+[x] `DocumentPersistChange.validatePathMoves` calls private `validateDestinationAvailable`, which returns `Error $"disk path already exists: {newFullPath}"` when the destination path exists and differs from the source.
 [ ] `DocumentPersistChange.executePathMoves` still calls `validateDestinationAvailable` for disk relocate; that path stays an Error in this slice because Post change does not relocate here.
-[ ] `DocumentPersistChange.validateGraphDiskEffects` is `string -> Graph -> Graph -> Result<unit, string>` and delegates to `IgnoredDestination.validateGraphDiskEffects`.
-[ ] `ChangeAmendment.applyPosted` is `bool -> EventId -> Ev -> Op list -> GraphAtEvent -> ApplyResult * bool * Op list` in `src/Shared/ChangeAmendment.fs`.
-[ ] `FileAgent.processPostEvents` is `LoadedFile -> Ev list -> bool -> Result<CoreChangesAccepted, string>` (private).
-[ ] `FileAgent.validatePostChange` is `LoadedFile -> bool -> Graph -> Graph -> Result<unit, string>` (private).
-[ ] `DbAgent.finishAppliedPostChange` is `LoadedPersist -> bool -> GraphAtEvent -> Ev list -> Ev list -> bool -> Result<CoreChangesAccepted, string>` (private).
-[ ] `DbAgent.validatePostChange` is `LoadedPersist -> bool -> Graph -> Graph -> Result<unit, string>` (private).
-[ ] `Op.SetName` is `SetName of nodeId: NodeId * oldName: string * newName: string` in `src/Shared/History.fs`.
-[ ] `Filename` is `Empty | Invalid of string | Ok of string` in `src/Shared/Filename.fs`; node names use `Filename` on `Node`.
+[x] `DocumentPersistChange.validateGraphDiskEffects` is `string -> Graph -> Graph -> Result<unit, string>` and delegates to `IgnoredDestination.validateGraphDiskEffects`.
+[x] `ChangeAmendment.applyPosted` is `bool -> EventId -> Ev -> Op list -> GraphAtEvent -> ApplyResult * bool * Op list` in `src/Shared/ChangeAmendment.fs`.
+[x] `FileAgent.processPostEvents` is `LoadedFile -> Ev list -> bool -> Result<CoreChangesAccepted, string>` (private).
+[x] `FileAgent.validatePostChange` is `LoadedFile -> bool -> Graph -> Graph -> Result<unit, string>` (private).
+[x] `DbAgent.finishAppliedPostChange` is `LoadedPersist -> bool -> GraphAtEvent -> Ev list -> Ev list -> bool -> Result<CoreChangesAccepted, string>` (private).
+[x] `DbAgent.validatePostChange` is `LoadedPersist -> bool -> Graph -> Graph -> Result<unit, string>` (private).
+[x] `Op.SetName` is `SetName of nodeId: NodeId * oldName: string * newName: string` in `src/Shared/History.fs`.
+[x] `Filename` is `Empty | Invalid of string | Ok of string` in `src/Shared/Filename.fs`; node names use `Filename` on `Node`.
 [ ] Recommend a new public `DocumentPersistChange` function (for example `findIncomingPathConflicts`) with `string -> Graph -> Graph -> Result<NodeId list, string>` that lists incoming document roots whose derived destination full path already exists on disk, without emitting `disk path already exists` for the post-change path.
 [ ] Recommend a new pure public `ChangeAmendment` function (for example `pathConflictRenameOps`) with `Graph -> NodeId list -> Op list` that builds `Op.SetName` for each incoming node; it takes no data directory.
-[ ] Keep `ChangeAmendment.applyPosted` signature unchanged; post-change path-conflict amendment runs after `applyPosted` in the agents, not inside it.
+[x] Keep `ChangeAmendment.applyPosted` signature unchanged; post-change path-conflict amendment runs after `applyPosted` in the agents, not inside it.
 
 ### Match sites
 
-[ ] `DocumentPersistChange.validatePathMoves` is defined in `src/Server/DocumentPersistChange.fs` in module `DocumentPersistChange`.
-[ ] Private `validateDestinationAvailable` in `DocumentPersistChange` matches on `pathExists newFullPath` before the `disk path already exists` Error.
-[ ] `FileAgent.validatePostChange` in `src/Server/Core/FileAgent.fs` calls `DocumentPersistChange.validatePathMoves loaded.dataDir` then `validateGraphDiskEffects` when `graphOnly` is false.
-[ ] `FileAgent.processPostEvents` in `FileAgent.fs` calls `applyBatch`, then `validatePostChange loaded graphOnly preGraph newState.graph`, then assigns `loaded.state.Value <- newState` on Ok.
-[ ] `FileAgent.applyOne` in `FileAgent.fs` calls `ChangeAmendment.applyPosted` inside the `Ev.ops` branch.
-[ ] `FileAgent.coreMailboxAccess` exposes `applyEvent = fun event graphOnly -> processPostEvents loaded [ event ] graphOnly` in `FileAgent.fs`.
-[ ] `DbAgent.validatePostChange` in `src/Server/Core/DbAgent.fs` calls `validatePathMoves` only when `liveSaveDataDir` is `Some dataDir`; returns `Ok ()` when `graphOnly` is true or `liveSaveDataDir` is `None`.
-[ ] `DbAgent.finishAppliedPostChange` calls `validatePostChange` with `preGraph = loaded.state.Value.graph` and `newState.graph`, then `commitPostChange` which sets `loaded.state.Value <- stateToStore` on Ok.
-[ ] `DbAgent.applyOneEvent` in `DbAgent.fs` calls `ChangeAmendment.applyPosted`.
-[ ] `DbAgent.processPostEvents` in `DbAgent.fs` calls `applyBatch` then `finishAppliedPostChange` when `newState.eventId` differs from loaded.
-[ ] `DbAgent` mailbox `applyEvent` in `DbAgent.fs` forwards to `processPostEvents loaded [ event ] graphOnly`.
-[ ] `CoreEventDispatch` persists through `context.persist.applyEvent` in `src/Server/Core/CoreEventDispatch.fs` (routes to FileAgent or DbAgent handlers).
+[x] `DocumentPersistChange.validatePathMoves` is defined in `src/Server/DocumentPersistChange.fs` in module `DocumentPersistChange`.
+[x] Private `validateDestinationAvailable` in `DocumentPersistChange` matches on `pathExists newFullPath` before the `disk path already exists` Error.
+[x] `FileAgent.validatePostChange` in `src/Server/Core/FileAgent.fs` calls `DocumentPersistChange.validatePathMoves loaded.dataDir` then `validateGraphDiskEffects` when `graphOnly` is false.
+[x] `FileAgent.processPostEvents` in `FileAgent.fs` calls `applyBatch`, then `validatePostChange loaded graphOnly preGraph newState.graph`, then assigns `loaded.state.Value <- newState` on Ok.
+[x] `FileAgent.applyOne` in `FileAgent.fs` calls `ChangeAmendment.applyPosted` inside the `Ev.ops` branch.
+[x] `FileAgent.coreMailboxAccess` exposes `applyEvent = fun event graphOnly -> processPostEvents loaded [ event ] graphOnly` in `FileAgent.fs`.
+[x] `DbAgent.validatePostChange` in `src/Server/Core/DbAgent.fs` calls `validatePathMoves` only when `liveSaveDataDir` is `Some dataDir`; returns `Ok ()` when `graphOnly` is true or `liveSaveDataDir` is `None`.
+[x] `DbAgent.finishAppliedPostChange` calls `validatePostChange` with `preGraph = loaded.state.Value.graph` and `newState.graph`, then `commitPostChange` which sets `loaded.state.Value <- stateToStore` on Ok.
+[x] `DbAgent.applyOneEvent` in `DbAgent.fs` calls `ChangeAmendment.applyPosted`.
+[x] `DbAgent.processPostEvents` in `DbAgent.fs` calls `applyBatch` then `finishAppliedPostChange` when `newState.eventId` differs from loaded.
+[x] `DbAgent` mailbox `applyEvent` in `DbAgent.fs` forwards to `processPostEvents loaded [ event ] graphOnly`.
+[x] `CoreEventDispatch` persists through `context.persist.applyEvent` in `src/Server/Core/CoreEventDispatch.fs` (routes to FileAgent or DbAgent handlers).
 [ ] Ripple if `validatePathMoves` signature changes: `FileAgent.validatePostChange`, `DbAgent.validatePostChange`, test ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs`.
 [ ] Prefer no `validatePathMoves` signature change: add `findIncomingPathConflicts` (or equivalent) and branch only in `validatePostChange` / a small private post-change helper in each agent.
 [ ] Ripple for new post-change amend loop: only `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange` (and possibly private helpers beside `validatePostChange`); `applyPosted` callers stay as `FileAgent.applyOne` and `DbAgent.applyOneEvent`.
 
 ### Existing tests
 
-[ ] ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs` calls `DocumentPersistChange.validatePathMoves` directly and expects a system-directory Error, not `disk path already exists`.
-[ ] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` expects `persistGraphChange` to fail with `already exists` on disk relocate; this slice does not change that test because relocate stays out of scope.
-[ ] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` uses `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent` and `handlers.graphAtEvent ()` to read stored graph state after post change.
-[ ] ``DbAgent applyEvent applies Ev Ops without leftover Change`` in `PersistApplyTests.fs` uses `DbAgent.createForTest` handlers the same way (no `liveSaveDataDir`, so path-conflict check is skipped today).
-[ ] `ChangeAmendmentTests` in `tests/Shared.Tests/ChangeAmendmentTests.fs` exercise CAS `applyPosted` amendment via private `applyPosted` helper; none cover disk path conflict.
-[ ] Seam 9 — **Change amendment / Post change** from [arch.md](plan/node-move-disk/arch.md) section 6: ``a change conflict is amended before the graph is stored`` in `DocumentPersistChangeTests.fs` (not present in the tree yet).
+[x] ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs` calls `DocumentPersistChange.validatePathMoves` directly and expects a system-directory Error, not `disk path already exists`.
+[x] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` expects `persistGraphChange` to fail with `already exists` on disk relocate; this slice does not change that test because relocate stays out of scope.
+[x] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` uses `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent` and `handlers.graphAtEvent ()` to read stored graph state after post change.
+[x] ``DbAgent applyEvent applies Ev Ops without leftover Change`` in `PersistApplyTests.fs` uses `DbAgent.createForTest` handlers the same way (no `liveSaveDataDir`, so path-conflict check is skipped today).
+[x] `ChangeAmendmentTests` in `tests/Shared.Tests/ChangeAmendmentTests.fs` exercise CAS `applyPosted` amendment via private `applyPosted` helper; none cover disk path conflict.
+[x] Seam 9 — **Change amendment / Post change** from [arch.md](plan/node-move-disk/arch.md) section 6: ``a change conflict is amended before the graph is stored`` in `DocumentPersistChangeTests.fs` (not present in the tree yet).
 
 ### Copy-from
 
-[ ] `GraphQuery.unusedOwnedName` and private `numberedSiblingName` in `src/Shared/GraphQuery.fs` pick the next sibling file name (`base`, `base1.ext`, `base2.ext`, …).
-[ ] `ViewModelDeleteOps` move-to-trash fold uses `GraphQuery.unusedOwnedName` and emits `Op.SetName(item.child.id, baseName, newName)` in `src/Shared/ViewModelDeleteOps.fs`.
-[ ] `FileNodeOps.planCreateOwnedSpecial` uses `GraphQuery.unusedOwnedName` when creating owned files in `src/Shared/FileNodeOps.fs`.
-[ ] CAS path-conflict child insert pattern `ambConflictChildOps` in `ChangeAmendment.fs` is for text/name CAS, not file-name disambiguation on disk; do not copy for this slice.
+[x] `GraphQuery.unusedOwnedName` and private `numberedSiblingName` in `src/Shared/GraphQuery.fs` pick the next sibling file name (`base`, `base1.ext`, `base2.ext`, …).
+[x] `ViewModelDeleteOps` move-to-trash fold uses `GraphQuery.unusedOwnedName` and emits `Op.SetName(item.child.id, baseName, newName)` in `src/Shared/ViewModelDeleteOps.fs`.
+[x] `FileNodeOps.planCreateOwnedSpecial` uses `GraphQuery.unusedOwnedName` when creating owned files in `src/Shared/FileNodeOps.fs`.
+[x] CAS path-conflict child insert pattern `ambConflictChildOps` in `ChangeAmendment.fs` is for text/name CAS, not file-name disambiguation on disk; do not copy for this slice.
 [ ] Post-change test wiring pattern: `PersistApplyTests.fs` `applyThenAppend` and `handlers.graphAtEvent ()` after `handlers.applyEvent event false`.
 [ ] [arch.md](plan/node-move-disk/arch.md) question 4 does not name the disambiguating file-name characters.
 [ ] Recommend deterministic suffix: reuse `GraphQuery.numberedSiblingName` style on the incoming base name (`notes.txt` → `notes1.txt`, `notes2.txt`, …) under the same parent derived path; loop until neither graph siblings nor the on-disk full path collide.
-[ ] No existing server disambiguator searches for `"copy"` or `-2` in path-conflict code; `GraphQuery.ownedNameTaken` and `unusedOwnedName` are the graph-side collision helpers.
+[x] No existing server disambiguator searches for `"copy"` or `-2` in path-conflict code; `GraphQuery.ownedNameTaken` and `unusedOwnedName` are the graph-side collision helpers.
 
 ### write-ticket
 

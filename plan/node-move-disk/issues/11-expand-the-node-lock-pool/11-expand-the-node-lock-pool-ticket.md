@@ -12,11 +12,11 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 [ ] `NodeEnclosureLock.withNodeLock` in `src/Server/NodeEnclosureLock.fs` has type `NodeId -> (unit -> 'a) -> 'a`.
 [ ] `NodeEnclosureLock.withPersist` in `src/Server/NodeEnclosureLock.fs` has type `Graph -> NodeId -> (NodeId list -> 'a) -> 'a`.
 [ ] `NodeEnclosureLock.withParseRead` in `src/Server/NodeEnclosureLock.fs` has type `Graph -> NodeId -> (unit -> 'a) -> 'a`.
-[ ] `Graph.ownerParentByChild` in `src/Shared/Model.fs` has type `Map<NodeId, NodeId>`.
-[ ] `GraphQuery.enclosing` in `src/Shared/GraphQuery.fs` has type `Graph -> (Node -> bool) -> NodeId -> NodeId option`.
-[ ] `NodeKind.container` in `src/Shared/Model.fs` is true for `Special Workspace` and `Special Directory`.
-[ ] `NodeKind.artifact` in `src/Shared/Model.fs` is true for `Special File`, `Special Directory`, and `Special Workspace`.
-[ ] `SpecialKind` in `src/Shared/Model.fs` is `Workspaces`, `Workspace`, `Directory`, or `File`.
+[x] `Graph.ownerParentByChild` in `src/Shared/Model.fs` has type `Map<NodeId, NodeId>`.
+[x] `GraphQuery.enclosing` in `src/Shared/GraphQuery.fs` has type `Graph -> (Node -> bool) -> NodeId -> NodeId option`.
+[x] `NodeKind.container` in `src/Shared/Model.fs` is true for `Special Workspace` and `Special Directory`.
+[x] `NodeKind.artifact` in `src/Shared/Model.fs` is true for `Special File`, `Special Directory`, and `Special Workspace`.
+[x] `SpecialKind` in `src/Shared/Model.fs` is `Workspaces`, `Workspace`, `Directory`, or `File`.
 
 ### Match sites
 
@@ -30,7 +30,7 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 [ ] ``persist grant stores the owner chain and includes the directory node`` calls `withPersist` twice and `GraphQuery.enclosing` once.
 [ ] `src/Server/Gambol.Server.fsproj` compiles `NodeEnclosureLock.fs` immediately after `WorkspaceGit.fs`.
 [ ] `tests/Server.Tests/Gambol.Server.Tests.fsproj` compiles `NodeEnclosureLockTests.fs` immediately after `WorkspaceGitTests.fs`.
-[ ] No source union case names a node enclosure lock.
+[x] No source union case names a node enclosure lock.
 
 ### Existing tests
 
@@ -47,12 +47,12 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 ### write-ticket
 
-[ ] `src/Server/NodeLockPool.fs` is the new pool module.
-[ ] `src/Server/NodeEnclosureLock.fs` leaves the tree.
-[ ] `src/Server/Gambol.Server.fsproj` names `NodeLockPool.fs` in the `NodeEnclosureLock.fs` slot.
-[ ] Distinct source files: 3. `src/Server/NodeLockPool.fs`, `src/Server/NodeEnclosureLock.fs`, and `src/Server/Gambol.Server.fsproj`.
-[ ] `tests/Server.Tests/NodeLockPoolTests.fs` replaces `tests/Server.Tests/NodeEnclosureLockTests.fs`.
-[ ] `tests/Server.Tests/Gambol.Server.Tests.fsproj` names `NodeLockPoolTests.fs` in the `NodeEnclosureLockTests.fs` slot.
+[x] `src/Server/NodeLockPool.fs` is the new pool module.
+[x] `src/Server/NodeEnclosureLock.fs` leaves the tree.
+[x] `src/Server/Gambol.Server.fsproj` names `NodeLockPool.fs` in the `NodeEnclosureLock.fs` slot.
+[x] Distinct source files: 3. `src/Server/NodeLockPool.fs`, `src/Server/NodeEnclosureLock.fs`, and `src/Server/Gambol.Server.fsproj`.
+[x] `tests/Server.Tests/NodeLockPoolTests.fs` replaces `tests/Server.Tests/NodeEnclosureLockTests.fs`.
+[x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` names `NodeLockPoolTests.fs` in the `NodeEnclosureLockTests.fs` slot.
 [ ] The test file is outside the source-file count.
 [ ] Tests added or changed: 4. ``taking a directory waits while a descendant file is held and a sibling file enters``, ``taking a workspace waits while a descendant file is held and a file waits while an ancestor is held``, ``a second request on a held node waits and the same thread is rejected``, ``a pending directory lock runs before a new descendant file``.
 
@@ -64,14 +64,14 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] `NodeLockPool` in `src/Server/NodeLockPool.fs` replaces `NodeEnclosureLock` in `src/Server/NodeEnclosureLock.fs`. Namespace `Gambol.Server`. The module has `[<RequireQualifiedAccess>]`.
 [x] `NodeLockPool.withLock` has type `Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>`.
-[x] `NodeLockRejection` has `[<RequireQualifiedAccess>]` and two cases: `HolderHoldsLock` and `NodeAbsent`.
+[ ] `NodeLockRejection` has `[<RequireQualifiedAccess>]` and two cases: `HolderHoldsLock` and `NodeAbsent`.
 [x] A request is the `Graph` and one `NodeId`. The action is `unit -> 'a`. The caller passes no owner chain.
 [x] The pool is process-wide. One gate object guards the table. The action runs outside the gate. Table edits run inside the gate.
-[x] The gate uses `Monitor.Wait` and `Monitor.PulseAll` the way `NodeEnclosureLock` does. `PulseAll` runs when an entry is removed. A woken request checks the wait again inside the gate.
+[ ] The gate uses `Monitor.Wait` and `Monitor.PulseAll` the way `NodeEnclosureLock` does. `PulseAll` runs when an entry is removed. A woken request checks the wait again inside the gate.
 [x] The pool removes the entry in `finally` when the action returns and when the action raises. The pool lets that exception propagate. `Error` before the entry is queued leaves the table as it was.
 [x] A throw after the entry is queued, and before that seq is returned to the caller, drops that seq and pulses. The action stays uncalled.
 [x] `waitUntilQueued`, `entryCount`, and `pendingCount` are internal. A test waits until the table holds that many entries, then checks the request stayed outside.
-[x] `Ok` is the action's value. `HolderHoldsLock` and `NodeAbsent` leave the action uncalled.
+[ ] `Ok` is the action's value. `HolderHoldsLock` and `NodeAbsent` leave the action uncalled.
 [x] Persist, a move or a rename, and git pull plus marking nodes Unparsed are the holders of `withLock`. Each holder runs its algorithm and then releases.
 [x] Alan, 2026-11-10: keep the existing rule. A Directory or Workspace lock holds off a parse read under it. An in-flight parse read drains. A new parse read waits until release.
 [x] A parse read is a pool lock request on its node. The one conflict rule covers it: same node, taken ancestor, taken descendant.
@@ -79,13 +79,13 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 #### One conflict rule
 
-[x] The pool stores each request as `Pending` or `Held`, with that request's `Graph`, `NodeId`, `Environment.CurrentManagedThreadId`, and an increasing seq.
+[ ] The pool stores each request as `Pending` or `Held`, with that request's `Graph`, `NodeId`, `Environment.CurrentManagedThreadId`, and an increasing seq.
 [x] The pool reads the request's `graph.nodes` for the kind. `Special Workspace` and `Special Directory` are containers (`NodeKind.container`). `Special File` is a File. `Special Workspaces` and `Normal` use the same-id rule only.
-[x] A missing `graph.nodes` entry for the requested id returns `Error NodeLockRejection.NodeAbsent` before a wait.
+[ ] A missing `graph.nodes` entry for the requested id returns `Error NodeLockRejection.NodeAbsent` before a wait.
 [x] The same thread id already `Pending` or `Held` returns `Error NodeLockRejection.HolderHoldsLock` before a second entry is queued. The first entry stays.
 [x] The owner chain is a walk of `graph.ownerParentByChild` on the request's `Graph`. The walk includes the start id. A visited set stops a cycle. That is the parent step `GraphQuery.enclosing` uses. The pool keeps the walk private and calls no `GraphQuery` function.
-[x] A taken id is an ancestor of the requested id when a walk on the request's graph or the taken entry's graph, from the requested id, reaches the taken id, and the two ids differ.
-[x] A taken id is a descendant of the requested id when a walk on the request's graph or the taken entry's graph, from the taken id, reaches the requested id, and the two ids differ.
+[ ] A taken id is an ancestor of the requested id when a walk on the request's graph or the taken entry's graph, from the requested id, reaches the taken id, and the two ids differ.
+[ ] A taken id is a descendant of the requested id when a walk on the request's graph or the taken entry's graph, from the taken id, reaches the requested id, and the two ids differ.
 [x] Taken means `Pending` or `Held`.
 [x] The same id conflicts for every kind.
 [x] A Workspace or Directory request conflicts while a descendant id is taken.
@@ -97,29 +97,29 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 #### Current module this change reworks
 
-[x] `NodeEnclosureLock.withNodeLock` has type `NodeId -> (unit -> 'a) -> 'a`.
-[x] `NodeEnclosureLock.withPersist` has type `Graph -> NodeId -> (NodeId list -> 'a) -> 'a`.
-[x] `NodeEnclosureLock.withParseRead` has type `Graph -> NodeId -> (unit -> 'a) -> 'a`.
-[x] `withPersist` and `withParseRead` store the owner chain and wait on a separate grant list. `withNodeLock` marks one id pending, drains grants that stored that id, then holds that id.
+[ ] `NodeEnclosureLock.withNodeLock` has type `NodeId -> (unit -> 'a) -> 'a`.
+[ ] `NodeEnclosureLock.withPersist` has type `Graph -> NodeId -> (NodeId list -> 'a) -> 'a`.
+[ ] `NodeEnclosureLock.withParseRead` has type `Graph -> NodeId -> (unit -> 'a) -> 'a`.
+[ ] `withPersist` and `withParseRead` store the owner chain and wait on a separate grant list. `withNodeLock` marks one id pending, drains grants that stored that id, then holds that id.
 [x] Those three functions leave with `src/Server/NodeEnclosureLock.fs`.
 
 #### Ripple
 
-[x] `withNodeLock`, `withPersist`, and `withParseRead` have no caller under `src/`.
-[x] ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withNodeLock` twice and `withPersist` three times.
-[x] ``node enclosure acquire drains an in-flight persist and a parse read`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withPersist` twice, `withParseRead` once, and `withNodeLock` once.
-[x] ``persist grant stores the owner chain and includes the directory node`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withPersist` twice.
+[ ] `withNodeLock`, `withPersist`, and `withParseRead` have no caller under `src/`.
+[ ] ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withNodeLock` twice and `withPersist` three times.
+[ ] ``node enclosure acquire drains an in-flight persist and a parse read`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withPersist` twice, `withParseRead` once, and `withNodeLock` once.
+[ ] ``persist grant stores the owner chain and includes the directory node`` in `tests/Server.Tests/NodeEnclosureLockTests.fs` calls `withPersist` twice.
 [x] This ticket adds no union case.
 
 #### Copy-from
 
-[x] `NodeEnclosureLock.ownerChain` and the `gate` object in `src/Server/NodeEnclosureLock.fs` are the walk and the wait this pool keeps.
-[x] `enclosureGraph` in `tests/Server.Tests/NodeEnclosureLockTests.fs` is the graph builder. The new builder adds one more File Node owned by the Directory Node.
+[ ] `NodeEnclosureLock.ownerChain` and the `gate` object in `src/Server/NodeEnclosureLock.fs` are the walk and the wait this pool keeps.
+[ ] `enclosureGraph` in `tests/Server.Tests/NodeEnclosureLockTests.fs` is the graph builder. The new builder adds one more File Node owned by the Directory Node.
 
 #### Match sites
 
-[x] `src/Server/Gambol.Server.fsproj` compiles `NodeEnclosureLock.fs` immediately after `WorkspaceGit.fs`.
-[x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` compiles `NodeEnclosureLockTests.fs` immediately after `WorkspaceGitTests.fs`.
+[ ] `src/Server/Gambol.Server.fsproj` compiles `NodeEnclosureLock.fs` immediately after `WorkspaceGit.fs`.
+[ ] `tests/Server.Tests/Gambol.Server.Tests.fsproj` compiles `NodeEnclosureLockTests.fs` immediately after `WorkspaceGitTests.fs`.
 
 ### Reference
 
@@ -132,8 +132,8 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 ## Do not load
 
 [x] `src/Server/Core/PersistThread.fs` stays as it is.
-[x] `src/Server/DocumentPersistWrite.fs` stays as it is.
-[x] `src/Server/ParseThread.fs` stays as it is.
+[ ] `src/Server/DocumentPersistWrite.fs` stays as it is.
+[ ] `src/Server/ParseThread.fs` stays as it is.
 [x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
 [x] `src/Server/WorkspaceGit.fs`, `src/Server/DocumentPersistPath.fs`, and `src/Shared/dotnet/GitRun.fs` stay as they are.
 [x] `src/Shared/GraphQuery.fs` stays as it is.
@@ -159,10 +159,10 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 [x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` — compile include for `NodeLockPoolTests.fs`.
 [x] ``taking a directory waits while a descendant file is held and a sibling file enters`` — `withLock` on a File under the Directory is inside its action. `withLock` on that Directory stays outside. `withLock` on the sibling File, owned by the Workspace, enters and returns during the File hold. After the File releases, the Directory enters.
 [x] ``taking a workspace waits while a descendant file is held and a file waits while an ancestor is held`` — `withLock` on the sibling File keeps `withLock` on the Workspace outside until release. `withLock` on the Directory keeps `withLock` on the child File outside until release.
-[x] ``a second request on a held node waits and the same thread is rejected`` — a second thread's `withLock` on the held File stays outside until release. The holding thread's nested `withLock` returns `Error NodeLockRejection.HolderHoldsLock` and the first entry stays. `withLock` on an id absent from `Graph.create()` returns `Error NodeLockRejection.NodeAbsent`. The holding action then raises, and the waiting thread enters after release.
+[ ] ``a second request on a held node waits and the same thread is rejected`` — a second thread's `withLock` on the held File stays outside until release. The holding thread's nested `withLock` returns `Error NodeLockRejection.HolderHoldsLock` and the first entry stays. `withLock` on an id absent from `Graph.create()` returns `Error NodeLockRejection.NodeAbsent`. The holding action then raises, and the waiting thread enters after release.
 [x] ``a pending directory lock runs before a new descendant file`` — `withLock` on a File under the Directory is inside its action. `withLock` on that Directory stays outside. `withLock` on the other File under that Directory stays outside, and `withLock` on the sibling File owned by the Workspace enters during that wait. After the held File releases, the Directory enters and the other File stays outside. After the Directory releases, the other File enters.
 [x] ``a parse read under a locked directory waits until release`` — `withLock` on the Directory is inside its action. A parse read is `withLock` on the File under that Directory and stays outside. `withLock` on the sibling File owned by the Workspace enters during that wait. After the Directory releases, the parse read enters. Then that parse read is inside its action. `withLock` on the Directory stays outside. The sibling File enters during that wait. After the parse read releases, the Directory enters.
-[x] ``a request waits when the graphs disagree on a held file`` — the requester's graph places a held File under the requested Directory and the holder's graph does not, and the request stays pending. The reverse, a held Directory whose graph places the File under it while the requester's graph does not, also stays pending. Each request enters after release.
+[ ] ``a request waits when the graphs disagree on a held file`` — the requester's graph places a held File under the requested Directory and the holder's graph does not, and the request stays pending. The reverse, a held Directory whose graph places the File under it while the requester's graph does not, also stays pending. Each request enters after release.
 [x] ``a thrown wait drops the pending entry`` — a wait that throws drops that pending row. The table then holds only the holder. After the holder releases, the table is empty.
 
 ## Stop when
