@@ -1,5 +1,5 @@
 # 08 — Load without a race
-**Status**: coded
+**Status**: 
 One job: The outliner gets a Load reply applied like any other server reply, so an expand after a Notice works. The story Load without a race in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: coding

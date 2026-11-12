@@ -6,7 +6,7 @@ Spec: [Client never fails on server data](../../spec.md)
 
 Arch: [Client never fails on server data architecture](../../arch.md)
 
-Review: [08 — Load without a race](../../review/08-load-without-race.md)
+Review: [08 — Load without a race](08-review.md)
 
 ## Stage
 
@@ -34,4 +34,3 @@ Review: [08 — Load without a race](../../review/08-load-without-race.md)
 
 [x] Shared tests with `AMBIT_FULL_SUITE=1` passed 1936, skipped 3, failed 0, total 1939.
 [x] Server tests with `AMBIT_FULL_SUITE=1` and `WarningsNotAsErrors=FS3511` passed 777, skipped 1, failed 0, total 778.
-[x] Log: `/tmp/ambit-full-suite-20261111-200800.log`. The log ends `full suite finished`.
