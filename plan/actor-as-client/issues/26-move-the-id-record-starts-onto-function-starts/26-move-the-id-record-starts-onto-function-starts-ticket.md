@@ -13,7 +13,8 @@ Type:
 
 Blockers:
 
-[ ] [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md). Draft PR 595. On that branch, `postActorStart` already posts `test`, `ai`, and a query through `postActorOrder`, and `finishReadyStart` logs `EventJson.stubActor`. This ticket edits those functions.
+[ ] [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md). `postActorStart` posts `test`, `ai`, and a query through `postActorOrder`.
+[ ] [27 — Log StartActor on the door and named starts](../27-log-startactor-on-the-door-and-named-starts/27-log-startactor-on-the-door-and-named-starts-ticket.md). `finishReadyStart` logs `EventBody.ActorStart`. 27 posts `Order.StartActor` of `ActorOrder` after the pool affirms. This ticket edits that post.
 
 ## Inputs
 
@@ -22,9 +23,9 @@ Blockers:
 [ ] `dispatchStartActor` in `src/Server/Core/CoreMailboxActors.fs` passes `pool.startActor` to `dispatchActorStartResult`. `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` calls `dispatchStartActor` for `Order.StartActorDeprecated`. `CoreMailboxApi.coreMailboxStartActor` is the placer. Its callers are tests.
 [ ] The door name comes from the run-definition node: the word after `?`, otherwise an `actor-*` class suffix, otherwise the trimmed lower text. The names that reach this path are `root` (node text `ROOT`), `test` (`?test`, bag `TestActor.actorFn`), `probe` (`?probe`), and `load` (the Git peer test expects `actor 'load' not registered`).
 [ ] `dispatchStartLoadSaveCommand` in `src/Server/Core/CoreMailboxLoad.fs` calls `dispatchActorStartResult` with `DeskLoadPush.runLoadSave`. `CoreActorPool.startLoadSaveCommand` returns `Ok None` for Desk, so `finishReadyStart` does not run.
-[ ] `postChosenStart` calls `startChosen`, which calls `pool.startActor`. `postActorStart` calls `postChosenStart` when the posted name is not `test`, `ai`, or a query. On the 24 branch, an `actor-test`, `actor-ai`, or `actor-query` class is also taken before `postChosenStart`. `dispatchPostEvent` calls `postActorStart` for `EventBody.ActorStart`. `runMsg` calls `dispatchPostEvent` for `CoreMsg.PostEvent`. `CoreMailboxApi.postEventAccepted` builds that message.
+[ ] `postChosenStart` calls `startChosen`, which calls `pool.startActor`. `postActorStart` calls `postChosenStart` when the name from the node text is not `test`, `ai`, or a query. `dispatchPostEvent` calls `postActorStart` for `EventBody.ActorStart`. `runMsg` calls `dispatchPostEvent` for `CoreMsg.PostEvent`. `CoreMailboxApi.postEventAccepted` builds that message.
 [ ] `RunLaunch.queueStart` queues the client `EventBody.ActorStart`. `execRunOp` in `src/Client/Commands.fs` calls it for every `?` command. The server peels `test`, `ai`, and a query off before `postChosenStart`. The names that remain are `gate` (`?gate`) and `nope` (`?nope`).
-[ ] After 24 — Move the remaining ActorStart writers onto StartActor, `finishReadyStart` logs `Order.StartActor` whose `actor` is `EventJson.stubActor`. `orderOfAffirmedStart` builds that order. `dispatchActorStartResult` and `postChosenStart` call `finishReadyStart`.
+[ ] `finishReadyStart` logs `EventBody.ActorStart`. `dispatchActorStartResult` and `postChosenStart` call `finishReadyStart`.
 [ ] `TestActor.functionActorAt`, `RunAgentActor.actorFn`, and `SearchActor.functionActorAt` are the curried functions for `test`, `ai`, and a query. `RouteRegistration.CreateBoot` sets `Actors` to `[]`. `root`, `gate`, and `probe` exist only as test `ActorFn` registrations. `load` and `nope` have no `ActorFunction`.
 
 ### Reference
