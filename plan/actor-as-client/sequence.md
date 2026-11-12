@@ -2,7 +2,7 @@
 
 - [x] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
 - [x] [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md)
-- [ ] [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md)
+- [x] [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md)
 - [x] [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md)
 - [ ] [24 — Move the remaining ActorStart writers onto StartActor](issues/24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md)
 - [ ] [26 — Move the id-record starts onto function starts](issues/26-move-the-id-record-starts-onto-function-starts/26-move-the-id-record-starts-onto-function-starts-ticket.md)
