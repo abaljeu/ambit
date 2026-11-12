@@ -300,18 +300,16 @@ let private artifactText dataDir graph fileId =
 /// Loaded Windows runs missed a four-second poll. The bound is a backstop.
 let private persistWait = TimeSpan.FromSeconds 30.0
 
-let private waitUntil label ready = task {
-    let start = DateTime.UtcNow
-    let rec poll () = task {
-        let! ok = ready ()
-        if ok || (DateTime.UtcNow - start) >= persistWait then
-            Assert.True(ok, label)
-        else
-            do! Task.Delay 20
-            return! poll ()
-    }
-    do! poll ()
+let rec private pollUntil label ready (start: DateTime) : Task<unit> = task {
+    let! ok = ready ()
+    if ok || (DateTime.UtcNow - start) >= persistWait then
+        Assert.True(ok, label)
+    else
+        do! Task.Delay 20
+        return! pollUntil label ready start
 }
+
+let private waitUntil label ready = pollUntil label ready DateTime.UtcNow
 
 /// PersistThread posts this after the write, stamped with the state it read.
 let private persistedFileAtOrAfter fileId version event =
