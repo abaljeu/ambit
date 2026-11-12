@@ -8,4 +8,4 @@ This folder is ticket 08 — Load without a race.
 
 ## Stage
 
-The worker sets the stage when it starts that stage.
+doc
