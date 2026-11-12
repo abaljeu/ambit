@@ -1,8 +1,8 @@
 # 24 — Move the remaining ActorStart writers onto StartActor
 **Status**: defined
-One job: No code outside the `Order.StartActorDeprecated` case itself builds or matches `EventBody.ActorStart`. Each writer posts `Order.StartActor` of `ActorOrder`, and each reader reads that case.
+One job: The Browser queues an `ActorStart` request and posts it, and its event-log copy records the `ActorOrder` the Server returns. The Browser never builds an `ActorOrder`, and `EventBody.ActorStart` with `(|ActorStart|_|)` stays.
 
-[ ] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket. 16 deletes the case once nothing here writes or reads it.
+[ ] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket.
 [ ] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) covers the `dispatchPostEvent` arm. This ticket leaves that arm to 22.
 
 Type:
@@ -37,13 +37,12 @@ Blockers:
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
 2. [x] `postEvent` returns the stored start when `storedEvents` returns that start with its stop. It does not return `Error "stored Event not found"` for that pair.
-3. [ ] `queueStart` queues `Order.StartActor` of `ActorOrder`. If the client cannot build an `ActorOrder`, because `ActorFunction` is a server function, stop and ask.
-4. [ ] Delete `EventBody.ActorStart` and `(|ActorStart|_|)` from `src/Shared/History.fs` when nothing calls them.
-5. [ ] Search `src/` and `tests/` for `EventBody.ActorStart`. Hits remain only in files that 22 or 25 owns.
+3. [ ] `queueStart` queues and posts the client `ActorStart` request. The client's event-log copy records the `ActorOrder` the server returns. The client never builds an `ActorOrder`.
+4. [ ] `EventBody.ActorStart` stays in `src/Shared/History.fs`. It is the client request.
+5. [ ] `(|ActorStart|_|)` stays in `src/Shared/History.fs`. It is the active pattern for that request.
 
 ## Outputs
 
-[ ] `src/Shared/History.fs`
 [ ] `src/Shared/RunLaunch.fs`
 [ ] `src/Client/Commands.fs`
 [ ] `src/Server/Core/CoreMailboxApi.fs`
@@ -53,8 +52,8 @@ Blockers:
 ## Stop when
 
 [ ] Record the stop at `plan/actor-as-client/reports/24-move-the-remaining-actorstart-writers-stop.md`, then ask.
-[ ] Stop when the client cannot build an `ActorOrder`.
-[ ] Stop when a search hit for `EventBody.ActorStart` remains outside Outputs and outside the files 22 and 25 own.
+[ ] Stop when the client builds an `ActorOrder`.
+[ ] Stop when the edit deletes `EventBody.ActorStart` or `(|ActorStart|_|)`.
 [ ] Stop when the edit deletes `Order.StartActorDeprecated`.
 [ ] Stop when the change passes 8 source files or 4 test files.
 
