@@ -436,6 +436,15 @@ let ``sameWorkspaceMoves keeps a same-workspace move and drops a cross-workspace
     let rootMove = moveFor planned rootFileId
     let workspaceMove =
         { nodeId = spareId; oldPath = "//spare"; newPath = "//renamed" }
+    let looseId = NodeId.New()
+    let looseNode = specialNode looseId File "loose.txt" Graph.rootId
+    let preLoose = Graph.addDetachedNode looseNode pre
+    let postLoose = Graph.addDetachedNode looseNode post
+    let looseMove =
+        { nodeId = looseId; oldPath = "loose.txt"; newPath = "loose2.txt" }
+
+    Assert.Equal(None, GraphQuery.enclosingWorkspace preLoose looseId)
+    Assert.Equal(None, GraphQuery.enclosingWorkspace postLoose looseId)
 
     Assert.Equal("//home/stay.txt", stayMove.oldPath)
     Assert.Equal("//home/kept.txt", stayMove.newPath)
@@ -446,8 +455,9 @@ let ``sameWorkspaceMoves keeps a same-workspace move and drops a cross-workspace
     Assert.Equal("//root.txt", rootMove.oldPath)
     Assert.Equal("//root2.txt", rootMove.newPath)
 
-    let ordered = [ workspaceMove; stayMove; crossMove; dirMove; rootMove ]
-    let kept = DocumentPathMove.sameWorkspaceMoves pre post ordered
+    let ordered =
+        [ workspaceMove; looseMove; stayMove; crossMove; dirMove; rootMove ]
+    let kept = DocumentPathMove.sameWorkspaceMoves preLoose postLoose ordered
 
     Assert.Equal<DocumentPathMove list>(
         [ stayMove; dirMove; rootMove ],

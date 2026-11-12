@@ -17,7 +17,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [x] `DocumentPathMove.coalescePathMoves : Graph -> DocumentPathMove list -> DocumentPathMove list` in `src/Shared/DocumentPathMove.fs`.
 
-[x] `DocumentPathMove.sameWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` lands in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md); it is absent from source until that ticket merges.
+[x] `DocumentPathMove.sameWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` is in `src/Shared/DocumentPathMove.fs`. [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is `coded`.
 
 [x] `DocumentPathMove.crossWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` lands in [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md); it is absent from source until that ticket merges.
 
@@ -25,9 +25,9 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [x] `GraphQuery.enclosing : Graph -> (Node -> bool) -> NodeId -> NodeId option` in `src/Shared/GraphQuery.fs` walks `ownerParentByChild` with a visited set. `NodeLockPool.ownerChain` is that parent walk and does not call `GraphQuery`.
 
-[x] `DocumentPersistPath.repositoryRoot : string -> Graph -> NodeId -> string option` and `DocumentPersistPath.gitPath : Graph -> NodeId -> string option` land in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md); they are absent from source until that ticket merges.
+[x] `DocumentPersistPath.repositoryRoot : string -> Graph -> NodeId -> string option` and `DocumentPersistPath.gitPath : Graph -> NodeId -> string option` are in `src/Server/DocumentPersistPath.fs`. [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is `coded`.
 
-[ ] `WorkspaceGit.gitMove : string -> string -> string -> Result<unit, string>` lands in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
+[x] `WorkspaceGit.gitMove : string -> string -> string -> Result<unit, string>` is in `src/Server/WorkspaceGit.fs`. [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is `coded`.
 
 [ ] `WorkspaceGit.moveAcrossWorkspaces : string -> string -> string -> string -> Result<unit, string>` lands in [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md); per that ticket, the destination work tree already holds the artifact at the destination git path before the call.
 
@@ -98,7 +98,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [x] ``persistGraphChange moves renamed file artifact before writing`` and ``persistGraphChange moves renamed directory tree before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` assert `File.Move` / `Directory.Move` through `persistGraphChange`, not Post change git relocate.
 
-[ ] [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) names ``same-workspace relocate runs git mv in the Workspace repository`` and ``gitMove moves a directory tree with one git mv`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`; those tests call the relocate helpers directly with no production caller until this slice.
+[x] [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) names ``same-workspace relocate runs git mv in the Workspace repository`` and ``gitMove moves a directory tree with one git mv`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`; those tests call the relocate helpers directly with no production caller until this slice.
 
 [ ] [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md) names ``cross-workspace move deletes from the source repository and adds to the destination repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` as a direct `moveAcrossWorkspaces` caller test.
 
@@ -114,11 +114,11 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [x] Disk byte placement before cross-workspace git: private `executePathMove` and `executePathMoves` in `src/Server/DocumentPersistChange.fs`.
 
-[ ] Same-workspace git: `WorkspaceGit.gitMove` from [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
+[x] Same-workspace git: `WorkspaceGit.gitMove` from [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
 
 [ ] Cross-workspace git: `WorkspaceGit.moveAcrossWorkspaces` from [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md); read behavior only from that ticket, not from source.
 
-[ ] Repository and git-relative paths: `DocumentPersistPath.repositoryRoot` and `gitPath` from [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
+[x] Repository and git-relative paths: `DocumentPersistPath.repositoryRoot` and `gitPath` from [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
 
 [x] Lock to reuse: `NodeLockPool.withLockResult` inside `executeCoalescedMove` in `src/Server/DocumentPersistChange.fs`. The wait shape is ``taking a directory waits while a descendant file is held and a sibling file enters`` in `tests/Server.Tests/NodeLockPoolTests.fs`. `withNodeLock`, `withPersist`, `withParseRead`, and ``work tree gate waits then continues without overlap`` are absent.
 
@@ -224,7 +224,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 #### Copy-from
 
 [x] `NodeLockPool.withLockResult` inside `executeCoalescedMove` is the lock this ticket reuses. 13 — Lock the persist path moves added that call. This ticket does not edit the pool.
-[ ] `gitMove`, `repositoryRoot`, and `gitPath` come from 05 — Relocate in the same workspace.
+[x] `gitMove`, `repositoryRoot`, and `gitPath` come from 05 — Relocate in the same workspace.
 [ ] `moveAcrossWorkspaces` comes from 07 — Move an owned node across workspaces.
 [ ] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` is the `FileAgent.create` and `applyEvent` seam.
 

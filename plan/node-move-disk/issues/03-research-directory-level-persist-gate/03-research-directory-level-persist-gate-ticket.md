@@ -76,7 +76,7 @@ The directory-level persist gate is the core-refinement architecture §6 aggrega
 #### 2.2 Scope — Workspace and Directory, one mechanism
 
 - [x] Git pull and a path move use the same `NodeLockPool.withLock`. Pull passes the Workspace Node. A path move passes `move.nodeId`.
-- [ ] **Move write gate** is this hold across `gitMove` or `moveAcrossWorkspaces`. Those functions are absent.
+- [ ] **Move write gate** is this hold across `gitMove` or `moveAcrossWorkspaces`. `WorkspaceGit.gitMove` is in `src/Server/WorkspaceGit.fs`. `moveAcrossWorkspaces` stays absent.
 - [x] A sibling whose owner chain on the passed graph does not reach the locked node does not conflict, so its `withLock` runs during the hold.
 - [x] A holder takes one lock. `HolderHoldsLock` rejects a second request from that thread. There is no separate per-member grant list.
 - [x] `GitSave.runGit` calls `GitRun.gitExec`. `gitExec` calls `ProcessExec.runCapture` and takes no per-folder lock. Cross-workspace git is still one planned delete and one planned add. Persist exclusion for a moved Directory is `withLockResult` on that Directory node.
@@ -89,7 +89,7 @@ On 2026-11-09 `WorkspaceGit.withWorkTreeGate` was one `SemaphoreSlim` per worksp
 - [x] `WorkspaceGit.pullTracked` and `WorkspaceGit.saveTracked` take no pool lock. `GithubTransportActor` holds the Workspace lock around commit (`withLockResult`) and around the pull merge and Unparsed mark (`withLockAsync`). Fetch runs with no pool lock.
 - [x] `writeArtifactText` and `writeDocument` call `withLockResult`. `writeAllDocuments` filters with `shouldWriteDocumentRoot`, then `writeDocuments` calls `writeDocument`. There is no shared semaphore around the batch.
 - [x] `writeDocumentsSoft` calls `writeDocument`, which calls `withLockResult` and then `writeDocumentCore`.
-- [x] `executePathMove` moves a directory with `Directory.Move` and a file with `File.Move`. `executeCoalescedMove` takes `withLockResult` before that call. **Same-workspace relocate** `gitMove` is still absent.
+- [x] `executePathMove` moves a directory with `Directory.Move` and a file with `File.Move`. `executeCoalescedMove` takes `withLockResult` before that call. **Same-workspace relocate** `WorkspaceGit.gitMove` is in `src/Server/WorkspaceGit.fs`.
 - [x] `FileAgent.defaultDependencies` and `DbAgent.createWithLiveSave` set `persistNode` to `DocumentPersistChange.persistNode`. `persistNode` calls `writeDocument`.
 - [x] `DbAgent.validatePostChange` and `FileAgent.validatePostChange` call `validatePathMoves`. That call checks the destination. It takes no pool lock.
 - [x] `workspaceRootFor` returns None when `artifactDirectoryRelative` returns None, including when the enclosing Workspace is `Graph.rootId`. Callers are `GithubTransportActor`, `LoadSaveRouting`, and `Api`.

@@ -12,7 +12,7 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 [x] `DocumentPathMove` in `src/Shared/DocumentPathMove.fs` is `{ nodeId: NodeId; oldPath: string; newPath: string }`.
 [x] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> DocumentPathMove list -> DocumentPathMove list`.
 [x] `DocumentPathMove.planPathMovesBetweenGraphs` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list`.
-[ ] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` after [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) lands; this ticket does not add it.
+[x] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` after [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) lands; this ticket does not add it.
 [x] `NodeDesktopPath.expandedPathForNodeId` in `src/Shared/NodeDesktopPath.fs` has type `Graph -> NodeId -> string option` and supplies the desktop `oldPath` and `newPath` strings on each move.
 [x] `DocumentPartition.artifactFileRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
 [x] `DocumentPartition.artifactDirectoryRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
@@ -47,7 +47,7 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 
 ### write-ticket
 
-[ ] Blocker: [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) adds `sameWorkspaceMoves` that the new seam test calls; this ticket does not re-scope that work.
+[x] Blocker: [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) adds `sameWorkspaceMoves` that the new seam test calls; this ticket does not re-scope that work.
 [ ] Flow 3 **Nested derived path** in [Node move and disk architecture](plan/node-move-disk/arch.md) §4 states Path coalesce keeps a nested File or Directory whose new derived path differs and Path class routes it to Same-workspace relocate or Cross-workspace move; this ticket covers only the coalesce half and `sameWorkspaceMoves` on a same Workspace id, not `crossWorkspaceMoves`.
 [ ] `coalescePathMoves` reads only the pre graph plus the move list and cannot read the post graph for the produced-path comparison.
 

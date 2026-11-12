@@ -275,6 +275,33 @@ let ``repository root and git path follow the workspace and ROOT`` () =
         None,
         DocumentPersistPath.workspaceRootFor dataDir graph2 rootFileId)
 
+    let rootDirId = NodeId.New()
+    let withRootDir =
+        Graph.addDetachedNode
+            (specialNode rootDirId Directory "notes" Graph.rootId)
+            graph2
+    let dirIndex = Graph.fileTreeInsertIndex withRootDir Graph.rootId
+    let graph3 =
+        Graph.replace Graph.rootId dirIndex [] (owned [ rootDirId ]) withRootDir
+        |> requireOk "root dir"
+
+    Assert.Equal(Some "notes/", DocumentPersistPath.gitPath graph3 rootDirId)
+    Assert.Equal(
+        Some (DocumentPersistPath.dataDirBase dataDir),
+        DocumentPersistPath.repositoryRoot dataDir graph3 rootDirId)
+
+    let looseId = NodeId.New()
+    let withLoose =
+        Graph.addDetachedNode
+            (specialNode looseId File "loose.txt" Graph.rootId)
+            graph3
+
+    Assert.Equal(None, GraphQuery.enclosingWorkspace withLoose looseId)
+    Assert.Equal(
+        None,
+        DocumentPersistPath.repositoryRoot dataDir withLoose looseId)
+    Assert.Equal(None, DocumentPersistPath.gitPath withLoose looseId)
+
 let private trackedHome (dataDir: string) (graph: Graph) =
     DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let home = Path.Combine(dataDir, "home")

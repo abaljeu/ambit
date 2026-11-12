@@ -15,7 +15,7 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] `coalescePathMoves : Graph -> DocumentPathMove list -> DocumentPathMove list` in [src/Shared/DocumentPathMove.fs](src/Shared/DocumentPathMove.fs).
 
-[x] `sameWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` is not in code yet; arch requires it in Path class beside `crossWorkspaceMoves`, which this slice also does not add.
+[x] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list`. `crossWorkspaceMoves` stays absent.
 
 [x] `enclosingWorkspace : Graph -> NodeId -> NodeId option` in [src/Shared/GraphQuery.fs](src/Shared/GraphQuery.fs) calls `enclosing graph isEnclosingWorkspaceNode nodeId`.
 
@@ -27,7 +27,7 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] `resolveUnderDataDir : string -> string -> Result<string, string>` in [src/Server/DocumentPersistPath.fs](src/Server/DocumentPersistPath.fs).
 
-[x] `gitMove : string -> string -> string -> Result<unit, string>` is not in code yet; arch puts it in Same-workspace relocate with repository root, old git path, and new git path.
+[x] `WorkspaceGit.gitMove` in `src/Server/WorkspaceGit.fs` has type `string -> string -> string -> Result<unit, string>`. The arguments are the repository root, the old git path, and the new git path.
 
 [x] `GitSave.runGit : string -> string -> Result<string, string>` in [src/Server/GitSave.fs](src/Server/GitSave.fs) calls `GitRun.gitExec`.
 
@@ -115,19 +115,19 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] [src/Server/WorkspaceGit.fs](src/Server/WorkspaceGit.fs) or [src/Server/GitSave.fs](src/Server/GitSave.fs) — add `gitMove` calling `GitSave.runGit` with `git mv -- old new`; prefer the module that already owns workspace-scoped git commands (`WorkspaceGit`).
 
-[ ] [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) — add a public same-workspace relocate entry (for example `relocateSameWorkspaceMoves`) that classifies with `sameWorkspaceMoves`, maps each move to repository root and git paths, and calls `gitMove` once per move; do not replace `executePathMoves` inside `persistGraphChange` yet.
+[x] [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) stays as it is. `executePathMove` keeps `File.Move` and `Directory.Move`. The seam test calls `WorkspaceGit.gitMove`.
 
-[ ] Source file count: 4; under the 8-file limit in [plan/context/size-limit.md](plan/context/size-limit.md).
+[x] Source file count: 3. Under the 8-file limit in [plan/context/size-limit.md](plan/context/size-limit.md).
 
 [x] No new `.fs` file and no `Gambol.Server.fsproj` / `Gambol.Shared.fsproj` compile-order change if `gitMove` lives in an existing Server module.
 
 #### Tests
 
-[ ] [tests/Shared.Tests/DocumentPathMoveTests.fs](tests/Shared.Tests/DocumentPathMoveTests.fs) module `DocumentPathMoveTests` — add ``sameWorkspaceMoves keeps same-workspace file and drops cross-workspace and workspace-root moves`` with `--filter "sameWorkspaceMoves keeps same-workspace file and drops cross-workspace and workspace-root moves"`; reuse `graphWithWorkspaceFile`, `planPathMovesBetweenGraphs includes file reparent across workspaces` post graph, and a workspace-rename `planPathMoveForSetName` case excluded.
+[x] [tests/Shared.Tests/DocumentPathMoveTests.fs](tests/Shared.Tests/DocumentPathMoveTests.fs) module `DocumentPathMoveTests` has ``sameWorkspaceMoves keeps a same-workspace move and drops a cross-workspace move and a workspace move``.
 
-[ ] [tests/Server.Tests/DocumentPathMoveExecutionTests.fs](tests/Server.Tests/DocumentPathMoveExecutionTests.fs) module `Gambol.Server.Tests.DocumentPathMoveExecutionTests` — add arch seam 7 ``same-workspace relocate runs git mv in the Workspace repository`` with `--filter "same-workspace relocate runs git mv in the Workspace repository"`; pattern: `newTempDir`, `graphWithNestedDocs`, `writeAllDocuments`, `WorkspaceGit.ensureInit` on `dataDir/home`, file rename in same workspace, call new relocate entry, assert tracked path via `GitSave.runGit` `status --porcelain` or `ls-files` and on-disk file at new relative path.
+[x] [tests/Server.Tests/DocumentPathMoveExecutionTests.fs](tests/Server.Tests/DocumentPathMoveExecutionTests.fs) module `Gambol.Server.Tests.DocumentPathMoveExecutionTests` has ``same-workspace relocate runs git mv in the Workspace repository``.
 
-[ ] [tests/Server.Tests/WorkspaceGitTests.fs](tests/Server.Tests/WorkspaceGitTests.fs) or [tests/Server.Tests/GitSaveTests.fs](tests/Server.Tests/GitSaveTests.fs) — add one skippable test ``gitMove renames a tracked file in the repository`` with `--filter "gitMove renames a tracked file in the repository"` if the seam test does not assert `runGit` received `git mv`; otherwise omit to stay at 4 tests.
+[x] ``gitMove moves a directory tree with one git mv`` in [tests/Server.Tests/DocumentPathMoveExecutionTests.fs](tests/Server.Tests/DocumentPathMoveExecutionTests.fs) calls `gitMove` once for a Directory tree.
 
 [x] Test count: 2 required (classification + seam 7); 3 if a direct `gitMove` unit test is split out; at most 4 per size limit.
 

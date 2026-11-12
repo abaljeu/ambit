@@ -27,4 +27,4 @@ The seam test is the caller. It classifies with `sameWorkspaceMoves`, resolves `
 - `scripts/agent-test.sh --filter` for ``gitMove moves a directory tree with one git mv`` passed 1.
 - `scripts/agent-test.sh --full` passed Server 781, skipped 1, and Shared 1937, skipped 3. Failed 0.
 
-The write-ticket section still names a public relocate entry on `DocumentPersistChange` and a shorter classification test name. Outputs name the three modules and the four tests that are in the tree. `DocumentPersistChange` stays as it is.
+Distinct source files: 3. `DocumentPersistChange` stays as it is. The seam test calls `WorkspaceGit.gitMove`. `moveAcrossWorkspaces` stays absent. `WorkspaceGit.gitMove` is named in [Node move and disk architecture](../../arch.md) §8 question 5.
