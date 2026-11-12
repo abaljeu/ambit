@@ -42,7 +42,7 @@ Blockers: <none, or each earlier ticket by number and name>
 
 ## Stop when
 
-[ ] Record the stop at `plan/<slug>/reports/<NN>-<ticket-name>-stop.md`, then ask.
+[ ] Record the stop in this ticket file, then ask.
 
 ## Check
 
@@ -50,7 +50,7 @@ Blockers: <none, or each earlier ticket by number and name>
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `<Project>`: ``<test name>``
 [ ] All executed tests pass.
-[ ] Write the verdict to `plan/<slug>/reports/<NN>-<ticket-name>-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] Record the verdict in this ticket file. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
 ```
 
@@ -81,11 +81,10 @@ One job is plain prose. Write the other sections in the Technical writing form i
 7. **Outputs.**
    - files that change
    - each test added or changed, with its file and its `--filter` name
-   - any report path
-8. **Stop when.** Leave the record line. Step 1 uses this section. Stop when
+8. **Stop when.** Leave the record line. The stop is recorded in the ticket file. Step 1 uses this section. Stop when
    - the fix needs a file outside Inputs
    - the fix contradicts the Spec
-9. **Check.** One act. Leave the pointer lines.
+9. **Check.** One act. Leave the check lines. The verdict is recorded in the ticket file.
 
 ## 4. Done
 
