@@ -36,7 +36,7 @@ Fetch runs to completion first. Fetch holds no `withLock`. `NodeLockPool.withLoc
 - [07 — Git changed list sets Unparsed](plan/core-refinement/issues/07-git-changed-list-unparsed.md) — superseded by 12 — Git pull marks each received file Unparsed and 13 — Git pull marks containing Directories Unparsed
 - [12 — Git pull marks each received file Unparsed](plan/parse-thread/issues/12-git-pull-marks-each-received-file-unparsed.md)
 - [13 — Git pull marks containing Directories Unparsed](plan/parse-thread/issues/13-git-pull-marks-containing-directories-unparsed.md)
-- [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md)
+- [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md)
 - [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md)
 - [Parse and persist](doc/current/parse-persist.md)
 

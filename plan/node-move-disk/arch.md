@@ -138,7 +138,7 @@ persistGraphOps : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, 
 [x] `persistGraphChange` and `persistGraphOps` call `persistGraphChangeWith`.
 [x] Call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are in `tests/Server.Tests`.
 [o] `File.Move` and `Directory.Move` are the relocation.
-[x] `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced path move from `planPathMovesBetweenGraphs` and `coalescePathMoves` before `File.Move` or `Directory.Move`. Ticket: [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves.md).
+[x] `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced path move from `planPathMovesBetweenGraphs` and `coalescePathMoves` before `File.Move` or `Directory.Move`. Ticket: [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves/13-lock-the-persist-path-moves-ticket.md).
 
 ### Same-workspace relocate
 
@@ -189,7 +189,7 @@ persistNode : string -> Graph -> NodeId -> Result<DateTime, string>
 
 ### Move write gate
 
-Research: [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md).
+Research: [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate/03-research-directory-level-persist-gate-ticket.md).
 
 [ ] While a git move of a Directory or a Workspace runs, no write is allowed under that Directory or that Workspace until the move completes.
 [ ] The gate applies to any Directory or Workspace being moved.
@@ -203,7 +203,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 ```
 
 [x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` is the node lock. One request is the live `Graph` and one `NodeId`. The caller passes no owner chain.
-[x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph.md).
+[x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph/12-compare-locks-on-the-live-graph-ticket.md).
 [x] An absent node conflicts with nothing.
 [x] A holder that already holds a pool lock and requests another gets `Error NodeLockRejection.HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
 [x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
@@ -461,4 +461,4 @@ A behavior change is a build slice.
 4. Conflict ops — Resolved (Alan 2026-11-09): rename. When there is a change conflict, Change amendment resolves it by renaming the incoming moved or renamed node, not the existing file at the destination. The rename is a file name op: it changes the file name, not the directory path.
 5. Relocate caller — Resolved (Alan 2026-11-09): Post change is the single caller that runs the relocate for every kind of move. Right after the path-move check passes, the Post change functions (`FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`) classify each move and run `gitMove` for a same-Workspace move or `moveAcrossWorkspaces` for a cross-Workspace move, under the node lock. They then store the graph and queue the persists. Post change already holds the before and after graphs, the data directory, and the planned moves, and it is where a conflict is caught. Committing at move time (question 2) fits there too. `gitMove` and `moveAcrossWorkspaces` do not exist yet.
 6. Conflict data directory — Resolved (Alan 2026-11-09): Change amendment never takes the data directory. Post change, in `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange`, runs the existing path check (`validatePathMoves`) with its own data directory: `FileAgent`'s `dataDir` field or `DbAgent`'s `liveSaveDataDir`. Instead of rejecting the change on `disk path already exists`, it hands Change amendment the conflicting nodes, and Change amendment emits the file name rename for each incoming node. The shared code (`ChangeAmendment.applyPosted`) stays free of disk access. When `DbAgent` has no data directory, nothing is written to disk, so there is no conflict to check. This is the same caller proposed for question 5.
-7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes. Its lock design comes from [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate.md) and Alan's answers there (2026-11-09). Alan, 2026-11-10: that design is one `NodeLockPool.withLock` request. **Move write gate** states the rule.
+7. Unparsed during the move — Resolved (Alan 2026-11-09): no. The move does not set Unparsed on the moved document root. **Move write gate** holds writes under the moved Directory or Workspace until the move completes. Its lock design comes from [03 — Research: directory-level persist gate for moves](issues/03-research-directory-level-persist-gate/03-research-directory-level-persist-gate-ticket.md) and Alan's answers there (2026-11-09). Alan, 2026-11-10: that design is one `NodeLockPool.withLock` request. **Move write gate** states the rule.

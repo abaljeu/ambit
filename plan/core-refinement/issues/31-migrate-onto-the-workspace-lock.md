@@ -35,7 +35,7 @@ Persist, parse-thread file use, and git Load and git Save follow `NodeLockPool.w
 - [core-refinement architecture](plan/core-refinement/arch.md)
 - [core-refinement](plan/core-refinement/project.md)
 - [01 — Persist/git work-tree gate](plan/core-refinement/issues/01-persist-git-work-tree-gate.md)
-- [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md)
+- [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md)
 - [32 — Workspace lock handoff](plan/core-refinement/issues/32-workspace-lock-handoff.md)
 - [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md) — superseded by this ticket
 - [Parse and persist](doc/current/parse-persist.md)

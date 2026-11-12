@@ -20,7 +20,7 @@ match NodeLockPool.withLock graph nodeId action with
 
 ## 2. Spec
 
-- **Extra** — `persistGraphChangeWith` in [Document persist change](../../../src/Server/DocumentPersistChange.fs) no longer holds a lock across path moves. [09 — Relocate under the node lock](../../node-move-disk/issues/09-relocate-under-the-node-enclosure-lock.md) is the move lock.
+- **Extra** — `persistGraphChangeWith` in [Document persist change](../../../src/Server/DocumentPersistChange.fs) no longer holds a lock across path moves. [09 — Relocate under the node lock](../../node-move-disk/issues/09-relocate-under-the-node-enclosure-lock/09-relocate-under-the-node-enclosure-lock-ticket.md) is the move lock.
 - **Extra** — A same-thread second `withLock` on Persist, parse, or git returns the string `holder already holds a lock`. The pool rejection is `HolderHoldsLock`.
 - No Missing, Partial, or Wrong requirement. Persist, parse reads, Directory reconcile, and git Load and git Save call `NodeLockPool.withLock`. The git Save commit is inside that lock. Push stays outside it. `withWorkTreeGate` and the `GitRun` private gate are gone. Fetch-first pull stays on [32 — Workspace lock handoff](../issues/32-workspace-lock-handoff.md).
 
@@ -45,6 +45,6 @@ match NodeLockPool.withLock graph nodeId action with
 
 ## 6. Found elsewhere
 
-- **Problem.** [Parse thread architecture](../../parse-thread/arch.md) item 9 **Locks** is ticked, and the line still names [09 — Relocate under the node lock](../../node-move-disk/issues/09-relocate-under-the-node-enclosure-lock.md).
+- **Problem.** [Parse thread architecture](../../parse-thread/arch.md) item 9 **Locks** is ticked, and the line still names [09 — Relocate under the node lock](../../node-move-disk/issues/09-relocate-under-the-node-enclosure-lock/09-relocate-under-the-node-enclosure-lock-ticket.md).
 - **Fix.** Point that line at [31 — Migrate onto the workspace lock](../issues/31-migrate-onto-the-workspace-lock.md).
 - **Decision.** Reject until Alan confirms. 09 still owns relocate. The checkbox records the call 31 added.
