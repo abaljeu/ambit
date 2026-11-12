@@ -37,37 +37,6 @@ module internal CoreMailboxActors =
                         context.pool.drop secret
                         Error (StartError.Rejected err)
 
-    let private classActorName (node: Node) =
-        node.cssClasses
-        |> CssClass.toList
-        |> List.tryPick (fun cls ->
-            if cls.StartsWith("actor-") && cls.Length > 6 then
-                Some(cls.Substring(6))
-            else
-                None)
-
-    let private actorNameFor (node: Node) =
-        match CommandRequest.actorNameFromText node.text with
-        | Some name -> name
-        | None ->
-            match classActorName node with
-            | Some name -> name
-            | None -> node.text.Trim().ToLowerInvariant()
-
-    /// Bag start. `ActorFn` is not an `ActorFunction`, so the log keeps the stand-in.
-    let private orderOfAffirmedStart
-        (context: MailboxContext)
-        (request: Gambol.Shared.ActorStart)
-        : ActorOrder =
-        let actorName =
-            let nodes = (CoreMailboxEvents.graphNow context).nodes
-            match Map.tryFind request.runDefinitionId nodes with
-            | Some node -> actorNameFor node
-            | None -> ""
-        { actor = EventJson.stubActor
-          actorNodeId = request.focusId
-          actorName = actorName }
-
     let private finishReadyStart
         (context: MailboxContext)
         (caller: Caller)
@@ -76,15 +45,12 @@ module internal CoreMailboxActors =
         (make: Caller -> CoreChangesDoor)
         (submissionId: System.Guid)
         =
-        let body =
-            EventBody.Order(
-                Order.StartActor(orderOfAffirmedStart context request))
         match
             CoreEventDispatch.appendLifecycle
                 (CoreMailboxEvents.eventDispatchContext context)
                 caller
                 submissionId
-                body
+                (EventBody.ActorStart request)
         with
         | Error err ->
             context.pool.drop secret
@@ -207,9 +173,31 @@ module internal CoreMailboxActors =
         | StartError.UnknownActor _ -> "unknown actor"
         | StartError.Rejected message -> message
 
-    /// Refusal leaves the log empty and returns the error to the caller.
-    let private recordFailedStart (reply: PostedReply) message =
-        reply.Reply(Error message)
+    let private recordFailedStart
+        context caller (request: Gambol.Shared.ActorStart)
+        submissionId message (reply: PostedReply) =
+        let dispatch = CoreMailboxEvents.eventDispatchContext context
+        let stop =
+            EventBody.ActorStop(request.focusId, ActorFailed message)
+        match
+            CoreEventDispatch.appendLifecycle
+                dispatch caller submissionId (EventBody.ActorStart request)
+        with
+        | Error err -> reply.Reply(Error err)
+        | Ok started ->
+            match
+                CoreEventDispatch.appendLifecycle
+                    dispatch caller (Guid.NewGuid()) stop
+            with
+            | Error err -> reply.Reply(Error err)
+            | Ok stopped ->
+                CoreMailboxEvents.replyStored reply started
+
+    let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
+        let graph = CoreMailboxEvents.graphNow context
+        match Map.tryFind nodeId graph.nodes with
+        | None -> None
+        | Some node -> CommandRequest.actorNameFromText node.text
 
     let private postBuiltOrder
         (context: MailboxContext)
@@ -286,7 +274,9 @@ module internal CoreMailboxActors =
             startChosen context req getState
         match prepareActorStart context caller request start with
         | Error error ->
-            recordFailedStart reply (failedMessage error)
+            recordFailedStart
+                context caller request event.submissionId
+                (failedMessage error) reply
         | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
         | Ok (Some secret, make) ->
             match
@@ -298,36 +288,21 @@ module internal CoreMailboxActors =
             | Ok stored ->
                 CoreMailboxEvents.replyStored reply stored
 
-    let private functionStartFor (name: string) =
-        match name with
-        | "test" -> Some queueAdmittedTest
-        | "ai" -> Some queueAdmittedAi
-        | "query" -> Some queueAdmittedQuery
-        | _ -> None
-
-    /// Text name, then a query line, then an `actor-*` class.
     let private admittedQueue context caller request reply =
-        let graph = CoreMailboxEvents.graphNow context
-        let node =
-            Map.tryFind request.runDefinitionId graph.nodes
-        let fromText =
-            node
-            |> Option.bind (fun item ->
-                CommandRequest.actorNameFromText item.text)
-            |> Option.bind functionStartFor
-        let chosen =
-            match fromText with
-            | Some start -> Some start
-            | None when SearchActor.isQueryRequest graph request ->
-                Some queueAdmittedQuery
-            | None ->
-                node
-                |> Option.bind classActorName
-                |> Option.bind functionStartFor
-        match chosen with
-        | Some start ->
-            Some (fun () -> start context caller request reply)
-        | None -> None
+        match actorNameOn context request.runDefinitionId with
+        | Some "test" ->
+            Some (fun () ->
+                queueAdmittedTest context caller request reply)
+        | Some "ai" ->
+            Some (fun () ->
+                queueAdmittedAi context caller request reply)
+        | _ when
+            SearchActor.isQueryRequest
+                (CoreMailboxEvents.graphNow context)
+                request ->
+            Some (fun () ->
+                queueAdmittedQuery context caller request reply)
+        | _ -> None
 
     let private postActorStart context caller event request reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with

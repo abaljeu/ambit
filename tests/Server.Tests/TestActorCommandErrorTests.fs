@@ -403,33 +403,6 @@ let private getFullState (client: HttpClient) = task {
     return decodeStateGraph json
 }
 
-let private pollEvents (client: HttpClient) = task {
-    let body =
-        Encode.toString 0 (
-            ApiResponseSerialization.encodePollRequest
-                { eventId = EventId.zero; want = [] })
-    use content = jsonPost body
-    let! response = client.PostAsync("/ambit/poll", content)
-    let! json = response.Content.ReadAsStringAsync()
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
-    match
-        Decode.fromString
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            json
-    with
-    | Ok accepted -> return accepted.events
-    | Error err -> return failwith err
-}
-
-let private storesRefusedStart (events: Ev list) =
-    events
-    |> List.exists (fun event ->
-        match event.body with
-        | EventBody.Order (Order.StartActor _) -> true
-        | EventBody.ActorStart _ -> true
-        | EventBody.ActorStop(_, ActorFailed _) -> true
-        | _ -> false)
-
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     let body =
         Encode.toString 0 (
@@ -459,7 +432,7 @@ let private seedQuestion (client: HttpClient) rootId runDefinitionId text = task
 [<Theory>]
 [<InlineData("?unknown")>]
 [<InlineData("?nope")>]
-let ``production events door records no ActorStop for an unknown actor``
+let ``production events door records a failed ActorStop for an unknown actor``
     (text: string)
     =
     task {
@@ -482,8 +455,22 @@ let ``production events door records no ActorStop for an unknown actor``
               body = EventBody.ActorStart request }
         let! commandResp = postEventsHttp client [ launch ]
         let! commandJson = commandResp.Content.ReadAsStringAsync()
-        Assert.Equal(HttpStatusCode.BadRequest, commandResp.StatusCode)
-        Assert.Contains("unknown actor", commandJson)
-        let! events = pollEvents client
-        Assert.False(storesRefusedStart events)
+        Assert.True(
+            commandResp.StatusCode = HttpStatusCode.OK,
+            $"events {commandResp.StatusCode}: {commandJson}")
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                commandJson
+        with
+        | Error err -> failwith err
+        | Ok accepted ->
+            let failed =
+                accepted.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
+                        id = runDefinitionId
+                    | _ -> false)
+            Assert.True(failed, "failed ActorStop missing")
     }

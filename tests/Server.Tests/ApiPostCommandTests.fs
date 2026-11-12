@@ -132,20 +132,12 @@ let ``postCommand through CoreMailbox encodes ActorStart in latestId events`` ()
             Assert.True(latest > before, "eventId should advance")
             let started =
                 accepted.events
-                |> List.tryPick (fun ev ->
+                |> List.exists (fun ev ->
                     match ev.body with
-                    | EventBody.Order (Order.StartActor order)
-                        when
-                            order.actorNodeId = runDefinitionId
-                            && order.actorName = "test" ->
-                        Some order
-                    | _ -> None)
-            match started with
-            | None -> Assert.Fail("StartActor missing from events")
-            | Some order ->
-                Assert.DoesNotContain(
-                    "orderOfAffirmedStart",
-                    order.actor.GetType().Name)
+                    | EventBody.ActorStart started ->
+                        started.runDefinitionId = runDefinitionId
+                    | _ -> false)
+            Assert.True(started, "ActorStart missing from events")
             let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             match state with
             | Ok s -> Assert.True(s.graph.nodes.ContainsKey runDefinitionId)

@@ -279,7 +279,7 @@ let ``CoreMailbox door exposes Graph lockPresent via getState`` () =
     })
 
 [<Fact>]
-let ``CoreMailboxApi.startActor appends StartActor after the pool affirms`` () =
+let ``CoreMailboxApi.startActor appends ActorStart to lifecycle events`` () =
     withHost (fun host _ -> task {
         let! result =
             CoreMailboxApi.coreMailboxStartActor host testCaller sampleRequest
@@ -292,9 +292,9 @@ let ``CoreMailboxApi.startActor appends StartActor after the pool affirms`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor order)
-                    when order.actorNodeId = sampleRequest.focusId ->
-                    Some order.actorNodeId
+                | Gambol.Shared.EventBody.ActorStart request
+                    when request.focusId = sampleRequest.focusId ->
+                    Some request.focusId
                 | _ -> None)
         Assert.Equal(1, actorStartedEvents.Length)
     })
@@ -379,9 +379,8 @@ let ``CoreActorPool.startActor uses client graphIds to build subgraph`` () =
             history.events,
             fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorNodeId = request.focusId
-                    && order.actorName = "root"
+                | Gambol.Shared.EventBody.ActorStart started ->
+                    started.runDefinitionId = request.runDefinitionId
                 | _ -> false)
     })
 
@@ -420,9 +419,8 @@ let ``CoreActorPool.startActor selects actor from command node text`` () =
             history.events,
             fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor order) ->
-                    order.actorNodeId = request.focusId
-                    && order.actorName = "test"
+                | Gambol.Shared.EventBody.ActorStart started ->
+                    started.runDefinitionId = request.runDefinitionId
                 | _ -> false)
     })
 
@@ -443,10 +441,6 @@ let ``CoreActorPool.startActor fails when graphIds is empty`` () =
         match result with
         | Error msg -> Assert.Contains("graphIds required", msg)
         | Ok _ -> Assert.Fail("expected error for empty graphIds")
-        let! history =
-            CoreMailboxApi.eventHistory host
-            |> Async.StartAsTask
-        Assert.Empty(history.events)
     })
 
 [<Fact>]
@@ -478,23 +472,8 @@ let ``CoreActorPool.startActor fails when runDefinitionId not in graphIds`` () =
             |> Async.StartAsTask
         
         match result with
-        | Error msg ->
-            Assert.Contains(
-                "command node not found in provided graphIds",
-                msg)
-        | Ok _ ->
-            Assert.Fail("expected error when command not in graphIds")
-        let! history =
-            CoreMailboxApi.eventHistory host
-            |> Async.StartAsTask
-        let lifecycle =
-            history.events
-            |> List.filter (fun event ->
-                match event.body with
-                | EventBody.Order (Order.StartActor _)
-                | EventBody.ActorStop _ -> true
-                | _ -> false)
-        Assert.Empty(lifecycle)
+        | Error msg -> Assert.Contains("command node not found in provided graphIds", msg)
+        | Ok _ -> Assert.Fail("expected error when command not in graphIds")
     })
 
 [<Fact>]
@@ -513,9 +492,9 @@ let ``mailbox records ActorStarted before actor body runs`` () =
             events
             |> List.choose (fun event ->
                 match event.body with
-                | EventBody.Order (Order.StartActor order)
-                    when order.actorNodeId = sampleRequest.focusId ->
-                    Some order.actorNodeId
+                | Gambol.Shared.EventBody.ActorStart request
+                    when request.focusId = sampleRequest.focusId ->
+                    Some request.focusId
                 | _ -> None)
         
         Assert.Equal(1, actorStartedEvents.Length)
@@ -721,7 +700,7 @@ let ``ActorStart persist Error leaves Focus out of liveActorNodeIds`` () =
                     appendEvent =
                         fun event ->
                             match event.body with
-                            | EventBody.Order (Order.StartActor _) ->
+                            | EventBody.ActorStart _ ->
                                 Error "actor start persist failed"
                             | _ -> persist.handlers.appendEvent event } }
     let pool = CoreActorPool.create ()
@@ -1242,12 +1221,7 @@ let ``Undo and Redo post as orders; ActorStart and Cancel still post as PostEven
         requireOk "actor start" started |> ignore
         let! startedBody = storedBody host start.submissionId
         Assert.Equal(
-            Some(
-                EventBody.Order(
-                    Order.StartActor
-                        { actor = EventJson.stubActor
-                          actorNodeId = sampleRequest.focusId
-                          actorName = "root" })),
+            Some (EventBody.ActorStart sampleRequest),
             startedBody)
         let _, create = addRootChildEvent "undo-target"
         let! created =
@@ -1471,12 +1445,9 @@ let ``postEvent returns the stored start when that start stops at once`` () =
                 |> Async.StartAsTask
             let returned = requireOk "stored start" again
             Assert.Equal(stored.id, returned.id)
-            match returned.body with
-            | EventBody.Order (Order.StartActor order) ->
-                Assert.Equal(sampleRequest.focusId, order.actorNodeId)
-                Assert.Equal("root", order.actorName)
-            | other ->
-                Assert.Fail($"stored start, got {other}")
+            Assert.Equal(
+                EventBody.ActorStart sampleRequest,
+                returned.body)
     })
 
 [<Fact>]

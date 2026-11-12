@@ -133,28 +133,15 @@ module CoreMailboxApi =
 
     let private expandStored log (stored: Ev) =
         match stored.body with
-        | EventBody.Order (Order.StartActor order) ->
+        | EventBody.ActorStart request ->
             match EventLog.tryFind (EventId.next stored.id) log with
             | Some stopped ->
                 match stopped.body with
-                | EventBody.ActorStop(id, _)
-                    when id = order.actorNodeId ->
+                | EventBody.ActorStop(id, _) when id = request.focusId ->
                     [ stored; stopped ]
                 | _ -> [ stored ]
             | None -> [ stored ]
         | _ -> [ stored ]
-
-    let private affirmedStart events =
-        match events with
-        | [ stored ] -> Ok stored
-        | [ stored; stopped ] ->
-            match stored.body, stopped.body with
-            | EventBody.Order (Order.StartActor order),
-              EventBody.ActorStop(id, _)
-                when id = order.actorNodeId ->
-                Ok stored
-            | _ -> Error "stored Event not found"
-        | _ -> Error "stored Event not found"
 
     let private storedEvents log ids =
         let rec take acc remaining =
@@ -175,6 +162,18 @@ module CoreMailboxApi =
                             acc
                     take acc rest
         take [] ids
+
+    let private affirmedStart events =
+        match events with
+        | [ stored ] -> Ok stored
+        | [ stored; stopped ] ->
+            match stored.body, stopped.body with
+            | EventBody.ActorStart request,
+              EventBody.ActorStop(id, _)
+                when id = request.focusId ->
+                Ok stored
+            | _ -> Error "stored Event not found"
+        | _ -> Error "stored Event not found"
 
     /// A duplicate submissionId replies the stored id. The catch-up cursor
     /// stays at the log tip when a later Change is already stored, so the
