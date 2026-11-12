@@ -52,7 +52,17 @@ module GithubTransportActor =
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
 
-    type private FocusWorkTree = {
+    type private LoadPullHeads =
+        { beforeHead: Result<string option, string>
+          afterHead: Result<string option, string> }
+
+    /// Actor changes, data directory, and Workspace id for one Git Load.
+    type internal WorkspaceTarget =
+        { changes: ActorChanges
+          dataDir: string
+          workspaceId: NodeId }
+
+    type internal LockedWorkspace = {
         graph: Graph
         workspaceId: NodeId
         root: string
@@ -75,22 +85,6 @@ module GithubTransportActor =
                             root = root
                         })
         }
-
-    type private LoadPullHeads =
-        { beforeHead: Result<string option, string>
-          afterHead: Result<string option, string> }
-
-    /// Actor changes, data directory, and Workspace id for one Git Load.
-    type internal WorkspaceTarget =
-        { changes: ActorChanges
-          dataDir: string
-          workspaceId: NodeId }
-
-    type internal LockedWorkspace = {
-        graph: Graph
-        workspaceId: NodeId
-        root: string
-    }
 
     /// One Workspace lock. The action releases when it returns.
     let internal withWorkspaceLock graph workspaceId action =
@@ -419,17 +413,12 @@ module GithubTransportActor =
                 match! persistFocusWhenNotOrdinary changes focusId with
                 | Error err -> return Error err
                 | Ok () ->
-                    let locked = {
-                        graph = place.graph
-                        workspaceId = place.workspaceId
-                        root = place.root
-                    }
                     return!
                         saveFetched
                             dataDir
                             dependencies.git
                             changes
-                            locked
+                            place
         }
 
     let private runLoadBody dataDir dependencies focusId changes =
