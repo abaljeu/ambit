@@ -65,5 +65,5 @@ Blockers:
   - `tests/Shared.Tests`: `RunEditCommitTests`
   - `tests/Server.Tests`: `CoreMailboxDoorTests`
 [x] All executed tests pass.
-[ ] Write the verdict to `plan/actor-as-client/reports/24-move-the-remaining-actorstart-writers-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] Rewrite `24-review.md` with the present line. The line is `Check: pass` or `STOP: <reason>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
