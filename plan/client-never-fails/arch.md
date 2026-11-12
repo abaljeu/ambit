@@ -71,9 +71,9 @@ Alan step 5, Absent fetch. This includes the whole-Workspace request and the rac
    4. **Resident projection** — `LoadRefuse.MultiWorkspace` stays.
 
 9. **Load without a race**
-   1. **Notice apply** — `applyLoadResponse` applies the reply as any other server reply.
-   2. **Notice apply** — The raced Load answer guard is deleted.
-   3. **Notice apply** — `Update` LoadDone uses that apply.
+   1. [x] **Notice apply** — `applyLoadResponse` applies the reply as any other server reply.
+   2. [x] **Notice apply** — The raced Load answer guard is deleted.
+   3. [x] **Notice apply** — `Update` LoadDone uses that apply.
 
 Alan step 6, protocol, then the one-second typing pause.
 

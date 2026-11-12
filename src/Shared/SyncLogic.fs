@@ -281,25 +281,15 @@ module SyncLogic =
         | Error msg -> Error msg
         | Ok graph -> Ok { state with graph = graph }
 
+    /// Load reply apply. A nodes-only reply and a Notice reply both
+    /// use applySyncResponse, the same apply as any other server reply.
     let applyLoadResponse
-        (responseEventId: EventId)
-        (hasPendingLocal: bool)
+        (_responseEventId: EventId)
+        (_hasPendingLocal: bool)
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let substantive =
-            response.events
-            |> List.filter (fun event -> not (isNoticeEvent event))
-        let answerOnly =
-            List.isEmpty substantive
-            && not (List.isEmpty response.nodes)
-        if
-            answerOnly
-            && (hasPendingLocal || responseEventId <> state.eventId)
-        then
-            Error "raced Load answer"
-        else
-            applySyncResponse response state
+        applySyncResponse response state
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events

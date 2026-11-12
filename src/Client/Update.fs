@@ -354,8 +354,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> SyncInfo.withServerReady ready }
             | None -> model
         // While Uploading or Loading: keep the busy indicator. Do not apply
-        // Poll tails during Loading — a stale poll would advance revision and cause
-        // applyLoadResponse to reject answer-only Load payloads.
+        // Poll tails during Loading.
         let finishPoll (model, effects) =
             match SyncLogic.persistFailedMessage events with
             | None -> model, effects

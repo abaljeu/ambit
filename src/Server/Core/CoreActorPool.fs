@@ -53,7 +53,8 @@ type CoreActorPool =
       deliver: string * string -> Result<unit, string>
       takeInbox: string -> Result<string list, string>
       sessionIdFor: Credential -> string option
-      bootActors: BootActors option }
+      bootActors: BootActors option
+      cancelLiveActors: unit -> unit }
 
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
@@ -412,7 +413,8 @@ module CoreActorPool =
             fun sessionId ->
                 apply (fun current -> takeInboxOf current sessionId)
           sessionIdFor = fun secret -> sessionOf model secret
-          bootActors = bootActors }
+          bootActors = bootActors
+          cancelLiveActors = clearLive }
 
     let create () = newPool None
 

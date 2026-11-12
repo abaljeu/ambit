@@ -439,7 +439,10 @@ module internal CoreMailboxLoop =
           session = session },
         reported
 
-    let private armMailbox (mailbox: MailboxProcessor<CoreQueue>) =
+    let private armMailbox
+        (pool: CoreActorPool)
+        (mailbox: MailboxProcessor<CoreQueue>)
+        =
         let gate = obj ()
         let stopped = ref false
         let shutdown () =
@@ -451,6 +454,7 @@ module internal CoreMailboxLoop =
                         stopped.Value <- true
                         true)
             if run then
+                pool.cancelLiveActors ()
                 try
                     mailbox.PostAndReply(fun reply ->
                         CoreQueue.Shutdown reply)
@@ -463,7 +467,7 @@ module internal CoreMailboxLoop =
         { processor = mailbox
           bindCoreChanges =
             fun make -> context.coreChanges.Value <- Some make
-          shutdown = armMailbox mailbox }
+          shutdown = armMailbox context.pool mailbox }
 
     let private isStartupRead (message: Mailbox) =
         match message with
