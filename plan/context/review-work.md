@@ -2,7 +2,7 @@
 
 ## 1. Work
 
-Write `<nn>-review.md` in the ticket folder `plan/<slug>/issues/<nn>-<name>/` when the review step is about to be worked. That file states the change as it stands.
+Write one report per ticket to `plan/<slug>/review/NN-<ticket-name>.md`. Write that report when the review step is about to be worked.
 
 On cloud, the range is the ticket's PR diff against staging.
 On Windows, the range is the current diff, or whatever diff is related to the ticket.
@@ -14,9 +14,9 @@ Copy these headings into the report. Leave each pointer line as written. A point
 ```
 # <NN> — <ticket name>
 
-Ticket: [[<nn>-<name>-ticket.md]]
-Spec: [[../../spec.md]]
-Arch: [[../../arch.md]]
+Ticket: [[../issues/NN-<ticket-name>.md]]
+Spec: [[../spec.md]]
+Arch: [[../arch.md]]
 
 ## 1. Standards
 

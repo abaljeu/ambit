@@ -7,7 +7,7 @@ Make the ticket folder `issues/<nn>-<name>/`, for example `issues/01-accept-noti
 [[plan/context/ticket-sequence.md]].
 ```
 
-2. Create `<nn>-<name>-ticket.md` from the template and the fill steps in [[plan/context/ticket-work.md]]. The build writes `<nn>-build.md` in that folder.
+2. `<nn>-<name>-ticket.md`, from the template and the fill steps in [[plan/context/ticket-work.md]]. The build records its outcome in that ticket file. A stop and a check verdict are recorded in that ticket file. No step writes outcomes to `plan/*/reports/` or to separate check or stop files.
 
 The handback is the ticket folder.
 
