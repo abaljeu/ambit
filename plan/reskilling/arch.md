@@ -15,8 +15,8 @@ Spec: [[spec.md]]
 9. Ticket type — A ticket's type is `coding` or `bug-fixing`.
 10. Order — Blockers are the order. [[../context/slicing-work.md]] decides them. [[../context/ticket-work.md]] writes them on the ticket.
 11. Build — [[../context/build-work.md]] changes the source the ticket names. The implementer reads the ticket and that code.
-12. Review — [[../context/review-work.md]] writes one report per ticket to `plan/<slug>/review/NN-<ticket-name>.md`, scored against the stories that ticket named. A miss returns the ticket to build.
-13. Docs — [[../context/document-work.md]] updates `doc/current` and `doc/user` for the tickets whose stories were met, and writes `plan/<slug>/doc/NN-<ticket-name>.md` to link the pages updated.
+12. Review — [[../context/review-work.md]] scores the diff against the stories that ticket named. A miss returns the ticket to build.
+13. Docs — [[../context/document-work.md]] updates `doc/current` and `doc/user` for the tickets whose stories were met.
 14. Step work — Front matter loads the current step's work file. Kickoff starts that step. The agent loads that step's work file.
 
 ## 2. Module map
@@ -41,9 +41,9 @@ Spec: [[spec.md]]
    - arch: `plan/<slug>/arch.md`
    - slicing: one ticket's scope, handed to ticket
    - ticket: `plan/<slug>/issues/NN-<ticket-name>.md`
-   - review: `plan/<slug>/review/NN-<ticket-name>.md`
-   - build: the source the ticket names
-   - document: `doc/current` and `doc/user`, linked from `plan/<slug>/doc/NN-<ticket-name>.md`
+   - review: the review file in the ticket folder
+   - build: the source the ticket names, and the build file in the ticket folder
+   - document: `doc/current` and `doc/user`, linked from the doc file in the ticket folder
 4. **Front matter.** `AGENTS.md` and `.agents/` point an agent at the current step's work file.
 5. **Kickoff.** Skills that start a step by reading its work file.
 
