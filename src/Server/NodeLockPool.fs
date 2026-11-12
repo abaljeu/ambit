@@ -258,7 +258,12 @@ module NodeLockPool =
             Error "holder already holds a lock"
         | Ok result -> result
 
+    let private releaseOnCancel (token: CancellationToken) (seq: int) =
+        token.Register(fun () -> release seq)
+
     /// Hold the lock across an async mark. Acquire stays synchronous.
+    /// Host shutdown cancels the async; that cancel drops the entry even
+    /// when the mark is blocked, so the pool does not keep the row.
     let internal withLockAsync
         (graph: Graph)
         (nodeId: NodeId)
@@ -270,6 +275,7 @@ module NodeLockPool =
                 let! value = action
                 return Ok value
             | Some node ->
+                let! token = Async.CancellationToken
                 let threadId = Environment.CurrentManagedThreadId
                 let queued =
                     lock gate (fun () ->
@@ -277,9 +283,14 @@ module NodeLockPool =
                 match queued with
                 | Error rejection -> return Error rejection
                 | Ok seq ->
+                    let registration = releaseOnCancel token seq
                     try
-                        let! value = action
-                        return Ok value
+                        if token.IsCancellationRequested then
+                            return Error NodeLockRejection.HolderHoldsLock
+                        else
+                            let! value = action
+                            return Ok value
                     finally
+                        registration.Dispose()
                         release seq
         }
