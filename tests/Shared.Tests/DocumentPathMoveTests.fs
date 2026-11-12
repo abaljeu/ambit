@@ -372,3 +372,83 @@ let ``coalescePathMoves keeps file-owned directory separate from file move`` () 
 
     Assert.Contains(coalesced, fun move -> move.nodeId = fileId)
     Assert.Contains(coalesced, fun move -> move.nodeId = dirId)
+
+let private moveFor (moves: DocumentPathMove list) (nodeId: NodeId) =
+    match moves |> List.tryFind (fun move -> move.nodeId = nodeId) with
+    | Some move -> move
+    | None -> failwith $"missing move {nodeId.Value}"
+
+[<Fact>]
+let ``sameWorkspaceMoves keeps a same-workspace move and drops a cross-workspace move and a workspace move`` () =
+    let homeId = NodeId.New()
+    let otherId = NodeId.New()
+    let spareId = NodeId.New()
+    let stayId = NodeId.New()
+    let dirId = NodeId.New()
+    let movingId = NodeId.New()
+    let rootFileId = NodeId.New()
+
+    let graph0 =
+        Graph.create ()
+        |> addDetachedMany
+            [ specialNode homeId Workspace "home" Graph.workspacesId
+              specialNode otherId Workspace "other" Graph.workspacesId
+              specialNode spareId Workspace "spare" Graph.workspacesId
+              specialNode stayId File "stay.txt" homeId
+              specialNode dirId Directory "docs" homeId
+              specialNode movingId File "readme.txt" homeId
+              specialNode rootFileId File "root.txt" Graph.rootId ]
+
+    let graph1 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ homeId; otherId; spareId ]) graph0
+        |> requireOk "workspaces"
+
+    let graph2 =
+        Graph.replace homeId 0 [] (owned [ stayId; dirId; movingId ]) graph1
+        |> requireOk "home children"
+
+    let rootIndex = Graph.fileTreeInsertIndex graph2 Graph.rootId
+    let pre =
+        Graph.replace Graph.rootId rootIndex [] (owned [ rootFileId ]) graph2
+        |> requireOk "root file"
+
+    let renamed =
+        pre
+        |> Graph.setName stayId "stay.txt" "kept.txt"
+        |> requireOk "rename stay"
+        |> Graph.setName dirId "docs" "archive"
+        |> requireOk "rename dir"
+        |> Graph.setName rootFileId "root.txt" "root2.txt"
+        |> requireOk "rename root file"
+
+    let removed =
+        Graph.replace homeId 2 (owned [ movingId ]) [] renamed
+        |> requireOk "remove moving"
+
+    let post =
+        Graph.replace otherId 0 [] (owned [ movingId ]) removed
+        |> requireOk "insert moving"
+
+    let planned = DocumentPathMove.planPathMovesBetweenGraphs pre post
+    let stayMove = moveFor planned stayId
+    let dirMove = moveFor planned dirId
+    let crossMove = moveFor planned movingId
+    let rootMove = moveFor planned rootFileId
+    let workspaceMove =
+        { nodeId = spareId; oldPath = "//spare"; newPath = "//renamed" }
+
+    Assert.Equal("//home/stay.txt", stayMove.oldPath)
+    Assert.Equal("//home/kept.txt", stayMove.newPath)
+    Assert.Equal("//home/docs/", dirMove.oldPath)
+    Assert.Equal("//home/archive/", dirMove.newPath)
+    Assert.Equal("//home/readme.txt", crossMove.oldPath)
+    Assert.Equal("//other/readme.txt", crossMove.newPath)
+    Assert.Equal("//root.txt", rootMove.oldPath)
+    Assert.Equal("//root2.txt", rootMove.newPath)
+
+    let ordered = [ workspaceMove; stayMove; crossMove; dirMove; rootMove ]
+    let kept = DocumentPathMove.sameWorkspaceMoves pre post ordered
+
+    Assert.Equal<DocumentPathMove list>(
+        [ stayMove; dirMove; rootMove ],
+        kept)

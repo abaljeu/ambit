@@ -68,7 +68,7 @@ coalescePathMoves : Graph -> DocumentPathMove list -> DocumentPathMove list
 
 ### Path class
 
-[ ] `sameWorkspaceMoves` keeps a File Node or Directory Node whose `GraphQuery.enclosingWorkspace` id is the same on the pre graph and the post graph.
+[x] `sameWorkspaceMoves` keeps a File Node or Directory Node whose `GraphQuery.enclosingWorkspace` id is the same on the pre graph and the post graph.
 
 ```fsharp
 sameWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list
@@ -77,7 +77,7 @@ crossWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMov
 
 [ ] `crossWorkspaceMoves` keeps a File Node or Directory Node whose enclosing Workspace id differs.
 [ ] A Workspace Node is in neither list.
-[ ] `GraphQuery.enclosingWorkspace` is the Workspace id. The callee is `enclosingWorkspace : Graph -> NodeId -> NodeId option`.
+[x] `GraphQuery.enclosingWorkspace` is the Workspace id. The callee is `enclosingWorkspace : Graph -> NodeId -> NodeId option`.
 
 ### Accept validation
 
@@ -142,17 +142,17 @@ persistGraphOps : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, 
 
 ### Same-workspace relocate
 
-[ ] `gitMove` runs `git mv` in that Workspace repository.
+[x] `gitMove` runs `git mv` in that Workspace repository.
 
 ```fsharp
 gitMove : string -> string -> string -> Result<unit, string>
 ```
 
-[ ] The arguments are the repository root, the old git path, and the new git path.
-[ ] The repository root and the git path come from Workspace repository.
-[ ] One same-workspace move is one `git mv`.
-[ ] `git mv` of a Directory moves that Directory tree.
-[ ] `GitSave.runGit` is the git process call. The callee is `runGit : string -> string -> Result<string, string>`.
+[x] The arguments are the repository root, the old git path, and the new git path.
+[x] The repository root and the git path come from Workspace repository.
+[x] One same-workspace move is one `git mv`.
+[x] `git mv` of a Directory moves that Directory tree.
+[x] `GitSave.runGit` is the git process call. The callee is `runGit : string -> string -> Result<string, string>`.
 
 ### Cross-workspace move
 
@@ -282,10 +282,10 @@ DocumentPersistPath.workspaceRootFor : string -> Graph -> NodeId -> string optio
 [x] `DocumentPersistPath.workspaceRootFor` returns the named Workspace directory.
 [x] `workspaceRootFor` returns None when the enclosing Workspace is ROOT.
 [x] The repository root of a named Workspace is the directory `workspaceRootFor` returns. Callers are `GithubTransportActor`, `LoadSaveRouting`, and `Api`.
-[ ] The repository root of ROOT is the data directory.
+[x] The repository root of ROOT is the data directory.
 [x] `DocumentPartition.artifactFileRelative` and `DocumentPartition.artifactDirectoryRelative` are data-directory paths. `artifactDirectoryRelative` returns None for `Graph.rootId`. `artifactFileRelative` returns `.amb` for `Graph.rootId`.
-[ ] The git path of a named Workspace is that data-directory path without the workspace directory prefix.
-[ ] The git path of ROOT is that data-directory path.
+[x] The git path of a named Workspace is that data-directory path without the workspace directory prefix.
+[x] The git path of ROOT is that data-directory path.
 
 ## 4. Flow paths
 
@@ -304,7 +304,7 @@ Persist thread write
 
 [ ] Path comparison, Path coalesce, and Path class select the same-workspace moves. A File Node moved under a new Directory Node is one of those moves when its derived path changes and its enclosing Workspace id stays the same. Each selected move is one `git mv`.
 
-[ ] A same-Workspace move moves the file on disk, whether or not the File Node or its enclosing Directory Node has been parsed. Parse state does not affect this rule. This holds when the strictly enclosing artifact becomes a Directory Node or the Workspace Node.
+[x] A same-Workspace move moves the file on disk, whether or not the File Node or its enclosing Directory Node has been parsed. Parse state does not affect this rule. This holds when the strictly enclosing artifact becomes a Directory Node or the Workspace Node.
 
 ```fsharp
 Path comparison
@@ -440,7 +440,7 @@ Persist thread write
 4. [x] **Disk relocate** / **Path comparison** — ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`.
 5. [x] **Accept validation** / **Path coalesce** — ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs`.
 6. [ ] **Path coalesce** / **Path class** — ``coalesce keeps a nested node whose derived path differs`` in `tests/Shared.Tests/DocumentPathMoveTests.fs`.
-7. [ ] **Same-workspace relocate** / **Workspace repository** — ``same-workspace relocate runs git mv in the Workspace repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`.
+7. [x] **Same-workspace relocate** / **Workspace repository** — ``same-workspace relocate runs git mv in the Workspace repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`.
 8. [ ] **Cross-workspace move** / **Workspace repository** — ``cross-workspace move deletes from the source repository and adds to the destination repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`.
 9. [ ] **Change amendment** / **Post change** — ``a change conflict is amended before the graph is stored`` in `tests/Server.Tests/DocumentPersistChangeTests.fs`.
 

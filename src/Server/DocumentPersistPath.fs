@@ -48,6 +48,48 @@ module DocumentPersistPath =
         |> Option.bind (fun relativePath ->
             resolveUnderDataDir dataDir relativePath |> Result.toOption)
 
+    let repositoryRoot
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : string option =
+        match GraphQuery.enclosingWorkspace graph nodeId with
+        | None -> None
+        | Some workspaceId when workspaceId = Graph.rootId ->
+            Some (dataDirBase dataDir)
+        | Some _ -> workspaceRootFor dataDir graph nodeId
+
+    let private dataDirectoryPath (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special File } ->
+            DocumentPartition.artifactFileRelative graph nodeId
+        | Some { kind = Special Directory } ->
+            DocumentPartition.artifactDirectoryRelative graph nodeId
+        | _ -> None
+
+    let private withoutWorkspacePrefix (prefix: string) (path: string) =
+        if path.StartsWith(prefix, StringComparison.Ordinal)
+           && path.Length > prefix.Length then
+            Some (path.Substring(prefix.Length))
+        else
+            None
+
+    let gitPath (graph: Graph) (nodeId: NodeId) : string option =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special Workspace } -> None
+        | _ ->
+            match dataDirectoryPath graph nodeId with
+            | None -> None
+            | Some path ->
+                match GraphQuery.enclosingWorkspace graph nodeId with
+                | None -> None
+                | Some workspaceId when workspaceId = Graph.rootId ->
+                    Some path
+                | Some workspaceId ->
+                    DocumentPartition.artifactDirectoryRelative graph workspaceId
+                    |> Option.bind (fun prefix ->
+                        withoutWorkspacePrefix prefix path)
+
     let enumerateDocumentRoots (graph: Graph) : NodeId list =
         graph.nodes
         |> Map.toSeq
