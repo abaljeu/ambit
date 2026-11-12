@@ -60,7 +60,7 @@ Blockers:
 
 ## Stop when
 
-[ ] Record the stop at `plan/actor-as-client/reports/26-move-the-id-record-starts-onto-function-starts-stop.md`, then ask.
+[ ] Record the stop in this ticket file, then ask.
 [ ] Stop when a start cannot obtain a real `ActorFunction` on the server.
 [ ] Stop when the edit adds a session id.
 [ ] Stop when the edit adds an `Order` case.
@@ -77,5 +77,5 @@ Blockers:
   - `tests/Server.Tests`: `OrderedEventStreamTests`
   - `tests/Server.Tests`: `QueryActorTests`
 [ ] All executed tests pass.
-[ ] Write the verdict to `plan/actor-as-client/reports/26-move-the-id-record-starts-onto-function-starts-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[ ] Record the verdict in this ticket file. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
