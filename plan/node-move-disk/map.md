@@ -10,7 +10,7 @@
   - `PersistThread.runRequest` calls `DocumentPersistChange.persistNode`.
   - `persistNode` writes the artifact at the new path and leaves the old file.
   - `DocumentPersistChange.persistGraphChange` and `DocumentPersistChange.persistGraphOps` call `executePathMoves`.
-  - `executePathMoves` relocates with `File.Move` and `Directory.Move`.
+  - `executePathMoves` folds `executeCoalescedMove`. That takes `NodeLockPool.withLockResult` on the post graph and `move.nodeId`, then calls `resolveMovePaths` and `executePathMove`. `executePathMove` relocates with `File.Move` and `Directory.Move`.
   - Tests call `persistGraphChange` and `persistGraphOps`.
   - The live accept path and the persist thread call `validatePathMoves` and `persistNode`.
 

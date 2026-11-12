@@ -38,6 +38,6 @@ Persist and git paths still run `withWorkTreeGate`. That exclusive gate is not t
 
 ## Notes
 
-- 2026-11-09 — An earlier mark named [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock.md). The 2026-11-10 note names the superseding ticket.
-- 2026-11-10 — Alan: this ticket is superseded by [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool.md).
+- 2026-11-09 — An earlier mark named [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md). The 2026-11-10 note names the superseding ticket.
+- 2026-11-10 — Alan: this ticket is superseded by [11 — Expand the node lock pool](plan/node-move-disk/issues/11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md).
 - 2026-11-10 — What to build is the superseded stand-beside job. 31 — Migrate onto the workspace lock is the one-step change: it moves onto `NodeLockPool.withLock` and removes `withWorkTreeGate` and the `GitRun` private gate together.
