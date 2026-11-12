@@ -14,7 +14,7 @@ Type:
 Blockers:
 
 [ ] [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md). `postActorStart` posts `test`, `ai`, and a query through `postActorOrder`.
-[ ] [27 — Log StartActor on the door and named starts](../27-log-startactor-on-the-door-and-named-starts/27-log-startactor-on-the-door-and-named-starts-ticket.md). `finishReadyStart` logs `EventBody.ActorStart`. 27 posts `Order.StartActor` of `ActorOrder` after the pool affirms. This ticket edits that post.
+[ ] [27 — Reject unknown Run commands before the queue](../27-reject-unknown-run-commands-before-the-queue/27-reject-unknown-run-commands-before-the-queue-ticket.md). 27 rejects a `?` command with no function start before `queueRun`, so `postChosenStart` has no production caller.
 
 ## Inputs
 
