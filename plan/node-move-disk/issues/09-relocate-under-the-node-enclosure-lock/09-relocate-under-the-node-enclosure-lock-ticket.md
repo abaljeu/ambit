@@ -242,8 +242,8 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 ## Do not load
 
 [x] `src/Server/NodeLockPool.fs` stays as it is.
-[x] `src/Server/WorkspaceGit.fs` and `src/Server/DocumentPersistPath.fs` stay as 05 and 07 leave them. Those helpers are still absent.
-[x] `src/Shared/DocumentPathMove.fs` stays as 05, 06, and 07 leave it. `sameWorkspaceMoves` and `crossWorkspaceMoves` are still absent.
+[x] `src/Server/WorkspaceGit.fs` and `src/Server/DocumentPersistPath.fs` stay as 05 — Relocate in the same workspace and 07 — Move an owned node across workspaces leave them. `WorkspaceGit.gitMove`, `DocumentPersistPath.repositoryRoot`, and `DocumentPersistPath.gitPath` are in source. `moveAcrossWorkspaces` stays absent.
+[x] `src/Shared/DocumentPathMove.fs` stays as 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, and 07 — Move an owned node across workspaces leave it. `sameWorkspaceMoves` is in source. `crossWorkspaceMoves` stays absent.
 [x] `src/Server/DocumentPersistWrite.fs` stays as it is. It already calls `withLockResult`.
 [x] `src/Server/ParseThread.fs` stays as it is. `reconcileDirectory` already calls `withLockResult`.
 [x] `src/Server/Core/PersistThread.fs` stays as it is.

@@ -12,7 +12,7 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 [x] `DocumentPathMove` in `src/Shared/DocumentPathMove.fs` is `{ nodeId: NodeId; oldPath: string; newPath: string }`.
 [x] `DocumentPathMove.coalescePathMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> DocumentPathMove list -> DocumentPathMove list`.
 [x] `DocumentPathMove.planPathMovesBetweenGraphs` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list`.
-[x] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` after [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) lands; this ticket does not add it.
+[x] `DocumentPathMove.sameWorkspaceMoves` in `src/Shared/DocumentPathMove.fs` has type `Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list`. [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is `coded`. This ticket does not add it.
 [x] `NodeDesktopPath.expandedPathForNodeId` in `src/Shared/NodeDesktopPath.fs` has type `Graph -> NodeId -> string option` and supplies the desktop `oldPath` and `newPath` strings on each move.
 [x] `DocumentPartition.artifactFileRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
 [x] `DocumentPartition.artifactDirectoryRelative` in `src/Shared/DocumentPartition.fs` has type `Graph -> NodeId -> string option`.
