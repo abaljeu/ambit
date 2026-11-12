@@ -10,8 +10,8 @@ The outcome of this effort is a `plan/context/` folder of `<step>-work.md` files
 4. **Slicing.** The scope of one ticket, then the next, until every slice has a ticket. [[../context/slicing-work.md]]
 5. **Ticket.** One ticket file, `plan/<slug>/issues/NN-<ticket-name>.md`. [[../context/ticket-work.md]]
 6. **Build.** The source those tickets change. [[../context/build-work.md]]
-7. **Review.** Scores the diff against the stories that ticket named. A miss names what failed, and the ticket returns to build. [[../context/review-work.md]]
-8. **Document.** Updates `doc/current` and `doc/user` to match the tickets whose stories were met. [[../context/document-work.md]]
+7. **Review.** One report per ticket to `plan/<slug>/review/NN-<ticket-name>.md`, scored against the stories that ticket named. A miss names what failed, and the ticket returns to build. [[../context/review-work.md]]
+8. **Document.** Updates `doc/current` and `doc/user` to match the tickets whose stories were met. `plan/<slug>/doc/NN-<ticket-name>.md` links the pages updated. [[../context/document-work.md]]
 
 A work file is `plan/context/<step>-work.md`. It says where that step's work goes, and it names the template whose headings are copied into the work. Pointer lines stay in the template, and each pointer names its target file. The file is written when that step is about to be worked.
 
