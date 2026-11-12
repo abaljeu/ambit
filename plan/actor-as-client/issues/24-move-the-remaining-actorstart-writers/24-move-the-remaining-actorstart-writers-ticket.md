@@ -7,7 +7,7 @@ One job: No code outside the `Order.StartActorDeprecated` case itself builds or 
 
 Type:
 
-[ ] coding
+[x] coding
 
 Blockers:
 
@@ -38,10 +38,10 @@ Blockers:
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
 2. [ ] `dispatchStartActor` and `recordFailedStart` post `Order.StartActor` of `ActorOrder`, after the pool affirms the start. A refused start posts no `Order.StartActor`.
 3. [ ] `expandStored` pairs `Order.StartActor` with its stop. It does not match `EventBody.ActorStart`.
-4. [ ] `postEvent` returns the stored start when `storedEvents` returns that start with its stop. It does not return `Error "stored Event not found"` for that pair.
+4. [x] `postEvent` returns the stored start when `storedEvents` returns that start with its stop. It does not return `Error "stored Event not found"` for that pair.
 5. [ ] `queueStart` queues `Order.StartActor` of `ActorOrder`. If the client cannot build an `ActorOrder`, because `ActorFunction` is a server function, stop and ask.
 6. [ ] Delete `EventBody.ActorStart` and `(|ActorStart|_|)` from `src/Shared/History.fs` when nothing calls them.
 7. [ ] Search `src/` and `tests/` for `EventBody.ActorStart`. Hits remain only in files that 22 or 25 owns.
@@ -54,7 +54,7 @@ Blockers:
 [ ] `src/Server/Core/CoreMailboxActors.fs`
 [ ] `src/Server/Core/CoreMailboxApi.fs`
 [ ] `tests/Shared.Tests/RunEditCommitTests.fs`
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs`: a test where `postEvent` posts a start that stops at once and returns the stored start.
+[x] `tests/Server.Tests/CoreMailboxDoorTests.fs`: a test where `postEvent` posts a start that stops at once and returns the stored start.
 
 ## Stop when
 
@@ -67,10 +67,10 @@ Blockers:
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Shared.Tests`: `RunEditCommitTests`
   - `tests/Server.Tests`: `CoreMailboxDoorTests`
-[ ] All executed tests pass.
+[x] All executed tests pass.
 [ ] Write the verdict to `plan/actor-as-client/reports/24-move-the-remaining-actorstart-writers-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.

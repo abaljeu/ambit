@@ -163,6 +163,18 @@ module CoreMailboxApi =
                     take acc rest
         take [] ids
 
+    let private affirmedStart events =
+        match events with
+        | [ stored ] -> Ok stored
+        | [ stored; stopped ] ->
+            match stored.body, stopped.body with
+            | EventBody.ActorStart request,
+              EventBody.ActorStop(id, _)
+                when id = request.focusId ->
+                Ok stored
+            | _ -> Error "stored Event not found"
+        | _ -> Error "stored Event not found"
+
     /// A duplicate submissionId replies the stored id. The catch-up cursor
     /// stays at the log tip when a later Change is already stored, so the
     /// ack list does not gain that Change.
@@ -220,8 +232,7 @@ module CoreMailboxApi =
                 let! log = eventsSince host (afterId [ eventId ])
                 match storedEvents log [ eventId ] with
                 | Error err -> return Error err
-                | Ok [ stored ] -> return Ok stored
-                | Ok _ -> return Error "stored Event not found"
+                | Ok events -> return affirmedStart events
         }
 
     let private clientBatchError (events: Ev list) =

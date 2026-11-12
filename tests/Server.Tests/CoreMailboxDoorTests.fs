@@ -1422,6 +1422,35 @@ let private assertStoredChange host event origin =
     }
 
 [<Fact>]
+let ``postEvent returns the stored start when that start stops at once`` () =
+    withHost (fun host pool -> task {
+        let start =
+            postedBody "Run" (EventBody.ActorStart sampleRequest)
+        let! first =
+            CoreMailboxApi.postEvent host testCaller start
+            |> Async.StartAsTask
+        let stored = requireOk "start" first
+        match pool.trySecretForActorNode sampleRequest.focusId with
+        | None -> Assert.Fail("affirmed start has no live secret")
+        | Some secret ->
+            let! stopped =
+                CoreMailboxApi.actorStop
+                    host
+                    (actorCaller secret)
+                    ActorSucceeded
+                |> Async.StartAsTask
+            requireOk "stop" stopped |> ignore
+            let! again =
+                CoreMailboxApi.postEvent host testCaller start
+                |> Async.StartAsTask
+            let returned = requireOk "stored start" again
+            Assert.Equal(stored.id, returned.id)
+            Assert.Equal(
+                EventBody.ActorStart sampleRequest,
+                returned.body)
+    })
+
+[<Fact>]
 let ``a stored Edit Change keeps origin Edit`` () =
     withHost (fun host _ -> task {
         let event = postedEvent ()
