@@ -5,13 +5,11 @@ One job: The Server runs the relocation from 05 — Relocate in the same workspa
 Type: coding
 Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md), [06 — Keep a nested node whose derived path differs](../06-keep-a-nested-node-whose-derived-path-differs/06-keep-a-nested-node-whose-derived-path-differs-ticket.md), [07 — Move an owned node across workspaces](../07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md), [08 — Amend a change conflict before the graph is stored](../08-amend-a-change-conflict-before-the-graph-is-stored/08-amend-a-change-conflict-before-the-graph-is-stored-ticket.md), [13 — Lock the persist path moves](../13-lock-the-persist-path-moves/13-lock-the-persist-path-moves-ticket.md)
 
-Note, 2026-11-10: 13 — Lock the persist path moves wraps each coalesced `File.Move` and `Directory.Move` in `persistGraphChangeWith`. This ticket puts the 05–08 relocation under that lock. The stop at [09 — Relocate under the node lock stop](plan/node-move-disk/issues/09-relocate-under-the-node-enclosure-lock/09-build.md) stays the record of the earlier build.
+Note, 2026-11-10: 13 — Lock the persist path moves holds `NodeLockPool.withLockResult` inside `executeCoalescedMove` for each coalesced `File.Move` and `Directory.Move`. This ticket puts the 05–08 relocation under that same lock. The stop at [09 — Relocate under the node lock stop](plan/node-move-disk/issues/09-relocate-under-the-node-enclosure-lock/09-build.md) stays the record of the earlier build.
 
 ## Scope
 
-`NodeEnclosureLock` and `withWorkTreeGate` in this scope are superseded by `NodeLockPool.withLock`.
-
-Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](plan/node-move-disk/arch.md) section 4. Post change is the single relocate caller. It classifies moves and runs `gitMove` or `moveAcrossWorkspaces` under the node enclosure lock (or the File's per-member persist lock), then stores the graph and queues persists.
+Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](plan/node-move-disk/arch.md) section 4. Post change is the single relocate caller. It classifies moves and runs `gitMove` or `moveAcrossWorkspaces` inside one `NodeLockPool.withLock` on `move.nodeId`, then stores the graph and queues persists. A holder does not take a second lock. `NodeLockRejection` is only `HolderHoldsLock`.
 
 ### Signatures
 
@@ -25,7 +23,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [x] `GraphQuery.enclosingWorkspace : Graph -> NodeId -> NodeId option` in `src/Shared/GraphQuery.fs`.
 
-[x] `GraphQuery.enclosing : Graph -> (Node -> bool) -> NodeId -> NodeId option` in `src/Shared/GraphQuery.fs` lines 16–34; [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md) uses this walk for the per-member persist owner chain.
+[x] `GraphQuery.enclosing : Graph -> (Node -> bool) -> NodeId -> NodeId option` in `src/Shared/GraphQuery.fs` walks `ownerParentByChild` with a visited set. `NodeLockPool.ownerChain` is that parent walk and does not call `GraphQuery`.
 
 [x] `DocumentPersistPath.repositoryRoot : string -> Graph -> NodeId -> string option` and `DocumentPersistPath.gitPath : Graph -> NodeId -> string option` land in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md); they are absent from source until that ticket merges.
 
@@ -33,63 +31,64 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [ ] `WorkspaceGit.moveAcrossWorkspaces : string -> string -> string -> string -> Result<unit, string>` lands in [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md); per that ticket, the destination work tree already holds the artifact at the destination git path before the call.
 
-[ ] `WorkspaceGit.withWorkTreeGate : string -> (unit -> Result<'value, string>) -> Result<'value, string>` in `src/Server/WorkspaceGit.fs` lines 43–55.
+[x] `WorkspaceGit.withWorkTreeGate` is absent. `NodeLockPool.withLock` has type `Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>`. `withLockResult` is internal.
 
-[x] `GitSave.runGit : string -> string -> Result<string, string>` in `src/Server/GitSave.fs`.
+[x] `GitSave.runGit : string -> string -> Result<string, string>` in `src/Server/GitSave.fs` calls `GitRun.gitExec`.
 
-[ ] `NodeEnclosureLock.withNodeLock : NodeId -> (unit -> 'a) -> 'a`, `NodeEnclosureLock.withPersist : Graph -> NodeId -> (NodeId list -> 'a) -> 'a`, and `NodeEnclosureLock.withParseRead : Graph -> NodeId -> (unit -> 'a) -> 'a` land in [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md) in new `src/Server/NodeEnclosureLock.fs`; the module is absent from source until that ticket merges.
+[x] `NodeEnclosureLock`, `withNodeLock`, `withPersist`, and `withParseRead` are absent. [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md) replaced them with `NodeLockPool.withLock`.
 
-[x] `DocumentPersistChange.validatePathMoves : string -> Graph -> Graph -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs` lines 112–128.
+[x] `DocumentPersistChange.validatePathMoves : string -> Graph -> Graph -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs`.
 
-[ ] `DocumentPersistChange.executePathMoves : string -> Graph -> Graph -> DocumentPathMove list -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs` lines 164–180; private `executePathMove` uses `File.Move` and `Directory.Move`.
+[x] `DocumentPersistChange.executePathMoves` folds `executeCoalescedMove`. That takes `withLockResult` on the post graph and `move.nodeId`, then calls `resolveMovePaths` and `executePathMove`. `executePathMove` uses `File.Move` and `Directory.Move`, and calls `validateDestinationAvailable`.
 
-[ ] `DocumentPersistChange.persistNode : string -> Graph -> NodeId -> Result<DateTime, string>` in `src/Server/DocumentPersistChange.fs` line 261 calls `DocumentPersistWrite.writeDocument`.
+[x] `DocumentPersistChange.persistNode : string -> Graph -> NodeId -> Result<DateTime, string>` calls `DocumentPersistWrite.writeDocument`.
 
-[x] `FileAgent.processPostEvents : LoadedFile -> Ev list -> bool -> Result<CoreChangesAccepted, string>` is private in `src/Server/Core/FileAgent.fs` lines 107–123; it calls `validatePostChange`, then assigns `loaded.state.Value <- newState`.
+[x] `FileAgent.processPostEvents` is private in `src/Server/Core/FileAgent.fs`. It calls `validatePostChange`, then assigns `loaded.state.Value <- newState`.
 
-[x] `DbAgent.finishAppliedPostChange` is private in `src/Server/Core/DbAgent.fs` lines 338–359; it calls `validatePostChange`, `persistLiveChange`, then `commitPostChange` which sets `loaded.state.Value <- stateToStore`.
+[x] `DbAgent.finishAppliedPostChange` is private in `src/Server/Core/DbAgent.fs`. It calls `validatePostChange`, `persistLiveChange`, then `commitPostChange`, which sets `loaded.state.Value <- stateToStore`.
 
-[x] `PersistThread.runRequest` is private in `src/Server/Core/PersistThread.fs` lines 30–50; it calls `deps.persistNode` when `CoreEventDispatch.persistedNode` is false. This slice does not add the Unparsed reject at the top of `runRequest`.
+[x] `PersistThread.runRequest` is private in `src/Server/Core/PersistThread.fs`. It calls `deps.persistNode` when `CoreEventDispatch.persistedNode` is false. This slice does not add the Unparsed reject at the top of `runRequest`.
 
 ### Match sites
 
-[ ] `FileAgent.applyOne` in `src/Server/Core/FileAgent.fs` lines 63–69 calls `ChangeAmendment.applyPosted` before post-change validation; [08 — Amend a change conflict before the graph is stored](plan/node-move-disk/issues/08-amend-a-change-conflict-before-the-graph-is-stored/08-amend-a-change-conflict-before-the-graph-is-stored-ticket.md) extends that path with disk-conflict rename ops before store.
+[x] `FileAgent.applyOne` in `src/Server/Core/FileAgent.fs` calls `ChangeAmendment.applyPosted` before post-change validation. [08 — Amend a change conflict before the graph is stored](plan/node-move-disk/issues/08-amend-a-change-conflict-before-the-graph-is-stored/08-amend-a-change-conflict-before-the-graph-is-stored-ticket.md) extends that path with disk-conflict rename ops before store. That extension is not in the tree.
 
 [ ] `FileAgent.processPostEvents` in `FileAgent.fs` calls `applyBatch` then `validatePostChange loaded graphOnly preGraph newState.graph` with `preGraph = loaded.state.Value.graph`; on `Ok ()` it stores the graph. This slice inserts classify-and-relocate after validation `Ok` and before `loaded.state.Value <- newState`.
 
-[x] `FileAgent.validatePostChange` in `FileAgent.fs` lines 93–105 calls `DocumentPersistChange.validatePathMoves loaded.dataDir` and `validateGraphDiskEffects` when `graphOnly` is false.
+[x] `FileAgent.validatePostChange` calls `DocumentPersistChange.validatePathMoves loaded.dataDir` and `validateGraphDiskEffects` when `graphOnly` is false.
 
-[x] `FileAgent.coreMailboxAccess` in `FileAgent.fs` line 148 sets `applyEvent = fun event graphOnly -> processPostEvents loaded [ event ] graphOnly` and line 154 sets `pushPersist = PersistRequestStack.pushBoundNode loaded.stack`.
+[x] `FileAgent.coreMailboxAccess` sets `applyEvent` to `processPostEvents loaded [ event ] graphOnly` and `pushPersist` to `PersistRequestStack.pushBoundNode loaded.stack`.
 
 [x] `DbAgent.applyOneEvent` calls `ChangeAmendment.applyPosted` inside the `Ev.ops` branch; `DbAgent.processPostEvents` calls `finishAppliedPostChange` when the applied event id advances.
 
-[x] `DbAgent.validatePostChange` in `DbAgent.fs` lines 296–306 calls `validatePathMoves` only when `liveSaveDataDir` is `Some dataDir`; it returns `Ok ()` for `graphOnly` or when `liveSaveDataDir` is `None`.
+[x] `DbAgent.validatePostChange` calls `validatePathMoves` only when `liveSaveDataDir` is `Some dataDir`. It returns `Ok ()` for `graphOnly` or when `liveSaveDataDir` is `None`.
 
 [ ] `DbAgent.finishAppliedPostChange` matches `FileAgent` on validation then store; this slice inserts the same relocate step after validation `Ok` and before `commitPostChange` when `graphOnly` is false and a data directory is present (`loaded.dataDir` is always set on `FileAgent`; `liveSaveDataDir` on `DbAgent`).
 
-[ ] Recommended shared orchestration: a new `DocumentPersistChange` entry (for example `relocateAcceptedPathMoves`) that takes `dataDir`, `preGraph`, `postGraph`, coalesces with `coalescePathMoves`, partitions with `sameWorkspaceMoves` and `crossWorkspaceMoves`, runs `executePathMoves` for cross-workspace disk placement, then for each move holds `NodeEnclosureLock.withNodeLock` on a `Special Directory` (or strictly enclosing `Directory` / `Workspace` node per move) or `NodeEnclosureLock.withPersist` on a `Special File`, nests `WorkspaceGit.withWorkTreeGate` when `repositoryRoot` is a named Workspace, then calls `gitMove` or `moveAcrossWorkspaces` with `repositoryRoot` and `gitPath` from the blocker tickets.
+[ ] `DocumentPersistChange.relocateAcceptedMoves` takes `dataDir`, `preGraph`, and `postGraph`. It coalesces with `coalescePathMoves`, partitions with `sameWorkspaceMoves` and `crossWorkspaceMoves`, and for each move calls `NodeLockPool.withLockResult` on the post graph and `move.nodeId`. `gitMove` or `moveAcrossWorkspaces` runs inside that action. The caller passes no second node id. `withWorkTreeGate`, `withNodeLock`, `withPersist`, and `withParseRead` are absent and are not part of this call.
 
 [ ] Cross-workspace byte copy: [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md) requires the destination work tree to hold the File or Directory before `moveAcrossWorkspaces`; `moveAcrossWorkspaces` returns `Error` and runs no git command when the destination path is missing. The Post change relocate caller (the new `DocumentPersistChange` helper or inline agent step), not `moveAcrossWorkspaces`, copies bytes with `executePathMoves` (or `executePathMove` via `resolveMovePaths`) on `crossWorkspaceMoves` only, then calls `moveAcrossWorkspaces`.
 
 [ ] Same-workspace moves: one `gitMove` per classified move; `gitMove` runs `git mv` in the work tree via `GitSave.runGit` per [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md). This slice does not call `executePathMoves` for same-workspace classified moves when `gitMove` handles the tree.
 
-[x] `DocumentPersistChange.persistGraphChangeWith` still calls `executePathMoves` then `writeDocumentsSoft`; this slice does not reroute `persistGraphChange` / `persistGraphOps` production callers through git relocate.
+[x] `DocumentPersistChange.persistGraphChangeWith` calls `executePathMoves` then `writeDocumentsSoft`. The path-move lock is inside `executeCoalescedMove`. This slice does not reroute `persistGraphChange` or `persistGraphOps` through git relocate.
 
-[ ] Lock order while `WorkspaceGit.withWorkTreeGate` still exists: acquire node lock (or `withPersist` for a File move), drain, take `withWorkTreeGate` on the repository root, run git inside `GitSave.runGit` / `GitRun.gitExec`, release the gate, then release the node lock or persist grant.
+[x] Lock order is one `withLockResult` on `move.nodeId`. Git runs inside that action. The action's return releases the request. A second `withLock` on that thread returns `HolderHoldsLock`. There is no work-tree gate to nest.
 
-[ ] A Directory move takes one `withNodeLock` on that Directory `NodeId`. A single File move wraps git in `withPersist` on that File `NodeId`, not `withNodeLock` on the parent Directory.
+[x] A Directory move and a File move use that same call on `move.nodeId`. A File move does not also lock the parent Directory.
 
-[ ] `CoreEventDispatch.persistNew` in `src/Server/Core/CoreEventDispatch.fs` line 325 calls `persist` (`context.persist.applyEvent`), then `store`, then `markAcceptedSpecials`; relocate runs inside `applyEvent` before the graph store step in the agent.
+[x] `CoreEventDispatch.persistNew` calls `persist` (`context.persist.applyEvent`), then `store`, then `markAcceptedSpecials`.
+[ ] Relocate runs inside `applyEvent` before the graph store step in the agent. That call is not in the tree.
 
-[x] `CoreEventDispatch.pushChangeSpecials` lines 241–272 in `CoreEventDispatch.fs` calls `DocumentOpImpact.owningSpecials` then `List.iter context.persist.pushPersist` after `applyEvent` returns; `CoreMailboxFilesAxis.pushParsedUnpersisted` in `src/Server/Core/CoreMailboxFilesAxis.fs` line 62 also calls `persist.pushPersist` on a separate Unparsed path.
+[x] `CoreEventDispatch.pushChangeSpecials` calls `DocumentOpImpact.owningSpecials` then `pushPersist` after `applyEvent` returns. `CoreMailboxFilesAxis.pushParsedUnpersisted` also calls `persist.pushPersist` when parse state is Parsed and persist state is Unpersisted.
 
 [x] Persist queue for a posted Change stays outside the agent today: this slice leaves `markAcceptedSpecials` → `pushChangeSpecials` → `pushPersist` in `CoreEventDispatch.fs` unchanged; Post change still reaches the persist stack through that path after store.
 
-[ ] `PersistThread.runRequest` is not a required edit when `NodeEnclosureLock.withPersist` wraps `DocumentPersistWrite.writeDocument` (and private `writeArtifactText`) inside `writeDocument`; blocked persists wait inside `withPersist` before `writeDocument` runs.
+[x] `PersistThread.runRequest` is not an edit. `writeDocument` and `writeArtifactText` already call `withLockResult`. A conflicting persist waits inside that call. This ticket does not take a second lock around them.
 
-[ ] Parse-read sites for a follow-on lock wire in the same ticket if the lock must drain production parse reads (counts toward the source-file budget): `DocumentPersistWrite.planParseFile` / private `preparedParseText` → `DocumentPersistPath.readFileTextAtRelative` in `src/Server/DocumentPersistWrite.fs` lines 67–91 and 120–132; `ParseThread.parseFile` in `src/Server/ParseThread.fs` lines 78–95 calls `DocumentPersistWrite.planParseFile`; `ParseThread.parseDirectory` lines 97–115 calls `DirectoryReconcile.planDirectoryReconcile` with `DocumentPersistPath.discoverImmediateMembers`. Recommended `withParseRead` wrap: inside `planParseFile` for file-body reads, and in `ParseThread.parseDirectory` (or inside `planDirectoryReconcile` caller) for directory reconcile.
+[x] Parse reads already call the pool. `preparedParseText` calls `withLockResult` around a file-body read. `ParseThread.parseFile` calls `DocumentPersistWrite.planParseFile`. `ParseThread.reconcileDirectory` calls `withLockResult` around `DirectoryReconcile.planDirectoryReconcile`. This ticket does not add `withParseRead`.
 
-[ ] Per-member persist lock wire sites in the same ticket if the lock must block live writes during a move: `DocumentPersistWrite.writeDocument` lines 278–287 and private `writeArtifactText` lines 55–65 in `src/Server/DocumentPersistWrite.fs`; `DocumentPersistChange.persistNode` already funnels through `writeDocument`.
+[x] `persistNode` calls `writeDocument`. The persist lock is already `withLockResult` on the document-root node. This ticket does not wrap it again.
 
 ### Existing tests
 
@@ -103,7 +102,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [ ] [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md) names ``cross-workspace move deletes from the source repository and adds to the destination repository`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` as a direct `moveAcrossWorkspaces` caller test.
 
-[ ] [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md) names ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file``, ``node enclosure acquire drains an in-flight persist and a parse read``, and ``persist grant stores the owner chain and includes the directory node`` in `tests/Server.Tests/NodeEnclosureLockTests.fs`.
+[x] Those three enclosure-lock test names are absent. The current pool tests are in `tests/Server.Tests/NodeLockPoolTests.fs`, including ``taking a directory waits while a descendant file is held and a sibling file enters`` and ``an absent node proceeds and the same thread is rejected``.
 
 [x] ``FileAgent applyEvent applies Ev Ops without leftover Change`` and related facts in `tests/Server.Tests/PersistApplyTests.fs` use `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent` and `handlers.graphAtEvent ()` as the public Post change seam.
 
@@ -121,9 +120,9 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [ ] Repository and git-relative paths: `DocumentPersistPath.repositoryRoot` and `gitPath` from [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md).
 
-[ ] Node lock acquire and persist grant: `NodeEnclosureLock.withNodeLock`, `withPersist`, and `withParseRead` from [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md); copy-from wait shape in ``work tree gate waits then continues without overlap`` in `tests/Server.Tests/WorkspaceGitTests.fs`.
+[x] Lock to reuse: `NodeLockPool.withLockResult` inside `executeCoalescedMove` in `src/Server/DocumentPersistChange.fs`. The wait shape is ``taking a directory waits while a descendant file is held and a sibling file enters`` in `tests/Server.Tests/NodeLockPoolTests.fs`. `withNodeLock`, `withPersist`, `withParseRead`, and ``work tree gate waits then continues without overlap`` are absent.
 
-[ ] Work-tree gate nesting: `DocumentPersistPath.withWorkTreeGates` pattern in `src/Server/DocumentPersistPath.fs` lines 51–59 and `persistGraphChangeWith` lines 206–212 in `DocumentPersistChange.fs`.
+[x] `DocumentPersistPath.withWorkTreeGates` is absent. `persistGraphChangeWith` calls `executePathMoves`, then `writeDocumentsSoft`.
 
 [x] Post-change handler test wiring: `PersistApplyTests.fs` `applyThenAppend`, `fileHandlers`, `requireOk "applyEvent" (handlers.applyEvent event false)`, and `DocumentPathMoveExecutionTests.fs` `graphWithNestedDocs`, `newTempDir`, `WorkspaceGit.ensureInit`.
 
@@ -131,7 +130,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [ ] Blockers: [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md), [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md), [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md); [08 — Amend a change conflict before the graph is stored](plan/node-move-disk/issues/08-amend-a-change-conflict-before-the-graph-is-stored/08-amend-a-change-conflict-before-the-graph-is-stored-ticket.md) may land amended graphs before this relocate step.
 
-[ ] Flow 6 order in [arch.md](plan/node-move-disk/arch.md): after Accept validation passes, classify moves, hold node lock or File persist lock, drain in-flight persists and parse reads, run same-workspace or cross-workspace git, release locks, store graph; persist queue follows through `CoreEventDispatch` as today.
+[ ] Flow 6 order in [arch.md](plan/node-move-disk/arch.md): after Accept validation passes, classify moves, hold one `withLockResult` on `move.nodeId`, run same-workspace or cross-workspace git inside that action, release, store graph. A second lock is `HolderHoldsLock`. The persist queue stays `CoreEventDispatch.pushChangeSpecials`.
 
 [ ] Proposed arch seam 10 **Post change relocate under lock** / **Move write gate**: two Server tests observe git relocate from `FileAgent` `handlers.applyEvent`, not from direct helper calls alone.
 
@@ -139,33 +138,31 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 #### Source files
 
-[ ] `src/Server/DocumentPersistChange.fs` — add Post-change relocate orchestration (coalesce, classify, cross-workspace `executePathMoves`, per-move lock, `withWorkTreeGate`, `gitMove`, `moveAcrossWorkspaces`).
+[ ] `src/Server/DocumentPersistChange.fs` — add `relocateAcceptedMoves`: coalesce, classify, one `withLockResult` on `move.nodeId`, `gitMove` or `moveAcrossWorkspaces` inside that action.
 
-[ ] `src/Server/Core/FileAgent.fs` — call relocate orchestration in `processPostEvents` after `validatePostChange` `Ok` and before graph store; pass `loaded.dataDir`.
+[ ] `src/Server/Core/FileAgent.fs` — call `relocateAcceptedMoves` in `processPostEvents` after `validatePostChange` returns `Ok` and before the graph store. Pass `loaded.dataDir`.
 
-[ ] `src/Server/Core/DbAgent.fs` — same call in `finishAppliedPostChange` when `liveSaveDataDir` is `Some`; skip relocate when `graphOnly` or no live data directory.
+[ ] `src/Server/Core/DbAgent.fs` — the same call in `finishAppliedPostChange` when `liveSaveDataDir` is `Some`. Skip when `graphOnly` or there is no live data directory.
 
-[ ] `src/Server/DocumentPersistWrite.fs` — wrap `writeDocument` and private `writeArtifactText` with `NodeEnclosureLock.withPersist` so persist threads wait during a move lock.
+[x] `src/Server/DocumentPersistWrite.fs` and `src/Server/ParseThread.fs` already call `withLockResult`. This slice does not wrap them again.
 
-[ ] `src/Server/ParseThread.fs` — wrap `planParseFile` invocations and directory reconcile parse with `NodeEnclosureLock.withParseRead` (or wrap inside `planParseFile` in `DocumentPersistWrite.fs` instead of `ParseThread.fs`; pick one file for parse-read wire, not both, to limit diff size).
+[ ] Distinct source files: 3. `DocumentPersistChange.fs`, `FileAgent.fs`, and `DbAgent.fs`. Under the 8-file limit in [Size limit](plan/context/size-limit.md).
 
-[ ] Distinct source file count for this slice: 5 (`DocumentPersistChange.fs`, `FileAgent.fs`, `DbAgent.fs`, `DocumentPersistWrite.fs`, and either `ParseThread.fs` or parse-read wiring only in `DocumentPersistWrite.fs`). Under the 8-file limit in [Size limit](plan/context/size-limit.md).
+[x] `PersistThread.fs` stays closed. The persist wait is the existing `withLockResult` in `writeDocument`.
 
-[ ] `src/Server/Core/PersistThread.fs` stays closed when persist wait lives in `withPersist` inside `DocumentPersistWrite.writeDocument`.
-
-[ ] `src/Server/NodeEnclosureLock.fs`, `src/Shared/DocumentPathMove.fs`, `src/Server/WorkspaceGit.fs`, and `src/Server/DocumentPersistPath.fs` are inputs from blocker tickets; this slice calls them and does not redefine `withNodeLock`, `sameWorkspaceMoves`, `crossWorkspaceMoves`, `gitMove`, `moveAcrossWorkspaces`, `repositoryRoot`, or `gitPath`.
+[ ] `src/Shared/DocumentPathMove.fs`, `src/Server/WorkspaceGit.fs`, and `src/Server/DocumentPersistPath.fs` come from 05 and 07. This slice calls `sameWorkspaceMoves`, `crossWorkspaceMoves`, `gitMove`, `moveAcrossWorkspaces`, `repositoryRoot`, and `gitPath` and does not redefine them. `NodeLockPool.fs` stays as it is.
 
 [ ] `src/Server/Core/CoreEventDispatch.fs` stays unchanged for persist queue; `pushChangeSpecials` remains the `pushPersist` caller after `applyEvent`.
 
 #### Tests
 
-[ ] ``Post change same-workspace relocate runs git mv under the node enclosure lock`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` (proposed seam 10) — seed `home` repo with `WorkspaceGit.ensureInit`, `writeAllDocuments`, post a same-Workspace path change through `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent event false` per `PersistApplyTests.fs`, assert `git ls-files` shows the new git path and the old path is gone.
+[ ] ``Post change same-workspace relocate runs git mv under the node lock`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` — seed the `home` repo, post a same-Workspace path change through `FileAgent` `applyEvent`, and assert `git ls-files` shows the new git path. The git call runs inside the lock from 13.
 
-[ ] ``Post change cross-workspace relocate runs moveAcrossWorkspaces under the node enclosure lock`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` (proposed seam 10) — two Workspace repos, tracked file under `home`, reparent Change to `other`, `applyEvent` on FileAgent handlers, assert destination work tree and git indexes match [07 — Move an owned node across workspaces](plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md) expectations.
+[ ] ``Post change cross-workspace relocate deletes from the source repository and adds to the destination repository`` — two Workspace repos, `applyEvent` reparents the File, and the git indexes match [07 — Move an owned node across workspaces](../07-move-an-owned-node-across-workspaces/07-move-an-owned-node-across-workspaces-ticket.md).
 
-[ ] Optional third test (within the 4-test budget): ``Post change directory relocate holds withNodeLock on the Directory Node`` — observe a descendant `withPersist` waits during `applyEvent` directory rename (can share lock-test patterns from `NodeEnclosureLockTests.fs`).
+[ ] ``Post change directory relocate drains an in-flight persist`` — `withLock` on a File under the Directory stays inside its action while `applyEvent` of that Directory rename waits.
 
-[ ] Optional fourth test: ``Post change file relocate holds withPersist on the File Node for git mv`` — sibling file persist or parse may continue while the moved File grant is held.
+[ ] ``DbAgent same-workspace relocate runs git mv when a data directory is set`` — `DbAgent.createForTestWithDependencies` with `Some dataDir`.
 
 [ ] Distinct tests added or changed: 2 required (same-workspace and cross-workspace Post change); up to 4 total per [Size limit](plan/context/size-limit.md).
 
@@ -175,7 +172,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 [ ] No split. Five source files (agents, relocate orchestration, `DocumentPersistWrite` persist lock, parse-read wire in `ParseThread.fs` or `DocumentPersistWrite.fs`) stay within the 8-file limit.
 
-[ ] If a future pass adds more parse-read files (`LazyLoadReconciliationServer.fs`, `DirectoryReconcile.fs` under `src/Shared/dotnet`, or `DocumentPersistChange.readAllDocuments`), split job 2 would wire `withPersist` into `writeDocument` and `writeArtifactText` and `withParseRead` into those parse-read sites so the lock drains them; job 1 is Post change classify and git under `withNodeLock` or `withPersist` then store, including `withWorkTreeGate` around git.
+[x] Parse reads and persist writes already call `withLockResult`. A later pass does not add `withPersist`, `withParseRead`, or `withWorkTreeGate`. Job 1 is Post change classify and git under the one `withLock` on `move.nodeId`, then store.
 
 ## Inputs
 
@@ -198,8 +195,8 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 [ ] A graph-only change skips `relocateAcceptedMoves`.
 [ ] `DbAgent` with `liveSaveDataDir` `None` skips `relocateAcceptedMoves`.
 [ ] On relocate Error, the agent returns that Error and leaves `loaded.state` as it was.
-[ ] `CoreEventDispatch.pushChangeSpecials` in `src/Server/Core/CoreEventDispatch.fs` queues `pushPersist` after `applyEvent` returns.
-[ ] This ticket leaves that queue call where it is.
+[x] `CoreEventDispatch.pushChangeSpecials` in `src/Server/Core/CoreEventDispatch.fs` queues `pushPersist` after `applyEvent` returns.
+[x] This ticket leaves that queue call where it is.
 [ ] This ticket sets no `ParseState.Unparsed` on the moved node.
 
 #### Lock from 13 — Lock the persist path moves
@@ -207,7 +204,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 [ ] `relocateAcceptedMoves` calls `NodeLockPool.withLockResult` on the post graph and the node id 13 — Lock the persist path moves uses for that move.
 [ ] `gitMove` or `moveAcrossWorkspaces` runs inside that action.
 [ ] That call uses the same graph and the same node id as the `withLock` around `File.Move` and `Directory.Move`.
-[ ] `persistGraphChangeWith` keeps the `withLock` around `File.Move` and `Directory.Move`.
+[x] `executeCoalescedMove` keeps `withLockResult` around `File.Move` and `Directory.Move`. `persistGraphChangeWith` calls `executePathMoves`.
 [ ] This ticket adds no other node id.
 
 #### Same-workspace move
@@ -226,7 +223,7 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 #### Copy-from
 
-[ ] `NodeLockPool.withLockResult` around each coalesced move in `persistGraphChangeWith` is the lock this ticket reuses. 13 — Lock the persist path moves adds that call. This ticket does not edit the pool.
+[x] `NodeLockPool.withLockResult` inside `executeCoalescedMove` is the lock this ticket reuses. 13 — Lock the persist path moves added that call. This ticket does not edit the pool.
 [ ] `gitMove`, `repositoryRoot`, and `gitPath` come from 05 — Relocate in the same workspace.
 [ ] `moveAcrossWorkspaces` comes from 07 — Move an owned node across workspaces.
 [ ] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` is the `FileAgent.create` and `applyEvent` seam.
@@ -239,19 +236,19 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Same-workspace relocate** and **Cross-workspace move**, and §4 flow 6 **Move under the node lock**.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Same-workspace relocate** and **Cross-workspace move**, and §4 flow 6 **Move under the node lock**.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
-[ ] `src/Server/NodeLockPool.fs` stays as it is.
-[ ] `src/Server/WorkspaceGit.fs` and `src/Server/DocumentPersistPath.fs` stay as 05 — Relocate in the same workspace and 07 — Move an owned node across workspaces leave them.
-[ ] `src/Shared/DocumentPathMove.fs` stays as 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, and 07 — Move an owned node across workspaces leave it.
-[ ] `src/Server/DocumentPersistWrite.fs` stays as it is.
-[ ] `src/Server/ParseThread.fs` stays as it is.
-[ ] `src/Server/Core/PersistThread.fs` stays as it is.
-[ ] `src/Server/Core/CoreEventDispatch.fs` stays as it is.
-[ ] `src/Shared/ChangeAmendment.fs` stays as 08 — Amend a change conflict before the graph is stored leaves it.
+[x] `src/Server/NodeLockPool.fs` stays as it is.
+[x] `src/Server/WorkspaceGit.fs` and `src/Server/DocumentPersistPath.fs` stay as 05 and 07 leave them. Those helpers are still absent.
+[x] `src/Shared/DocumentPathMove.fs` stays as 05, 06, and 07 leave it. `sameWorkspaceMoves` and `crossWorkspaceMoves` are still absent.
+[x] `src/Server/DocumentPersistWrite.fs` stays as it is. It already calls `withLockResult`.
+[x] `src/Server/ParseThread.fs` stays as it is. `reconcileDirectory` already calls `withLockResult`.
+[x] `src/Server/Core/PersistThread.fs` stays as it is.
+[x] `src/Server/Core/CoreEventDispatch.fs` stays as it is.
+[x] `src/Shared/ChangeAmendment.fs` stays as 08 leaves it. The conflict rename is still absent.
 
 ## Process
 
@@ -291,4 +288,4 @@ Slice: Flow 6 **Move under the node lock** in [Node move and disk architecture](
   - `tests/Server.Tests`: ``DbAgent same-workspace relocate runs git mv when a data directory is set``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/09-relocate-under-the-node-enclosure-lock/09-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

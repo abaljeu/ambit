@@ -23,10 +23,11 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 [ ] `crossWorkspaceMoves` calls `GraphQuery.enclosingWorkspace` on `move.nodeId` for the pre graph and the post graph.
 [ ] `crossWorkspaceMoves` keeps a move when `Map.tryFind move.nodeId` is `Special File` or `Special Directory` on both graphs, both enclosing Workspace ids are `Some`, and those ids differ.
 [ ] `crossWorkspaceMoves` drops a move when enclosing Workspace ids are equal, when either enclosing Workspace id is `None`, or when the node is `Special Workspace`.
-[ ] `DocumentPartition.isDocumentRootNode` in `src/Shared/DocumentPartition.fs` is true for `Special Workspace`, `Special Directory`, and `Special File`. Classification still excludes `Special Workspace` explicitly so a Workspace Node is in neither path-class list.
+[x] `DocumentPartition.isDocumentRootNode` in `src/Shared/DocumentPartition.fs` is true for `Special Workspace`, `Special Directory`, and `Special File`.
+[ ] `crossWorkspaceMoves` excludes `Special Workspace` so a Workspace Node is in neither path-class list.
 [ ] `moveAcrossWorkspaces` has no production caller in this slice. The seam test is the caller: it classifies with `crossWorkspaceMoves`, resolves four paths with `repositoryRoot` and `gitPath` on pre and post graphs, places the artifact on disk under the destination work tree, then calls `moveAcrossWorkspaces` once.
 [ ] `moveAcrossWorkspaces` distinguishes File from Directory with `File.Exists` and `Directory.Exists` on `Path.Combine(destinationRepositoryRoot, destinationGitPath)` because the destination work tree already holds the moved artifact.
-[x] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` stays unchanged. `persistGraphChange` still runs `File.Move` and `Directory.Move` through `executePathMoves`. This slice does not wire cross-workspace git into `persistGraphChange`.
+[x] `DocumentPersistChange.executePathMoves` stays unchanged by this slice. It folds `executeCoalescedMove`, which takes `NodeLockPool.withLockResult` and then `executePathMove`. `persistGraphChange` still relocates with `File.Move` and `Directory.Move`. This slice does not wire cross-workspace git into `persistGraphChange`.
 [x] `FileAgent.processPostEvents` and `DbAgent.finishAppliedPostChange` stay unchanged. [Node move and disk architecture](plan/node-move-disk/arch.md) §8 question 5 names Post change as the later relocate caller; this slice does not add that caller.
 
 ### Existing tests
@@ -56,7 +57,7 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 [ ] `src/Shared/DocumentPathMove.fs` — add `crossWorkspaceMoves`.
 [ ] `src/Server/WorkspaceGit.fs` — add `moveAcrossWorkspaces` (source delete, destination add, commit at move time, optional recovery on failed destination add).
 [ ] Distinct source files for this slice: 2 (`src/Shared/DocumentPathMove.fs`, `src/Server/WorkspaceGit.fs`). `DocumentPersistPath.repositoryRoot` and `gitPath` land in [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md); this slice depends on them and does not expand `src/Server/DocumentPersistPath.fs` unless [05 — Relocate in the same workspace](plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-relocate-in-the-same-workspace-ticket.md) is not merged yet, in which case stop and name that blocker.
-[ ] `src/Server/GitSave.fs`, `src/Server/DocumentPersistChange.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `src/Shared/ChangeAmendment.fs`, and `src/Server/NodeEnclosureLock.fs` stay unchanged.
+[x] `src/Server/GitSave.fs`, `src/Server/DocumentPersistChange.fs`, `src/Server/Core/FileAgent.fs`, `src/Server/Core/DbAgent.fs`, `src/Shared/ChangeAmendment.fs`, and `src/Server/NodeLockPool.fs` stay unchanged by this slice. `NodeEnclosureLock.fs` is absent.
 [ ] `coalescePathMoves` stays unchanged. Nested derived-path coalesce is [06 — Keep a nested node whose derived path differs](plan/node-move-disk/issues/06-keep-a-nested-node-whose-derived-path-differs/06-keep-a-nested-node-whose-derived-path-differs-ticket.md).
 
 #### Tests
@@ -141,9 +142,9 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class**, **Cross-workspace move**, and **Workspace repository**, §4 flow 4 **Cross-workspace move**, §6 seam 8, and §8 question 2.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class**, **Cross-workspace move**, and **Workspace repository**, §4 flow 4 **Cross-workspace move**, §6 seam 8, and §8 question 2.
 [ ] [02 — Moving an owned File or Directory into a different Workspace](https://github.com/abaljeu/ambit/blob/f561ed4b993e2637dcbcbf11dbf2056a9e87116a/plan/node-move-disk/issues/02-move-owned-file-or-directory-into-different-workspace.md) on `cursor/move-owned-node-across-workspace-3738`. The conflict sentence in that ticket is flow 5 **Change conflict** in the architecture.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
@@ -192,4 +193,4 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
   - `tests/Server.Tests`: ``moveAcrossWorkspaces restores the source repository when the destination commit fails``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/07-move-an-owned-node-across-workspaces/07-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

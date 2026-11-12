@@ -13,7 +13,7 @@ Slice: Flow 5 **Change conflict** in [arch.md](plan/node-move-disk/arch.md) sect
 
 [x] `DocumentPersistChange.validatePathMoves` is `string -> Graph -> Graph -> Result<unit, string>` in `src/Server/DocumentPersistChange.fs`.
 [x] `DocumentPersistChange.validatePathMoves` calls private `validateDestinationAvailable`, which returns `Error $"disk path already exists: {newFullPath}"` when the destination path exists and differs from the source.
-[ ] `DocumentPersistChange.executePathMoves` still calls `validateDestinationAvailable` for disk relocate; that path stays an Error in this slice because Post change does not relocate here.
+[x] `executePathMove` calls `validateDestinationAvailable` before `File.Move` or `Directory.Move`. `executePathMoves` does not call it directly. This slice leaves that Error in place because Post change does not relocate here.
 [x] `DocumentPersistChange.validateGraphDiskEffects` is `string -> Graph -> Graph -> Result<unit, string>` and delegates to `IgnoredDestination.validateGraphDiskEffects`.
 [x] `ChangeAmendment.applyPosted` is `bool -> EventId -> Ev -> Op list -> GraphAtEvent -> ApplyResult * bool * Op list` in `src/Shared/ChangeAmendment.fs`.
 [x] `FileAgent.processPostEvents` is `LoadedFile -> Ev list -> bool -> Result<CoreChangesAccepted, string>` (private).
@@ -110,8 +110,8 @@ Slice: Flow 5 **Change conflict** in [arch.md](plan/node-move-disk/arch.md) sect
 [ ] The candidate names come from `GraphQuery.unusedOwnedName` under that node's owner parent, with each rejected lower-case name passed in `reservedLowers`.
 [ ] A candidate whose destination full path exists is rejected, and the loop asks `unusedOwnedName` for the next name.
 [ ] The first candidate whose destination full path is absent is the new name.
-[ ] `DocumentPersistChange.validatePathMoves` keeps type `string -> Graph -> Graph -> Result<unit, string>`.
-[ ] `validatePathMoves` still returns `disk path already exists` for `executePathMoves` and `persistGraphChange`.
+[x] `DocumentPersistChange.validatePathMoves` keeps type `string -> Graph -> Graph -> Result<unit, string>`.
+[x] `validatePathMoves` returns `disk path already exists` when the destination exists and differs from the source. `executePathMove` returns that error through `validateDestinationAvailable`. `persistGraphChange` surfaces it. `executePathMoves` does not call `validatePathMoves`.
 
 #### Change amendment
 
@@ -137,37 +137,39 @@ Slice: Flow 5 **Change conflict** in [arch.md](plan/node-move-disk/arch.md) sect
 
 #### Copy-from
 
-[ ] `GraphQuery.unusedOwnedName` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> string -> Set<string> -> string`.
-[ ] Private `numberedSiblingName` in that function builds `notes.txt`, then `notes1.txt`, then `notes2.txt`.
-[ ] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` calls `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent` and reads `handlers.graphAtEvent ()`.
-[ ] `DbAgent.persist` in `src/Server/Core/DbAgent.fs` returns the handlers for `DbAgent.createForTestWithDependencies`.
+[x] `GraphQuery.unusedOwnedName` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> string -> Set<string> -> string`.
+[x] Private `numberedSiblingName` returns the base name at index 0 and inserts the index before the extension after that, so `notes.txt` is followed by `notes1.txt` and `notes2.txt`.
+[x] ``FileAgent applyEvent marks a File Node at the later Edit id`` in `tests/Server.Tests/PersistApplyTests.fs` calls `(FileAgent.persist (FileAgent.create dataDir)).handlers.applyEvent` and reads `handlers.graphAtEvent ()`.
+[x] `DbAgent.persist` returns `PersistFilling`. `createForTestWithDependencies` builds the agent those tests call.
 
 #### Match sites
 
-[ ] This ticket adds no union case.
-[ ] This ticket changes no existing public signature.
-[ ] `FileAgent.validatePostChange` calls `validatePathMoves` today. This ticket changes that call to `findIncomingPathConflicts` for the destination check.
-[ ] `DbAgent.validatePostChange` calls `validatePathMoves` when `liveSaveDataDir` is `Some`. This ticket changes that call the same way.
-[ ] `FileAgent.applyOne` and `DbAgent.applyOneEvent` keep calling `applyPosted`.
-[ ] `executePathMoves` keeps calling `validateDestinationAvailable`.
+[x] This ticket adds no union case.
+[x] This ticket changes no existing public signature.
+[x] `FileAgent.validatePostChange` calls `validatePathMoves`.
+[ ] This ticket changes that call to `findIncomingPathConflicts` for the destination check.
+[x] `DbAgent.validatePostChange` calls `validatePathMoves` when `liveSaveDataDir` is `Some`.
+[ ] This ticket changes the DbAgent call the same way.
+[x] `FileAgent.applyOne` and `DbAgent.applyOneEvent` keep calling `applyPosted`.
+[x] `executePathMove` keeps calling `validateDestinationAvailable`. `executePathMoves` reaches it through `executeCoalescedMove`.
 
 #### Tests the ticket leaves as they are
 
-[ ] ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs` expects a system-directory Error.
-[ ] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` expects `persistGraphChange` to return Error when the destination exists.
+[x] ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` in `tests/Server.Tests/DocumentPersistChangeTests.fs` expects a system-directory Error.
+[x] ``persistGraphChange rejects destination artifact conflict`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` expects `persistGraphChange` to return Error when the destination exists.
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Accept validation**, **Change amendment**, and **Post change**, §4 flow 5 **Change conflict**, §6 seam 9, and §8 questions 3, 4, and 6.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Accept validation**, **Change amendment**, and **Post change**, §4 flow 5 **Change conflict**, §6 seam 9, and §8 questions 3, 4, and 6.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
-[ ] `src/Server/WorkspaceGit.fs` stays as it is. This ticket runs no `gitMove` and no `moveAcrossWorkspaces`.
-[ ] `src/Server/NodeLockPool.fs` stays as it is.
-[ ] `src/Shared/GraphQuery.fs` stays as it is. `unusedOwnedName` stays the name picker.
-[ ] `executePathMoves` and `persistGraphChange` stay on `validatePathMoves`.
-[ ] `src/Server/Core/PersistThread.fs` stays as it is.
+[x] `src/Server/WorkspaceGit.fs` stays as it is. This ticket runs no `gitMove` and no `moveAcrossWorkspaces`.
+[x] `src/Server/NodeLockPool.fs` stays as it is.
+[x] `src/Shared/GraphQuery.fs` stays as it is. `unusedOwnedName` stays the name picker.
+[x] `validatePathMoves` stays the accept check. `persistGraphChange` calls `executePathMoves`, not `validatePathMoves`. `executePathMove` calls `validateDestinationAvailable`.
+[x] `src/Server/Core/PersistThread.fs` stays as it is.
 
 ## Process
 
@@ -208,4 +210,4 @@ Slice: Flow 5 **Change conflict** in [arch.md](plan/node-move-disk/arch.md) sect
   - `tests/Server.Tests`: ``persistGraphChange rejects destination artifact conflict``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/08-amend-a-change-conflict-before-the-graph-is-stored/08-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

@@ -10,8 +10,8 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 ### Signatures
 
 [x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` has type `Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRejection>`.
-[ ] `NodeLockRejection` in `src/Server/NodeLockPool.fs` has `[<RequireQualifiedAccess>]` and the cases `HolderHoldsLock` and `NodeAbsent`.
-[ ] `NodeLockPool.Entry` in `src/Server/NodeLockPool.fs` stores `seq`, `phase`, `graph`, `nodeId`, and `threadId`.
+[x] `NodeLockRejection` has `[<RequireQualifiedAccess>]` and only `HolderHoldsLock`. Before this ticket it also had `NodeAbsent`.
+[x] `NodeLockPool.Entry` stores `seq`, `phase`, `nodeId`, and `threadId`. Before this ticket it also stored `graph`.
 [x] `Graph.ownerParentByChild` in `src/Shared/Model.fs` has type `Map<NodeId, NodeId>`.
 [x] `Graph.nodes` in `src/Shared/Model.fs` has type `Map<NodeId, Node>`.
 [x] `NodeKind.container` in `src/Shared/Model.fs` is true for `Special Workspace` and `Special Directory`.
@@ -19,17 +19,17 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 
 ### Match sites
 
-[ ] `NodeLockPool.withLock` returns `Error NodeLockRejection.NodeAbsent` when `graph.nodes` has no entry for the requested id, and the action stays uncalled.
+[x] Before this ticket, `withLock` returned `Error NodeLockRejection.NodeAbsent` and left the action uncalled. An absent node now runs the action and queues no entry.
 [x] `NodeLockPool.enqueue` returns `Error NodeLockRejection.HolderHoldsLock` when any entry has the same `threadId`, before a second entry is queued.
-[ ] `NodeLockPool.conflicts` reads `request.graph` and `taken.graph`.
-[ ] `NodeLockPool.ownerChain` walks `graph.ownerParentByChild`, includes the start id, stops when `graph.nodes` lacks the current id, and a visited set stops a cycle.
-[x] `NodeLockPool.withLock` is the only public function on `NodeLockPool`. `entryCount`, `pendingCount`, and `waitUntilQueued` are `internal`.
-[ ] `src/` has no caller of `NodeLockPool.withLock`. The callers are in `tests/Server.Tests/NodeLockPoolTests.fs`.
+[x] `NodeLockPool.conflicts` reads the graph passed with the request. Before this ticket it read `request.graph` and `taken.graph`.
+[x] `NodeLockPool.ownerChain` walks `graph.ownerParentByChild`, includes the start id, and a visited set stops a cycle. It does not stop when `graph.nodes` lacks the current id.
+[x] `NodeLockPool.withLock` is the only public function on `NodeLockPool`. `withLockResult`, `withLockAsync`, `entryCount`, `pendingCount`, and `waitUntilQueued` are `internal`.
+[x] Callers of `withLock` or `withLockResult` under `src/` include `DocumentPersistChange.executeCoalescedMove`, `DocumentPersistWrite.writeDocument` and `writeArtifactText`, `preparedParseText`, `ParseThread.reconcileDirectory`, `GithubTransportActor`, and `WorkspaceUploadLock`. Tests call `withLock` from `NodeLockPoolTests` and `DocumentPathMoveExecutionTests`.
 
 ### Existing tests
 
-[ ] ``a request waits when the graphs disagree on a held file`` in `tests/Server.Tests/NodeLockPoolTests.fs` calls `assertRequestWaits` twice, so either graph's owner chain makes the request stay outside until release.
-[ ] ``a second request on a held node waits and the same thread is rejected`` in `tests/Server.Tests/NodeLockPoolTests.fs` expects `Error NodeLockRejection.HolderHoldsLock` for the nested call and `Error NodeLockRejection.NodeAbsent` for an id absent from `Graph.create()`.
+[x] Before this ticket, ``a request waits when the graphs disagree on a held file`` waited when either graph showed the conflict. That name is absent. ``a request uses its own graph when the holder's graph disagrees`` is the current test.
+[x] Before this ticket, ``a second request on a held node waits and the same thread is rejected`` expected `NodeAbsent`. That name is absent. ``an absent node proceeds and the same thread is rejected`` expects `HolderHoldsLock` and runs the absent-id action.
 [x] ``taking a directory waits while a descendant file is held and a sibling file enters`` keeps the Directory outside while the child File is held and lets the sibling File enter.
 [x] ``taking a workspace waits while a descendant file is held and a file waits while an ancestor is held`` keeps the Workspace outside while a descendant File is held, then keeps the File outside while the Directory is held.
 [x] ``a pending directory lock runs before a new descendant file`` keeps the later File outside until the earlier Directory request releases.
@@ -44,11 +44,11 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 
 ### implement
 
-[ ] The pool stores `graph` on each entry. The ticket stores `seq`, `phase`, `nodeId`, and `threadId` only.
-[ ] `NodeLockPool.conflicts` treats a chain on either graph as a conflict. The ticket reads only the graph passed with the new request.
-[ ] `NodeLockPool.withLock` returns `Error NodeLockRejection.NodeAbsent` for a missing `graph.nodes` entry. The ticket runs the action and queues no entry.
-[ ] `NodeLockRejection.NodeAbsent` exists. The ticket deletes that case and keeps `HolderHoldsLock`.
-[ ] `NodeLockPool.ownerChain` stops when `graph.nodes` lacks the current id. The ticket walks `graph.ownerParentByChild` only.
+[x] Before this ticket, the pool stored `graph` on each entry. The entry now stores `seq`, `phase`, `nodeId`, and `threadId` only.
+[x] Before this ticket, `conflicts` treated a chain on either graph as a conflict. It now reads only the graph passed with the new request.
+[x] Before this ticket, a missing `graph.nodes` entry returned `NodeAbsent`. The action now runs and queues no entry.
+[x] `NodeAbsent` is absent. `HolderHoldsLock` remains.
+[x] `ownerChain` walks `ownerParentByChild` with a visited set. It does not stop when `graph.nodes` lacks the current id.
 [x] ``an absent node proceeds and the same thread is rejected`` observes `withLock` at the public seam: an id absent from `Graph.create()` returns `Ok`, a File `withLock` enters during that action, an absent id enters during a held File, the holder thread's sibling `withLock` returns `Error NodeLockRejection.HolderHoldsLock` with the sibling action uncalled and `entryCount` still 1, and a second thread stays outside `waitUntilQueued` until release.
 [x] ``a request uses its own graph when the holder's graph disagrees`` observes `withLock` at the public seam: `fileBesideDir` held on the File and `fileUnderDir` requested on the Directory stays outside until release, and `fileUnderDir` held on the File lets `fileBesideDir` on the Directory enter while that File is held.
 
@@ -85,16 +85,16 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 #### Current module this change reworks
 
 [x] `NodeLockPool.withLock` in `src/Server/NodeLockPool.fs` returns `Result<'a, NodeLockRejection>`.
-[ ] `NodeLockRejection` has `HolderHoldsLock` and `NodeAbsent`. This ticket deletes `NodeAbsent` and keeps `HolderHoldsLock`.
-[ ] An entry stores `graph` and `threadId`. This ticket drops `graph` and keeps `threadId`.
-[ ] A missing `graph.nodes` entry returns `Error NodeLockRejection.NodeAbsent`.
+[x] Before this ticket, `NodeLockRejection` had `HolderHoldsLock` and `NodeAbsent`. `NodeAbsent` is deleted. `HolderHoldsLock` stays.
+[x] Before this ticket, an entry stored `graph` and `threadId`. The entry keeps `threadId` and stores no graph.
+[x] Before this ticket, a missing `graph.nodes` entry returned `NodeAbsent`. The action now runs.
 [x] The same `threadId` already `Pending` or `Held` returns `Error NodeLockRejection.HolderHoldsLock`. This ticket keeps that reject.
-[ ] `conflicts` walks the request graph and the taken entry's graph.
+[x] Before this ticket, `conflicts` walked the request graph and the taken entry's graph. It now walks only the graph passed with the request.
 
 #### Tests this change reworks
 
-[ ] ``a second request on a held node waits and the same thread is rejected`` in `tests/Server.Tests/NodeLockPoolTests.fs` expects `Error NodeLockRejection.HolderHoldsLock` and `Error NodeLockRejection.NodeAbsent`.
-[ ] ``a request waits when the graphs disagree on a held file`` in `tests/Server.Tests/NodeLockPoolTests.fs` waits when either graph shows the conflict.
+[x] Before this ticket, ``a second request on a held node waits and the same thread is rejected`` expected `HolderHoldsLock` and `NodeAbsent`. That name is absent.
+[x] Before this ticket, ``a request waits when the graphs disagree on a held file`` waited when either graph showed the conflict. That name is absent.
 
 ### Reference
 
@@ -105,8 +105,7 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 ## Do not load
 
 [x] `src/Server/Core/PersistThread.fs` stays as it is.
-[ ] `src/Server/DocumentPersistWrite.fs` stays as it is.
-[ ] `src/Server/ParseThread.fs` stays as it is.
+[x] This ticket left `DocumentPersistWrite.fs` and `ParseThread.fs` unchanged. Both now call `withLockResult`.
 [x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
 [x] `src/Server/WorkspaceGit.fs` stays as it is.
 

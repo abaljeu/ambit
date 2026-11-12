@@ -4,6 +4,8 @@ Ticket: [04 — Expand the node enclosure lock](04-expand-the-node-enclosure-loc
 
 Check: pass
 
+The three enclosure-lock test names are absent. [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md) replaced `NodeEnclosureLockTests` with `NodeLockPoolTests`. This file is the record of the run that passed those three tests.
+
 - `scripts/agent-test.sh` with no arguments ran `tests/Server.Tests` filter `FullyQualifiedName~NodeEnclosureLockTests`. Passed 3, failed 0.
 - `scripts/agent-test.sh --filter "FullyQualifiedName~directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file" server` passed 1.
 - `scripts/agent-test.sh --filter "FullyQualifiedName~node enclosure acquire drains an in-flight persist and a parse read" server` passed 1.

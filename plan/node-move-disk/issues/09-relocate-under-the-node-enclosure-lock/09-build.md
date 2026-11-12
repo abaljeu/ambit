@@ -22,4 +22,4 @@ STOP: Prerequisite inputs from 05 — Relocate in the same workspace, 06 — Kee
 - `DbAgent.finishAppliedPostChange` stores through `commitPostChange` after `validatePostChange` returns `Ok`.
 - `DocumentPersistWrite.writeDocument` and `DocumentPersistWrite.writeArtifactText` call `NodeLockPool.withLockResult` around the write.
 - `ParseThread.reconcileDirectory` calls `NodeLockPool.withLockResult` around `DirectoryReconcile.planDirectoryReconcile`.
-- `executePathMoves` uses `File.Move` and `Directory.Move`. 13 — Lock the persist path moves wraps those moves in `persistGraphChangeWith`.
+- `executePathMoves` folds `executeCoalescedMove`, which takes `NodeLockPool.withLockResult` and then calls `executePathMove`. `File.Move` and `Directory.Move` are in `executePathMove`.

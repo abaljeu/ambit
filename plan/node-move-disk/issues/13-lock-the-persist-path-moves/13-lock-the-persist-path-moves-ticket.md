@@ -28,11 +28,11 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 [x] `DocumentPersistChange.persistGraphChange` in `src/Server/DocumentPersistChange.fs` calls `persistGraphChangeWith` with `DocumentPartition.documentRootsAffectedByGraphChange` and `DocumentPersistPath.enumerateDocumentRoots`.
 [x] `DocumentPersistChange.persistGraphOps` in the same file calls `persistGraphChangeWith` with `DocumentOpImpact.documentRootsAffectedByOps` and `id`.
 [x] `DocumentPersistChange.persistGraphChangeWith` calls `DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph`, then `executePathMoves dataDir preGraph postGraph moves`, then `DocumentPersistWrite.writeDocumentsSoft dataDir postGraph`, then `DocumentPersistPath.stampExistingDocuments`.
-[ ] `DocumentPersistChange.executePathMoves` pipes `moves` through `DocumentPathMove.coalescePathMoves preGraph`, folds with `resolveMovePaths` and `executePathMove`.
+[x] `DocumentPersistChange.executePathMoves` pipes `moves` through `coalescePathMoves`, then folds `executeCoalescedMove`. Before this ticket the fold called `resolveMovePaths` and `executePathMove` with no lock. `executeCoalescedMove` now takes `withLockResult` on the post graph and `move.nodeId`, then calls `resolveMovePaths` and `executePathMove`.
 [x] `DocumentPersistChange.executePathMove` calls `Directory.Move(oldFullPath, newFullPath)` when `oldIsDirectory` and `Directory.Exists oldFullPath`, and `File.Move(oldFullPath, newFullPath)` when not a directory and `File.Exists oldFullPath`.
 [x] `DocumentPathMove.planPathMovesBetweenGraphs` constructs `{ nodeId; oldPath; newPath }` records when `expandedPathForNodeId` differs between graphs.
 [x] `DocumentPersistChange.validatePathMoves` also calls `planPathMovesBetweenGraphs` and `coalescePathMoves` before disk checks; it does not call `executePathMove`.
-[ ] `src/Server/DocumentPersistChange.fs` has no reference to `NodeLockPool` today.
+[x] `src/Server/DocumentPersistChange.fs` references `NodeLockPool`. Before this ticket it did not.
 
 ### Existing tests
 
@@ -51,12 +51,12 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 
 ### implement
 
-[ ] [13 — Lock the persist path moves](plan/node-move-disk/issues/13-lock-the-persist-path-moves/13-lock-the-persist-path-moves-ticket.md) claims `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced move before `File.Move` or `Directory.Move`; the code calls `executePathMoves` with no lock wrapper.
-[ ] The ticket claims the lock call is `NodeLockPool.withLockResult` on the post graph and `move.nodeId`; `DocumentPersistChange.fs` imports and calls neither `withLock` nor `withLockResult`.
-[ ] The ticket claims each coalesced move runs one at a time with lock release before the next move; `executePathMoves` already folds moves in order but without locks.
-[x] The ticket claims on Error the function returns that Error and runs no later move; `executePathMoves` already short-circuits the fold on Error.
-[x] The ticket claims call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are only in `tests/Server.Tests`; `src/` has no callers, and `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`, `DocumentPersistChangeTests.fs`, and `DocumentOpPersistenceTests.fs` call them.
-[ ] The four output tests ``persist path move waits while the moved file is held``, ``persist path move waits while a file under the moved directory is held``, ``a path move on a thread that already holds a lock leaves the artifact``, and ``a sibling file lock lets a file path move finish`` are absent from `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`.
+[x] Before this ticket, `persistGraphChangeWith` called `executePathMoves` with no lock wrapper. `executeCoalescedMove` now takes `withLockResult` before `File.Move` or `Directory.Move`.
+[x] The lock call is `NodeLockPool.withLockResult` on the post graph and `move.nodeId`. Before this ticket, `DocumentPersistChange.fs` called neither `withLock` nor `withLockResult`.
+[x] Each coalesced move runs one at a time. The action returns before the next move takes a lock. Before this ticket the fold had no lock.
+[x] On Error, `executePathMoves` returns that Error and runs no later move.
+[x] Call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are in `tests/Server.Tests`: `DocumentPathMoveExecutionTests.fs`, `DocumentPersistChangeTests.fs`, and `DocumentOpPersistenceTests.fs`.
+[x] The four tests ``persist path move waits while the moved file is held``, ``persist path move waits while a file under the moved directory is held``, ``a path move on a thread that already holds a lock leaves the artifact``, and ``a sibling file lock lets a file path move finish`` are in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs`. Before this ticket they were absent.
 [x] When a path move would take `withLockResult`, the persist path does not already hold a pool lock: `persistGraphChangeWith` runs `executePathMoves` before `writeDocumentsSoft`, and only `writeDocument` inside the write phase calls `withLockResult`.
 [x] ``persist path move waits while the moved file is held`` will call `NodeLockPool.withLock` on the moved File inside its action, call `DocumentPersistChange.persistGraphChange` from outside that hold for a File rename on `graphWithNestedDocs`, assert the old artifact path remains during the hold, then assert the new path exists after release.
 [x] ``persist path move waits while a file under the moved directory is held`` will hold `withLock` on the nested File under `docs`, call `persistGraphChange` for a Directory rename on `graphWithNestedDocs`, assert the old directory path remains during the hold, then assert the directory new path exists after release.
@@ -72,7 +72,7 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 #### Path moves
 
 [x] `persistGraphChangeWith` in `src/Server/DocumentPersistChange.fs` plans with `DocumentPathMove.planPathMovesBetweenGraphs` and moves with `executePathMoves`.
-[x] `executePathMoves` coalesces with `DocumentPathMove.coalescePathMoves` and then calls `executePathMove`.
+[x] `executePathMoves` coalesces with `DocumentPathMove.coalescePathMoves` and then calls `executeCoalescedMove`, which calls `executePathMove`.
 [x] `executePathMove` moves a directory with `Directory.Move` and a file with `File.Move` when the source path exists.
 [x] `persistGraphChange` and `persistGraphOps` call `persistGraphChangeWith`.
 [x] Call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are in `tests/Server.Tests`.
@@ -133,7 +133,7 @@ Blockers: [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+1. [x] The inputs matched. The build is recorded in [13-build.md](13-build.md).
 2. [x] Change `src/Server/DocumentPersistChange.fs` so `persistGraphChangeWith` runs each coalesced move inside `NodeLockPool.withLockResult` on the post graph and `move.nodeId`.
 3. [x] Expand `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` with the four tests in Outputs.
 

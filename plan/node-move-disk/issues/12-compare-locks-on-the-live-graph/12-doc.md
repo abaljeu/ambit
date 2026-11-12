@@ -8,4 +8,4 @@
 
 ## 3. Found elsewhere
 
-The accepted fix keeps the NodeAbsent wording in 11 — Expand the node lock pool and in that ticket's review.
+11 — Expand the node lock pool records `NodeAbsent` as the case that ticket added. The current rejection is only `HolderHoldsLock`. An absent node runs the action and queues no entry.

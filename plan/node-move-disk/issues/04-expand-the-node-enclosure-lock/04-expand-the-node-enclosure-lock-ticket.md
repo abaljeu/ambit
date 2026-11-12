@@ -5,57 +5,59 @@ One job: The Server holds a node enclosure lock on one Workspace Node or one Dir
 Type: coding
 Blockers: none
 
+The current tree has no `NodeEnclosureLock`. [11 — Expand the node lock pool](../11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md) replaced it with `NodeLockPool.withLock`. Before this ticket, `NodeEnclosureLock` was absent and this ticket added `withNodeLock`, `withPersist`, and `withParseRead`. Those three names are absent again.
+
 ## Scope
 
 ### Signatures
 
 [x] `GraphQuery.enclosing` in `src/Shared/GraphQuery.fs` has type `Graph -> (Node -> bool) -> NodeId -> NodeId option`.
-[ ] `WorkspaceGit.withWorkTreeGate` in `src/Server/WorkspaceGit.fs` has type `string -> (unit -> Result<'value, string>) -> Result<'value, string>`.
+[x] `WorkspaceGit.withWorkTreeGate` is absent from `src/Server/WorkspaceGit.fs`. Before this ticket it was `string -> (unit -> Result<'value, string>) -> Result<'value, string>`. This ticket left that function in place. [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md) removed it.
 [x] `GitRun.gitExec` in `src/Shared/dotnet/GitRun.fs` has type `string -> string -> Result<string, string>`.
-[ ] `GitRun.withWorkTreeGate` in `src/Shared/dotnet/GitRun.fs` is private.
+[x] `GitRun.withWorkTreeGate` is absent. Before this ticket it was private, and `gitExec` called it. `gitExec` now calls `ProcessExec.runCapture`.
 [x] `DocumentPersistWrite.writeDocument` in `src/Server/DocumentPersistWrite.fs` has type `string -> Graph -> NodeId -> Result<DocumentWriteOk, string>`.
 [x] `DocumentPersistWrite.writeArtifactText` in `src/Server/DocumentPersistWrite.fs` is private and has type `string -> Graph -> NodeId -> string -> Result<unit, string>`.
-[x] `NodeEnclosureLock` is absent from `src/Server`.
+[x] `NodeEnclosureLock` is absent from `src/Server`. Before this ticket it was absent. This ticket added it. 11 removed it.
 
 ### Match sites
 
 [x] `GraphQuery.enclosing` reads `graph.nodes`, then steps with `graph.ownerParentByChild`, and a visited set stops a cycle. The walk includes the start node.
-[ ] `WorkspaceGit.withWorkTreeGate` takes one `SemaphoreSlim` from `workTreeGates` per normalized workspace root, calls `Wait`, runs the action, and calls `Release` in `finally`.
-[ ] `GitRun.gitExec` calls private `GitRun.withWorkTreeGate`.
-[ ] `DocumentPersistWrite.writeDocument` calls `WorkspaceGit.withWorkTreeGate` when `DocumentPersistPath.workspaceRootFor` returns a root.
-[ ] `DocumentPersistWrite.writeArtifactText` calls that same gate when `workspaceRootFor` returns a root.
-[x] `src/Server/Gambol.Server.fsproj` compiles `WorkspaceGit.fs` and has no `NodeEnclosureLock.fs` include.
+[x] `WorkspaceGit.withWorkTreeGate` is absent. Before this ticket it took one `SemaphoreSlim` per normalized workspace root.
+[x] `GitRun.gitExec` does not call `withWorkTreeGate`.
+[x] `DocumentPersistWrite.writeDocument` calls `NodeLockPool.withLockResult` around `writeDocumentCore`. Before this ticket it called `WorkspaceGit.withWorkTreeGate` when `workspaceRootFor` returned a root. This ticket did not change that call.
+[x] `DocumentPersistWrite.writeArtifactText` calls `NodeLockPool.withLockResult`. Before this ticket it called that same work-tree gate.
+[x] `src/Server/Gambol.Server.fsproj` compiles `WorkspaceGit.fs`, then `NodeLockPool.fs`. It has no `NodeEnclosureLock.fs` include. Before this ticket the slot after `WorkspaceGit.fs` had no enclosure-lock file. This ticket placed `NodeEnclosureLock.fs` there. 11 placed `NodeLockPool.fs` there.
 [x] No source union case names a node enclosure lock.
 
 ### Existing tests
 
-[ ] ``work tree gate waits then continues without overlap`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks two `WorkspaceGit.withWorkTreeGate` calls on one root run one at a time. It uses `Task.Run` and `TaskCompletionSource`.
-[ ] ``work tree root aliases acquire one gate without deadlock`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `DocumentPersistPath.withWorkTreeGates` on aliased roots takes one gate.
-[ ] ``Persist write waits on the Workspace work tree gate`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `DocumentPersistWrite.writeDocument` waits while `WorkspaceGit.withWorkTreeGate` is held.
-[ ] ``pullTracked waits for the work tree gate then continues`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `WorkspaceGit.pullTracked` waits on `WorkspaceGit.withWorkTreeGate`.
-[ ] ``saveTracked waits for the work tree gate then continues`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `WorkspaceGit.saveTracked` waits on `WorkspaceGit.withWorkTreeGate`.
-[ ] ``Edit reply returns while the persist thread still holds the write`` in `tests/Server.Tests/FileAgentFailureTests.fs` holds `WorkspaceGit.withWorkTreeGate` inside a fake `persistNode`.
-[ ] ``second git waits instead of failing on index.lock`` in `tests/Shared.Tests/GitRunTests.fs` checks two `GitRun.gitExec` calls on one folder run one at a time.
+[x] ``work tree gate waits then continues without overlap`` is absent from `tests/Server.Tests/WorkspaceGitTests.fs`. Before this ticket it checked two `WorkspaceGit.withWorkTreeGate` calls on one root.
+[x] ``work tree root aliases acquire one gate without deadlock`` is absent. Before this ticket it checked `DocumentPersistPath.withWorkTreeGates`. That function is absent.
+[x] ``Persist write waits on the Workspace work tree gate`` is absent.
+[x] ``pullTracked waits for the work tree gate then continues`` is absent.
+[x] ``saveTracked waits for the work tree gate then continues`` is absent.
+[x] ``Edit reply returns while the persist thread still holds the write`` in `tests/Server.Tests/FileAgentFailureTests.fs` holds a fake `persistNode` on `TaskCompletionSource`. It does not call `WorkspaceGit.withWorkTreeGate`.
+[x] ``second git waits instead of failing on index.lock`` is absent from `tests/Shared.Tests/GitRunTests.fs`. `GitRun.gitExec` takes no per-folder gate.
 [x] ``enclosing finds first owner-chain match including start`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `GraphQuery.enclosing` for a Directory predicate on a Directory Node, a File Node under it, and a Workspace Node.
 [x] `graphWithWorkspace` in `tests/Server.Tests/WorkspaceGitTests.fs` builds a Workspace Node with `Graph.create`, `Node.Create`, `Graph.addDetachedNode`, and `Graph.replace`.
 
 ### Copy-from
 
-[ ] `WorkspaceGit.withWorkTreeGate` is the gate the node enclosure lock stands beside. This ticket leaves that function in place.
-[ ] ``work tree gate waits then continues without overlap`` is the wait shape for the new tests.
+[x] Before this ticket, `WorkspaceGit.withWorkTreeGate` was the gate this lock stood beside, and this ticket left that function in place. The function is absent. `NodeLockPool.withLock` is the node lock.
+[x] ``work tree gate waits then continues without overlap`` is absent. The current wait tests are in `tests/Server.Tests/NodeLockPoolTests.fs`.
 
 ### implement
 
-[ ] `NodeEnclosureLock.withNodeLock`, `withPersist`, and `withParseRead` are absent. [04 — Expand the node enclosure lock](plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-expand-the-node-enclosure-lock-ticket.md) adds those three functions.
-[ ] `src/Server/Gambol.Server.fsproj` has no compile include for `NodeEnclosureLock.fs`. The ticket places that include immediately after `WorkspaceGit.fs`.
-[ ] `tests/Server.Tests/NodeEnclosureLockTests.fs` is absent. The ticket adds that file and a compile include immediately after `WorkspaceGitTests.fs`.
-[ ] ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file`` observes `withNodeLock` and `withPersist`: the child File action stays outside while the Directory lock runs, the sibling File action enters, and after release the Workspace lock keeps the sibling File action outside.
-[ ] ``node enclosure acquire drains an in-flight persist and a parse read`` observes `withPersist`, `withParseRead`, and `withNodeLock`: the Directory lock action stays outside until the in-flight child persist and the in-flight child parse read return, and a persist started during that drain stays outside its action.
-[ ] ``persist grant stores the owner chain and includes the directory node`` observes `GraphQuery.enclosing` on the child File Node and the `NodeId list` passed by `withPersist` for that File Node and for the Directory Node.
+[x] Before this ticket, `NodeEnclosureLock.withNodeLock`, `withPersist`, and `withParseRead` were absent. This ticket added those three functions. They are absent. `NodeLockPool.withLock` is the public function. `withLockResult` and `withLockAsync` are internal.
+[x] Before this ticket, `src/Server/Gambol.Server.fsproj` had no `NodeEnclosureLock.fs` include. This ticket placed that include immediately after `WorkspaceGit.fs`. The current include in that slot is `NodeLockPool.fs`.
+[x] Before this ticket, `tests/Server.Tests/NodeEnclosureLockTests.fs` was absent. This ticket added it immediately after `WorkspaceGitTests.fs`. The current file in that slot is `NodeLockPoolTests.fs`.
+[x] Before this ticket, the three enclosure-lock tests were absent. This ticket added them. Those names are absent. `NodeLockPoolTests` covers descendant wait, ancestor wait, and `HolderHoldsLock`.
 
 ## Inputs
 
 ### Working
+
+This ticket added `NodeEnclosureLock`. The current tree has `NodeLockPool` instead, so the names below are absent.
 
 #### Node enclosure lock
 
@@ -69,42 +71,38 @@ Blockers: none
 [ ] In-flight means the action has started and has not returned. A call that is still waiting on a node enclosure lock is not in-flight.
 [ ] The lock table is process-wide and the key is `NodeId`.
 [ ] Each function releases in `finally`, including when the action raises.
-[ ] Lock order for this ticket stops at the node enclosure lock. `WorkspaceGit.withWorkTreeGate` and `GitRun.gitExec` stay in their own modules.
+[x] This ticket's lock order stopped at the enclosure lock and left `withWorkTreeGate` and `GitRun.gitExec` in their modules. `withWorkTreeGate` is absent. `gitExec` remains in `GitRun`.
 [ ] The module returns the action's value. A waiting call stays a wait.
 
 #### Owner chain
 
 [x] `GraphQuery.enclosing` in `src/Shared/GraphQuery.fs` has type `Graph -> (Node -> bool) -> NodeId -> NodeId option`.
 [x] `enclosing` returns the first owner-chain node that matches the predicate, and the walk includes the start node.
-[ ] The stored list is the start node, then each parent from `graph.ownerParentByChild`, and a visited set stops a cycle. That is the same parent step `enclosing` uses.
-[ ] The list includes the document root. A Directory Node id in that list is the Directory Node's own file (`DirName/.amb`).
-[ ] The grant stores that walk. `GraphQuery.enclosing` stays the predicate lookup. It returns one id, so the stored list is the walk.
-[ ] A sibling whose stored list omits the locked `NodeId` takes `withPersist` during the lock.
-[ ] The functions take `Graph` and `NodeId`. They take no path string.
+[x] This ticket stored the start node, then each parent from `graph.ownerParentByChild`, and a visited set stopped a cycle. The current pool keeps that walk private in `ownerChain` and does not store the list on the entry.
+[x] This ticket's list included the document root. The current entry stores no owner-chain list. The same node id still conflicts, and that id is the Directory node's own file (`DirName/.amb`).
+[x] This ticket's grant stored that walk. The current pool does not.
+[x] This ticket let a sibling whose stored list omitted the locked `NodeId` take `withPersist`. The current pool lets a non-conflicting `withLock` run. `withPersist` is absent.
+[x] This ticket's functions took `Graph` and `NodeId` and no path string. `NodeLockPool.withLock` takes `Graph`, `NodeId`, and the action.
 
 #### Copy-from
 
-[ ] `WorkspaceGit.withWorkTreeGate` in `src/Server/WorkspaceGit.fs` has type `string -> (unit -> Result<'value, string>) -> Result<'value, string>`. It is one `SemaphoreSlim` per workspace root. The node enclosure lock stands beside it.
-[ ] `GitRun.workTreeGate` and `GitRun.withWorkTreeGate` in `src/Shared/dotnet/GitRun.fs` are private. `GitRun.gitExec` has type `string -> string -> Result<string, string>` and takes that private gate. It stays the git process lock.
-[ ] `DocumentPersistWrite.writeDocument` in `src/Server/DocumentPersistWrite.fs` has type `string -> Graph -> NodeId -> Result<DocumentWriteOk, string>` and takes `WorkspaceGit.withWorkTreeGate` when `workspaceRootFor` returns a root.
-[ ] `DocumentPersistWrite.writeArtifactText` in `src/Server/DocumentPersistWrite.fs` is private, has type `string -> Graph -> NodeId -> string -> Result<unit, string>`, and takes the same gate.
-[ ] ``work tree gate waits then continues without overlap`` in `tests/Server.Tests/WorkspaceGitTests.fs` is the wait shape for the new tests. It uses `Task.Run` and shows a second caller stays out until the holder releases.
+[x] `WorkspaceGit.withWorkTreeGate` is absent. Before this ticket it was one `SemaphoreSlim` per workspace root, and this ticket stood the enclosure lock beside it.
+[x] `GitRun.workTreeGate` and `GitRun.withWorkTreeGate` are absent. `GitRun.gitExec` has type `string -> string -> Result<string, string>` and calls `ProcessExec.runCapture`.
+[x] `DocumentPersistWrite.writeDocument` calls `NodeLockPool.withLockResult`. Before this ticket it took `WorkspaceGit.withWorkTreeGate` when `workspaceRootFor` returned a root.
+[x] `DocumentPersistWrite.writeArtifactText` calls `NodeLockPool.withLockResult`.
+[x] ``work tree gate waits then continues without overlap`` is absent. `NodeLockPoolTests` uses `Task.Run` and `TaskCompletionSource` for the wait.
 
 #### Match sites
 
 [x] This ticket adds no union case.
 [x] This ticket changes no existing public signature.
-[x] No workspace-lock type and no per-member persist-lock type exist in source today.
+[x] No separate workspace-lock type and no per-member persist-lock type exist. `NodeLockPool.withLock` is the one request.
 
 #### Tests the ticket leaves as they are
 
-[ ] ``work tree gate waits then continues without overlap`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks two `WorkspaceGit.withWorkTreeGate` calls on one root run one at a time.
-[ ] ``work tree root aliases acquire one gate without deadlock`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `DocumentPersistPath.withWorkTreeGates` on aliased roots takes one gate.
-[ ] ``Persist write waits on the Workspace work tree gate`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `DocumentPersistWrite.writeDocument` waits while `WorkspaceGit.withWorkTreeGate` is held.
-[ ] ``pullTracked waits for the work tree gate then continues`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `WorkspaceGit.pullTracked` waits on `WorkspaceGit.withWorkTreeGate`.
-[ ] ``saveTracked waits for the work tree gate then continues`` in `tests/Server.Tests/WorkspaceGitTests.fs` checks `WorkspaceGit.saveTracked` waits on `WorkspaceGit.withWorkTreeGate`.
-[ ] ``Edit reply returns while the persist thread still holds the write`` in `tests/Server.Tests/FileAgentFailureTests.fs` holds `WorkspaceGit.withWorkTreeGate` inside a fake `persistNode`.
-[ ] ``second git waits instead of failing on index.lock`` in `tests/Shared.Tests/GitRunTests.fs` checks two `GitRun.gitExec` calls on one folder run one at a time.
+[x] The five work-tree-gate test names are absent from `tests/Server.Tests/WorkspaceGitTests.fs`.
+[x] ``Edit reply returns while the persist thread still holds the write`` holds a fake `persistNode`. It does not call `withWorkTreeGate`.
+[x] ``second git waits instead of failing on index.lock`` is absent.
 [x] ``enclosing finds first owner-chain match including start`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `GraphQuery.enclosing` for a Directory predicate on a Directory Node, a File Node under it, and a Workspace Node.
 
 ### Reference
@@ -117,12 +115,12 @@ Blockers: none
 
 ## Do not load
 
-[ ] `src/Server/WorkspaceGit.fs`, `src/Server/DocumentPersistPath.fs`, and `src/Server/GithubTransportActor.fs` stay on `WorkspaceGit.withWorkTreeGate`.
-[ ] `src/Server/DocumentPersistWrite.fs` stays as it is. `writeDocument` and `writeArtifactText` gain the per-member persist lock in a later migrate ticket.
-[ ] `src/Shared/dotnet/GitRun.fs` stays the git process lock, taken after the node enclosure lock in a later migrate ticket.
-[ ] `src/Server/Core/PersistThread.fs` stays as it is. The persist thread's wait is the later caller of `withPersist`.
+[x] This ticket left `WorkspaceGit.fs`, `DocumentPersistPath.fs`, and `GithubTransportActor.fs` on `withWorkTreeGate`. That function is absent. `GithubTransportActor` now calls `NodeLockPool.withLockResult` and `withLockAsync`.
+[x] This ticket left `DocumentPersistWrite.fs` unchanged. `writeDocument` and `writeArtifactText` now call `withLockResult`.
+[x] `GitRun` has no private gate. `gitExec` calls `ProcessExec.runCapture`.
+[x] `PersistThread` does not call the pool. The persist wait is inside `writeDocument`'s `withLockResult`. `withPersist` is absent.
 [x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Flow 6's relocate caller, `gitMove`, and `moveAcrossWorkspaces` are a later ticket.
-[ ] git pull, git Save, and a single File move's `git mv` stay off this lock until a later migrate ticket.
+[x] Git pull and git Save hold `NodeLockPool` on the Workspace node. A single File `git mv` is absent. This ticket left those callers off `NodeEnclosureLock`.
 [x] Removing `WorkspaceGit.withWorkTreeGate` is [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md). [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md) is superseded by that ticket.
 [x] `src/Shared/GraphQuery.fs` stays as it is.
 [x] `src/Shared/History.fs` stays as it is. `Notice.PersistFailed` stays off this module.
@@ -130,21 +128,19 @@ Blockers: none
 ## Process
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Expand `src/Server/NodeEnclosureLock.fs` with `withNodeLock`, `withPersist`, and `withParseRead` as Working specifies.
-3. [ ] Expand `src/Server/Gambol.Server.fsproj` with `<Compile Include="NodeEnclosureLock.fs" />` immediately after `WorkspaceGit.fs`.
-4. [ ] Expand `tests/Server.Tests/NodeEnclosureLockTests.fs` as module `Gambol.Server.Tests.NodeEnclosureLockTests` with the three tests in Outputs. The graph has one Workspace Node, one Directory Node owned by that Workspace, one File Node owned by that Directory, and one sibling File Node owned by that Workspace. Build it with `Graph.create`, `Node.Create`, `Graph.addDetachedNode`, and `Graph.replace`, the same attachment steps as `graphWithWorkspace` in `tests/Server.Tests/WorkspaceGitTests.fs`.
-5. [ ] Expand `tests/Server.Tests/Gambol.Server.Tests.fsproj` with `<Compile Include="NodeEnclosureLockTests.fs" />` immediately after `WorkspaceGitTests.fs`.
+2. [ ] This ticket expanded `src/Server/NodeEnclosureLock.fs` with `withNodeLock`, `withPersist`, and `withParseRead`. That file is absent. `src/Server/NodeLockPool.fs` has `withLock`.
+3. [x] `src/Server/Gambol.Server.fsproj` compiles `NodeLockPool.fs` immediately after `WorkspaceGit.fs`. This ticket had placed `NodeEnclosureLock.fs` in that slot.
+4. [ ] This ticket added `tests/Server.Tests/NodeEnclosureLockTests.fs`. That file is absent. `NodeLockPoolTests.fs` is the current module.
+5. [x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` compiles `NodeLockPoolTests.fs` immediately after `WorkspaceGitTests.fs`.
 
 ## Outputs
 
-[ ] `src/Server/NodeEnclosureLock.fs` — `withNodeLock`, `withPersist`, and `withParseRead`.
-[ ] `src/Server/Gambol.Server.fsproj` — compile include for `NodeEnclosureLock.fs`.
-[ ] Distinct source files: 2. `src/Server/NodeEnclosureLock.fs` and `src/Server/Gambol.Server.fsproj`.
-[ ] `tests/Server.Tests/NodeEnclosureLockTests.fs` — the three tests below. The test file is a test output, and it is outside the source-file count.
-[ ] `tests/Server.Tests/Gambol.Server.Tests.fsproj` — compile include for `NodeEnclosureLockTests.fs`.
-[ ] ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file`` — `withNodeLock` on the Directory Node: `withPersist` on the child File Node stays outside the action, and `withPersist` on the sibling File Node enters. After release, `withNodeLock` on the Workspace Node keeps `withPersist` on the sibling File Node outside the action until release.
-[ ] ``node enclosure acquire drains an in-flight persist and a parse read`` — an in-flight `withPersist` and an in-flight `withParseRead` on the child File Node both store the Directory Node id. `withNodeLock` on that Directory Node stays outside its action until both return. A `withPersist` started while that acquire is still draining also stays outside its action.
-[ ] ``persist grant stores the owner chain and includes the directory node`` — `GraphQuery.enclosing` on the child File Node with a Directory predicate returns the Directory Node id. `withPersist` on that File Node passes a list that contains the File Node id and the Directory Node id. `withPersist` on the Directory Node id passes a list that contains the Directory Node id.
+[ ] This ticket's output `src/Server/NodeEnclosureLock.fs` is absent. `src/Server/NodeLockPool.fs` has `withLock`.
+[x] `src/Server/Gambol.Server.fsproj` compiles `NodeLockPool.fs`. It has no `NodeEnclosureLock.fs` include.
+[ ] This ticket's two source files were `NodeEnclosureLock.fs` and `Gambol.Server.fsproj`. `NodeEnclosureLock.fs` is absent.
+[ ] This ticket's `tests/Server.Tests/NodeEnclosureLockTests.fs` is absent. `NodeLockPoolTests.fs` is the test file.
+[x] `tests/Server.Tests/Gambol.Server.Tests.fsproj` compiles `NodeLockPoolTests.fs`.
+[x] The three enclosure-lock test names are absent. This ticket's ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file`` observed `withNodeLock` and `withPersist`. ``node enclosure acquire drains an in-flight persist and a parse read`` observed `withPersist`, `withParseRead`, and `withNodeLock`. ``persist grant stores the owner chain and includes the directory node`` observed `withPersist` passing the File id and the Directory id. `NodeLockPoolTests` is the current suite.
 
 ## Stop when
 
@@ -155,11 +151,7 @@ Blockers: none
 
 ## Check
 
-[x] Run `scripts/agent-test.sh` with no arguments.
-[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
-  - `tests/Server.Tests`: ``directory lock blocks a descendant, allows a sibling, and a workspace lock blocks its file``
-  - `tests/Server.Tests`: ``node enclosure acquire drains an in-flight persist and a parse read``
-  - `tests/Server.Tests`: ``persist grant stores the owner chain and includes the directory node``
-[x] All executed tests pass.
-[x] Write the verdict to `plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] [04-build.md](04-build.md) records the run that passed the three enclosure-lock tests. Those three test names are absent from the current tree.
+[ ] The three named enclosure-lock tests are not in `tests/Server.Tests`.
+[x] Write the verdict to `plan/node-move-disk/issues/04-expand-the-node-enclosure-lock/04-build.md`. The check line is `pass`.
 [x] A reader who reads only the One job line can say what the ticket builds.

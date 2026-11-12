@@ -90,30 +90,30 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
 
 #### Match sites
 
-[ ] This ticket adds no union case.
-[ ] This ticket changes no public signature.
-[ ] `DocumentPersistChange.validatePathMoves` in `src/Server/DocumentPersistChange.fs` calls `coalescePathMoves`.
-[ ] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` calls `coalescePathMoves`.
-[ ] Those two callers stay as they are.
+[x] This ticket adds no union case.
+[x] This ticket changes no public signature.
+[x] `DocumentPersistChange.validatePathMoves` in `src/Server/DocumentPersistChange.fs` calls `coalescePathMoves`.
+[x] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` calls `coalescePathMoves`.
+[x] Those two callers stay as they are for this ticket.
 
 #### Tests the ticket leaves as they are
 
-[ ] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames `docs` to `archive` and expects the nested `readme.txt` move to be absent.
-[ ] ``coalescePathMoves keeps file-owned directory separate from file move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` expects the File move and the owned Directory move.
-[ ] ``planPathMovesBetweenGraphs includes nested roots after directory rename`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` expects both the Directory move and the nested File move before coalesce.
+[x] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` renames `docs` to `archive` and expects the nested `readme.txt` move to be absent.
+[x] ``coalescePathMoves keeps file-owned directory separate from file move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` expects the File move and the owned Directory move.
+[x] ``planPathMovesBetweenGraphs includes nested roots after directory rename`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` expects both the Directory move and the nested File move before coalesce.
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path coalesce** and **Path class**, §4 flow 3 **Nested derived path**, and §6 seam 6.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path coalesce** and **Path class**, §4 flow 3 **Nested derived path**, and §6 seam 6.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
-[ ] `src/Server/DocumentPersistChange.fs` stays as it is.
-[ ] `src/Server/DocumentPersistPath.fs` and `src/Server/WorkspaceGit.fs` stay as they are.
-[ ] `src/Shared/GraphQuery.fs` stays as it is.
-[ ] `crossWorkspaceMoves` and `moveAcrossWorkspaces` stay absent.
-[ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
+[x] `src/Server/DocumentPersistChange.fs` stays as it is.
+[x] `src/Server/DocumentPersistPath.fs` and `src/Server/WorkspaceGit.fs` stay as they are.
+[x] `src/Shared/GraphQuery.fs` stays as it is.
+[x] `crossWorkspaceMoves` and `moveAcrossWorkspaces` stay absent.
+[x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
 
 ## Process
 
@@ -144,4 +144,4 @@ Blockers: [05 — Relocate in the same workspace](../05-relocate-in-the-same-wor
   - `tests/Shared.Tests`: ``coalescePathMoves keeps file-owned directory separate from file move``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/06-keep-a-nested-node-whose-derived-path-differs/06-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

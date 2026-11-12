@@ -7,7 +7,7 @@ Blockers: none
 
 ## Scope
 
-Slice: [node-move-disk arch](plan/node-move-disk/arch.md) section Persist thread write requires `PersistThread.runRequest` to reject the top stack request when `PersistThread.unparsedNode` is true for that node. It must not call `persistNode`. Today's `runRequest` checks only `CoreEventDispatch.persistedNode`. The Unparsed check was dropped when [71 — Persist thread takes from the stack](plan/core-refinement/issues/71-persist-thread-takes-from-the-stack.md) moved the thread to the stack. This rule is separate from the node enclosure lock.
+Slice: [node-move-disk arch](plan/node-move-disk/arch.md) section Persist thread write requires `PersistThread.runRequest` to reject the top stack request when `PersistThread.unparsedNode` is true for that node. It must not call `persistNode`. Today's `runRequest` checks only `CoreEventDispatch.persistedNode`. The Unparsed check was dropped when [71 — Persist thread takes from the stack](plan/core-refinement/issues/71-persist-thread-takes-from-the-stack.md) moved the thread to the stack. This rule is separate from `NodeLockPool.withLock`.
 
 ### Signatures
 
@@ -62,42 +62,42 @@ Slice: [node-move-disk arch](plan/node-move-disk/arch.md) section Persist thread
 
 #### Persist thread
 
-[ ] `PersistThread.unparsedNode` in `src/Server/Core/PersistThread.fs` has type `Graph -> NodeId -> bool`.
-[ ] `unparsedNode` is true when the node exists and `documentState.parseState` is `ParseState.Unparsed`.
-[ ] `PersistThread.runRequest` is private and has type `PersistThreadDeps -> PersistRequest -> unit`.
-[ ] `runRequest` reads `deps.currentState ()`.
-[ ] `runRequest` calls `persistNode` only when `CoreEventDispatch.persistedNode` is false.
-[ ] `CoreEventDispatch.persistedNode` is true when persist state is `PersistState.Persisted`.
+[x] `PersistThread.unparsedNode` in `src/Server/Core/PersistThread.fs` has type `Graph -> NodeId -> bool`.
+[x] `unparsedNode` is true when the node exists and `documentState.parseState` is `ParseState.Unparsed`.
+[x] `PersistThread.runRequest` is private and has type `PersistThreadDeps -> PersistRequest -> unit`.
+[x] `runRequest` reads `deps.currentState ()`.
+[x] `runRequest` calls `persistNode` when `CoreEventDispatch.persistedNode` is false. It does not consult `unparsedNode`.
+[x] `CoreEventDispatch.persistedNode` is true when persist state is `PersistState.Persisted`.
 [ ] When `unparsedNode` is true, `runRequest` returns without calling `persistNode`.
 [ ] That return posts no `Notice.NodePersisting`, no `Notice.NodePersisted`, and no `Notice.PersistFailed`.
-[ ] `PersistThread.loop` still calls `ServerRunRegistry.notePersistFinished` and takes the next request.
-[ ] The Persisted skip stays a return with no notice and no `persistNode` call.
+[x] `PersistThread.loop` calls `ServerRunRegistry.notePersistFinished` and takes the next request.
+[x] The Persisted skip returns with no notice and no `persistNode` call.
 
 #### Copy-from
 
-[ ] The Persisted branch in `runRequest` is the skip shape.
-[ ] ``repeated pushes write once`` in `tests/Server.Tests/PersistThreadTests.fs` checks a later Persisted take posts no notice.
-[ ] ``persist thread posts NodePersisted on success only`` in `tests/Server.Tests/PersistThreadTests.fs` checks `Notice.NodePersisting` and `Notice.PersistFailed` on a write that returns Error.
+[x] The Persisted branch in `runRequest` is the skip shape.
+[x] ``repeated pushes write once`` in `tests/Server.Tests/PersistThreadTests.fs` pushes four requests and asserts one `persistNode` call after the first success marks the node Persisted.
+[x] ``persist thread posts NodePersisted on success only`` in `tests/Server.Tests/PersistThreadTests.fs` checks `Notice.NodePersisting` then `Notice.NodePersisted` on success, and `Notice.NodePersisting` then `Notice.PersistFailed` on Error.
 
 #### Match sites
 
-[ ] This ticket adds no union case.
-[ ] This ticket changes no public signature.
-[ ] `DbAgent.startFileDiff` calls `unparsedNode` and stays as it is.
-[ ] `FileAgent` and `DbAgent` keep calling `PersistThread.start`.
+[x] This ticket adds no union case yet.
+[x] This ticket changes no public signature yet.
+[x] `DbAgent.startFileDiff` calls `unparsedNode` and stays as it is.
+[x] `FileAgent` and `DbAgent` call `PersistThread.start`.
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Persist thread write** and §4 flow 1 **Accept a persisted change**.
-[ ] [71 — Persist thread takes from the stack](plan/core-refinement/issues/71-persist-thread-takes-from-the-stack.md). The Unparsed check was dropped when that ticket moved the thread onto the stack.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Persist thread write** and §4 flow 1 **Accept a persisted change**.
+[x] [71 — Persist thread takes from the stack](plan/core-refinement/issues/71-persist-thread-takes-from-the-stack.md). The Unparsed check was dropped when that ticket moved the thread onto the stack.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
-[ ] `src/Server/NodeLockPool.fs` stays as it is. This skip is separate from the node lock.
-[ ] `src/Server/DocumentPersistWrite.fs` stays as it is.
-[ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
-[ ] `src/Server/Core/CoreEventDispatch.fs` stays as it is.
+[x] `src/Server/NodeLockPool.fs` stays as it is. This skip is separate from the node lock.
+[x] `src/Server/DocumentPersistWrite.fs` stays as it is.
+[x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are.
+[x] `src/Server/Core/CoreEventDispatch.fs` stays as it is.
 
 ## Process
 
@@ -130,4 +130,4 @@ Slice: [node-move-disk arch](plan/node-move-disk/arch.md) section Persist thread
   - `tests/Server.Tests`: ``persist thread posts NodePersisted on success only``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/10-reject-an-unparsed-persist-request/10-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

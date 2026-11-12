@@ -17,25 +17,25 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] `sameWorkspaceMoves : Graph -> Graph -> DocumentPathMove list -> DocumentPathMove list` is not in code yet; arch requires it in Path class beside `crossWorkspaceMoves`, which this slice also does not add.
 
-[x] `enclosingWorkspace : Graph -> NodeId -> NodeId option` in [src/Shared/GraphQuery.fs](src/Shared/GraphQuery.fs) lines 366–367; walk uses `enclosing graph isEnclosingWorkspaceNode nodeId`.
+[x] `enclosingWorkspace : Graph -> NodeId -> NodeId option` in [src/Shared/GraphQuery.fs](src/Shared/GraphQuery.fs) calls `enclosing graph isEnclosingWorkspaceNode nodeId`.
 
 [x] `isDocumentRootNode : Graph -> NodeId -> bool` in [src/Shared/DocumentPartition.fs](src/Shared/DocumentPartition.fs) is true for `Special (Workspace | Directory | File)`.
 
 [x] `artifactFileRelative : Graph -> NodeId -> string option` and `artifactDirectoryRelative : Graph -> NodeId -> string option` in [src/Shared/DocumentPartition.fs](src/Shared/DocumentPartition.fs) yield data-directory-relative paths (`home/docs/readme.txt`, `home/`, `.amb` for ROOT).
 
-[x] `workspaceRootFor : string -> Graph -> NodeId -> string option` in [src/Server/DocumentPersistPath.fs](src/Server/DocumentPersistPath.fs) lines 41–49 resolves a named Workspace directory under `dataDir` and returns `None` when `artifactDirectoryRelative` is `None` (including ROOT as enclosing workspace).
+[x] `workspaceRootFor : string -> Graph -> NodeId -> string option` in [src/Server/DocumentPersistPath.fs](src/Server/DocumentPersistPath.fs) resolves a named Workspace directory under `dataDir` and returns `None` when `artifactDirectoryRelative` is `None`, including when the enclosing Workspace is `Graph.rootId`. Callers are `GithubTransportActor`, `LoadSaveRouting`, and `Api`.
 
 [x] `resolveUnderDataDir : string -> string -> Result<string, string>` in [src/Server/DocumentPersistPath.fs](src/Server/DocumentPersistPath.fs).
 
 [x] `gitMove : string -> string -> string -> Result<unit, string>` is not in code yet; arch puts it in Same-workspace relocate with repository root, old git path, and new git path.
 
-[x] `GitSave.runGit : string -> string -> Result<string, string>` in [src/Server/GitSave.fs](src/Server/GitSave.fs) line 13 calls `GitRun.gitExec`.
+[x] `GitSave.runGit : string -> string -> Result<string, string>` in [src/Server/GitSave.fs](src/Server/GitSave.fs) calls `GitRun.gitExec`.
 
 [x] `WorkspaceGit.isRepo : string -> bool` and `WorkspaceGit.ensureInit : string -> Result<unit, string>` in [src/Server/WorkspaceGit.fs](src/Server/WorkspaceGit.fs).
 
-[ ] `executePathMoves : string -> Graph -> Graph -> DocumentPathMove list -> Result<unit, string>` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) lines 164–180 uses `File.Move` and `Directory.Move` via private `executePathMove`.
+[x] `executePathMoves : string -> Graph -> Graph -> DocumentPathMove list -> Result<unit, string>` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) coalesces, then folds `executeCoalescedMove`. That takes `NodeLockPool.withLockResult` on the post graph and `move.nodeId`, then calls `resolveMovePaths` and `executePathMove`. `executePathMove` uses `File.Move` and `Directory.Move`.
 
-[x] `validatePathMoves : string -> Graph -> Graph -> Result<unit, string>` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) lines 112–128.
+[x] `validatePathMoves : string -> Graph -> Graph -> Result<unit, string>` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs).
 
 [x] `persistGraphChange : string -> Graph -> Graph -> Result<PersistGraphOk, string>` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) still calls `executePathMoves`, not `gitMove`; this slice does not change that caller.
 
@@ -57,11 +57,11 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 [x] No caller wires `sameWorkspaceMoves` or `gitMove` into `FileAgent.processPostEvents` or `DbAgent.finishAppliedPostChange` in this slice.
 
-[ ] `DocumentPersistChange.persistGraphChangeWith` line 213 still calls only `executePathMoves` inside `DocumentPersistPath.withWorkTreeGates`.
+[x] `DocumentPersistChange.persistGraphChangeWith` calls `executePathMoves`, then `writeDocumentsSoft`. There is no `withWorkTreeGates`. The pool lock is inside `executeCoalescedMove`. This slice does not change that caller.
 
 [x] `GraphQuery.enclosingWorkspace` callers today include [src/Shared/WorkspaceSyncScope.fs](src/Shared/WorkspaceSyncScope.fs), [src/Shared/DocumentPartition.fs](src/Shared/DocumentPartition.fs), [src/Shared/ResidentProjection.fs](src/Shared/ResidentProjection.fs), [src/Server/DocumentPersistPath.fs](src/Server/DocumentPersistPath.fs) `workspaceRootFor`, [src/Server/Core/DbAgent.fs](src/Server/Core/DbAgent.fs), [src/Server/GithubTransportActor.fs](src/Server/GithubTransportActor.fs), and [src/Server/IgnoredDestination.fs](src/Server/IgnoredDestination.fs); this slice does not change `enclosingWorkspace`.
 
-[ ] `DocumentPersistPath.workspaceRootFor` callers include [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs) `persistGraphChangeWith`, [src/Server/DocumentPersistWrite.fs](src/Server/DocumentPersistWrite.fs), [src/Server/LoadSaveRouting.fs](src/Server/LoadSaveRouting.fs), and [src/Server/Api.fs](src/Server/Api.fs); this slice should add repository-root and git-path helpers without breaking those call sites.
+[x] `DocumentPersistPath.workspaceRootFor` callers are [src/Server/GithubTransportActor.fs](src/Server/GithubTransportActor.fs), [src/Server/LoadSaveRouting.fs](src/Server/LoadSaveRouting.fs), and [src/Server/Api.fs](src/Server/Api.fs). `persistGraphChangeWith` and `DocumentPersistWrite` do not call it. This slice adds repository-root and git-path helpers without breaking those three call sites.
 
 ### Existing tests
 
@@ -91,7 +91,7 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 ### Copy-from
 
-[x] Disk relocate for one move: private `executePathMove` and `executePathMoves` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs); resolves full paths via private `resolveMovePaths` and `artifactRelativeForMove` using `DocumentPartition.artifactFileRelative` / `artifactDirectoryRelative`.
+[x] Disk relocate for one move: `executePathMoves` folds `executeCoalescedMove`, which calls `resolveMovePaths` and `executePathMove` in [src/Server/DocumentPersistChange.fs](src/Server/DocumentPersistChange.fs). `artifactRelativeForMove` uses `DocumentPartition.artifactFileRelative` and `artifactDirectoryRelative`.
 
 [x] Git process: `GitSave.runGit` in [src/Server/GitSave.fs](src/Server/GitSave.fs).
 
@@ -146,8 +146,8 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 [ ] `sameWorkspaceMoves` drops a `Special Workspace` node.
 [ ] `sameWorkspaceMoves` keeps the input order of the moves it keeps.
 [ ] `sameWorkspaceMoves` reads no parse state.
-[ ] `GraphQuery.enclosingWorkspace` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> NodeId option`.
-[ ] `enclosingWorkspace` returns the Workspace id, including `Graph.rootId` for ROOT.
+[x] `GraphQuery.enclosingWorkspace` in `src/Shared/GraphQuery.fs` has type `Graph -> NodeId -> NodeId option`.
+[x] `enclosingWorkspace` returns the Workspace id, including `Graph.rootId` for ROOT.
 
 #### Workspace repository
 
@@ -171,17 +171,17 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 [ ] `gitMove` has type `string -> string -> string -> Result<unit, string>`.
 [ ] The arguments are the repository root, the old git path, and the new git path.
 [ ] `gitMove` makes one `GitSave.runGit` call whose arguments are `mv --`, the old git path, and the new git path.
-[ ] `GitSave.runGit` in `src/Server/GitSave.fs` has type `string -> string -> Result<string, string>`.
+[x] `GitSave.runGit` in `src/Server/GitSave.fs` has type `string -> string -> Result<string, string>`.
 [ ] One same-workspace move is one `gitMove` call.
 [ ] `gitMove` of a Directory path moves that Directory tree.
 [ ] `gitMove` takes no child list and no parse state.
 
 #### Copy-from
 
-[ ] `DocumentPersistChange.executePathMoves` in `src/Server/DocumentPersistChange.fs` relocates with `File.Move` and `Directory.Move`.
-[ ] `DocumentPersistPath.workspaceRootFor` in `src/Server/DocumentPersistPath.fs` has type `string -> Graph -> NodeId -> string option` and returns `None` when the enclosing Workspace is ROOT.
-[ ] `WorkspaceGit.ensureInit` in `src/Server/WorkspaceGit.fs` creates the Workspace repository the seam test initializes.
-[ ] ``enclosingWorkspace resolves named workspace and canonical roots`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `enclosingWorkspace` for a named Workspace and for ROOT.
+[x] `DocumentPersistChange.executePathMoves` folds `executeCoalescedMove`. `executePathMove` relocates with `File.Move` and `Directory.Move`.
+[x] `DocumentPersistPath.workspaceRootFor` in `src/Server/DocumentPersistPath.fs` has type `string -> Graph -> NodeId -> string option` and returns `None` when the enclosing Workspace is ROOT.
+[x] `WorkspaceGit.ensureInit` in `src/Server/WorkspaceGit.fs` creates the Workspace repository the seam test initializes.
+[x] ``enclosingWorkspace resolves named workspace and canonical roots`` in `tests/Shared.Tests/GraphQueryTests.fs` checks `enclosingWorkspace` for a named Workspace and for ROOT.
 
 #### Match sites
 
@@ -192,26 +192,26 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
 
 #### Tests the ticket leaves as they are
 
-[ ] ``planPathMovesBetweenGraphs includes file reparent across workspaces`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks a file move from `//home/readme.txt` to `//other/readme.txt`.
-[ ] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks coalesce keeps the directory move for `docs` to `archive`.
-[ ] ``persistGraphChange moves renamed file artifact before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` moves the file on disk.
-[ ] ``persistGraphChange moves renamed directory tree before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` moves the directory tree on disk.
+[x] ``planPathMovesBetweenGraphs includes file reparent across workspaces`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks a file move from `//home/readme.txt` to `//other/readme.txt`.
+[x] ``coalescePathMoves drops nested roots covered by directory move`` in `tests/Shared.Tests/DocumentPathMoveTests.fs` checks coalesce keeps the directory move for `docs` to `archive`.
+[x] ``persistGraphChange moves renamed file artifact before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` moves the file on disk.
+[x] ``persistGraphChange moves renamed directory tree before writing`` in `tests/Server.Tests/DocumentPathMoveExecutionTests.fs` checks `persistGraphChange` moves the directory tree on disk.
 
 ### Reference
 
-[ ] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class**, **Same-workspace relocate**, and **Workspace repository**, §4 flow 2 **Same-workspace relocate**, §6 seam 7, and §8 question 1.
-[ ] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
+[x] [Node move and disk architecture](plan/node-move-disk/arch.md) §3 **Path class**, **Same-workspace relocate**, and **Workspace repository**, §4 flow 2 **Same-workspace relocate**, §6 seam 7, and §8 question 1.
+[x] [Size limit](plan/context/size-limit.md): 8 source files, 4 tests.
 
 ## Do not load
 
-[ ] `src/Shared/GraphQuery.fs` stays as it is.
-[ ] `src/Server/DocumentPersistChange.fs` stays as it is. `executePathMoves` and `persistGraphChange` keep `File.Move` and `Directory.Move`.
-[ ] `src/Server/GitSave.fs` stays as it is. `runGit` stays the git process call.
-[ ] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Post change becomes the relocate caller in a later ticket.
-[ ] `crossWorkspaceMoves` and `moveAcrossWorkspaces` stay absent.
-[ ] `coalescePathMoves` stays as it is.
-[ ] `src/Server/NodeLockPool.fs` stays as it is. This ticket takes no node lock.
-[ ] `src/Shared/ChangeAmendment.fs` stays as it is.
+[x] `src/Shared/GraphQuery.fs` stays as it is.
+[x] `src/Server/DocumentPersistChange.fs` stays as it is. `executePathMove` keeps `File.Move` and `Directory.Move`.
+[x] `src/Server/GitSave.fs` stays as it is. `runGit` stays the git process call.
+[x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Post change becomes the relocate caller in a later ticket.
+[x] `crossWorkspaceMoves` and `moveAcrossWorkspaces` stay absent.
+[x] `coalescePathMoves` stays as it is.
+[x] `src/Server/NodeLockPool.fs` stays as it is. This ticket takes no node lock.
+[x] `src/Shared/ChangeAmendment.fs` stays as it is.
 
 ## Process
 
@@ -252,4 +252,4 @@ Blockers: [04 — Expand the node enclosure lock](../04-expand-the-node-enclosur
   - `tests/Server.Tests`: ``gitMove moves a directory tree with one git mv``
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/node-move-disk/issues/05-relocate-in-the-same-workspace/05-build.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] A reader who reads only the One job line can say what the ticket builds.

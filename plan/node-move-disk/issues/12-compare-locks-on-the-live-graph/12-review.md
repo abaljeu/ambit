@@ -38,5 +38,5 @@ Check: pass
 The following issues were found beyond the ticket scope.  The fixes are suggested.
 
 - 1. **NodeAbsent record** — Accept.
-  - **Problem.** `plan/node-move-disk/issues/11-expand-the-node-lock-pool/11-expand-the-node-lock-pool-ticket.md` line 16 and line 112, and `plan/node-move-disk/issues/11-expand-the-node-lock-pool/11-review.md` line 26, still describe `NodeAbsent` as the result for an id absent from `Graph.create()`.
-  - **Fix.** Leave those as the record of 11 — Expand the node lock pool. A later reader should use 12 — Compare locks on the live graph for the current rejection type.
+  - **Problem.** At review, 11 — Expand the node lock pool and its review still described `NodeAbsent` as the result for an id absent from `Graph.create()`.
+  - **Fix.** Those files now say `NodeAbsent` is what 11 added and 12 deleted. An absent node runs the action. `NodeLockRejection` has only `HolderHoldsLock`.

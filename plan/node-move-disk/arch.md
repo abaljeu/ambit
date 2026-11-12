@@ -126,7 +126,7 @@ processPostEvents : LoadedFile -> Ev list -> bool -> Result<CoreChangesAccepted,
 
 ### Disk relocate
 
-[x] `executePathMoves` moves a file with `File.Move` and a directory with `Directory.Move` when the source path exists.
+[x] `executePathMoves` folds `executeCoalescedMove`. `executeCoalescedMove` takes `NodeLockPool.withLockResult` on the post graph and `move.nodeId`, then calls `resolveMovePaths` and `executePathMove`. `executePathMove` calls `validateDestinationAvailable`, then `File.Move` or `Directory.Move` when the source path exists.
 
 ```fsharp
 executePathMoves : string -> Graph -> Graph -> DocumentPathMove list -> Result<unit, string>
@@ -138,7 +138,7 @@ persistGraphOps : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, 
 [x] `persistGraphChange` and `persistGraphOps` call `persistGraphChangeWith`.
 [x] Call sites of `persistGraphChange` and `persistGraphOps` outside their definitions are in `tests/Server.Tests`.
 [o] `File.Move` and `Directory.Move` are the relocation.
-[x] `persistGraphChangeWith` holds `NodeLockPool.withLock` around each coalesced path move from `planPathMovesBetweenGraphs` and `coalescePathMoves` before `File.Move` or `Directory.Move`. Ticket: [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves/13-lock-the-persist-path-moves-ticket.md).
+[x] `persistGraphChangeWith` calls `executePathMoves` on the moves from `planPathMovesBetweenGraphs`. The `withLockResult` for each coalesced move is inside `executeCoalescedMove`, before `File.Move` or `Directory.Move`. Ticket: [13 — Lock the persist path moves](issues/13-lock-the-persist-path-moves/13-lock-the-persist-path-moves-ticket.md).
 
 ### Same-workspace relocate
 
@@ -206,15 +206,15 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 [x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the new request. Ticket: [12 — Compare locks on the live graph](issues/12-compare-locks-on-the-live-graph/12-compare-locks-on-the-live-graph-ticket.md).
 [x] An absent node conflicts with nothing.
 [x] A holder that already holds a pool lock and requests another gets `Error NodeLockRejection.HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
-[x] A request waits on the same node, a taken ancestor, or a taken descendant. Taken means `Pending` or `Held`.
+[x] A request waits on the same node, a taken ancestor, or a taken descendant. A `Held` entry blocks. A `Pending` entry blocks only when its seq is smaller.
 [x] The lock records the node. A path match is outside this lock.
-[x] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node. 13 — Lock the persist path moves holds this gate around each coalesced path move in `persistGraphChangeWith`.
+[x] The gate is one `withLock` on the moved node. A Directory move requests that Directory node. A Workspace move requests that Workspace node. A File move requests that File node. 13 — Lock the persist path moves holds this gate in `executeCoalescedMove` for each coalesced path move.
 [x] Fetch runs to completion first. Fetch holds no `withLock`.
 [x] The pull holds `withLock` on the Workspace Node. The pull merges the fetched commits and marks the arrived nodes Unparsed. That hold then releases.
 [x] A Directory move calls `withLock` on the Directory Node.
 [ ] The holder is the git pull caller, the relocate caller, or the persist caller. The holder runs that algorithm and then releases.
-[x] `writeDocument` and `writeArtifactText` call `withLock` on the document-root node around the file bytes.
-[x] A parse read calls `withLock` on its node.
+[x] `writeDocument` and `writeArtifactText` call `withLockResult` on the document-root node around the file bytes. `withLockResult` calls `withLock`.
+[x] A file-body parse read calls `withLockResult` from `preparedParseText`. A directory reconcile calls `withLockResult` from `ParseThread.reconcileDirectory`.
 [ ] After the post graph is stored, a descendant's owner chain still contains the moved Directory Node. One id covers the source path and the destination path.
 [ ] This lock is [core-refinement architecture](../core-refinement/arch.md) §6 **Workspace lock** and §6 **Per-member persist locks**. Both are this one request.
 
@@ -237,7 +237,7 @@ NodeLockPool.withLock : Graph -> NodeId -> (unit -> 'a) -> Result<'a, NodeLockRe
 
 #### Work-tree gate and git process lock
 
-[x] `WorkspaceGit.withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths once [31 — Migrate onto the workspace lock](../core-refinement/issues/31-migrate-onto-the-workspace-lock.md) lands. `NodeLockPool.withLock` is the protocol on those paths.
+[x] `WorkspaceGit.withWorkTreeGate`, `DocumentPersistPath.withWorkTreeGates`, and the private `GitRun.withWorkTreeGate` are gone. [31 — Migrate onto the workspace lock](../core-refinement/issues/31-migrate-onto-the-workspace-lock.md) removed them. `NodeLockPool.withLock` is the protocol on Persist and git paths.
 [x] A holder calls `withLock` once. A Directory move is that one call on the Directory node.
 
 ### Unparsed save gate
@@ -281,9 +281,9 @@ DocumentPersistPath.workspaceRootFor : string -> Graph -> NodeId -> string optio
 [x] `DailyGitSave.commitRoot` commits the data directory with `GitSave.commitAll` and a child Workspace with `WorkspaceGit.commitAll`.
 [x] `DocumentPersistPath.workspaceRootFor` returns the named Workspace directory.
 [x] `workspaceRootFor` returns None when the enclosing Workspace is ROOT.
-[ ] The repository root of a named Workspace is `workspaceRootFor`.
+[x] The repository root of a named Workspace is the directory `workspaceRootFor` returns. Callers are `GithubTransportActor`, `LoadSaveRouting`, and `Api`.
 [ ] The repository root of ROOT is the data directory.
-[ ] `DocumentPartition.artifactFileRelative` and `DocumentPartition.artifactDirectoryRelative` are data-directory paths.
+[x] `DocumentPartition.artifactFileRelative` and `DocumentPartition.artifactDirectoryRelative` are data-directory paths. `artifactDirectoryRelative` returns None for `Graph.rootId`. `artifactFileRelative` returns `.amb` for `Graph.rootId`.
 [ ] The git path of a named Workspace is that data-directory path without the workspace directory prefix.
 [ ] The git path of ROOT is that data-directory path.
 
@@ -347,7 +347,8 @@ Accept validation
 6. **Move under the node lock**
 
 [ ] The relocate caller calls `NodeLockPool.withLock` on the moved node. That request waits while a conflicting persist or parse read is taken. Same-workspace relocate or Cross-workspace move runs git inside the action. The action's return releases the request. A persist that waited on that request then writes.
-[ ] 13 — Lock the persist path moves holds that `withLock` around the coalesced `File.Move` and `Directory.Move` in `persistGraphChangeWith`. 09 — Relocate under the node lock runs the relocation from 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, 07 — Move an owned node across workspaces, and 08 — Amend a change conflict before the graph is stored under that lock.
+[x] 13 — Lock the persist path moves holds `withLockResult` inside `executeCoalescedMove`, around each coalesced `File.Move` and `Directory.Move`.
+[ ] 09 — Relocate under the node lock runs the relocation from 05 — Relocate in the same workspace, 06 — Keep a nested node whose derived path differs, 07 — Move an owned node across workspaces, and 08 — Amend a change conflict before the graph is stored under that same lock.
 
 ```fsharp
 Move write gate
@@ -393,7 +394,7 @@ Persist thread write
 8. **Disk relocate**
    - Interface: `src/Server/DocumentPersistChange.fs` `executePathMoves`
    - [o] `File.Move` and `Directory.Move`
-   - [x] `NodeLockPool.withLock` around each coalesced move. 13 — Lock the persist path moves.
+   - [x] `NodeLockPool.withLockResult` inside `executeCoalescedMove` for each coalesced move. 13 — Lock the persist path moves.
    - Uses:
      1. [x] Path comparison
      2. [x] Path coalesce
