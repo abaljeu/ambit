@@ -18,4 +18,4 @@
 
 One suggested fix waits for confirmation. This ticket folder has no review report that accepts it.
 
-[21 — Convert CoreMsg.ActorStop](plan/actor-as-client/issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) names ``query start error posts no rows, fails the reply, and keeps the edit``. The gate actor in that fact still calls `CoreDoor.actorStop`.
+[21 — Convert CoreMsg.ActorStop](plan/actor-as-client/issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) records that ``query start error posts no rows, fails the reply, and keeps the edit`` has left. ``posted gate start replies unknown actor`` replies `unknown actor`. `SearchActor.queryActorBody` returns the result. The pool posts the stop.

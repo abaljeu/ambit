@@ -11,35 +11,35 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 ### Working
 
-[ ] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, `ActorStop`, and `PostEvent`.
-[ ] `RecordSearchStop` is `caller: Caller * rootId: NodeId * AsyncReplyChannel<Result<unit, string>>`. The comment says the case puts ActorStop on the event source, and the id is the root.
-[ ] `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs` takes `MailboxHost`, `Caller`, and `NodeId`, and returns `Async<Result<unit, string>>`. It posts `RecordSearchStop` through `MailboxHost.postAndAsyncReply`.
-[ ] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` handles `RecordSearchStop` by calling `CoreEventDispatch.actorStop` with that caller, that root id, and `ActorSucceeded`.
-[ ] `CoreMailboxLoop.messageCaller` matches `RecordSearchStop` and returns the caller.
-[ ] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches `RecordSearchStop` and returns `"RecordSearchStop", ""`.
-[ ] `CoreMailboxEvents.replyFailure` matches `RecordSearchStop` and replies `Error` on that channel.
-[ ] `CoreEventDispatch.actorStop` in `src/Server/Core/CoreEventDispatch.fs` commits `EventBody.ActorStop` of the focus id and the result.
-[ ] `EventBody.ActorStop` in `src/Shared/History.fs` builds `EventBody.Notice` of `Notice.ActorStopped` of that focus id and that result. The active pattern reads that same notice.
-[ ] `RouteRegistration.searchDoor` in `src/Server/RouteRegistration.fs` sets `recordStop` to a function that calls `CoreMailboxApi.recordSearchStop` with the host, the browser caller, and the root id, then returns unit.
-[ ] `Api.SearchActorDoor` in `src/Server/Api.fs` has `recordStop: NodeId -> Async<unit>`. `Api.searchReply` calls `recordStart` and returns `SearchActor.reply`. `Api.postSearch` calls `searchReply`.
-[ ] `SearchActor.actorStart` in `src/Server/SearchActor.fs` sets `zoomId`, `focusId`, `runDefinitionId`, and `graphIds` to the graph root.
-[ ] `CoreMailboxApi.recordSearchStart` places `Order.StartActor` for the actor name `search`. `actorNodeIdOf` is `ActorOrderFromStart.focusIdOf`, which returns `ActorStart.focusId`.
-[ ] `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`.
-[ ] `CoreMailboxLoop.poolActor` builds those changes with `CoreDoor.actorChanges` for `CoreDoor.actorCaller` of the pool secret. `CoreDoor.actorStop` calls `CoreMailboxApi.actorStop`, which posts `CoreMsg.ActorStop`.
-[ ] `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` accepts `Authority "Actor"`, reads `pool.getActorNodeId`, and calls `CoreEventDispatch.actorStop` with that actor node id and the result.
-[ ] `tests/Server.Tests/SearchActorTests.fs` test ``postSearch records ActorStart at the root`` sets `recordStop` to a closure that calls `CoreMailboxApi.recordSearchStop`. The logged stop in that test is the actor stop from `searchActorAt`. The test asserts `EventBody.ActorStop` of the root with `ActorSucceeded`.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, `ActorStop`, and `PostEvent`.
+[x] `RecordSearchStop` is `caller: Caller * rootId: NodeId * AsyncReplyChannel<Result<unit, string>>`. The comment says the case puts ActorStop on the event source, and the id is the root.
+[x] `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs` takes `MailboxHost`, `Caller`, and `NodeId`, and returns `Async<Result<unit, string>>`. It posts `RecordSearchStop` through `MailboxHost.postAndAsyncReply`.
+[x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` handles `RecordSearchStop` by calling `CoreEventDispatch.actorStop` with that caller, that root id, and `ActorSucceeded`.
+[x] `CoreMailboxLoop.messageCaller` matches `RecordSearchStop` and returns the caller.
+[x] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches `RecordSearchStop` and returns `"RecordSearchStop", ""`.
+[x] `CoreMailboxEvents.replyFailure` matches `RecordSearchStop` and replies `Error` on that channel.
+[x] `CoreEventDispatch.actorStop` in `src/Server/Core/CoreEventDispatch.fs` commits `EventBody.ActorStop` of the focus id and the result.
+[x] `EventBody.ActorStop` in `src/Shared/History.fs` builds `EventBody.Notice` of `Notice.ActorStopped` of that focus id and that result. The active pattern reads that same notice.
+[x] `RouteRegistration.searchDoor` in `src/Server/RouteRegistration.fs` sets `recordStop` to a function that calls `CoreMailboxApi.recordSearchStop` with the host, the browser caller, and the root id, then returns unit.
+[x] `Api.SearchActorDoor` in `src/Server/Api.fs` has `recordStop: NodeId -> Async<unit>`. `Api.searchReply` calls `recordStart` and returns `SearchActor.reply`. `Api.postSearch` calls `searchReply`.
+[x] `SearchActor.actorStart` in `src/Server/SearchActor.fs` sets `zoomId`, `focusId`, `runDefinitionId`, and `graphIds` to the graph root.
+[x] `CoreMailboxApi.recordSearchStart` places `Order.StartActor` for the actor name `search`. `actorNodeIdOf` is `ActorOrderFromStart.focusIdOf`, which returns `ActorStart.focusId`.
+[x] `SearchActor.searchActorAt` returns `ActorSucceeded`. It does not call a stop. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of that result. `SearchActor.actorCaller` has left.
+[x] `CoreMailboxLoop.poolActor` builds `ActorChanges` with `CoreDoor.actorChanges` for `CoreDoor.actorCaller` of the pool secret. `CoreDoor.actorStop` calls `CoreMailboxApi.actorStop`, which posts `CoreMsg.ActorStop`. `searchActorAt` does not call that stop.
+[x] `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` accepts `Authority "Actor"`, reads `pool.getActorNodeId`, and calls `CoreEventDispatch.actorStop` with that actor node id and the result. That arm serves `CoreMsg.ActorStop`.
+[x] `tests/Server.Tests/SearchActorTests.fs` test ``postSearch records ActorStart at the root`` sets `recordStop` to a closure that calls `CoreMailboxApi.recordSearchStop`. The test waits with `TestBackend.waitForNotices` for `EventBody.ActorStop` of the root with `ActorSucceeded`. That row is the pool post. `recordSearchStop` still logs its own stop.
 
 ### Reference
 
-[ ] [Search Actor](../../doc/current/search-actor.md) section **Uses**. The stop line says `searchActorAt` calls `changes.actorStop` with `ActorSucceeded`, and that actor stop logs `Notice.ActorStopped`.
-[ ] Alan, 2026-11-13: remove `CoreMsg.RecordSearchStop`. A search stop is the actor stop, which logs `Notice.ActorStopped`.
+[x] [Search Actor](../../doc/current/search-actor.md) section **Uses**. The stop line says `SearchActor.searchActorAt` returns `ActorSucceeded`, and `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`.
+[x] Alan, 2026-11-13: remove `CoreMsg.RecordSearchStop`. A search stop is `Notice.ActorStopped` from the pool post.
 
 ## Do not load
 
 [ ] `CoreMailboxApi.recordSearchStart`, `Order.StartActor`, and `SearchActor.actorStart`.
 [ ] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, and `CoreMailboxActors.dispatchActorStop`. [114 — Remove CoreMsg.ActorStop](../../core-refinement/issues/114-remove-coremsg-actorstop.md) owns that case.
 [ ] `Api.SearchActorDoor` and `Api.postSearch`.
-[ ] `Notice` cases other than the `Notice.ActorStopped` the actor stop already logs.
+[ ] `Notice` cases other than the `Notice.ActorStopped` the pool post already logs.
 
 ## Process
 
