@@ -129,7 +129,7 @@ module CoreActorPool =
             |> Option.defaultValue (
                 commandNode.text.Trim().ToLowerInvariant())
 
-    let private actorGraphFrom (fullGraph: Graph) (request: ActorStart) =
+    let actorGraphFrom (fullGraph: Graph) (request: ActorStart) =
         let actorNodes =
             request.graphIds
             |> List.choose (fun id ->

@@ -118,6 +118,84 @@ type AgentAskTests() =
                 }))
 
     [<Fact>]
+    member _.``?ai prompt keeps an expanded child's text and omits a folded child's descendant``
+        ()
+        =
+        withFake
+            (fun args ->
+                Assert.Contains("expanded-child-text", args.Prompt)
+                Assert.Contains("folded-row-text", args.Prompt)
+                Assert.DoesNotContain("folded-child-text", args.Prompt)
+                fakeReply "from-agent")
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let zoomId = NodeId.New()
+                    let commandId = NodeId.New()
+                    let expandedId = NodeId.New()
+                    let expandedChildId = NodeId.New()
+                    let foldedId = NodeId.New()
+                    let foldedChildId = NodeId.New()
+                    let event =
+                        { id = EventId.zero
+                          submissionId = System.Guid.NewGuid()
+                          authority = Authority "Browser"
+                          commandName = ""
+                          body =
+                            EventBody.Change
+                                [ Op.NewNode(zoomId, "zoom-root")
+                                  Op.NewNode(commandId, "?ai")
+                                  Op.NewNode(
+                                      expandedId, "expanded-row-text")
+                                  Op.NewNode(
+                                      expandedChildId,
+                                      "expanded-child-text")
+                                  Op.NewNode(foldedId, "folded-row-text")
+                                  Op.NewNode(
+                                      foldedChildId, "folded-child-text")
+                                  Op.Replace(
+                                      Graph.rootId,
+                                      [],
+                                      [ ChildNode.owner zoomId ])
+                                  Op.Replace(
+                                      zoomId,
+                                      [],
+                                      [ ChildNode.owner commandId
+                                        ChildNode.owner expandedId
+                                        ChildNode.owner foldedId ])
+                                  Op.Replace(
+                                      expandedId,
+                                      [],
+                                      [ ChildNode.owner expandedChildId ])
+                                  Op.Replace(
+                                      foldedId,
+                                      [],
+                                      [ ChildNode.owner foldedChildId ]) ] }
+                    let! posted =
+                        CoreMailboxApi.postGraphOnly
+                            host testCaller event
+                        |> Async.StartAsTask
+                    match posted with
+                    | Error err -> Assert.Fail(err)
+                    | Ok _ -> ()
+                    let request =
+                        { zoomId = zoomId
+                          focusId = commandId
+                          runDefinitionId = commandId
+                          graphIds =
+                            [ zoomId
+                              commandId
+                              expandedId
+                              expandedChildId
+                              foldedId ]
+                          eventId = EventId.zero }
+                    let! started = startAiRun host request
+                    match started with
+                    | Error err -> Assert.Fail(err)
+                    | Ok () -> ()
+                    do! expectActorSucceeded host pool commandId
+                }))
+
+    [<Fact>]
     member _.``credentialed Change under Focus is accepted while Ask runs``() =
         withFake
             (fun _ ->

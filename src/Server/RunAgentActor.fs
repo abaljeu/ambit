@@ -56,11 +56,9 @@ module RunAgentActor =
         + Environment.NewLine
         + "- Do not rewrite Focus itself."
 
-    let private packExtract (input: ActorInput) =
-        AiExtractPack.packExtract
-            input.graph
-            input.zoomId
-            input.focusId
+    let private packExtract (input: ActorInput) (start: ActorStart) =
+        let graph = CoreActorPool.actorGraphFrom input.graph start
+        AiExtractPack.packExtract graph input.zoomId input.focusId
 
     let private commandArgs keys repos (input: ActorInput) =
         match Map.tryFind input.runDefinitionId input.graph.nodes with
@@ -386,9 +384,10 @@ module RunAgentActor =
                 coreChanges
                 (toStartArgs keys repos args document)
 
-    let private runBody keys repos grok (input: ActorInput) coreChanges =
+    let private runBody
+        keys repos grok (input: ActorInput) (start: ActorStart) coreChanges =
         async {
-            match packExtract input with
+            match packExtract input start with
             | Error _ -> return ActorFailed ""
             | Ok document ->
                 match!
@@ -437,6 +436,7 @@ module RunAgentActor =
                             install.repos
                             install.grok
                             input
+                            start
                             changes
                     do! stop changes result
             }
