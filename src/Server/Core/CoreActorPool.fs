@@ -262,6 +262,29 @@ module CoreActorPool =
                     Map.add secret { row with pending = None } model.live
                 { model with live = live }, Some (pending, row)
 
+    /// Cancel already logged the stop. A returned result posts it.
+    let private postStopUnlessCancelled
+        (coreChanges: CoreChangesDoor)
+        (row: LiveRow)
+        (result: ActorResult)
+        =
+        if row.cancel.IsCancellationRequested then
+            ()
+        else
+            CoreMailboxApi.postNotice
+                coreChanges.host
+                (Notice.ActorStopped(row.actorNodeId, result))
+
+    let private runReturned
+        (coreChanges: CoreChangesDoor)
+        (row: LiveRow)
+        (work: Async<ActorResult>)
+        =
+        async {
+            let! result = work
+            postStopUnlessCancelled coreChanges row result
+        }
+
     let private runSchedule
         (takePendingBody: Credential -> (PendingBody * LiveRow) option)
         (secret: Credential)
@@ -274,12 +297,14 @@ module CoreActorPool =
                 match pending with
                 | BagPending(actorFn, input) ->
                     actorFn input coreChanges
-                | FunctionPending(actor, getGraph, secret) ->
+                | FunctionPending(actor, getGraph, bodySecret) ->
                     actor
                         { getGraph = getGraph
-                          secret = secret }
+                          secret = bodySecret }
                         coreChanges
-            Async.Start(work |> Async.Ignore, row.cancel.Token)
+            Async.Start(
+                runReturned coreChanges row work,
+                row.cancel.Token)
 
     let dropAndReply
         (pool: CoreActorPool)

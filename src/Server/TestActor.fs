@@ -33,26 +33,17 @@ module TestActor =
     /// Hello-only. Any other command text is ActorFailed. No exception path.
     let private dispatch (input: ActorInput) (coreChanges: CoreChangesDoor) =
         async {
-            let! result =
-                match Map.tryFind input.runDefinitionId input.graph.nodes with
-                | None -> async.Return (ActorFailed "")
-                | Some commandNode ->
-                    match
-                        CommandRequest.behaviorFromText
-                            commandNode.text
-                        with
-                    | "hello" ->
-                        async {
-                            do! hello input coreChanges
-                            return ActorSucceeded
-                        }
-                    | _ -> async.Return (ActorFailed "")
-            let caller = CoreDoor.actorCaller input.secret
-            let! _ =
-                CoreDoor.actorStop
-                    (CoreDoor.forCaller caller coreChanges)
-                    result
-            return result
+            match Map.tryFind input.runDefinitionId input.graph.nodes with
+            | None -> return ActorFailed ""
+            | Some commandNode ->
+                match
+                    CommandRequest.behaviorFromText
+                        commandNode.text
+                    with
+                | "hello" ->
+                    do! hello input coreChanges
+                    return ActorSucceeded
+                | _ -> return ActorFailed ""
         }
 
     /// ActorFn for Actor name "test". Selection is CoreActorPool's job.
@@ -93,21 +84,14 @@ module TestActor =
         (changes: ActorChanges)
         =
         async {
-            let! result =
-                match behavior with
-                | "hello" ->
-                    async {
-                        do! postChild parentId "hello" changes.postChanges
-                        return ActorSucceeded
-                    }
-                | "ping" ->
-                    async {
-                        do! postChild parentId "pong" changes.postChanges
-                        return ActorSucceeded
-                    }
-                | _ -> async.Return (ActorFailed "")
-            let! _ = changes.actorStop result
-            return result
+            match behavior with
+            | "hello" ->
+                do! postChild parentId "hello" changes.postChanges
+                return ActorSucceeded
+            | "ping" ->
+                do! postChild parentId "pong" changes.postChanges
+                return ActorSucceeded
+            | _ -> return ActorFailed ""
         }
 
     /// Function-shaped TestActor. Calls getGraph; pool supplies no Graph.

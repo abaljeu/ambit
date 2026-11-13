@@ -354,12 +354,6 @@ module RunAgentActor =
                                 fold)
         }
 
-    let private stop (changes: ActorChanges) result =
-        async {
-            let! _ = changes.actorStop result
-            return result
-        }
-
     let private planOnCurrent
         (input: ActorInput)
         (changes: ActorChanges)
@@ -426,11 +420,10 @@ module RunAgentActor =
         fun run changes ->
             async {
                 match sessionIdFor run.secret with
-                | None ->
-                    return! stop changes (ActorFailed "not live")
+                | None -> return ActorFailed "not live"
                 | Some sessionId ->
                     let input = inputFor run start sessionId
-                    let! result =
+                    return!
                         runBody
                             install.keys
                             install.repos
@@ -438,7 +431,6 @@ module RunAgentActor =
                             input
                             start
                             changes
-                    return! stop changes result
             }
 
     /// `?ai` ActorOrder. `actorNodeId` is the focus id.

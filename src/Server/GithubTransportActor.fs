@@ -324,14 +324,12 @@ module GithubTransportActor =
         | Error err -> ActorFailed err
 
     let private finishActor
-        (changes: ActorChanges)
+        (_changes: ActorChanges)
         (work: Async<Result<unit, string>>)
         =
         async {
             let! step = work
-            let result = actorOutcome step
-            let! _ = changes.actorStop result
-            return result
+            return actorOutcome step
         }
 
     let private readFocusNode (changes: ActorChanges) focusId =

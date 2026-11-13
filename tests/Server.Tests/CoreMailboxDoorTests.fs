@@ -1259,3 +1259,69 @@ let ``a stored Parse Change keeps origin Parse`` () =
         requireOk "place parse" posted |> ignore
         do! assertStoredChange host event ChangeOrigin.Parse
     })
+
+[<Fact>]
+let ``an Actor that returns logs Notice.ActorStopped`` () =
+    withHost (fun host pool -> task {
+        let request = sampleRequest
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = fun _ _ -> async.Return ActorSucceeded
+              actorName = "root"
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+        let! started =
+            CoreMailboxApi.coreMailboxStartActorFromFunction
+                host
+                testCaller
+                placement
+            |> Async.StartAsTask
+        requireOk "start" started |> ignore
+        let! events =
+            waitForNotices
+                (fun () ->
+                    task {
+                        let! history =
+                            CoreMailboxApi.eventHistory host
+                            |> Async.StartAsTask
+                        return history.events
+                    })
+                (fun events ->
+                    events
+                    |> List.exists (fun event ->
+                        match event.body with
+                        | EventBody.Notice
+                            (Notice.ActorStopped (_, ActorSucceeded)) ->
+                            true
+                        | _ -> false))
+        let ordered = events |> List.sortBy (fun event -> event.id)
+        Assert.Equal(2, ordered.Length)
+        match ordered.[0].body with
+        | EventBody.Order (Order.StartActor order) ->
+            Assert.Equal(request.focusId, order.actorNodeId)
+            Assert.Equal("root", order.actorName)
+        | other ->
+            Assert.Fail($"stored body is StartActor, got {other}")
+        let stopEvent = ordered.[1]
+        Assert.Equal(Authority "Actor", stopEvent.authority)
+        match stopEvent.body with
+        | EventBody.Notice
+            (Notice.ActorStopped (focusId, ActorSucceeded)) ->
+            Assert.Equal(request.focusId, focusId)
+        | other ->
+            Assert.Fail($"stored body is ActorStopped, got {other}")
+        Assert.False(
+            Set.contains request.focusId (pool.liveActorNodeIds ()))
+    })
+
+[<Fact>]
+let ``ActorStopped for an idle focus logs nothing`` () =
+    withHost (fun host _ -> task {
+        let! before =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        CoreMailboxApi.postNotice
+            host
+            (Notice.ActorStopped(Graph.rootId, ActorSucceeded))
+        let! after =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.Equal<Ev list>(before.events, after.events)
+    })

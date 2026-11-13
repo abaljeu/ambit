@@ -336,23 +336,55 @@ module internal CoreMailboxLoop =
                 reply.Reply(Error droppedAuthority)
         | Mailbox.Ask query -> dispatchAsk context query
 
+    let private logActorStopped
+        (context: MailboxContext)
+        (actorNodeId: NodeId)
+        (result: ActorResult)
+        =
+        match context.pool.trySecretForActorNode actorNodeId with
+        | None -> ()
+        | Some secret ->
+            let caller = CoreDoor.actorCaller secret
+            let dispatch =
+                CoreMailboxEvents.eventDispatchContext context
+            match
+                CoreEventDispatch.actorStop
+                    dispatch
+                    caller
+                    actorNodeId
+                    result
+            with
+            | Error err -> reportNotice context err
+            | Ok () ->
+                match context.pool.finish secret result with
+                | Error err -> reportNotice context err
+                | Ok () -> ()
+
+    let private logPostedNotice
+        (context: MailboxContext)
+        (msg: Notice)
+        =
+        let logged =
+            CoreEventDispatch.logNotice
+                (CoreMailboxEvents.eventDispatchContext context)
+                msg
+        match logged with
+        | Error err -> reportNotice context err
+        | Ok _ -> ()
+        match applyNotice context.persist msg with
+        | Ok () -> ()
+        | Error err -> reportNotice context err
+
     let private dispatchItem
         (context: MailboxContext)
         (item: CoreQueue)
         =
         match item with
         | CoreQueue.Public message -> dispatchMailbox context message
+        | CoreQueue.Notice (Notice.ActorStopped (actorNodeId, result)) ->
+            logActorStopped context actorNodeId result
         | CoreQueue.Notice msg ->
-            let logged =
-                CoreEventDispatch.logNotice
-                    (CoreMailboxEvents.eventDispatchContext context)
-                    msg
-            match logged with
-            | Error err -> reportNotice context err
-            | Ok _ -> ()
-            match applyNotice context.persist msg with
-            | Ok () -> ()
-            | Error err -> reportNotice context err
+            logPostedNotice context msg
         | CoreQueue.DropAuthority stopped ->
             Session.removeAuthority stopped
         | CoreQueue.Shutdown reply ->

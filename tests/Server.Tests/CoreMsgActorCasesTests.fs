@@ -283,7 +283,7 @@ let ``function start yields its secret and a later stop is dropped`` () =
     let actor : Gambol.Shared.ActorFunction =
         fun run _ -> async {
             seen.TrySetResult run.secret |> ignore
-            return ActorSucceeded
+            return! waitCancelled ()
         }
     withHost pool (fun host -> task {
         let! started =
