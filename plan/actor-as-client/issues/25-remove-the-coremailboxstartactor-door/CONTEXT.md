@@ -8,4 +8,4 @@ This folder is ticket 25 — Remove the coreMailboxStartActor door.
 
 ## Stage
 
-review
+doc
