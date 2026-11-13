@@ -128,7 +128,8 @@ let ``same text adds server hits and an empty reply keeps local rows`` () =
     let reply: SearchPicture.Reply =
         { ids = [ betaId ]
           matchKey = SearchPicture.Text "alpha" }
-    let withServer, effects = SearchDialog.applyServerReply reply model
+    let withServer, effects =
+        SearchDialog.applyServerReply reply [] model
     Assert.Empty(effects)
     Assert.Equal<NodeId list>(
         [ alphaId; betaId ],
@@ -136,10 +137,32 @@ let ``same text adds server hits and an empty reply keeps local rows`` () =
     let emptyReply: SearchPicture.Reply =
         { ids = []
           matchKey = SearchPicture.Text "alpha" }
-    let kept, _ = SearchDialog.applyServerReply emptyReply withServer
+    let kept, _ =
+        SearchDialog.applyServerReply emptyReply [] withServer
     Assert.Equal<NodeId list>(
         [ alphaId ],
         ids (SearchDialog.currentSearchResults kept))
+
+[<Fact>]
+let ``dialog appends a server hit that was not resident`` () =
+    let model, alphaId, _ = findModel ()
+    let local = SearchDialog.currentSearchResults model
+    Assert.Equal<NodeId list>([ alphaId ], ids local)
+    let absentId = NodeId.New()
+    let absent = Node.Create(absentId, text = "alpha elsewhere")
+    Assert.False(model.graph.nodes.ContainsKey absentId)
+    let reply: SearchPicture.Reply =
+        { ids = [ alphaId; absentId ]
+          matchKey = SearchPicture.Text "alpha" }
+    let withServer, effects =
+        SearchDialog.applyServerReply reply [ absent ] model
+    Assert.Empty(effects)
+    let shown = SearchDialog.currentSearchResults withServer
+    Assert.Equal<NodeId list>([ alphaId; absentId ], ids shown)
+    Assert.Equal("alpha elsewhere", (List.last shown).text)
+    Assert.Equal(
+        1,
+        shown |> List.filter (fun row -> row.nodeId = alphaId) |> List.length)
 
 [<Fact>]
 let ``same text keeps Find rows when a later read is empty`` () =

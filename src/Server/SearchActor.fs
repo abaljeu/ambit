@@ -36,7 +36,8 @@ module SearchActor =
           graphIds = [ graph.root ]
           eventId = eventId }
 
-    /// The carrier supplies the full server graph. Root is that graph's root.
+    /// The carrier supplies the full server graph.
+    /// The walk starts at `request.startId`, the zoom root.
     let reply
         (getGraph: unit -> Graph)
         (request: SearchPicture.Request)
@@ -44,7 +45,7 @@ module SearchActor =
         let graph = getGraph ()
         oneReply
             { text = request.text
-              zoomRoot = graph.root
+              zoomRoot = request.startId
               graph = graph
               matchKey = SearchPicture.matchKeyOf request }
 

@@ -8,4 +8,4 @@ This folder is ticket 21 — Convert CoreMsg.ActorStop.
 
 ## Stage
 
-defined
+superseded

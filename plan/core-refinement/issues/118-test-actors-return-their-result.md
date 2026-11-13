@@ -1,77 +1,43 @@
 # 118 — Test Actors return their result
+**Status**: superseded
+One job: The two recording-pool door tests stop a run by posting `Notice.ActorStopped`. Alan, 2026-11-13: this ticket is superseded by [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md). That ticket holds the work. The chain is [113 — Actors return their ActorResult](113-actors-return-their-actorresult.md), then [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md), then 114.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: 117 — The pool posts Notice.ActorStopped when an Actor ends. 114's blocker is that same ticket.
 
-## 1. Type
+## Scope
 
-[ ] `coding`
+[x] Alan, 2026-11-13: 114 holds the two recording-pool tests from this ticket.
+[x] The tests are ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+[ ] 114 renames them ``ActorStopped Notice drops live row`` and ``ActorStopped Notice is logged and drops live row``.
+[x] The chain is 113, then 117, then 114.
 
-## 2. Blockers
+## Inputs
 
-[ ] [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md)
+### Working
 
-## 3. Look at
+[x] The two tests and their `trySecretForActorNode` change are Inputs of 114.
 
-### Owner
+### Reference
 
-[ ] [CoreDoor.fs](src/Server/Core/CoreDoor.fs) owns `actorStop`, read only
+[x] The 2026-11-13 fold decision is in the project file.
 
-### Source
+## Do not load
 
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `actorStop`, `postNotice`, read only
+[x] This ticket has no build. 114 is the build.
 
-### Match sites and constructors
+## Process
 
-[ ] `CoreDoor.actorStop` is called in `QueryActorTests.fs`, `OrderedEventStreamTests.fs`, and `AgentAskTests.fs`, each from a test Actor
-[ ] `CoreMailboxApi.actorStop` is called in two tests of `CoreMailboxDoorTests.fs`
+1. [x] Alan, 2026-11-13, folded this ticket into 114. Stop. Build 114.
 
-### Tests this ticket names
+## Outputs
 
-[ ] [QueryActorTests.fs](tests/Server.Tests/QueryActorTests.fs) the `gate` Actor
-[ ] [OrderedEventStreamTests.fs](tests/Server.Tests/OrderedEventStreamTests.fs) the `gate` Actor
-[ ] [AgentAskTests.fs](tests/Server.Tests/AgentAskTests.fs) `probe`
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs) `CoreMailboxApi.actorStop with valid credential drops live row`, `CoreMailboxApi.actorStop appends ActorStop and drops live row`
+[x] No files. 114 names the outputs.
 
-## 4. Context
+## Stop when
 
-### Today
+[x] This ticket is superseded. Build 114.
 
-[ ] After 117, an Actor that returns its result is stopped by the pool, and no source file calls `CoreDoor.actorStop`
-[ ] The three test Actors still call `CoreDoor.actorStop` with `ActorSucceeded`, then return it
-[ ] The two `CoreMailboxDoorTests` tests stop a run with `CoreMailboxApi.actorStop` and the Actor's caller
-[ ] Those tests use a recording pool; `dispatchItem` finds the run for a `Notice.ActorStopped` with `trySecretForActorNode` (`src/Server/Core/CoreActorPool.fs`)
-[ ] Tests see internal `CoreMailboxApi.postNotice`
+## Check
 
-## 5. Changes
-
-### Change
-
-[ ] One migrate: tests stop calling `CoreDoor.actorStop` and `CoreMailboxApi.actorStop`. Source does not change
-
-### Tests
-
-[ ] The three test Actors return `ActorSucceeded` and do not call `CoreDoor.actorStop`
-[ ] The two `CoreMailboxDoorTests` tests post `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`
-[ ] Their recording pool's `trySecretForActorNode` gives the live secret for that actor node id
-
-### Size
-
-[ ] 0 source files
-[ ] 4 test files: `QueryActorTests.fs`, `OrderedEventStreamTests.fs`, `AgentAskTests.fs`, `CoreMailboxDoorTests.fs`
-
-## 6. Tests
-
-### Callers
-
-[ ] Rename `CoreMailboxApi.actorStop with valid credential drops live row` to `ActorStopped Notice drops live row`
-[ ] Rename `CoreMailboxApi.actorStop appends ActorStop and drops live row` to `ActorStopped Notice is logged and drops live row`
-[ ] Filter: `drops live row`
-[ ] Filter: `QueryActorTests`
-[ ] Filter: `OrderedEventStreamTests`
-[ ] Filter: `AgentAskTests`
-
-## 7. Done
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
-[ ] All executed tests pass.
+[x] A reader who reads only the One job line can say that 114 holds this work.
