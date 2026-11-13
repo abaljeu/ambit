@@ -178,10 +178,10 @@ module internal CoreMailboxLoop =
         (actor:
             Gambol.Shared.FunctionRun ->
                 Gambol.Shared.ActorChanges ->
-                Async<unit>)
+                Async<ActorResult>)
         (run: Gambol.Shared.FunctionRun)
         (door: CoreChangesDoor)
-        : Async<unit> =
+        : Async<ActorResult> =
         let changes =
             CoreDoor.actorChanges
                 (CoreDoor.forCaller

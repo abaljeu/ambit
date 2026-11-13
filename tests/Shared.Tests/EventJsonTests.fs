@@ -400,8 +400,8 @@ let ``ActorOrder round-trips on the wire with stubActor`` () =
     let live : ActorFunction =
         fun _ _ ->
             ran <- true
-            async.Return ()
-    let other : ActorFunction = fun _ _ -> async.Return ()
+            async.Return ActorSucceeded
+    let other : ActorFunction = fun _ _ -> async.Return ActorSucceeded
     let order actor =
         { actor = actor
           actorNodeId = focusId

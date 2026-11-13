@@ -14,6 +14,13 @@ type SeededAsk =
       runDefinitionId: NodeId
       graphIds: NodeId list }
 
+let private waitCancelled () =
+    async {
+        let! token = Async.CancellationToken
+        do! Async.AwaitWaitHandle token.WaitHandle |> Async.Ignore
+        return ActorSucceeded
+    }
+
 let private requireOk label result =
     match result with
     | Ok value -> value
@@ -385,7 +392,7 @@ let postChildThenWait focusId childText =
                 | Ok _ -> posted.TrySetResult() |> ignore
                 | Error err ->
                     posted.TrySetException(Exception err) |> ignore
-                do! Async.Sleep 60_000
+                return! waitCancelled ()
             }
     posted, actor
 

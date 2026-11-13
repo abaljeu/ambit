@@ -6,6 +6,13 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
+let private waitCancelled () =
+    async {
+        let! token = Async.CancellationToken
+        do! Async.AwaitWaitHandle token.WaitHandle |> Async.Ignore
+        return ActorSucceeded
+    }
+
 let private startWithDistinctIds () : ActorStart =
     let focusId = NodeId.New()
     let runDefinitionId = NodeId.New()
@@ -22,7 +29,7 @@ let private orderFor
     (start: ActorStart)
     =
     let marker : Gambol.Shared.ActorFunction =
-        fun _ _ -> async { return () }
+        fun _ _ -> async.Return ActorSucceeded
     let makeActor
         (runDefinitionId: NodeId)
         (focusId: NodeId)
@@ -64,7 +71,7 @@ let ``coreMailboxStartActorFromFunction places StartActor from the selector`` ()
               graphIds = []
               eventId = EventId.zero }
         let actor : ActorFunction =
-            fun _ _ -> async { return () }
+            fun _ _ -> waitCancelled ()
         let host, _ = createAdmittedFile (newTempDir ())
         try
             let placement : ActorOrderFromStart.FunctionActorPlacement =

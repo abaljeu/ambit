@@ -90,10 +90,14 @@ module SearchActor =
             fun run changes ->
                 let door =
                     CoreDoor.forCaller (actorCaller run.secret) changes
-                queryActorBody
-                    run.getGraph
-                    lineId
-                    (CoreDoor.actorStop door)
+                let found = ref ActorSucceeded
+                let stop result =
+                    found := result
+                    CoreDoor.actorStop door result
+                async {
+                    do! queryActorBody run.getGraph lineId stop
+                    return !found
+                }
           getGraph = getGraph
           actorNodeId = request.focusId }
 
@@ -103,15 +107,23 @@ module SearchActor =
         (_focusId: NodeId)
         : ActorFunction =
         fun run changes ->
-            queryActorBody
-                run.getGraph
-                runDefinitionId
-                changes.actorStop
+            let found = ref ActorSucceeded
+            let stop result =
+                found := result
+                changes.actorStop result
+            async {
+                do!
+                    queryActorBody
+                        run.getGraph
+                        runDefinitionId
+                        stop
+                return !found
+            }
 
     /// Find and Move actor. The walk stays in the search reply.
     let searchActorAt : ActorFunction =
         fun _run changes ->
             async {
                 let! _ = changes.actorStop ActorSucceeded
-                return ()
+                return ActorSucceeded
             }

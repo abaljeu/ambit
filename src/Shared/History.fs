@@ -86,7 +86,7 @@ type FunctionRun =
     { getGraph: GraphCarrier
       secret: Credential }
 
-type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
+type ActorFunction = FunctionRun -> ActorChanges -> Async<ActorResult>
 
 and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>

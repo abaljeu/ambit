@@ -52,7 +52,7 @@ module TestActor =
                 CoreDoor.actorStop
                     (CoreDoor.forCaller caller coreChanges)
                     result
-            return ()
+            return result
         }
 
     /// ActorFn for Actor name "test". Selection is CoreActorPool's job.
@@ -107,7 +107,7 @@ module TestActor =
                     }
                 | _ -> async.Return (ActorFailed "")
             let! _ = changes.actorStop result
-            return ()
+            return result
         }
 
     /// Function-shaped TestActor. Calls getGraph; pool supplies no Graph.
