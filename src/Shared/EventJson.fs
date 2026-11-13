@@ -283,7 +283,7 @@ module EventJson =
               "focusId", Serialization.encodeNodeId focusId ]
 
     let stubActor : ActorFunction =
-        fun _ _ -> async.Return ()
+        fun _ _ -> async.Return ActorSucceeded
 
     let private actorOrderFields (order: ActorOrder) =
         [ "focusId", Serialization.encodeNodeId order.actorNodeId

@@ -38,7 +38,7 @@ let private actorCaller secret =
 let private createHost () =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    pool.register (ActorName "root") (fun _ _ -> async.Return ActorSucceeded)
     pool.register (ActorName "test") TestActor.actorFn
     let host =
         CoreMailbox.host

@@ -329,8 +329,9 @@ module GithubTransportActor =
         =
         async {
             let! step = work
-            let! _ = changes.actorStop (actorOutcome step)
-            return ()
+            let result = actorOutcome step
+            let! _ = changes.actorStop result
+            return result
         }
 
     let private readFocusNode (changes: ActorChanges) focusId =

@@ -31,7 +31,7 @@ let private liveSessionActor
             match pool.sessionIdFor run.secret with
             | Some sessionId -> session := sessionId
             | None -> ()
-            do! Async.Sleep 60_000
+            return! waitCancelled ()
         }
 
 let private startFunction host actor request =

@@ -12,9 +12,9 @@ type ActorInput =
       sessionId: string
       secret: Credential }
 
-type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
+type ActorFn = ActorInput -> CoreChangesDoor -> Async<ActorResult>
 
-type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
+type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<ActorResult>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.
 type FunctionStart =
@@ -279,7 +279,7 @@ module CoreActorPool =
                         { getGraph = getGraph
                           secret = secret }
                         coreChanges
-            Async.Start(work, row.cancel.Token)
+            Async.Start(work |> Async.Ignore, row.cancel.Token)
 
     let dropAndReply
         (pool: CoreActorPool)

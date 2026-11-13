@@ -23,10 +23,12 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 
 ### Match sites
 
-[x] After 117, no Actor body calls a stop. The remaining `CoreMailboxApi.actorStop` callers are the two recording-pool tests in `tests/Server.Tests/CoreMailboxDoorTests.fs`, `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs`, and ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs`.
+[x] The `CoreMailboxApi.actorStop` callers outside an Actor body are the two recording-pool tests in `tests/Server.Tests/CoreMailboxDoorTests.fs`, `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs`, and ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs`.
+[ ] After 117 — The pool posts Notice.ActorStopped when an Actor ends, no Actor body calls a stop.
 [x] ``ActorStop with Test credentials is refused``, ``ActorStop with Browser credentials is refused``, and ``ActorStop with Parse credentials is refused`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` send `CoreMsg.ActorStop`.
 [x] ``fetch completes before the workspace lock then the pull merges and marks`` in `tests/Server.Tests/GithubTransportLoadPullTests.fs` builds an `ActorChanges` record with an `actorStop` field.
-[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`. After 117 the pool posts that stop.
+[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`. `TestActor.runBehavior` calls `ActorChanges.actorStop`.
+[ ] After 117 — The pool posts Notice.ActorStopped when an Actor ends, the pool posts that stop.
 [x] `runMixedHello` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`.
 
 ### Existing tests
@@ -36,18 +38,18 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 [x] `postActorStop` is the helper those case tests call.
 [x] ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` call `CoreMailboxApi.actorStop`.
 [x] `poolForFixedSecret` in `tests/Server.Tests/TestBackend.fs` sets `trySecretForActorNode` to a function that returns `None`. Those two recording pools leave that function as `None`.
-[x] After 117, `CoreMailboxLoop.dispatchItem` finishes a run for `Notice.ActorStopped` when `trySecretForActorNode` returns a secret.
+[ ] After 117 — The pool posts Notice.ActorStopped when an Actor ends, `CoreMailboxLoop.dispatchItem` finishes a run for `Notice.ActorStopped` when `CoreActorPool.trySecretForActorNode` returns a secret.
 
 ### Copy-from
 
-[x] ``ActorStopped for an idle focus logs nothing`` in 117 posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`. The two door tests, `postActorStop`, and the Cancel test use that post for a focus that has a run.
+[ ] ``ActorStopped for an idle focus logs nothing`` in 117 — The pool posts Notice.ActorStopped when an Actor ends posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`. The two door tests, `postActorStop`, and the Cancel test use that post for a focus that has a run.
 
 ### Overlap
 
 [x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) This ticket does not edit that file. Its build waits until this ticket lands.
 [x] 24 and this ticket both touch `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, and `src/Server/Core/CoreMailboxApi.fs`. This ticket removes `CoreMsg.ActorStop` only. `RecordSearchStop` stays for 24.
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) is building in parallel on `src/Server/SearchActor.fs`.
-[ ] This ticket leaves `src/Server/SearchActor.fs` unchanged. 117 limits this chain's `SearchActor` edits to the stop calls.
+[ ] This ticket leaves `src/Server/SearchActor.fs` unchanged. 117 — The pool posts Notice.ActorStopped when an Actor ends edits `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`.
 
 ## Inputs
 

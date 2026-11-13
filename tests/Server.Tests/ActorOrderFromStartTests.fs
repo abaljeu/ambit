@@ -22,7 +22,7 @@ let private orderFor
     (start: ActorStart)
     =
     let marker : Gambol.Shared.ActorFunction =
-        fun _ _ -> async { return () }
+        fun _ _ -> async.Return ActorSucceeded
     let makeActor
         (runDefinitionId: NodeId)
         (focusId: NodeId)
@@ -64,7 +64,7 @@ let ``coreMailboxStartActorFromFunction places StartActor from the selector`` ()
               graphIds = []
               eventId = EventId.zero }
         let actor : ActorFunction =
-            fun _ _ -> async { return () }
+            fun _ _ -> waitCancelled ()
         let host, _ = createAdmittedFile (newTempDir ())
         try
             let placement : ActorOrderFromStart.FunctionActorPlacement =

@@ -385,7 +385,7 @@ let postChildThenWait focusId childText =
                 | Ok _ -> posted.TrySetResult() |> ignore
                 | Error err ->
                     posted.TrySetException(Exception err) |> ignore
-                do! Async.Sleep 60_000
+                return! waitCancelled ()
             }
     posted, actor
 

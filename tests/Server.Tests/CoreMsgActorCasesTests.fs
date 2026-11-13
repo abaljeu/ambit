@@ -82,7 +82,7 @@ let private postActorStop host caller result =
 let ``function start reply is bookkeeping without waiting for an Actor body`` () =
     let pool = CoreActorPool.create ()
     let actor : Gambol.Shared.ActorFunction =
-        fun _ _ -> async { return () }
+        fun _ _ -> waitCancelled ()
     withHost pool (fun host -> task {
         let sw = Stopwatch.StartNew()
         let! result =
@@ -283,6 +283,7 @@ let ``function start yields its secret and a later stop is dropped`` () =
     let actor : Gambol.Shared.ActorFunction =
         fun run _ -> async {
             seen.TrySetResult run.secret |> ignore
+            return ActorSucceeded
         }
     withHost pool (fun host -> task {
         let! started =
@@ -394,8 +395,10 @@ let ``ActorOrder places the actor on the thread pool`` () = task {
     let ran = TaskCompletionSource<Credential>()
     let actor : Gambol.Shared.ActorFunction =
         fun run _ ->
-            ran.TrySetResult run.secret |> ignore
-            async.Return ()
+            async {
+                ran.TrySetResult run.secret |> ignore
+                return! waitCancelled ()
+            }
     let order =
         { actor = actor
           actorNodeId = focusId

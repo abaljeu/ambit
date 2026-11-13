@@ -70,6 +70,7 @@ let ``Actor getEventId surfaces persist error instead of Revision 0`` () =
                     | Ok _ -> Ok ()
                     | Error err -> Error err
                 seen.TrySetResult reported |> ignore
+                return! waitCancelled ()
             })
             |> Async.StartAsTask
         requireOk "startActor" started |> ignore
@@ -101,6 +102,7 @@ let ``Actor postChange on scheduled handle reaches persist`` () =
                     let id =
                         Result.map (fun state -> state.eventId) atEvent
                     seen.TrySetResult id |> ignore
+                return! waitCancelled ()
             })
             |> Async.StartAsTask
         requireOk "startActor" started |> ignore

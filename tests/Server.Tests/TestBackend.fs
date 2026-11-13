@@ -511,6 +511,14 @@ let changesOnly (events: Ev list) =
         | EventBody.Notice _ -> false
         | _ -> true)
 
+/// Stay live until the row cancellation token signals, then return ActorSucceeded.
+let waitCancelled () =
+    async {
+        let! token = Async.CancellationToken
+        do! Async.AwaitWaitHandle token.WaitHandle |> Async.Ignore
+        return ActorSucceeded
+    }
+
 /// Poll the event log until `ready` is true, or two seconds pass.
 let waitForNotices
     (read: unit -> Task<Ev list>)

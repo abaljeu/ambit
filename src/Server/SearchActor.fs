@@ -68,15 +68,16 @@ module SearchActor =
         | Some node -> ExprRun.answerNodeIds lineId graph node.text
 
     /// One query eval. The caller supplies the stop door.
+    /// The result is the ActorResult passed to that stop.
     let private queryActorBody
         (getGraph: unit -> Graph)
         (lineId: NodeId)
         (stop: ActorResult -> Async<Result<unit, string>>)
-        =
+        : Async<ActorResult> =
         async {
             let result = ActorQuery (queryIds getGraph lineId)
             let! _ = stop result
-            return ()
+            return result
         }
 
     /// Query Actor body. ActorStop carries the Node ids. It does not use
@@ -113,5 +114,5 @@ module SearchActor =
         fun _run changes ->
             async {
                 let! _ = changes.actorStop ActorSucceeded
-                return ()
+                return ActorSucceeded
             }

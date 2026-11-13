@@ -234,7 +234,7 @@ let ``postSearch records ActorStart at the root`` () = task {
         let searchActor run changes =
             async {
                 try
-                    do! SearchActor.searchActorAt run changes
+                    return! SearchActor.searchActorAt run changes
                 finally
                     actorStopped.TrySetResult() |> ignore
             }

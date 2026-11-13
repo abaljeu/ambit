@@ -26,7 +26,7 @@ type FunctionRun =
     { getGraph: GraphCarrier
       secret: Credential }
 
-type ActorFunction = FunctionRun -> ActorChanges -> Async<unit>
+type ActorFunction = FunctionRun -> ActorChanges -> Async<ActorResult>
 
 type ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
@@ -52,7 +52,7 @@ type ActorOrder =
 [o] The pool name `FunctionActor`.
 
 ```fsharp
-type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<unit>
+type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<ActorResult>
 ```
 
 [x] `FunctionStart` is in `src/Server/Core/CoreActorPool.fs`.
@@ -69,7 +69,7 @@ type FunctionStart =
 [o] `ActorFn` is the in-process start.
 
 ```fsharp
-type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
+type ActorFn = ActorInput -> CoreChangesDoor -> Async<ActorResult>
 ```
 
 [x] `FunctionPending` [o] `BagPending`
@@ -87,7 +87,7 @@ type PendingBody =
 [ ] The Shared actor is `ActorFunction`.
 
 ```fsharp
-ActorFunction : FunctionRun -> ActorChanges -> Async<unit>
+ActorFunction : FunctionRun -> ActorChanges -> Async<ActorResult>
 ```
 
 An Actor is a thread from the .NET thread pool. It runs an `ActorFunction`.
@@ -198,6 +198,7 @@ The pool `ActorFunction` keeps `CoreChangesDoor`. `actorChanges` adapts that doo
 ### Pool launch
 
 [x] `runSchedule` calls `Async.Start` with the row cancel token.
+[x] `runSchedule` starts `work |> Async.Ignore`. The pool does not read the `ActorResult`.
 
 ```fsharp
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit

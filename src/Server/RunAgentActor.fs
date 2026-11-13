@@ -357,7 +357,7 @@ module RunAgentActor =
     let private stop (changes: ActorChanges) result =
         async {
             let! _ = changes.actorStop result
-            return ()
+            return result
         }
 
     let private planOnCurrent
@@ -427,7 +427,7 @@ module RunAgentActor =
             async {
                 match sessionIdFor run.secret with
                 | None ->
-                    do! stop changes (ActorFailed "not live")
+                    return! stop changes (ActorFailed "not live")
                 | Some sessionId ->
                     let input = inputFor run start sessionId
                     let! result =
@@ -438,7 +438,7 @@ module RunAgentActor =
                             input
                             start
                             changes
-                    do! stop changes result
+                    return! stop changes result
             }
 
     /// `?ai` ActorOrder. `actorNodeId` is the focus id.
