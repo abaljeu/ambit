@@ -27,7 +27,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 ## Job
 
 [x] Upload (`Ctrl+Shift+>`) ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
-[x] desk Save enqueues `workspace-download` when `DesktopCapabilities.canWorkspaceSync` is true. Keys: `Ctrl+S` and `Ctrl+Shift+<` in [Command entry](../../src/Shared/CommandEntry.fs) `CommandId.Save`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces. When the Desktop app cannot sync, desk Save skips that enqueue. `src/Client/UpdateSave.fs` `deskSaveOp`. `src/Client/UpdateWorkspaceDownload.fs` `sendWorkspaceDownload`.
+[x] desk Save calls `src/Client/UpdateSave.fs` `deskSaveOp`. Keys: `Ctrl+S` and `Ctrl+Shift+<` in [Command entry](../../src/Shared/CommandEntry.fs) `CommandId.Save`. When `DesktopCapabilities.canWorkspaceSync` is true, `src/Client/UpdateWorkspaceDownload.fs` `sendWorkspaceDownload` enqueues `workspace-download` for a named Workspace, Directory, or File. ROOT and the Workspaces node stay outside that scope. When the Desktop app cannot sync, `deskSaveOp` skips that call.
 [x] ROOT and Workspaces cannot acquire a mapping.
 [x] Focus sets the scope. Workspace: the whole tree. Directory: a relative prefix. File: one path.
 

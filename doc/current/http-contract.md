@@ -404,7 +404,7 @@ sequenceDiagram
 ### 2.11 Save
 
 1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body is `LoadSaveCommandRequest` from [Event JSON](../../src/Shared/EventJson.fs).
-2. [x] **Path.** `src/Server/LoadSaveRouting.fs` `resolvePath` chooses Git when `DocumentPersistPath.repositoryRoot` has a git remote, including ROOT's data directory. Otherwise the path is Desk.
+2. [x] **Path.** Plain Save in `src/Server/LoadSaveRouting.fs` `resolvePath` chooses Git when `src/Server/DocumentPersistPath.fs` `repositoryRoot` is a git work tree with a remote (`src/Server/WorkspaceGit.fs` `isRepo` and `remoteExists`). ROOT's work tree is the data directory. No work tree, no `.git` directory, or a work tree with no remote chooses Desk. `src/Shared/PathPick.fs` `PathPick.resolveCommand` keeps `LoadSavePrePick.Git` on Git and `LoadSavePrePick.Desk` on Desk.
 3. [x] **Desk persist.** Desk Save runs `src/Server/GithubTransportActor.fs` `persistSaveFocus` before the response. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`.
 
 ### 2.12 JSON encoding

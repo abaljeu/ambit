@@ -24,7 +24,7 @@ What it does: git Load pulls files when a git upstream is defined. desk Load upl
 
 Keys: Ctrl+S and Ctrl+Shift+`<`. Any Mode.
 
-What it does: git Save runs when the focus Workspace has a git remote. ROOT uses the data directory as that repository. Otherwise desk Save copies the focused Workspace, Directory, or File onto the mapped folder on this computer when the Desktop app can sync a workspace. When the Desktop app cannot sync, desk Save skips that copy. The command palette also lists git Save and desk Save. A selection that spans more than one Workspace does not save.
+What it does: Plain Save runs git Save when the focus Workspace has a git remote. ROOT uses the data directory as that repository. A Workspace with no `.git` directory, or a repository with no remote, runs desk Save. desk Save copies the focused Workspace, Directory, or File onto the mapped folder on this computer when the Desktop app can sync a workspace. When the Desktop app cannot sync, desk Save skips that copy. The command palette lists git Save and desk Save, and each one keeps its path. A selection that spans more than one Workspace does not save.
 
 ## Insert…
 

@@ -443,7 +443,7 @@ module GithubTransportActor =
             | Error err -> return Error err
             | Ok None -> return Ok ()
             | Ok (Some place) ->
-                match! persistFocusWhenNotOrdinary changes focusId with
+                match! persistSaveFocus changes focusId with
                 | Error err -> return Error err
                 | Ok () ->
                     return!
