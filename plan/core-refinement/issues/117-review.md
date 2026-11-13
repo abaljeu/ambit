@@ -4,7 +4,7 @@ Ticket: [[117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md]]
 Spec: [[../spec.md]]
 Arch: [[../arch.md]]
 
-Behavior commit `a5247a36`. `origin/staging` at `4273ef22` is that commit's parent. This file is the following commit on `cursor/pool-posts-actor-stopped-9868`.
+Behavior is `a5247a36`. The checkbox correction is `7c79ed6e`. The tip merges `origin/staging` `9c9e1aac` (Online-search 23 — review, result count on the search request, gap tests) and waits for the search stop row in ``postSearch records ActorStart at the root``.
 
 ## 1. Standards
 
@@ -14,7 +14,8 @@ Behavior commit `a5247a36`. `origin/staging` at `4273ef22` is that commit's pare
 ## 2. Spec
 
 - The Signatures box for `CoreMailboxLoop.dispatchItem` now says `Notice.ActorStopped` goes to `CoreMailboxLoop.logActorStopped`, and every other `CoreQueue.Notice` goes to `CoreMailboxLoop.logPostedNotice`. The Inputs box and Process step 2 now say `CoreActorPool.runReturned` binds the result and `CoreActorPool.postStopUnlessCancelled` posts it. `117-build.md` names those helpers. The checked boxes match the tree.
-- `CoreActorPool.runReturned` posts in the success continuation of the actor async, on the thread that finished that async. Awaited posts from `TestActor` (`postEvents`, `postChanges`), `RunAgentActor.postReplace`, and `GithubTransportActor` work are queued before that post. Staging called `actorStop` in that same continuation. The stop row stays after those events. Production bodies return after their own posts. A child actor's stop is queued when that child returns, the same moment staging called that child's `actorStop`.
+- `CoreActorPool.runReturned` posts in the success continuation of the actor async, on the thread that finished that async, after that async's `finally` blocks. Awaited posts from `TestActor` (`postEvents`, `postChanges`), `RunAgentActor.postReplace`, and `GithubTransportActor` work are queued before that post. The stop row stays after those events. Staging called `actorStop` inside the body, so the row was stored before the body returned. The pool posts after the body returns. The mailbox then stores the same row. A child actor's stop is queued when that child returns.
+- ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` used the actor's return as the signal that the stop row was stored. That signal matched staging, where `SearchActor.searchActorAt` awaited `actorStop`. The pool posts after the wrapper's `finally`, so a history read in that `finally` can miss the row. The test now waits with `TestBackend.waitForNotices` until the root `ActorSucceeded` stop is stored. Five repeats passed.
 - `CoreMailboxActors.runCancel` is unchanged. `Order.CancelActor`, `CoreMailboxApi.cancelByFocus`, and a posted Cancel log one `EventBody.ActorStop` of the focus and `ActorCancelled`, then `CoreActorPool.finish` cancels the row token. `postStopUnlessCancelled` sees that token and leaves the queue alone. The log holds that one cancel row.
 - `CoreMailboxApi.actorStop` after that cancel finds no live secret in `CoreMailboxActors.dispatchActorStop` and appends nothing. ``actorStop after cancel does not emit a root Focus ActorStop`` still expects one stop on the focus and none on the root.
 - Shutdown calls `CoreActorPool.cancelLiveActors` before the `Shutdown` item. A queued `Notice.ActorStopped` finds no secret. A body that is still running sees the cancelled token. Staging's queued `CoreMsg.ActorStop` found no secret after the same clear. Shutdown adds no stop row.
@@ -32,10 +33,10 @@ Behavior commit `a5247a36`. `origin/staging` at `4273ef22` is that commit's pare
 
 ## 4. Tests
 
-- `bash scripts/check-test.sh 3506` printed `DONE` and `/tmp/ambit-full-suite-20261113-203754.log`. The log printed `full suite finished`.
-- Server.Tests passed 776, failed 0, skipped 1 (`DocumentPersistenceTests.Change.upload structure persistence preserves existing file mtime`), total 777, duration 2 m 53 s.
-- Shared.Tests passed 1944, failed 0, skipped 3 (`WorkspaceUploadStructureTests.reuses existing owned path without duplicating`, `WorkspaceUploadStructureTests.planServerFilePresentOps transitions only matching absent files`, `WorkspaceLocalInventoryTests.listForPush without git still returns walk`), total 1947, duration 30 s.
-- That Server run includes ``an Actor that returns logs Notice.ActorStopped``, ``ActorStopped for an idle focus logs nothing``, ``actorStop after cancel does not emit a root Focus ActorStop``, ``mailbox appends StartActor and ActorStop in lifecycle order``, and ``ActorStop reads the carrier graph once``.
+- `bash scripts/check-test.sh 17819` printed `DONE` and `/tmp/ambit-full-suite-20261113-205221.log`. The log printed `full suite finished`.
+- Server.Tests passed 778, failed 0, skipped 1 (`DocumentPersistenceTests.Change.upload structure persistence preserves existing file mtime`), total 779, duration 2 m 59 s.
+- Shared.Tests passed 1946, failed 0, skipped 3 (`WorkspaceUploadStructureTests.reuses existing owned path without duplicating`, `WorkspaceUploadStructureTests.planServerFilePresentOps transitions only matching absent files`, `WorkspaceLocalInventoryTests.listForPush without git still returns walk`), total 1949, duration 28 s.
+- That Server run includes ``an Actor that returns logs Notice.ActorStopped``, ``ActorStopped for an idle focus logs nothing``, ``actorStop after cancel does not emit a root Focus ActorStop``, ``mailbox appends StartActor and ActorStop in lifecycle order``, ``ActorStop reads the carrier graph once``, and ``postSearch records ActorStart at the root``.
 
 ## 5. Miss
 
