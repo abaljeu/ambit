@@ -77,17 +77,6 @@ module internal CoreMailboxActors =
             | Error err -> Error err
             | Ok _ -> Ok ()
 
-    /// A named start uses the ID-bag start.
-    /// A query Run uses `queueAdmittedQuery`.
-    /// `startFunction` stays unused on this path.
-    let private startChosen
-        (context: MailboxContext)
-        (request: Gambol.Shared.ActorStart)
-        (_getState: unit -> Graph)
-        : Result<Credential option, StartError> =
-        context.pool.startActor request _getState
-        |> Result.map Some
-
     let dispatchStartActor
         context
         caller
@@ -168,51 +157,38 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok _ -> reply.Reply(Ok EventId.zero)
 
-    let private failedMessage error =
-        match error with
-        | StartError.UnknownActor _ -> "unknown actor"
-        | StartError.Rejected message -> message
-
-    let private recordFailedStart
-        context caller (request: Gambol.Shared.ActorStart)
-        submissionId message (reply: PostedReply) =
-        let dispatch = CoreMailboxEvents.eventDispatchContext context
-        let stop =
-            EventBody.ActorStop(request.focusId, ActorFailed message)
-        match
-            CoreEventDispatch.appendLifecycle
-                dispatch caller submissionId (EventBody.ActorStart request)
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok started ->
-            match
-                CoreEventDispatch.appendLifecycle
-                    dispatch caller (Guid.NewGuid()) stop
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok stopped ->
-                CoreMailboxEvents.replyStored reply started
-
     let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
         let graph = CoreMailboxEvents.graphNow context
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node -> CommandRequest.actorNameFromText node.text
 
+    /// The stored StartActor uses the posted submission id.
+    /// A second post of that submission returns the stored event.
     let private postBuiltOrder
         (context: MailboxContext)
         (caller: Caller)
         (reply: PostedReply)
+        (submissionId: System.Guid)
         (order: ActorOrder)
         =
         match context.coreChanges.Value with
         | None -> reply.Reply(Error "mailbox not initialized")
         | Some make ->
             let host = (make caller).host
+            let commandName =
+                match order.actorName with
+                | "" -> None
+                | name -> Some name
+            let placed =
+                { orderId = OrderId submissionId
+                  authority = caller.authority
+                  commandName = commandName
+                  order = Order.StartActor order }
             Async.Start(async {
-                let! placed =
-                    MailboxHost.postActorOrder host caller order
-                reply.Reply(placed)
+                let! result =
+                    MailboxHost.postPlacedOrder host caller placed
+                reply.Reply(result)
             })
 
     /// Admitted Run. `actorNodeId` is the focus id.
@@ -223,6 +199,7 @@ module internal CoreMailboxActors =
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
+        (submissionId: System.Guid)
         =
         let order =
             ActorOrderFromStart.orderFromStart
@@ -230,7 +207,7 @@ module internal CoreMailboxActors =
                 actorName
                 ActorOrderFromStart.focusIdOf
                 request
-        postBuiltOrder context caller reply order
+        postBuiltOrder context caller reply submissionId order
 
     /// Admitted `?test` Run. The ack is the placed StartActor EventId.
     let private queueAdmittedTest =
@@ -246,6 +223,7 @@ module internal CoreMailboxActors =
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
         (reply: PostedReply)
+        (submissionId: System.Guid)
         =
         match context.pool.bootActors with
         | None -> reply.Reply(Error "ai actor is not installed")
@@ -255,7 +233,7 @@ module internal CoreMailboxActors =
                     install
                     context.pool.sessionIdFor
                     request
-            postBuiltOrder context caller reply order
+            postBuiltOrder context caller reply submissionId order
 
     /// Admitted caller queues an ActorOrder. A refusal stores no lifecycle row.
     let private whenAdmitted
@@ -268,40 +246,24 @@ module internal CoreMailboxActors =
         | Error err -> reply.Reply(Error err)
         | Ok () -> queue ()
 
-    let private postChosenStart
-        context caller event request reply =
-        let start req getState =
-            startChosen context req getState
-        match prepareActorStart context caller request start with
-        | Error error ->
-            recordFailedStart
-                context caller request event.submissionId
-                (failedMessage error) reply
-        | Ok (None, _) -> CoreMailboxEvents.replyStored reply event
-        | Ok (Some secret, make) ->
-            match
-                finishReadyStart
-                    context caller request secret make
-                    event.submissionId
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok stored ->
-                CoreMailboxEvents.replyStored reply stored
-
-    let private admittedQueue context caller request reply =
+    let private admittedQueue
+        context caller request reply submissionId =
         match actorNameOn context request.runDefinitionId with
         | Some "test" ->
             Some (fun () ->
-                queueAdmittedTest context caller request reply)
+                queueAdmittedTest
+                    context caller request reply submissionId)
         | Some "ai" ->
             Some (fun () ->
-                queueAdmittedAi context caller request reply)
+                queueAdmittedAi
+                    context caller request reply submissionId)
         | _ when
             SearchActor.isQueryRequest
                 (CoreMailboxEvents.graphNow context)
                 request ->
             Some (fun () ->
-                queueAdmittedQuery context caller request reply)
+                queueAdmittedQuery
+                    context caller request reply submissionId)
         | _ -> None
 
     let private postActorStart context caller event request reply =
@@ -309,11 +271,14 @@ module internal CoreMailboxActors =
         | Some stored ->
             CoreMailboxEvents.replyStored reply stored
         | None ->
-            match admittedQueue context caller request reply with
+            match
+                admittedQueue
+                    context caller request reply event.submissionId
+            with
             | Some queue ->
                 whenAdmitted context caller reply queue
             | None ->
-                postChosenStart context caller event request reply
+                reply.Reply(Error "unknown actor")
 
     let private postCancel context caller event focusId reply =
         match CoreMailboxEvents.storedBySubmission context event.submissionId with

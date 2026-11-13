@@ -2,7 +2,7 @@
 **Status**: coded
 One job: The Browser rejects a `?` command that has no function start before that command is queued. Only `test`, `ai`, and a query reach the queue, and the user sees the failure. Run command in [Arch](../../arch.md) is this Run.
 
-[ ] [26 — Move the id-record starts onto function starts](../26-move-the-id-record-starts-onto-function-starts/26-move-the-id-record-starts-onto-function-starts-ticket.md) depends on this ticket. This ticket starts without waiting for 26.
+[ ] [26 — Retire the posted named start](../26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md) depends on this ticket. This ticket starts without waiting for 26.
 [ ] After this ticket, `postChosenStart` has no production caller. [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md) retires the door. 26 — Move the id-record starts onto function starts retires `pool.startActor` on the named path. [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated`.
 [ ] Pairing a stored `Order.StartActor` with its stop in `expandStored`, and posting nothing on a refused start, becomes moot once that door, that `pool.startActor` call, and `Order.StartActorDeprecated` are retired. 26 — Move the id-record starts onto function starts already requires that a refused start posts nothing.
 

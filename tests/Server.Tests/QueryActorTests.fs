@@ -257,37 +257,10 @@ let ``equals-line ActorStart does not run the query function`` () =
             CoreMailboxApi.dispose host
     }
 
-let private hasActorFailed (events: Ev list) =
-    events
-    |> List.exists (fun event ->
-        match event.body with
-        | EventBody.ActorStop(_, ActorFailed _) -> true
-        | _ -> false)
-
 [<Fact>]
-let ``query start error posts no rows, fails the reply, and keeps the edit`` () =
+let ``posted gate start replies unknown actor`` () =
     task {
-        let hold = TaskCompletionSource<unit>()
-        let actor (input: ActorInput) (changes: CoreChangesDoor) =
-            async {
-                do! Async.AwaitTask hold.Task
-                let caller =
-                    { authority = Authority "Actor"
-                      name = ""
-                      secret = input.secret }
-                let! _ =
-                    CoreDoor.actorStop
-                        (CoreDoor.forCaller caller changes)
-                        ActorSucceeded
-                return ()
-            }
-        let pool = CoreActorPool.create ()
-        pool.register (ActorName "gate") actor
-        let host =
-            CoreMailbox.host
-                pool
-                (FileAgent.persist (FileAgent.create (newTempDir ())))
-                admittedCredentials
+        let host = hostNow ()
         try
             let! root, lineId, _ = seedPlain host
             let! eventId =
@@ -297,46 +270,25 @@ let ``query start error posts no rows, fails the reply, and keeps the edit`` () 
                     "edit"
                     (EventBody.Change
                         [ Op.SetText(lineId, "plain", "?gate") ])
-            let! started =
+            let! result =
                 CoreMailboxApi.postEvents
                     host testCaller
                     [ gate; queryStart root lineId eventId ]
                 |> Async.StartAsTask
-            requireOk "gate" started |> ignore
-            let! again =
-                CoreMailboxApi.getEventId host |> Async.StartAsTask
-            let edit =
-                posted
-                    "edit"
-                    (EventBody.Change
-                        [ Op.SetText(lineId, "?gate", lineText) ])
-            let! result =
-                CoreMailboxApi.postEvents
-                    host testCaller
-                    [ edit; queryStart root lineId again ]
-                |> Async.StartAsTask
-            let liveActorRefusal =
-                "actor node already has a live Actor"
             match result with
-            | Error err ->
-                Assert.Contains(liveActorRefusal, err)
-            | Ok _ ->
-                failwith "expected the live-actor refusal"
-            let! after = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            match after with
-            | Error err -> failwith err
-            | Ok afterState ->
-                let editedLine = afterState.graph.nodes.[lineId].text
-                Assert.Equal(lineText, editedLine)
+            | Error "unknown actor" -> ()
+            | other ->
+                Assert.Fail($"expected unknown actor, got {other}")
             let! history =
                 CoreMailboxApi.eventHistory host |> Async.StartAsTask
-            Assert.False(
-                hasStartActor "query" lineId history.events,
-                "StartActor posted after the refusal")
-            Assert.False(
-                hasActorFailed history.events,
-                "ActorFailed posted after the refusal")
+            let lifecycle =
+                history.events
+                |> List.exists (fun event ->
+                    match event.body with
+                    | EventBody.ActorStart _
+                    | EventBody.ActorStop _ -> true
+                    | _ -> false)
+            Assert.False(lifecycle, "lifecycle row posted")
         finally
-            hold.TrySetResult() |> ignore
             CoreMailboxApi.dispose host
     }

@@ -199,41 +199,6 @@ let ``edit then ActorStart classifies the line after the edit`` () = task {
         CoreMailboxApi.dispose host
 }
 
-[<Fact>]
-let ``ActorStart body does not run inside the mailbox turn`` () = task {
-    let hold = TaskCompletionSource<unit>()
-    let actor (input: ActorInput) (changes: CoreChangesDoor) =
-        async {
-            do! Async.AwaitTask hold.Task
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
-            let! _ =
-                CoreDoor.actorStop
-                    (CoreDoor.forCaller caller changes)
-                    ActorSucceeded
-            return ()
-        }
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "gate") actor
-    let host = hostWith pool
-    try
-        let! runDefinitionId = seedCommand host "?gate"
-        let! before =
-            CoreMailboxApi.getEventId host |> Async.StartAsTask
-        let posting =
-            CoreMailboxApi.postEvents
-                host testCaller [ launch runDefinitionId before ]
-            |> Async.StartAsTask
-        Assert.True(posting.Wait(1000), "list did not return while body held")
-        Assert.False(hold.Task.IsCompleted)
-        hold.TrySetResult(()) |> ignore
-        requireOk "launch" posting.Result |> ignore
-    finally
-        CoreMailboxApi.dispose host
-}
-
 let private postEventsHttp (client: HttpClient) (events: Ev list) = task {
     let body =
         Encode.toString 0 (
@@ -346,8 +311,49 @@ let ``events door accepts an edit followed by Cancel`` () = task {
     Assert.True(edited, "events door did not store the edit")
 }
 
+let private requireUnknownActor
+    (label: string)
+    (response: HttpResponseMessage)
+    =
+    task {
+        let! json = response.Content.ReadAsStringAsync()
+        Assert.True(
+            response.StatusCode = HttpStatusCode.BadRequest,
+            $"{label}: {response.StatusCode} {json}")
+        Assert.Contains("unknown actor", json)
+    }
+
+let private loggedEvents (client: HttpClient) = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = EventId.zero; want = [] })
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    let! response = client.PostAsync("/ambit/poll", content)
+    let! json = response.Content.ReadAsStringAsync()
+    Assert.True(
+        response.StatusCode = HttpStatusCode.OK,
+        $"poll: {response.StatusCode} {json}")
+    match
+        Thoth.Json.Newtonsoft.Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok accepted -> return accepted.events
+    | Error err -> return failwith err
+}
+
+let private lineHasLifecycle (events: Ev list) (lineId: NodeId) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStart start ->
+            start.runDefinitionId = lineId || start.focusId = lineId
+        | EventBody.ActorStop(id, _) -> id = lineId
+        | _ -> false)
+
 [<Fact>]
-let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
+let ``edit then unknown ActorStart replies unknown actor`` () = task {
     use client = createClientForDir (newTempDir ())
     let! runDefinitionId = seedOwned client "row"
     let edit =
@@ -357,27 +363,13 @@ let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
                 [ Op.SetText(runDefinitionId, "row", "?nope") ])
     let! response =
         postEventsHttp client [ edit; launch runDefinitionId EventId.zero ]
-    let! accepted = requireHttp "unknown" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart start ->
-                start.runDefinitionId = runDefinitionId
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
-                id = runDefinitionId
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+    do! requireUnknownActor "unknown" response
+    let! events = loggedEvents client
+    Assert.False(lineHasLifecycle events runDefinitionId)
 }
 
 [<Fact>]
-let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
+let ``edit then rejected ActorStart replies unknown actor`` () = task {
     use client = createClientForDir (newTempDir ())
     let! runDefinitionId = seedOwned client "row"
     let edit =
@@ -393,22 +385,9 @@ let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
           eventId = EventId.zero }
     let start = posted "Exec" (EventBody.ActorStart request)
     let! response = postEventsHttp client [ edit; start ]
-    let! accepted = requireHttp "rejected" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart _ -> true
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed message) ->
-                id = runDefinitionId && message.StartsWith("graphIds required")
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+    do! requireUnknownActor "rejected" response
+    let! events = loggedEvents client
+    Assert.False(lineHasLifecycle events runDefinitionId)
 }
 
 [<Fact>]
