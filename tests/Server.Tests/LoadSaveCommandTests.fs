@@ -1210,13 +1210,21 @@ let ``plain Save with a GitHub remote pushes from a file focus`` () = task {
         Assert.Equal(
             "saved",
             File.ReadAllText(Path.Combine(verify, "saved.txt")))
+        match GitSave.runGit verify "log --oneline --grep=gambol:" with
+        | Ok text ->
+            let commits =
+                text.Split(
+                    [| '\r'; '\n' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+            Assert.Equal(1, commits.Length)
+        | Error err -> Assert.Fail(err)
     finally
         CoreMailboxApi.dispose harness.host
 }
 
-/// A repository with no remote is Save Neither: persist, and no commit.
+/// A repository with no remote is Save Neither: persist, one commit, no push.
 [<SkippableFact>]
-let ``plain Save with no GitHub remote persists and does not commit`` () = task {
+let ``plain Save with no GitHub remote commits once and does not push`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let dataDir = newTempDir ()
     let workspace = Path.Combine(dataDir, "home")
@@ -1259,9 +1267,39 @@ let ``plain Save with no GitHub remote persists and does not commit`` () = task 
         let saved = readGraph host
         Assert.Equal(ParseState.Parsed, saved.nodes.[fileId].parseState)
         Assert.True(File.Exists(Path.Combine(workspace, "note.txt")))
-        match GitSave.runGit workspace "log --oneline" with
-        | Ok text -> Assert.DoesNotContain("gambol: git Save", text)
-        | Error _ -> ()
+        let saveCommits () =
+            match GitSave.runGit workspace "log --oneline --grep=gambol:" with
+            | Ok text ->
+                text.Split(
+                    [| '\r'; '\n' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+                |> Array.length
+            | Error err ->
+                Assert.Fail(err)
+                0
+        Assert.Equal(1, saveCommits ())
+        let! stopsBefore = actorStops host fileId
+        let again =
+            CoreMailboxApi.graphAtEvent host
+            |> Async.RunSynchronously
+            |> requireOk "after save"
+        let! second =
+            postCommand
+                LoadSaveOperation.Save
+                LoadSavePrePick.Plain
+                { harness with
+                    seed =
+                        { harness.seed with
+                            eventId = again.eventId } }
+        Assert.Equal(LoadSavePath.Git, (requireResponse second).path)
+        let! stopsAfter =
+            waitForStopCount
+                host
+                fileId
+                (stopsBefore + 1)
+                (DateTime.UtcNow.AddSeconds 30.0)
+        Assert.True(stopsAfter > stopsBefore, "second Save posted no stop")
+        Assert.Equal(1, saveCommits ())
     finally
         CoreMailboxApi.dispose host
 }

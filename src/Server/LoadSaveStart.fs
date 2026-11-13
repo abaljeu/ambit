@@ -45,6 +45,7 @@ module LoadSaveStart =
         =
         match path, request.operation with
         | LoadSavePath.Desk, LoadSaveOperation.Save ->
+            // Persist only. The post-Save commit stays on the Save actor.
             GithubTransportActor.persistSaveFocus
                 (CoreDoor.actorChanges door)
                 request.start.focusId

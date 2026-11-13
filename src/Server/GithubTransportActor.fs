@@ -391,8 +391,9 @@ module GithubTransportActor =
                     return! waitUntilPersisted changes after focusId
         }
 
-    /// The focus is marked Parsed and pushed on the persistence stack.
-    /// NodeUnpersisted is posted so that the write runs.
+    /// Mark the focus Parsed and Unpersisted. `NodeParsed` pushes that
+    /// node on the persist stack through `persist.pushPersist`. Wait
+    /// until the persist thread sets Persisted.
     let private persistFocus
         (changes: ActorChanges)
         focusId
@@ -422,8 +423,21 @@ module GithubTransportActor =
         }
 
     /// Shared persist for git Save, desk Save, and Save Neither.
+    /// The persist stack and the wait for Persisted are `persistFocus`.
     let persistSaveFocus (changes: ActorChanges) focusId =
         persistFocusWhenNotOrdinary changes focusId
+
+    let private saveCommitMessage = "gambol: git Save"
+
+    /// After Persisted: commit when the work tree is a git repository.
+    /// A missing repository skips the commit. An empty tree is success.
+    let private commitSaveRepository graph workspaceId root =
+        if not (WorkspaceGit.isRepo root) then
+            Ok ()
+        else
+            NodeLockPool.withLockResult graph workspaceId (fun () ->
+                GitSave.commitAll root saveCommitMessage
+                |> Result.map ignore)
 
     let private pushAfterMark git root target tracked output =
         async {
@@ -442,25 +456,30 @@ module GithubTransportActor =
             workspaceId = locked.workspaceId
         }
         let! committed =
-            commitFetchAndMark git locked target "gambol: git Save"
+            commitFetchAndMark git locked target saveCommitMessage
         match committed with
         | Error err -> return Error err
         | Ok (tracked, output) ->
             return! pushAfterMark git locked.root target tracked output
     }
 
-    /// Commit, pull, and push when the work tree has a remote.
-    /// No remote and a directory that is not a repository stop here.
+    /// A remote commits, pulls, and pushes. Neither commits when the
+    /// directory is a repository, and skips the commit when it is not.
     let private runSaveAfterPersist dependencies dataDir changes place =
         match gitRemoteArm dependencies.git place.root with
         | Ok GitRemoteArm.Remote ->
             saveFetched dataDir dependencies.git changes place
-        | Ok GitRemoteArm.Neither -> async.Return (Ok ())
+        | Ok GitRemoteArm.Neither ->
+            async.Return (
+                commitSaveRepository
+                    place.graph
+                    place.workspaceId
+                    place.root)
         | Error message -> async.Return (Error message)
 
-    /// Persist, then git when a remote exists.
-    /// No work tree, a directory that is not a repository, and a
-    /// repository with no remote are Neither: persist, then stop.
+    /// Persist on the save stack, then commit, pull, and push when a
+    /// remote exists. No work tree, a directory that is not a
+    /// repository, and a repository with no remote are Neither.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
             match! persistSaveFocus changes focusId with
