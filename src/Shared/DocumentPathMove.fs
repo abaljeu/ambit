@@ -91,6 +91,34 @@ module DocumentPathMove =
             []
         |> List.map (fun (move, _, _) -> move)
 
+    let private isFileOrDirectory (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special (File | Directory) } -> true
+        | _ -> false
+
+    let private sameEnclosingWorkspace
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (nodeId: NodeId)
+        =
+        match
+            GraphQuery.enclosingWorkspace preGraph nodeId,
+            GraphQuery.enclosingWorkspace postGraph nodeId
+        with
+        | Some preId, Some postId -> preId = postId
+        | _ -> false
+
+    let sameWorkspaceMoves
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (moves: DocumentPathMove list)
+        : DocumentPathMove list =
+        moves
+        |> List.filter (fun move ->
+            isFileOrDirectory preGraph move.nodeId
+            && isFileOrDirectory postGraph move.nodeId
+            && sameEnclosingWorkspace preGraph postGraph move.nodeId)
+
     let planPathMoveForSetName
         (graph: Graph)
         (nodeId: NodeId)

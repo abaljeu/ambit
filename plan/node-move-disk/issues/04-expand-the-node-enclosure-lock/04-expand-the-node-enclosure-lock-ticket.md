@@ -119,8 +119,8 @@ This ticket added `NodeEnclosureLock`. The current tree has `NodeLockPool` inste
 [x] This ticket left `DocumentPersistWrite.fs` unchanged. `writeDocument` and `writeArtifactText` now call `withLockResult`.
 [x] `GitRun` has no private gate. `gitExec` calls `ProcessExec.runCapture`.
 [x] `PersistThread` does not call the pool. The persist wait is inside `writeDocument`'s `withLockResult`. `withPersist` is absent.
-[x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. Flow 6's relocate caller, `gitMove`, and `moveAcrossWorkspaces` are a later ticket.
-[x] Git pull and git Save hold `NodeLockPool` on the Workspace node. A single File `git mv` is absent. This ticket left those callers off `NodeEnclosureLock`.
+[x] `src/Server/Core/FileAgent.fs` and `src/Server/Core/DbAgent.fs` stay as they are. The relocate caller is [09 — Relocate under the node lock](../09-relocate-under-the-node-enclosure-lock/09-relocate-under-the-node-enclosure-lock-ticket.md). `WorkspaceGit.gitMove` is in `src/Server/WorkspaceGit.fs`. `moveAcrossWorkspaces` stays absent.
+[x] Git pull and git Save hold `NodeLockPool` on the Workspace node. `WorkspaceGit.gitMove` runs one `git mv`. This ticket left pull and Save off `NodeEnclosureLock`.
 [x] Removing `WorkspaceGit.withWorkTreeGate` is [31 — Migrate onto the workspace lock](plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md). [33 — Contract the work-tree gate](plan/core-refinement/issues/33-contract-the-work-tree-gate.md) is superseded by that ticket.
 [x] `src/Shared/GraphQuery.fs` stays as it is.
 [x] `src/Shared/History.fs` stays as it is. `Notice.PersistFailed` stays off this module.

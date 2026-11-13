@@ -238,3 +238,132 @@ let ``a sibling file lock lets a file path move finish`` () =
     persist.Result |> requireOk "persistGraphChange" |> ignore
     holder.Wait()
     Assert.Equal(0, NodeLockPool.entryCount ())
+
+[<Fact>]
+let ``repository root and git path follow the workspace and ROOT`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, _, fileId, _ = graphWithNestedDocs ()
+    let rootFileId = NodeId.New()
+
+    let withRoot =
+        Graph.addDetachedNode
+            (specialNode rootFileId File "root.txt" Graph.rootId)
+            graph
+
+    let rootIndex = Graph.fileTreeInsertIndex withRoot Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId rootIndex [] (owned [ rootFileId ]) withRoot
+        |> requireOk "root file"
+
+    Assert.Equal(
+        DocumentPersistPath.workspaceRootFor dataDir graph2 fileId,
+        DocumentPersistPath.repositoryRoot dataDir graph2 fileId)
+    Assert.Equal(
+        Some "home/docs/readme.txt",
+        DocumentPartition.artifactFileRelative graph2 fileId)
+    Assert.Equal(Some "docs/readme.txt", DocumentPersistPath.gitPath graph2 fileId)
+    Assert.Equal(None, DocumentPersistPath.gitPath graph2 wsId)
+
+    Assert.Equal(
+        Some (DocumentPersistPath.dataDirBase dataDir),
+        DocumentPersistPath.repositoryRoot dataDir graph2 rootFileId)
+    Assert.Equal(
+        DocumentPartition.artifactFileRelative graph2 rootFileId,
+        DocumentPersistPath.gitPath graph2 rootFileId)
+    Assert.Equal(Some "root.txt", DocumentPersistPath.gitPath graph2 rootFileId)
+    Assert.Equal(
+        None,
+        DocumentPersistPath.workspaceRootFor dataDir graph2 rootFileId)
+
+    let rootDirId = NodeId.New()
+    let withRootDir =
+        Graph.addDetachedNode
+            (specialNode rootDirId Directory "notes" Graph.rootId)
+            graph2
+    let dirIndex = Graph.fileTreeInsertIndex withRootDir Graph.rootId
+    let graph3 =
+        Graph.replace Graph.rootId dirIndex [] (owned [ rootDirId ]) withRootDir
+        |> requireOk "root dir"
+
+    Assert.Equal(Some "notes/", DocumentPersistPath.gitPath graph3 rootDirId)
+    Assert.Equal(
+        Some (DocumentPersistPath.dataDirBase dataDir),
+        DocumentPersistPath.repositoryRoot dataDir graph3 rootDirId)
+
+    let looseId = NodeId.New()
+    let withLoose =
+        Graph.addDetachedNode
+            (specialNode looseId File "loose.txt" Graph.rootId)
+            graph3
+
+    Assert.Equal(None, GraphQuery.enclosingWorkspace withLoose looseId)
+    Assert.Equal(
+        None,
+        DocumentPersistPath.repositoryRoot dataDir withLoose looseId)
+    Assert.Equal(None, DocumentPersistPath.gitPath withLoose looseId)
+
+let private trackedHome (dataDir: string) (graph: Graph) =
+    DocumentPersistWrite.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let home = Path.Combine(dataDir, "home")
+    WorkspaceGit.ensureInit home |> requireOk "ensureInit" |> ignore
+    WorkspaceGit.commitAll home "seed" None |> requireOk "commit" |> ignore
+    home
+
+let private listedFiles (repository: string) =
+    GitSave.runGit repository "ls-files"
+    |> requireOk "ls-files"
+    |> fun text -> text.Replace('\\', '/')
+
+[<Fact>]
+let ``same-workspace relocate runs git mv in the Workspace repository`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
+    let home = trackedHome dataDir graph
+
+    let unparsed =
+        Graph.setParseState fileId ParseState.Unparsed graph
+        |> requireOk "unparsed"
+
+    let removed =
+        Graph.replace dirId 0 (owned [ fileId ]) [] unparsed
+        |> requireOk "remove file"
+
+    let post =
+        Graph.replace wsId 0 (owned [ dirId ]) (owned [ dirId; fileId ]) removed
+        |> requireOk "file under workspace"
+
+    let moves = DocumentPathMove.planPathMovesBetweenGraphs graph post
+    let same = DocumentPathMove.sameWorkspaceMoves graph post moves
+    Assert.Equal<NodeId list>([ fileId ], same |> List.map (fun move -> move.nodeId))
+
+    let repository = DocumentPersistPath.repositoryRoot dataDir post fileId
+    Assert.Equal(DocumentPersistPath.workspaceRootFor dataDir post fileId, repository)
+    Assert.Equal(Some home, repository |> Option.map Path.GetFullPath)
+
+    Assert.Equal(Some "docs/readme.txt", DocumentPersistPath.gitPath graph fileId)
+    Assert.Equal(Some "readme.txt", DocumentPersistPath.gitPath post fileId)
+
+    WorkspaceGit.gitMove home "docs/readme.txt" "readme.txt"
+    |> requireOk "gitMove"
+    |> ignore
+
+    Assert.False(File.Exists(Path.Combine(home, "docs", "readme.txt")))
+    Assert.True(File.Exists(Path.Combine(home, "readme.txt")))
+    let listed = listedFiles home
+    Assert.Contains("readme.txt", listed)
+    Assert.DoesNotContain("docs/readme.txt", listed)
+
+[<Fact>]
+let ``gitMove moves a directory tree with one git mv`` () =
+    let dataDir = newTempDir ()
+    let graph, _, dirId, _, _ = graphWithNestedDocs ()
+    let home = trackedHome dataDir graph
+    Assert.Equal(Some "docs/", DocumentPersistPath.gitPath graph dirId)
+
+    WorkspaceGit.gitMove home "docs/" "archive/"
+    |> requireOk "gitMove"
+    |> ignore
+
+    Assert.False(Directory.Exists(Path.Combine(home, "docs")))
+    Assert.True(File.Exists(Path.Combine(home, "archive", "readme.txt")))
+    Assert.Contains("archive/readme.txt", listedFiles home)

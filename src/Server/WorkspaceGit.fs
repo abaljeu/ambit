@@ -19,6 +19,15 @@ module WorkspaceGit =
     let isRepo (workspaceRoot: string) : bool =
         Directory.Exists(Path.Combine(workspaceRoot, ".git"))
 
+    /// One `git mv -- old new` in the workspace repository.
+    let gitMove
+        (repositoryRoot: string)
+        (oldGitPath: string)
+        (newGitPath: string)
+        : Result<unit, string> =
+        GitSave.runGit repositoryRoot $"mv -- {oldGitPath} {newGitPath}"
+        |> Result.map ignore
+
     [<Literal>]
     let private canonicalBranch = "master"
 
