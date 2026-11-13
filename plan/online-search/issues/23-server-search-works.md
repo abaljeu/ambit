@@ -42,7 +42,7 @@ These facts are leads for the build.
 
 ## Do not load
 
-[ ] `CoreMsg.RecordSearchStop` and `Notice.SearchStopped`. [24 — Post Notice.SearchStopped](24-post-searchstopped-notice.md) owns that replacement.
+[ ] `CoreMsg.RecordSearchStop`. [24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) removes that case. The search stop is `Notice.ActorStopped` through the actor stop.
 [ ] The globe control, the quiet gap, and the query expression.
 [ ] A new package for hit Headers.
 [ ] A field of client-hit Node ids on the search start. The dialog excludes Node ids the client search found.

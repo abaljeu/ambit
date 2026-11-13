@@ -15,7 +15,7 @@ Type:
 Blockers:
 
 [ ] [09 — Start the query command](../09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
-[ ] [24 — Post Notice.SearchStopped](../../../online-search/issues/24-post-searchstopped-notice.md)
+[ ] [24 — Remove CoreMsg.RecordSearchStop](../../../online-search/issues/24-remove-coremsg-recordsearchstop.md)
 [ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md)
 [ ] [21 — Convert CoreMsg.ActorStop](../21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md)
 

@@ -58,7 +58,7 @@
 [ ] The Notice tells the client it can drop its hold on the Actor; it does not tell the pool
 [ ] The stop has no caller, so no secret check is needed for it
 [ ] Exactly one stop is logged per run: the first of the Actor's end and a Cancel
-[ ] Alan, 2026-10-24: a search just stops too; [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md) posts `Notice.SearchStopped` when a search ends
+[ ] Alan, 2026-10-24: a search just stops too. Alan, 2026-11-13: [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) removes `CoreMsg.RecordSearchStop`. The search stop is `Notice.ActorStopped` through the actor stop.
 
 ### Known limit
 

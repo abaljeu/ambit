@@ -84,7 +84,8 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 [x] Install: `RouteRegistration.CreateBoot` sets `BootActors.search` to `SearchActor.searchActorAt`. `searchDoor` passes that value into `recordSearchStart`. A pool with no install replies `search actor is not installed`.
 [x] Reply: `Api.searchReply` places the start, then returns `SearchActor.reply`. The Search Actor posts `ActorStop` of `ActorSucceeded` at the root. The walk reads the full server Graph from `Query.State`. Search does not read a focus.
 [x] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. `changes` asks `Query.State`. `CoreMsg` has `RecordSearchStop`.
-[ ] Door: `recordStop` posts `Notice.SearchStopped` of the root id through the notice function. It records the stop as `ActorSucceeded` for that root. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 StartActor and §2 Notice.
+[x] Stop: `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`. `CoreEventDispatch.actorStop` logs that result as `Notice.ActorStopped`. Find logs the stop from that actor call.
+[ ] Stop: [24 — Remove CoreMsg.RecordSearchStop](../../plan/online-search/issues/24-remove-coremsg-recordsearchstop.md) removes `CoreMsg.RecordSearchStop`. `searchDoor.recordStop` becomes a function that returns unit.
 [x] A refused Find and Move start returns `400`. The body is `{ "error": "<failure>" }`.
 
 ## Seams
