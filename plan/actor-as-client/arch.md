@@ -205,7 +205,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, a query Run through `queueAdmittedQuery`, and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
+[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, and a query Run through `queueAdmittedQuery`. Every other name replies `Error "unknown actor"` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
@@ -335,7 +335,7 @@ Log actor order
 
 6. **Query start today**
 
-[x] `postActorStart` sends a query Run to the pool. `startChosen` stays `pool.startActor` for a named start.
+[x] `postActorStart` sends a query Run through `queueAdmittedQuery`, which places `Order.StartActor`. The admitted names are `test`, `ai`, and a query. Every other name replies `Error "unknown actor"`.
 
 ```fsharp
 Posted run
