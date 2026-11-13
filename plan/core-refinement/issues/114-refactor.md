@@ -42,4 +42,4 @@ Behavior is `126b4c81`. `origin/staging` at `80cad19c` is the merge base. That c
 ## 4. Scan
 
 1. **Standards scan.** `python3 scripts/standards-scan.py --diff origin/staging` exits 0.
-2. **secretWhileLive.** 10 lines (71–80) in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
+2. **secretWhileLive.** `secretWhileLive` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.

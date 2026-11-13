@@ -302,7 +302,7 @@ answerNodeIds : NodeId -> Graph -> string -> NodeId list
 ### Actor stop
 
 [x] `SearchActor.queryActorBody` returns `ActorQuery`. `CoreActorPool.runReturned` binds that result. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
-[x] `CoreDoor.actorStop` in `src/Server/Core/CoreDoor.fs` stays for `CoreMsg.ActorStop` until [114 — Remove CoreMsg.ActorStop](../core-refinement/issues/114-remove-coremsg-actorstop.md). `SearchActor.actorCaller` has left.
+[x] `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `SearchActor.actorCaller` has left. `SearchActor.searchActorAt` returns `ActorSucceeded`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`. `CoreMailboxLoop.logActorStopped` stores that row through `CoreEventDispatch.actorStop` with `Authority "Actor"`. `CoreMsg.RecordSearchStop` still stores a second stop through `CoreEventDispatch.actorStop`. [24 — Remove CoreMsg.RecordSearchStop](issues/24-remove-coremsg-recordsearchstop.md) removes that case.
 
 ### Query ref post
 

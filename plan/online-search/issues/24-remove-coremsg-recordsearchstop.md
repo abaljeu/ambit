@@ -11,7 +11,7 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 ### Working
 
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, `ActorStop`, and `PostEvent`.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
 [x] `RecordSearchStop` is `caller: Caller * rootId: NodeId * AsyncReplyChannel<Result<unit, string>>`. The comment says the case puts ActorStop on the event source, and the id is the root.
 [x] `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs` takes `MailboxHost`, `Caller`, and `NodeId`, and returns `Async<Result<unit, string>>`. It posts `RecordSearchStop` through `MailboxHost.postAndAsyncReply`.
 [x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` handles `RecordSearchStop` by calling `CoreEventDispatch.actorStop` with that caller, that root id, and `ActorSucceeded`.
@@ -25,8 +25,8 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 [x] `SearchActor.actorStart` in `src/Server/SearchActor.fs` sets `zoomId`, `focusId`, `runDefinitionId`, and `graphIds` to the graph root.
 [x] `CoreMailboxApi.recordSearchStart` places `Order.StartActor` for the actor name `search`. `actorNodeIdOf` is `ActorOrderFromStart.focusIdOf`, which returns `ActorStart.focusId`.
 [x] `SearchActor.searchActorAt` returns `ActorSucceeded`. It does not call a stop. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of that result. `SearchActor.actorCaller` has left.
-[x] `CoreMailboxLoop.poolActor` builds `ActorChanges` with `CoreDoor.actorChanges` for `CoreDoor.actorCaller` of the pool secret. `CoreDoor.actorStop` calls `CoreMailboxApi.actorStop`, which posts `CoreMsg.ActorStop`. `searchActorAt` does not call that stop.
-[x] `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` accepts `Authority "Actor"`, reads `pool.getActorNodeId`, and calls `CoreEventDispatch.actorStop` with that actor node id and the result. That arm serves `CoreMsg.ActorStop`.
+[x] `CoreMailboxLoop.poolActor` builds `ActorChanges` with `CoreDoor.actorChanges` for `CoreDoor.actorCaller` of the pool secret. `ActorChanges` is `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `searchActorAt` does not call a stop.
+[x] `CoreActorPool` keeps `trySecretForActorNode`. `CoreMailboxLoop.logActorStopped` reads that secret and logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`.
 [x] `tests/Server.Tests/SearchActorTests.fs` test ``postSearch records ActorStart at the root`` sets `recordStop` to a closure that calls `CoreMailboxApi.recordSearchStop`. The test waits with `TestBackend.waitForNotices` for `EventBody.ActorStop` of the root with `ActorSucceeded`. That row is the pool post. `recordSearchStop` still logs its own stop.
 
 ### Reference
@@ -37,7 +37,7 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 ## Do not load
 
 [ ] `CoreMailboxApi.recordSearchStart`, `Order.StartActor`, and `SearchActor.actorStart`.
-[ ] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, and `CoreMailboxActors.dispatchActorStop`. [114 — Remove CoreMsg.ActorStop](../../core-refinement/issues/114-remove-coremsg-actorstop.md) owns that case.
+[ ] `CoreMailboxLoop.logActorStopped` and `Notice.ActorStopped`. [114 — Remove CoreMsg.ActorStop](../../core-refinement/issues/114-remove-coremsg-actorstop.md) is `coded`. This ticket removes `RecordSearchStop` only.
 [ ] `Api.SearchActorDoor` and `Api.postSearch`.
 [ ] `Notice` cases other than the `Notice.ActorStopped` the pool post already logs.
 
@@ -61,7 +61,7 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 [ ] Rewrite `24-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when the edit adds a `Notice` case, changes `recordSearchStart`, or changes `CoreMsg.ActorStop`.
+[ ] Stop when the edit adds a `Notice` case, changes `recordSearchStart`, or changes `CoreMailboxLoop.logActorStopped`.
 
 ## Check
 

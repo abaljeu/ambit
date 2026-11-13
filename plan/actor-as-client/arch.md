@@ -30,9 +30,11 @@ type ActorFunction = FunctionRun -> ActorChanges -> Async<ActorResult>
 
 type ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
-      actorStop: ActorResult -> Async<Result<unit, string>>
       graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
-      loadNode: NodeId -> Async<Result<EventId, string>> }
+      loadNode: NodeId -> Async<Result<EventId, string>>
+      postNotice: Notice -> unit
+      eventsSince: EventId -> Async<Ev list>
+      postGraphOnly: Ev -> Async<Result<unit, string>> }
 
 type ActorOrder =
     { actor: ActorFunction
@@ -198,7 +200,7 @@ The pool `ActorFunction` keeps `CoreChangesDoor`. `actorChanges` adapts that doo
 ### Pool launch
 
 [x] `runSchedule` calls `Async.Start` with the row cancel token.
-[x] `runSchedule` starts `work |> Async.Ignore`. The pool does not read the `ActorResult`.
+[x] `CoreActorPool.runSchedule` starts `CoreActorPool.runReturned`. `runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
 
 ```fsharp
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit
