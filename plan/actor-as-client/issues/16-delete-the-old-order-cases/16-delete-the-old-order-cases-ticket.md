@@ -14,13 +14,13 @@ Blockers:
 
 ### Working
 
-[x] `Order` in `src/Shared/History.fs` is `Change`, `Undo`, `Redo`, `StartActorDeprecated` of `ActorStart`, `StartActor` of `ActorOrder`, `Load`, and `CancelActor`.
-[x] `EventBody.ActorStart` and `(|ActorStart|_|)` in `src/Shared/History.fs` build and match `EventBody.Order` of `Order.StartActorDeprecated`.
-[x] `postPlacedOrder` in `src/Server/Core/MailboxHost.fs` posts `Mailbox.PlaceOrder` for every `PlacedOrder`.
-[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies `Error "StartActorDeprecated is retired"` for `Order.StartActorDeprecated`. `replyPlaced` appends only after `MailboxLog.eventFromPlacedOrder` returns `Ok`.
-[x] `encodeOrder` and `decodeOrder` in `src/Shared/EventJson.fs` use wire kind `startActor` for `Order.StartActorDeprecated` and wire kind `actorOrder` for `Order.StartActor`.
-[x] `historyBody` in `src/Shared/MailboxLog.fs` returns `Ok (EventBody.Order order)` for `Order.StartActorDeprecated`, in the same arm group as `Order.StartActor`. `orderOfBody` reads any `EventBody.Order`.
-[x] ``Ev JSON round-trips each EventBody.Order case`` in `tests/Shared.Tests/EventJsonTests.fs` builds `Order.StartActorDeprecated`.
+[x] `Order` in `src/Shared/History.fs` is `Change`, `Undo`, `Redo`, `ClientRequestActor` of `ActorStart`, `StartActor` of `ActorOrder`, `Load`, and `CancelActor`.
+[x] `EventBody.ActorStart` and `(|ActorStart|_|)` in `src/Shared/History.fs` build and match `EventBody.Order` of `Order.ClientRequestActor`.
+[x] `postPlacedOrder` in `src/Server/Core/MailboxHost.fs` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and posts nothing.
+[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` uses that same refusal for `Order.ClientRequestActor`. `replyPlaced` appends only after `MailboxLog.eventFromPlacedOrder` returns `Ok`.
+[x] `encodeOrder` and `decodeOrder` in `src/Shared/EventJson.fs` use wire kind `startActor` for `Order.ClientRequestActor` and wire kind `actorOrder` for `Order.StartActor`.
+[x] `historyBody` in `src/Shared/MailboxLog.fs` returns `Ok (EventBody.Order order)` for `Order.ClientRequestActor`, in the same arm group as `Order.StartActor`. `orderOfBody` reads any `EventBody.Order`.
+[x] ``Ev JSON round-trips each EventBody.Order case`` in `tests/Shared.Tests/EventJsonTests.fs` builds `Order.ClientRequestActor`.
 [x] ``?test Run admits the caller and queues ActorOrder`` in `tests/Server.Tests/TestActorCommandErrorTests.fs` expects a stored `Order.StartActor` and expects no stored `EventBody.ActorStart`.
 [x] `withHost` and `eventPast` in `tests/Server.Tests/TestActorCommandErrorTests.fs` open a mailbox and read its log.
 
