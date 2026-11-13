@@ -290,6 +290,30 @@ let ``Cancel queues behind an edit and does not post a side channel`` () =
     Assert.Equal<Ev list list>([ queued.pending ], batches)
 
 [<Fact>]
+let ``?nope Run leaves the queue and shows the Run error`` () =
+    let graph, _, ids = ownerChain [ "?nope" ]
+    let focusId = ids.[0]
+    let model = emptyModel graph
+    let selected =
+        match ViewModelSelection.singleSelection graph model.siteMap focusId with
+        | None -> failwith "expected command selection"
+        | Some sel ->
+            { model with
+                selectedNodes = Some sel
+                zoomRoot = focusId }
+    let ran, effects =
+        afterEditCommitThenTryStart (fun vm -> vm, []) selected
+    Assert.Empty(effects)
+    Assert.Empty(
+        ran.syncInfo.pending
+        |> List.choose (function
+            | { body = EventBody.ActorStart _ } -> Some ()
+            | _ -> None))
+    match ran.lastCmdResult with
+    | Some (CmdLastResult.Error (Some "Run", "unknown actor")) -> ()
+    | other -> failwith $"expected Run unknown actor, got %A{other}"
+
+[<Fact>]
 let ``stale Editing snapshot commits live text and queues ActorStart`` () =
     let model = editingCommandModel ()
     let focusId =

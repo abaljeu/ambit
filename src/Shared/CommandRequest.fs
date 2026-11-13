@@ -124,6 +124,7 @@ module CommandRequest =
           eventId = eventId }
 
     /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.
+    /// `test` and `ai` queue. Every other `?` name is `unknown actor`.
     let tryStart
         (graph: Graph)
         (siteMap: SiteMap)
@@ -134,9 +135,21 @@ module CommandRequest =
         match actorNodeOnOwnerPath graph focusId zoomId with
         | None -> Error noRunnableActor
         | Some runDefinitionId ->
-            Ok
-                (actorStart
-                    graph siteMap zoomId focusId runDefinitionId eventId)
+            let name =
+                nodeText graph runDefinitionId
+                |> Option.bind actorNameFromText
+            match name with
+            | Some "test"
+            | Some "ai" ->
+                Ok (
+                    actorStart
+                        graph
+                        siteMap
+                        zoomId
+                        focusId
+                        runDefinitionId
+                        eventId)
+            | _ -> Error "unknown actor"
 
     /// Run on a query line. `focusId` and `runDefinitionId` are that line.
     let tryQueryStart
