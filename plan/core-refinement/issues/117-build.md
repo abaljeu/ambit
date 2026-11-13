@@ -2,7 +2,7 @@
 
 Ticket: [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md)
 
-`CoreActorPool.runSchedule` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of `row.actorNodeId` and that result through `CoreMailboxApi.postNotice` on `coreChanges.host`. A cancelled row posts nothing.
+`CoreActorPool.runSchedule` starts `CoreActorPool.runReturned`, which binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of `row.actorNodeId` and that result through `CoreMailboxApi.postNotice` on `coreChanges.host`. A cancelled row posts nothing.
 
 `CoreMailboxLoop.logActorStopped` handles that notice. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller` of that secret, then `CoreActorPool.finish`. The stored authority is `Authority "Actor"`. No secret logs nothing and finishes nothing. Every other notice stays on `CoreMailboxLoop.logPostedNotice`: `CoreEventDispatch.logNotice`, then `CoreMailboxLoop.applyNotice`. `applyNotice` stays `Ok ()` for `Notice.ActorStopped`.
 

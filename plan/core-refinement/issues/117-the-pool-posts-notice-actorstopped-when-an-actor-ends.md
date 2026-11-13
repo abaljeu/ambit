@@ -13,12 +13,12 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 ### Signatures
 
-[x] `CoreActorPool.runSchedule` in `src/Server/Core/CoreActorPool.fs` is the schedule function. It binds the `ActorResult` and posts `Notice.ActorStopped` unless the row token is cancelled.
+[x] `CoreActorPool.runSchedule` in `src/Server/Core/CoreActorPool.fs` starts `CoreActorPool.runReturned` on the row token. `runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless that token is cancelled.
 [x] `CoreActorPool.trySecretForActorNode` in `src/Server/Core/CoreActorPool.fs` returns the secret for an actor node id. The live row field is `actorNodeId`.
 [x] `CoreActorPool.finish` in `src/Server/Core/CoreActorPool.fs` drops the row for every `ActorResult`. `runFinish` cancels the row token.
 [x] `CoreMailboxApi.postNotice` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreQueue.Notice` and returns before the mailbox applies the notice.
 [x] `CoreMailboxLoop.runMsg` and `CoreMailboxLoop.dispatchItem` are in `src/Server/Core/CoreMailboxLoop.fs`. `CoreMailboxLoad` in `src/Server/Core/CoreMailboxLoad.fs` holds Load dispatch.
-[x] `CoreMailboxLoop.dispatchItem` logs every `CoreQueue.Notice` with `CoreEventDispatch.logNotice`, then calls `CoreMailboxLoop.applyNotice`.
+[x] `CoreMailboxLoop.dispatchItem` sends `Notice.ActorStopped` to `CoreMailboxLoop.logActorStopped`. Every other `CoreQueue.Notice` goes to `CoreMailboxLoop.logPostedNotice`, which calls `CoreEventDispatch.logNotice`, then `CoreMailboxLoop.applyNotice`.
 [x] `CoreMailboxLoop.applyNotice` returns `Ok ()` for `Notice.ActorStopped`.
 [x] `CoreEventDispatch.actorStop` in `src/Server/Core/CoreEventDispatch.fs` stores the caller authority on the stop row.
 [x] `CoreEventDispatch.logNotice` stores `Authority ""` on a notice row.
@@ -66,7 +66,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 ### Working
 
-[x] `runSchedule` binds the `ActorResult`. A returned result posts `Notice.ActorStopped`. A cancelled row posts nothing.
+[x] `CoreActorPool.runReturned` binds the `ActorResult`. A returned result posts `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. A cancelled row posts nothing.
 [x] The Actor bodies return the result and do not call a stop. `RunAgentActor.stop` has left.
 [x] `CoreMailboxLoop.dispatchItem` logs `Notice.ActorStopped` through `CoreEventDispatch.actorStop`, then calls `pool.finish`. Every other notice keeps `logNotice`, then `applyNotice`.
 [x] `CoreActorPool.finish` cancels the row token through `runFinish`.
@@ -93,7 +93,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 ## Process
 
 1. [x] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] `runSchedule` binds the `ActorResult`, then posts `Notice.ActorStopped` of `row.actorNodeId` and that result.
+2. [x] `CoreActorPool.runSchedule` starts `CoreActorPool.runReturned`. That binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of `row.actorNodeId` and that result unless `row.cancel` is cancelled.
 3. [x] A cancelled body posts nothing.
 4. [x] `dispatchItem` handles `Notice.ActorStopped` with `trySecretForActorNode`. A secret logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller` of that secret, the actor node id, and the result, then calls `pool.finish`. The stored authority is `Authority "Actor"`. No secret logs nothing and finishes nothing.
 5. [x] Other notices keep today's `logNotice` order.
