@@ -3,7 +3,7 @@
 One job: The Browser rejects a `?` command that has no function start before that command is queued. Only `test`, `ai`, and a query reach the queue, and the user sees the failure. Run command in [Arch](../../arch.md) is this Run.
 
 [ ] [26 — Retire the posted named start](../26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md) depends on this ticket. This ticket starts without waiting for 26.
-[ ] After this ticket, `postChosenStart` has no production caller. [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md) retires the door. 26 — Move the id-record starts onto function starts retires `pool.startActor` on the named path. [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated`.
+[ ] After this ticket, `postChosenStart` has no production caller. [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md) retires the door. 26 — Move the id-record starts onto function starts retires `pool.startActor` on the named path. [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps `Order.ClientRequestActor`.
 [ ] Pairing a stored `Order.StartActor` with its stop in `expandStored`, and posting nothing on a refused start, becomes moot once that door, that `pool.startActor` call, and `Order.StartActorDeprecated` are retired. 26 — Move the id-record starts onto function starts already requires that a refused start posts nothing.
 
 Type:
@@ -37,7 +37,7 @@ Blockers:
 [x] `postChosenStart`, `dispatchStartActor`, `finishReadyStart`, `recordFailedStart`, and `expandStored`.
 [x] `CoreMailboxApi.coreMailboxStartActor`. 25 — Remove the coreMailboxStartActor door owns that door.
 [x] `pool.startActor`. 26 — Move the id-record starts onto function starts owns that call.
-[x] `Order.StartActorDeprecated`. 16 — Delete the old Order cases owns that case.
+[x] `Order.ClientRequestActor`. 16 — Rename the client start request to ClientRequestActor keeps that case.
 [x] The event shape inside `queueStart`. [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md) owns that caller.
 [x] A new `ActorFunction`.
 [x] A session id.

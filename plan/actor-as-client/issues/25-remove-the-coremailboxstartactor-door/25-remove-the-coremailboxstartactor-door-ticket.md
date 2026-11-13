@@ -2,7 +2,7 @@
 **Status**: coded
 One job: `CoreMailboxApi.coreMailboxStartActor` is gone. No test calls it, and nothing places `Order.StartActorDeprecated` through it.
 
-[x] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated`.
+[x] [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps `Order.ClientRequestActor`.
 
 Type:
 
@@ -40,7 +40,7 @@ Blockers:
 
 ## Do not load
 
-[x] `Order.StartActorDeprecated`, its codec, and its log arm. 16 — Delete the old Order cases owns them.
+[x] `Order.ClientRequestActor`, its codec, and its log arm. 16 — Rename the client start request to ClientRequestActor keeps them.
 [x] `EventBody.ActorStart` writers. [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md) owns them.
 
 ## Process

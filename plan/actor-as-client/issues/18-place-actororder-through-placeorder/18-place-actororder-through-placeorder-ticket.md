@@ -32,7 +32,7 @@ Blockers:
 ## Do not load
 
 [x] `ActorOrder` in `src/Shared/History.fs` stores `actor`, `actorNodeId`, and `actorName`.
-[x] `Order.StartActorDeprecated` stays until 16 — Delete the old Order cases. That ticket deletes `Order.StartActorDeprecated` and keeps `Order.StartActor` of `ActorOrder`.
+[x] `Order.ClientRequestActor` stays. [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps that case and keeps `Order.StartActor` of `ActorOrder`.
 [x] `src/Server/ActorDispatch.fs`. This ticket does not add it.
 [x] A new `CoreMsg` case.
 [x] A lookup of the actor from `actorName`.

@@ -2,7 +2,7 @@
 **Status**: defined
 One job: The Browser queues an `ActorStart` request and posts it, and its event-log copy records the `ActorOrder` the Server returns. The Browser never builds an `ActorOrder`, and `EventBody.ActorStart` with `(|ActorStart|_|)` stays.
 
-[ ] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket.
+[ ] [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket.
 [ ] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) covers the `dispatchPostEvent` arm. This ticket leaves that arm to 22.
 
 Type:
@@ -30,7 +30,7 @@ Blockers:
 
 [ ] `dispatchPostEvent`. 22 — Convert CoreMsg.PostEvent owns it.
 [ ] `CoreMailboxApi.coreMailboxStartActor`. 25 — Remove the coreMailboxStartActor door owns it.
-[ ] `Order.StartActorDeprecated` itself, its codec, and its log arm. 16 — Delete the old Order cases owns them.
+[ ] `Order.ClientRequestActor`, its codec, and its log arm. 16 — Rename the client start request to ClientRequestActor keeps them.
 [ ] A new `Order` case or a new `CoreMsg` case.
 
 ## Process

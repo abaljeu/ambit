@@ -4,7 +4,7 @@ One job: The server retires the posted named start. A posted start whose name ha
 
 [x] The source files are 1. The test files are 5. [Size limit](../../../context/size-limit.md) is 8 source files and 4 test files. This ticket's cap is 1 source file and 5 test files. The test count is over the shared limit because each posted start sits in its own file.
 [x] [27 — Reject unknown Run commands before the queue](../27-reject-unknown-run-commands-before-the-queue/27-reject-unknown-run-commands-before-the-queue-ticket.md) has landed. A production Run reaches `admittedQueue` for `test`, `ai`, and a query.
-[x] [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md) keeps `dispatchStartActor` and `coreMailboxStartActor`. [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps `Order.StartActorDeprecated`. `EventBody.ActorStart` stays the client start request.
+[x] [25 — Remove the coreMailboxStartActor door](../25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md) keeps `dispatchStartActor` and `coreMailboxStartActor`. [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps `Order.ClientRequestActor`. `EventBody.ActorStart` stays the client start request.
 
 Type:
 
@@ -40,7 +40,7 @@ Blockers:
 ## Do not load
 
 [x] `dispatchStartActor`, `finishReadyStart`, `dispatchActorStartResult`, and `CoreMailboxApi.coreMailboxStartActor`. 25 — Remove the coreMailboxStartActor door owns that door.
-[x] `Order.StartActorDeprecated`. 16 — Delete the old Order cases owns that case.
+[x] `Order.ClientRequestActor`. 16 — Rename the client start request to ClientRequestActor keeps that case.
 [x] `EventBody.ActorStart` as the client start request.
 [x] The `admittedQueue` arms for `test`, `ai`, and a query.
 [x] A test whose start reaches the server through `coreMailboxStartActor`.

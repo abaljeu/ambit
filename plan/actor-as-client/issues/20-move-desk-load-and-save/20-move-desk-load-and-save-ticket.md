@@ -38,7 +38,7 @@ Blockers:
 ## Do not load
 
 [ ] `CoreMsg.StartPeerActor`, `startPeerActor`, and `registerPeer`. 15 — Delete the old Actor starts deletes them.
-[ ] `Order.StartActorDeprecated`. 16 — Delete the old Order cases deletes it.
+[ ] `Order.ClientRequestActor`. [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) keeps that case.
 [ ] The WebDAV branch. The design above comes first.
 [ ] A new `CoreMsg` case.
 

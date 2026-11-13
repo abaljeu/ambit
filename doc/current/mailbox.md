@@ -58,7 +58,8 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 ## Messages
 [x] `replyActorOrder` asks the pool first. `startFunction` admits the actor and `schedule` launches it. The mailbox appends `Order.StartActor` of `ActorOrder` after that affirmation. A refusal posts no row. The caller reply is that failure.
-[x] `placeOrder` replies `Error "StartActorDeprecated is retired"` for `Order.StartActorDeprecated`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
+[x] `MailboxHost.postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and posts nothing. [Mailbox host](../../src/Server/Core/MailboxHost.fs).
+[x] `placeOrder` uses that same refusal for `Order.ClientRequestActor`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
 [x] `CoreMsg.ActorStop` is the fast stop message on this loop.
 [ ] `Notice.ActorStopped` is the logged actor stop. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
