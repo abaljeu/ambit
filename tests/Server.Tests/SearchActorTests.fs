@@ -284,19 +284,26 @@ let ``postSearch records ActorStart at the root`` () = task {
         | other ->
             failwith $"expected JSON content, got {other.GetType().Name}"
         do! actorStopped.Task
-        let! log =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let started =
-            hasStartActor "search" graph.root log.events
-        let stopped =
-            log.events
+        let rootSucceeded (events: Ev list) =
+            events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStop(stoppedId, ActorSucceeded) ->
+                | EventBody.ActorStop (stoppedId, ActorSucceeded) ->
                     stoppedId = graph.root
                 | _ -> false)
+        let! events =
+            waitForNotices
+                (fun () ->
+                    task {
+                        let! history =
+                            CoreMailboxApi.eventHistory host
+                            |> Async.StartAsTask
+                        return history.events
+                    })
+                rootSucceeded
+        let started = hasStartActor "search" graph.root events
         Assert.True(started, "StartActor missing on the event source")
-        Assert.True(stopped, "ActorStop missing after the one reply")
+        Assert.True(rootSucceeded events, "ActorStop missing after the one reply")
     finally
         CoreMailboxApi.dispose host
 }

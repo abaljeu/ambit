@@ -301,13 +301,8 @@ answerNodeIds : NodeId -> Graph -> string -> NodeId list
 
 ### Actor stop
 
-[x]
-
-```fsharp
-actorStop : CoreChangesDoor -> ActorResult -> Async<Result<unit, string>>
-```
-
-[x] Errors are `Result` values. A query posts one `ActorQuery` and stops.
+[x] `SearchActor.queryActorBody` returns `ActorQuery`. `CoreActorPool.runReturned` binds that result. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
+[x] `CoreDoor.actorStop` in `src/Server/Core/CoreDoor.fs` stays for `CoreMsg.ActorStop` until [114 — Remove CoreMsg.ActorStop](../core-refinement/issues/114-remove-coremsg-actorstop.md). `SearchActor.actorCaller` has left.
 
 ### Query ref post
 
@@ -478,7 +473,6 @@ Sync install
     - Interface: `src/Server/SearchActor.fs` `functionStart`
     - Uses:
       1. [x] Query answer
-      2. [x] Actor stop
 16. **Pool start**
     - Interface: `src/Server/Core/CoreActorPool.fs` `startFunction`
     - Uses:
@@ -493,7 +487,8 @@ Sync install
     - Uses:
       1. [ ] none
 19. **Actor stop**
-    - Interface: `src/Server/Core/CoreDoor.fs` `actorStop`
+    - Interface: `src/Server/Core/CoreActorPool.fs` `postStopUnlessCancelled`
+    - `CoreMailboxLoop.logActorStopped` stores the row through `CoreEventDispatch.actorStop`
     - Type `ActorResult` in `src/Shared/History.fs`
     - Uses:
       1. [x] none

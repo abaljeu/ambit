@@ -58,11 +58,6 @@ module SearchActor =
         | None -> false
         | Some node -> CommandRequest.isQueryText node.text
 
-    let private actorCaller (secret: Credential) : Caller =
-        { authority = Authority "Actor"
-          name = ""
-          secret = secret }
-
     /// One eval on the carrier Graph. `graphIds` do not select that Graph.
     let private queryIds (getGraph: unit -> Graph) (lineId: NodeId) =
         let graph = getGraph ()
@@ -70,18 +65,12 @@ module SearchActor =
         | None -> []
         | Some node -> ExprRun.answerNodeIds lineId graph node.text
 
-    /// One query eval. The caller supplies the stop door.
-    /// The result is the ActorResult passed to that stop.
+    /// One query eval. The result is the ActorQuery of that line.
     let private queryActorBody
         (getGraph: unit -> Graph)
         (lineId: NodeId)
-        (stop: ActorResult -> Async<Result<unit, string>>)
         : Async<ActorResult> =
-        async {
-            let result = ActorQuery (queryIds getGraph lineId)
-            let! _ = stop result
-            return result
-        }
+        async.Return (ActorQuery (queryIds getGraph lineId))
 
     /// Query Actor body. ActorStop carries the Node ids. It does not use
     /// the Find walk.
@@ -91,13 +80,8 @@ module SearchActor =
         : FunctionStart =
         let lineId = request.runDefinitionId
         { actor =
-            fun run changes ->
-                let door =
-                    CoreDoor.forCaller (actorCaller run.secret) changes
-                queryActorBody
-                    run.getGraph
-                    lineId
-                    (CoreDoor.actorStop door)
+            fun run _ ->
+                queryActorBody run.getGraph lineId
           getGraph = getGraph
           actorNodeId = request.focusId }
 
@@ -106,16 +90,10 @@ module SearchActor =
         (runDefinitionId: NodeId)
         (_focusId: NodeId)
         : ActorFunction =
-        fun run changes ->
-            queryActorBody
-                run.getGraph
-                runDefinitionId
-                changes.actorStop
+        fun run _ ->
+            queryActorBody run.getGraph runDefinitionId
 
     /// Find and Move actor. The walk stays in the search reply.
     let searchActorAt : ActorFunction =
-        fun _run changes ->
-            async {
-                let! _ = changes.actorStop ActorSucceeded
-                return ActorSucceeded
-            }
+        fun _run _changes ->
+            async.Return ActorSucceeded

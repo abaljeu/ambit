@@ -22,38 +22,40 @@ Blockers:
 
 ### Working
 
-[ ] `CoreMsg.ActorStop` is defined in `src/Server/Core/CoreMsg.fs` as `caller`, `result`, and `AsyncReplyChannel<Result<unit, string>>`.
-[ ] `CoreMailboxApi.actorStop` in `src/Server/Core/CoreMailboxApi.fs` is the only builder. It posts `ActorStop(caller, result, channel)`.
-[ ] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` matches `ActorStop` and calls `CoreMailboxActors.dispatchActorStop`.
-[ ] `CoreMailboxLoop.messageCaller` matches `ActorStop`.
-[ ] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches `ActorStop`.
-[ ] `CoreMailboxEvents.replyFailure` matches `ActorStop`.
-[ ] `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` admits `Authority "Actor"`, reads the focus with `CoreActorPool.getActorNodeId`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
-[ ] A missing focus replies `Ok ()` and appends nothing.
-[ ] `CoreActorPool.trySecretForActorNode` in `src/Server/Core/CoreActorPool.fs` returns the secret for a focus.
-[ ] `Notice.ActorStopped` is `focusId` and `result` in `src/Shared/History.fs`.
-[ ] `EventBody.ActorStop` builds `EventBody.Notice` of `Notice.ActorStopped`.
-[ ] `CoreMailboxApi.postNotice` posts `CoreQueue.Notice`.
-[ ] `CoreMailboxLoop.dispatchItem` logs a `CoreQueue.Notice` with `CoreEventDispatch.logNotice`, then calls `applyNotice`.
-[ ] `applyNotice` returns `Ok ()` for `Notice.ActorStopped`.
-[ ] `CoreEventDispatch.logNotice` stores a blank authority. The notice has no caller and no session id.
-[ ] `CoreDoor.actorStop` in `src/Server/Core/CoreDoor.fs` calls `CoreMailboxApi.actorStop`.
-[ ] `CoreDoor.actorChanges` sets `ActorChanges.actorStop` to that function. The field is the only `actorStop` member, in `src/Shared/History.fs`.
-[ ] `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` each take `focusId`. `finishActor` calls `changes.actorStop` and has no focus argument.
-[ ] `RunAgentActor.stop` calls `changes.actorStop`. The focus is `ActorStart.focusId` on `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs`.
-[ ] `SearchActor.functionStart` calls `CoreDoor.actorStop`. The focus is `ActorStart.focusId`. `FunctionStart.actorNodeId` is that same id. The actor argument is a `CoreChangesDoor`, because the pool `ActorFunction` in `src/Server/Core/CoreActorPool.fs` takes that door.
-[ ] `TestActor.dispatch` calls `CoreDoor.actorStop`. The focus is `ActorInput.focusId` in `src/Server/TestActor.fs`.
-[ ] `TestActor.functionActorAt` passes `focusId` into `runBehavior` as the parent. `runBehavior` calls `changes.actorStop`.
-[ ] `TestActor.functionActor` passes `graph.focus`, or `graph.root` when focus is missing, into `runBehavior` as the parent.
-[ ] ``mailbox appends ActorStart and ActorStop in lifecycle order`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs` calls `CoreMailboxApi.actorStop`.
-[ ] `runMixedHello` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` calls `CoreMailboxApi.actorStop`.
-[ ] ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs` calls `CoreMailboxApi.actorStop`.
-[ ] ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` call `CoreMailboxApi.actorStop`.
-[ ] `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` calls `CoreMailboxApi.actorStop`.
-[ ] ``ActorStart body does not run inside the mailbox turn`` in `tests/Server.Tests/OrderedEventStreamTests.fs` calls `CoreDoor.actorStop`.
-[ ] ``query start error posts no rows, fails the reply, and keeps the edit`` in `tests/Server.Tests/QueryActorTests.fs` calls `CoreDoor.actorStop`. A start asks the pool first. `Order.StartActor` is appended only after the pool affirms. A refused start posts nothing and replies with the failure.
-[ ] ``Ask extract carries Graph.focus from launch`` in `tests/Server.Tests/AgentAskTests.fs` calls `CoreDoor.actorStop`.
-[ ] ``ActorStop with Test credentials is refused``, ``ActorStop with Browser credentials is refused``, and ``ActorStop with Parse credentials is refused`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` send `CoreMsg.ActorStop`.
+[x] `CoreMsg.ActorStop` is defined in `src/Server/Core/CoreMsg.fs` as `caller`, `result`, and `AsyncReplyChannel<Result<unit, string>>`.
+[x] `CoreMailboxApi.actorStop` in `src/Server/Core/CoreMailboxApi.fs` is the builder. It posts `ActorStop(caller, result, channel)`.
+[x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` matches `ActorStop` and calls `CoreMailboxActors.dispatchActorStop`.
+[x] `CoreMailboxLoop.messageCaller` matches `ActorStop`.
+[x] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches `ActorStop`.
+[x] `CoreMailboxEvents.replyFailure` matches `ActorStop`.
+[x] `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` admits `Authority "Actor"`, reads the focus with `CoreActorPool.getActorNodeId`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
+[x] A missing focus replies `Ok ()` and appends nothing.
+[x] `CoreActorPool.trySecretForActorNode` in `src/Server/Core/CoreActorPool.fs` returns the secret for an actor node id.
+[x] `Notice.ActorStopped` is `focusId` and `result` in `src/Shared/History.fs`.
+[x] `EventBody.ActorStop` builds `EventBody.Notice` of `Notice.ActorStopped`.
+[x] `CoreMailboxApi.postNotice` posts `CoreQueue.Notice`.
+[x] `CoreActorPool.runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled. A cancelled row posts nothing.
+[x] `CoreMailboxLoop.dispatchItem` sends `Notice.ActorStopped` to `CoreMailboxLoop.logActorStopped`. Every other `CoreQueue.Notice` goes to `CoreMailboxLoop.logPostedNotice`, which calls `CoreEventDispatch.logNotice`, then `CoreMailboxLoop.applyNotice`.
+[x] `CoreMailboxLoop.applyNotice` returns `Ok ()` for `Notice.ActorStopped`.
+[x] `CoreEventDispatch.logNotice` stores `Authority ""`.
+[x] `CoreDoor.actorStop` in `src/Server/Core/CoreDoor.fs` calls `CoreMailboxApi.actorStop`.
+[x] `CoreDoor.actorChanges` sets `ActorChanges.actorStop` to that function. The field is in `src/Shared/History.fs`.
+[x] `loadActorFunction` and `saveActorFunction` in `src/Server/GithubTransportActor.fs` each take `focusId`. `GithubTransportActor.finishActor` returns the outcome. It does not call `changes.actorStop`.
+[x] `RunAgentActor.stop` has left. `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs` returns the result.
+[x] `SearchActor.functionStart` returns `FunctionStart`. Its actor calls `SearchActor.queryActorBody` and returns that `ActorResult`. `actorNodeId` is `ActorStart.focusId`. The actor argument is a `CoreChangesDoor`.
+[x] `SearchActor.functionActorAt` and `SearchActor.searchActorAt` return the result. They do not call a stop. `SearchActor.actorCaller` has left.
+[x] `TestActor.dispatch` and `TestActor.runBehavior` in `src/Server/TestActor.fs` return the result. They do not call a stop.
+[x] `TestActor.functionActorAt` passes `focusId` into `runBehavior` as the parent.
+[x] `TestActor.functionActor` passes `graph.focus`, or `graph.root` when focus is missing, into `runBehavior` as the parent.
+[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`. The pool posts the stop. The stored authority is `Authority "Actor"`.
+[x] `runMixedHello` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`.
+[x] ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs` calls `CoreMailboxApi.actorStop`.
+[x] ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` call `CoreMailboxApi.actorStop`.
+[x] `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` calls `CoreMailboxApi.actorStop`.
+[x] ``ActorStart body does not run inside the mailbox turn`` has left `tests/Server.Tests/OrderedEventStreamTests.fs`. That file does not call `CoreDoor.actorStop`.
+[x] ``query start error posts no rows, fails the reply, and keeps the edit`` has left `tests/Server.Tests/QueryActorTests.fs`. That file does not call `CoreDoor.actorStop`. ``posted gate start replies unknown actor`` replies `unknown actor`.
+[x] ``Ask extract carries Graph.focus from launch`` has left `tests/Server.Tests/AgentAskTests.fs`. That file does not call `CoreDoor.actorStop`.
+[x] ``ActorStop with Test credentials is refused``, ``ActorStop with Browser credentials is refused``, and ``ActorStop with Parse credentials is refused`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` send `CoreMsg.ActorStop`.
 
 ### Reference
 

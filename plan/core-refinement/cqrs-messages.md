@@ -101,7 +101,7 @@ type internal CoreQueue =
 ### Order
 1. **Change** — `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`. `ChangeOrigin` is `Edit` or `Parse`. `CoreEventDispatch` reads that `origin`. The logged Change holds the op list and the `origin`.
 2. **Undo and Redo** — `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list. Accept fills an empty Op list from the inverse ops of the target. The logged Undo or Redo holds the target and the filled Op list.
-3. **StartActor** — `Order.StartActor` of `ActorOrder` is the actor start. Find and Move post that same order. [09 — Start the query command](../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) posts Find and Move and a query Run as `Order.StartActor` after the pool admits the actor and launches it. A pool refusal posts no row. The reply is the failure. That ticket deletes `CoreMsg.RecordSearchStart`. A search stop is `Notice.ActorStopped` through the actor stop. 24 — Remove CoreMsg.RecordSearchStop removes `CoreMsg.RecordSearchStop`.
+3. **StartActor** — `Order.StartActor` of `ActorOrder` is the actor start. Find and Move post that same order. [09 — Start the query command](../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) posts Find and Move and a query Run as `Order.StartActor` after the pool admits the actor and launches it. A pool refusal posts no row. The reply is the failure. That ticket deletes `CoreMsg.RecordSearchStart`. A search stop is `Notice.ActorStopped` from `CoreActorPool.postStopUnlessCancelled` when `SearchActor.searchActorAt` returns. `CoreMsg.RecordSearchStop` still logs a second stop. 24 — Remove CoreMsg.RecordSearchStop removes that case.
 
 [x] The case is `Order.ClientRequestActor`. The wire kind stays `startActor`. `historyBody` still accepts a stored row. [16 — Rename the client start request to ClientRequestActor](../actor-as-client/issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md).
 [x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
@@ -126,7 +126,7 @@ type internal CoreQueue =
 | `NodeParsed` | `ParseThread`, `LazyLoadReconciliationServer` | After a real parse or reconcile succeeds | Parsed, unless PullingFile. Queues a write when Unpersisted |
 | `ParseFailed` | `ParseThread`, `LazyLoadReconciliationServer` | The parse or reconcile Change is refused | None (logged) |
 | `NodeReceived` | `LazyLoadReconciliationServer` | git Load pull delivers or renames the file | Unparsed and Persisted, clears PullingFile |
-| `ActorStopped` | Pool | An Actor's work ends, or a Cancel stops a live run. One per run. A search stop is this same notice through the actor stop. | None (logged) |
+| `ActorStopped` | Pool for a returned result. `CoreMailboxActors.runCancel` for a Cancel | `CoreActorPool.runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts this notice unless the row token is cancelled. A cancelled row posts nothing. A Cancel logs `EventBody.ActorStop` of the focus and `ActorCancelled` through `runCancel`, then `CoreActorPool.finish`. A search stop is this pool post. `CoreMsg.RecordSearchStop` still logs a second stop until 24 — Remove CoreMsg.RecordSearchStop. | None (logged) |
 
 Only a holder of the notice function posts a Notice. No Notice is inferred from ops.
 

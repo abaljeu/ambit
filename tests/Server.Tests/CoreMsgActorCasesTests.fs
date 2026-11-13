@@ -97,7 +97,8 @@ let ``function start reply is bookkeeping without waiting for an Actor body`` ()
 [<Fact>]
 let ``GetState stamps lockPresent from the live table after a function start`` () =
     let basePool = CoreActorPool.create ()
-    // functionActorAt calls actorStop. Leave the row so getState can stamp it.
+    // The pool posts ActorStopped and finish drops the row.
+    // Leave the row so getState can stamp it.
     let pool = { basePool with finish = fun _ _ -> Ok () }
     let actor =
         TestActor.functionActorAt
@@ -283,7 +284,7 @@ let ``function start yields its secret and a later stop is dropped`` () =
     let actor : Gambol.Shared.ActorFunction =
         fun run _ -> async {
             seen.TrySetResult run.secret |> ignore
-            return ActorSucceeded
+            return! waitCancelled ()
         }
     withHost pool (fun host -> task {
         let! started =

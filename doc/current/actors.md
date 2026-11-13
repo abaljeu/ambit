@@ -25,8 +25,8 @@ An Actor is a thread from the .NET thread pool. It runs an actor function.
 [o] The start provides `ActorStart` of `zoomId`, `focusId`, `actorNodeId`, `graphIds`, and `eventId`. The wire key for `actorNodeId` is `"commandId"`.
 [o] The browser `ActorStart` payload changes in this cutover.
 [ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
-[o] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
-[ ] `Notice.ActorStopped`: a fast mailbox message through the notice function. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
+[o] `CoreMsg.ActorStop` stays until [114 — Remove CoreMsg.ActorStop](../../plan/core-refinement/issues/114-remove-coremsg-actorstop.md). Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+[x] `Notice.ActorStopped`: `CoreActorPool.runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts that notice through `CoreMailboxApi.postNotice` unless the row token is cancelled. A cancelled row posts nothing. `CoreMailboxActors.runCancel` logs `EventBody.ActorStop` of the focus and `ActorCancelled`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.
 [x] A CloudAgents Agent is not an Actor. Detail: Gambol.CloudAgents.
 [ ] An Actor requests git Load, git Save, pull, push, or commit by a post to the mailbox. The Actor does not perform that git mutation. Detail: Core.
