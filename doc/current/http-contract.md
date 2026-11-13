@@ -99,7 +99,7 @@ sequenceDiagram
 4. [x] **Changes.** `POST /ambit/changes` submits events and a want list.
 5. [x] **Events alias.** `POST /ambit/events` uses the same handler as `POST /ambit/changes`.
 6. [x] **Load.** `POST /ambit/load` submits an event id and load targets.
-7. [x] **Git save.** `POST /ambit/save` commits a git save. The request has no JSON body.
+7. [x] **Save.** `POST /ambit/load-save-command` runs Save. `src/Server/LoadSaveRouting.fs` `resolvePath` chooses git or desk.
 8. [x] **User CSS.** `GET /ambit/user.css` returns `200` and `text/css` from `{dataDir}/SYSTEM/user.css` when that file exists, otherwise from wwwroot `user.css`. When neither file exists the status is `204`.
 9. [x] **Static files.** `GET /ambit/*` returns Fable client assets (`Program.js`, CSS, and the other static files).
 10. [x] **Absent sync routes.** `POST /submit`, `POST /undo`, `POST /redo`, and `GET /ops?since={revision}` are absent.
@@ -401,20 +401,11 @@ sequenceDiagram
 { "error": "Load requires all selected targets in one Workspace" }
 ```
 
-### 2.11 POST /ambit/save
+### 2.11 Save
 
-1. [x] **Method and path.** `POST /ambit/save`.
-2. **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user.
-4. [x] **Header.** `X-Gambol-Client` is an optional string. The commit message can include it.
-5. [x] **Body.** The handler does not read a JSON body.
-6. [x] **Disabled.** When the data directory is not a git repo, the status is `200` and `application/json`.
-
-```json
-{ "ok": false, "detail": "", "error": "Git save is not enabled." }
-```
-
-7. [x] **Success.** A commit returns `200` and `application/json`. `ok` is `true`. `detail` is a string. `error` is omitted.
-8. [x] **Commit failure.** A prepare or commit error is `400`. The body is `ok` `false`, `detail` `""`, and `error` as a string.
+1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body is `LoadSaveCommandRequest` from [Event JSON](../../src/Shared/EventJson.fs).
+2. [x] **Path.** `src/Server/LoadSaveRouting.fs` `resolvePath` chooses Git when `DocumentPersistPath.repositoryRoot` has a git remote, including ROOT's data directory. Otherwise the path is Desk.
+3. [x] **Desk persist.** Desk Save runs `src/Server/GithubTransportActor.fs` `persistSaveFocus` before the response. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`.
 
 ### 2.12 JSON encoding
 

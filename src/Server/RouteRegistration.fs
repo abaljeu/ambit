@@ -86,14 +86,6 @@ module RouteRegistration =
             persistence.Core.host
             caller
 
-    let private parseBound (persistence: PersistenceContext) =
-        boundChanges persistence persistence.Core.parseCaller
-
-    let private githubOperation =
-        function
-        | LoadSaveOperation.Load -> GithubTransportOperation.Load
-        | LoadSaveOperation.Save -> GithubTransportOperation.Save
-
     let private withAdmittedCaller
         (persistence: PersistenceContext)
         (req: HttpRequest)
@@ -341,24 +333,9 @@ module RouteRegistration =
                             { resolvePath =
                                 LoadSaveRouting.resolvePath persistence.DataDir
                               startCommand =
-                                fun path request ->
-                                    if path = LoadSavePath.Desk then
-                                        CoreMailboxApi.startLoadSaveCommand
-                                            persistence.Core.host
-                                            caller
-                                            path
-                                            (GithubTransportActor.peerName
-                                                (githubOperation
-                                                    request.operation))
-                                            request
-                                    else
-                                        GithubTransportActor.start
-                                            persistence.Core.host
-                                            caller
-                                            persistence.DataDir
-                                            GithubTransportActor.productionDependencies
-                                            (githubOperation request.operation)
-                                            request.start }
+                                LoadSaveStart.startCommand
+                                    (boundChanges persistence caller)
+                                    persistence.DataDir }
                         Api.postLoadSaveCommand
                             router
                             (boundChanges persistence caller)
@@ -392,27 +369,6 @@ module RouteRegistration =
                     persistence.Core.pool.deliver
                     body
         })) |> ignore
-    let private prepareGitSave (persistence: PersistenceContext) () = async {
-        let handle = parseBound persistence
-        return!
-            SavePrep.syncDataDir
-                persistence.DbStatus
-                (fun () -> CoreDoor.graphAtEvent handle)
-                (fun () -> CoreMailboxApi.getEventId persistence.Core.host)
-                persistence.DataDir
-    }
-
-    let internal postSaveRequest
-        (persistence: PersistenceContext)
-        (prepare: unit -> Async<Result<int, string>>)
-        (req: HttpRequest)
-        : Task<IResult> =
-        withBrowserCaller persistence req (fun _ -> async {
-            let clientHint = bindClientHint req
-            return! Api.gitSave prepare persistence.DataDir clientHint
-        })
-        |> Async.StartAsTask
-
     let private registerSaveRoutes (routes: AppShellContext) =
         let this = routes.AmbitApp
         let persistence = routes.Persistence
@@ -430,11 +386,6 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 return Api.postFileStatus persistence.DataDir body
         })) |> ignore
-        this.MapPost(
-            "/ambit/save",
-            Func<HttpRequest, Task<IResult>>(
-                postSaveRequest persistence (prepareGitSave persistence)))
-        |> ignore
 
     let private uploadHandoff (persistence: PersistenceContext) =
         let host = persistence.Core.host

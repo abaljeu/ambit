@@ -164,8 +164,6 @@ let createRuntime (initialModel: VM) =
                                         "workspace-download poll failed"))))
                 200
             |> ignore
-        | ContinueDeskSave ->
-            DeskLoadSaveEffectClient.runDeskSave ()
         | ScheduleAutoDownloadTick delayMs ->
             runScheduleAutoDownloadTick delayMs
 

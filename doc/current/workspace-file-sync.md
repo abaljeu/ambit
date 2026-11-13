@@ -27,7 +27,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 ## Job
 
 [x] Upload (`Ctrl+Shift+>`) ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
-[x] Download (`Ctrl+Shift+<`) ensures a map, then enqueues `workspace-download`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces.
+[x] desk Save enqueues `workspace-download` when `DesktopCapabilities.canWorkspaceSync` is true. Keys: `Ctrl+S` and `Ctrl+Shift+<` in [Command entry](../../src/Shared/CommandEntry.fs) `CommandId.Save`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces. When the Desktop app cannot sync, desk Save skips that enqueue. `src/Client/UpdateSave.fs` `deskSaveOp`. `src/Client/UpdateWorkspaceDownload.fs` `sendWorkspaceDownload`.
 [x] ROOT and Workspaces cannot acquire a mapping.
 [x] Focus sets the scope. Workspace: the whole tree. Directory: a relative prefix. File: one path.
 
@@ -75,7 +75,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 [x] Download fetches every non-ignored directory and every non-ignored file in the selected server scope.
 [x] Upload bulk caps do not restrict Download.
-[x] The Download command enqueues a desktop job. The command does not block the Browser on the transfer.
+[x] desk Save enqueues a desktop job. The command does not block the Browser on the transfer.
 [x] Enqueue: `POST /_desktop/workspace-download` with `{ label, relative, kind }`.
 [x] Status: `GET /_desktop/workspace-download?id=…`.
 [x] The queue holds one Running job and at most one Queued job. The queue refuses a third enqueue.
@@ -83,7 +83,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] The client sets the local file mtime from the `PROPFIND` value `getlastmodified`.
 [x] Code: [WorkspaceDownloadManager.fs](src/Desktop/WorkspaceDownloadManager.fs), [WorkspaceDownloadQueue.fs](src/Shared/dotnet/WorkspaceDownloadQueue.fs), and [WorkspaceFileSync.fs](src/Shared/dotnet/WorkspaceFileSync.fs) `getStaged`.
 [x] `POST /_desktop/workspace-pull` still runs a blocking scoped pull on the same Get path for a mapped label.
-[x] The Download command uses the manager. The Download command does not use that blocking route.
+[x] desk Save uses the manager. desk Save does not use that blocking route.
 
 ## Ledger
 

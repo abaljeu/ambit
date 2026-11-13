@@ -15,7 +15,6 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceSync
-open Gambol.Client.UpdateWorkspaceDownload
 open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
@@ -313,14 +312,6 @@ let copyOp (model: VM) : VM * Effect list =
             writeClipboardText serialized ignore
             copySelectionOp model
 
-let private downloadAvailable (model: VM) =
-    DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
-    && not (focusIsWorkspaces model)
-    && (model.selectedNodes
-        |> Option.map (focusedNodeId model.graph)
-        |> Option.bind (NodeDesktopPath.enclosingWorkspaceName model.graph)
-        |> Option.isSome)
-
 // ---------------------------------------------------------------------------
 // Command registry
 // ---------------------------------------------------------------------------
@@ -386,7 +377,6 @@ let commandRegistry : CommandEntry2 list =
       cmd Save (keyAlways saveOp)
       prePickCmd Save "git Save" (keyAlways (saveOpFor LoadSavePrePick.Git))
       prePickCmd Save "desk Save" (keyAlways (saveOpFor LoadSavePrePick.Desk))
-      cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
     ]
 
@@ -422,7 +412,6 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | Some e ->
             inKeyScope sel e.keyScope
             && (c.id <> Load || loadAvailable model)
-            && (c.id <> Download || downloadAvailable model)
             && (c.id <> Cancel || cancelAvailable model))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =

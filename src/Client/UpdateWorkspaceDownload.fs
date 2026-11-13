@@ -60,7 +60,7 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             | [] ->
                 okDetail model job.detail |> withPathSyncRefresh
             | ops ->
-                match applyAndPostSync (displayName Download) ops model with
+                match applyAndPostSync (displayName Save) ops model with
                 | Error e -> failWorkspaceDownload e model
                 | Ok model' ->
                     okDetail (withSiteMap model') job.detail
@@ -72,31 +72,31 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             model', [ Effect.ContinueWorkspaceDownload jobId ]
         | _ -> failWorkspaceDownload ("unknown download state: " + job.state) model
 
-let downloadOp (model: VM) : VM * Effect list =
-    if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
-        model, []
-    else
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope ->
-            match downloadScoped scope with
-            | Error "cancelled" -> model, []
-            | Error e -> fail model e
-            | Ok sync ->
-                match sync.jobId with
-                | Some jobId ->
-                    let detail =
-                        match sync.state with
-                        | Some state -> sprintf "download %s: %s" state sync.detail
-                        | None -> sync.detail
-                    let model', _ = okDetail model detail
-                    model', [ Effect.ContinueWorkspaceDownload jobId ]
-                | None ->
-                    let detail =
-                        match sync.state with
-                        | Some state -> sprintf "download %s: %s" state sync.detail
-                        | None -> sync.detail
-                    okDetail model detail |> withPathSyncRefresh
+/// Workspace download. desk Save calls this when the desktop app can sync.
+let sendWorkspaceDownload (model: VM) : VM * Effect list =
+    match syncScopeFromFocus model with
+    | Error msg -> fail model msg
+    | Ok scope ->
+        match downloadScoped scope with
+        | Error "cancelled" -> model, []
+        | Error e -> fail model e
+        | Ok sync ->
+            match sync.jobId with
+            | Some jobId ->
+                let detail =
+                    match sync.state with
+                    | Some state ->
+                        sprintf "download %s: %s" state sync.detail
+                    | None -> sync.detail
+                let model', _ = okDetail model detail
+                model', [ Effect.ContinueWorkspaceDownload jobId ]
+            | None ->
+                let detail =
+                    match sync.state with
+                    | Some state ->
+                        sprintf "download %s: %s" state sync.detail
+                    | None -> sync.detail
+                okDetail model detail |> withPathSyncRefresh
 
 /// Debounce window before coalescing accumulated auto-download targets.
 let autoDownloadDebounceMs = 400

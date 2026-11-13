@@ -6,7 +6,6 @@ open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
-open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceSync
 
 type Dependencies =
@@ -22,16 +21,7 @@ type Dependencies =
         WorkspaceSyncScope -> Result<string, string>
       encodeWorkspaceInventory: WorkspaceSyncScope -> string
       decodeWorkspaceInventory:
-        string -> Result<DesktopUploadInventory, string>
-      postEmpty:
-        string ->
-        (string -> unit) ->
-        (int -> string -> unit) ->
-        (unit -> unit) ->
-        unit
-      decodeGitSave: string -> Result<GitSaveResponse, string>
-      log: string -> unit
-      fileName: string }
+        string -> Result<DesktopUploadInventory, string> }
 
 let runWorkspaceStubsThenPushWith
     dependencies
@@ -95,13 +85,6 @@ let runWorkspacePushWith
                             failWorkspacePush
                                 "workspace-push request failed"))))
 
-let runDeskSaveWith dependencies =
-    UpdateSave.runDeskSaveWith
-        dependencies.decodeGitSave
-        dependencies.log
-        dependencies.postEmpty
-        dependencies.fileName
-
 let private productionDependencies =
     { defer =
         fun action -> setTimeout action 50 |> ignore
@@ -112,15 +95,7 @@ let private productionDependencies =
                 (jsonMutatingPostHeaders ())
       prepareWorkspacePush = tryPrepareWorkspacePushBody
       encodeWorkspaceInventory = encodeWorkspaceInventoryBody
-      decodeWorkspaceInventory = decodeDesktopUploadInventory
-      postEmpty =
-        fun url onOk onHttp onFail ->
-            postEmpty
-                url onOk onHttp onFail
-                (emptyMutatingPostHeaders ())
-      decodeGitSave = decodeGitSaveResponse
-      log = consoleLog
-      fileName = currentFile }
+      decodeWorkspaceInventory = decodeDesktopUploadInventory }
 
 let runWorkspaceStubsThenPush dispatch scope parseFileId =
     runWorkspaceStubsThenPushWith
@@ -129,6 +104,3 @@ let runWorkspaceStubsThenPush dispatch scope parseFileId =
 let runWorkspacePush dispatch scope parseFileId =
     runWorkspacePushWith
         productionDependencies dispatch scope parseFileId
-
-let runDeskSave () =
-    runDeskSaveWith productionDependencies

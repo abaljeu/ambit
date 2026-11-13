@@ -52,6 +52,17 @@ module GithubTransportActor =
             | Some _, Some root -> Ok(id, root)
             | _ -> Error "Focus does not name a Workspace work tree."
 
+    /// Save includes ROOT. ROOT's repository is the data directory.
+    let private saveWorkspace dataDir graph focusId =
+        match GraphQuery.enclosingWorkspace graph focusId with
+        | None -> Error "Focus is not in a Workspace."
+        | Some workspaceId ->
+            match
+                DocumentPersistPath.repositoryRoot dataDir graph focusId
+            with
+            | Some root -> Ok(workspaceId, root)
+            | None -> Error "Focus does not name a Workspace work tree."
+
     type private LoadPullHeads =
         { beforeHead: Result<string option, string>
           afterHead: Result<string option, string> }
@@ -70,12 +81,17 @@ module GithubTransportActor =
 
     /// Graph at the event, then the focus work tree. None when the focus
     /// has no workspace work tree. A graph read error stays an error.
-    let private readFocusWorkspace dataDir focusId (changes: ActorChanges) =
+    let private readWorkspace
+        resolve
+        dataDir
+        focusId
+        (changes: ActorChanges)
+        =
         async {
             match! changes.graphAtEvent () with
             | Error err -> return Error err
             | Ok current ->
-                match workspaceFromFocus dataDir current.graph focusId with
+                match resolve dataDir current.graph focusId with
                 | Error _ -> return Ok None
                 | Ok (workspaceId, root) ->
                     return
@@ -85,6 +101,12 @@ module GithubTransportActor =
                             root = root
                         })
         }
+
+    let private readFocusWorkspace dataDir focusId changes =
+        readWorkspace workspaceFromFocus dataDir focusId changes
+
+    let private readSaveWorkspace dataDir focusId changes =
+        readWorkspace saveWorkspace dataDir focusId changes
 
     /// One Workspace lock. The action releases when it returns.
     let internal withWorkspaceLock graph workspaceId action =
@@ -151,6 +173,13 @@ module GithubTransportActor =
     let private changedPaths heads root =
         changedAfterPull root heads |> Option.defaultValue []
 
+    /// Named Workspace folder, or `.` for the data-directory repository.
+    let private reconcileLabel (locked: LockedWorkspace) =
+        if locked.workspaceId = Graph.rootId then
+            "."
+        else
+            System.IO.Path.GetFileName locked.root
+
     /// Merge, then await the Unparsed mark, under one Workspace lock.
     let internal lockMergeAndMark git locked target tracked = async {
         let mergeAndMark = async {
@@ -160,7 +189,7 @@ module GithubTransportActor =
                 return!
                     markChanged
                         target
-                        (System.IO.Path.GetFileName locked.root)
+                        (reconcileLabel locked)
                         (changedPaths heads locked.root)
         }
         let! held =
@@ -379,6 +408,10 @@ module GithubTransportActor =
             | Ok _ -> return Ok ()
         }
 
+    /// Shared persist for git Save and desk Save.
+    let persistSaveFocus (changes: ActorChanges) focusId =
+        persistFocusWhenNotOrdinary changes focusId
+
     let private pushAfterMark git root target tracked output =
         async {
             match! startParse target with
@@ -406,7 +439,7 @@ module GithubTransportActor =
     /// No workspace work tree: the actor runs and does not commit, pull, or push.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
-            match! readFocusWorkspace dataDir focusId changes with
+            match! readSaveWorkspace dataDir focusId changes with
             | Error err -> return Error err
             | Ok None -> return Ok ()
             | Ok (Some place) ->

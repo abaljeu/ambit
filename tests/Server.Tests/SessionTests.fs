@@ -71,12 +71,6 @@ let private devPersistence dataDir runtime = {
     Core = runtime
 }
 
-let private cookieRequest () =
-    let context = DefaultHttpContext()
-    context.Request.Headers.Cookie <-
-        AuthToken.cookieHeaderValue "alice" "secret"
-    context
-
 [<Fact>]
 let ``login opens admission without an Ask`` () =
     let session = Session.create CoreCredentials.empty
@@ -398,39 +392,3 @@ let ``cancelled drain keeps authority until the barrier replies`` () = task {
     Assert.True(Session.admissionIsOpen session testCaller)
 }
 
-[<Fact>]
-let ``save preparation holds admission until the handoff finishes`` () = task {
-    let dataDir = newTempDir ()
-    GitSave.runGit dataDir "init" |> requireOk "initialize repository" |> ignore
-    let runtime = devRuntime dataDir
-    let persistence = devPersistence dataDir runtime
-    let caller = browserCallerFromAuth "alice" "secret"
-    let entered = TaskCompletionSource<unit>()
-    let release = TaskCompletionSource<unit>()
-    let prepare () = async {
-        entered.SetResult()
-        do! release.Task |> Async.AwaitTask
-        return Error "stop before git"
-    }
-    let context = cookieRequest ()
-    try
-        let saving =
-            RouteRegistration.postSaveRequest persistence prepare context.Request
-        do! entered.Task
-        let session = sessionOf runtime.host
-        let stopped =
-            Session.stopAdmitting session caller
-            |> requireSome "stop admitting"
-        let waiting =
-            Session.waitForAdmittedRoutes stopped |> Async.StartAsTask
-        Assert.False(waiting.IsCompleted)
-        release.SetResult()
-        let! _ = saving
-        do! waiting
-        do! CoreMailboxApi.logout runtime.host caller |> Async.StartAsTask
-        do!
-            waitUntilAuthorityGone 1000 runtime.host caller
-            |> Async.StartAsTask
-    finally
-        CoreMailboxApi.dispose runtime.host
-}

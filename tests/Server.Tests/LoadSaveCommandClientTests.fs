@@ -34,13 +34,10 @@ type private DeskHttpHandler() as this =
                 """{"mode":"Full","items":[]}"""
             | "/_desktop/workspace-push" ->
                 """{"ok":true,"uploaded":0,"downloaded":0,"detail":"pushed","error":null}"""
-            | "/ambit/save" ->
-                """{"ok":true,"detail":"saved","error":null}"""
             | _ -> """{"error":"unexpected path"}"""
         let status =
             if path = "/_desktop/workspace-inventory"
-               || path = "/_desktop/workspace-push"
-               || path = "/ambit/save" then
+               || path = "/_desktop/workspace-push" then
                 HttpStatusCode.OK
             else
                 HttpStatusCode.NotFound
@@ -237,14 +234,7 @@ let private effectDependencies () =
           prepareWorkspacePush = fun _ -> Ok "{}"
           encodeWorkspaceInventory = fun _ -> "{}"
           decodeWorkspaceInventory =
-            fun _ -> Ok { mode = "Full"; items = [] }
-          postEmpty =
-            fun url onOk onHttp onFail ->
-                postHttp client url "" onOk onHttp onFail
-          decodeGitSave =
-            Decode.fromString GitSaveResponse.decoder
-          log = ignore
-          fileName = "ambit" }
+            fun _ -> Ok { mode = "Full"; items = [] } }
     dependencies, handler, client
 
 let private assertPosted path (handler: DeskHttpHandler) =
@@ -378,14 +368,34 @@ let ``plain Save with a mapping and a Git response starts no download`` () =
         urls |> Seq.toList,
         fun url -> url.Contains("workspace-download"))
 
+/// The server already persisted. No desktop app means no workspace download.
 [<Fact>]
-let ``Desk Save response continues to existing save endpoint`` () =
+let ``desk Save without a desktop app skips workspace download`` () =
     let updater = runDesk LoadSaveOperation.Save
-    let _, effects = updater (saveEnabledModel ())
-    match effects with
-    | [ ContinueDeskSave ] ->
-        let dependencies, handler, client = effectDependencies ()
-        use _client = client
-        DeskLoadSaveEffectClient.runDeskSaveWith dependencies
-        assertPosted "/ambit/save" handler
-    | other -> failwith $"expected desk save continuation, got {other}"
+    let model, effects = updater (saveEnabledModel ())
+    Assert.Empty(effects)
+    Assert.Equal(None, model.lastCmdResult)
+
+[<Fact>]
+let ``Save refuses a selection that spans two Workspaces`` () =
+    let graph0 = Graph.create ()
+    let _, homeOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = applyOps graph0 homeOps
+    let _, awayOps = FileNodeOps.planCreateWorkspace graph1 "away"
+    let graph = applyOps graph1 awayOps
+    let baseModel = VmTestHelpers.emptyModelAt graph Graph.workspacesId
+    let parent = baseModel.siteMap.entries.[baseModel.siteMap.rootId]
+    let model =
+        { baseModel with
+            selectedNodes =
+                Some
+                    { range = { parent = parent; start = 0; endd = 2 }
+                      focus = 0 } }
+    let saved, effects = UpdateSave.saveOp model
+    Assert.Empty(effects)
+    match saved.lastCmdResult with
+    | Some (CmdLastResult.Error (Some "Save", message)) ->
+        Assert.Equal(
+            "Save requires all selected targets in one Workspace",
+            message)
+    | other -> Assert.Fail($"expected a Save workspace error, got {other}")

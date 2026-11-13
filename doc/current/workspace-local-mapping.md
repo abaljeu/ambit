@@ -19,7 +19,7 @@ Workspace local mapping binds a workspace label to an absolute local directory r
 [x] The mapped folder does not need to be a git clone.
 [x] The shared module decodes and resolves mappings. The desktop layer supplies the config file path and the Get, Put, and folder-picker HTTP endpoints.
 [x] Startup does not sync local labels to cloud workspace nodes.
-[x] The first map does not start a Download. The user runs Download.
+[x] The first map does not start a download. The user runs desk Save.
 
 ## Config
 

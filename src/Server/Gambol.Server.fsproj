@@ -86,6 +86,7 @@
     <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="GithubTransportActor.fs" />
+    <Compile Include="LoadSaveStart.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />
     <Compile Include="RouteTypes.fs" />
