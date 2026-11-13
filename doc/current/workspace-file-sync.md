@@ -26,7 +26,8 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Job
 
-[x] Upload (`Ctrl+Shift+>`) ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
+[x] Workspace upload ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
+[x] Save keys are `Ctrl+S` and `Ctrl+Shift+<` on `CommandEntry` in [Command entry](../../src/Shared/CommandEntry.fs). Download is that Save command.
 [x] `downloadOp` in [Update workspace download](../../src/Client/UpdateWorkspaceDownload.fs) ensures a map, then enqueues `workspace-download`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces. Save does not call `downloadOp`.
 [x] ROOT and Workspaces cannot acquire a mapping.
 [x] Focus sets the scope. Workspace: the whole tree. Directory: a relative prefix. File: one path.
