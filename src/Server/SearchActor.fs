@@ -68,15 +68,16 @@ module SearchActor =
         | Some node -> ExprRun.answerNodeIds lineId graph node.text
 
     /// One query eval. The caller supplies the stop door.
+    /// The result is the ActorResult passed to that stop.
     let private queryActorBody
         (getGraph: unit -> Graph)
         (lineId: NodeId)
         (stop: ActorResult -> Async<Result<unit, string>>)
-        =
+        : Async<ActorResult> =
         async {
             let result = ActorQuery (queryIds getGraph lineId)
             let! _ = stop result
-            return ()
+            return result
         }
 
     /// Query Actor body. ActorStop carries the Node ids. It does not use
@@ -90,14 +91,10 @@ module SearchActor =
             fun run changes ->
                 let door =
                     CoreDoor.forCaller (actorCaller run.secret) changes
-                let found = ref ActorSucceeded
-                let stop result =
-                    found := result
-                    CoreDoor.actorStop door result
-                async {
-                    do! queryActorBody run.getGraph lineId stop
-                    return !found
-                }
+                queryActorBody
+                    run.getGraph
+                    lineId
+                    (CoreDoor.actorStop door)
           getGraph = getGraph
           actorNodeId = request.focusId }
 
@@ -107,18 +104,10 @@ module SearchActor =
         (_focusId: NodeId)
         : ActorFunction =
         fun run changes ->
-            let found = ref ActorSucceeded
-            let stop result =
-                found := result
-                changes.actorStop result
-            async {
-                do!
-                    queryActorBody
-                        run.getGraph
-                        runDefinitionId
-                        stop
-                return !found
-            }
+            queryActorBody
+                run.getGraph
+                runDefinitionId
+                changes.actorStop
 
     /// Find and Move actor. The walk stays in the search reply.
     let searchActorAt : ActorFunction =

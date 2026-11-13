@@ -9,13 +9,6 @@ open Gambol.Server.Tests.TestBackend
 
 /// Seam: Actor CoreChangesDoor is the CoreDoor public door.
 
-let private waitCancelled () =
-    async {
-        let! token = Async.CancellationToken
-        do! Async.AwaitWaitHandle token.WaitHandle |> Async.Ignore
-        return ActorSucceeded
-    }
-
 let private requireOk label result =
     match result with
     | Ok value -> value
