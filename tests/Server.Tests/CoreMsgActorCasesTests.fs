@@ -96,9 +96,13 @@ let ``function start reply is bookkeeping without waiting for an Actor body`` ()
 
 [<Fact>]
 let ``GetState stamps lockPresent from the live table after a function start`` () =
-    let pool = CoreActorPool.create ()
-    let actor : Gambol.Shared.ActorFunction =
-        fun _ _ -> async { return () }
+    let basePool = CoreActorPool.create ()
+    // functionActorAt calls actorStop. Leave the row so getState can stamp it.
+    let pool = { basePool with finish = fun _ _ -> Ok () }
+    let actor =
+        TestActor.functionActorAt
+            sampleRequest.runDefinitionId
+            sampleRequest.focusId
     withHost pool (fun host -> task {
         let! started =
             startFunction host testCaller actor sampleRequest
