@@ -42,4 +42,4 @@ Give the human the candidates, most serious first. Each item says the change and
 
 ### 5. Apply only a picked item
 
-Edit only the items the human picks. Follow [[.agents/rules/no-retrofit.md]]. A process edit does not rewrite old tickets, specs, or reports. A picked product defect becomes a ticket through [[plan/context/ticket-work.md]]. It is not a silent product edit. When the human picks nothing, leave the tree unchanged. Done: the tree matches the picks, or the tree is unchanged.
+Edit only the items the human picks. A process edit does not rewrite old tickets, specs, or reports. A picked product defect becomes a ticket through [[plan/context/ticket-work.md]]. It is not a silent product edit. When the human picks nothing, leave the tree unchanged. Done: the tree matches the picks, or the tree is unchanged.
