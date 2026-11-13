@@ -42,12 +42,6 @@ let private recordingPool () =
                     live.Remove secret |> ignore
                     stopped.Add(secret, result)
                     Ok ()
-            getActorNodeId =
-                fun secret ->
-                    if live.Contains secret then
-                        Some sampleRequest.focusId
-                    else
-                        None
             trySecretForActorNode =
                 fun nodeId ->
                     if nodeId = sampleRequest.focusId then

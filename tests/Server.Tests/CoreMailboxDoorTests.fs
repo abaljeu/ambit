@@ -68,6 +68,17 @@ let private startFromFunction host caller request =
         caller
         (functionPlacement request)
 
+let private secretWhileLive
+    (focusId: NodeId)
+    (secret: Credential)
+    (live: ResizeArray<Credential>)
+    (nodeId: NodeId)
+    =
+    if nodeId = focusId && live.Contains secret then
+        Some secret
+    else
+        None
+
 [<Fact>]
 let ``function start from an inactive Actor is dropped`` () =
     withHost (fun host _ -> task {
@@ -177,12 +188,10 @@ let ``ActorStopped Notice drops live row`` () =
                     stopped.Add(secret, result)
                     Ok ()
             trySecretForActorNode =
-                fun nodeId ->
-                    if nodeId = sampleRequest.focusId
-                        && live.Contains actorSecret then
-                        Some actorSecret
-                    else
-                        None }
+                secretWhileLive
+                    sampleRequest.focusId
+                    actorSecret
+                    live }
     task {
         let dataDir = newTempDir ()
         let host =
@@ -245,12 +254,10 @@ let ``ActorStopped Notice is logged and drops live row`` () =
                     live.Remove secret |> ignore
                     Ok ()
             trySecretForActorNode =
-                fun nodeId ->
-                    if nodeId = sampleRequest.focusId
-                        && live.Contains actorSecret then
-                        Some actorSecret
-                    else
-                        None }
+                secretWhileLive
+                    sampleRequest.focusId
+                    actorSecret
+                    live }
     task {
         let dataDir = newTempDir ()
         let host =
