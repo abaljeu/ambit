@@ -36,19 +36,14 @@ module LoadSaveStart =
             (transportOperation request.operation)
             request.start
 
-    /// Desk Save persists the focus. Git Save starts the transport actor.
+    /// Desk stays the desk command. Git starts the transport actor.
     let startCommand
         (door: CoreChangesDoor)
         (dataDir: string)
         (path: LoadSavePath)
         (request: LoadSaveCommandRequest)
         =
-        match path, request.operation with
-        | LoadSavePath.Desk, LoadSaveOperation.Save ->
-            // Persist only. The post-Save commit stays on the Save actor.
-            GithubTransportActor.persistSaveFocus
-                (CoreDoor.actorChanges door)
-                request.start.focusId
-        | LoadSavePath.Desk, _ ->
+        match path with
+        | LoadSavePath.Desk ->
             startDeskLoad door path request
         | _ -> startGit door dataDir request

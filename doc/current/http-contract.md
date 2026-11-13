@@ -99,7 +99,7 @@ sequenceDiagram
 4. [x] **Changes.** `POST /ambit/changes` submits events and a want list.
 5. [x] **Events alias.** `POST /ambit/events` uses the same handler as `POST /ambit/changes`.
 6. [x] **Load.** `POST /ambit/load` submits an event id and load targets.
-7. [x] **Save.** `POST /ambit/load-save-command` runs Save. `src/Server/LoadSaveRouting.fs` `resolvePath` chooses git or desk.
+7. [x] **Save.** `POST /ambit/load-save-command` runs Save. `src/Server/LoadSaveRouting.fs` `resolvePath` chooses git or desk. `POST /ambit/save` is the desk data-directory commit. `src/Server/Api.fs` `gitSave`.
 8. [x] **User CSS.** `GET /ambit/user.css` returns `200` and `text/css` from `{dataDir}/SYSTEM/user.css` when that file exists, otherwise from wwwroot `user.css`. When neither file exists the status is `204`.
 9. [x] **Static files.** `GET /ambit/*` returns Fable client assets (`Program.js`, CSS, and the other static files).
 10. [x] **Absent sync routes.** `POST /submit`, `POST /undo`, `POST /redo`, and `GET /ops?since={revision}` are absent.
@@ -403,9 +403,10 @@ sequenceDiagram
 
 ### 2.11 Save
 
-1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body is `LoadSaveCommandRequest` from [Event JSON](../../src/Shared/EventJson.fs).
-2. [x] **Path.** Plain Save chooses Desk only when the workspace label is in `workspaceMappedLabels` and absent from `workspaceRemotes`. `src/Shared/PathPick.fs` `plainSavePath`. `src/Client/UpdateSave.fs` `saveOpFor`. Every other plain Save enters the Save actor through `src/Server/LoadSaveRouting.fs` `resolvePath`. `src/Server/GithubTransportActor.fs` `runSaveBody` runs `persistSaveFocus`, then commit, pull, and push when `src/Server/DocumentPersistPath.fs` `repositoryRoot` has a remote. No work tree and a directory that is not a repository stop after that persist. A repository with no remote commits through `src/Server/GitSave.fs` `commitAll` and does not pull or push. ROOT's work tree is the data directory. `LoadSavePrePick.Git` enters that actor. `LoadSavePrePick.Desk` stays Desk.
-3. [x] **Desk persist.** Desk Save runs `src/Server/GithubTransportActor.fs` `persistSaveFocus` before the response. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`.
+1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body type is `LoadSaveCommandRequest` in [History](../../src/Shared/History.fs). The codec is [Event JSON](../../src/Shared/EventJson.fs) `encodeLoadSaveCommandRequest`.
+2. [x] **Path.** Plain Save chooses Desk only when the workspace label is in `workspaceMappedLabels` and absent from `workspaceRemotes`. `src/Shared/PathPick.fs` `plainSavePath`. `src/Client/UpdateSave.fs` `saveOpFor`. Every other plain Save enters the Save actor through `src/Server/LoadSaveRouting.fs` `resolvePath`. `src/Server/GithubTransportActor.fs` `runSaveBody` runs `persistSaveFocus`, then commit, pull, and push when `src/Server/DocumentPersistPath.fs` `repositoryRoot` has a remote. `src/Server/WorkspaceGit.fs` `isRepo` is that directory's `.git`. No work tree and a directory that is not a repository stop after that persist. A parent directory's repository is not that root. A repository with no remote commits through `src/Server/GitSave.fs` `commitAll` and does not pull or push. ROOT's work tree is the data directory. `LoadSavePrePick.Git` enters that actor. `LoadSavePrePick.Desk` stays Desk.
+3. [x] **Desk.** `LoadSavePrePick.Desk` stays Desk. `src/Server/LoadSaveStart.fs` `startCommand` starts that desk command. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`. When `canGitSave` is true, `deskSaveOp` posts `ContinueDeskSave` to `POST /{file}/save`.
+4. [x] **Data-directory save.** `POST /ambit/save` has no JSON body. `X-Gambol-Client` is optional. The commit message can include it. When the data directory is not a git repo, the status is `200` and `application/json`, with `ok` false and `error` `Git save is not enabled.` A commit returns `200`, `ok` true, and `detail` as a string. A prepare or commit error is `400`.
 
 ### 2.12 JSON encoding
 

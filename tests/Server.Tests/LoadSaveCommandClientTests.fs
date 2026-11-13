@@ -234,7 +234,11 @@ let private effectDependencies () =
           prepareWorkspacePush = fun _ -> Ok "{}"
           encodeWorkspaceInventory = fun _ -> "{}"
           decodeWorkspaceInventory =
-            fun _ -> Ok { mode = "Full"; items = [] } }
+            fun _ -> Ok { mode = "Full"; items = [] }
+          postEmpty = fun _ _ _ _ -> ()
+          decodeGitSave = fun _ -> Error "unused"
+          log = ignore
+          fileName = "ambit" }
     dependencies, handler, client
 
 let private assertPosted path (handler: DeskHttpHandler) =
@@ -368,13 +372,12 @@ let ``plain Save with a mapping and a Git response starts no download`` () =
         urls |> Seq.toList,
         fun url -> url.Contains("workspace-download"))
 
-/// The server already persisted. No desktop app means no workspace download.
+/// Desk Save still posts the data-directory save when git save is enabled.
 [<Fact>]
-let ``desk Save without a desktop app skips workspace download`` () =
+let ``desk Save with git save enabled posts the save endpoint`` () =
     let updater = runDesk LoadSaveOperation.Save
-    let model, effects = updater (saveEnabledModel ())
-    Assert.Empty(effects)
-    Assert.Equal(None, model.lastCmdResult)
+    let _, effects = updater (saveEnabledModel ())
+    Assert.Equal<Effect list>([ ContinueDeskSave ], effects)
 
 [<Fact>]
 let ``Save refuses a selection that spans two Workspaces`` () =
@@ -434,8 +437,12 @@ let ``plain Save with a remote and no local mapping stays on the Save actor`` ()
 let ``plain Save with no remote and a local mapping chooses desk Save`` () =
     let model = homeSaveModel false true false
     Assert.Equal(LoadSavePrePick.Desk, plainSavePrePick model)
-    let _, effects = UpdateSave.deskSaveOp model
-    Assert.Empty(effects)
+    let enabled =
+        { model with
+            serverCapabilities =
+                Some { canGitSave = true; canFileStatus = true } }
+    let _, effects = UpdateSave.deskSaveOp enabled
+    Assert.Equal<Effect list>([ ContinueDeskSave ], effects)
 
 [<Fact>]
 let ``plain Save with no remote and no local mapping stays on the Save actor`` () =

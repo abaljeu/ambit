@@ -418,6 +418,40 @@ module Api =
                 |> Encode.toString 0
                 |> jsonResult
 
+    let gitSave
+        (prepare: unit -> Async<Result<int, string>>)
+        (dataDir: string)
+        (clientHint: string option)
+        : Async<IResult> = async {
+        if not (GitSave.isRepo dataDir) then
+            let response: GitSaveResponse =
+                { ok = false
+                  detail = ""
+                  error = Some "Git save is not enabled." }
+            return jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
+        else
+            let! prepResult = prepare ()
+            match prepResult with
+            | Error err ->
+                let response: GitSaveResponse =
+                    { ok = false; detail = ""; error = Some err }
+                return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
+            | Ok rev ->
+                let message =
+                    ClientIdentity.formatCommitMessage
+                        (sprintf "rev %d" rev)
+                        clientHint
+                match GitSave.commitAll dataDir message with
+                | Ok detail ->
+                    let response: GitSaveResponse =
+                        { ok = true; detail = detail; error = None }
+                    return jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
+                | Error err ->
+                    let response: GitSaveResponse =
+                        { ok = false; detail = ""; error = Some err }
+                    return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
+    }
+
     [<Literal>]
     let inboundSecretHeader = "X-Ambit-Inbound-Secret"
 

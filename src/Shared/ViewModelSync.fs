@@ -121,5 +121,7 @@ type Effect =
     | ContinueWorkspacePush of WorkspaceSyncScope * subjectId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.
     | ContinueWorkspaceDownload of jobId: string
+    /// Existing desk Save POST to `/{file}/save`.
+    | ContinueDeskSave
     /// Arm (or re-arm) the debounced auto-download tick after a delay.
     | ScheduleAutoDownloadTick of delayMs: int
