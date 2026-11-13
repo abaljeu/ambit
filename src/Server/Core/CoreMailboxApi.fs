@@ -339,21 +339,6 @@ module CoreMailboxApi =
         : Async<Result<CoreChangesAccepted, string>> =
         postMailboxChange host caller ChangeOrigin.Parse [ event ]
 
-    let coreMailboxStartActor
-        (host: MailboxHost)
-        (caller: Caller)
-        (request: Gambol.Shared.ActorStart)
-        : Async<Result<unit, string>> =
-        async {
-            let! replied =
-                MailboxHost.postPlacedOrder host caller {
-                    orderId = OrderId.New()
-                    authority = caller.authority
-                    commandName = None
-                    order = Order.StartActorDeprecated request }
-            return Result.map (fun _ -> ()) replied
-        }
-
     /// Place Order.StartActor from a supplied function. Reply is that EventId.
     let coreMailboxStartActorFromFunction
         (host: MailboxHost)

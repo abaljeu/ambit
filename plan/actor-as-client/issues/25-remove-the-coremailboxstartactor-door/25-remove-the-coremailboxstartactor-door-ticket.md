@@ -37,9 +37,9 @@ Blockers:
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Move the calls in `GithubTransportActorTests.fs` and `TestActorCommandErrorTests.fs` onto `coreMailboxStartActorFromFunction` or `postActorOrder`.
-3. [ ] Delete `coreMailboxStartActor`.
-4. [ ] Search `src/` and `tests/` for `coreMailboxStartActor` as a whole word. The search is empty.
+2. [x] Move the calls in `GithubTransportActorTests.fs` and `TestActorCommandErrorTests.fs` onto `coreMailboxStartActorFromFunction` or `postActorOrder`.
+3. [x] Delete `coreMailboxStartActor`.
+4. [x] Search `src/` and `tests/` for `coreMailboxStartActor` as a whole word. The search is empty.
 
 ## Outputs
 
@@ -59,6 +59,6 @@ Blockers:
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: `GithubTransportActorTests`
   - `tests/Server.Tests`: `TestActorCommandErrorTests`
-[ ] All executed tests pass.
+[x] All executed tests pass.
 [ ] Write the verdict to `plan/actor-as-client/reports/25-remove-the-coremailboxstartactor-door-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.

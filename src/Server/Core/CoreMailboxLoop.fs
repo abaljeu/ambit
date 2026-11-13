@@ -252,12 +252,6 @@ module internal CoreMailboxLoop =
                 replyAffirmedStart
                     context placed caller reply order secret
 
-    let private replyStarted
-        (reply: AsyncReplyChannel<Result<EventId, string>>)
-        (result: Result<unit, string>)
-        =
-        reply.Reply(Result.map (fun () -> EventId.zero) result)
-
     let private placeOrder
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -279,12 +273,8 @@ module internal CoreMailboxLoop =
                 context placed caller reply focusId
         | Order.StartActor order ->
             replyActorOrder context placed caller reply order
-        | Order.StartActorDeprecated request ->
-            CoreMailboxActors.dispatchStartActor
-                context
-                caller
-                request
-                (replyStarted reply)
+        | Order.StartActorDeprecated _ ->
+            reply.Reply(Error "StartActorDeprecated is retired")
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
