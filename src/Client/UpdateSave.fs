@@ -8,11 +8,6 @@ open Gambol.Shared
 open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
-let private spansWorkspaces (model: VM) =
-    ResidentProjection.selectionSpansMultipleWorkspaces
-        model.graph
-        (selectedLoadTargetIds model)
-
 let private oneWorkspaceError (model: VM) : VM * Effect list =
     withResult
         model
@@ -61,19 +56,6 @@ let runDeskSaveWith
                 + LogText.summarizeHttpBody 200 text))
         (fun () -> log "[Gambol] save network error")
 
-let private mappingPresence (model: VM) : WorkspaceMappingPresence =
-    let labels =
-        model.workspaceRemotes
-        |> Map.toList
-        |> List.map fst
-        |> Set.ofList
-    PathPick.mappingPresence labels model.workspaceMappedLabels
-
-let private saveFocusId (model: VM) : NodeId =
-    match model.selectedNodes with
-    | Some selection -> focusedNodeId model.graph selection
-    | None -> model.zoomRoot
-
 /// Desk when plain Save has a local mapping and no remote. Otherwise the actor.
 let private prePickForSave
     (prePick: LoadSavePrePick)
@@ -82,9 +64,9 @@ let private prePickForSave
     match
         PathPick.plainSavePath
             model.graph
-            (saveFocusId model)
+            (commandFocusId model)
             prePick
-            (mappingPresence model)
+            (workspaceMappingPresence model)
     with
     | Some LoadSavePath.Desk -> LoadSavePrePick.Desk
     | _ -> prePick
@@ -93,7 +75,7 @@ let saveOpFor
     (prePick: LoadSavePrePick)
     (model: VM)
     : VM * Effect list =
-    if spansWorkspaces model then
+    if selectionSpansWorkspaces model then
         oneWorkspaceError model
     else
         let prePick = prePickForSave prePick model

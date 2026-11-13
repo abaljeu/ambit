@@ -84,23 +84,16 @@ module PathPick =
         | Ok subject -> Some subject
         | Error _ -> None
 
-    /// Plain Load enters the Load actor. Plain Save enters the Save actor.
-    let private plainActor (choice: LoadPathChoice) =
-        choice.prePick = LoadSavePrePick.Plain
-
     /// Plain Load and plain Save enter their actors.
     /// Explicit git stays Git. Explicit desk stays Desk.
     /// The Save actor chooses git or Neither from the work tree.
     let resolveCommand
         (choice: LoadPathChoice)
         : Result<LoadSavePath, string> =
-        if plainActor choice then
-            Ok LoadSavePath.Git
-        else
-            match choice.prePick with
-            | LoadSavePrePick.Git -> Ok LoadSavePath.Git
-            | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
-            | LoadSavePrePick.Plain -> Ok LoadSavePath.Git
+        match choice.prePick with
+        | LoadSavePrePick.Plain
+        | LoadSavePrePick.Git -> Ok LoadSavePath.Git
+        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
 
     let private normalizedLabel (label: string) =
         if isNull label then ""

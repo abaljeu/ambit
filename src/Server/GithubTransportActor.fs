@@ -422,11 +422,6 @@ module GithubTransportActor =
             | Ok _ -> return Ok ()
         }
 
-    /// Shared persist for git Save, desk Save, and Save Neither.
-    /// The persist stack and the wait for Persisted are `persistFocus`.
-    let persistSaveFocus (changes: ActorChanges) focusId =
-        persistFocusWhenNotOrdinary changes focusId
-
     let private saveCommitMessage = "gambol: git Save"
 
     /// After Persisted: commit when the work tree is a git repository.
@@ -435,7 +430,7 @@ module GithubTransportActor =
         if not (WorkspaceGit.isRepo root) then
             Ok ()
         else
-            NodeLockPool.withLockResult graph workspaceId (fun () ->
+            withWorkspaceLock graph workspaceId (fun () ->
                 GitSave.commitAll root saveCommitMessage
                 |> Result.map ignore)
 
@@ -484,7 +479,7 @@ module GithubTransportActor =
     /// repository, and a repository with no remote are Neither.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
-            match! persistSaveFocus changes focusId with
+            match! persistFocusWhenNotOrdinary changes focusId with
             | Error err -> return Error err
             | Ok () ->
                 match! readSaveWorkspace dataDir focusId changes with

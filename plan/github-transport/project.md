@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Server Actor pulls from and pushes to a Workspace GitHub remote (round-trip v1: remote-wins pull, fast-forward push). After [[plan/core-refinement/project.md]] is done, this Project only locks the workspace, receives the files, and informs the revised Core of changes; Core works through the updates. The App stays thin. Skip on that remote is whatever `.gitignore` already says.
-Updated: 2026-11-08
+Updated: 2026-11-13
 Started: 2026-09-27
 Actual: 19h15m
 
@@ -38,6 +38,7 @@ Actual: 19h15m
 - 2026-10-17 — [29 — git Load commits before pull](issues/29-git-load-commits-before-pull.md) Status `coded`. git Load commits the work tree inside the pull gate, then pulls. A clean work tree is NothingToCommit and still pulls. Received paths are the pull diff. A dirty file the pull leaves stays the Load commit and is not received. A dirty file the pull changes becomes the pulled file and is received. Stage stays `build`.
 - 2026-11-08 — [30 — GitHub save path: missing workspace upward scan and workspace upload](issues/30-github-save-path-missing-workspace-upward-scan-and-workspace-upload.md) Status `coded`. Alan, voice, corrected the same day. GitHub Save is to use the same upward Workspace scan as GitHub Load, then upload that Workspace. The sequence is Solution 11 — git Save sequence. The build found the skip: Save already held the Workspace, then ran commit and push, and did not persist the focus or pull. 10 — git Save is commit then push is retired. Stage stays `build`.
 - 2026-11-08 — [31 — Force-save the focused node](issues/31-force-save-the-focused-node.md) Status `coded`. An artifact focus is marked Parsed and pushed on the persistence stack. A Normal Node skips that stage. Detail is Solution 11 — git Save sequence. Stage stays `build`.
+- 2026-11-13 — [32 — Route plain Save](issues/32-route-plain-save/32-refactor.md). Plain Save is git when a remote exists, desk when a local mapping exists and no remote exists, and the Save actor's Neither arm when neither exists. The folder stage is refactor. Project stage stays `build`.
 - Prior spec [[plan/workspace-git/project.md]] is not this home. That spec’s non-FF accept of non-overlapping edits is not this Destination.
 - Map: [[map.md]]. Spec: [[spec.md]]. Arch: [[arch.md]].
 - 2026-09-27 — [13 — Run git Load and Save through the Server Actor](issues/13-actor-runs-git-load-save.md) coded. A Server Actor mailbox/pool door keeps git Load/Save outside Run and `?git`; the Server Actor resolves Focus to the Workspace work tree, runs the gated tracked-branch operation, and continues Load through Parse reconciliation.

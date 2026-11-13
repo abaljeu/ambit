@@ -78,11 +78,6 @@ let private uploadPlan (model: VM) : WorkspaceUploadAction =
         (focusIsWorkspaces model)
         (contextualTargetForModel model)
 
-let private spansWorkspaces (model: VM) =
-    ResidentProjection.selectionSpansMultipleWorkspaces
-        model.graph
-        (selectedLoadTargetIds model)
-
 let private oneWorkspaceError (model: VM) : VM * Effect list =
     withResult
         model
@@ -94,7 +89,7 @@ let private deskAfter
     (action: WorkspaceUploadAction)
     (model: VM)
     : VM * Effect list =
-    if spansWorkspaces model then
+    if selectionSpansWorkspaces model then
         oneWorkspaceError model
     else
         runDeskLoadAction action model
@@ -151,19 +146,6 @@ let private holdFor (plan: WorkspaceUploadAction option) =
     | Some (WorkspaceUploadAction.DesktopPush _) -> true
     | _ -> false
 
-let private mappingPresence (model: VM) : WorkspaceMappingPresence =
-    let labels =
-        model.workspaceRemotes
-        |> Map.toList
-        |> List.map fst
-        |> Set.ofList
-    PathPick.mappingPresence labels model.workspaceMappedLabels
-
-let private loadFocusId (model: VM) : NodeId =
-    match model.selectedNodes with
-    | Some selection -> focusedNodeId model.graph selection
-    | None -> model.zoomRoot
-
 /// Plain Load sends Git when the focus workspace has both mappings.
 let private prePickForLoad
     (prePick: LoadSavePrePick)
@@ -172,9 +154,9 @@ let private prePickForLoad
     match
         PathPick.plainLoadPath
             model.graph
-            (loadFocusId model)
+            (commandFocusId model)
             prePick
-            (mappingPresence model)
+            (workspaceMappingPresence model)
     with
     | Some LoadSavePath.Git -> LoadSavePrePick.Git
     | _ -> prePick
@@ -189,7 +171,7 @@ let loadOpFor
     (prePick: LoadSavePrePick)
     (model: VM)
     : VM * Effect list =
-    if spansWorkspaces model then
+    if selectionSpansWorkspaces model then
         oneWorkspaceError model
     else
         let prePick = prePickForLoad prePick model

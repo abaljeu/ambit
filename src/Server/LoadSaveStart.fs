@@ -10,7 +10,7 @@ module LoadSaveStart =
         | LoadSaveOperation.Load -> GithubTransportOperation.Load
         | LoadSaveOperation.Save -> GithubTransportOperation.Save
 
-    let private startDeskLoad
+    let private startDeskCommand
         (door: CoreChangesDoor)
         (path: LoadSavePath)
         (request: LoadSaveCommandRequest)
@@ -45,5 +45,5 @@ module LoadSaveStart =
         =
         match path with
         | LoadSavePath.Desk ->
-            startDeskLoad door path request
+            startDeskCommand door path request
         | _ -> startGit door dataDir request
