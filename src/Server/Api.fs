@@ -498,9 +498,12 @@ module Api =
                     SearchActor.reply
                         (fun () -> state.graph)
                         request
+                let nodes =
+                    answer.ids
+                    |> List.choose (fun id ->
+                        Map.tryFind id state.graph.nodes)
                 return
-                    answer
-                    |> SearchPicture.encodeReply
+                    SearchPicture.encodeReplyWithNodes answer nodes
                     |> Encode.toString 0
                     |> jsonResult
         }

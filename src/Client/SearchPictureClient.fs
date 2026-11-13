@@ -6,13 +6,25 @@ open Gambol.Client.JsInterop
 open Gambol.Client.SearchDialog
 open Gambol.Client.UpdateHelpers
 
+let private wantNodes (body: string) : Node list =
+    match
+        Thoth.Json.JavaScript.Decode.fromString
+            SearchPicture.decodeWantNodes
+            body
+    with
+    | Ok nodes -> nodes
+    | Error _ -> []
+
 let private onBody (dispatch: Msg -> unit) (body: string) : unit =
     match
         Thoth.Json.JavaScript.Decode.fromString
             SearchPicture.decodeReply
             body
     with
-    | Ok reply -> dispatch (ApplyOp (applyServerReply reply))
+    | Ok reply ->
+        let carried = wantNodes body
+        dispatch (ApplyOp (fun model ->
+            applyServerReply reply carried model))
     | Error err -> consoleLog ("[Gambol search] reply " + err)
 
 let private onHttp (status: int) (body: string) : unit =

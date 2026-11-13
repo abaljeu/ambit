@@ -45,19 +45,40 @@ let searchPictureEffects (armedText: string) (model: VM) : VM * Effect list =
             model, [ RequestSearchPicture (s.query, model.zoomRoot) ]
     | _ -> model, []
 
+let private installCarried (carried: Node list) (model: VM) : VM =
+    match carried with
+    | [] -> model
+    | nodes ->
+        match
+            ResidentProjection.installWantAnswer
+                Map.empty
+                nodes
+                model.graph
+        with
+        | Ok graph -> { model with graph = graph }
+        | Error _ -> model
+
+let private clientFoundIds (model: VM) (query: string) : Set<NodeId> =
+    ViewModelSearch.searchNodes query model.zoomRoot model.graph
+    |> List.map (fun hit -> hit.nodeId)
+    |> Set.ofList
+
 let applyServerReply
     (reply: SearchPicture.Reply)
+    (carried: Node list)
     (model: VM)
     : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
+        let model = installCarried carried model
         let hits = clientHitCount model s.query
         let ids =
-            SearchPicture.keepReply
+            SearchPicture.keepReplyExcluding
                 hits
                 (SearchPicture.Text s.query)
                 s.serverHitIds
                 reply
+                (clientFoundIds model s.query)
         { model with
             mode = SearchDialog { s with serverHitIds = ids } }, []
     | _ -> model, []
