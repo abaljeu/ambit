@@ -197,6 +197,29 @@ let ``tryStart one-Node when Focus is the Command`` () =
         Assert.Equal<NodeId list>(expected.graphIds, request.graphIds)
 
 [<Fact>]
+let ``tryStart returns unknown actor for ?nope`` () =
+    let graph, siteMap, ids = ownerChain [ "?nope" ]
+    let focusId = ids.[0]
+    match
+        CommandRequest.tryStart
+            graph siteMap focusId focusId EventId.zero with
+    | Ok _ -> failwith "expected unknown actor"
+    | Error msg -> Assert.Equal("unknown actor", msg)
+
+[<Fact>]
+let ``tryStart returns Ok for ?ai`` () =
+    let graph, siteMap, ids = ownerChain [ "?ai" ]
+    let focusId = ids.[0]
+    match
+        CommandRequest.tryStart
+            graph siteMap focusId focusId EventId.zero with
+    | Error err -> failwith err
+    | Ok request ->
+        Assert.Equal(focusId, request.zoomId)
+        Assert.Equal(focusId, request.focusId)
+        Assert.Equal(focusId, request.runDefinitionId)
+
+[<Fact>]
 let ``tryStart errors when no runnable Command is on the path`` () =
     let graph, siteMap, ids =
         ownerChain [ "plain"; "What time is it?" ]
