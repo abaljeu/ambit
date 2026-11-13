@@ -17,7 +17,7 @@ Blockers:
 [ ] [09 — Start the query command](../09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
 [ ] [24 — Post Notice.SearchStopped](../../../online-search/issues/24-post-searchstopped-notice.md)
 [ ] [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md)
-[ ] [21 — Convert CoreMsg.ActorStop](../21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md)
+[ ] [114 — Remove CoreMsg.ActorStop](../../../core-refinement/issues/114-remove-coremsg-actorstop.md). [21 — Convert CoreMsg.ActorStop](../21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) is superseded by that chain.
 
 ## Inputs
 

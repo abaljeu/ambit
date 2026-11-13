@@ -1,122 +1,138 @@
 # 117 — The pool posts Notice.ActorStopped when an Actor ends
+**Status**: defined
+One job: The pool posts `Notice.ActorStopped` when an Actor's work returns. The Actor stops sending the stop. This is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The reason is the 2026-10-24 decision in [core-refinement](../project.md): an Actor ends, and the pool posts the stop.
 
-**Status:** `defined`
-**Trackers:** architecture
+Type: coding
+Blockers: [113 — Actors return their ActorResult](113-actors-return-their-actorresult.md). [81 — Log Actor stops as Notices](81-log-actor-and-search-stops-as-notices.md) is `coded`.
 
-## 1. Type
+## Scope
 
-[ ] `coding`
+Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.ActorStopped`. The stop calls leave the Actor bodies.
 
-## 2. Blockers
+[ ] The build keeps the observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results the same.
 
-[ ] [113 — Actors return their ActorResult](113-actors-return-their-actorresult.md)
-[ ] [81 — Log Actor and search stops as Notices](81-log-actor-and-search-stops-as-notices.md)
+### Signatures
 
-## 3. Look at
+[x] `CoreActorPool.runSchedule` in `src/Server/Core/CoreActorPool.fs` is the schedule function. After 113 it starts `work |> Async.Ignore`.
+[x] `CoreActorPool.trySecretForActorNode` in `src/Server/Core/CoreActorPool.fs` returns the secret for an actor node id. The live row field is `actorNodeId`.
+[x] `CoreActorPool.finish` in `src/Server/Core/CoreActorPool.fs` drops the row for every `ActorResult`. `runFinish` cancels the row token.
+[x] `CoreMailboxApi.postNotice` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreQueue.Notice` and returns before the mailbox applies the notice.
+[x] `CoreMailboxLoop.runMsg` and `CoreMailboxLoop.dispatchItem` are in `src/Server/Core/CoreMailboxLoop.fs`. `CoreMailboxLoad` in `src/Server/Core/CoreMailboxLoad.fs` holds Load dispatch.
+[x] `CoreMailboxLoop.dispatchItem` logs every `CoreQueue.Notice` with `CoreEventDispatch.logNotice`, then calls `CoreMailboxLoop.applyNotice`.
+[x] `CoreMailboxLoop.applyNotice` returns `Ok ()` for `Notice.ActorStopped`.
+[x] `CoreEventDispatch.actorStop` in `src/Server/Core/CoreEventDispatch.fs` stores the caller authority on the stop row.
+[x] `CoreEventDispatch.logNotice` stores `Authority ""` on a notice row.
+[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs` asserts the stop row's authority is `Authority "Actor"`.
 
-### Owner
+### Match sites
 
-[ ] [CoreActorPool.fs](src/Server/Core/CoreActorPool.fs) owns `runSchedule`, `trySecretForActorNode`, and `finish`
+[x] `GithubTransportActor.finishActor` calls `changes.actorStop`.
+[x] `RunAgentActor.stop` calls `changes.actorStop`. `RunAgentActor.actorFn` calls `stop`.
+[x] `SearchActor.functionStart` calls `CoreDoor.actorStop`. `SearchActor.functionActorAt` passes `changes.actorStop`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`.
+[x] `TestActor.dispatch` calls `CoreDoor.actorStop`. `TestActor.runBehavior` calls `changes.actorStop`.
+[x] `CoreMailboxActors.dispatchActorStop` checks `Authority "Actor"`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
+[x] `CoreMailboxActors.runCancel` appends `EventBody.ActorStop` of the focus and `ActorCancelled`, then calls `pool.finish`. A focus with no live run logs nothing.
+[x] `CoreMailboxLoop.runMsg` still matches `CoreMsg.ActorStop` and calls `dispatchActorStop`. Tests call `CoreMailboxApi.actorStop` until [118 — Test Actors return their result](118-test-actors-return-their-result.md) and [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md).
 
-### Source
+### Existing tests
 
-[ ] [CoreMailboxApi.fs](src/Server/Core/CoreMailboxApi.fs) `postNotice`, read only
-[ ] [CoreMailboxLoad.fs](src/Server/Core/CoreMailboxLoad.fs) `dispatchItem`, `applyNotice`
-[ ] [GithubTransportActor.fs](src/Server/GithubTransportActor.fs), [RunAgentActor.fs](src/Server/RunAgentActor.fs), [SearchActor.fs](src/Server/SearchActor.fs), [TestActor.fs](src/Server/TestActor.fs): each call to `CoreDoor.actorStop`
+[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` starts `TestActor.functionActorAt` and asserts the stop body and `Authority "Actor"`.
+[x] ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs` calls `CoreMailboxApi.actorStop` after a Cancel. The log holds one stop.
+[x] ``ActorStop reads the carrier graph once`` starts `SearchActor.functionStart` and reads `ActorQuery`.
 
-### Docs
+### Copy-from
 
-[ ] [cqrs-messages.md](../cqrs-messages.md) §2 item 8 **Notice**, read only; it already says the pool posts `Notice.ActorStopped` when an Actor ends
+[x] `CoreEventDispatch.logNotice` is the notice append. `CoreMailboxLoop.dispatchItem` is the notice arm. `CoreActorPool.trySecretForActorNode` is the live-row lookup `dispatchActorStop` does with `getActorNodeId`.
 
-### Match sites and constructors
+### Overlap
 
-[ ] `runSchedule` is the only place that starts Actor work
-[ ] `CoreDoor.actorStop` is called from the four Actors and from tests; the test calls stay until [118 — Test Actors return their result](118-test-actors-return-their-result.md)
-[ ] `dispatchItem` has one `CoreQueue.Notice` arm for every Notice
+[x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) is building in parallel and touches `src/Server/SearchActor.fs`.
+[ ] This ticket's `SearchActor` edits are the stop calls in `functionStart`, `functionActorAt`, and `searchActorAt`.
+[x] [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md) is owned by AmbotX. Its build waits until 114 lands. This ticket does not edit that file. `searchActorAt` loses its `changes.actorStop` call here. `CoreMsg.RecordSearchStop` stays.
 
-### Tests this ticket names
+### Envelope
 
-[ ] [CoreMailboxDoorTests.fs](tests/Server.Tests/CoreMailboxDoorTests.fs), the two tests added here
-[ ] [CancelByFocusTests.fs](tests/Server.Tests/CancelByFocusTests.fs) `actorStop after cancel does not emit a root Focus ActorStop`
-
-## 4. Context
-
-### Today
-
-[ ] After 113, `runSchedule` starts `work |> Async.Ignore` and does not read the result
-[ ] Each Actor calls `CoreDoor.actorStop`, which posts `CoreMsg.ActorStop` with the Actor's caller; `dispatchActorStop` checks the secret, appends the stop, and calls `pool.finish`
-[ ] After 81, the stop is logged as `Notice.ActorStopped` of the focus and the result
-[ ] `pool.finish` cancels the row's token; work started with that token does not reach its end
-[ ] A Cancel order runs `runCancel`, which appends `Notice.ActorStopped(focusId, ActorCancelled)` and calls `pool.finish`
-[ ] `dispatchItem` logs a Notice, then calls `applyNotice`; a Notice gets no reply and has no caller
-[ ] `CoreActorPool.fs` compiles after `CoreMailboxApi.fs`; the `CoreChangesDoor` that `runSchedule` gets holds the `host`
-
-### Decisions
-
-[ ] Alan, 2026-10-24: an Actor does not send a stop; it just stops
-[ ] The pool sees the Actor end and posts `Notice.ActorStopped` on the notice line
-[ ] The Notice tells the client it can drop its hold on the Actor; it does not tell the pool
-[ ] The stop has no caller, so no secret check is needed for it
-[ ] Exactly one stop is logged per run: the first of the Actor's end and a Cancel
-[ ] Alan, 2026-10-24: a search just stops too; [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md) posts `Notice.SearchStopped` when a search ends
+[x] A stop sent by an Actor is logged with that Actor's authority. The lifecycle test reads `Authority "Actor"`.
+[x] A notice logged by `logNotice` has `Authority ""`.
+[ ] Alan confirms the stop row's authority. The body stays `EventBody.ActorStop` of the same focus and the same `ActorResult`. The open choice is `Authority "Actor"` or the blank authority `logNotice` stores. The build stops until that confirmation.
 
 ### Known limit
 
-[ ] Alan, 2026-10-24: accepted for now. `dispatchItem` finds the run by focus. If a new run starts on the same focus after an Actor ends and before its `Notice.ActorStopped` is handled, that Notice finishes the new run
+[x] Alan, 2026-10-24, accepted the same-focus limit for now. `dispatchItem` finds the run by actor node id. A new run can start on that id after the Actor ends and before `Notice.ActorStopped` is handled. That notice finishes the new run.
 
-## 5. Changes
+## Inputs
 
-### Change
+### Working
 
-[ ] One change: the pool posts `Notice.ActorStopped` when an Actor's work returns, and the four Actors stop calling `CoreDoor.actorStop`
+[x] After 113, `runSchedule` discards the `ActorResult`.
+[x] The four Actor modules still call a stop. The producers are `finishActor`, `RunAgentActor.stop`, `SearchActor.functionStart`, `SearchActor.functionActorAt`, `SearchActor.searchActorAt`, `TestActor.dispatch`, and `TestActor.runBehavior`.
+[x] `CoreMailboxLoop.dispatchItem` logs every notice, then calls `applyNotice`.
+[x] `pool.finish` cancels the row token. Work started with that token does not reach a later line.
+[x] `runCancel` logs `Notice.ActorStopped` of the focus and `ActorCancelled` through the `EventBody.ActorStop` shell, then calls `pool.finish`.
+[ ] `runSchedule` runs the work. On a returned result it posts `Notice.ActorStopped` of `row.actorNodeId` and that result through `CoreMailboxApi.postNotice` on `coreChanges.host`.
+[ ] Work that is cancelled posts nothing.
+[ ] For `Notice.ActorStopped`, `dispatchItem` calls `pool.trySecretForActorNode`. A secret logs the notice, then calls `pool.finish` with that secret and the result. No secret logs nothing.
+[ ] Every other notice stays on today's log-then-apply path.
+[ ] The Actor bodies return the result and do not call a stop. `RunAgentActor.stop` leaves.
 
-### CoreActorPool.fs
+### Reference
 
-[ ] `runSchedule` runs the work, then posts `Notice.ActorStopped(row.actorNodeId, result)` with `CoreMailboxApi.postNotice coreChanges.host`. The live row field is `actorNodeId` in `src/Server/Core/CoreActorPool.fs`.
-[ ] Work that is cancelled posts nothing
+[x] [Message shape](../cqrs-messages.md) decision 20 **Type cleanup**. The pool posts `Notice.ActorStopped` when an Actor ends.
+[x] The 2026-10-24 known limit is in the project file. The One job line links it.
 
-### CoreMailboxLoad.fs
+## Do not load
 
-[ ] For `Notice.ActorStopped`, `dispatchItem` finds the run with `pool.trySecretForActorNode` (`src/Server/Core/CoreActorPool.fs`)
-[ ] With a run, `dispatchItem` logs the Notice, then calls `pool.finish` with that secret and the result
-[ ] With no run, `dispatchItem` logs nothing; a Cancel already logged the stop
-[ ] Every other Notice is logged and applied as today
+[x] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, `CoreDoor.actorStop`, `CoreDoor.actorChanges`, and `ActorChanges.actorStop`. 114 — Remove CoreMsg.ActorStop removes them after the tests leave them.
+[x] `CoreMsg.RecordSearchStop` and `CoreEventDispatch.actorStop`. 24 — Post Notice.SearchStopped owns the search stop.
+[x] `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply`.
+[x] `CoreMailboxLoad`. Load dispatch stays there.
 
-### Actors
+## Process
 
-[ ] Each of the four Actors returns its result and does not call `CoreDoor.actorStop`
-[ ] `RunAgentActor.stop` leaves
+1. [ ] If an input is missing or does not match this ticket, stop and name that input.
+2. [ ] Wait for Alan's confirmation of the stop-row authority in Scope.
+3. [ ] `runSchedule` binds the `ActorResult`, then posts `Notice.ActorStopped` of `row.actorNodeId` and that result.
+4. [ ] A cancelled body posts nothing.
+5. [ ] `dispatchItem` handles `Notice.ActorStopped` with `trySecretForActorNode`. A secret logs that notice, then calls `pool.finish`. No secret logs nothing and finishes nothing.
+6. [ ] Other notices keep today's order.
+7. [ ] `applyNotice` stays `Ok ()` for `Notice.ActorStopped`.
+8. [ ] `GithubTransportActor.finishActor` returns the outcome and does not call `changes.actorStop`.
+9. [ ] `RunAgentActor.actorFn` returns the result. `RunAgentActor.stop` leaves.
+10. [ ] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result and do not call a stop.
+11. [ ] `TestActor.dispatch` and `TestActor.runBehavior` return the result and do not call a stop.
+12. [ ] Add the two door tests in Tests. Update the lifecycle authority assertion to the confirmed authority. The stop body assertion stays.
 
-### Size
+## Outputs
 
-[ ] 6 source files: `CoreActorPool.fs`, `CoreMailboxLoad.fs`, `GithubTransportActor.fs`, `RunAgentActor.fs`, `SearchActor.fs`, `TestActor.fs`
-[ ] 1 test file: `CoreMailboxDoorTests.fs`
+[ ] Source files: `src/Server/Core/CoreActorPool.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/GithubTransportActor.fs`, `src/Server/RunAgentActor.fs`, `src/Server/SearchActor.fs`, and `src/Server/TestActor.fs`. 6 source files.
+[ ] Test files: `tests/Server.Tests/CoreMailboxDoorTests.fs` and `tests/Server.Tests/Issue41CoreMailboxTests.fs`. 2 test files.
+[ ] The new tests are ``an Actor that returns logs Notice.ActorStopped`` and ``ActorStopped for an idle focus logs nothing``.
 
-## 6. Tests
+## Stop when
 
-### Done
+[ ] Rewrite `117-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
+[ ] Stop when the stop-row authority is unconfirmed.
+[ ] Stop when the edit changes the stop body or the `ActorResult`.
+[ ] Stop when the edit removes `CoreMsg.ActorStop` or `CoreMailboxApi.actorStop`.
+[ ] Stop when the edit changes a `SearchActor` function other than `functionStart`, `functionActorAt`, and `searchActorAt`.
+[ ] Stop when the edit needs a file outside Inputs.
 
-[ ] Add `an Actor that returns logs Notice.ActorStopped` in `CoreMailboxDoorTests.fs`
-[ ] A `root` Actor returns `ActorSucceeded` without calling `CoreDoor.actorStop`
-[ ] The log holds the start, then `Notice.ActorStopped` of the focus and `ActorSucceeded`, and that id is not in `pool.liveActorNodeIds` (`src/Server/Core/CoreActorPool.fs`)
-[ ] Filter: `an Actor that returns logs Notice.ActorStopped`
-[ ] Add `ActorStopped for an idle focus logs nothing`
-[ ] The test posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice` for a focus with no run; the log gains no entry
-[ ] Filter: `ActorStopped for an idle focus logs nothing`
+## Tests
 
-### Cancel
+[ ] Add ``an Actor that returns logs Notice.ActorStopped`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`. A `root` `ActorFunction` returns `ActorSucceeded` and does not call a stop. The log holds the start, then `Notice.ActorStopped` of the focus and `ActorSucceeded`. That id is absent from `pool.liveActorNodeIds`.
+[ ] Add ``ActorStopped for an idle focus logs nothing``. The test posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice` for a focus with no run. The log gains no entry.
+[ ] ``actorStop after cancel does not emit a root Focus ActorStop`` keeps one stop in the log.
+[ ] ``mailbox appends StartActor and ActorStop in lifecycle order`` keeps the stop body. Its authority assertion follows Alan's confirmation.
 
-[ ] Keep `actorStop after cancel does not emit a root Focus ActorStop`; the log holds one stop
-[ ] Filter: `actorStop after cancel does not emit a root Focus ActorStop`
+## Check
 
-### Kept
-
-[ ] Keep every test that starts one of the four Actors
-[ ] Filter: `TestActorHelloTests`
-[ ] Filter: `QueryActorTests`
-[ ] Filter: `LoadSaveCommandTests`
-
-## 7. Done
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] If any added test was missed, run `scripts/agent-test.sh --filter` for each added test.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Server.Tests`: ``an Actor that returns logs Notice.ActorStopped``
+  - `tests/Server.Tests`: ``ActorStopped for an idle focus logs nothing``
+  - `tests/Server.Tests`: ``actorStop after cancel does not emit a root Focus ActorStop``
+  - `tests/Server.Tests`: ``mailbox appends StartActor and ActorStop in lifecycle order``
+  - `tests/Server.Tests`: ``ActorStop reads the carrier graph once``
 [ ] All executed tests pass.
+[ ] Rewrite `117-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
+[ ] A reader who reads only the One job line can say what the ticket builds.

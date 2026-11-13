@@ -1,6 +1,8 @@
 # 21 — Convert CoreMsg.ActorStop
-**Status**: defined
+**Status**: superseded
 One job: An Actor stop is `Notice.ActorStopped` on `CoreQueue.Notice`, posted with `CoreMailboxApi.postNotice`. `CoreMsg.ActorStop` is gone. The live row still ends through `CoreActorPool.finish`.
+
+Alan, 2026-10-24 and 2026-11-13: this ticket is superseded by the chain [113 — Actors return their ActorResult](../../../core-refinement/issues/113-actors-return-their-actorresult.md), [117 — The pool posts Notice.ActorStopped when an Actor ends](../../../core-refinement/issues/117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md), [118 — Test Actors return their result](../../../core-refinement/issues/118-test-actors-return-their-result.md), and [114 — Remove CoreMsg.ActorStop](../../../core-refinement/issues/114-remove-coremsg-actorstop.md). Each of those tickets is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The steps below stay as the record of this ticket. The chain is the work.
 
 [15 — Delete the old Actor starts](../15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) leaves `ActorStop` as a live `CoreMsg` case. The stop body is already `Notice.ActorStopped` in `src/Shared/History.fs`.
 

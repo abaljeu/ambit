@@ -10,7 +10,7 @@
 - [x] [25 — Remove the coreMailboxStartActor door](issues/25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md)
 - [x] [16 — Rename the client start request to ClientRequestActor](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md)
 - [ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md)
-- [ ] [21 — Convert CoreMsg.ActorStop](issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md)
+- [x] [21 — Convert CoreMsg.ActorStop](issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) is superseded. Alan, 2026-10-24 and 2026-11-13. The chain is [113 — Actors return their ActorResult](../core-refinement/issues/113-actors-return-their-actorresult.md), [117 — The pool posts Notice.ActorStopped when an Actor ends](../core-refinement/issues/117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md), [118 — Test Actors return their result](../core-refinement/issues/118-test-actors-return-their-result.md), and [114 — Remove CoreMsg.ActorStop](../core-refinement/issues/114-remove-coremsg-actorstop.md).
 - [ ] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md)
 - [ ] [11 — Move door and case tests](issues/11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md)
 - [ ] [12 — Move pool and issue tests](issues/12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md)
