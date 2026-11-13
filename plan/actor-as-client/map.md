@@ -52,7 +52,7 @@ Aims from Alan 2026-09-27 chat. Aims 1 and 2 stay provisional (not Decisions so 
 4. **Rewriting all existing Actors in one go** — Migration of each Actor body is later work, not this chart.
 5. **Product code on this chart** — The map finds the way. It does not implement CoreActorPool or mailbox F#.
 6. **Dropping `graphIds`** — The end state drops `graphIds` from ActorStart. This cutover's intermediate state keeps the browser `ActorStart` payload, `graphIds` included.
-7. **core-refinement tickets 111 through 118** — Those tickets stay in that project. [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) is one of them.
+7. **core-refinement tickets 112 through 118** — Those tickets stay in that project. [24 — Post Notice.SearchStopped](../online-search/issues/24-post-searchstopped-notice.md) is the former 111, and it lives in Online search.
 
 These are exclusions from this map, not product-wide exclusions. See [[doc/agents/scope-vs-commitment.md]].
 

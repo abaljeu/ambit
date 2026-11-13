@@ -8,7 +8,7 @@ This note is the end-game spec of the mailbox and the event log. §2 **Target sh
 
 `CoreMsg` in [CoreMsg.fs](../../src/Server/Core/CoreMsg.fs) mixes orders and queries. An order carries a `Caller` and an `AsyncReplyChannel`. A query carries an `AsyncReplyChannel` and no `Caller`. `Login`, `Logout`, and `AdmitCaller` sit on that same queue today. They leave it. Decision 8 **Session leaves**.
 
-1. **Orders** — `PostEvent`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, and `ActorStop` (`src/Server/Core/CoreMsg.fs`). 15 — Delete the old Actor starts carries `StartPeerActor`. 20 — Move Desk Load and Desk Save carries `StartLoadSaveCommand`. 09 — Start the query command, 111 — Place search start as an order, and post SearchStopped, and 114 — Remove CoreMsg.ActorStop carry the other actor cases.
+1. **Orders** — `PostEvent`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, and `ActorStop` (`src/Server/Core/CoreMsg.fs`). 15 — Delete the old Actor starts carries `StartPeerActor`. 20 — Move Desk Load and Desk Save carries `StartLoadSaveCommand`. 09 — Start the query command, [24 — Post Notice.SearchStopped](../online-search/issues/24-post-searchstopped-notice.md), and 114 — Remove CoreMsg.ActorStop carry the other actor cases.
 2. **Queries** — `GetState`, `GetEventId`, `GetEventsSince`, `GetEventHistory`, `EventsSince`.
 
 `Notice` is `NodeParsed`, `NodePersisted` of `nodeId`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`. `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` is a second door onto that same queue.

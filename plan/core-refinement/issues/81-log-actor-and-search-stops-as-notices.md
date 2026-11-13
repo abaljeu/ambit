@@ -67,7 +67,7 @@ The build treats warnings as errors (`Directory.Build.props`), so an incomplete 
 [ ] [Spec](plan/core-refinement/spec.md) §4 **Mailbox log mapping**, item 1 **Read**.
 [ ] Alan, 2026-10-24: names follow `Order.Cancel*` and `Notice.*Stopped`. Existing `EventBody` member names stay. Old-form logs are dropped.
 [ ] Alan, 2026-10-24: the rule of [77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](77-rename-snapshotdone-and-notices-start-no-catch-up.md) covers stops. A stop Notice tells the client it can drop its hold on the Actor; the client acts on it like any other Notice, and it starts no catch-up.
-[ ] Alan, 2026-11-03: this ticket logs Actor stops only. `Notice.SearchStopped` is added by [111 — Place search start as an order, and post SearchStopped](111-place-search-start-as-an-order-and-post-searchstopped.md).
+[ ] Alan, 2026-11-03: this ticket logs Actor stops only. `Notice.SearchStopped` is added by [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md).
 
 ## Do not load
 
