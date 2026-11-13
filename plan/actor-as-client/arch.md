@@ -198,6 +198,7 @@ The pool `ActorFunction` keeps `CoreChangesDoor`. `actorChanges` adapts that doo
 ### Pool launch
 
 [x] `runSchedule` calls `Async.Start` with the row cancel token.
+[x] `runSchedule` starts `work |> Async.Ignore`. The pool does not read the `ActorResult`.
 
 ```fsharp
 runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> CoreChangesDoor -> unit

@@ -25,7 +25,8 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 
 [x] `GithubTransportActor.finishActor` in `src/Server/GithubTransportActor.fs` calls `changes.actorStop` with `actorOutcome`, then returns that outcome. `loadActorFunction` and `saveActorFunction` use `finishActor`.
 [x] `RunAgentActor.stop` in `src/Server/RunAgentActor.fs` calls `changes.actorStop`, then returns that result. `RunAgentActor.actorFn` returns that result.
-[x] `SearchActor.functionStart` in `src/Server/SearchActor.fs` builds a pool `ActorFunction`. That body calls `CoreDoor.actorStop`, then returns that result. `SearchActor.functionActorAt` and `SearchActor.searchActorAt` are shared `ActorFunction` values. `functionActorAt` passes `changes.actorStop`, then returns that result. `searchActorAt` calls `changes.actorStop` with `ActorSucceeded`, then returns `ActorSucceeded`.
+[x] `SearchActor.queryActorBody` in `src/Server/SearchActor.fs` returns `Async<ActorResult>`. It calls the supplied stop with `ActorQuery` and returns that `ActorResult`.
+[x] `SearchActor.functionStart` builds a pool `ActorFunction` and passes `CoreDoor.actorStop` to `queryActorBody`. `SearchActor.functionActorAt` is a shared `ActorFunction` and passes `ActorChanges.actorStop` to `queryActorBody`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded` and returns `ActorSucceeded`.
 [x] `TestActor.dispatch` in `src/Server/TestActor.fs` calls `CoreDoor.actorStop`, then returns that result. `TestActor.actorFn` is `dispatch`. `TestActor.runBehavior` calls `changes.actorStop`, then returns that result. `TestActor.functionActor` is the pool `ActorFunction`. `TestActor.functionActorAt` is the shared `ActorFunction`. Both call `runBehavior`.
 [x] `CoreMailboxLoop.poolActor` in `src/Server/Core/CoreMailboxLoop.fs` calls the shared `ActorFunction` and returns that `ActorResult`.
 [x] `EventJson.stubActor` in `src/Shared/EventJson.fs` is an `ActorFunction` that returns `ActorSucceeded`.
@@ -33,12 +34,13 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 
 ### Existing tests
 
-[x] ``function start reply is bookkeeping without waiting for an Actor body`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` starts an `ActorFunction` that waits on `Async.CancellationToken`, then asserts the focus is in `pool.liveActorNodeIds`.
-[x] ``ActorOrder places the actor on the thread pool`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` starts an `ActorFunction` that waits on `Async.CancellationToken`, then asserts `pool.isLive`.
-[x] `AskCancelHarness.postChildThenWait` in `tests/Server.Tests/AskCancelHarness.fs` posts one child, then waits on `Async.CancellationToken`. The row stays live for the test.
-[x] `CoreActorPoolDeliverTests.liveSessionActor` in `tests/Server.Tests/CoreActorPoolDeliverTests.fs` records the session, then waits on `Async.CancellationToken`.
-[x] ``Actor getEventId surfaces persist error instead of Revision 0`` and ``Actor postChange on scheduled handle reaches persist`` in `tests/Server.Tests/ActorCoreChangesDoorTests.fs` pass an `ActorFunction` that records the observation and then waits on `Async.CancellationToken`. Those bodies do not call `actorStop`.
-[x] ``coreMailboxStartActorFromFunction places StartActor from the selector`` in `tests/Server.Tests/ActorOrderFromStartTests.fs` starts an `ActorFunction` that waits on `Async.CancellationToken`. The assertions read the `Order.StartActor` row.
+[x] `TestBackend.waitCancelled` in `tests/Server.Tests/TestBackend.fs` reads `Async.CancellationToken`, waits on `Async.AwaitWaitHandle` of that token's wait handle, and returns `ActorSucceeded`.
+[x] ``function start reply is bookkeeping without waiting for an Actor body`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` starts an `ActorFunction` that calls `TestBackend.waitCancelled`, then asserts the focus is in `pool.liveActorNodeIds`.
+[x] ``ActorOrder places the actor on the thread pool`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` starts an `ActorFunction` that calls `TestBackend.waitCancelled`, then asserts `pool.isLive`.
+[x] `AskCancelHarness.postChildThenWait` in `tests/Server.Tests/AskCancelHarness.fs` posts one child, then calls `TestBackend.waitCancelled`. The row stays live for the test.
+[x] `CoreActorPoolDeliverTests.liveSessionActor` in `tests/Server.Tests/CoreActorPoolDeliverTests.fs` records the session, then calls `TestBackend.waitCancelled`.
+[x] ``Actor getEventId surfaces persist error instead of Revision 0`` and ``Actor postChange on scheduled handle reaches persist`` in `tests/Server.Tests/ActorCoreChangesDoorTests.fs` pass an `ActorFunction` that records the observation and then calls `TestBackend.waitCancelled`. Those bodies do not call `actorStop`.
+[x] ``coreMailboxStartActorFromFunction places StartActor from the selector`` in `tests/Server.Tests/ActorOrderFromStartTests.fs` starts an `ActorFunction` that calls `TestBackend.waitCancelled`. The assertions read the `Order.StartActor` row.
 [x] ``ActorOrder round-trips on the wire with stubActor`` in `tests/Shared.Tests/EventJsonTests.fs` builds two `ActorFunction` values that return `ActorSucceeded` and does not run them.
 [x] `createHost` in `tests/Server.Tests/CoreMailboxDoorTests.fs` registers an `ActorFn` named `root` that returns `ActorSucceeded`. No test starts that name.
 [x] ``ActorStop reads the carrier graph once`` in `tests/Server.Tests/QueryActorTests.fs` starts `SearchActor.functionStart` through `pool.startFunction` and `pool.schedule`. It reads `EventBody.ActorStop` of `ActorQuery`.
@@ -50,7 +52,7 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 ### Overlap
 
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) has landed. It changed `SearchActor.reply`. This ticket leaves that function.
-[x] This ticket's `SearchActor` edits are the stop calls in `functionStart`, `functionActorAt`, and `searchActorAt`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
+[x] This ticket's `SearchActor` edits are `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
 [x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md). Its build waits until [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) lands. This ticket does not edit that file. `SearchActor.searchActorAt` stays the Find actor. The stop call stays in this ticket's return change.
 
 ## Inputs
@@ -62,18 +64,18 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 [x] `ActorFn` in `src/Server/Core/CoreActorPool.fs` is the leftover id-bag contract. `runSchedule` still starts `BagPending`.
 [x] `GithubTransportActor.finishActor` calls `ActorChanges.actorStop`.
 [x] `RunAgentActor.stop` calls `ActorChanges.actorStop`.
-[x] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` call a stop.
+[x] `SearchActor.queryActorBody` calls the supplied stop and returns that `ActorResult`. `SearchActor.functionStart` passes `CoreDoor.actorStop`. `SearchActor.functionActorAt` passes `ActorChanges.actorStop`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`.
 [x] `TestActor.dispatch` and `TestActor.runBehavior` call a stop.
 [x] `CoreMailboxApi.actorStop` in `src/Server/Core/CoreMailboxApi.fs` stays. `CoreDoor.actorStop` and `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` stay. `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` stays.
 [x] Each of those producers returns the same `ActorResult` it passes to the stop.
-[x] A test body that is started, and that does not assert a stop, waits on `Async.CancellationToken` after its observation. The row stays live. `runSchedule` cancels that wait when `finish` runs.
-[x] ``function start reply is bookkeeping without waiting for an Actor body`` and ``ActorOrder places the actor on the thread pool`` keep their assertions. The body waits on `Async.CancellationToken`.
+[x] A test body that is started, and that does not assert a stop, calls `TestBackend.waitCancelled` after its observation. The row stays live. `CoreActorPool.finish` cancels that wait.
+[x] ``function start reply is bookkeeping without waiting for an Actor body`` and ``ActorOrder places the actor on the thread pool`` keep their assertions. The body calls `TestBackend.waitCancelled`.
 [x] `EventJson.stubActor` and the two unrun `ActorFunction` values in ``ActorOrder round-trips on the wire with stubActor`` return `ActorSucceeded`.
 
 ### Reference
 
 [x] The 2026-10-24 Actor-end decision is in the project file. The One job line links it.
-[x] [Size limit](../../context/size-limit.md). Alan, 2026-10-24, accepted this ticket over the test-file limit. The accepted count was 9 test files. The tree now has 8 test files that hold a body of this type.
+[x] [Size limit](../../context/size-limit.md). Alan, 2026-10-24, accepted this ticket over the test-file limit. The accepted count was 9 test files. The tree changes 9 test files. `TestBackend.waitCancelled` is the shared wait. The other 8 hold a body of this type.
 
 ## Do not load
 
@@ -91,15 +93,16 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 5. [x] `runSchedule` starts `work |> Async.Ignore` on the row cancellation token.
 6. [x] `GithubTransportActor.finishActor` calls `changes.actorStop` with the outcome, then returns that outcome.
 7. [x] `RunAgentActor.stop` calls `changes.actorStop`, then `RunAgentActor.actorFn` returns that result.
-8. [x] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` call the same stop, then return that result. The other `SearchActor` functions stay.
+8. [x] `SearchActor.queryActorBody` calls the supplied stop and returns that `ActorResult`. `functionStart` and `functionActorAt` return that async. `searchActorAt` calls `changes.actorStop` with `ActorSucceeded` and returns `ActorSucceeded`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
 9. [x] `TestActor.dispatch` and `TestActor.runBehavior` call the same stop, then return that result.
 10. [x] `EventJson.stubActor` returns `ActorSucceeded`.
-11. [x] Each started test body that must stay live waits on `Async.CancellationToken` after its observation. The assertions stay.
+11. [x] Each started test body that must stay live calls `TestBackend.waitCancelled` after its observation. The assertions stay.
 
 ## Outputs
 
 [x] Source files: `src/Shared/History.fs`, `src/Server/Core/CoreActorPool.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/GithubTransportActor.fs`, `src/Server/RunAgentActor.fs`, `src/Server/SearchActor.fs`, `src/Server/TestActor.fs`, and `src/Shared/EventJson.fs`. 8 source files.
-[x] Test files: `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/AskCancelHarness.fs`, `tests/Server.Tests/CoreActorPoolDeliverTests.fs`, `tests/Server.Tests/ActorCoreChangesDoorTests.fs`, `tests/Server.Tests/ActorOrderFromStartTests.fs`, `tests/Shared.Tests/EventJsonTests.fs`, `tests/Server.Tests/CoreMailboxDoorTests.fs`, and `tests/Server.Tests/SearchActorTests.fs`. 8 test files. Over the 4-test limit. The 2026-10-24 acceptance covers this ticket.
+[x] Plan file: [Actor as client architecture](../../actor-as-client/arch.md). The shared `ActorFunction`, the pool `ActorFunction`, and `ActorFn` return `Async<ActorResult>`. Pool launch records that `runSchedule` starts `work |> Async.Ignore`.
+[x] Test files: `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/AskCancelHarness.fs`, `tests/Server.Tests/CoreActorPoolDeliverTests.fs`, `tests/Server.Tests/ActorCoreChangesDoorTests.fs`, `tests/Server.Tests/ActorOrderFromStartTests.fs`, `tests/Shared.Tests/EventJsonTests.fs`, `tests/Server.Tests/CoreMailboxDoorTests.fs`, `tests/Server.Tests/SearchActorTests.fs`, and `tests/Server.Tests/TestBackend.fs`. 9 test files. Over the 4-test limit. The 2026-10-24 acceptance covers this ticket. `TestBackend.waitCancelled` is the shared wait.
 [x] ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` returns the result of `SearchActor.searchActorAt`. The assertions stay.
 [x] No test assertion changes.
 
@@ -108,7 +111,7 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 [ ] Rewrite `113-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when the edit removes a stop call.
 [ ] Stop when the edit changes `EventBody.ActorStop`, `Notice.ActorStopped`, or an `ActorResult`.
-[ ] Stop when the edit changes a `SearchActor` function other than `functionStart`, `functionActorAt`, and `searchActorAt`.
+[ ] Stop when the edit changes a `SearchActor` function other than `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`.
 [ ] Stop when the edit needs a file outside Inputs.
 
 ## Check

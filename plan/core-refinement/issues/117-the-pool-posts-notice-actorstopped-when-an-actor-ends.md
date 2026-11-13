@@ -28,7 +28,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 [x] `GithubTransportActor.finishActor` calls `changes.actorStop`.
 [x] `RunAgentActor.stop` calls `changes.actorStop`. `RunAgentActor.actorFn` calls `stop`.
-[x] `SearchActor.functionStart` calls `CoreDoor.actorStop`. `SearchActor.functionActorAt` passes `changes.actorStop`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`.
+[x] `SearchActor.queryActorBody` calls the supplied stop and returns that `ActorResult`. `SearchActor.functionStart` passes `CoreDoor.actorStop`. `SearchActor.functionActorAt` passes `ActorChanges.actorStop`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded` and returns `ActorSucceeded`.
 [x] `TestActor.dispatch` calls `CoreDoor.actorStop`. `TestActor.runBehavior` calls `changes.actorStop`.
 [x] `CoreMailboxActors.dispatchActorStop` checks `Authority "Actor"`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
 [x] `CoreMailboxActors.runCancel` appends `EventBody.ActorStop` of the focus and `ActorCancelled`, then calls `pool.finish`. A focus with no live run logs nothing.
@@ -47,7 +47,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 ### Overlap
 
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) is building in parallel and touches `src/Server/SearchActor.fs`.
-[ ] This ticket's `SearchActor` edits are the stop calls in `functionStart`, `functionActorAt`, and `searchActorAt`.
+[ ] This ticket's `SearchActor` edits are the stop calls in `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`.
 [x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) Its build waits until 114 lands. This ticket does not edit that file. `searchActorAt` loses its `changes.actorStop` call here. `CoreMsg.RecordSearchStop` stays.
 
 ### Envelope
@@ -67,9 +67,10 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 ### Working
 
 [x] After 113, `runSchedule` discards the `ActorResult`.
-[x] The four Actor modules still call a stop. The producers are `finishActor`, `RunAgentActor.stop`, `SearchActor.functionStart`, `SearchActor.functionActorAt`, `SearchActor.searchActorAt`, `TestActor.dispatch`, and `TestActor.runBehavior`.
+[x] The four Actor modules still call a stop. The producers are `GithubTransportActor.finishActor`, `RunAgentActor.stop`, `SearchActor.queryActorBody`, `SearchActor.searchActorAt`, `TestActor.dispatch`, and `TestActor.runBehavior`. `SearchActor.functionStart` and `SearchActor.functionActorAt` pass the stop into `queryActorBody`.
 [x] `CoreMailboxLoop.dispatchItem` logs every notice, then calls `applyNotice`.
-[x] `pool.finish` cancels the row token. Work started with that token does not reach a later line.
+[x] `CoreActorPool.finish` cancels the row token through `runFinish`.
+[x] `TestBackend.waitCancelled` in `tests/Server.Tests/TestBackend.fs` returns `ActorSucceeded` after that token signals. These files call it: `tests/Server.Tests/ActorCoreChangesDoorTests.fs`, `tests/Server.Tests/ActorOrderFromStartTests.fs`, `tests/Server.Tests/AskCancelHarness.fs`, `tests/Server.Tests/CoreActorPoolDeliverTests.fs`, and `tests/Server.Tests/CoreMsgActorCasesTests.fs`.
 [x] `runCancel` logs `Notice.ActorStopped` of the focus and `ActorCancelled` through the `EventBody.ActorStop` shell, then calls `pool.finish`.
 [ ] `runSchedule` runs the work. On a returned result it posts `Notice.ActorStopped` of `row.actorNodeId` and that result through `CoreMailboxApi.postNotice` on `coreChanges.host`.
 [ ] Work that is cancelled posts nothing.
@@ -99,7 +100,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 6. [ ] `applyNotice` stays `Ok ()` for `Notice.ActorStopped`.
 7. [ ] `GithubTransportActor.finishActor` returns the outcome and does not call `changes.actorStop`.
 8. [ ] `RunAgentActor.actorFn` returns the result. `RunAgentActor.stop` leaves.
-9. [ ] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result and do not call a stop.
+9. [ ] `SearchActor.queryActorBody` returns the result and does not call a stop. `SearchActor.functionStart` and `SearchActor.functionActorAt` return that async. `SearchActor.searchActorAt` returns `ActorSucceeded` and does not call a stop.
 10. [ ] `TestActor.dispatch` and `TestActor.runBehavior` return the result and do not call a stop.
 11. [ ] Add the two door tests in Tests. ``mailbox appends StartActor and ActorStop in lifecycle order`` stays unchanged.
 
@@ -116,7 +117,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 [ ] Stop when the edit changes ``mailbox appends StartActor and ActorStop in lifecycle order``.
 [ ] Stop when the edit changes the stop body or the `ActorResult`.
 [ ] Stop when the edit removes `CoreMsg.ActorStop` or `CoreMailboxApi.actorStop`.
-[ ] Stop when the edit changes a `SearchActor` function other than `functionStart`, `functionActorAt`, and `searchActorAt`.
+[ ] Stop when the edit changes a `SearchActor` function other than `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`.
 [ ] Stop when the edit needs a file outside Inputs.
 
 ## Tests
