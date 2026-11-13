@@ -91,27 +91,25 @@ type AgentAskTests() =
 
     [<Fact>]
     member _.``Ask extract carries Graph.focus from launch``() =
-        let seen = ref None
-        let probe: ActorFn =
-            fun input coreChanges ->
+        let seen : Graph option ref = ref None
+        let probe: ActorFunction =
+            fun run changes ->
                 async {
-                    seen := input.graph.focus
-                    let caller =
-                        { authority = Authority "Actor"
-                          name = ""
-                          secret = input.secret }
-                    let! _ =
-                        CoreDoor.actorStop
-                            (CoreDoor.forCaller caller coreChanges)
-                            ActorSucceeded
+                    seen := Some (run.getGraph ())
+                    let! _ = changes.actorStop ActorSucceeded
                     return ()
                 }
         withHost (fun host pool -> task {
-            registerActor pool "probe" probe
             let! runDefinitionId = seedCommand host "?probe"
-            let! request = startOnCommand host runDefinitionId
+            let! request =
+                startFromFunction host probe runDefinitionId
             do! expectActorSucceeded host pool request.focusId
-            Assert.Equal(Some runDefinitionId, !seen)
+            match !seen with
+            | None -> Assert.Fail("actor did not read getGraph")
+            | Some graph ->
+                Assert.Equal(None, graph.focus)
+                Assert.True(
+                    Map.containsKey runDefinitionId graph.nodes)
         })
 
     [<Fact>]

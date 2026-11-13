@@ -71,11 +71,12 @@ type CancelByFocusTests() =
 
     [<Fact>]
     member _.``Change before Cancel keeps the accepted children``() =
-        let posted, probe = postChildThenWait "kept-change"
         withHost (fun host pool -> task {
-            registerActor pool "probe" probe
             let! runDefinitionId = seedCommand host "?probe"
-            let! request = startOnCommand host runDefinitionId
+            let posted, probe =
+                postChildThenWait runDefinitionId "kept-change"
+            let! request =
+                startFromFunction host probe runDefinitionId
             do! awaitHang posted
             do! cancelFocus host request.focusId
             do! expectActorCancelled host pool request.focusId

@@ -113,11 +113,6 @@ let private sampleRequest zoomId focusId runDefinitionId graphIds : ActorStart =
       graphIds = graphIds
       eventId = EventId.zero }
 
-let private actorCaller secret : Caller =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
 let private replaceFocusChild focusId text =
     let childId = NodeId.New()
     { id = EventId.zero
@@ -350,41 +345,47 @@ let seedCommand host text =
         return runDefinitionId
     }
 
-let startOnCommand host runDefinitionId =
+/// Function start on the command node. Places Order.StartActor.
+let startFromFunction
+    host
+    (actor: ActorFunction)
+    runDefinitionId
+    =
     task {
         let request =
             sampleRequest
-                runDefinitionId runDefinitionId runDefinitionId [ runDefinitionId ]
+                runDefinitionId
+                runDefinitionId
+                runDefinitionId
+                [ runDefinitionId ]
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = "probe"
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
         let! result =
-            CoreMailboxApi.coreMailboxStartActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActorFromFunction
+                host
+                testCaller
+                placement
             |> Async.StartAsTask
-        requireOk "start command" result
+        requireOk "start command" result |> ignore
         return request
     }
 
-let registerActor pool name actorFn =
-    pool.register (ActorName name) actorFn
-
-let postChildThenWait childText =
+/// Posts one owned child under the launch focus, then stays live.
+let postChildThenWait focusId childText =
     let posted = TaskCompletionSource<unit>()
-    let actor: ActorFn =
-        fun input coreChanges ->
+    let actor: ActorFunction =
+        fun _ changes ->
             async {
-                let event =
-                    replaceFocusChild input.focusId childText
-                let! accepted =
-                    CoreDoor.postEvents
-                        (CoreDoor.forCaller
-                            (actorCaller input.secret)
-                            coreChanges)
-                        [ event ]
+                let event = replaceFocusChild focusId childText
+                let! accepted = changes.postChanges [ event ]
                 match accepted with
                 | Ok _ -> posted.TrySetResult() |> ignore
                 | Error err ->
                     posted.TrySetException(Exception err) |> ignore
-                let! ct = Async.CancellationToken
-                while not ct.IsCancellationRequested do
-                    do! Async.Sleep 20
+                do! Async.Sleep 60_000
             }
     posted, actor
 
