@@ -1,14 +1,39 @@
-STOP: `EventBody.ActorStart` in `src/Shared/History.fs` builds `Order.StartActorDeprecated`. Remake that use first. Proposed ticket: 29 — Give the client start its own body. One job: `EventBody.ActorStart` stays the client request and stops building `Order.StartActorDeprecated`.
+STOP: Renaming `Order.StartActorDeprecated` to `Order.ClientRequestActor`, and `EventBody.ActorStart` with `(|ActorStart|_|)` to `RequestActor`, changes 10 source files and 13 test files. [Size limit](../../../context/size-limit.md) allows 8 source files and 4 test files.
 
-## Present situation
+Wire kind `startActor` stays. Client and server share `encodeOrder` and `decodeOrder`.
 
-[ ] Process step 1 stops on one Working input. `dispatchStartLoadSaveCommand` calls `dispatchActorStartResult`. `CoreActorPool.startLoadSaveCommand` returns `Ok None` for `LoadSavePath.Desk` and for `LoadSavePath.Git`. `dispatchActorStartResult` calls `finishReadyStart` when that start returns `Some secret`.
-[ ] `finishReadyStart` appends `EventBody.ActorStart`. Its arguments are `ActorStart`, `Credential`, and `CoreChangesDoor`.
-[ ] `Order.StartActor` stores `ActorOrder`. `ActorOrder` stores the curried `ActorFunction`.
-[ ] ``Desk load-save runs no Actor and posts no StartActor`` requires the Desk history to hold no `Order.StartActor`.
-[ ] A Desk `ActorFunction` belongs to [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). Arch leaves `postLoadSaveCommand` as the handler that fills that function.
-[ ] `queueStart` queues `EventBody.ActorStart`.
-[ ] `decodeOrder` builds `Order.StartActorDeprecated` from wire kind `startActor`.
-[ ] Giving `EventBody.ActorStart` its own representation, and then deleting the case, stays inside `History.fs`, `EventJson.fs`, `MailboxLog.fs`, `CoreMailboxLoop.fs`, and `EventJsonTests.fs`.
-[ ] Recording `Order.StartActor` from the Desk path also takes `CoreMailboxActors.fs`, `CoreMailboxLoad.fs`, `CoreActorPool.fs`, `DeskLoadPush.fs`, and `LoadSaveCommandTests.fs`. That set passes the size limit in [Size limit](../../../context/size-limit.md).
-[ ] This run edits no file under `src/` or `tests/`.
+`historyBody` keeps its arm. That arm returns `Ok (EventBody.Order order)` for this order, and `orderOfBody` reads any `EventBody.Order`, so a stored log can still hold the case.
+
+`postPlacedOrder` is the queue refusal: `Error "ClientRequestActor is retired"`, and the order is not posted. `placeOrder` uses that same refusal. `EventBody.RequestActor` stays the client request and still builds `Order.ClientRequestActor`. The server still converts that request into `Order.StartActor`.
+
+`src/` and `tests/` still use `Order.StartActorDeprecated` and `EventBody.ActorStart`.
+
+## Files the build would change
+
+[ ] `src/Shared/History.fs` renames the order case and the request builders.
+[ ] `src/Shared/EventJson.fs` renames the codec arms and keeps wire kind `startActor`.
+[ ] `src/Shared/MailboxLog.fs` renames the `historyBody` arm and keeps the `Ok` result.
+[ ] `src/Shared/RunLaunch.fs` queues `EventBody.RequestActor`.
+[ ] `src/Shared/ActorLive.fs` matches `EventBody.RequestActor` in `applyEvent` and `resultOf`.
+[ ] `src/Server/Core/MailboxHost.fs` refuses `Order.ClientRequestActor` in `postPlacedOrder`.
+[ ] `src/Server/Core/CoreMailboxLoop.fs` uses that same refusal in `placeOrder`.
+[ ] `src/Server/Core/CoreMailboxActors.fs` uses `RequestActor` in `finishReadyStart` and `dispatchPostEvent`.
+[ ] `src/Server/Core/CoreMailboxApi.fs` matches `RequestActor` in `expandStored` and `affirmedStart`.
+[ ] `src/Server/Core/CoreEventDispatch.fs` matches `RequestActor` in `completeOther`.
+[ ] `tests/Shared.Tests/EventJsonTests.fs` builds `Order.ClientRequestActor` in the order round-trip.
+[ ] `tests/Shared.Tests/EventTests.fs` builds and matches `EventBody.RequestActor`.
+[ ] `tests/Shared.Tests/RunEditCommitTests.fs` matches `EventBody.RequestActor`.
+[ ] `tests/Shared.Tests/SyncLogicTests.fs` builds `EventBody.RequestActor`.
+[ ] `tests/Shared.Tests/ActorLiveTests.fs` builds `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/TestActorCommandErrorTests.fs` matches `EventBody.RequestActor` and adds ``postPlacedOrder refuses ClientRequestActor and appends nothing``.
+[ ] `tests/Server.Tests/LoadSaveCommandTests.fs` matches `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` builds `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/OrderedEventStreamTests.fs` builds and matches `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/QueryActorTests.fs` builds and matches `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` builds `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/ActorOrderFromStartTests.fs` matches `EventBody.RequestActor`.
+[ ] `tests/Server.Tests/ApiPostCommandTests.fs` builds `EventBody.RequestActor`.
+
+## Suites
+
+This run ran no suite.
