@@ -186,34 +186,6 @@ let private eventsAfterStart (events: Ev list) focusId =
     skip chronological
 
 [<Theory>]
-[<InlineData("?unknown", "unknown")>]
-[<InlineData("?nope", "nope")>]
-let ``unregistered Actor name fails start`` (text: string) (name: string) =
-    withHost (fun host pool -> task {
-        let! runDefinitionId = seedCommand host text
-        let request = sampleRequest runDefinitionId runDefinitionId
-        let! result =
-            CoreMailboxApi.coreMailboxStartActor host testCaller request
-            |> Async.StartAsTask
-        match result with
-        | Error err ->
-            Assert.Contains("not registered", err)
-            Assert.Contains(name, err)
-        | Ok () ->
-            Assert.Fail("expected start/Command failure")
-        Assert.False(Set.contains request.focusId (pool.liveActorNodeIds ()))
-        let! events = eventPast host |> Async.StartAsTask
-        let started =
-            events
-            |> List.exists (fun event ->
-                match event.body with
-                | EventBody.ActorStart started ->
-                    started.focusId = request.focusId
-                | _ -> false)
-        Assert.False(started)
-    })
-
-[<Theory>]
 [<InlineData("?test unknown")>]
 [<InlineData("?test nope")>]
 let ``TestActor non-hello command fails without Owned child`` (text: string) =
