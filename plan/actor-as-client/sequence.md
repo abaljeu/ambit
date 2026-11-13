@@ -19,4 +19,4 @@
 - [ ] [14 — Move runtime and session tests](issues/14-move-runtime-and-session-tests/14-move-runtime-and-session-tests-ticket.md)
 - [ ] [01 — Actor-as-client duplex](issues/01-actor-as-client-duplex.md)
 - [ ] [02 — Graph handoff](issues/02-graph-handoff.md)
-- [ ] [28 — Limit the AI extract to the visible list](issues/28-limit-the-ai-extract-to-the-visible-list/28-limit-the-ai-extract-to-the-visible-list-ticket.md)
+- [x] [28 — Limit the AI extract to the visible list](issues/28-limit-the-ai-extract-to-the-visible-list/28-limit-the-ai-extract-to-the-visible-list-ticket.md)

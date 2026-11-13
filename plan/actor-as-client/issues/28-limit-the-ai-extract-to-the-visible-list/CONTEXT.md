@@ -8,4 +8,4 @@ This folder is ticket 28 — Limit the AI extract to the visible list.
 
 ## Stage
 
-build
+review
