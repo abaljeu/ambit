@@ -6,7 +6,7 @@
 - [x] [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md)
 - [x] [24 — Move the remaining ActorStart writers onto StartActor](issues/24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md)
 - [x] [27 — Reject unknown Run commands before the queue](issues/27-reject-unknown-run-commands-before-the-queue/27-reject-unknown-run-commands-before-the-queue-ticket.md)
-- [ ] [26 — Retire the posted named start](issues/26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md)
+- [x] [26 — Retire the posted named start](issues/26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md)
 - [ ] [25 — Remove the coreMailboxStartActor door](issues/25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md)
 - [ ] [16 — Delete the old Order cases](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md)
 - [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md)
