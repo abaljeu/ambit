@@ -3,7 +3,7 @@
 One job: `CoreMsg.ActorStop` leaves. The stop that remains is `Notice.ActorStopped`, posted by the pool. This is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The reason is the 2026-10-24 decision in [core-refinement](../project.md): an Actor ends, and the pool posts the stop.
 
 Type: coding
-Blockers: [118 — Test Actors return their result](118-test-actors-return-their-result.md)
+Blockers: [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md). [118 — Test Actors return their result](118-test-actors-return-their-result.md) is superseded by this ticket. Alan, 2026-11-13.
 
 ## Scope
 
@@ -23,7 +23,7 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 
 ### Match sites
 
-[x] After 117 and 118, no Actor body calls a stop. The remaining `CoreMailboxApi.actorStop` callers are `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` and ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs`.
+[x] After 117, no Actor body calls a stop. The remaining `CoreMailboxApi.actorStop` callers are the two recording-pool tests in `tests/Server.Tests/CoreMailboxDoorTests.fs`, `postActorStop` in `tests/Server.Tests/CoreMsgActorCasesTests.fs`, and ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs`.
 [x] ``ActorStop with Test credentials is refused``, ``ActorStop with Browser credentials is refused``, and ``ActorStop with Parse credentials is refused`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs` send `CoreMsg.ActorStop`.
 [x] ``fetch completes before the workspace lock then the pull merges and marks`` in `tests/Server.Tests/GithubTransportLoadPullTests.fs` builds an `ActorChanges` record with an `actorStop` field.
 [x] ``mailbox appends StartActor and ActorStop in lifecycle order`` starts `TestActor.functionActorAt`. It does not call `CoreMailboxApi.actorStop`. After 117 the pool posts that stop.
@@ -34,10 +34,13 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 [x] The three credential tests expect `Error CoreAuth.refuse` and no `finish` call.
 [x] ``actorStop after cancel does not emit a root Focus ActorStop`` posts a stop after Cancel and expects one stop in the log.
 [x] `postActorStop` is the helper those case tests call.
+[x] ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` call `CoreMailboxApi.actorStop`.
+[x] `poolForFixedSecret` in `tests/Server.Tests/TestBackend.fs` sets `trySecretForActorNode` to a function that returns `None`. Those two recording pools leave that function as `None`.
+[x] After 117, `CoreMailboxLoop.dispatchItem` finishes a run for `Notice.ActorStopped` when `trySecretForActorNode` returns a secret.
 
 ### Copy-from
 
-[x] ``ActorStopped Notice drops live row`` in 118 posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`, then reads the log. `postActorStop` and the Cancel test take that shape.
+[x] ``ActorStopped for an idle focus logs nothing`` in 117 posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`. The two door tests, `postActorStop`, and the Cancel test use that post for a focus that has a run.
 
 ### Overlap
 
@@ -56,6 +59,8 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 [x] `CoreEventDispatch.actorStop` still serves `RecordSearchStop`.
 [ ] `CoreMsg.ActorStop` and its four match arms leave.
 [ ] `CoreDoor.actorStop`, `CoreMailboxApi.actorStop`, `ActorChanges.actorStop`, and `CoreMailboxActors.dispatchActorStop` leave.
+[ ] ``CoreMailboxApi.actorStop with valid credential drops live row`` is renamed ``ActorStopped Notice drops live row``. It posts `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`. Its recording pool's `trySecretForActorNode` returns the live secret. The `finish` assertion stays.
+[ ] ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` is renamed ``ActorStopped Notice is logged and drops live row``. It posts the same notice, then reads one stop of that focus. Its recording pool's `trySecretForActorNode` returns the live secret. The stop-body assertion stays.
 [ ] `postActorStop` posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`, then reads the log.
 [ ] ``actorStop after cancel does not emit a root Focus ActorStop`` posts `Notice.ActorStopped` after the Cancel. The log holds one stop.
 [ ] The three credential-refusal tests leave. A notice has no caller to refuse.
@@ -76,20 +81,22 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] `postActorStop` posts `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`, then reads the log.
-3. [ ] ``actorStop after cancel does not emit a root Focus ActorStop`` posts `Notice.ActorStopped` after the Cancel. The log holds one stop.
-4. [ ] Remove the three credential-refusal tests.
-5. [ ] Remove `actorStop` from the `ActorChanges` record in `GithubTransportLoadPullTests`.
-6. [ ] Remove `CoreDoor.actorStop`. `CoreDoor.actorChanges` no longer sets `actorStop`.
-7. [ ] Remove `ActorChanges.actorStop` from `src/Shared/History.fs`.
-8. [ ] Remove `CoreMailboxApi.actorStop`.
-9. [ ] Remove `CoreMailboxActors.dispatchActorStop`.
-10. [ ] Remove `ActorStop` from `CoreMsg` and from `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`. The `RecordSearchStop` arms stay.
+2. [ ] Rename ``CoreMailboxApi.actorStop with valid credential drops live row`` to ``ActorStopped Notice drops live row``. The test posts `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`. Its recording pool's `trySecretForActorNode` returns the live secret.
+3. [ ] Rename ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` to ``ActorStopped Notice is logged and drops live row``. The test posts the same notice, then reads one stop of that focus. Its recording pool's `trySecretForActorNode` returns the live secret.
+4. [ ] `postActorStop` posts `Notice.ActorStopped` of the focus with `CoreMailboxApi.postNotice`, then reads the log.
+5. [ ] ``actorStop after cancel does not emit a root Focus ActorStop`` posts `Notice.ActorStopped` after the Cancel. The log holds one stop.
+6. [ ] Remove the three credential-refusal tests.
+7. [ ] Remove `actorStop` from the `ActorChanges` record in `GithubTransportLoadPullTests`.
+8. [ ] Remove `CoreDoor.actorStop`. `CoreDoor.actorChanges` no longer sets `actorStop`.
+9. [ ] Remove `ActorChanges.actorStop` from `src/Shared/History.fs`.
+10. [ ] Remove `CoreMailboxApi.actorStop`.
+11. [ ] Remove `CoreMailboxActors.dispatchActorStop`.
+12. [ ] Remove `ActorStop` from `CoreMsg` and from `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`. The `RecordSearchStop` arms stay.
 
 ## Outputs
 
 [ ] Source files: `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreDoor.fs`, `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxActors.fs`, and `src/Shared/History.fs`. 7 source files.
-[ ] Test files: `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/CancelByFocusTests.fs`, and `tests/Server.Tests/GithubTransportLoadPullTests.fs`. 3 test files.
+[ ] Test files: `tests/Server.Tests/CoreMailboxDoorTests.fs`, `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/CancelByFocusTests.fs`, and `tests/Server.Tests/GithubTransportLoadPullTests.fs`. 4 test files. That is the size-limit count.
 
 ## Stop when
 
@@ -103,6 +110,8 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Server.Tests`: ``ActorStopped Notice drops live row``
+  - `tests/Server.Tests`: ``ActorStopped Notice is logged and drops live row``
   - `tests/Server.Tests`: `CoreMsgActorCasesTests`
   - `tests/Server.Tests`: ``actorStop after cancel does not emit a root Focus ActorStop``
   - `tests/Server.Tests`: ``mailbox appends StartActor and ActorStop in lifecycle order``

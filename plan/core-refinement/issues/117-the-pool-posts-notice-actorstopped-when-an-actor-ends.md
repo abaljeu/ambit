@@ -1,6 +1,6 @@
 # 117 — The pool posts Notice.ActorStopped when an Actor ends
 **Status**: defined
-One job: The pool posts `Notice.ActorStopped` when an Actor's work returns. The Actor stops sending the stop. This is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The reason is the 2026-10-24 decision in [core-refinement](../project.md): an Actor ends, and the pool posts the stop.
+One job: The pool posts `Notice.ActorStopped` when an Actor's work returns. The Actor stops sending the stop. This is a strict refactor. The stop row keeps `Authority "Actor"`, so the observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. ``mailbox appends StartActor and ActorStop in lifecycle order`` stays unchanged. The reason is the 2026-10-24 decision in [core-refinement](../project.md), and Alan, 2026-11-13, on the stop-row authority.
 
 Type: coding
 Blockers: [113 — Actors return their ActorResult](113-actors-return-their-actorresult.md). [81 — Log Actor stops as Notices](81-log-actor-and-search-stops-as-notices.md) is `coded`.
@@ -32,7 +32,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 [x] `TestActor.dispatch` calls `CoreDoor.actorStop`. `TestActor.runBehavior` calls `changes.actorStop`.
 [x] `CoreMailboxActors.dispatchActorStop` checks `Authority "Actor"`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
 [x] `CoreMailboxActors.runCancel` appends `EventBody.ActorStop` of the focus and `ActorCancelled`, then calls `pool.finish`. A focus with no live run logs nothing.
-[x] `CoreMailboxLoop.runMsg` still matches `CoreMsg.ActorStop` and calls `dispatchActorStop`. Tests call `CoreMailboxApi.actorStop` until [118 — Test Actors return their result](118-test-actors-return-their-result.md) and [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md).
+[x] `CoreMailboxLoop.runMsg` still matches `CoreMsg.ActorStop` and calls `dispatchActorStop`. Tests call `CoreMailboxApi.actorStop` until [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md).
 
 ### Existing tests
 
@@ -42,7 +42,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 ### Copy-from
 
-[x] `CoreEventDispatch.logNotice` is the notice append. `CoreMailboxLoop.dispatchItem` is the notice arm. `CoreActorPool.trySecretForActorNode` is the live-row lookup `dispatchActorStop` does with `getActorNodeId`.
+[x] `CoreEventDispatch.actorStop` is the stop-row append that stores the caller authority. `CoreEventDispatch.logNotice` is the append for every other notice. `CoreMailboxLoop.dispatchItem` is the notice arm. `CoreActorPool.trySecretForActorNode` is the live-row lookup `dispatchActorStop` does with `getActorNodeId`. `CoreDoor.actorCaller` builds the Actor caller from a secret.
 
 ### Overlap
 
@@ -52,9 +52,11 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 ### Envelope
 
-[x] A stop sent by an Actor is logged with that Actor's authority. The lifecycle test reads `Authority "Actor"`.
-[x] A notice logged by `logNotice` has `Authority ""`.
-[ ] Alan confirms the stop row's authority. The body stays `EventBody.ActorStop` of the same focus and the same `ActorResult`. The open choice is `Authority "Actor"` or the blank authority `logNotice` stores. The build stops until that confirmation.
+[x] Alan, 2026-11-13: the pool-posted stop row keeps `Authority "Actor"`.
+[x] `CoreEventDispatch.actorStop` stores the caller authority. An Actor caller stores `Authority "Actor"`.
+[x] `CoreEventDispatch.logNotice` stores `Authority ""`.
+[x] ``mailbox appends StartActor and ActorStop in lifecycle order`` asserts `Authority "Actor"` and the stop body. That test stays unchanged.
+[ ] The `Notice.ActorStopped` arm logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller` of the live secret, the actor node id, and the result. The stored authority is `Authority "Actor"`. Every other notice keeps `logNotice`.
 
 ### Known limit
 
@@ -71,7 +73,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 [x] `runCancel` logs `Notice.ActorStopped` of the focus and `ActorCancelled` through the `EventBody.ActorStop` shell, then calls `pool.finish`.
 [ ] `runSchedule` runs the work. On a returned result it posts `Notice.ActorStopped` of `row.actorNodeId` and that result through `CoreMailboxApi.postNotice` on `coreChanges.host`.
 [ ] Work that is cancelled posts nothing.
-[ ] For `Notice.ActorStopped`, `dispatchItem` calls `pool.trySecretForActorNode`. A secret logs the notice, then calls `pool.finish` with that secret and the result. No secret logs nothing.
+[ ] For `Notice.ActorStopped`, `dispatchItem` calls `pool.trySecretForActorNode`. A secret logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller` of that secret, then calls `pool.finish` with that secret and the result. The stored authority is `Authority "Actor"`. No secret logs nothing and finishes nothing.
 [ ] Every other notice stays on today's log-then-apply path.
 [ ] The Actor bodies return the result and do not call a stop. `RunAgentActor.stop` leaves.
 
@@ -83,35 +85,35 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 ## Do not load
 
 [x] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, `CoreDoor.actorStop`, `CoreDoor.actorChanges`, and `ActorChanges.actorStop`. 114 — Remove CoreMsg.ActorStop removes them after the tests leave them.
-[x] `CoreMsg.RecordSearchStop` and `CoreEventDispatch.actorStop`. 24 — Post Notice.SearchStopped owns the search stop.
+[x] `CoreMsg.RecordSearchStop` stays. 24 — Post Notice.SearchStopped owns that case. `CoreEventDispatch.actorStop` stays, and the pool-posted stop uses it for the log write.
 [x] `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply`.
 [x] `CoreMailboxLoad`. Load dispatch stays there.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Wait for Alan's confirmation of the stop-row authority in Scope.
-3. [ ] `runSchedule` binds the `ActorResult`, then posts `Notice.ActorStopped` of `row.actorNodeId` and that result.
-4. [ ] A cancelled body posts nothing.
-5. [ ] `dispatchItem` handles `Notice.ActorStopped` with `trySecretForActorNode`. A secret logs that notice, then calls `pool.finish`. No secret logs nothing and finishes nothing.
-6. [ ] Other notices keep today's order.
-7. [ ] `applyNotice` stays `Ok ()` for `Notice.ActorStopped`.
-8. [ ] `GithubTransportActor.finishActor` returns the outcome and does not call `changes.actorStop`.
-9. [ ] `RunAgentActor.actorFn` returns the result. `RunAgentActor.stop` leaves.
-10. [ ] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result and do not call a stop.
-11. [ ] `TestActor.dispatch` and `TestActor.runBehavior` return the result and do not call a stop.
-12. [ ] Add the two door tests in Tests. Update the lifecycle authority assertion to the confirmed authority. The stop body assertion stays.
+2. [ ] `runSchedule` binds the `ActorResult`, then posts `Notice.ActorStopped` of `row.actorNodeId` and that result.
+3. [ ] A cancelled body posts nothing.
+4. [ ] `dispatchItem` handles `Notice.ActorStopped` with `trySecretForActorNode`. A secret logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller` of that secret, the actor node id, and the result, then calls `pool.finish`. The stored authority is `Authority "Actor"`. No secret logs nothing and finishes nothing.
+5. [ ] Other notices keep today's `logNotice` order.
+6. [ ] `applyNotice` stays `Ok ()` for `Notice.ActorStopped`.
+7. [ ] `GithubTransportActor.finishActor` returns the outcome and does not call `changes.actorStop`.
+8. [ ] `RunAgentActor.actorFn` returns the result. `RunAgentActor.stop` leaves.
+9. [ ] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result and do not call a stop.
+10. [ ] `TestActor.dispatch` and `TestActor.runBehavior` return the result and do not call a stop.
+11. [ ] Add the two door tests in Tests. ``mailbox appends StartActor and ActorStop in lifecycle order`` stays unchanged.
 
 ## Outputs
 
 [ ] Source files: `src/Server/Core/CoreActorPool.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/GithubTransportActor.fs`, `src/Server/RunAgentActor.fs`, `src/Server/SearchActor.fs`, and `src/Server/TestActor.fs`. 6 source files.
-[ ] Test files: `tests/Server.Tests/CoreMailboxDoorTests.fs` and `tests/Server.Tests/Issue41CoreMailboxTests.fs`. 2 test files.
+[ ] Test file: `tests/Server.Tests/CoreMailboxDoorTests.fs`. 1 test file. `tests/Server.Tests/Issue41CoreMailboxTests.fs` stays unchanged.
 [ ] The new tests are ``an Actor that returns logs Notice.ActorStopped`` and ``ActorStopped for an idle focus logs nothing``.
 
 ## Stop when
 
 [ ] Rewrite `117-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
-[ ] Stop when the stop-row authority is unconfirmed.
+[ ] Stop when the stop row's authority is other than `Authority "Actor"`.
+[ ] Stop when the edit changes ``mailbox appends StartActor and ActorStop in lifecycle order``.
 [ ] Stop when the edit changes the stop body or the `ActorResult`.
 [ ] Stop when the edit removes `CoreMsg.ActorStop` or `CoreMailboxApi.actorStop`.
 [ ] Stop when the edit changes a `SearchActor` function other than `functionStart`, `functionActorAt`, and `searchActorAt`.
@@ -122,7 +124,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 [ ] Add ``an Actor that returns logs Notice.ActorStopped`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`. A `root` `ActorFunction` returns `ActorSucceeded` and does not call a stop. The log holds the start, then `Notice.ActorStopped` of the focus and `ActorSucceeded`. That id is absent from `pool.liveActorNodeIds`.
 [ ] Add ``ActorStopped for an idle focus logs nothing``. The test posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice` for a focus with no run. The log gains no entry.
 [ ] ``actorStop after cancel does not emit a root Focus ActorStop`` keeps one stop in the log.
-[ ] ``mailbox appends StartActor and ActorStop in lifecycle order`` keeps the stop body. Its authority assertion follows Alan's confirmation.
+[ ] ``mailbox appends StartActor and ActorStop in lifecycle order`` stays unchanged, including `Authority "Actor"` and the stop body.
 
 ## Check
 
