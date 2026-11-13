@@ -48,7 +48,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) is building in parallel and touches `src/Server/SearchActor.fs`.
 [ ] This ticket's `SearchActor` edits are the stop calls in `functionStart`, `functionActorAt`, and `searchActorAt`.
-[x] [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md) is owned by AmbotX. Its build waits until 114 lands. This ticket does not edit that file. `searchActorAt` loses its `changes.actorStop` call here. `CoreMsg.RecordSearchStop` stays.
+[x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) Its build waits until 114 lands. This ticket does not edit that file. `searchActorAt` loses its `changes.actorStop` call here. `CoreMsg.RecordSearchStop` stays.
 
 ### Envelope
 
@@ -85,7 +85,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 ## Do not load
 
 [x] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, `CoreDoor.actorStop`, `CoreDoor.actorChanges`, and `ActorChanges.actorStop`. 114 — Remove CoreMsg.ActorStop removes them after the tests leave them.
-[x] `CoreMsg.RecordSearchStop` stays. 24 — Post Notice.SearchStopped owns that case. `CoreEventDispatch.actorStop` stays, and the pool-posted stop uses it for the log write.
+[x] `CoreMsg.RecordSearchStop` stays. 24 — Remove CoreMsg.RecordSearchStop owns that case. `CoreEventDispatch.actorStop` stays, and the pool-posted stop uses it for the log write.
 [x] `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply`.
 [x] `CoreMailboxLoad`. Load dispatch stays there.
 

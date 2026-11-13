@@ -12,7 +12,7 @@
 [ ] [102 — Place Parse changes as Order.Change](102-place-parse-changes-as-order-change.md)
 [ ] [65 — Place Undo and Redo as orders](65-undo-and-redo-resolve-their-ops-from-the-target.md)
 [ ] [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
-[ ] [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md)
+[ ] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md)
 [x] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) landed on staging in PR 522.
 [ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
 [ ] [115 — The CoreQueue post is private](115-the-corequeue-post-is-private.md)

@@ -44,7 +44,7 @@ Slice: contract. The sent stop leaves. `CoreDoor.actorStop`, `CoreMailboxApi.act
 
 ### Overlap
 
-[x] [24 — Post Notice.SearchStopped](../../online-search/issues/24-post-searchstopped-notice.md) is owned by AmbotX. This ticket does not edit that file. Its build waits until this ticket lands.
+[x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) This ticket does not edit that file. Its build waits until this ticket lands.
 [x] 24 and this ticket both touch `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, and `src/Server/Core/CoreMailboxApi.fs`. This ticket removes `CoreMsg.ActorStop` only. `RecordSearchStop` stays for 24.
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) is building in parallel on `src/Server/SearchActor.fs`.
 [ ] This ticket leaves `src/Server/SearchActor.fs` unchanged. 117 limits this chain's `SearchActor` edits to the stop calls.

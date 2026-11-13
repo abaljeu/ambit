@@ -8,7 +8,7 @@ This note is the end-game spec of the mailbox and the event log. §2 **Target sh
 
 `CoreMsg` in [CoreMsg.fs](../../src/Server/Core/CoreMsg.fs) mixes orders and queries. An order carries a `Caller` and an `AsyncReplyChannel`. A query carries an `AsyncReplyChannel` and no `Caller`. `Login`, `Logout`, and `AdmitCaller` sit on that same queue today. They leave it. Decision 8 **Session leaves**.
 
-1. **Orders** — `PostEvent`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, and `ActorStop` (`src/Server/Core/CoreMsg.fs`). 15 — Delete the old Actor starts carries `StartPeerActor`. 20 — Move Desk Load and Desk Save carries `StartLoadSaveCommand`. 09 — Start the query command, [24 — Post Notice.SearchStopped](../online-search/issues/24-post-searchstopped-notice.md), and 114 — Remove CoreMsg.ActorStop carry the other actor cases.
+1. **Orders** — `PostEvent`, `StartPeerActor`, `StartLoadSaveCommand`, `RecordSearchStart`, `RecordSearchStop`, and `ActorStop` (`src/Server/Core/CoreMsg.fs`). 15 — Delete the old Actor starts carries `StartPeerActor`. 20 — Move Desk Load and Desk Save carries `StartLoadSaveCommand`. 09 — Start the query command, [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md), and 114 — Remove CoreMsg.ActorStop carry the other actor cases.
 2. **Queries** — `GetState`, `GetEventId`, `GetEventsSince`, `GetEventHistory`, `EventsSince`.
 
 `Notice` is `NodeParsed`, `NodePersisted` of `nodeId`, `MarkUnparsed`, `NodeUploading`, and `NodeReceived`. `CoreQueue` is `Public of CoreMsg | Notice of Notice`. `CoreMailboxApi.postNotice` is a second door onto that same queue.
@@ -53,7 +53,6 @@ type Notice =
         updateTime: System.DateTime
     | PersistFailed of nodeId: NodeId * message: string
     | ActorStopped of focusId: NodeId * result: ActorResult
-    | SearchStopped of rootId: NodeId
     | NodeUnpersisted of nodeId: NodeId
 
 type EventBody =
@@ -102,7 +101,7 @@ type internal CoreQueue =
 ### Order
 1. **Change** — `Order.Change` replaces `CoreMsg.PostEvent` and `CoreMsg.PostGraphOnly`. `ChangeOrigin` is `Edit` or `Parse`. `CoreEventDispatch` reads that `origin`. The logged Change holds the op list and the `origin`.
 2. **Undo and Redo** — `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list. Accept fills an empty Op list from the inverse ops of the target. The logged Undo or Redo holds the target and the filled Op list.
-3. **StartActor** — `Order.StartActor` of `ActorOrder` is the actor start. Find and Move post that same order. [09 — Start the query command](../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) posts Find and Move and a query Run as `Order.StartActor` after the pool admits the actor and launches it. A pool refusal posts no row. The reply is the failure. That ticket deletes `CoreMsg.RecordSearchStart`. The server posts `Notice.SearchStopped` when the search ends.
+3. **StartActor** — `Order.StartActor` of `ActorOrder` is the actor start. Find and Move post that same order. [09 — Start the query command](../actor-as-client/issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md) posts Find and Move and a query Run as `Order.StartActor` after the pool admits the actor and launches it. A pool refusal posts no row. The reply is the failure. That ticket deletes `CoreMsg.RecordSearchStart`. A search stop is `Notice.ActorStopped` through the actor stop. 24 — Remove CoreMsg.RecordSearchStop removes `CoreMsg.RecordSearchStop`.
 
 [x] The case is `Order.ClientRequestActor`. The wire kind stays `startActor`. `historyBody` still accepts a stored row. [16 — Rename the client start request to ClientRequestActor](../actor-as-client/issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md).
 [x] The pool start is `startFunction`. An Actor is a thread from the .NET thread pool. It runs an actor function.
@@ -127,15 +126,14 @@ type internal CoreQueue =
 | `NodeParsed` | `ParseThread`, `LazyLoadReconciliationServer` | After a real parse or reconcile succeeds | Parsed, unless PullingFile. Queues a write when Unpersisted |
 | `ParseFailed` | `ParseThread`, `LazyLoadReconciliationServer` | The parse or reconcile Change is refused | None (logged) |
 | `NodeReceived` | `LazyLoadReconciliationServer` | git Load pull delivers or renames the file | Unparsed and Persisted, clears PullingFile |
-| `ActorStopped` | Pool | An Actor's work ends, or a Cancel stops a live run. One per run | None (logged) |
-| `SearchStopped` | Search code | A search ends | None (logged) |
+| `ActorStopped` | Pool | An Actor's work ends, or a Cancel stops a live run. One per run. A search stop is this same notice through the actor stop. | None (logged) |
 
 Only a holder of the notice function posts a Notice. No Notice is inferred from ops.
 
 ###  Other
 9. **EventBody** — History `EventBody` is `Order of Order | Notice of Notice`. The seven old cases (`Change`, `Undo`, `Redo`, `ActorStart`, `ActorStop`, `Load`, `Cancel`) leave one at a time. `Ev` keeps `id`, `submissionId`, `authority`, and `commandName` (choice (c)). For an order, accept assigns `id`, sets `submissionId` from `orderId`, `authority` from the `Caller`'s `Authority`, and `commandName` from the `PlacedOrder` (`None` is `""`). A `Notice` `Ev` has a fresh `submissionId`, an empty `authority`, and an empty `commandName`. `MailboxEventBody` and `EventBody` are one type, and `MailboxLog.Ev` leaves ([116 — One EventBody type, and MailboxLog.Ev leaves](issues/116-one-eventbody-type-and-mailboxlog-ev-leaves.md)).
 10. **Mailbox** — `Mailbox` is the mailbox. It receives `PlaceOrder`, `Ask`, and `Notice`, and logs orders and notices. `PlaceOrder` carries the Shared `PlacedOrder`, with the server `Caller` and the reply beside it. The reply is `Result<EventId, string>`. `Ask` is a query: `State`, `LastEventId`, and `EventsSince`. `Ask` is not logged. A Notice is posted as `CoreQueue.Notice`, not as a `Mailbox` case. `CoreQueue` is a public type with a private post function; only approved holders receive it ([115 — The CoreQueue post is private](issues/115-the-corequeue-post-is-private.md)).
-11. **Who sends** — A client or an Actor places an `Order`. A client sends an Order, such as `Order.Cancel`. It receives a Notice. Only a holder of the notice function posts a `Notice`. The pool and the search code hold it for the stops.
+11. **Who sends** — A client or an Actor places an `Order`. A client sends an Order, such as `Order.Cancel`. It receives a Notice. Only a holder of the notice function posts a `Notice`. The pool holds it for `Notice.ActorStopped`.
 12. **One Ev** — Each accepted `PlaceOrder` becomes one `Ev`. Each `Notice` becomes one `Ev`. That `Ev` is what clients receive. A Notice starts no client catch-up ([77 — Rename SnapshotDone to NodePersisted, and Notices start no catch-up](issues/77-rename-snapshotdone-and-notices-start-no-catch-up.md)). Stops are no exception.
 13. **Old logs** — Old-form log rows are dropped. A row of an old body kind does not decode, and the log reader skips it.
 14. **Leaves** — `CoreMsg`, `Mailbox.CoreMsg`, `TrackingDetails`, `TrackingOrder`, `MailboxEventBody`, `MailboxLog.Ev`, `ofEv`, and `toEv` leave. `MarkUnparsed` leaves `Notice`. `Notice.SnapshotDone` became `Notice.NodePersisted`. §6 **SnapshotDone**.
@@ -160,7 +158,7 @@ Only a holder of the notice function posts a Notice. No Notice is inferred from 
 16. **Order carries its envelope fields** — , revised 2026-10-24. `authority`, the order id, and `commandName` belong to an order, not to its body. Choice (c): they sit on `PlacedOrder` while placed, and on `Ev` when logged.
 17. **Expand inside Mailbox** — . Expand added `Mailbox` with today's `CoreMsg` as a case, beside `PlaceOrder` and `Ask`. Change moves messages one at a time from `CoreMsg` cases to `PlaceOrder`, queries to `Ask`, and stops to Notices. Collapse removes the `CoreMsg` case and the `CoreMsg` type.
 18. **ChangeOrigin** — . `ParseThread.postParseOps`, and `LazyLoadReconciliationServer` through `GraphOnlyChangePost.postChunks`, post through `CoreDoor.postGraphOnly`, which places `Change` with origin `Parse`. Every other `Change` poster places origin `Edit`. `CoreEventDispatch` reads the `origin` of the Change, not a `graphOnly` flag. It writes document files for origin `Edit`. Origin `Parse` keeps the file skip `PostGraphOnly` uses today. Parse posts its Changes, then `NodeParsed`.
-19. **One case each** — . Each `CoreMsg` case moves to its own case. The two stops are `Notice` cases. Every other case is an `Order` case. Cases are not merged on the move.
+19. **One case each** — . Each `CoreMsg` case moves to its own case. `ActorStop` is `Notice.ActorStopped`. `RecordSearchStop` leaves, and the search stop is that same notice. Every other case is an `Order` case. Cases are not merged on the move. Alan, 2026-11-13.
 
 [o] `CoreMsg.StartPeerActor`. [15 — Delete the old Actor starts](../actor-as-client/issues/15-delete-the-old-actor-starts/15-delete-the-old-actor-starts-ticket.md) deletes it.
 [x] The logged actor start is `Order.StartActor` of `ActorOrder`. Alan, 2026-11-09. Detail: Actor as client.
