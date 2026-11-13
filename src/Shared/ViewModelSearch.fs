@@ -124,7 +124,8 @@ module ViewModelSearch =
             { graph: Graph
               filters: PartFilter list
               discovery: DiscoveryState
-              hitsTaken: int }
+              hitsTaken: int
+              cap: int }
 
     let startSearch
         (query: string)
@@ -140,10 +141,15 @@ module ViewModelSearch =
                 { graph = graph
                   filters = filters
                   hitsTaken = 0
+                  cap = searchHitCap
                   discovery =
                     { phase = ZoomPhase
                       visited = Set.empty
                       queue = snocMany emptyQueue [ zoomRoot ] } }
+
+    /// One walk stops after `cap` hits. The default cap is `searchHitCap`.
+    let withResultCap (cap: int) (cursor: SearchCursor) : SearchCursor =
+        { cursor with cap = cap }
 
     let private cursorAfterPage
         (cursor: SearchCursor)
@@ -151,7 +157,7 @@ module ViewModelSearch =
         (discovery: DiscoveryState)
         : SearchCursor option =
         let taken = cursor.hitsTaken + limit
-        if taken >= searchHitCap then
+        if taken >= cursor.cap then
             None
         else
             Some
@@ -163,7 +169,7 @@ module ViewModelSearch =
         (count: int)
         (cursor: SearchCursor)
         : NodeSearchResult list * SearchCursor option =
-        let room = searchHitCap - cursor.hitsTaken
+        let room = cursor.cap - cursor.hitsTaken
         if room <= 0 then
             [], None
         elif count <= 0 then

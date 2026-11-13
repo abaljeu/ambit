@@ -45,7 +45,8 @@ let private walk
         { text = text
           zoomRoot = zoom
           graph = graph
-          matchKey = SearchPicture.Text text }
+          matchKey = SearchPicture.Text text
+          count = ViewModelSearch.searchHitCap }
 
 [<Fact>]
 let ``actor reply matches startSearch and takeResults`` () =
@@ -104,7 +105,8 @@ let ``reply walks from the request start`` () =
     let request: SearchPicture.Request =
         { text = "hit"
           startId = zoom
-          generation = None }
+          generation = None
+          count = ViewModelSearch.searchHitCap }
     let got = SearchActor.reply (fun () -> graph) request
     Assert.Equal<NodeId list>(
         clientIds "hit" zoom graph,
@@ -141,7 +143,8 @@ let ``reply reads the carrier graph once and stops at 200`` () =
     let request: SearchPicture.Request =
         { text = "CAPTOKEN"
           startId = graph.root
-          generation = Some 4 }
+          generation = Some 4
+          count = ViewModelSearch.searchHitCap }
     let got = SearchActor.reply getGraph request
     Assert.Equal(1, calls.Count)
     Assert.Equal(ViewModelSearch.searchHitCap, got.ids.Length)
@@ -150,6 +153,22 @@ let ``reply reads the carrier graph once and stops at 200`` () =
     Assert.Equal<NodeId list>(
         clientIds "CAPTOKEN" graph.root graph,
         got.ids)
+
+[<Fact>]
+let ``reply stops at the request count`` () =
+    let labels =
+        [ 1 .. 5 ] |> List.map (fun i -> $"CAPTOKEN {i}")
+    let graph1, ids =
+        ModelBuilder.createNodes labels (Graph.create ())
+    let graph = ownedRoot ids graph1
+    let request: SearchPicture.Request =
+        { text = "CAPTOKEN"
+          startId = graph.root
+          generation = None
+          count = 2 }
+    let got = SearchActor.reply (fun () -> graph) request
+    Assert.Equal(2, got.ids.Length)
+    Assert.Equal<NodeId list>(List.take 2 ids, got.ids)
 
 [<Fact>]
 let ``actorStart records the root`` () =
@@ -198,7 +217,8 @@ let ``postSearch returns one reply from the server graph`` () = task {
     let request: SearchPicture.Request =
         { text = "quarterly"
           startId = graph.root
-          generation = None }
+          generation = None
+          count = ViewModelSearch.searchHitCap }
     let body = Enc.toString 0 (SearchPicture.encodeRequest request)
     let! result =
         Api.postSearch (door (handle graph)) body |> Async.StartAsTask
@@ -228,7 +248,8 @@ let ``postSearch records ActorStart at the root`` () = task {
         let request: SearchPicture.Request =
             { text = "quarterly"
               startId = NodeId.New()
-              generation = None }
+              generation = None
+              count = ViewModelSearch.searchHitCap }
         let body = Enc.toString 0 (SearchPicture.encodeRequest request)
         let actorStopped = TaskCompletionSource<unit>()
         let searchActor run changes =
@@ -305,7 +326,8 @@ let ``server search returns the hits and their Want nodes`` () = task {
     let request: SearchPicture.Request =
         { text = term
           startId = after.root
-          generation = None }
+          generation = None
+          count = ViewModelSearch.searchHitCap }
     let searchBody =
         Enc.toString 0 (SearchPicture.encodeRequest request)
     use content =

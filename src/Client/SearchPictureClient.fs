@@ -15,7 +15,11 @@ let private wantNodes (body: string) : Node list =
     | Ok nodes -> nodes
     | Error _ -> []
 
-let private onBody (dispatch: Msg -> unit) (body: string) : unit =
+let private onBody
+    (count: int)
+    (dispatch: Msg -> unit)
+    (body: string)
+    : unit =
     match
         Thoth.Json.JavaScript.Decode.fromString
             SearchPicture.decodeReply
@@ -24,7 +28,7 @@ let private onBody (dispatch: Msg -> unit) (body: string) : unit =
     | Ok reply ->
         let carried = wantNodes body
         dispatch (ApplyOp (fun model ->
-            applyServerReply reply carried model))
+            applyServerReply count reply carried model))
     | Error err -> consoleLog ("[Gambol search] reply " + err)
 
 let private onHttp (status: int) (body: string) : unit =
@@ -42,7 +46,8 @@ let runSearch
     let request: SearchPicture.Request =
         { text = text
           startId = zoomRoot
-          generation = None }
+          generation = None
+          count = searchPictureCount }
     let body =
         Thoth.Json.JavaScript.Encode.toString
             0
@@ -50,7 +55,7 @@ let runSearch
     postJson
         ("/" + currentFile + "/search")
         body
-        (onBody dispatch)
+        (onBody request.count dispatch)
         onHttp
         (fun () -> consoleLog "[Gambol search] fetch failed")
         (jsonMutatingPostHeaders ())

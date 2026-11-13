@@ -10,20 +10,22 @@ module SearchActor =
         { text: string
           zoomRoot: NodeId
           graph: Graph
-          matchKey: SearchPicture.Match }
+          matchKey: SearchPicture.Match
+          count: int }
 
-    let private hitIds (text: string) (zoomRoot: NodeId) (graph: Graph) =
-        match ViewModelSearch.startSearch text zoomRoot graph with
+    let private hitIds (walk: Walk) =
+        match ViewModelSearch.startSearch walk.text walk.zoomRoot walk.graph with
         | None -> []
         | Some cursor ->
-            ViewModelSearch.takeResults System.Int32.MaxValue cursor
+            let capped = ViewModelSearch.withResultCap walk.count cursor
+            ViewModelSearch.takeResults System.Int32.MaxValue capped
             |> fst
             |> List.map (fun hit -> hit.nodeId)
 
     /// One reply from the client search algorithm. No continuation cursor.
     /// The walk uses zoom and the graph. Search does not take a focus.
     let oneReply (walk: Walk) : SearchPicture.Reply =
-        { ids = hitIds walk.text walk.zoomRoot walk.graph
+        { ids = hitIds walk
           matchKey = walk.matchKey }
 
     /// Event-source start. `zoomId`, `focusId`, and `runDefinitionId` are the
@@ -47,7 +49,8 @@ module SearchActor =
             { text = request.text
               zoomRoot = request.startId
               graph = graph
-              matchKey = SearchPicture.matchKeyOf request }
+              matchKey = SearchPicture.matchKeyOf request
+              count = request.count }
 
     /// The command Node on the server Graph is a query line.
     let isQueryRequest (graph: Graph) (request: ActorStart) =
