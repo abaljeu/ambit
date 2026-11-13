@@ -92,14 +92,22 @@ module MailboxHost =
         postItemAndAsyncReply host (fun channel ->
             CoreQueue.Public (build channel))
 
+    let internal clientRequestRetired =
+        "ClientRequestActor is retired"
+
     /// Place one Order and wait for the EventId reply.
+    /// ClientRequestActor stays off the mailbox queue and the log.
     let internal postPlacedOrder
         (host: MailboxHost)
         (caller: Caller)
         (placed: PlacedOrder)
         : Async<Result<EventId, string>> =
-        postMailboxAndAsyncReply host (fun channel ->
-            Mailbox.placeForCaller placed caller channel)
+        match placed.order with
+        | Order.ClientRequestActor _ ->
+            async.Return(Error clientRequestRetired)
+        | _ ->
+            postMailboxAndAsyncReply host (fun channel ->
+                Mailbox.placeForCaller placed caller channel)
 
     let postActorOrder
         (host: MailboxHost)

@@ -378,7 +378,7 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
           Order.Change(ops, ChangeOrigin.Edit)
           Order.Undo(EventIdFixtures.storedId 2, ops)
           Order.Redo(EventIdFixtures.storedId 3, ops)
-          Order.StartActorDeprecated start
+          Order.ClientRequestActor start
           Order.Load nodeId
           Order.CancelActor focusId ]
     orders
@@ -387,6 +387,9 @@ let ``Ev JSON round-trips each EventBody.Order case`` () =
             { changeEvent with
                 commandName = ""
                 body = EventBody.Order order }
+        if order = Order.ClientRequestActor start then
+            let json = Enc.toString 0 (EventJson.encode event)
+            Assert.Contains("startActor", json)
         Assert.Equal(event, roundTrip event))
 
 [<Fact>]

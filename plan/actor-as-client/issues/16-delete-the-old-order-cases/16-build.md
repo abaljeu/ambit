@@ -1,39 +1,22 @@
-STOP: Renaming `Order.StartActorDeprecated` to `Order.ClientRequestActor`, and `EventBody.ActorStart` with `(|ActorStart|_|)` to `RequestActor`, changes 10 source files and 13 test files. [Size limit](../../../context/size-limit.md) allows 8 source files and 4 test files.
+Check: pass
 
-Wire kind `startActor` stays. Client and server share `encodeOrder` and `decodeOrder`.
+`Order.StartActorDeprecated` is `Order.ClientRequestActor` on `Order`. `EventBody.ActorStart` and `(|ActorStart|_|)` keep those names and build and match `Order.ClientRequestActor`.
 
-`historyBody` keeps its arm. That arm returns `Ok (EventBody.Order order)` for this order, and `orderOfBody` reads any `EventBody.Order`, so a stored log can still hold the case.
+`encodeOrder` and `decodeOrder` keep wire kind `startActor`.
 
-`postPlacedOrder` is the queue refusal: `Error "ClientRequestActor is retired"`, and the order is not posted. `placeOrder` uses that same refusal. `EventBody.RequestActor` stays the client request and still builds `Order.ClientRequestActor`. The server still converts that request into `Order.StartActor`.
+`historyBody` keeps the `Order.ClientRequestActor` arm and returns `Ok (EventBody.Order order)`.
 
-`src/` and `tests/` still use `Order.StartActorDeprecated` and `EventBody.ActorStart`.
+`MailboxHost.postPlacedOrder` returns `Error "ClientRequestActor is retired"` for that order and does not post it. `placeOrder` replies with `MailboxHost.clientRequestRetired`, the same text, and appends nothing.
 
-## Files the build would change
+``postPlacedOrder refuses ClientRequestActor and appends nothing`` calls `MailboxHost.postPlacedOrder` with `Order.ClientRequestActor`. The reply is that error. `eventPast` matches the log from before the call.
 
-[ ] `src/Shared/History.fs` renames the order case and the request builders.
-[ ] `src/Shared/EventJson.fs` renames the codec arms and keeps wire kind `startActor`.
-[ ] `src/Shared/MailboxLog.fs` renames the `historyBody` arm and keeps the `Ok` result.
-[ ] `src/Shared/RunLaunch.fs` queues `EventBody.RequestActor`.
-[ ] `src/Shared/ActorLive.fs` matches `EventBody.RequestActor` in `applyEvent` and `resultOf`.
-[ ] `src/Server/Core/MailboxHost.fs` refuses `Order.ClientRequestActor` in `postPlacedOrder`.
-[ ] `src/Server/Core/CoreMailboxLoop.fs` uses that same refusal in `placeOrder`.
-[ ] `src/Server/Core/CoreMailboxActors.fs` uses `RequestActor` in `finishReadyStart` and `dispatchPostEvent`.
-[ ] `src/Server/Core/CoreMailboxApi.fs` matches `RequestActor` in `expandStored` and `affirmedStart`.
-[ ] `src/Server/Core/CoreEventDispatch.fs` matches `RequestActor` in `completeOther`.
-[ ] `tests/Shared.Tests/EventJsonTests.fs` builds `Order.ClientRequestActor` in the order round-trip.
-[ ] `tests/Shared.Tests/EventTests.fs` builds and matches `EventBody.RequestActor`.
-[ ] `tests/Shared.Tests/RunEditCommitTests.fs` matches `EventBody.RequestActor`.
-[ ] `tests/Shared.Tests/SyncLogicTests.fs` builds `EventBody.RequestActor`.
-[ ] `tests/Shared.Tests/ActorLiveTests.fs` builds `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/TestActorCommandErrorTests.fs` matches `EventBody.RequestActor` and adds ``postPlacedOrder refuses ClientRequestActor and appends nothing``.
-[ ] `tests/Server.Tests/LoadSaveCommandTests.fs` matches `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` builds `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/OrderedEventStreamTests.fs` builds and matches `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/QueryActorTests.fs` builds and matches `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/CoreMailboxDoorTests.fs` builds `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/ActorOrderFromStartTests.fs` matches `EventBody.RequestActor`.
-[ ] `tests/Server.Tests/ApiPostCommandTests.fs` builds `EventBody.RequestActor`.
+``Ev JSON round-trips each EventBody.Order case`` builds `Order.ClientRequestActor`. The encoded event contains `startActor`, and the event round-trips.
+
+A search of `src/` and `tests/` for `StartActorDeprecated` is empty.
 
 ## Suites
 
-This run ran no suite.
+- ``Ev JSON round-trips each EventBody.Order case`` passed 1, failed 0, skipped 0.
+- ``postPlacedOrder refuses ClientRequestActor and appends nothing`` passed 1, failed 0, skipped 0.
+- `scripts/agent-test.sh --full`: `tests/Server.Tests` passed 765, failed 0, skipped 1. Total 766.
+- `scripts/agent-test.sh --full`: `tests/Shared.Tests` passed 1940, failed 0, skipped 3. Total 1943.

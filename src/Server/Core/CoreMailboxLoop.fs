@@ -273,8 +273,8 @@ module internal CoreMailboxLoop =
                 context placed caller reply focusId
         | Order.StartActor order ->
             replyActorOrder context placed caller reply order
-        | Order.StartActorDeprecated _ ->
-            reply.Reply(Error "StartActorDeprecated is retired")
+        | Order.ClientRequestActor _ ->
+            reply.Reply(Error MailboxHost.clientRequestRetired)
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with

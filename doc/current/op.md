@@ -52,7 +52,7 @@ A single Graph modification, to a Node Header or to its Children.
 [ ] `EventBody` is `Order of PlacedOrder | Notice of Notice`. The logged Change holds the op list. `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`. `Order.Undo` and `Order.Redo` carry the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 18 ChangeOrigin.
 [o] ActorStart and ActorStop: an Actor record. No Op list.
 [x] `Order.StartActor` carries `ActorOrder`.
-[ ] `Order.ClientRequestActor` carries `ActorStart`. `EventBody.RequestActor` builds that order.
+[x] `Order.ClientRequestActor` carries `ActorStart`. `EventBody.ActorStart` builds that order.
 [ ] `Notice.ActorStopped` carries `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 
 ## Explanation

@@ -340,7 +340,7 @@ let ``?test Run admits the caller and queues ActorOrder`` () =
                 match event.body with
                 | EventBody.ActorStart _ -> true
                 | _ -> false)
-        Assert.False(deprecated, "StartActorDeprecated still queued")
+        Assert.False(deprecated, "ClientRequestActor still queued")
         let! state =
             CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state = requireOk "getState" state
@@ -348,6 +348,24 @@ let ``?test Run admits the caller and queues ActorOrder`` () =
             1,
             helloChildren state.graph runDefinitionId runDefinitionId
             |> List.length)
+    })
+
+[<Fact>]
+let ``postPlacedOrder refuses ClientRequestActor and appends nothing`` () =
+    withHost (fun host _ -> task {
+        let! before = eventPast host |> Async.StartAsTask
+        let focusId = NodeId.New()
+        let request = sampleRequest focusId focusId
+        let! reply =
+            MailboxHost.postPlacedOrder host testCaller {
+                orderId = OrderId.New()
+                authority = testCaller.authority
+                commandName = None
+                order = Order.ClientRequestActor request }
+            |> Async.StartAsTask
+        Assert.Equal(Error "ClientRequestActor is retired", reply)
+        let! after = eventPast host |> Async.StartAsTask
+        Assert.Equal<Ev list>(before, after)
     })
 
 let private encodeRequest (request: ActorStart) =

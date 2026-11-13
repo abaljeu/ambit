@@ -128,7 +128,7 @@ decodeActorOrder : string -> Result<ActorOrder, string>
 
 ### Log actor order
 
-[ ] `MailboxLog.historyBody` accepts `Order.StartActor` and `Order.ClientRequestActor` (`src/Shared/MailboxLog.fs`).
+[x] `MailboxLog.historyBody` accepts `Order.StartActor` and `Order.ClientRequestActor` (`src/Shared/MailboxLog.fs`).
 
 ```fsharp
 historyBody : Order -> Result<EventBody, string>
@@ -162,7 +162,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
-[ ] `postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and does not post that order. `placeOrder` uses that same refusal.
+[x] `postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and does not post that order. `placeOrder` uses that same refusal.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.
@@ -347,7 +347,7 @@ Place actor order
 
 7. **Named start today**
 
-[ ] A placed `Order.ClientRequestActor` stays out of the mailbox log.
+[x] A placed `Order.ClientRequestActor` stays out of the mailbox log.
 
 ```fsharp
 Place actor order

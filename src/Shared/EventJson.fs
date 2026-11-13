@@ -352,7 +352,7 @@ module EventJson =
                 [ "kind", Encode.string "redo"
                   "target", encodeEventId target
                   "ops", encodeOps ops ]
-        | Order.StartActorDeprecated start ->
+        | Order.ClientRequestActor start ->
             Encode.object
                 [ "kind", Encode.string "startActor"
                   "start", encodeStartRequest start ]
@@ -383,7 +383,7 @@ module EventJson =
 
     let private decodeOrderStartActor: Decoder<Order> =
         Decode.object (fun get ->
-            Order.StartActorDeprecated(
+            Order.ClientRequestActor(
                 get.Required.Field "start" decodeStartRequest))
 
     let private decodeOrderLoad: Decoder<Order> =

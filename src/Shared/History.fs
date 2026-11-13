@@ -116,7 +116,7 @@ and [<RequireQualifiedAccess>] Order =
     | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
-    | StartActorDeprecated of ActorStart
+    | ClientRequestActor of ActorStart
     | StartActor of ActorOrder
     | Load of nodeId: NodeId
     | CancelActor of actorNodeId: NodeId
@@ -173,11 +173,11 @@ module EventBody =
         | _ -> None
 
     let ActorStart (request: ActorStart) : EventBody =
-        EventBody.Order(Order.StartActorDeprecated request)
+        EventBody.Order(Order.ClientRequestActor request)
 
     let (|ActorStart|_|) (body: EventBody) =
         match body with
-        | EventBody.Order (Order.StartActorDeprecated request) ->
+        | EventBody.Order (Order.ClientRequestActor request) ->
             Some request
         | _ -> None
 
