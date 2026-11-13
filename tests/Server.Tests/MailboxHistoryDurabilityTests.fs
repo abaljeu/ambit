@@ -54,8 +54,8 @@ let private eventIsStop (event: Ev) =
     | EventBody.ActorStop _ -> true
     | _ -> false
 
-/// functionActorAt stops itself after the start reply. Wait so dispose
-/// cannot cut off that ActorStop.
+/// The pool posts Notice.ActorStopped when the actor's work returns.
+/// Wait so dispose cannot cut off that ActorStop.
 let rec private waitForActorStop host remaining = task {
     let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
     if List.exists eventIsStop history.events then
@@ -67,8 +67,8 @@ let rec private waitForActorStop host remaining = task {
         do! waitForActorStop host (remaining - 1)
 }
 
-/// The change is posted first. functionActorAt's stop is queued during
-/// start, so a later change would race that stop.
+/// The change is posted first. The pool posts Notice.ActorStopped when
+/// the actor's work returns, so a later change would race that stop.
 let private runMixedHello host childText = task {
     let childId, event = addRootChildEvent childText
     let! accepted =

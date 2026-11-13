@@ -48,9 +48,6 @@ module CoreDoor =
     let postGraphOnly door event =
         callIfReady CoreMailboxApi.postGraphOnly door event
 
-    let actorStop door result =
-        callIfReady CoreMailboxApi.actorStop door result
-
     let loadNode door subject =
         callIfReady CoreMailboxApi.mbLoadNode door subject
 
@@ -64,7 +61,6 @@ module CoreDoor =
                 let! result = postEvents door evs
                 return acceptedUnit result
             }
-        let stop result = actorStop door result
         let graph () = graphAtEvent door
         let load nodeId = loadNode door nodeId
         let notice notice = CoreMailboxApi.postNotice door.host notice
@@ -75,7 +71,6 @@ module CoreDoor =
                 return Result.map ignore result
             }
         { postChanges = post
-          actorStop = stop
           graphAtEvent = graph
           loadNode = load
           postNotice = notice

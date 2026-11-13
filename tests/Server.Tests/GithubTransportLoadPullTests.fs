@@ -520,7 +520,6 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
         let marked = ResizeArray<string>()
         let markChanges = {
             postChanges = fun _ -> async.Return (Ok ())
-            actorStop = fun _ -> async.Return (Ok ())
             graphAtEvent =
                 fun () ->
                     async.Return (

@@ -48,7 +48,6 @@ type CoreActorPool =
       drop: Credential -> unit
       finish: Credential -> ActorResult -> Result<unit, string>
       liveActorNodeIds: unit -> Set<NodeId>
-      getActorNodeId: Credential -> NodeId option
       trySecretForActorNode: NodeId -> Credential option
       deliver: string * string -> Result<unit, string>
       takeInbox: string -> Result<string list, string>
@@ -387,10 +386,6 @@ module CoreActorPool =
         Map.tryFind secret model.live
         |> Option.map (fun row -> row.sessionId)
 
-    let private actorNodeOf (model: Model) secret =
-        Map.tryFind secret model.live
-        |> Option.map (fun row -> row.actorNodeId)
-
     let private clearRows (model: Model) =
         let live = model.live
         let next =
@@ -430,7 +425,6 @@ module CoreActorPool =
           drop = runDrop takeLive
           finish = runFinish takeLive
           liveActorNodeIds = fun () -> liveActorNodeIds model
-          getActorNodeId = fun secret -> actorNodeOf model secret
           trySecretForActorNode =
             fun actorNodeId -> trySecretForActorNode model actorNodeId
           deliver = fun pair -> apply (fun current -> deliverTo current pair)

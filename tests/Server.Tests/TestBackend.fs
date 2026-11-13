@@ -258,7 +258,6 @@ let poolForFixedSecret (secret: Credential) : CoreActorPool =
         drop = fun _ -> ()
         finish = fun _ _ -> Ok ()
         liveActorNodeIds = fun () -> Set.empty
-        getActorNodeId = fun _ -> Some Graph.rootId
         trySecretForActorNode = fun _ -> None }
 
 /// Mailbox that accepts Change and ActorStop without a File graph.

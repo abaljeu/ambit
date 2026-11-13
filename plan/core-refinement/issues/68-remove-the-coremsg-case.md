@@ -14,7 +14,7 @@
 [ ] [18 — Place ActorOrder through PlaceOrder](../../actor-as-client/issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md)
 [ ] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md)
 [x] [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) landed on staging in PR 522.
-[ ] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md)
+[x] [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) Status `coded`.
 [ ] [115 — The CoreQueue post is private](115-the-corequeue-post-is-private.md)
 [ ] [116 — One EventBody type, and MailboxLog.Ev leaves](116-one-eventbody-type-and-mailboxlog-ev-leaves.md)
 

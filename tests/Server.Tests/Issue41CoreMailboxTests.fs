@@ -236,7 +236,7 @@ let private eventIsStop (event: Ev) =
     | EventBody.ActorStop _ -> true
     | _ -> false
 
-/// functionActorAt queues actorStop during the start call.
+/// The pool posts Notice.ActorStopped when the actor's work returns.
 let rec private waitForActorStop host remaining = task {
     let! history =
         CoreMailboxApi.eventHistory host |> Async.StartAsTask

@@ -40,12 +40,6 @@ module internal CoreMailboxEvents =
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
             "StartLoadSaveCommand", $"{path}:{name}"
         | RecordSearchStop _ -> "RecordSearchStop", ""
-        | ActorStop (_, result, _) ->
-            match result with
-            | ActorSucceeded -> "ActorStop", "ActorSucceeded"
-            | ActorFailed _ -> "ActorStop", "ActorFailed"
-            | ActorCancelled -> "ActorStop", "ActorCancelled"
-            | ActorQuery _ -> "ActorStop", "ActorQuery"
         | PostEvent _ -> "PostEvent", ""
 
     let replyFailure error msg =
@@ -54,7 +48,6 @@ module internal CoreMailboxEvents =
             reply.Reply(Error error)
         | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
-        | ActorStop (_, _, reply) -> reply.Reply(Error error)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
 
     type Started = {
