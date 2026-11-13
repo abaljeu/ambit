@@ -16,6 +16,35 @@ let private requireOk label result =
 
 let private addRootChild text = addRootChildEvent text
 
+let private sampleActorStart: ActorStart =
+    { zoomId = Graph.rootId
+      focusId = Graph.rootId
+      runDefinitionId = Graph.rootId
+      graphIds = [ Graph.rootId ]
+      eventId = EventId.zero }
+
+let private functionPlacement (request: ActorStart) =
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor =
+              TestActor.functionActorAt
+                  request.runDefinitionId
+                  request.focusId
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    placement
+
+let private startFromFunction host request =
+    CoreMailboxApi.coreMailboxStartActorFromFunction
+        host
+        testCaller
+        (functionPlacement request)
+
+let private bodyIsStartActor (event: Ev) =
+    match event.body with
+    | EventBody.Order (Order.StartActor _) -> true
+    | _ -> false
+
 [<Fact>]
 let ``getEventsSince returns Ev after postChange`` () = task {
     let dir = newTempDir ()
@@ -93,26 +122,18 @@ let ``EventLog.restore seeds mailbox across Db restart`` () = task {
 }
 
 [<Fact>]
-let ``ActorStart persists across File restart`` () = task {
+let ``StartActor persists across File restart`` () = task {
     let dir = newTempDir ()
-    let actorSecret = Credential "persist-restore-actor"
-    let pool = poolForFixedSecret actorSecret
     let first =
         CoreMailbox.host
-            pool
+            (CoreActorPool.create ())
             (FileAgent.persist (FileAgent.create dir))
             admittedCredentials
     try
-        let request: ActorStart =
-            { zoomId = Graph.rootId
-              focusId = Graph.rootId
-              runDefinitionId = Graph.rootId
-              graphIds = [ Graph.rootId ]
-              eventId = EventId.zero }
         let! started =
-            CoreMailboxApi.coreMailboxStartActor first testCaller request
+            startFromFunction first sampleActorStart
             |> Async.StartAsTask
-        requireOk "startActor" started
+        requireOk "startActor" started |> ignore
     finally
         CoreMailboxApi.dispose first
     let second = CoreMailbox.createFile dir admittedCredentials
@@ -121,24 +142,11 @@ let ``ActorStart persists across File restart`` () = task {
             CoreMailboxApi.getEventsSince second (EventId.zero)
             |> Async.StartAsTask
         Assert.True(
-            events
-            |> List.exists (fun e ->
-                match e.body with
-                | EventBody.ActorStart _ -> true
-                | _ -> false),
-            "ActorStart missing after restore")
+            List.exists bodyIsStartActor events,
+            "StartActor missing after restore")
     finally
         CoreMailboxApi.dispose second
 }
-
-let private sampleActorStart: ActorStart =
-    { zoomId = Graph.rootId
-      focusId = Graph.rootId
-      runDefinitionId = Graph.rootId
-      graphIds = [ Graph.rootId ]
-      eventId = EventId.zero }
-
-let private stubPool secret = poolForFixedSecret secret
 
 let private withFilling filling pool body = task {
     let host = CoreMailbox.host pool filling admittedCredentials
@@ -177,17 +185,21 @@ let ``getEventsSince seed Error propagates and closes writes`` () =
     })
 
 [<Fact>]
-let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
+let ``StartActor persist Error does not keep Ev in mailbox log`` () =
     let persist = FileAgent.persist (FileAgent.create (newTempDir ()))
     let filling =
         { persist with
             handlers =
                 { persist.handlers with
-                    appendEvent = fun _ -> Error "event persist failed" } }
-    let pool = stubPool (Credential "persist-append-fail")
-    withFilling filling pool (fun host -> task {
+                    appendEvent =
+                        fun event ->
+                            match event.body with
+                            | EventBody.Order (Order.StartActor _) ->
+                                Error "event persist failed"
+                            | _ -> persist.handlers.appendEvent event } }
+    withFilling filling (CoreActorPool.create ()) (fun host -> task {
         let! started =
-            CoreMailboxApi.coreMailboxStartActor host testCaller sampleActorStart
+            startFromFunction host sampleActorStart
             |> Async.StartAsTask
         match started with
         | Ok _ -> Assert.Fail("expected appendEvent Error")
@@ -195,7 +207,9 @@ let ``ActorStart persist Error does not keep Ev in mailbox log`` () =
             Assert.Contains("event persist failed", error)
         let! history =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Empty(history.events)
+        Assert.False(
+            List.exists bodyIsStartActor history.events,
+            "StartActor kept after persist Error")
     })
 
 [<Fact>]

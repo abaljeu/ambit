@@ -162,7 +162,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
-[o] `placeOrder` runs `dispatchStartActor` for `Order.StartActorDeprecated`.
+[x] `placeOrder` replies `Error "StartActorDeprecated is retired"` for `Order.StartActorDeprecated`.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.
@@ -347,12 +347,10 @@ Place actor order
 
 7. **Named start today**
 
-[o] `dispatchStartActor` and `dispatchStartPeerActor` call `startActor` or `startPeerActor`.
+[x] A placed `Order.StartActorDeprecated` ends in Place actor order.
 
 ```fsharp
-Posted run
-Pool start
-Pool launch
+Place actor order
 ```
 
 ## 5. Module map

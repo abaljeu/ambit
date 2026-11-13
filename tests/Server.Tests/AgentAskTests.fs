@@ -90,31 +90,6 @@ type AgentAskTests() =
                 }))
 
     [<Fact>]
-    member _.``Ask extract carries Graph.focus from launch``() =
-        let seen = ref None
-        let probe: ActorFn =
-            fun input coreChanges ->
-                async {
-                    seen := input.graph.focus
-                    let caller =
-                        { authority = Authority "Actor"
-                          name = ""
-                          secret = input.secret }
-                    let! _ =
-                        CoreDoor.actorStop
-                            (CoreDoor.forCaller caller coreChanges)
-                            ActorSucceeded
-                    return ()
-                }
-        withHost (fun host pool -> task {
-            registerActor pool "probe" probe
-            let! runDefinitionId = seedCommand host "?probe"
-            let! request = startOnCommand host runDefinitionId
-            do! expectActorSucceeded host pool request.focusId
-            Assert.Equal(Some runDefinitionId, !seen)
-        })
-
-    [<Fact>]
     member _.``second launch on the same Focus is refused``() =
         withFake
             (fun _ ->

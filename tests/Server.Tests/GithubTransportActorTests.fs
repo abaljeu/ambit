@@ -656,27 +656,6 @@ let ``Load and Save return the same conflict reject shape`` operationName =
         })
 
 [<Fact>]
-let ``Peer Actor is not available through the Run actor table`` () =
-    let steps = ResizeArray<string>()
-    let deps =
-        dependencies
-            steps
-            (fun _ _ -> Ok "pulled")
-            (fun _ _ _ -> Ok(tracked, "committed"))
-            (fun _ _ _ -> Ok "pushed")
-    withActor GithubTransportOperation.Load deps "load"
-        (fun _ host _ _ seed -> task {
-            let! result =
-                CoreMailboxApi.coreMailboxStartActor host testCaller (request seed)
-                |> Async.StartAsTask
-            match result with
-            | Error err ->
-                Assert.Contains("actor 'load' not registered", err)
-            | Ok () -> Assert.Fail("Run must not start the Peer Actor")
-            Assert.Empty(steps)
-        })
-
-[<Fact>]
 let ``Peer Actor dependencies contain no credential field`` () =
     let fields recordType =
         FSharpType.GetRecordFields recordType

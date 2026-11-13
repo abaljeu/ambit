@@ -77,21 +77,6 @@ module internal CoreMailboxActors =
             | Error err -> Error err
             | Ok _ -> Ok ()
 
-    let dispatchStartActor
-        context
-        caller
-        request
-        (reply: Result<unit, string> -> unit)
-        =
-        reply (
-            dispatchActorStartResult
-                context
-                caller
-                request
-                (fun start getState ->
-                    context.pool.startActor start getState
-                    |> Result.map Some))
-
     let dispatchActorStop
         (context: MailboxContext)
         (caller: Caller)

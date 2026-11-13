@@ -14,185 +14,94 @@ let private requireOk label result =
         Assert.Fail($"{label}: {err}")
         Unchecked.defaultof<_>
 
-let private hangActor (session: string ref) : ActorFn =
-    fun input _ ->
+let private sampleRequest: Gambol.Shared.ActorStart =
+    { zoomId = Graph.rootId
+      focusId = Graph.rootId
+      runDefinitionId = Graph.rootId
+      graphIds = [ Graph.rootId ]
+      eventId = EventId.zero }
+
+/// Records the session the way RunAgentActor.actorFn does, then stays live.
+let private liveSessionActor
+    (pool: CoreActorPool)
+    (session: string ref)
+    : Gambol.Shared.ActorFunction =
+    fun run _ ->
         async {
-            session := input.sessionId
+            match pool.sessionIdFor run.secret with
+            | Some sessionId -> session := sessionId
+            | None -> ()
             do! Async.Sleep 60_000
         }
 
-let private withPool body =
+let private startFunction host actor request =
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor = actor
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    CoreMailboxApi.coreMailboxStartActorFromFunction
+        host
+        testCaller
+        placement
+
+let private waitSession (session: string ref) =
+    let deadline = DateTime.UtcNow.AddSeconds 2.0
+    while !session = "" && DateTime.UtcNow < deadline do
+        Thread.Sleep 10
+    Assert.False(String.IsNullOrEmpty !session)
+
+let private withLiveSession body =
     task {
+        let session = ref ""
         let dataDir = newTempDir ()
         let pool = CoreActorPool.create ()
-        pool.register (ActorName "root") (hangActor (ref ""))
         let host =
             CoreMailbox.host
                 pool
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
         try
-            do! body host pool
+            let! started =
+                startFunction
+                    host
+                    (liveSessionActor pool session)
+                    sampleRequest
+                |> Async.StartAsTask
+            requireOk "start" started |> ignore
+            waitSession session
+            do! body pool !session
         finally
             CoreMailboxApi.dispose host
     }
 
-let private startAt host focusId runDefinitionId graphIds =
-    CoreMailboxApi.coreMailboxStartActor
-        host
-        testCaller
-        { zoomId = Graph.rootId
-          focusId = focusId
-          runDefinitionId = runDefinitionId
-          graphIds = graphIds
-          eventId = EventId.zero }
+let private dropThenLateFails (pool: CoreActorPool) session =
+    match pool.trySecretForActorNode Graph.rootId with
+    | None -> Assert.Fail("missing live secret")
+    | Some secret -> pool.drop secret
+    match pool.deliver (session, "late") with
+    | Error "not live" -> ()
+    | other -> Assert.Fail($"drop deliver: {other}")
 
 [<Fact>]
 let ``mint deliver enqueue drop then deliver fails`` () =
-    let session = ref ""
-    let dataDir = newTempDir ()
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (hangActor session)
-    let host =
-        CoreMailbox.host
-            pool
-            (FileAgent.persist (FileAgent.create dataDir))
-            admittedCredentials
-    try
-        let started =
-            CoreMailboxApi.coreMailboxStartActor
-                host
-                testCaller
-                { zoomId = Graph.rootId
-                  focusId = Graph.rootId
-                  runDefinitionId = Graph.rootId
-                  graphIds = [ Graph.rootId ]
-                  eventId = EventId.zero }
-            |> Async.RunSynchronously
-        requireOk "start" started
-        let deadline = DateTime.UtcNow.AddSeconds 2.0
-        while !session = "" && DateTime.UtcNow < deadline do
-            Thread.Sleep 10
-        Assert.False(String.IsNullOrEmpty !session)
-        requireOk "deliver" (pool.deliver (!session, "chunk"))
-        match pool.takeInbox !session with
+    withLiveSession (fun pool session -> task {
+        requireOk "deliver" (pool.deliver (session, "chunk"))
+        match pool.takeInbox session with
         | Ok texts ->
             Assert.Equal<string list>([ "chunk" ], texts)
         | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForActorNode Graph.rootId with
-        | None -> Assert.Fail("missing live secret")
-        | Some secret -> pool.drop secret
-        match pool.deliver (!session, "late") with
-        | Error "not live" -> ()
-        | other -> Assert.Fail($"drop deliver: {other}")
-    finally
-        CoreMailboxApi.dispose host
-
-[<Fact>]
-let ``empty deliver keeps session live for a later chunk`` () =
-    let session = ref ""
-    let dataDir = newTempDir ()
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (hangActor session)
-    let host =
-        CoreMailbox.host
-            pool
-            (FileAgent.persist (FileAgent.create dataDir))
-            admittedCredentials
-    try
-        let started =
-            CoreMailboxApi.coreMailboxStartActor
-                host
-                testCaller
-                { zoomId = Graph.rootId
-                  focusId = Graph.rootId
-                  runDefinitionId = Graph.rootId
-                  graphIds = [ Graph.rootId ]
-                  eventId = EventId.zero }
-            |> Async.RunSynchronously
-        requireOk "start" started
-        let deadline = DateTime.UtcNow.AddSeconds 2.0
-        while !session = "" && DateTime.UtcNow < deadline do
-            Thread.Sleep 10
-        Assert.False(String.IsNullOrEmpty !session)
-        requireOk "empty" (pool.deliver (!session, ""))
-        requireOk "later" (pool.deliver (!session, "later"))
-        match pool.takeInbox !session with
-        | Ok texts ->
-            Assert.Equal<string list>([ ""; "later" ], texts)
-        | Error err -> Assert.Fail($"inbox: {err}")
-        match pool.trySecretForActorNode Graph.rootId with
-        | None -> Assert.Fail("missing live secret")
-        | Some secret -> pool.drop secret
-        match pool.deliver (!session, "late") with
-        | Error "not live" -> ()
-        | other -> Assert.Fail($"drop deliver: {other}")
-    finally
-        CoreMailboxApi.dispose host
-
-[<Fact>]
-let ``second start on the same runDefinitionId is rejected`` () =
-    withPool (fun host pool -> task {
-        let childId = NodeId.New()
-        let event =
-            { id = EventId.zero
-              submissionId = Guid.NewGuid()
-              authority = Authority "Browser"
-              commandName = ""
-              body =
-                EventBody.Change
-                    [ Op.NewNode(childId, "focus-2")
-                      Op.Replace(
-                          Graph.rootId,
-                          [],
-                          [ ChildNode.owner childId ]) ] }
-        let! posted =
-            CoreMailboxApi.postGraphOnly host testCaller event
-            |> Async.StartAsTask
-        requireOk "child" posted |> ignore
-        let! first =
-            startAt
-                host Graph.rootId Graph.rootId [ Graph.rootId; childId ]
-            |> Async.StartAsTask
-        requireOk "first" first
-        let! second =
-            startAt
-                host childId Graph.rootId [ Graph.rootId; childId ]
-            |> Async.StartAsTask
-        match second with
-        | Error msg ->
-            Assert.Contains(
-                "command already has a live Actor", msg)
-        | Ok _ -> Assert.Fail("expected command exclusivity")
-        Assert.True(
-            Set.contains Graph.rootId (pool.liveActorNodeIds ()))
+        dropThenLateFails pool session
     })
 
 [<Fact>]
-let ``focus exclusivity still rejects a second live Focus`` () =
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (hangActor (ref ""))
-    requireOk
-        "first"
-        (pool.startActor
-            { zoomId = Graph.rootId
-              focusId = Graph.rootId
-              runDefinitionId = Graph.rootId
-              graphIds = [ Graph.rootId ]
-              eventId = EventId.zero }
-            (fun () -> Graph.create ()))
-    |> ignore
-    match
-        pool.startActor
-            { zoomId = Graph.rootId
-              focusId = Graph.rootId
-              runDefinitionId = Graph.rootId
-              graphIds = [ Graph.rootId ]
-              eventId = EventId.zero }
-            (fun () -> Graph.create ())
-    with
-    | Error error ->
-        Assert.Contains(
-            "focus already has a live Actor",
-            StartError.text error)
-    | Ok _ -> Assert.Fail("expected focus exclusivity")
+let ``empty deliver keeps session live for a later chunk`` () =
+    withLiveSession (fun pool session -> task {
+        requireOk "empty" (pool.deliver (session, ""))
+        requireOk "later" (pool.deliver (session, "later"))
+        match pool.takeInbox session with
+        | Ok texts ->
+            Assert.Equal<string list>([ ""; "later" ], texts)
+        | Error err -> Assert.Fail($"inbox: {err}")
+        dropThenLateFails pool session
+    })
