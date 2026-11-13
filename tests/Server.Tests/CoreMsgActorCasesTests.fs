@@ -32,15 +32,10 @@ let private actorCaller secret =
       secret = secret }
 
 let private recordingPool () =
-    let started = TaskCompletionSource<Gambol.Shared.ActorStart>()
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
     let pool =
         { poolForFixedSecret (Credential "recorded") with
-            startActor =
-                fun request _ ->
-                    started.TrySetResult request |> ignore
-                    Ok (Credential "recorded")
             isLive = fun secret -> live.Contains secret
             finish =
                 fun secret result ->
@@ -53,7 +48,7 @@ let private recordingPool () =
                         Some sampleRequest.focusId
                     else
                         None }
-    started, stopped, live, pool
+    stopped, live, pool
 
 let private createHost dataDir pool =
     CoreMailbox.host
@@ -71,52 +66,48 @@ let private withHost pool body =
             CoreMailboxApi.dispose host
     }
 
-let private postStartActor host caller request =
-    CoreMailboxApi.coreMailboxStartActor host caller request
+let private startFunction host caller actor request =
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor = actor
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    CoreMailboxApi.coreMailboxStartActorFromFunction
+        host caller placement
 
 let private postActorStop host caller result =
     CoreMailboxApi.actorStop host caller result
 
 [<Fact>]
-let ``StartActor with live credentials calls startActor with ActorStart`` () =
-    let started, _, _, pool = recordingPool ()
-    withHost pool (fun host -> task {
-        let! result =
-            postStartActor host testCaller sampleRequest
-            |> Async.StartAsTask
-        requireOk "StartActor" result
-        let! handed = started.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        Assert.Equal(sampleRequest.zoomId, handed.zoomId)
-        Assert.Equal(sampleRequest.focusId, handed.focusId)
-        Assert.Equal(sampleRequest.runDefinitionId, handed.runDefinitionId)
-        Assert.Equal<NodeId list>(sampleRequest.graphIds, handed.graphIds)
-        Assert.Equal(sampleRequest.eventId, handed.eventId)
-    })
-
-[<Fact>]
-let ``StartActor reply is startActor bookkeeping without waiting for an Actor body`` () =
+let ``function start reply is bookkeeping without waiting for an Actor body`` () =
     let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+    let actor : Gambol.Shared.ActorFunction =
+        fun _ _ -> async { return () }
     withHost pool (fun host -> task {
         let sw = Stopwatch.StartNew()
         let! result =
-            postStartActor host testCaller sampleRequest
+            startFunction host testCaller actor sampleRequest
             |> Async.StartAsTask
         sw.Stop()
-        requireOk "StartActor" result
+        requireOk "function start" result |> ignore
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds 1.0)
         Assert.True(Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
-let ``GetState stamps lockPresent from the live table after startActor`` () =
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "root") (fun _ _ -> async.Return ())
+let ``GetState stamps lockPresent from the live table after a function start`` () =
+    let basePool = CoreActorPool.create ()
+    // functionActorAt calls actorStop. Leave the row so getState can stamp it.
+    let pool = { basePool with finish = fun _ _ -> Ok () }
+    let actor =
+        TestActor.functionActorAt
+            sampleRequest.runDefinitionId
+            sampleRequest.focusId
     withHost pool (fun host -> task {
         let! started =
-            postStartActor host testCaller sampleRequest
+            startFunction host testCaller actor sampleRequest
             |> Async.StartAsTask
-        requireOk "StartActor" started
+        requireOk "function start" started |> ignore
         let! state =
             CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
@@ -125,40 +116,52 @@ let ``GetState stamps lockPresent from the live table after startActor`` () =
     })
 
 [<Fact>]
-let ``StartActor from an inactive Actor does not hand off`` () =
-    let started, _, _, pool = recordingPool ()
+let ``function start from an inactive Actor does not hand off`` () =
+    let pool = CoreActorPool.create ()
+    let actor =
+        TestActor.functionActorAt
+            sampleRequest.runDefinitionId
+            sampleRequest.focusId
     withHost pool (fun host -> task {
         let! result =
-            postStartActor
+            startFunction
                 host
                 { authority = Authority "Actor"
                   name = testCaller.name
                   secret = Credential "inactive" }
+                actor
                 sampleRequest
             |> Async.StartAsTask
         Assert.Equal(Error "authority dropped", result)
-        Assert.False(started.Task.IsCompleted)
+        Assert.False(
+            Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
-let ``StartActor with blank Authority does not hand off`` () =
-    let started, _, _, pool = recordingPool ()
+let ``function start with blank Authority does not hand off`` () =
+    let pool = CoreActorPool.create ()
+    let actor =
+        TestActor.functionActorAt
+            sampleRequest.runDefinitionId
+            sampleRequest.focusId
     withHost pool (fun host -> task {
         let! result =
-            postStartActor
+            startFunction
                 host
                 { authority = Authority "  "
                   name = testCaller.name
                   secret = testSecret }
+                actor
                 sampleRequest
             |> Async.StartAsTask
         Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.False(started.Task.IsCompleted)
+        Assert.False(
+            Set.contains sampleRequest.focusId (pool.liveActorNodeIds ()))
     })
 
 [<Fact>]
 let ``Actor PostChange with live row reaches CoreMailboxAccess`` () =
-    let _, _, live, pool = recordingPool ()
+    let _, live, pool = recordingPool ()
     let actorSecret = Credential "actor-live"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -175,7 +178,7 @@ let ``Actor PostChange with live row reaches CoreMailboxAccess`` () =
 
 [<Fact>]
 let ``Actor PostChange without a live row is dropped`` () =
-    let _, _, _, pool = recordingPool ()
+    let _, _, pool = recordingPool ()
     let actorSecret = Credential "actor-not-live"
     withHost pool (fun host -> task {
         let! result =
@@ -189,7 +192,7 @@ let ``Actor PostChange without a live row is dropped`` () =
 
 [<Fact>]
 let ``Browser PostChange does not require a live row`` () =
-    let _, _, _, pool = recordingPool ()
+    let _, _, pool = recordingPool ()
     withHost pool (fun host -> task {
         let! result =
             CoreMailboxApi.postEvents
@@ -203,7 +206,7 @@ let ``Browser PostChange does not require a live row`` () =
 
 [<Fact>]
 let ``ActorStop ActorSucceeded drops live row without waiting`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-stop"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -225,7 +228,7 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () =
 
 [<Fact>]
 let ``ActorStop ActorFailed drops live row and records terminal`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-fail"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -274,17 +277,18 @@ let ``ActorStop checks the live receipt once`` () =
     })
 
 [<Fact>]
-let ``live Actor stop succeeds and a later stop is dropped`` () =
+let ``function start yields its secret and a later stop is dropped`` () =
     let pool = CoreActorPool.create ()
     let seen = TaskCompletionSource<Credential>()
-    pool.register (ActorName "root") (fun input _ -> async {
-        seen.TrySetResult input.secret |> ignore
-    })
+    let actor : Gambol.Shared.ActorFunction =
+        fun run _ -> async {
+            seen.TrySetResult run.secret |> ignore
+        }
     withHost pool (fun host -> task {
         let! started =
-            postStartActor host testCaller sampleRequest
+            startFunction host testCaller actor sampleRequest
             |> Async.StartAsTask
-        requireOk "StartActor" started
+        requireOk "function start" started |> ignore
         let! secret = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
         let caller = actorCaller secret
         let! stopped =
@@ -300,7 +304,7 @@ let ``live Actor stop succeeds and a later stop is dropped`` () =
 
 [<Fact>]
 let ``ActorStop after the pool row is finished is dropped`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-finished"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -319,7 +323,7 @@ let ``ActorStop after the pool row is finished is dropped`` () =
 
 [<Fact>]
 let ``ActorStop with Test credentials is refused`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-test-auth"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -333,7 +337,7 @@ let ``ActorStop with Test credentials is refused`` () =
 
 [<Fact>]
 let ``ActorStop with Browser credentials is refused`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-browser-auth"
     live.Add actorSecret
     withHost pool (fun host -> task {
@@ -356,7 +360,7 @@ let ``ActorStop with Browser credentials is refused`` () =
 
 [<Fact>]
 let ``ActorStop with Parse credentials is refused`` () =
-    let _, stopped, live, pool = recordingPool ()
+    let stopped, live, pool = recordingPool ()
     let actorSecret = Credential "actor-parse-auth"
     live.Add actorSecret
     let parseCaller =
