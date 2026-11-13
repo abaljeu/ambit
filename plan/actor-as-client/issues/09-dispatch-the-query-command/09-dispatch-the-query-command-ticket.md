@@ -50,7 +50,7 @@ Blockers:
 [ ] `SearchActor.actorStart`. That function builds an `ActorStart`. It is not `CoreEventDispatch.actorStart`.
 [ ] `src/Server/ActorDispatch.fs`. Do not add it.
 [ ] A new `CoreMsg` case.
-[ ] `CoreMsg.RecordSearchStop`. [111 — Place search start as an order, and post SearchStopped](../../../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md) removes that case.
+[ ] `CoreMsg.RecordSearchStop`. [24 — Post Notice.SearchStopped](../../../online-search/issues/24-post-searchstopped-notice.md) removes that case.
 [ ] A session id on `FunctionRun`, on `ActorOrder`, or in the `ActorFunction` closure.
 
 ## Process

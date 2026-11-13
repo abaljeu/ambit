@@ -20,7 +20,7 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [x] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
-[ ] The server list lists each Node id once. The reply replaces the client list. The start does not carry shown Node ids.
+[ ] The server list lists each Node id once. The dialog excludes Node ids the client search found when it appends the server hits. The client adds the carried nodes to the residency Graph and then lists them.
 [x] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
 
 ## Job
@@ -31,14 +31,16 @@ Find and Move share one Actor. Query does not use this Actor.
 
 ## Interface
 
-[o] Start: Find and Move start this Actor after the quiet gap. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus.
-[ ] Start: the globe starts this Actor when the local list is under 200. Start supplies the root and the full server Graph. The zoom is the root. Search does not take a focus. The start does not carry shown Node ids.
+[o] Start: Find and Move start this Actor after the quiet gap. Start supplies the full server Graph.
+[ ] Start: the globe starts this Actor when the residency search has fewer than 200 client hits. The server search reads the full database.
 [o] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
-[ ] Result: the Actor returns at most 200 hits, then stops. When the search text is unchanged, the reply replaces the client list. One reply. No continuation cursor.
+[ ] Result: the Actor returns at most 200 hits, then stops. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. One reply. No continuation cursor.
 
 ## Messages
 
-[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The full server Graph comes from State. Search does not take a focus. The start does not carry shown Node ids.
+[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The client sets `startId` to the zoom root.
+[o] The walk starts at the workspace root. `SearchActor.reply` sets the walk zoom to `graph.root` and does not read `request.startId`.
+[ ] Both searches start at the zoom root.
 
 ```json
 {
@@ -77,7 +79,7 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 
 ## Uses
 
-[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. The zoom is the root. Detail: [Server](server.md).
+[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. Detail: [Server](server.md).
 [x] Find and Move: `recordSearchStart` places `Order.StartActor` of `ActorOrder`. The actor name is `search`. The actor node id is the root, taken from `ActorStart.focusId`. The actor is `BootActors.search`.
 [x] Install: `RouteRegistration.CreateBoot` sets `BootActors.search` to `SearchActor.searchActorAt`. `searchDoor` passes that value into `recordSearchStart`. A pool with no install replies `search actor is not installed`.
 [x] Reply: `Api.searchReply` places the start, then returns `SearchActor.reply`. The Search Actor posts `ActorStop` of `ActorSucceeded` at the root. The walk reads the full server Graph from `Query.State`. Search does not read a focus.
@@ -88,9 +90,9 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Seams
 
 [o] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
-[ ] Globe: the globe on the search bar requests the server when the local list is under 200. When the search text is unchanged, the reply replaces the client list. An edit follows the globe.
+[ ] Globe: the globe on the search bar requests the server when the residency search has fewer than 200 client hits. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. An edit follows the globe.
 [ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation
 
-The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The globe requests the server when the local list is under 200. Hit Headers for that reply ride [Want nodes for hits](want-nodes.md).
+The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The globe requests the server when the residency search has fewer than 200 client hits. Hit Headers for that reply ride the Want answer `nodes` list.

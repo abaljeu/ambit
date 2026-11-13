@@ -9,7 +9,6 @@
 - [x] [26 — Retire the posted named start](issues/26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md)
 - [x] [25 — Remove the coreMailboxStartActor door](issues/25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md)
 - [x] [16 — Rename the client start request to ClientRequestActor](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md)
-- [ ] [111 — Place search start as an order, and post SearchStopped](../core-refinement/issues/111-place-search-start-as-an-order-and-post-searchstopped.md)
 - [ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md)
 - [ ] [21 — Convert CoreMsg.ActorStop](issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md)
 - [ ] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md)
