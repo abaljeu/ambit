@@ -2,7 +2,7 @@
 
 **Status:** `defined`
 **Type:** coding
-**Blocked by:** [21 — Globe requests the server](21-globe-requests-the-server.md), [07 — Server completes the picture](07-server-completes-the-picture.md), [14 — Cap of 200](14-cap-of-200.md)
+**Blocked by:** [07 — Server completes the picture](07-server-completes-the-picture.md), [14 — Cap of 200](14-cap-of-200.md)
 
 ## Context
 
@@ -10,7 +10,7 @@ The server has finished one Find or Move reply. That reply is [07 — Server com
 
 ## What to build
 
-If the server finds N items, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. Move uses that same hit list. N is at most 200. A server reply with Find results includes those found Nodes as Want-fulfillment. The append rule is [21 — Globe requests the server](21-globe-requests-the-server.md). Alan, 2026-11-13.
+If the server finds N items, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. Move uses that same hit list. N is at most 200. A server reply with Find results includes those found Nodes as Want-fulfillment. Alan, 2026-11-13.
 
 ### 1. Want nodes for hits
 
