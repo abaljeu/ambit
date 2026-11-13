@@ -20,7 +20,7 @@ A query expression runs on its own Actor.
 ## Job
 
 [x] The server evaluates the query once, when the line runs.
-[x] This Actor does not use the Find and Move Actor or the Find globe. Detail: [Search Actor](search-actor.md).
+[x] This Actor does not use the Find and Move Actor. Detail: [Search Actor](search-actor.md).
 
 ## Interface
 
@@ -51,7 +51,6 @@ A query expression runs on its own Actor.
 ## Seams
 
 [ ] Cap: the server stops at 200. A query function may stop lower.
-[x] Globe: this Actor does not use the Find globe. Detail: [Search Actor](search-actor.md).
 
 ## Explanation
 

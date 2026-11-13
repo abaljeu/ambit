@@ -3,6 +3,8 @@
 ## 1. Current
 
 [x] [Search](../../../../doc/current/search.md). The cap is `SearchPicture.Request.count` (200 when omitted). That cap applies to the server walk, the client reply room, and the quiet-gap gate.
+[x] [Workspace graph](../../../../doc/current/graph.md). Reference search merges namespace-style queries and node text matching.
+[x] [Query Actor](../../../../doc/current/query-actor.md). This Actor does not use the Find and Move Actor. The server stops at 200. A query function may stop lower.
 [x] [Search Actor](../../../../doc/current/search-actor.md). The cap is that same `SearchPicture.Request.count`.
 [x] [Online search architecture](../../arch.md). Seam 1 names ``reply walks from the request start``. `applyServerReply : int -> SearchPicture.Reply -> Node list -> VM -> VM * Effect list`.
 [x] [Online search spec](../../spec.md)
