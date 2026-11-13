@@ -32,7 +32,7 @@ Find and Move share one Actor. Query does not use this Actor.
 ## Interface
 
 [o] Start: Find and Move start this Actor after the quiet gap. Start supplies the full server Graph.
-[ ] Start: the globe starts this Actor when the residency search has fewer than 200 client hits. The server search reads the full database.
+[ ] Start: the globe starts this Actor when the residency search has fewer than 200 client hits.
 [x] Result: one reply of at most `SearchPicture.Request.count` hits, then stop. No continuation cursor.
 
 ## Messages
@@ -122,7 +122,7 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Seams
 
 [o] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
-[ ] Globe: the globe on the search bar requests the server when the residency search has fewer than 200 client hits. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. An edit follows the globe.
+[ ] Globe: the globe on the search bar requests the server when the residency search has fewer than 200 client hits. An edit follows the globe.
 [ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation
