@@ -18,9 +18,9 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 [ ] The Find dialog opens on the residency search. That search starts at the zoom root.
 [ ] When the residency search has fewer than 200 client hits, the globe on the search bar requests the server.
-[ ] The server search reads the full database and starts at the zoom root.
-[ ] The server results exclude Node ids the client search found, and the dialog appends those server hits.
-[ ] The client adds the carried hit nodes to the residency Graph and then lists them, including a hit that was absent from the residency before the reply.
+[x] The server search reads the full database and starts at the zoom root.
+[x] The server results exclude Node ids the client search found, and the dialog appends those server hits.
+[x] The client adds the carried hit nodes to the residency Graph and then lists them, including a hit that was absent from the residency before the reply.
 [ ] Move uses this same search.
 [ ] A query expression inserts its results as Refs under the query line.
 
@@ -40,7 +40,7 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 [o] Find and Move send no server request when the client already has 200 hits.
 [ ] The globe sends no request when the residency search already has 200 client hits.
 [x] A reply for an older search string is ignored. The reply matches the current search text, or an equivalent generation of that text.
-[ ] When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them.
+[x] When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them.
 
 ## Actors
 
@@ -52,9 +52,9 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 ## Node id
 
-[ ] The server list lists each Node id once.
-[ ] The request carries the search text and the zoom root. Displayed rows play no part, except that both searches start at the zoom root.
-[ ] The dialog excludes Node ids the client search found when it appends the server hits.
+[x] The server list lists each Node id once.
+[x] The request carries the search text and the zoom root. Displayed rows play no part, except that both searches start at the zoom root.
+[x] The dialog excludes Node ids the client search found when it appends the server hits.
 
 ## Bound
 

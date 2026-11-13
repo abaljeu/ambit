@@ -1,5 +1,5 @@
 # 23 — Server search works
-**Status:** defined
+**Status:** done
 One job: The Server returns the Find hit Node ids and the Headers of those hits on the Want `nodes` list. The client adds those nodes to the residency Graph and then lists them. The dialog keeps the residency-search hits and appends the server hits whose Node ids the client search did not find, including a hit that was not resident before the reply. Alan, 2026-11-13: the residency-search hits appear, and the dialog is empty after the server response. The build finds that cause and fixes it until the tests pass. The reason is decision 10 **Globe** and decision 11 **Want nodes** in [Online search](project.md).
 
 Type: bug-fixing
@@ -11,12 +11,10 @@ In interactive use the dialog lists the residency-search hits, and the dialog is
 
 ## Code facts
 
-These facts are leads for the build.
-
-[ ] Lead: the client currently drops non-resident hits. The fix is to install the carried nodes and append them.
-[ ] `SearchDialog.serverOnlyRows` drops a server hit when `Map.tryFind` finds no node in `model.graph.nodes`. A non-resident hit vanishes. This is a likely cause of the empty dialog.
-[ ] `SearchPicture.applyReply` truncates the reply ids to the room under 200 before `SearchDialog.serverOnlyRows` excludes Node ids the client search found.
-[ ] `SearchActor.reply` sets the walk zoom to `graph.root` and does not read `request.startId`. `SearchActor.actorStart` sets `zoomId` to `graph.root`. `SearchPictureClient.runSearch` sets `startId` to the zoom root. The server walk does not start at the zoom root today.
+[x] `SearchDialog.applyServerReply` installs the nodes on the Want `nodes` list, keeps the residency-search hits, and appends the server hits whose Node ids the client search did not find. Each id is listed once.
+[x] `SearchDialog.serverOnlyRows` reads each appended id from `model.graph.nodes` after that install.
+[x] `SearchPicture.keepReplyExcluding` removes excluded Node ids, then keeps the room under `Request.count`. Decode uses 200 when the request omits `count`.
+[x] `SearchActor.reply` walks from `request.startId`. `SearchActor.actorStart` records the workspace root for ActorStop pairing. `SearchPictureClient.runSearch` sets `startId` to the zoom root.
 
 ## Inputs
 

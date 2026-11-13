@@ -20,8 +20,8 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [x] One walk, off the mailbox, then stop. No continuation cursor.
 [ ] Trash: the walk skips trash unless the start Node is TRASH. TRASH id: [GraphBuild](../../src/Shared/GraphBuild.fs) `trashId`.
-[ ] The server list lists each Node id once. The dialog excludes Node ids the client search found when it appends the server hits. The client adds the carried nodes to the residency Graph and then lists them.
-[x] Cap: the client search algorithm stops at 200 hits. The reply holds at most 200 Node ids. Find and Move share that cap.
+[x] The server list lists each Node id once. `SearchDialog.applyServerReply` installs the Want answer `nodes` list, keeps the residency hits, and appends the server hits whose Node ids the client search did not find.
+[x] Cap: the client search stops at 200 hits. The server walk stops at `SearchPicture.Request.count`. The client reply room is the space under `count` after excluded Node ids leave. `SearchDialog.searchPictureCount` is that cap on the client request and on the quiet-gap gate. Find and Move share that cap.
 
 ## Job
 
@@ -33,19 +33,19 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [o] Start: Find and Move start this Actor after the quiet gap. Start supplies the full server Graph.
 [ ] Start: the globe starts this Actor when the residency search has fewer than 200 client hits. The server search reads the full database.
-[o] Result: the Actor uses the client search algorithm and returns at most 200 hits, then stops. Client hits plus this reply stop at the cap. One reply. No continuation cursor.
-[ ] Result: the Actor returns at most 200 hits, then stops. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. One reply. No continuation cursor.
+[x] Result: one reply of at most `SearchPicture.Request.count` hits, then stop. No continuation cursor.
 
 ## Messages
 
-[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is on the wire. The client sets `startId` to the zoom root.
-[o] The walk starts at the workspace root. `SearchActor.reply` sets the walk zoom to `graph.root` and does not read `request.startId`.
-[ ] Both searches start at the zoom root.
+[x] Start fields: `text` (string). Optional `generation` (number) for the reply match. `startId` (string, Node id) is the zoom root. Optional `count` (number) is the result cap. Decode uses 200 when `count` is absent.
+[x] The client search reads the residency Graph from the zoom root. The server search reads the full database from `request.startId`.
+[x] `SearchActor.actorStart` records the workspace root. `zoomId`, `focusId`, `runDefinitionId`, and `graphIds` are that root. ActorStop pairs on that id.
 
 ```json
 {
   "text": "quarterly",
-  "startId": "550e8400-e29b-41d4-a716-446655440000"
+  "startId": "550e8400-e29b-41d4-a716-446655440000",
+  "count": 200
 }
 ```
 
@@ -53,23 +53,54 @@ Find and Move share one Actor. Query does not use this Actor.
 {
   "text": "quarterly",
   "generation": 3,
-  "startId": "550e8400-e29b-41d4-a716-446655440000"
+  "startId": "550e8400-e29b-41d4-a716-446655440000",
+  "count": 200
 }
 ```
 
-[x] Result fields: Node ids, and the reply-match search text or generation. The response has `ids` (array of Node id strings, at most 200) and the reply-match `text` (string) or `generation` (number).
+[x] Result fields: `ids` (array of Node id strings), hit Headers on the Want answer `nodes` list, and the reply-match `text` (string) or `generation` (number).
 
 ```json
 {
   "ids": [ "550e8400-e29b-41d4-a716-446655440001" ],
-  "text": "quarterly"
+  "text": "quarterly",
+  "nodes": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "text": "quarterly report",
+      "name": null,
+      "cssClasses": [],
+      "kind": "normal",
+      "documentState": "current",
+      "parseState": "parsed",
+      "persistState": "persisted",
+      "persistedVersion": 0,
+      "changedVersion": 0,
+      "updateTime": 0
+    }
+  ]
 }
 ```
 
 ```json
 {
   "ids": [ "550e8400-e29b-41d4-a716-446655440001" ],
-  "generation": 3
+  "generation": 3,
+  "nodes": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "text": "quarterly report",
+      "name": null,
+      "cssClasses": [],
+      "kind": "normal",
+      "documentState": "current",
+      "parseState": "parsed",
+      "persistState": "persisted",
+      "persistedVersion": 0,
+      "changedVersion": 0,
+      "updateTime": 0
+    }
+  ]
 }
 ```
 
@@ -79,7 +110,7 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 
 ## Uses
 
-[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph. Those functions take the search text, the zoom, and the Graph. Detail: [Server](server.md).
+[x] Server Graph: the walk uses [startSearch](../../src/Shared/ViewModelSearch.fs) and [takeResults](../../src/Shared/ViewModelSearch.fs) on the full server Graph from `request.startId`. Those functions take the search text, that zoom, and the Graph. Detail: [Server](server.md).
 [x] Find and Move: `recordSearchStart` places `Order.StartActor` of `ActorOrder`. The actor name is `search`. The actor node id is the root, taken from `ActorStart.focusId`. The actor is `BootActors.search`.
 [x] Install: `RouteRegistration.CreateBoot` sets `BootActors.search` to `SearchActor.searchActorAt`. `searchDoor` passes that value into `recordSearchStart`. A pool with no install replies `search actor is not installed`.
 [x] Reply: `Api.searchReply` places the start, then returns `SearchActor.reply`. The Search Actor posts `ActorStop` of `ActorSucceeded` at the root. The walk reads the full server Graph from `Query.State`. Search does not read a focus.

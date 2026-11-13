@@ -619,6 +619,6 @@ Graph {
 
 1. [x] **Method and path.** `POST /ambit/search`.
 2. **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user.
-4. [x] **Body.** JSON `text` (string) and `startId` (Node id). Optional `generation` (number) is the reply match when it is present. Detail: [Search Actor](search-actor.md).
-5. [x] **Success.** `200` and `application/json`. The body has `ids` (at most 200 Node ids) and either `text` or `generation`.
-6. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once, and returns that reply. There is no continuation cursor.
+4. [x] **Body.** JSON `text` (string), `startId` (Node id), and `count` (number). Optional `generation` (number) is the reply match when it is present. A body that omits `count` decodes as 200. Detail: [Search Actor](search-actor.md).
+5. [x] **Success.** `200` and `application/json`. The body has `ids`, the Want answer `nodes` list of those hits' Headers, and either `text` or `generation`. `count` caps `ids`.
+6. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once from `startId`, and returns that reply. There is no continuation cursor.
