@@ -64,6 +64,7 @@ let private clientFoundIds (model: VM) (query: string) : Set<NodeId> =
     |> Set.ofList
 
 let applyServerReply
+    (count: int)
     (reply: SearchPicture.Reply)
     (carried: Node list)
     (model: VM)
@@ -74,11 +75,12 @@ let applyServerReply
         let hits = clientHitCount model s.query
         let ids =
             SearchPicture.keepReplyExcluding
-                hits
-                (SearchPicture.Text s.query)
+                { clientHitCount = hits
+                  count = count
+                  current = SearchPicture.Text s.query
+                  exclude = clientFoundIds model s.query }
                 s.serverHitIds
                 reply
-                (clientFoundIds model s.query)
         { model with
             mode = SearchDialog { s with serverHitIds = ids } }, []
     | _ -> model, []

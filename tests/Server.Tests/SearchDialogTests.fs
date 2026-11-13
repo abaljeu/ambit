@@ -129,7 +129,11 @@ let ``same text adds server hits and an empty reply keeps local rows`` () =
         { ids = [ betaId ]
           matchKey = SearchPicture.Text "alpha" }
     let withServer, effects =
-        SearchDialog.applyServerReply reply [] model
+        SearchDialog.applyServerReply
+            ViewModelSearch.searchHitCap
+            reply
+            []
+            model
     Assert.Empty(effects)
     Assert.Equal<NodeId list>(
         [ alphaId; betaId ],
@@ -138,7 +142,11 @@ let ``same text adds server hits and an empty reply keeps local rows`` () =
         { ids = []
           matchKey = SearchPicture.Text "alpha" }
     let kept, _ =
-        SearchDialog.applyServerReply emptyReply [] withServer
+        SearchDialog.applyServerReply
+            ViewModelSearch.searchHitCap
+            emptyReply
+            []
+            withServer
     Assert.Equal<NodeId list>(
         [ alphaId ],
         ids (SearchDialog.currentSearchResults kept))
@@ -155,7 +163,11 @@ let ``dialog appends a server hit that was not resident`` () =
         { ids = [ alphaId; absentId ]
           matchKey = SearchPicture.Text "alpha" }
     let withServer, effects =
-        SearchDialog.applyServerReply reply [ absent ] model
+        SearchDialog.applyServerReply
+            ViewModelSearch.searchHitCap
+            reply
+            [ absent ]
+            model
     Assert.Empty(effects)
     let shown = SearchDialog.currentSearchResults withServer
     Assert.Equal<NodeId list>([ alphaId; absentId ], ids shown)
@@ -163,6 +175,25 @@ let ``dialog appends a server hit that was not resident`` () =
     Assert.Equal(
         1,
         shown |> List.filter (fun row -> row.nodeId = alphaId) |> List.length)
+
+[<Fact>]
+let ``dialog lists a repeated server-only hit once`` () =
+    let found, _, _ = findModel ()
+    let quiet = searchAt "zzzz-absent" found
+    Assert.Empty(SearchDialog.currentSearchResults quiet)
+    let absentId = NodeId.New()
+    let otherId = NodeId.New()
+    let absent = Node.Create(absentId, text = "zzzz-absent")
+    let other = Node.Create(otherId, text = "zzzz-absent too")
+    let reply: SearchPicture.Reply =
+        { ids = [ absentId; absentId; otherId ]
+          matchKey = SearchPicture.Text "zzzz-absent" }
+    let withServer, effects =
+        SearchDialog.applyServerReply 2 reply [ absent; other ] quiet
+    Assert.Empty(effects)
+    Assert.Equal<NodeId list>(
+        [ absentId; otherId ],
+        ids (SearchDialog.currentSearchResults withServer))
 
 [<Fact>]
 let ``same text keeps Find rows when a later read is empty`` () =

@@ -96,12 +96,32 @@ let ``client hits plus the reply stop at the shared cap`` () =
     Assert.Equal(Some [], full)
 
 [<Fact>]
+let ``room fills after excluded client hits`` () =
+    let clientHit = NodeId.New()
+    let firstServer = NodeId.New()
+    let secondServer = NodeId.New()
+    let reply: SearchPicture.Reply =
+        { ids = [ clientHit; firstServer; secondServer ]
+          matchKey = text "e" }
+    let room: SearchPicture.ReplyRoom =
+        { clientHitCount = 1
+          count = 2
+          current = text "e"
+          exclude = Set.singleton clientHit }
+    match SearchPicture.applyReplyExcluding room reply with
+    | None -> Assert.Fail("expected the server hit")
+    | Some ids ->
+        Assert.Equal<NodeId list>([ firstServer ], ids)
+        Assert.Equal(room.count, room.clientHitCount + ids.Length)
+
+[<Fact>]
 let ``search request round-trips text and generation`` () =
     let startId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
     let request: SearchPicture.Request =
         { text = "quarterly"
           startId = startId
-          generation = Some 3 }
+          generation = Some 3
+          count = ViewModelSearch.searchHitCap }
     let json = Enc.toString 0 (SearchPicture.encodeRequest request)
     match Dec.fromString SearchPicture.decodeRequest json with
     | Error err -> failwith err
@@ -109,9 +129,16 @@ let ``search request round-trips text and generation`` () =
         Assert.Equal(request.text, decoded.text)
         Assert.Equal(request.startId, decoded.startId)
         Assert.Equal(request.generation, decoded.generation)
+        Assert.Equal(request.count, decoded.count)
         Assert.Equal(
             SearchPicture.Generation 3,
             SearchPicture.matchKeyOf decoded)
+    let bare =
+        """{"text":"quarterly","startId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}"""
+    match Dec.fromString SearchPicture.decodeRequest bare with
+    | Error err -> failwith err
+    | Ok decoded ->
+        Assert.Equal(ViewModelSearch.searchHitCap, decoded.count)
 
 [<Fact>]
 let ``search reply round-trips ids and text`` () =
