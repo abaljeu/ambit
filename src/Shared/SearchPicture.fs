@@ -17,7 +17,15 @@ module SearchPicture =
     type Request =
         { text: string
           startId: NodeId
-          generation: int option }
+          generation: int option
+          count: int }
+
+    /// Room and match for one reply. `count` is the result cap.
+    type ReplyRoom =
+        { clientHitCount: int
+          count: int
+          current: Match
+          exclude: Set<NodeId> }
 
     type Gap =
         | Idle
@@ -26,7 +34,8 @@ module SearchPicture =
     type private RawRequest =
         { text: string option
           generation: int option
-          startId: NodeId }
+          startId: NodeId
+          count: int option }
 
     type private RawReply =
         { ids: NodeId list
@@ -44,9 +53,9 @@ module SearchPicture =
             ViewModelSearch.parseSearchTerm query |> Option.isSome
         | Generation _ -> true
 
-    /// Text can still change. At the hit cap, do not arm a Start.
-    let awaitGap (clientHitCount: int) (key: Match) : Gap =
-        if clientHitCount >= ViewModelSearch.searchHitCap then
+    /// Text can still change. At `count`, do not arm a Start.
+    let awaitGap (clientHitCount: int) (count: int) (key: Match) : Gap =
+        if clientHitCount >= count then
             Idle
         else
             Waiting key
@@ -56,35 +65,39 @@ module SearchPicture =
         (gap: Gap)
         (current: Match)
         (clientHitCount: int)
+        (count: int)
         : Match option =
         match gap with
         | Waiting key when
             key = current
             && searchable current
-            && clientHitCount < ViewModelSearch.searchHitCap ->
+            && clientHitCount < count ->
             Some key
         | _ -> None
 
-    let private roomFor (clientHitCount: int) : int =
-        ViewModelSearch.searchHitCap - max 0 clientHitCount
+    let private roomFor (clientHitCount: int) (count: int) : int =
+        count - max 0 clientHitCount
+
+    let private sharedRoom (clientHitCount: int) (current: Match) : ReplyRoom =
+        { clientHitCount = clientHitCount
+          count = ViewModelSearch.searchHitCap
+          current = current
+          exclude = Set.empty }
 
     /// None when the reply is for other text or another generation.
-    /// Node ids in `exclude` leave before the room under 200 is applied.
-    let applyReplyExcluding
-        (clientHitCount: int)
-        (current: Match)
-        (reply: Reply)
-        (exclude: Set<NodeId>)
-        : NodeId list option =
-        if reply.matchKey <> current then
+    /// Excluded ids leave first. Each remaining id is listed once.
+    /// The room under `room.count` is applied after that.
+    let applyReplyExcluding (room: ReplyRoom) (reply: Reply) : NodeId list option =
+        if reply.matchKey <> room.current then
             None
         else
-            let space = roomFor clientHitCount
+            let space = roomFor room.clientHitCount room.count
             if space <= 0 then
                 Some []
             else
                 reply.ids
-                |> List.filter (fun id -> not (Set.contains id exclude))
+                |> List.filter (fun id -> not (Set.contains id room.exclude))
+                |> List.distinct
                 |> List.truncate space
                 |> Some
 
@@ -94,19 +107,15 @@ module SearchPicture =
         (current: Match)
         (reply: Reply)
         : NodeId list option =
-        applyReplyExcluding clientHitCount current reply Set.empty
+        applyReplyExcluding (sharedRoom clientHitCount current) reply
 
     /// A stale reply leaves the ids already kept.
     let keepReplyExcluding
-        (clientHitCount: int)
-        (current: Match)
+        (room: ReplyRoom)
         (kept: NodeId list)
         (reply: Reply)
-        (exclude: Set<NodeId>)
         : NodeId list =
-        match
-            applyReplyExcluding clientHitCount current reply exclude
-        with
+        match applyReplyExcluding room reply with
         | None -> kept
         | Some ids -> ids
 
@@ -117,7 +126,7 @@ module SearchPicture =
         (kept: NodeId list)
         (reply: Reply)
         : NodeId list =
-        keepReplyExcluding clientHitCount current kept reply Set.empty
+        keepReplyExcluding (sharedRoom clientHitCount current) kept reply
 
     let encodeRequest (request: Request) =
         let generation =
@@ -126,7 +135,8 @@ module SearchPicture =
             | Some value -> [ "generation", Encode.int value ]
         Encode.object (
             [ "text", Encode.string request.text
-              "startId", Serialization.encodeNodeId request.startId ]
+              "startId", Serialization.encodeNodeId request.startId
+              "count", Encode.int request.count ]
             @ generation)
 
     let private encodeIds (ids: NodeId list) =
@@ -169,14 +179,18 @@ module SearchPicture =
             { text = get.Optional.Field "text" Decode.string
               generation = get.Optional.Field "generation" Decode.int
               startId =
-                get.Required.Field "startId" Serialization.decodeNodeId })
+                get.Required.Field "startId" Serialization.decodeNodeId
+              count = get.Optional.Field "count" Decode.int })
         |> Decode.andThen (fun (raw: RawRequest) ->
             match raw.text with
             | Some text ->
                 Decode.succeed
                     { text = text
                       startId = raw.startId
-                      generation = raw.generation }
+                      generation = raw.generation
+                      count =
+                        raw.count
+                        |> Option.defaultValue ViewModelSearch.searchHitCap }
             | None -> Decode.fail "search text is required")
 
     let decodeReply: Decoder<Reply> =

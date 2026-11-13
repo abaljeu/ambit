@@ -11,6 +11,9 @@ let private rememberSearchQuery (q: string) : unit =
 /// The 320px result viewport shows about nine 35px rows; keep a small prefetch margin.
 let private searchPageSize = 12
 
+/// Result cap written on the search request. The quiet-gap gate uses this too.
+let searchPictureCount = ViewModelSearch.searchHitCap
+
 type private SearchCache =
     { query: string
       zoomRoot: NodeId
@@ -33,12 +36,16 @@ let searchPictureEffects (armedText: string) (model: VM) : VM * Effect list =
     | SearchDialog s ->
         let hits = clientHitCount model s.query
         let gap =
-            SearchPicture.awaitGap hits (SearchPicture.Text armedText)
+            SearchPicture.awaitGap
+                hits
+                searchPictureCount
+                (SearchPicture.Text armedText)
         match
             SearchPicture.startAfterGap
                 gap
                 (SearchPicture.Text s.query)
                 hits
+                searchPictureCount
         with
         | None -> model, []
         | Some _ ->
@@ -64,6 +71,7 @@ let private clientFoundIds (model: VM) (query: string) : Set<NodeId> =
     |> Set.ofList
 
 let applyServerReply
+    (count: int)
     (reply: SearchPicture.Reply)
     (carried: Node list)
     (model: VM)
@@ -74,11 +82,12 @@ let applyServerReply
         let hits = clientHitCount model s.query
         let ids =
             SearchPicture.keepReplyExcluding
-                hits
-                (SearchPicture.Text s.query)
+                { clientHitCount = hits
+                  count = count
+                  current = SearchPicture.Text s.query
+                  exclude = clientFoundIds model s.query }
                 s.serverHitIds
                 reply
-                (clientFoundIds model s.query)
         { model with
             mode = SearchDialog { s with serverHitIds = ids } }, []
     | _ -> model, []

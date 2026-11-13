@@ -14,39 +14,69 @@ let private ids n =
 
 [<Fact>]
 let ``text change before the gap ends sends no Start`` () =
-    let armed = SearchPicture.awaitGap 0 (text "cat")
-    let replaced = SearchPicture.awaitGap 0 (text "catalog")
+    let cap = ViewModelSearch.searchHitCap
+    let armed = SearchPicture.awaitGap 0 cap (text "cat")
+    let replaced = SearchPicture.awaitGap 0 cap (text "catalog")
     let stale =
-        SearchPicture.startAfterGap armed (text "catalog") 0
+        SearchPicture.startAfterGap armed (text "catalog") 0 cap
     let current =
-        SearchPicture.startAfterGap replaced (text "catalog") 0
+        SearchPicture.startAfterGap replaced (text "catalog") 0 cap
     Assert.Equal(None, stale)
     Assert.Equal(Some (text "catalog"), current)
 
 [<Fact>]
 let ``gap end with the same text sends one Start`` () =
-    let gap = SearchPicture.awaitGap 3 (text "quarterly")
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap 3 cap (text "quarterly")
     let start =
-        SearchPicture.startAfterGap gap (text "quarterly") 3
+        SearchPicture.startAfterGap gap (text "quarterly") 3 cap
     Assert.Equal(Some (text "quarterly"), start)
 
 [<Fact>]
 let ``client already at 200 hits sends no Start`` () =
-    let gap =
-        SearchPicture.awaitGap ViewModelSearch.searchHitCap (text "e")
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap cap cap (text "e")
     Assert.Equal(SearchPicture.Idle, gap)
-    let armed = SearchPicture.awaitGap 0 (text "e")
+    let armed = SearchPicture.awaitGap 0 cap (text "e")
     let blocked =
-        SearchPicture.startAfterGap
-            armed
-            (text "e")
-            ViewModelSearch.searchHitCap
+        SearchPicture.startAfterGap armed (text "e") cap cap
     Assert.Equal(None, blocked)
 
 [<Fact>]
+let ``quiet gap follows the request count`` () =
+    let request: SearchPicture.Request =
+        { text = "e"
+          startId = NodeId.New()
+          generation = None
+          count = 2 }
+    let key = text request.text
+    let atCount =
+        SearchPicture.awaitGap request.count request.count key
+    Assert.Equal(SearchPicture.Idle, atCount)
+    let below =
+        SearchPicture.awaitGap (request.count - 1) request.count key
+    let blocked =
+        SearchPicture.startAfterGap
+            below
+            key
+            request.count
+            request.count
+    let started =
+        SearchPicture.startAfterGap
+            below
+            key
+            (request.count - 1)
+            request.count
+    Assert.Equal(None, blocked)
+    Assert.Equal(Some key, started)
+
+[<Fact>]
 let ``blank search text sends no Start`` () =
-    let gap = SearchPicture.awaitGap 0 (text "   ")
-    Assert.Equal(None, SearchPicture.startAfterGap gap (text "   ") 0)
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap 0 cap (text "   ")
+    Assert.Equal(
+        None,
+        SearchPicture.startAfterGap gap (text "   ") 0 cap)
 
 [<Fact>]
 let ``stale reply is ignored and a matching reply is kept`` () =
@@ -96,12 +126,32 @@ let ``client hits plus the reply stop at the shared cap`` () =
     Assert.Equal(Some [], full)
 
 [<Fact>]
+let ``room fills after excluded client hits`` () =
+    let clientHit = NodeId.New()
+    let firstServer = NodeId.New()
+    let secondServer = NodeId.New()
+    let reply: SearchPicture.Reply =
+        { ids = [ clientHit; firstServer; secondServer ]
+          matchKey = text "e" }
+    let room: SearchPicture.ReplyRoom =
+        { clientHitCount = 1
+          count = 2
+          current = text "e"
+          exclude = Set.singleton clientHit }
+    match SearchPicture.applyReplyExcluding room reply with
+    | None -> Assert.Fail("expected the server hit")
+    | Some ids ->
+        Assert.Equal<NodeId list>([ firstServer ], ids)
+        Assert.Equal(room.count, room.clientHitCount + ids.Length)
+
+[<Fact>]
 let ``search request round-trips text and generation`` () =
     let startId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
     let request: SearchPicture.Request =
         { text = "quarterly"
           startId = startId
-          generation = Some 3 }
+          generation = Some 3
+          count = ViewModelSearch.searchHitCap }
     let json = Enc.toString 0 (SearchPicture.encodeRequest request)
     match Dec.fromString SearchPicture.decodeRequest json with
     | Error err -> failwith err
@@ -109,9 +159,16 @@ let ``search request round-trips text and generation`` () =
         Assert.Equal(request.text, decoded.text)
         Assert.Equal(request.startId, decoded.startId)
         Assert.Equal(request.generation, decoded.generation)
+        Assert.Equal(request.count, decoded.count)
         Assert.Equal(
             SearchPicture.Generation 3,
             SearchPicture.matchKeyOf decoded)
+    let bare =
+        """{"text":"quarterly","startId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}"""
+    match Dec.fromString SearchPicture.decodeRequest bare with
+    | Error err -> failwith err
+    | Ok decoded ->
+        Assert.Equal(ViewModelSearch.searchHitCap, decoded.count)
 
 [<Fact>]
 let ``search reply round-trips ids and text`` () =

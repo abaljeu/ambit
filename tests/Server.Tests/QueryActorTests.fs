@@ -104,7 +104,8 @@ let ``ActorStop ids are not the find walk`` () =
     let request: SearchPicture.Request =
         { text = "Bob"
           startId = graph.root
-          generation = None }
+          generation = None
+          count = ViewModelSearch.searchHitCap }
     let found = SearchActor.reply (fun () -> graph) request
     match stops with
     | [ ActorQuery ids ] ->
