@@ -8,7 +8,7 @@ open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-/// Seam: CoreMsg union (StartActor, Actor PostChange live-table, ActorStop).
+/// Seam: function start, Actor PostChange, and Notice.ActorStopped.
 
 let private requireOk label result =
     match result with
@@ -47,6 +47,12 @@ let private recordingPool () =
                     if live.Contains secret then
                         Some sampleRequest.focusId
                     else
+                        None
+            trySecretForActorNode =
+                fun nodeId ->
+                    if nodeId = sampleRequest.focusId then
+                        live |> Seq.tryHead
+                    else
                         None }
     stopped, live, pool
 
@@ -75,8 +81,20 @@ let private startFunction host caller actor request =
     CoreMailboxApi.coreMailboxStartActorFromFunction
         host caller placement
 
-let private postActorStop host caller result =
-    CoreMailboxApi.actorStop host caller result
+let private stopsOf focusId events =
+    events
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.ActorStop(id, _) when id = focusId -> true
+        | _ -> false)
+
+let private postActorStop host focusId result = async {
+    CoreMailboxApi.postNotice
+        host
+        (Notice.ActorStopped(focusId, result))
+    let! history = CoreMailboxApi.eventHistory host
+    return history.events
+}
 
 [<Fact>]
 let ``function start reply is bookkeeping without waiting for an Actor body`` () =
@@ -205,6 +223,14 @@ let ``Browser PostChange does not require a live row`` () =
         Assert.True(EventId.isAccepted accepted.eventId)
     })
 
+let private assertOneStop focusId result events =
+    let stops = stopsOf focusId events
+    Assert.Equal(1, stops.Length)
+    Assert.Equal(Authority "Actor", stops.[0].authority)
+    match stops.[0].body with
+    | EventBody.ActorStop(_, found) -> Assert.Equal(result, found)
+    | other -> Assert.Fail($"expected ActorStop, got {other}")
+
 [<Fact>]
 let ``ActorStop ActorSucceeded drops live row without waiting`` () =
     let stopped, live, pool = recordingPool ()
@@ -213,12 +239,12 @@ let ``ActorStop ActorSucceeded drops live row without waiting`` () =
     withHost pool (fun host -> task {
         let lingering = Task.Delay 5000
         let sw = Stopwatch.StartNew()
-        let! result =
+        let! events =
             postActorStop
-                host (actorCaller actorSecret) ActorSucceeded
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
         sw.Stop()
-        requireOk "ActorStop" result
+        assertOneStop sampleRequest.focusId ActorSucceeded events
         Assert.Equal(1, stopped.Count)
         Assert.Equal(actorSecret, fst stopped.[0])
         Assert.Equal(ActorSucceeded, snd stopped.[0])
@@ -233,11 +259,12 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     let actorSecret = Credential "actor-fail"
     live.Add actorSecret
     withHost pool (fun host -> task {
-        let! result =
+        let! events =
             postActorStop
-                host (actorCaller actorSecret) (ActorFailed "")
+                host sampleRequest.focusId (ActorFailed "")
             |> Async.StartAsTask
-        requireOk "ActorStop fail" result
+        assertOneStop
+            sampleRequest.focusId (ActorFailed "") events
         Assert.Equal(1, stopped.Count)
         Assert.Equal(actorSecret, fst stopped.[0])
         Assert.Equal(ActorFailed "", snd stopped.[0])
@@ -245,35 +272,34 @@ let ``ActorStop ActorFailed drops live row and records terminal`` () =
     })
 
 [<Fact>]
-let ``ActorStop checks the live receipt once`` () =
-    let isLiveCalls = ResizeArray<Credential>()
+let ``ActorStopped Notice looks up the live secret once`` () =
+    let lookups = ResizeArray<NodeId>()
     let live = ResizeArray<Credential>()
     let actorSecret = Credential "actor-once"
     live.Add actorSecret
     let pool =
         { poolForFixedSecret actorSecret with
-            isLive =
-                fun secret ->
-                    isLiveCalls.Add secret
-                    live.Contains secret
+            isLive = fun secret -> live.Contains secret
             finish =
                 fun secret _ ->
                     live.Remove secret |> ignore
                     Ok ()
-            getActorNodeId =
-                fun secret ->
-                    if live.Contains secret then
-                        Some sampleRequest.focusId
+            trySecretForActorNode =
+                fun nodeId ->
+                    lookups.Add nodeId
+                    if nodeId = sampleRequest.focusId
+                        && live.Contains actorSecret then
+                        Some actorSecret
                     else
                         None }
     withHost pool (fun host -> task {
-        let! result =
+        let! events =
             postActorStop
-                host (actorCaller actorSecret) ActorSucceeded
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
-        requireOk "ActorStop" result
-        Assert.Equal(1, isLiveCalls.Count)
-        Assert.Equal(actorSecret, isLiveCalls.[0])
+        assertOneStop sampleRequest.focusId ActorSucceeded events
+        Assert.Equal(1, lookups.Count)
+        Assert.Equal(sampleRequest.focusId, lookups.[0])
         Assert.False(live.Contains actorSecret)
     })
 
@@ -292,16 +318,17 @@ let ``function start yields its secret and a later stop is dropped`` () =
             |> Async.StartAsTask
         requireOk "function start" started |> ignore
         let! secret = seen.Task.WaitAsync(TimeSpan.FromSeconds 5.0)
-        let caller = actorCaller secret
         let! stopped =
-            postActorStop host caller ActorSucceeded
+            postActorStop
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
-        requireOk "ActorStop" stopped
+        assertOneStop sampleRequest.focusId ActorSucceeded stopped
         Assert.False(pool.isLive secret)
         let! again =
-            postActorStop host caller ActorSucceeded
+            postActorStop
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
-        Assert.Equal(Error "authority dropped", again)
+        Assert.Equal(1, (stopsOf sampleRequest.focusId again).Length)
     })
 
 [<Fact>]
@@ -310,83 +337,19 @@ let ``ActorStop after the pool row is finished is dropped`` () =
     let actorSecret = Credential "actor-finished"
     live.Add actorSecret
     withHost pool (fun host -> task {
-        let caller = actorCaller actorSecret
         let! first =
-            postActorStop host caller ActorSucceeded
+            postActorStop
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
-        requireOk "first stop" first
+        assertOneStop sampleRequest.focusId ActorSucceeded first
         let! second =
-            postActorStop host caller ActorSucceeded
+            postActorStop
+                host sampleRequest.focusId ActorSucceeded
             |> Async.StartAsTask
-        Assert.Equal(Error "authority dropped", second)
+        Assert.Equal(1, (stopsOf sampleRequest.focusId second).Length)
         Assert.Equal(1, stopped.Count)
         Assert.False(live.Contains actorSecret)
     })
-
-[<Fact>]
-let ``ActorStop with Test credentials is refused`` () =
-    let stopped, live, pool = recordingPool ()
-    let actorSecret = Credential "actor-test-auth"
-    live.Add actorSecret
-    withHost pool (fun host -> task {
-        let! result =
-            postActorStop host testCaller ActorSucceeded
-            |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(0, stopped.Count)
-        Assert.True(live.Contains actorSecret)
-    })
-
-[<Fact>]
-let ``ActorStop with Browser credentials is refused`` () =
-    let stopped, live, pool = recordingPool ()
-    let actorSecret = Credential "actor-browser-auth"
-    live.Add actorSecret
-    withHost pool (fun host -> task {
-        let secret = Credential "browser-stop"
-        let! logged =
-            CoreMailboxApi.login host "browser" secret
-            |> Async.StartAsTask
-        requireOk "login" logged
-        let browserCaller =
-            { authority = Authority "Browser"
-              name = "browser"
-              secret = secret }
-        let! result =
-            postActorStop host browserCaller ActorSucceeded
-            |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
-        Assert.Equal(0, stopped.Count)
-        Assert.True(live.Contains actorSecret)
-    })
-
-[<Fact>]
-let ``ActorStop with Parse credentials is refused`` () =
-    let stopped, live, pool = recordingPool ()
-    let actorSecret = Credential "actor-parse-auth"
-    live.Add actorSecret
-    let parseCaller =
-        { authority = Authority "Parse"
-          name = "process"
-          secret = Credential "parse-secret" }
-    let creds = CoreCredentials.add parseCaller admittedCredentials
-    task {
-        let dataDir = newTempDir ()
-        let host =
-            CoreMailbox.host
-                pool
-                (FileAgent.persist (FileAgent.create dataDir))
-                creds
-        try
-            let! result =
-                postActorStop host parseCaller ActorSucceeded
-                |> Async.StartAsTask
-            Assert.Equal(Error CoreAuth.refuse, result)
-            Assert.Equal(0, stopped.Count)
-            Assert.True(live.Contains actorSecret)
-        finally
-            CoreMailboxApi.dispose host
-    }
 
 [<Fact>]
 let ``ActorOrder places the actor on the thread pool`` () = task {

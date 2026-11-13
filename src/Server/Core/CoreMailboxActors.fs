@@ -77,31 +77,6 @@ module internal CoreMailboxActors =
             | Error err -> Error err
             | Ok _ -> Ok ()
 
-    let dispatchActorStop
-        (context: MailboxContext)
-        (caller: Caller)
-        (result: ActorResult)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match caller.authority with
-        | Authority "Actor" ->
-            match context.pool.getActorNodeId caller.secret with
-            | None -> reply.Reply(Ok ())
-            | Some actorNodeId ->
-                match
-                    CoreEventDispatch.actorStop
-                        (CoreMailboxEvents.eventDispatchContext context)
-                        caller
-                        actorNodeId
-                        result
-                with
-                | Error err -> reply.Reply(Error err)
-                | Ok () ->
-                    reply.Reply(
-                        context.pool.finish caller.secret result)
-        | _ ->
-            reply.Reply(Error CoreAuth.refuse)
-
     let private runCancel
         (context: MailboxContext)
         (caller: Caller)

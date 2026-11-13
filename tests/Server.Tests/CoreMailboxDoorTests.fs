@@ -30,11 +30,6 @@ let private sampleRequest: Gambol.Shared.ActorStart =
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
-let private actorCaller secret =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
 let private createHost () =
     let dataDir = newTempDir ()
     let pool = CoreActorPool.create ()
@@ -168,7 +163,7 @@ let ``CoreMailboxApi.login name distinguishes Callers that share a secret`` () =
     }
 
 [<Fact>]
-let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
+let ``ActorStopped Notice drops live row`` () =
     let actorSecret = Credential "actor-live"
     let stopped = ResizeArray<Credential * ActorResult>()
     let live = ResizeArray<Credential>()
@@ -180,7 +175,14 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                 fun secret result ->
                     live.Remove secret |> ignore
                     stopped.Add(secret, result)
-                    Ok () }
+                    Ok ()
+            trySecretForActorNode =
+                fun nodeId ->
+                    if nodeId = sampleRequest.focusId
+                        && live.Contains actorSecret then
+                        Some actorSecret
+                    else
+                        None }
     task {
         let dataDir = newTempDir ()
         let host =
@@ -189,13 +191,12 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
         try
-            let! result =
-                CoreMailboxApi.actorStop
-                    host
-                    (actorCaller actorSecret)
-                    ActorSucceeded
-                |> Async.StartAsTask
-            requireOk "actorStop" result
+            CoreMailboxApi.postNotice
+                host
+                (Notice.ActorStopped(
+                    sampleRequest.focusId,
+                    ActorSucceeded))
+            let! _ = eventPast host |> Async.StartAsTask
             Assert.Equal(1, stopped.Count)
             Assert.Equal(actorSecret, fst stopped.[0])
             Assert.False(live.Contains actorSecret)
@@ -232,7 +233,7 @@ let ``function start exposes Graph lockPresent via getState`` () =
     }
 
 [<Fact>]
-let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
+let ``ActorStopped Notice is logged and drops live row`` () =
     let actorSecret = Credential "actor-live"
     let live = ResizeArray<Credential>()
     live.Add actorSecret
@@ -243,7 +244,13 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
                 fun secret _ ->
                     live.Remove secret |> ignore
                     Ok ()
-            getActorNodeId = fun _ -> Some sampleRequest.focusId }
+            trySecretForActorNode =
+                fun nodeId ->
+                    if nodeId = sampleRequest.focusId
+                        && live.Contains actorSecret then
+                        Some actorSecret
+                    else
+                        None }
     task {
         let dataDir = newTempDir ()
         let host =
@@ -252,26 +259,27 @@ let ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` () =
                 (FileAgent.persist (FileAgent.create dataDir))
                 admittedCredentials
         try
-            let! stopResult =
-                CoreMailboxApi.actorStop
-                    host
-                    (actorCaller actorSecret)
-                    ActorSucceeded
-                |> Async.StartAsTask
-            requireOk "actorStop" stopResult
-            Assert.False(live.Contains actorSecret)
+            CoreMailboxApi.postNotice
+                host
+                (Notice.ActorStopped(
+                    sampleRequest.focusId,
+                    ActorSucceeded))
             let! events =
                 eventPast host
                 |> Async.StartAsTask
+            Assert.False(live.Contains actorSecret)
             let actorFinishedEvents =
                 events
                 |> List.choose (fun event ->
                     match event.body with
                     | Gambol.Shared.EventBody.ActorStop(focusId, _)
                         when focusId = sampleRequest.focusId ->
-                        Some focusId
+                        Some event
                     | _ -> None)
             Assert.Equal(1, actorFinishedEvents.Length)
+            Assert.Equal(
+                Authority "Actor",
+                actorFinishedEvents.[0].authority)
         finally
             CoreMailboxApi.dispose host
     }

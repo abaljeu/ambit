@@ -90,7 +90,6 @@ type ActorFunction = FunctionRun -> ActorChanges -> Async<ActorResult>
 
 and ActorChanges =
     { postChanges: Ev list -> Async<Result<unit, string>>
-      actorStop: ActorResult -> Async<Result<unit, string>>
       graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
       loadNode: NodeId -> Async<Result<EventId, string>>
       postNotice: Notice -> unit
