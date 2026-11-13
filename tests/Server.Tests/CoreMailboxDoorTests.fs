@@ -1211,18 +1211,8 @@ let ``postEvents places Order.Change with origin Edit`` () =
     })
 
 [<Fact>]
-let ``Undo and Redo post as orders; ActorStart and Cancel still post as PostEvent`` () =
+let ``Undo and Redo post as orders; Cancel posts as PostEvent`` () =
     withHost (fun host _ -> task {
-        let start =
-            postedBody "Run" (EventBody.ActorStart sampleRequest)
-        let! started =
-            CoreMailboxApi.postEvents host testCaller [ start ]
-            |> Async.StartAsTask
-        requireOk "actor start" started |> ignore
-        let! startedBody = storedBody host start.submissionId
-        Assert.Equal(
-            Some (EventBody.ActorStart sampleRequest),
-            startedBody)
         let _, create = addRootChildEvent "undo-target"
         let! created =
             CoreMailboxApi.postEvents host testCaller [ create ]
@@ -1423,31 +1413,35 @@ let private assertStoredChange host event origin =
 
 [<Fact>]
 let ``postEvent returns the stored start when that start stops at once`` () =
-    withHost (fun host pool -> task {
+    withHost (fun host _ -> task {
+        let runDefinitionId, seed = addRootChildEvent "?test hello"
+        let! seeded =
+            CoreMailboxApi.postEvents host testCaller [ seed ]
+            |> Async.StartAsTask
+        requireOk "seed" seeded |> ignore
+        let request: ActorStart =
+            { zoomId = runDefinitionId
+              focusId = runDefinitionId
+              runDefinitionId = runDefinitionId
+              graphIds = [ runDefinitionId ]
+              eventId = EventId.zero }
         let start =
-            postedBody "Run" (EventBody.ActorStart sampleRequest)
+            postedBody "Run" (EventBody.ActorStart request)
         let! first =
             CoreMailboxApi.postEvent host testCaller start
             |> Async.StartAsTask
         let stored = requireOk "start" first
-        match pool.trySecretForActorNode sampleRequest.focusId with
-        | None -> Assert.Fail("affirmed start has no live secret")
-        | Some secret ->
-            let! stopped =
-                CoreMailboxApi.actorStop
-                    host
-                    (actorCaller secret)
-                    ActorSucceeded
-                |> Async.StartAsTask
-            requireOk "stop" stopped |> ignore
-            let! again =
-                CoreMailboxApi.postEvent host testCaller start
-                |> Async.StartAsTask
-            let returned = requireOk "stored start" again
-            Assert.Equal(stored.id, returned.id)
-            Assert.Equal(
-                EventBody.ActorStart sampleRequest,
-                returned.body)
+        match stored.body with
+        | EventBody.Order (Order.StartActor order) ->
+            Assert.Equal("test", order.actorName)
+            Assert.Equal(runDefinitionId, order.actorNodeId)
+        | other ->
+            Assert.Fail($"stored body is StartActor, got {other}")
+        let! again =
+            CoreMailboxApi.postEvent host testCaller start
+            |> Async.StartAsTask
+        let returned = requireOk "stored start" again
+        Assert.Equal(stored, returned)
     })
 
 [<Fact>]

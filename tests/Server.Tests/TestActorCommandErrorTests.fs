@@ -429,12 +429,37 @@ let private seedQuestion (client: HttpClient) rootId runDefinitionId text = task
     Assert.Equal(HttpStatusCode.OK, seedResp.StatusCode)
 }
 
+let private loggedEvents (client: HttpClient) = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = EventId.zero; want = [] })
+    use content = jsonPost body
+    let! response = client.PostAsync("/ambit/poll", content)
+    let! json = response.Content.ReadAsStringAsync()
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    match
+        Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Error err -> return failwith err
+    | Ok accepted -> return accepted.events
+}
+
+let private lineHasLifecycle (events: Ev list) (lineId: NodeId) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStart start ->
+            start.runDefinitionId = lineId || start.focusId = lineId
+        | EventBody.ActorStop(id, _) -> id = lineId
+        | _ -> false)
+
 [<Theory>]
 [<InlineData("?unknown")>]
 [<InlineData("?nope")>]
-let ``production events door records a failed ActorStop for an unknown actor``
-    (text: string)
-    =
+let ``production events door replies unknown actor`` (text: string) =
     task {
         use client = createClientForDir (newTempDir ())
         let! _, graph = getFullState client
@@ -456,21 +481,9 @@ let ``production events door records a failed ActorStop for an unknown actor``
         let! commandResp = postEventsHttp client [ launch ]
         let! commandJson = commandResp.Content.ReadAsStringAsync()
         Assert.True(
-            commandResp.StatusCode = HttpStatusCode.OK,
+            commandResp.StatusCode = HttpStatusCode.BadRequest,
             $"events {commandResp.StatusCode}: {commandJson}")
-        match
-            Decode.fromString
-                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-                commandJson
-        with
-        | Error err -> failwith err
-        | Ok accepted ->
-            let failed =
-                accepted.events
-                |> List.exists (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
-                        id = runDefinitionId
-                    | _ -> false)
-            Assert.True(failed, "failed ActorStop missing")
+        Assert.Contains("unknown actor", commandJson)
+        let! events = loggedEvents client
+        Assert.False(lineHasLifecycle events runDefinitionId)
     }
