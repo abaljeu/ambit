@@ -14,39 +14,69 @@ let private ids n =
 
 [<Fact>]
 let ``text change before the gap ends sends no Start`` () =
-    let armed = SearchPicture.awaitGap 0 (text "cat")
-    let replaced = SearchPicture.awaitGap 0 (text "catalog")
+    let cap = ViewModelSearch.searchHitCap
+    let armed = SearchPicture.awaitGap 0 cap (text "cat")
+    let replaced = SearchPicture.awaitGap 0 cap (text "catalog")
     let stale =
-        SearchPicture.startAfterGap armed (text "catalog") 0
+        SearchPicture.startAfterGap armed (text "catalog") 0 cap
     let current =
-        SearchPicture.startAfterGap replaced (text "catalog") 0
+        SearchPicture.startAfterGap replaced (text "catalog") 0 cap
     Assert.Equal(None, stale)
     Assert.Equal(Some (text "catalog"), current)
 
 [<Fact>]
 let ``gap end with the same text sends one Start`` () =
-    let gap = SearchPicture.awaitGap 3 (text "quarterly")
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap 3 cap (text "quarterly")
     let start =
-        SearchPicture.startAfterGap gap (text "quarterly") 3
+        SearchPicture.startAfterGap gap (text "quarterly") 3 cap
     Assert.Equal(Some (text "quarterly"), start)
 
 [<Fact>]
 let ``client already at 200 hits sends no Start`` () =
-    let gap =
-        SearchPicture.awaitGap ViewModelSearch.searchHitCap (text "e")
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap cap cap (text "e")
     Assert.Equal(SearchPicture.Idle, gap)
-    let armed = SearchPicture.awaitGap 0 (text "e")
+    let armed = SearchPicture.awaitGap 0 cap (text "e")
     let blocked =
-        SearchPicture.startAfterGap
-            armed
-            (text "e")
-            ViewModelSearch.searchHitCap
+        SearchPicture.startAfterGap armed (text "e") cap cap
     Assert.Equal(None, blocked)
 
 [<Fact>]
+let ``quiet gap follows the request count`` () =
+    let request: SearchPicture.Request =
+        { text = "e"
+          startId = NodeId.New()
+          generation = None
+          count = 2 }
+    let key = text request.text
+    let atCount =
+        SearchPicture.awaitGap request.count request.count key
+    Assert.Equal(SearchPicture.Idle, atCount)
+    let below =
+        SearchPicture.awaitGap (request.count - 1) request.count key
+    let blocked =
+        SearchPicture.startAfterGap
+            below
+            key
+            request.count
+            request.count
+    let started =
+        SearchPicture.startAfterGap
+            below
+            key
+            (request.count - 1)
+            request.count
+    Assert.Equal(None, blocked)
+    Assert.Equal(Some key, started)
+
+[<Fact>]
 let ``blank search text sends no Start`` () =
-    let gap = SearchPicture.awaitGap 0 (text "   ")
-    Assert.Equal(None, SearchPicture.startAfterGap gap (text "   ") 0)
+    let cap = ViewModelSearch.searchHitCap
+    let gap = SearchPicture.awaitGap 0 cap (text "   ")
+    Assert.Equal(
+        None,
+        SearchPicture.startAfterGap gap (text "   ") 0 cap)
 
 [<Fact>]
 let ``stale reply is ignored and a matching reply is kept`` () =

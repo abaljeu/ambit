@@ -47,7 +47,7 @@ let runSearch
         { text = text
           startId = zoomRoot
           generation = None
-          count = ViewModelSearch.searchHitCap }
+          count = searchPictureCount }
     let body =
         Thoth.Json.JavaScript.Encode.toString
             0

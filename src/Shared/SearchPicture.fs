@@ -53,9 +53,9 @@ module SearchPicture =
             ViewModelSearch.parseSearchTerm query |> Option.isSome
         | Generation _ -> true
 
-    /// Text can still change. At the hit cap, do not arm a Start.
-    let awaitGap (clientHitCount: int) (key: Match) : Gap =
-        if clientHitCount >= ViewModelSearch.searchHitCap then
+    /// Text can still change. At `count`, do not arm a Start.
+    let awaitGap (clientHitCount: int) (count: int) (key: Match) : Gap =
+        if clientHitCount >= count then
             Idle
         else
             Waiting key
@@ -65,12 +65,13 @@ module SearchPicture =
         (gap: Gap)
         (current: Match)
         (clientHitCount: int)
+        (count: int)
         : Match option =
         match gap with
         | Waiting key when
             key = current
             && searchable current
-            && clientHitCount < ViewModelSearch.searchHitCap ->
+            && clientHitCount < count ->
             Some key
         | _ -> None
 
