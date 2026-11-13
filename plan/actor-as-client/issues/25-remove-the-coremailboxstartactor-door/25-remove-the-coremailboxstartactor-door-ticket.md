@@ -1,55 +1,75 @@
 # 25 — Remove the coreMailboxStartActor door
-**Status**: defined
+**Status**: coded
 One job: `CoreMailboxApi.coreMailboxStartActor` is gone. No test calls it, and nothing places `Order.StartActorDeprecated` through it.
 
-[ ] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket. 16 deletes `Order.StartActorDeprecated` once this door no longer places it.
+[x] [16 — Delete the old Order cases](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) deletes `Order.StartActorDeprecated`.
 
 Type:
 
-[ ] coding
+[x] coding
 
 Blockers:
 
-[ ] [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md) moves `CoreMailboxDoorTests.fs`, `CoreMsgActorCasesTests.fs`, and `AskCancelHarness.fs`.
-[ ] [12 — Move pool and issue tests](../12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md) moves `CoreActorPoolDeliverTests.fs`, `Issue41CoreMailboxTests.fs`, and `MailboxHistoryDurabilityTests.fs`.
-[ ] [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md) moves `PersistHandlersRestoreTests.fs`.
-[ ] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) keeps `coreMailboxStartActor` in ``mailbox appends ActorStart and ActorStop in lifecycle order`` in `Issue41CoreMailboxTests.fs`. That use must be gone first.
+[x] [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md). `coreMailboxStartActor` is gone from `CoreMailboxDoorTests.fs`, `CoreMsgActorCasesTests.fs`, and `AskCancelHarness.fs`.
+[x] [12 — Move pool and issue tests](../12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md). `coreMailboxStartActor` is gone from `CoreActorPoolDeliverTests.fs`, `Issue41CoreMailboxTests.fs`, and `MailboxHistoryDurabilityTests.fs`.
+[x] [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md). `coreMailboxStartActor` is gone from `PersistHandlersRestoreTests.fs`.
+[x] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md). `coreMailboxStartActor` is gone from ``mailbox appends StartActor and ActorStop in lifecycle order`` in `Issue41CoreMailboxTests.fs`.
 
 ## Inputs
 
 ### Working
 
-[ ] `coreMailboxStartActor` in `src/Server/Core/CoreMailboxApi.fs` places `Order.StartActorDeprecated request` through `MailboxHost.postPlacedOrder`.
-[ ] `coreMailboxStartActorFromFunction` in the same file places `Order.StartActor` from a supplied function.
-[ ] `tests/Server.Tests/GithubTransportActorTests.fs` calls `coreMailboxStartActor`. No other ticket moves that call.
-[ ] `tests/Server.Tests/TestActorCommandErrorTests.fs` calls `coreMailboxStartActor`. No other ticket moves that call.
+[x] `coreMailboxStartActor` is gone from `src/Server/Core/CoreMailboxApi.fs`.
+[x] A whole-word search of `src/` and `tests/` for `coreMailboxStartActor` is empty.
+[x] `coreMailboxStartActorFromFunction` stays in `src/Server/Core/CoreMailboxApi.fs`.
+[x] `Order.StartActor` stays.
+[x] `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` replies `Error "StartActorDeprecated is retired"` for `Order.StartActorDeprecated`.
+[x] `dispatchStartActor` is gone.
+[x] `replyStarted` is gone.
+[x] `dispatchActorStartResult` stays.
+[x] `CoreMailboxLoad.dispatchStartLoadSaveCommand` calls `dispatchActorStartResult`.
+[x] `finishReadyStart` stays with that call.
+[x] `EventBody.ActorStart` stays in `src/Shared/History.fs`.
+[x] `EventBody.ActorStart` builds `EventBody.Order` of `Order.StartActorDeprecated`.
+[x] ``Peer Actor is not available through the Run actor table`` is deleted.
+[x] ``unregistered Actor name fails start`` is deleted.
 
 ### Reference
 
-[ ] [Arch](../../arch.md).
+[x] [Arch](../../arch.md).
 
 ## Do not load
 
-[ ] The test files that 11, 12, and 13 move.
-[ ] `Order.StartActorDeprecated`, its codec, and its log arm. 16 owns them.
-[ ] `EventBody.ActorStart` writers. 24 — Move the remaining ActorStart writers onto StartActor owns them.
+[x] `Order.StartActorDeprecated`, its codec, and its log arm. 16 — Delete the old Order cases owns them.
+[x] `EventBody.ActorStart` writers. [24 — Move the remaining ActorStart writers onto StartActor](../24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md) owns them.
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [x] Move the calls in `GithubTransportActorTests.fs` and `TestActorCommandErrorTests.fs` onto `coreMailboxStartActorFromFunction` or `postActorOrder`.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] ``Peer Actor is not available through the Run actor table`` and ``unregistered Actor name fails start`` are deleted.
 3. [x] Delete `coreMailboxStartActor`.
 4. [x] Search `src/` and `tests/` for `coreMailboxStartActor` as a whole word. The search is empty.
 
 ## Outputs
 
-[ ] `src/Server/Core/CoreMailboxApi.fs`
-[ ] `tests/Server.Tests/GithubTransportActorTests.fs`
-[ ] `tests/Server.Tests/TestActorCommandErrorTests.fs`
+[x] `src/Server/Core/CoreMailboxActors.fs`
+[x] `src/Server/Core/CoreMailboxApi.fs`
+[x] `src/Server/Core/CoreMailboxLoop.fs`
+[x] `tests/Server.Tests/AgentAskTests.fs`
+[x] `tests/Server.Tests/AskCancelHarness.fs`
+[x] `tests/Server.Tests/CancelByFocusTests.fs`
+[x] `tests/Server.Tests/CoreActorPoolDeliverTests.fs`
+[x] `tests/Server.Tests/CoreMailboxDoorTests.fs`
+[x] `tests/Server.Tests/CoreMsgActorCasesTests.fs`
+[x] `tests/Server.Tests/GithubTransportActorTests.fs`
+[x] `tests/Server.Tests/Issue41CoreMailboxTests.fs`
+[x] `tests/Server.Tests/MailboxHistoryDurabilityTests.fs`
+[x] `tests/Server.Tests/PersistHandlersRestoreTests.fs`
+[x] `tests/Server.Tests/TestActorCommandErrorTests.fs`
 
 ## Stop when
 
-[ ] Record the stop at `plan/actor-as-client/reports/25-remove-the-coremailboxstartactor-door-stop.md`, then ask.
+[x] Rewrite `25-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when a search hit remains outside Outputs.
 [ ] Stop when the edit deletes `coreMailboxStartActorFromFunction` or `Order.StartActor`.
 
@@ -60,5 +80,5 @@ Blockers:
   - `tests/Server.Tests`: `GithubTransportActorTests`
   - `tests/Server.Tests`: `TestActorCommandErrorTests`
 [x] All executed tests pass.
-[ ] Write the verdict to `plan/actor-as-client/reports/25-remove-the-coremailboxstartactor-door-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] Rewrite `25-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
