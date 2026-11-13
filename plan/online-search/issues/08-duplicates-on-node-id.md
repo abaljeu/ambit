@@ -6,7 +6,7 @@
 
 ## Context
 
-Superseded by [21 — Globe requests the server](21-globe-requests-the-server.md). This ticket is not the live story. The server reply replaces the client list. The start does not carry shown Node ids.
+Superseded by [21 — Globe requests the server](21-globe-requests-the-server.md). This ticket is not the live story. The client filters the reply. The dialog keeps the client list and appends server hits whose Node ids are absent from that list. The start does not carry shown Node ids. Alan, 2026-11-13.
 
 The dialog already lists client hits. The old server phase asked only for the other hits. That story path is gone. Result identity is Node id (`NodeId`). That lock is [Online search map](plan/online-search/map.md) Decisions so far item 5 **Node id**. [04 — Duplicate hit identity](04-duplicate-hit-identity.md) stays in its current shape.
 
@@ -14,7 +14,7 @@ The dialog already lists client hits. The old server phase asked only for the ot
 
 Do not build this ticket. [21 — Globe requests the server](21-globe-requests-the-server.md) is the live story.
 
-The old ask was: a client hit and a server hit are the same hit when they share a Node id, and the one request asks only for hits the client does not already have. That ask is superseded. The server list lists each Node id once, and that list replaces the client list.
+The old ask was a request that carries the Node ids the client already showed. That ask stays superseded. The server list lists each Node id once. The client filters the reply, and the dialog appends the other hits.
 
 ### 1. Search Actor
 
@@ -25,7 +25,8 @@ This section is not live. [21 — Globe requests the server](21-globe-requests-t
 
 ## Comments
 
-- 2026-10-07: Superseded by [21 — Globe requests the server](21-globe-requests-the-server.md). The quiet-gap merge is not the Find path. The server list lists each Node id once, and that list replaces the client list.
+- 2026-10-07: Superseded by [21 — Globe requests the server](21-globe-requests-the-server.md). The quiet-gap merge is not the Find path.
+- 2026-11-13: Alan. The server list lists each Node id once. The client filters the reply. The dialog keeps the client list and appends server hits whose Node ids are absent from that list. The start does not carry shown Node ids.
 
 ## See also
 

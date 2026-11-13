@@ -18,7 +18,7 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 [ ] The Find dialog opens on a local search and shows N hits.
 [ ] When the local list is under 200, the globe on the search bar requests the server.
-[ ] When the search text is unchanged, the server reply replaces the client list.
+[ ] When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list.
 [ ] Move uses this same search.
 [ ] A query expression inserts its results as Refs under the query line.
 
@@ -38,7 +38,7 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 [o] Find and Move send no server request when the client already has 200 hits.
 [ ] The globe sends no request when the local list already has 200 hits.
 [x] A reply for an older search string is ignored. The reply matches the current search text, or an equivalent generation of that text.
-[ ] When the search text is unchanged, the server reply replaces the client list.
+[ ] When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list.
 
 ## Actors
 
@@ -52,7 +52,7 @@ Sources: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog]
 
 [ ] The server list lists each Node id once.
 [ ] The start does not carry shown Node ids.
-[ ] The reply replaces the client list. It does not add the server hits onto the client list.
+[ ] The client filters the reply. The dialog keeps the client list and appends server hits whose Node ids are absent from that list.
 
 ## Bound
 

@@ -15,11 +15,11 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 
 1. **Open stays local** — The Find dialog opens on a local search and shows N hits. While the globe is not selected, each keypress recomputes on the client and updates the dialog immediately. A keypress then sends no server message.
 2. **Globe** — When N is under 200, the globe on the search bar can request the server. When N is 200, that request is not sent. There is no later page. This globe is a lock. A quiet gap does not start the server.
-3. **Replace** — When the search text is unchanged, the server reply replaces the client list. A reply for an older search string does not replace the list. The reply matches the search text, or an equivalent generation of that text.
+3. **Append** — Alan, 2026-11-13. When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. A reply for an older search string leaves the list. The reply matches the search text, or an equivalent generation of that text.
 4. **Edit follows the globe** — When the person edits the text, the search is local when the globe is not selected. The search is a server search when the globe is selected.
 5. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
 6. **Want-fulfillment** — A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. This ride is a lock. Move uses that same reply when it uses this search.
-7. **Node id** — The server list lists each Node id once. The start does not carry the Node ids the client already showed. The reply replaces the client list. It does not add the server hits onto the client list.
+7. **Node id** — The server list lists each Node id once. The client filters the reply in `SearchDialog.serverOnlyRows`. The start does not carry shown Node ids.
 8. **Cap of 200** — The local list stops at 200. The server list stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 9. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
 10. **Move** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
@@ -30,14 +30,14 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 2. **Keypress stays local** — As a person, I want each keypress to recompute on the client while the globe is not selected, so that typing does not wait on the server.
 3. **Globe** — As a person, I want the globe on the search bar to request the server when N is under 200, so that I can ask for the server list.
 4. **Already 200** — As a person, I want no server request when the local list already has 200 hits, so that the list stops at 200.
-5. **Replace** — As a person, I want the server reply to replace the client list when the search text is unchanged, so that the dialog shows the server list.
+5. **Append** — As a person, I want the dialog to keep the client list and append server hits whose Node ids are absent from that list when the search text is unchanged, so that I see the client hits and those server hits.
 6. **Stale reply** — As a person, I want a server reply for an older search string to leave the list, so that the dialog shows hits for the text I see now.
 7. **Edit follows the globe** — As a person, I want an edit to run a local search when the globe is not selected, and a server search when the globe is selected, so that the globe chooses the search.
-8. **Node id** — As a person, I want the server list to show each Node id once, so that the dialog does not list one Node twice.
+8. **Node id** — As a person, I want the dialog to list each Node id once, so that a client-found Node stays a single row after the server reply.
 9. **Cap of 200** — As a person, I want each Find list to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
 10. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
 11. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
-12. **Dialog shows server hits** — As a person, I want the Find dialog to show the server list in place of the client list, with those hit Headers on the existing Want answer `nodes` list, so that the server answer is the list I see.
+12. **Dialog shows server hits** — As a person, I want the Find dialog to keep the client list and append the server hits the client did not find, with those hit Headers on the existing Want answer `nodes` list, so that I see those server hits in the dialog.
 13. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the globe, the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
 
 ### 4. Out of Scope
@@ -56,8 +56,8 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 ### 5. Further Notes
 
 1. **Node id** — The server list lists each Node id once. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) is not resolved by this spec. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md).
-2. **Cap of 200** — The local list stops at 200. The server list stops at 200. The earlier screen-plus-a-page bound is dropped. The earlier combined client-plus-server list is dropped.
-3. **Globe** — The globe on the search bar requests the server when N is under 200. The reply replaces the client list when the search text is unchanged. An edit follows the globe. There is no quiet gap. See [map](map.md) Decisions so far item 10 **Globe**.
+2. **Cap of 200** — The local list stops at 200. The server list stops at 200.
+3. **Globe** — Alan, 2026-11-13. The globe on the search bar requests the server when N is under 200. When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. An edit follows the globe. See [map](map.md) Decisions so far item 10 **Globe**.
 4. **Trash start** — The search starts in trash when it starts at the trash node TRASH.
 5. **Move** — Move uses this same search. Find and Move share one server backend. File search is not.
 6. **Query** — A query is one server evaluation when the line runs. It is not a message per key. See [§2 Query spec](#2-query-spec).

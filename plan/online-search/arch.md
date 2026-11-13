@@ -155,7 +155,7 @@ applyServerReply : SearchPicture.Reply -> VM -> VM * Effect list
 
 [ ] While the globe is clear, `currentSearchResults` reads Local search.
 
-[ ] `applyServerReply` stores the server ids. `currentSearchResults` shows that list in place of the client list.
+[ ] `applyServerReply` stores the server ids. `serverOnlyRows` drops Node ids already in the local list. `currentSearchResults` keeps the local rows and appends the remaining server rows. Alan, 2026-11-13.
 
 ### Globe edit
 

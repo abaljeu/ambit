@@ -10,7 +10,7 @@ The Find dialog is open. A local search already shows N hits. That local picture
 
 ## What to build
 
-The globe on the search bar requests the server when N is under 200. When the search text is unchanged, the server reply replaces the client list. When the person edits the text, the search follows the globe. The server list shows each Node id once. The start does not carry shown Node ids. That reply includes the found Nodes as Want-fulfillment. [15 — Dialog shows server hits](15-dialog-shows-server-hits.md) installs that list.
+The globe on the search bar requests the server when N is under 200. When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. The client filters the reply. The start does not carry shown Node ids. When the person edits the text, the search follows the globe. The server list shows each Node id once. That reply includes the found Nodes as Want-fulfillment. [15 — Dialog shows server hits](15-dialog-shows-server-hits.md) installs that list. Alan, 2026-11-13.
 
 ### 1. Globe
 
@@ -18,9 +18,9 @@ The Find start stays on [Online search architecture](plan/online-search/arch.md)
 
 1. [ ] Open stays local — The Find dialog opens on a local search and shows N hits. While the globe is not selected, each keypress recomputes on the client and sends no server message.
 2. [ ] Globe — When N is under 200, the globe on the search bar can request the server. When N is 200, that request is not sent. That request starts the shared Find and Move Search Actor. There is no quiet-gap Start.
-3. [ ] Replace — When the search text is unchanged, the server reply replaces the client list. A reply for an older search string does not replace the list.
+3. [ ] Append — When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. A reply for an older search string leaves the list.
 4. [ ] Edit follows the globe — When the person edits the text, the search is local when the globe is not selected, and a server search when the globe is selected.
-5. [ ] Node id — The server list lists each Node id once. The start does not carry the Node ids the client already showed. The reply does not add server hits onto the client list.
+5. [ ] Node id — The server list lists each Node id once. The client filters the reply. The start does not carry shown Node ids.
 6. [ ] Cap of 200 — The reply holds at most 200 Node ids. The local list stops at 200. There is no continuation cursor.
 7. [ ] Want nodes — The server reply includes the found Nodes on the existing Want answer `nodes` list. There is no new package. [15 — Dialog shows server hits](15-dialog-shows-server-hits.md) installs that list. Claim home: [Want nodes for hits](../../doc/current/want-nodes.md).
 

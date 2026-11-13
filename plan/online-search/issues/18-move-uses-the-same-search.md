@@ -6,7 +6,7 @@
 
 ## Context
 
-Move uses the same search as Find. Find already has the local open, the globe, the replace rule, the trash rule, the cap of 200, and the dialog list. Story path **Move uses the same search** is [Online search architecture](plan/online-search/arch.md) §1. [08 — Duplicates on Node id](08-duplicates-on-node-id.md) is not the live story.
+Move uses the same search as Find. Find already has the local open, the globe, the append rule, the trash rule, the cap of 200, and the dialog list. Alan, 2026-11-13. Story path **Move uses the same search** is [Online search architecture](plan/online-search/arch.md) §1. [08 — Duplicates on Node id](08-duplicates-on-node-id.md) is not the live story.
 
 ## What to build
 
