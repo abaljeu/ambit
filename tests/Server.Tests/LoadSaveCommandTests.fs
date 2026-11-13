@@ -1423,6 +1423,70 @@ let ``plain Save of a non-git workspace persists and does not push`` () = task {
         CoreMailboxApi.dispose host
 }
 
+/// A parent repository is not the workspace. No `.git` in the workspace
+/// is Neither: persist, and no commit, pull, or push.
+[<SkippableFact>]
+let ``plain Save of a non-git workspace ignores a parent repository`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let parent = newTempDir ()
+        let remote = Path.Combine(parent, "remote.git")
+        let dataDir = Path.Combine(parent, "data")
+        Directory.CreateDirectory(remote) |> ignore
+        Directory.CreateDirectory(dataDir) |> ignore
+        git remote "init --bare -b master" |> ignore
+        git dataDir "init -b master" |> ignore
+        configureIdentity dataDir
+        commitFile dataDir "seed.txt" "seed" "seed"
+        git dataDir $"remote add origin {remote}" |> ignore
+        git dataDir "push -u origin master" |> ignore
+        let host = createProductionHost dataDir
+        try
+            let seed = seedWorkspace host "save"
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    (readGraph host)
+                    seed.workspaceId
+                    "note.txt"
+            postChange host fileOps
+            let state =
+                CoreMailboxApi.graphAtEvent host
+                |> Async.RunSynchronously
+                |> requireOk "file event"
+            let harness =
+                { dataDir = dataDir
+                  parent = parent
+                  remote = remote
+                  source = ""
+                  workspace = Path.Combine(dataDir, "home")
+                  host = host
+                  seed =
+                    { seed with
+                        focusId = fileId
+                        eventId = state.eventId } }
+            let! result =
+                postCommand
+                    LoadSaveOperation.Save
+                    LoadSavePrePick.Plain
+                    harness
+            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+            let! stopped = waitForStop host fileId
+            Assert.Equal(Some ActorSucceeded, stopped)
+            let note = Path.Combine(dataDir, "home", "note.txt")
+            Assert.True(File.Exists note)
+            Assert.False(
+                Directory.Exists(Path.Combine(dataDir, "home", ".git")))
+            match GitSave.runGit dataDir "log --oneline --grep=gambol:" with
+            | Ok text -> Assert.True(String.IsNullOrWhiteSpace text)
+            | Error err -> Assert.Fail(err)
+            let verify = Path.Combine(parent, "verify-parent")
+            git parent $"clone {remote} verify-parent" |> ignore
+            Assert.False(
+                File.Exists(Path.Combine(verify, "home", "note.txt")))
+        finally
+            CoreMailboxApi.dispose host
+    }
+
 /// No work tree is the same Neither arm: persist, and no commit, pull, or push.
 [<Fact>]
 let ``plain Save with no work tree persists and does not commit pull or push`` () =

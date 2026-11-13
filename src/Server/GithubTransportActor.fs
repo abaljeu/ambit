@@ -465,6 +465,8 @@ module GithubTransportActor =
 
     /// A remote commits, pulls, and pushes. Neither commits when the
     /// directory is a repository, and skips the commit when it is not.
+    /// `remoteExists` reports no repository when this directory has
+    /// no `.git`, so a parent repository is not this work tree.
     let private runSaveAfterPersist dependencies dataDir changes place =
         match gitRemoteArm dependencies.git place.root with
         | Ok GitRemoteArm.Remote ->
@@ -523,7 +525,9 @@ module GithubTransportActor =
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 
-    /// Save persists the focus if it is not an ordinary node, then commits, pulls, and pushes.
+    /// Save persists a focus that is not an ordinary node.
+    /// A remote commits, pulls, and pushes. Neither commits only
+    /// when this directory is a repository.
     let saveActorFunction dataDir dependencies focusId =
         actorFunction (runSaveBody dataDir dependencies focusId)
 
