@@ -14,7 +14,7 @@ Alan, 2026-10-07. The door is the existing Run command. This ticket changes that
 
 ## What to build
 
-The Query Actor evaluates the query once, when Run hits a line whose text contains `=`, then stops. A keypress does not start this Actor. Query keeps its own Actor in `src/Server/SearchActor.fs`. It does not use the Find globe. The observable reply is Node ids.
+The Query Actor evaluates the query once, when Run hits a line whose text contains `=`, then stops. A keypress does not start this Actor. Query keeps its own Actor in `src/Server/SearchActor.fs`. The observable reply is Node ids.
 
 ### 1. Query Actor
 
@@ -22,7 +22,7 @@ State, Interface, and Uses for **Query Actor** stay on [Online search architectu
 
 1. [x] Server Graph — The Query Actor evaluates the query on the full server Graph once, when the line runs. The eval runs off the mailbox. The Actor then stops.
 2. [x] Not a keypress — A keypress does not start this Actor. The Find quiet gap does not start this Actor.
-3. [x] Own Actor — Query starts its own Actor in `src/Server/SearchActor.fs`. It does not use the Find and Move Actor or the Find globe.
+3. [x] Own Actor — Query starts its own Actor in `src/Server/SearchActor.fs`. It does not use the Find and Move Actor.
 
 ### 2. Start
 
@@ -83,7 +83,7 @@ The observable reply is Node ids. They ride ActorStop as `ActorQuery` on [ActorR
 2. **Want ride** — The Poll that carries Want `nodes` with the Ref Change is [17 — Server items inserted](17-server-items-inserted.md).
 3. **Trash** — An ordinary query that skips trash is [12 — Query skips trash](12-query-skips-trash.md). The function `trash` is [13 — Trash function](13-trash-function.md).
 4. **Query cap checkboxes** — [14 — Cap of 200](14-cap-of-200.md) section 2 **Query cap** owns those checkboxes.
-5. **Find walk** — The Find and Move walk, the globe, and `POST /ambit/search` stay on the Search Actor. This ticket does not add `QueryActorDoor`, `POST /ambit/query`, or `RecordQueryStart`.
+5. **Find walk** — The Find and Move walk and `POST /ambit/search` stay on the Search Actor. This ticket does not add `QueryActorDoor`, `POST /ambit/query`, or `RecordQueryStart`.
 6. **Ref insert** — The Ref insert under the query line stays [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md). This ticket's Run change is the remote eval.
 
 ## See also

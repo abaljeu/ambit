@@ -1,6 +1,6 @@
 # 23 — Server search works
 **Status:** done
-One job: The Server returns the Find hit Node ids and the Headers of those hits on the Want `nodes` list. The client adds those nodes to the residency Graph and then lists them. The dialog keeps the residency-search hits and appends the server hits whose Node ids the client search did not find, including a hit that was not resident before the reply. Alan, 2026-11-13: the residency-search hits appear, and the dialog is empty after the server response. The build finds that cause and fixes it until the tests pass. The reason is decision 10 **Globe** and decision 11 **Want nodes** in [Online search](project.md).
+One job: The Server returns the Find hit Node ids and the Headers of those hits on the Want `nodes` list. The client adds those nodes to the residency Graph and then lists them. The dialog keeps the residency-search hits and appends the server hits whose Node ids the client search did not find, including a hit that was not resident before the reply. Alan, 2026-11-13: the residency-search hits appear, and the dialog is empty after the server response. The build finds that cause and fixes it until the tests pass. The reason is decision 11 **Want nodes** in [Online search](project.md).
 
 Type: bug-fixing
 Blockers: none
@@ -35,13 +35,13 @@ In interactive use the dialog lists the residency-search hits, and the dialog is
 
 ### Reference
 
-[x] [Search spec](spec.md) item 3 **Append**, item 7 **Node id**, and item 14 **Start fields**.
+[x] [Search spec](spec.md) item 2 **Append**, item 5 **Node id**, and item 13 **Start fields**.
 [x] [Search Actor](../../doc/current/search-actor.md) section **Uses**.
 
 ## Do not load
 
 [x] `CoreMsg.RecordSearchStop`. [24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) removes that case. The search stop is `Notice.ActorStopped` through the actor stop.
-[x] The globe control, the quiet gap, and the query expression.
+[x] The quiet gap and the query expression.
 [x] A new package for hit Headers.
 [x] A field of client-hit Node ids on the search start. The dialog excludes Node ids the client search found.
 

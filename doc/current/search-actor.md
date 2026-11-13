@@ -27,12 +27,10 @@ Find and Move share one Actor. Query does not use this Actor.
 
 [x] Shared backend for Find and Move. One running Actor. Move does not start a second Actor.
 [o] A keypress does not start this Actor. Client recompute stays on [Workspace graph](graph.md).
-[ ] A keypress does not start this Actor when the globe is not selected. An edit starts a server search when the globe is selected.
 
 ## Interface
 
 [o] Start: Find and Move start this Actor after the quiet gap. Start supplies the full server Graph.
-[ ] Start: the globe starts this Actor when the residency search has fewer than 200 client hits.
 [x] Result: one reply of at most `SearchPicture.Request.count` hits, then stop. No continuation cursor.
 
 ## Messages
@@ -122,9 +120,8 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 ## Seams
 
 [o] Quiet gap: one Start after the search text is unchanged. The gap has no millisecond value. A text change before the gap ends sends no Start. No Start when the client already has 200 hits.
-[ ] Globe: the globe on the search bar requests the server when the residency search has fewer than 200 client hits. An edit follows the globe.
 [ ] Cap: Find and Move share 200. [Query Actor](query-actor.md) stops at that same cap.
 
 ## Explanation
 
-The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. The globe requests the server when the residency search has fewer than 200 client hits. Hit Headers for that reply ride the Want answer `nodes` list.
+The cap of 200 keeps one search from returning the whole Graph. The client algorithm stops at 200 first. The Actor uses that same algorithm. Hit Headers for that reply ride the Want answer `nodes` list.
