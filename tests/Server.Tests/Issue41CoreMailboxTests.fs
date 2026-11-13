@@ -231,62 +231,74 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
         Assert.Equal(full.nextId, tail.nextId)
     })
 
+let private eventIsStop (event: Ev) =
+    match event.body with
+    | EventBody.ActorStop _ -> true
+    | _ -> false
+
+/// functionActorAt queues actorStop during the start call.
+let rec private waitForActorStop host remaining = task {
+    let! history =
+        CoreMailboxApi.eventHistory host |> Async.StartAsTask
+    if List.exists eventIsStop history.events then
+        ()
+    elif remaining <= 0 then
+        Assert.Fail("ActorStop did not land")
+    else
+        do! Async.Sleep 20 |> Async.StartAsTask
+        do! waitForActorStop host (remaining - 1)
+}
+
 [<Fact>]
-let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
-    let actorSecret = Credential "issue-41-actor"
-    let pool = poolForFixedSecret actorSecret
-    task {
-        let host =
-            CoreMailbox.host
-                pool
-                (FileAgent.persist (FileAgent.create (newTempDir ())))
-                admittedCredentials
-        try
-            let request: Gambol.Shared.ActorStart =
-                { zoomId = Graph.rootId
-                  focusId = Graph.rootId
-                  runDefinitionId = Graph.rootId
-                  graphIds = [ Graph.rootId ]
-                  eventId = EventId.zero }
-            let! started =
-                CoreMailboxApi.coreMailboxStartActor host testCaller request
-                |> Async.StartAsTask
-            requireOk "start actor" started
-            let! afterStart =
-                CoreMailboxApi.eventHistory host
-                |> Async.StartAsTask
-            let startEvent = Assert.Single(afterStart.events)
-            let actorCaller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = actorSecret }
-            let! stopped =
-                CoreMailboxApi.actorStop host actorCaller ActorSucceeded
-                |> Async.StartAsTask
-            requireOk "stop actor" stopped
-            let! history =
-                CoreMailboxApi.eventHistory host
-                |> Async.StartAsTask
-            let ordered = history.events |> List.sortBy (_.id)
-            Assert.Equal(2, ordered.Length)
-            let stopEvent = ordered.[1]
-            Assert.Equal(
-                Gambol.Shared.Authority "Test",
-                startEvent.authority)
-            Assert.Equal(
-                Gambol.Shared.Authority "Actor",
-                stopEvent.authority)
-            Assert.Equal(
-                Gambol.Shared.EventBody.ActorStart request,
-                startEvent.body)
-            Assert.Equal(
-                Gambol.Shared.EventBody.ActorStop(
-                    request.focusId,
-                    Gambol.Shared.ActorResult.ActorSucceeded),
-                stopEvent.body)
-        finally
-            CoreMailboxApi.dispose host
-    }
+let ``mailbox appends StartActor and ActorStop in lifecycle order`` () =
+    let request: Gambol.Shared.ActorStart =
+        { zoomId = Graph.rootId
+          focusId = Graph.rootId
+          runDefinitionId = Graph.rootId
+          graphIds = [ Graph.rootId ]
+          eventId = EventId.zero }
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor =
+              TestActor.functionActorAt
+                  request.runDefinitionId
+                  request.focusId
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    withHost [] (fun host _ -> task {
+        let! started =
+            CoreMailboxApi.coreMailboxStartActorFromFunction
+                host
+                testCaller
+                placement
+            |> Async.StartAsTask
+        requireOk "start actor" started |> ignore
+        do! waitForActorStop host 50
+        let! history =
+            CoreMailboxApi.eventHistory host
+            |> Async.StartAsTask
+        let ordered = history.events |> List.sortBy (_.id)
+        Assert.Equal(2, ordered.Length)
+        let startEvent = ordered.[0]
+        let stopEvent = ordered.[1]
+        Assert.Equal(
+            Gambol.Shared.Authority "Test",
+            startEvent.authority)
+        Assert.Equal(
+            Gambol.Shared.Authority "Actor",
+            stopEvent.authority)
+        match startEvent.body with
+        | EventBody.Order (Order.StartActor order) ->
+            Assert.Equal(request.focusId, order.actorNodeId)
+            Assert.Equal("test", order.actorName)
+        | other ->
+            Assert.Fail($"stored body is StartActor, got {other}")
+        Assert.Equal(
+            Gambol.Shared.EventBody.ActorStop(
+                request.focusId,
+                Gambol.Shared.ActorResult.ActorFailed ""),
+            stopEvent.body)
+    })
 
 [<Fact>]
 let ``postEvent rejects a non-zero EventId on a new client Event`` () =
