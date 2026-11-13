@@ -1,6 +1,6 @@
 # 23 — Server search works gaps
 
-`SearchPicture.Request` carries `count`, the result cap. Decode uses 200 when the request omits `count`. The server walk stops at `count`. The client reply room uses `count` after excluded Node ids leave, and each remaining id is listed once. `SearchPicture.ReplyRoom` holds that room.
+`SearchPicture.Request` carries `count`, the result cap. Decode uses 200 when the request omits `count`. The server walk stops at `count`. The client writes `searchPictureCount` on the request. The quiet-gap gate uses `searchPictureCount`. The reply room uses that request `count` after excluded Node ids leave, and each remaining id is listed once. `SearchPicture.ReplyRoom` holds that room.
 
 ## Files
 
@@ -19,8 +19,9 @@
 - ``room fills after excluded client hits``
 - ``dialog lists a repeated server-only hit once``
 - ``reply stops at the request count``
+- ``quiet gap follows the request count``
 
 ## Suites
 
 - `tests/Server.Tests` with `AMBIT_FULL_SUITE=1` and `-nodeReuse:false` passed 776, failed 0, skipped 1. Total 777.
-- `tests/Shared.Tests` with `AMBIT_FULL_SUITE=1` and `-nodeReuse:false` passed 1945, failed 0, skipped 3. Total 1948.
+- `tests/Shared.Tests` with `AMBIT_FULL_SUITE=1` and `-nodeReuse:false` passed 1946, failed 0, skipped 3. Total 1949.
