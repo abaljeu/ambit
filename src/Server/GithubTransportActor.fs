@@ -323,10 +323,7 @@ module GithubTransportActor =
         | Ok () -> ActorSucceeded
         | Error err -> ActorFailed err
 
-    let private finishActor
-        (_changes: ActorChanges)
-        (work: Async<Result<unit, string>>)
-        =
+    let private finishActor (work: Async<Result<unit, string>>) =
         async {
             let! step = work
             return actorOutcome step
@@ -513,7 +510,7 @@ module GithubTransportActor =
         }
 
     let private actorFunction body : ActorFunction =
-        fun _ changes -> finishActor changes (body changes)
+        fun _ changes -> finishActor (body changes)
 
     /// Load reads the enclosing Workspace, then loads that subject.
     let loadActorFunction dataDir dependencies focusId =

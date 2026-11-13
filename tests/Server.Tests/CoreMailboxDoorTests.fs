@@ -206,7 +206,8 @@ let ``CoreMailboxApi.actorStop with valid credential drops live row`` () =
 [<Fact>]
 let ``function start exposes Graph lockPresent via getState`` () =
     let basePool = CoreActorPool.create ()
-    // functionActorAt calls actorStop. Leave the row so getState can stamp it.
+    // The pool posts ActorStopped and finish drops the row.
+    // Leave the row so getState can stamp it.
     let pool = { basePool with finish = fun _ _ -> Ok () }
     let dataDir = newTempDir ()
     let host =
@@ -1278,13 +1279,7 @@ let ``an Actor that returns logs Notice.ActorStopped`` () =
         requireOk "start" started |> ignore
         let! events =
             waitForNotices
-                (fun () ->
-                    task {
-                        let! history =
-                            CoreMailboxApi.eventHistory host
-                            |> Async.StartAsTask
-                        return history.events
-                    })
+                (fun () -> eventPast host |> Async.StartAsTask)
                 (fun events ->
                     events
                     |> List.exists (fun event ->
@@ -1316,12 +1311,10 @@ let ``an Actor that returns logs Notice.ActorStopped`` () =
 [<Fact>]
 let ``ActorStopped for an idle focus logs nothing`` () =
     withHost (fun host _ -> task {
-        let! before =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let! before = eventPast host |> Async.StartAsTask
         CoreMailboxApi.postNotice
             host
             (Notice.ActorStopped(Graph.rootId, ActorSucceeded))
-        let! after =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Equal<Ev list>(before.events, after.events)
+        let! after = eventPast host |> Async.StartAsTask
+        Assert.Equal<Ev list>(before, after)
     })
