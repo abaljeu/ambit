@@ -113,13 +113,13 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: ``function start reply is bookkeeping without waiting for an Actor body``
   - `tests/Server.Tests`: ``ActorOrder places the actor on the thread pool``
   - `tests/Server.Tests`: ``ActorStop reads the carrier graph once``
   - `tests/Server.Tests`: ``mailbox appends StartActor and ActorStop in lifecycle order``
   - `tests/Shared.Tests`: ``ActorOrder round-trips on the wire with stubActor``
-[ ] All executed tests pass.
-[ ] Rewrite `113-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Rewrite `113-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.
