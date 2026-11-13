@@ -155,7 +155,7 @@ applyServerReply : SearchPicture.Reply -> VM -> VM * Effect list
 
 [ ] While the globe is clear, `currentSearchResults` reads Local search.
 
-[ ] `applyServerReply` stores the server ids. `serverOnlyRows` drops Node ids already in the local list. `currentSearchResults` keeps the local rows and appends the remaining server rows. Alan, 2026-11-13.
+[ ] `applyServerReply` stores the server ids. The client adds the carried nodes to the residency Graph and then lists them. `serverOnlyRows` excludes Node ids the client search found. `currentSearchResults` keeps the residency-search hits and appends the remaining server hits. Alan, 2026-11-13.
 
 ### Globe edit
 
@@ -169,7 +169,7 @@ update : Msg -> VM -> VM * Effect list
 
 [ ] A clear globe calls Local search.
 
-[ ] A selected globe calls Search transport when the local count is under 200. At 200 the edit stays on Local search.
+[ ] A selected globe calls Search transport when the residency search has fewer than 200 client hits. At 200 client hits the edit stays on the residency search.
 
 ### Search transport
 
@@ -179,7 +179,7 @@ update : Msg -> VM -> VM * Effect list
 runSearch : (Msg -> unit) -> string -> NodeId -> unit
 ```
 
-[x] `runSearch` posts `Request`. `startId` is the client zoom. `generation` is absent. Shown Node ids stay off the request.
+[x] `runSearch` posts `Request`. `startId` is the zoom root. `generation` is absent. The request carries the search text and that zoom root.
 
 ### Search route
 
@@ -219,7 +219,8 @@ actorStart : Graph -> EventId -> ActorStart
 reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
 ```
 
-[ ] `reply` passes `graph.root` into Local search. Include versus omit compares a node to `GraphBuild.trashId`.
+[o] `reply` passes `graph.root` into the search. The walk starts at the workspace root.
+[ ] `reply` starts the full-database search at the zoom root on `request.startId`. Include versus omit compares a node to `GraphBuild.trashId`.
 
 [x] The reply is one list of distinct Node ids. There is no continuation cursor.
 
@@ -337,7 +338,7 @@ wantAnswer : Graph -> NodeId list -> Map<NodeId, ChildNode list> * Node list
 installWantAnswer : Map<NodeId, ChildNode list> -> Node list -> Graph -> Result<Graph, string>
 ```
 
-[ ] The reply ids are the Want ids. Hit Headers ride `SyncResponse.nodes`. No `childMap` entry exists only to carry a hit Header.
+[ ] The reply ids are the Want ids. Hit Headers ride `SyncResponse.nodes`. The client adds those nodes to the residency Graph and then lists the hits. No `childMap` entry exists only to carry a hit Header.
 
 ### Sync install
 
@@ -353,7 +354,7 @@ applySyncResponse : SyncResponse -> ClientSyncState -> Result<ClientSyncState, s
 
 1. **Shared Find and Move path**
 
-[ ] Find and Move share the local list while the globe is clear.
+[ ] Find and Move share the residency-search hits while the globe is clear.
 
 ```fsharp
 Search dialog
@@ -364,7 +365,7 @@ Search dialog
 
 2. **Shared Search Actor path**
 
-[ ] The globe requests one root-only Find and Move reply.
+[ ] The globe requests one full-database search. Both searches start at the zoom root.
 
 ```fsharp
 Globe edit
@@ -527,7 +528,7 @@ Sync install
 
 ## 6. Seams
 
-1. [x] **Find and Move reply** / **Local search** — `actor reply matches startSearch and takeResults`, `reply walks from the root`, and `reply reads the carrier graph once and stops at 200` in `tests/Server.Tests/SearchActorTests.fs`.
+1. [x] **Find and Move reply** / **Local search** — `actor reply matches startSearch and takeResults` and `reply reads the carrier graph once and stops at 200` in `tests/Server.Tests/SearchActorTests.fs`. `reply walks from the root` still asserts a walk from the workspace root. The required start is the zoom root.
 2. [x] **Search door** / **Find and Move reply** — `postSearch returns one reply from the server graph` in `tests/Server.Tests/SearchActorTests.fs`.
 3. [x] **Search door** / **Root-only start** — `actorStart records the root` and `postSearch records ActorStart at the root` in `tests/Server.Tests/SearchActorTests.fs`.
 4. [x] **Query function** / **Actor stop** — `ActorStop reads the carrier graph once` and `ActorStop ids are not the find walk` in `tests/Server.Tests/QueryActorTests.fs`.

@@ -8,36 +8,36 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 
 ### 1. Problem Statement
 
-1. **Residence-only Find** — Find searches the Resident Graph. `searchNodes` walks that Graph. The person does not see hits that are only on the Server. Move uses that same residence list today.
+1. **Residence-only Find** — Find searches the Resident Graph. `searchNodes` walks that Graph from the zoom root. Hits that are only on the Server stay out of that search. Move uses those same residency-search hits today.
 2. **Short keystroke** — A short keystroke such as the letter e must not return the whole Graph. The cap is 200 hits.
 
 ### 2. Solution
 
-1. **Open stays local** — The Find dialog opens on a local search and shows N hits. While the globe is not selected, each keypress recomputes on the client and updates the dialog immediately. A keypress then sends no server message.
-2. **Globe** — When N is under 200, the globe on the search bar can request the server. When N is 200, that request is not sent. There is no later page. This globe is a lock. A quiet gap does not start the server.
-3. **Append** — Alan, 2026-11-13. When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. A reply for an older search string leaves the list. The reply matches the search text, or an equivalent generation of that text.
-4. **Edit follows the globe** — When the person edits the text, the search is local when the globe is not selected. The search is a server search when the globe is selected.
+1. **Open stays local** — The Find dialog opens on the residency search. That search starts at the zoom root. While the globe is not selected, each keypress recomputes on the client and updates the dialog immediately. A keypress then sends no server message.
+2. **Globe** — When the residency search has fewer than 200 client hits, the globe on the search bar can request the server. When that search has 200 client hits, that request is not sent. There is no later page. This globe is a lock. A quiet gap does not start the server.
+3. **Append** — Alan, 2026-11-13. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The server result list carries the found matching nodes on the Want answer `nodes` list. The client adds those nodes to the residency Graph and then lists them, including a hit that was absent from the residency before the reply. A reply for an older search string leaves the list. The reply matches the search text, or an equivalent generation of that text.
+4. **Edit follows the globe** — When the person edits the text, the search is the residency search when the globe is not selected. The search is the full-database search when the globe is selected. The server search starts at the zoom root.
 5. **One backend** — One server backend serves both Find and Move. Move has no separate server path and no separate Actor. File search is out of this spec. This shared backend is a lock.
-6. **Want-fulfillment** — A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. There is no new package. This ride is a lock. Move uses that same reply when it uses this search.
-7. **Node id** — The server list lists each Node id once. The client filters the reply in `SearchDialog.serverOnlyRows`. The start does not carry shown Node ids.
-8. **Cap of 200** — The local list stops at 200. The server list stops at 200. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
+6. **Want-fulfillment** — A server reply with Find results includes the found Nodes as Want-fulfillment. Those hit Headers ride in the existing Want answer `nodes` list. [installWantAnswer](src/Shared/ResidentProjection.fs) merges that list. The client adds those nodes to the residency Graph and then lists the hits. There is no new package. This ride is a lock. Move uses that same reply when it uses this search.
+7. **Node id** — The server list lists each Node id once. The dialog excludes Node ids the client search found when it appends the server hits. `SearchDialog.serverOnlyRows` is that exclusion. Displayed rows play no part, except that both searches start at the zoom root.
+8. **Cap of 200** — The residency search stops at 200 client hits. The full-database search stops at 200 server hits. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 9. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
-10. **Move** — Move uses this same search. Find shows the hit list in the dialog. Move shows that same list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
+10. **Move** — Move uses this same search. Find lists the residency-search hits and the appended server hits in the dialog. Move uses that same hit list. Both use the globe, the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
 
 ### 3. User Stories
 
-1. **Open stays local** — As a person, I want the Find dialog to open on a local search and show N hits, so that I see the Nodes the Browser already holds.
+1. **Open stays local** — As a person, I want the Find dialog to open on the residency search, so that I see the client hits from that search.
 2. **Keypress stays local** — As a person, I want each keypress to recompute on the client while the globe is not selected, so that typing does not wait on the server.
-3. **Globe** — As a person, I want the globe on the search bar to request the server when N is under 200, so that I can ask for the server list.
-4. **Already 200** — As a person, I want no server request when the local list already has 200 hits, so that the list stops at 200.
-5. **Append** — As a person, I want the dialog to keep the client list and append server hits whose Node ids are absent from that list when the search text is unchanged, so that I see the client hits and those server hits.
-6. **Stale reply** — As a person, I want a server reply for an older search string to leave the list, so that the dialog shows hits for the text I see now.
-7. **Edit follows the globe** — As a person, I want an edit to run a local search when the globe is not selected, and a server search when the globe is selected, so that the globe chooses the search.
-8. **Node id** — As a person, I want the dialog to list each Node id once, so that a client-found Node stays a single row after the server reply.
-9. **Cap of 200** — As a person, I want each Find list to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
+3. **Globe** — As a person, I want the globe on the search bar to request the server when the residency search has fewer than 200 client hits, so that I can ask for the full-database search.
+4. **Already 200** — As a person, I want no server request when the residency search already has 200 client hits, so that the search stops at 200.
+5. **Append** — As a person, I want the dialog to keep the residency-search hits and append server hits whose Node ids the client search did not find, after the client adds the carried nodes to the residency Graph, so that I see those client hits and those server hits.
+6. **Stale reply** — As a person, I want a server reply for an older search string to leave the list, so that the dialog lists hits for the current search text.
+7. **Edit follows the globe** — As a person, I want an edit to run the residency search when the globe is not selected, and the full-database search when the globe is selected, so that the globe chooses the search.
+8. **Node id** — As a person, I want the dialog to list each Node id once, so that a Node id the client search found stays one hit after the server reply.
+9. **Cap of 200** — As a person, I want each Find search to stop at 200 hits, so that a short keystroke such as the letter e does not return the whole Graph.
 10. **Skip trash** — As a person, I want search to skip trash, so that an ordinary search stays out of deleted Nodes.
 11. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
-12. **Dialog shows server hits** — As a person, I want the Find dialog to keep the client list and append the server hits the client did not find, with those hit Headers on the existing Want answer `nodes` list, so that I see those server hits in the dialog.
+12. **Dialog shows server hits** — As a person, I want the Find dialog to keep the residency-search hits and append the server hits the client search did not find, after the client adds the carried nodes to the residency Graph, including a hit that was not resident before the reply, so that I see those server hits in the dialog.
 13. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the globe, the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
 
 ### 4. Out of Scope
@@ -56,8 +56,8 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 ### 5. Further Notes
 
 1. **Node id** — The server list lists each Node id once. [04 — Duplicate hit identity](issues/04-duplicate-hit-identity.md) is not resolved by this spec. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is superseded by [21 — Globe requests the server](issues/21-globe-requests-the-server.md).
-2. **Cap of 200** — The local list stops at 200. The server list stops at 200.
-3. **Globe** — Alan, 2026-11-13. The globe on the search bar requests the server when N is under 200. When the search text is unchanged, the dialog keeps the client list and appends server hits whose Node ids are absent from that list. An edit follows the globe. See [map](map.md) Decisions so far item 10 **Globe**.
+2. **Cap of 200** — The residency search stops at 200 client hits. The full-database search stops at 200 server hits.
+3. **Globe** — Alan, 2026-11-13. The globe on the search bar requests the server when the residency search has fewer than 200 client hits. When the search text is unchanged, the server results exclude Node ids the client search found, and the dialog appends those server hits. The client adds the carried nodes to the residency Graph and then lists them. An edit follows the globe. See [map](map.md) Decisions so far item 10 **Globe**.
 4. **Trash start** — The search starts in trash when it starts at the trash node TRASH.
 5. **Move** — Move uses this same search. Find and Move share one server backend. File search is not.
 6. **Query** — A query is one server evaluation when the line runs. It is not a message per key. See [§2 Query spec](#2-query-spec).
@@ -66,9 +66,9 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Research reports** — Reports linked from the research tickets are not accepted Answers.
 10. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.
 11. **Vocabulary** — Say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
-12. **Root only** — Search does not take a focus. The server walk uses the root as the zoom. Actor Start supplies the root and the full server Graph. `zoomId`, `commandId`, and `graphIds` are the root. The shared `focusId` field holds that same root so ActorStop can pair with the start. Search does not read a dialog focus or a server focus.
+12. **Root only** — Alan, 2026-11-13. Both searches start at the zoom root. The client search reads the residency from the zoom root. The server search reads the full database from the zoom root.
 13. **Search Actor door** — Find and Move use `Api.SearchActorDoor`. The fields are `changes`, `recordStart`, and `recordStop`. `changes` reads State. `recordStart` records ActorStart. The mailbox case is `RecordSearchStart`. `recordStop` is a message to the queue. The mailbox case is `RecordSearchStop`. The queue puts ActorStop on the event source. The id is the root.
-14. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. The walk does not use `startId` as a zoom or a focus. The zoom is the root. The start does not carry shown Node ids.
+14. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. `startId` is the zoom root. Both searches start at that zoom root. The dialog excludes Node ids the client search found when it appends the server hits.
 
 ## 2. Query spec
 
