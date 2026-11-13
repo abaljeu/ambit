@@ -83,10 +83,10 @@ Blockers:
 ## Stop when
 
 [ ] Rewrite `26-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
-[ ] Stop when the edit needs a file outside Inputs.
+[ ] Stop when the edit needs a file outside Outputs.
 [ ] Stop when the edit deletes `dispatchStartActor`, `coreMailboxStartActor`, `Order.StartActorDeprecated`, or `EventBody.ActorStart`.
 [ ] Stop when the edit changes a test that reaches the server through `coreMailboxStartActor`.
-[ ] Stop when the edit passes 1 source file or 5 test files.
+[ ] Stop when the edit goes over 1 source file or 5 test files.
 
 ## Check
 
