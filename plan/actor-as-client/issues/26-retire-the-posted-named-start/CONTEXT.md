@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 26 — Move the id-record starts onto function starts.
+This folder is ticket 26 — Retire the posted named start.
 
 ## Sequence
 
