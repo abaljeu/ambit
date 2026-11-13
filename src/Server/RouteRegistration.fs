@@ -331,7 +331,7 @@ module RouteRegistration =
                     withBrowserCaller persistence req (fun caller ->
                         let router =
                             { resolvePath =
-                                LoadSaveRouting.resolvePath persistence.DataDir
+                                LoadSaveRouting.resolvePath
                               startCommand =
                                 LoadSaveStart.startCommand
                                     (boundChanges persistence caller)

@@ -399,3 +399,45 @@ let ``Save refuses a selection that spans two Workspaces`` () =
             "Save requires all selected targets in one Workspace",
             message)
     | other -> Assert.Fail($"expected a Save workspace error, got {other}")
+
+let private homeSaveModel hasRemote hasLocal desktop =
+    let baseModel = mappedWorkspaceModel ()
+    let tip =
+        { remote = "https://github.com/example/home.git"
+          ahead = 0
+          behind = 0 }
+    { baseModel with
+        workspaceMappedLabels =
+            if hasLocal then Set.singleton "home" else Set.empty
+        workspaceRemotes =
+            if hasRemote then Map [ "home", tip ] else Map.empty
+        desktopCapabilities =
+            if desktop then baseModel.desktopCapabilities else None }
+
+let private plainSavePrePick model =
+    match UpdateSave.saveOp model with
+    | _, [ SubmitLoadSaveCommand (request, None) ] -> request.prePick
+    | _, other ->
+        failwith $"expected one plain Save request, got {other}"
+
+[<Fact>]
+let ``plain Save with a remote and a local mapping stays on the Save actor`` () =
+    let model = homeSaveModel true true false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)
+
+[<Fact>]
+let ``plain Save with a remote and no local mapping stays on the Save actor`` () =
+    let model = homeSaveModel true false false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)
+
+[<Fact>]
+let ``plain Save with no remote and a local mapping chooses desk Save`` () =
+    let model = homeSaveModel false true false
+    Assert.Equal(LoadSavePrePick.Desk, plainSavePrePick model)
+    let _, effects = UpdateSave.deskSaveOp model
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``plain Save with no remote and no local mapping stays on the Save actor`` () =
+    let model = homeSaveModel false false false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)

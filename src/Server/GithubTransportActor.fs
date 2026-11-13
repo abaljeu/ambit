@@ -279,15 +279,28 @@ module GithubTransportActor =
             "not a git repository",
             System.StringComparison.OrdinalIgnoreCase)
 
+    [<RequireQualifiedAccess>]
+    type private GitRemoteArm =
+        | Remote
+        | Neither
+
+    /// A remote is git. No remote, and a directory that is not a
+    /// repository, are Neither. Any other git error fails the actor.
+    let private gitRemoteArm git root =
+        match git.remoteExists root with
+        | Ok true -> Ok GitRemoteArm.Remote
+        | Ok false -> Ok GitRemoteArm.Neither
+        | Error message when gitHasNoRepository root message ->
+            Ok GitRemoteArm.Neither
+        | Error message -> Error message
+
     /// A remote pulls. No work tree, no remote, and a directory that is
     /// not a repository are Neither. Any other git error fails the actor.
     let private runGitOrNeither dependencies (root: string) target =
         let label = System.IO.Path.GetFileName root
-        match dependencies.git.remoteExists root with
-        | Ok true -> runLoadOn dependencies root target
-        | Ok false -> runNeither target label
-        | Error message when gitHasNoRepository root message ->
-            runNeither target label
+        match gitRemoteArm dependencies.git root with
+        | Ok GitRemoteArm.Remote -> runLoadOn dependencies root target
+        | Ok GitRemoteArm.Neither -> runNeither target label
         | Error message -> async.Return (Error message)
 
     /// Workspace, Directory, and File share the work-tree remote check.
@@ -408,7 +421,7 @@ module GithubTransportActor =
             | Ok _ -> return Ok ()
         }
 
-    /// Shared persist for git Save and desk Save.
+    /// Shared persist for git Save, desk Save, and Save Neither.
     let persistSaveFocus (changes: ActorChanges) focusId =
         persistFocusWhenNotOrdinary changes focusId
 
@@ -436,20 +449,31 @@ module GithubTransportActor =
             return! pushAfterMark git locked.root target tracked output
     }
 
-    /// No workspace work tree: the actor runs and does not commit, pull, or push.
+    /// Commit, pull, and push when the work tree has a remote.
+    /// No remote and a directory that is not a repository stop here.
+    let private runSaveAfterPersist dependencies dataDir changes place =
+        match gitRemoteArm dependencies.git place.root with
+        | Ok GitRemoteArm.Remote ->
+            saveFetched dataDir dependencies.git changes place
+        | Ok GitRemoteArm.Neither -> async.Return (Ok ())
+        | Error message -> async.Return (Error message)
+
+    /// Persist, then git when a remote exists.
+    /// No work tree, a directory that is not a repository, and a
+    /// repository with no remote are Neither: persist, then stop.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
-            match! readSaveWorkspace dataDir focusId changes with
+            match! persistSaveFocus changes focusId with
             | Error err -> return Error err
-            | Ok None -> return Ok ()
-            | Ok (Some place) ->
-                match! persistSaveFocus changes focusId with
+            | Ok () ->
+                match! readSaveWorkspace dataDir focusId changes with
                 | Error err -> return Error err
-                | Ok () ->
+                | Ok None -> return Ok ()
+                | Ok (Some place) ->
                     return!
-                        saveFetched
+                        runSaveAfterPersist
+                            dependencies
                             dataDir
-                            dependencies.git
                             changes
                             place
         }

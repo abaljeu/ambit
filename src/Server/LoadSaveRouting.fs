@@ -13,31 +13,11 @@ type LoadSaveCommandRouter =
 [<RequireQualifiedAccess>]
 module LoadSaveRouting =
 
-    /// A directory with no `.git` is not a git workspace.
-    let private remoteAtRoot (root: string) =
-        if not (WorkspaceGit.isRepo root) then
-            Ok false
-        else
-            WorkspaceGit.remoteExists root
-
-    /// Plain Save asks this. ROOT uses the data directory.
-    let private plainSaveRemote
-        (dataDir: string)
-        (graph: Graph)
-        (focusId: NodeId)
-        ()
-        =
-        match DocumentPersistPath.repositoryRoot dataDir graph focusId with
-        | None -> Ok false
-        | Some root -> remoteAtRoot root
-
+    /// Plain Save enters the Save actor. Desk is an explicit pre-pick,
+    /// including the client's local-mapping choice.
     let resolvePath
-        (dataDir: string)
         (state: GraphAtEvent)
         (request: LoadSaveCommandRequest)
         : Result<LoadSavePath, string> =
-        let choice =
-            LoadPathChoice.ofRequest request state.graph
         PathPick.resolveCommand
-            choice
-            (plainSaveRemote dataDir state.graph request.start.focusId)
+            (LoadPathChoice.ofRequest request state.graph)

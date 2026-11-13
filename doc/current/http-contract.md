@@ -404,7 +404,7 @@ sequenceDiagram
 ### 2.11 Save
 
 1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body is `LoadSaveCommandRequest` from [Event JSON](../../src/Shared/EventJson.fs).
-2. [x] **Path.** Plain Save in `src/Server/LoadSaveRouting.fs` `resolvePath` chooses Git when `src/Server/DocumentPersistPath.fs` `repositoryRoot` is a git work tree with a remote (`src/Server/WorkspaceGit.fs` `isRepo` and `remoteExists`). ROOT's work tree is the data directory. No work tree, no `.git` directory, or a work tree with no remote chooses Desk. `src/Shared/PathPick.fs` `PathPick.resolveCommand` keeps `LoadSavePrePick.Git` on Git and `LoadSavePrePick.Desk` on Desk.
+2. [x] **Path.** Plain Save chooses Desk only when the workspace label is in `workspaceMappedLabels` and absent from `workspaceRemotes`. `src/Shared/PathPick.fs` `plainSavePath`. `src/Client/UpdateSave.fs` `saveOpFor`. Every other plain Save enters the Save actor through `src/Server/LoadSaveRouting.fs` `resolvePath`. `src/Server/GithubTransportActor.fs` `runSaveBody` runs `persistSaveFocus`, then commit, pull, and push when `src/Server/DocumentPersistPath.fs` `repositoryRoot` has a remote. No work tree, a directory that is not a repository, and a repository with no remote stop after that persist. ROOT's work tree is the data directory. `LoadSavePrePick.Git` enters that actor. `LoadSavePrePick.Desk` stays Desk.
 3. [x] **Desk persist.** Desk Save runs `src/Server/GithubTransportActor.fs` `persistSaveFocus` before the response. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`.
 
 ### 2.12 JSON encoding

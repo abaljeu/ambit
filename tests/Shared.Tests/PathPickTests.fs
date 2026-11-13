@@ -8,13 +8,12 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private plainLoad subject remoteExists =
+let private plainLoad subject =
     PathPick.resolveCommand
         (choice
             LoadSaveOperation.Load
             LoadSavePrePick.Plain
             subject)
-        remoteExists
 
 [<Fact>]
 let ``choose returns Git when a remote exists`` () =
@@ -55,25 +54,15 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
 
 [<Fact>]
 let ``plain Load of a Directory or a File chooses the Load actor`` () =
-    let untouched () = Error "remote check must not run"
     for subject in
         [ Some LoadSubject.Directory
           Some LoadSubject.File
           None ] do
-        Assert.Equal(Ok LoadSavePath.Git, plainLoad subject untouched)
-    Assert.Equal(
-        Ok LoadSavePath.Git,
-        plainLoad (Some LoadSubject.Directory) (fun () -> Ok true))
-    Assert.Equal(
-        Ok LoadSavePath.Git,
-        plainLoad (Some LoadSubject.Directory) (fun () -> Ok false))
+        Assert.Equal(Ok LoadSavePath.Git, plainLoad subject)
 
 [<Fact>]
 let ``plain Load of a Workspace chooses the Load actor`` () =
-    let actual =
-        plainLoad
-            (Some LoadSubject.Workspace)
-            (fun () -> Error "remote check must not run")
+    let actual = plainLoad (Some LoadSubject.Workspace)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
@@ -84,18 +73,16 @@ let ``explicit git Load of a File stays Git`` () =
                 LoadSaveOperation.Load
                 LoadSavePrePick.Git
                 (Some LoadSubject.File))
-            (fun () -> Error "remote check must not run")
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
-let ``plain Save of a Directory still asks the remote`` () =
+let ``plain Save enters the Save actor`` () =
     let actual =
         PathPick.resolveCommand
             (choice
                 LoadSaveOperation.Save
                 LoadSavePrePick.Plain
                 (Some LoadSubject.Directory))
-            (fun () -> Ok true)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 let private mustApply (graph: Graph) (ops: Op list) =
@@ -111,6 +98,51 @@ let private mustApply (graph: Graph) (ops: Op list) =
                     failwith message)
             state
     next.graph
+
+let private presence github local =
+    PathPick.mappingPresence (Set.ofList github) (Set.ofList local)
+
+let private savePath github local =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = mustApply graph0 workspaceOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "note.txt"
+    let graph = mustApply graph1 fileOps
+    fileId, graph, presence github local
+
+[<Fact>]
+let ``plain Save with a remote and a local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [ "home" ] [ "home" ]
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
+
+[<Fact>]
+let ``plain Save with a remote and no local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [ "home" ] []
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
+
+[<Fact>]
+let ``plain Save with no remote and a local mapping chooses Desk`` () =
+    let fileId, graph, labels = savePath [] [ "home" ]
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(Some LoadSavePath.Desk, path)
+
+[<Fact>]
+let ``plain Save with no remote and no local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [] []
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
 
 [<Fact>]
 let ``a node in a workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)`` () =

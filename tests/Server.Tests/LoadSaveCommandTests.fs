@@ -215,7 +215,7 @@ let private operationFor =
     | LoadSaveOperation.Save -> GithubTransportOperation.Save
 
 let private productionRouter harness =
-    { resolvePath = LoadSaveRouting.resolvePath harness.dataDir
+    { resolvePath = LoadSaveRouting.resolvePath
       startCommand =
         LoadSaveStart.startCommand
             (CoreDoor.create true harness.host testCaller)
@@ -418,7 +418,6 @@ let private routeMatrixRouter host dataDir dependencies operation =
                 { operation = command.operation
                   prePick = command.prePick
                   subject = Some LoadSubject.Directory }
-                (fun () -> Result.Ok true)
       startCommand =
         fun path command ->
             if path = LoadSavePath.Desk then
@@ -844,7 +843,7 @@ let private countingGit () =
     pulls, pushes, dependencies
 
 let private actorRouter host dataDir dependencies operation =
-    { resolvePath = LoadSaveRouting.resolvePath dataDir
+    { resolvePath = LoadSaveRouting.resolvePath
       startCommand =
         fun path command ->
             if path = LoadSavePath.Desk then
@@ -1096,12 +1095,17 @@ let ``Load of a ROOT file skips git and git Save uses the data directory`` () =
                     LoadSavePrePick.Git
                     seed
                     fileId
+            let saveDependencies =
+                { dependencies with
+                    git =
+                        { dependencies.git with
+                            remoteExists = fun _ -> Result.Ok true } }
             let! saved =
                 Api.postLoadSaveCommand
                     (actorRouter
                         host
                         dataDir
-                        dependencies
+                        saveDependencies
                         LoadSaveOperation.Save)
                     (CoreDoor.create true host testCaller)
                     (encodeRequest save)
@@ -1210,9 +1214,9 @@ let ``plain Save with a GitHub remote pushes from a file focus`` () = task {
         CoreMailboxApi.dispose harness.host
 }
 
-/// A work tree with no remote stays on the desk Save path.
+/// A repository with no remote is Save Neither: persist, and no commit.
 [<SkippableFact>]
-let ``plain Save with no GitHub remote takes the Desk path`` () = task {
+let ``plain Save with no GitHub remote persists and does not commit`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let dataDir = newTempDir ()
     let workspace = Path.Combine(dataDir, "home")
@@ -1222,6 +1226,16 @@ let ``plain Save with no GitHub remote takes the Desk path`` () = task {
     let host = createProductionHost dataDir
     try
         let seed = seedWorkspace host "save"
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                (readGraph host)
+                seed.workspaceId
+                "note.txt"
+        postChange host fileOps
+        let state =
+            CoreMailboxApi.graphAtEvent host
+            |> Async.RunSynchronously
+            |> requireOk "file event"
         let harness =
             { dataDir = dataDir
               parent = dataDir
@@ -1229,16 +1243,25 @@ let ``plain Save with no GitHub remote takes the Desk path`` () = task {
               source = ""
               workspace = workspace
               host = host
-              seed = seed }
+              seed =
+                { seed with
+                    focusId = fileId
+                    eventId = state.eventId } }
         let! result =
             postCommand
                 LoadSaveOperation.Save
                 LoadSavePrePick.Plain
                 harness
-        assertDeskResponse result
-        let! history =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.DoesNotContain(history.events, hasActorStart seed.focusId)
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let! stopped = waitForStop host fileId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let saved = readGraph host
+        Assert.Equal(ParseState.Parsed, saved.nodes.[fileId].parseState)
+        Assert.True(File.Exists(Path.Combine(workspace, "note.txt")))
+        match GitSave.runGit workspace "log --oneline" with
+        | Ok text -> Assert.DoesNotContain("gambol: git Save", text)
+        | Error _ -> ()
     finally
         CoreMailboxApi.dispose host
 }
@@ -1317,9 +1340,9 @@ let ``Desk load-save runs no Actor and posts no StartActor`` () = task {
         CoreMailboxApi.dispose host
 }
 
-/// A workspace folder with no repository is desk Save, and desk Save still persists.
+/// A workspace folder with no repository is Save Neither, and it still persists.
 [<SkippableFact>]
-let ``plain Save of a non-git workspace persists the focus and stays Desk`` () = task {
+let ``plain Save of a non-git workspace persists and does not push`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
     let dataDir = newTempDir ()
     let host = createProductionHost dataDir
@@ -1351,16 +1374,64 @@ let ``plain Save of a non-git workspace persists the focus and stays Desk`` () =
                 LoadSaveOperation.Save
                 LoadSavePrePick.Plain
                 harness
-        assertDeskResponse result
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let! stopped = waitForStop host fileId
+        Assert.Equal(Some ActorSucceeded, stopped)
         let saved = readGraph host
         Assert.Equal(ParseState.Parsed, saved.nodes.[fileId].parseState)
         Assert.True(File.Exists(Path.Combine(dataDir, "home", "note.txt")))
-        let! history =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.DoesNotContain(history.events, hasActorStart fileId)
     finally
         CoreMailboxApi.dispose host
 }
+
+/// No work tree is the same Neither arm: persist, and no commit, pull, or push.
+[<Fact>]
+let ``plain Save with no work tree persists and does not commit pull or push`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = createProductionHost dataDir
+        let pulls, pushes, dependencies =
+            withRemote (fun _ -> Result.Ok true)
+        try
+            let fileId = NodeId.New()
+            postChange
+                host
+                [ Op.NewSpecialNode(fileId, SpecialKind.File, "loose.txt") ]
+            let state =
+                CoreMailboxApi.graphAtEvent host
+                |> Async.RunSynchronously
+                |> requireOk "detached file"
+            let seed =
+                { workspaceId = Graph.rootId
+                  runDefinitionId = fileId
+                  focusId = fileId
+                  eventId = state.eventId }
+            let! result =
+                Api.postLoadSaveCommand
+                    (actorRouter
+                        host
+                        dataDir
+                        dependencies
+                        LoadSaveOperation.Save)
+                    (CoreDoor.create true host testCaller)
+                    (encodeRequest
+                        (requestForFocus
+                            LoadSaveOperation.Save
+                            LoadSavePrePick.Plain
+                            seed
+                            fileId))
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+            let! stopped = waitForStop host fileId
+            Assert.Equal(Some ActorSucceeded, stopped)
+            Assert.Empty(pulls)
+            Assert.Empty(pushes)
+            let saved = readGraph host
+            Assert.Equal(ParseState.Parsed, saved.nodes.[fileId].parseState)
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 /// ROOT's repository is the data directory. A remote there is git Save.
 [<SkippableFact>]
