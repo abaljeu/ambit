@@ -1,6 +1,6 @@
 # CONTEXT
 
-This folder is ticket 16 — Delete the old Order cases.
+This folder is ticket 16 — Rename the client start request to ClientRequestActor.
 
 ## Sequence
 
@@ -8,4 +8,4 @@ This folder is ticket 16 — Delete the old Order cases.
 
 ## Stage
 
-defined
+build

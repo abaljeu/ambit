@@ -128,7 +128,7 @@ decodeActorOrder : string -> Result<ActorOrder, string>
 
 ### Log actor order
 
-[x] `MailboxLog.historyBody` accepts `Order.StartActor` and `Order.StartActorDeprecated` (`src/Shared/MailboxLog.fs`).
+[x] `MailboxLog.historyBody` accepts `Order.StartActor` and `Order.ClientRequestActor` (`src/Shared/MailboxLog.fs`).
 
 ```fsharp
 historyBody : Order -> Result<EventBody, string>
@@ -162,7 +162,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
-[x] `placeOrder` replies `Error "StartActorDeprecated is retired"` for `Order.StartActorDeprecated`.
+[x] `postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and does not post that order. `placeOrder` uses that same refusal.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.
@@ -205,7 +205,7 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, a query Run through `queueAdmittedQuery`, and other names through `startChosen` (`src/Server/Core/CoreMailboxActors.fs`).
+[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, and a query Run through `queueAdmittedQuery`. Every other name replies `Error "unknown actor"` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
 postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
@@ -335,7 +335,7 @@ Log actor order
 
 6. **Query start today**
 
-[x] `postActorStart` sends a query Run to the pool. `startChosen` stays `pool.startActor` for a named start.
+[x] `postActorStart` sends a query Run through `queueAdmittedQuery`, which places `Order.StartActor`. The admitted names are `test`, `ai`, and a query. Every other name replies `Error "unknown actor"`.
 
 ```fsharp
 Posted run
@@ -347,7 +347,7 @@ Place actor order
 
 7. **Named start today**
 
-[x] A placed `Order.StartActorDeprecated` ends in Place actor order.
+[x] A placed `Order.ClientRequestActor` stays out of the mailbox log.
 
 ```fsharp
 Place actor order

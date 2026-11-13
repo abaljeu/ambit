@@ -29,7 +29,7 @@ module MailboxLog =
         | Order.Undo _
         | Order.Redo _
         | Order.Load _
-        | Order.StartActorDeprecated _
+        | Order.ClientRequestActor _
         | Order.CancelActor _
         | Order.StartActor _ ->
             Ok (EventBody.Order order)
