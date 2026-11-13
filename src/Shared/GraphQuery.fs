@@ -366,10 +366,12 @@ module GraphQuery =
     let enclosingWorkspace (graph: Graph) (nodeId: NodeId) : NodeId option =
         enclosing graph isEnclosingWorkspaceNode nodeId
 
-    /// Upload / reconcile root by DataDir label: named Workspace, or SYSTEM / TRASH.
+    /// Upload / reconcile root by DataDir label: named Workspace, `.` for ROOT, or SYSTEM / TRASH.
     let trySyncRootByLabel (graph: Graph) (label: string) : Result<NodeId, string> =
         if String.IsNullOrWhiteSpace label then
             Error "workspace label is empty"
+        elif label = "." then
+            Ok GraphBuild.rootId
         elif String.Equals(label, "SYSTEM", StringComparison.OrdinalIgnoreCase) then
             Ok GraphBuild.systemId
         elif String.Equals(label, "TRASH", StringComparison.OrdinalIgnoreCase) then

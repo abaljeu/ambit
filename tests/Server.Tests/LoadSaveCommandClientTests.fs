@@ -34,13 +34,10 @@ type private DeskHttpHandler() as this =
                 """{"mode":"Full","items":[]}"""
             | "/_desktop/workspace-push" ->
                 """{"ok":true,"uploaded":0,"downloaded":0,"detail":"pushed","error":null}"""
-            | "/ambit/save" ->
-                """{"ok":true,"detail":"saved","error":null}"""
             | _ -> """{"error":"unexpected path"}"""
         let status =
             if path = "/_desktop/workspace-inventory"
-               || path = "/_desktop/workspace-push"
-               || path = "/ambit/save" then
+               || path = "/_desktop/workspace-push" then
                 HttpStatusCode.OK
             else
                 HttpStatusCode.NotFound
@@ -238,11 +235,8 @@ let private effectDependencies () =
           encodeWorkspaceInventory = fun _ -> "{}"
           decodeWorkspaceInventory =
             fun _ -> Ok { mode = "Full"; items = [] }
-          postEmpty =
-            fun url onOk onHttp onFail ->
-                postHttp client url "" onOk onHttp onFail
-          decodeGitSave =
-            Decode.fromString GitSaveResponse.decoder
+          postEmpty = fun _ _ _ _ -> ()
+          decodeGitSave = fun _ -> Error "unused"
           log = ignore
           fileName = "ambit" }
     dependencies, handler, client
@@ -378,14 +372,79 @@ let ``plain Save with a mapping and a Git response starts no download`` () =
         urls |> Seq.toList,
         fun url -> url.Contains("workspace-download"))
 
+/// Desk Save still posts the data-directory save when git save is enabled.
 [<Fact>]
-let ``Desk Save response continues to existing save endpoint`` () =
+let ``desk Save with git save enabled posts the save endpoint`` () =
     let updater = runDesk LoadSaveOperation.Save
     let _, effects = updater (saveEnabledModel ())
-    match effects with
-    | [ ContinueDeskSave ] ->
-        let dependencies, handler, client = effectDependencies ()
-        use _client = client
-        DeskLoadSaveEffectClient.runDeskSaveWith dependencies
-        assertPosted "/ambit/save" handler
-    | other -> failwith $"expected desk save continuation, got {other}"
+    Assert.Equal<Effect list>([ ContinueDeskSave ], effects)
+
+[<Fact>]
+let ``Save refuses a selection that spans two Workspaces`` () =
+    let graph0 = Graph.create ()
+    let _, homeOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = applyOps graph0 homeOps
+    let _, awayOps = FileNodeOps.planCreateWorkspace graph1 "away"
+    let graph = applyOps graph1 awayOps
+    let baseModel = VmTestHelpers.emptyModelAt graph Graph.workspacesId
+    let parent = baseModel.siteMap.entries.[baseModel.siteMap.rootId]
+    let model =
+        { baseModel with
+            selectedNodes =
+                Some
+                    { range = { parent = parent; start = 0; endd = 2 }
+                      focus = 0 } }
+    let saved, effects = UpdateSave.saveOp model
+    Assert.Empty(effects)
+    match saved.lastCmdResult with
+    | Some (CmdLastResult.Error (Some "Save", message)) ->
+        Assert.Equal(
+            "Save requires all selected targets in one Workspace",
+            message)
+    | other -> Assert.Fail($"expected a Save workspace error, got {other}")
+
+let private homeSaveModel hasRemote hasLocal desktop =
+    let baseModel = mappedWorkspaceModel ()
+    let tip =
+        { remote = "https://github.com/example/home.git"
+          ahead = 0
+          behind = 0 }
+    { baseModel with
+        workspaceMappedLabels =
+            if hasLocal then Set.singleton "home" else Set.empty
+        workspaceRemotes =
+            if hasRemote then Map [ "home", tip ] else Map.empty
+        desktopCapabilities =
+            if desktop then baseModel.desktopCapabilities else None }
+
+let private plainSavePrePick model =
+    match UpdateSave.saveOp model with
+    | _, [ SubmitLoadSaveCommand (request, None) ] -> request.prePick
+    | _, other ->
+        failwith $"expected one plain Save request, got {other}"
+
+[<Fact>]
+let ``plain Save with a remote and a local mapping stays on the Save actor`` () =
+    let model = homeSaveModel true true false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)
+
+[<Fact>]
+let ``plain Save with a remote and no local mapping stays on the Save actor`` () =
+    let model = homeSaveModel true false false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)
+
+[<Fact>]
+let ``plain Save with no remote and a local mapping chooses desk Save`` () =
+    let model = homeSaveModel false true false
+    Assert.Equal(LoadSavePrePick.Desk, plainSavePrePick model)
+    let enabled =
+        { model with
+            serverCapabilities =
+                Some { canGitSave = true; canFileStatus = true } }
+    let _, effects = UpdateSave.deskSaveOp enabled
+    Assert.Equal<Effect list>([ ContinueDeskSave ], effects)
+
+[<Fact>]
+let ``plain Save with no remote and no local mapping stays on the Save actor`` () =
+    let model = homeSaveModel false false false
+    Assert.Equal(LoadSavePrePick.Plain, plainSavePrePick model)

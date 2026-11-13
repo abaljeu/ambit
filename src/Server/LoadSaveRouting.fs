@@ -13,20 +13,11 @@ type LoadSaveCommandRouter =
 [<RequireQualifiedAccess>]
 module LoadSaveRouting =
 
+    /// Plain Save enters the Save actor. Desk is an explicit pre-pick,
+    /// including the client's local-mapping choice.
     let resolvePath
-        (dataDir: string)
         (state: GraphAtEvent)
         (request: LoadSaveCommandRequest)
         : Result<LoadSavePath, string> =
-        let choice =
-            LoadPathChoice.ofRequest request state.graph
-        PathPick.resolveCommand choice (fun () ->
-            match
-                DocumentPersistPath.workspaceRootFor
-                    dataDir
-                    state.graph
-                    request.start.focusId
-            with
-            | None -> Ok false
-            | Some workspaceRoot ->
-                WorkspaceGit.remoteExists workspaceRoot)
+        PathPick.resolveCommand
+            (LoadPathChoice.ofRequest request state.graph)

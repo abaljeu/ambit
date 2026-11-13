@@ -241,7 +241,7 @@ let ``Neither Load of a Directory starts the Load actor and then stops`` () =
             let path =
                 requireOk
                     "path"
-                    (LoadSaveRouting.resolvePath dataDir state request)
+                    (LoadSaveRouting.resolvePath state request)
             Assert.Equal(LoadSavePath.Git, path)
             let! started =
                 GithubTransportActor.start

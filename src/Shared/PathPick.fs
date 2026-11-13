@@ -62,6 +62,7 @@ type LoadPathChoice = {
 [<RequireQualifiedAccess>]
 module PathPick =
 
+    /// Remote flag for `resolve`. Plain Save uses `plainSavePath` and the Save actor.
     let choose (remoteExists: bool) : LoadSavePath =
         if remoteExists then
             LoadSavePath.Git
@@ -83,21 +84,16 @@ module PathPick =
         | Ok subject -> Some subject
         | Error _ -> None
 
-    /// Plain Load enters the Load actor. An explicit Desk pre-pick stays Desk.
-    let private plainLoad (choice: LoadPathChoice) =
-        choice.operation = LoadSaveOperation.Load
-        && choice.prePick = LoadSavePrePick.Plain
-
-    /// Plain Load chooses the Load actor. Save still asks whether a remote exists.
-    /// Explicit git Load still chooses Git. Explicit desk Load still chooses Desk.
+    /// Plain Load and plain Save enter their actors.
+    /// Explicit git stays Git. Explicit desk stays Desk.
+    /// The Save actor chooses git or Neither from the work tree.
     let resolveCommand
         (choice: LoadPathChoice)
-        (remoteExists: unit -> Result<bool, string>)
         : Result<LoadSavePath, string> =
-        if plainLoad choice then
-            Ok LoadSavePath.Git
-        else
-            resolve choice.prePick remoteExists
+        match choice.prePick with
+        | LoadSavePrePick.Plain
+        | LoadSavePrePick.Git -> Ok LoadSavePath.Git
+        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
 
     let private normalizedLabel (label: string) =
         if isNull label then ""
@@ -113,6 +109,21 @@ module PathPick =
         : WorkspaceMappingPresence =
         { githubLabels = remoteLabels
           localLabels = localLabels }
+
+    /// Plain Save chooses Desk only for a local mapping and no remote.
+    /// Any remote, and a workspace with no local mapping, stay on the Save actor.
+    let plainSavePath
+        (graph: Graph)
+        (nodeId: NodeId)
+        (prePick: LoadSavePrePick)
+        (presence: WorkspaceMappingPresence)
+        : LoadSavePath option =
+        match prePick, labeledWorkspace graph nodeId with
+        | LoadSavePrePick.Plain, Some label
+            when Set.contains label presence.localLabels
+                 && not (Set.contains label presence.githubLabels) ->
+            Some LoadSavePath.Desk
+        | _ -> None
 
     /// Plain Load chooses Git when that workspace has both mappings.
     let plainLoadPath

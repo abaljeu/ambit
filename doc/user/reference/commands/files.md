@@ -22,15 +22,9 @@ What it does: git Load pulls files when a git upstream is defined. desk Load upl
 
 ## Save
 
-Keys: Ctrl+S. Any Mode.
+Keys: Ctrl+S and Ctrl+Shift+`<`. Any Mode.
 
-What it does: Sends a save of the current work. The command palette also lists git Save and desk Save, which run Save.
-
-## Download
-
-Keys: Ctrl+Shift+`<`. Selection Mode.
-
-What it does: Copies the workspace that contains the focus onto the mapped folder on this computer. Download does nothing when this Ambit cannot sync a workspace.
+What it does: `Ctrl+S` and `Ctrl+Shift+<` both run Save. Plain Save runs git Save when the focus Workspace has a git remote, with or without a local mapping. ROOT uses the data directory as that repository. A Workspace with a local mapping and no git remote runs desk Save. desk Save posts the data-directory save when that save is enabled. A Workspace with no local mapping and no git remote persists the focus. When that folder has its own `.git` directory, Save commits it and leaves pull and push for a remote. The command palette lists git Save and desk Save, and each one keeps its path. A selection that spans more than one Workspace does not save.
 
 ## Insert…
 

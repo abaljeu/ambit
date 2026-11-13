@@ -89,11 +89,6 @@ module RouteRegistration =
     let private parseBound (persistence: PersistenceContext) =
         boundChanges persistence persistence.Core.parseCaller
 
-    let private githubOperation =
-        function
-        | LoadSaveOperation.Load -> GithubTransportOperation.Load
-        | LoadSaveOperation.Save -> GithubTransportOperation.Save
-
     let private withAdmittedCaller
         (persistence: PersistenceContext)
         (req: HttpRequest)
@@ -339,26 +334,11 @@ module RouteRegistration =
                     withBrowserCaller persistence req (fun caller ->
                         let router =
                             { resolvePath =
-                                LoadSaveRouting.resolvePath persistence.DataDir
+                                LoadSaveRouting.resolvePath
                               startCommand =
-                                fun path request ->
-                                    if path = LoadSavePath.Desk then
-                                        CoreMailboxApi.startLoadSaveCommand
-                                            persistence.Core.host
-                                            caller
-                                            path
-                                            (GithubTransportActor.peerName
-                                                (githubOperation
-                                                    request.operation))
-                                            request
-                                    else
-                                        GithubTransportActor.start
-                                            persistence.Core.host
-                                            caller
-                                            persistence.DataDir
-                                            GithubTransportActor.productionDependencies
-                                            (githubOperation request.operation)
-                                            request.start }
+                                LoadSaveStart.startCommand
+                                    (boundChanges persistence caller)
+                                    persistence.DataDir }
                         Api.postLoadSaveCommand
                             router
                             (boundChanges persistence caller)

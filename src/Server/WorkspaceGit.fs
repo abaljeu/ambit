@@ -82,9 +82,14 @@ module WorkspaceGit =
         GitSave.runGit workspaceRoot arguments
         |> Result.mapError condenseGitError
 
+    /// This directory's `.git` only. `git remote` would otherwise
+    /// use a repository in a parent directory.
     let remoteExists (workspaceRoot: string) : Result<bool, string> =
-        runGitCondensed workspaceRoot "remote"
-        |> Result.map (String.IsNullOrWhiteSpace >> not)
+        if not (isRepo workspaceRoot) then
+            Error "not a git repository"
+        else
+            runGitCondensed workspaceRoot "remote"
+            |> Result.map (String.IsNullOrWhiteSpace >> not)
 
     let trackedBranch
         (workspaceRoot: string)

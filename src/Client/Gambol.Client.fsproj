@@ -24,11 +24,11 @@
     <Compile Include="UpdateAmbleRun.fs" />
     <Compile Include="UpdateValidateGraph.fs" />
     <Compile Include="UpdatePaste.fs" />
-    <Compile Include="UpdateSave.fs" />
     <Compile Include="UpdateWorkspaceDesktop.fs" />
     <Compile Include="UpdateWorkspaceSync.fs" />
     <Compile Include="UpdateWorkspaceDownload.fs" />
     <Compile Include="UpdateWorkspaceLoad.fs" />
+    <Compile Include="UpdateSave.fs" />
     <Compile Include="LoadSaveCommandClient.fs" />
     <Compile Include="DeskLoadSaveEffectClient.fs" />
     <Compile Include="UpdateOps.fs" />
