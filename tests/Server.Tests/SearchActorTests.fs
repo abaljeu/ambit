@@ -1,6 +1,9 @@
 module Gambol.Server.Tests.SearchActorTests
 
 open System
+open System.Net
+open System.Net.Http
+open System.Text
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
@@ -85,7 +88,7 @@ let ``actor walks the supplied graph from zoom then root`` () =
         full.ids)
 
 [<Fact>]
-let ``reply walks from the root`` () =
+let ``reply walks from the request start`` () =
     let graph0 = Graph.create ()
     let graph1, ids =
         ModelBuilder.createNodes
@@ -104,9 +107,9 @@ let ``reply walks from the root`` () =
           generation = None }
     let got = SearchActor.reply (fun () -> graph) request
     Assert.Equal<NodeId list>(
-        clientIds "hit" graph.root graph,
+        clientIds "hit" zoom graph,
         got.ids)
-    Assert.Equal<NodeId list>([ underRoot; underZoom ], got.ids)
+    Assert.Equal<NodeId list>([ underZoom; underRoot ], got.ids)
 
 [<Fact>]
 let ``graph focus does not change the walk`` () =
@@ -275,6 +278,56 @@ let ``postSearch records ActorStart at the root`` () = task {
         Assert.True(stopped, "ActorStop missing after the one reply")
     finally
         CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``server search returns the hits and their Want nodes`` () = task {
+    let dir = newTempDir ()
+    use client = createClientForDir dir
+    let! _, before = StateEndpointTests.readFullState client
+    let childId = NodeId.New()
+    let term = "zebrasearch"
+    let change =
+        SpecialNodeTestHelpers.changeEventZero
+            ""
+            [ Op.NewNode(childId, term)
+              Op.Replace(before.root, [], [ ChildNode.owner childId ]) ]
+    let body =
+        Enc.toString 0 (
+            ApiResponseSerialization.encodeChangeRequest
+                { events = [ change ]; want = [] })
+    use posted =
+        new StringContent(body, Encoding.UTF8, "application/json")
+    let! created = client.PostAsync("/ambit/events", posted)
+    Assert.Equal(HttpStatusCode.OK, created.StatusCode)
+    let! _, after = StateEndpointTests.readFullState client
+    let header = after.nodes.[childId]
+    let request: SearchPicture.Request =
+        { text = term
+          startId = after.root
+          generation = None }
+    let searchBody =
+        Enc.toString 0 (SearchPicture.encodeRequest request)
+    use content =
+        new StringContent(searchBody, Encoding.UTF8, "application/json")
+    let! response = client.PostAsync("/ambit/search", content)
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    let! json = response.Content.ReadAsStringAsync()
+    match Dec.fromString SearchPicture.decodeReply json with
+    | Error err -> failwith err
+    | Ok reply -> Assert.Contains(childId, reply.ids)
+    let nodesDecoder =
+        Thoth.Json.Core.Decode.object (fun get ->
+            get.Required.Field
+                "nodes"
+                (Thoth.Json.Core.Decode.list Serialization.decodeNode))
+    match Dec.fromString nodesDecoder json with
+    | Error err -> failwith err
+    | Ok nodes ->
+        let carried = nodes |> List.filter (fun node -> node.id = childId)
+        Assert.Equal(1, carried.Length)
+        Assert.Equal(header.text, carried.[0].text)
+        Assert.Equal(header.id, carried.[0].id)
 }
 
 [<Fact>]

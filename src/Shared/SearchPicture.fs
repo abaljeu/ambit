@@ -69,17 +69,46 @@ module SearchPicture =
         ViewModelSearch.searchHitCap - max 0 clientHitCount
 
     /// None when the reply is for other text or another generation.
-    let applyReply
+    /// Node ids in `exclude` leave before the room under 200 is applied.
+    let applyReplyExcluding
         (clientHitCount: int)
         (current: Match)
         (reply: Reply)
+        (exclude: Set<NodeId>)
         : NodeId list option =
         if reply.matchKey <> current then
             None
         else
             let space = roomFor clientHitCount
-            if space <= 0 then Some []
-            else Some (List.truncate space reply.ids)
+            if space <= 0 then
+                Some []
+            else
+                reply.ids
+                |> List.filter (fun id -> not (Set.contains id exclude))
+                |> List.truncate space
+                |> Some
+
+    /// None when the reply is for other text or another generation.
+    let applyReply
+        (clientHitCount: int)
+        (current: Match)
+        (reply: Reply)
+        : NodeId list option =
+        applyReplyExcluding clientHitCount current reply Set.empty
+
+    /// A stale reply leaves the ids already kept.
+    let keepReplyExcluding
+        (clientHitCount: int)
+        (current: Match)
+        (kept: NodeId list)
+        (reply: Reply)
+        (exclude: Set<NodeId>)
+        : NodeId list =
+        match
+            applyReplyExcluding clientHitCount current reply exclude
+        with
+        | None -> kept
+        | Some ids -> ids
 
     /// A stale reply leaves the ids already kept.
     let keepReply
@@ -88,9 +117,7 @@ module SearchPicture =
         (kept: NodeId list)
         (reply: Reply)
         : NodeId list =
-        match applyReply clientHitCount current reply with
-        | None -> kept
-        | Some ids -> ids
+        keepReplyExcluding clientHitCount current kept reply Set.empty
 
     let encodeRequest (request: Request) =
         let generation =
@@ -102,20 +129,40 @@ module SearchPicture =
               "startId", Serialization.encodeNodeId request.startId ]
             @ generation)
 
+    let private encodeIds (ids: NodeId list) =
+        ids
+        |> List.map Serialization.encodeNodeId
+        |> Encode.list
+
+    let private encodeNodes (nodes: Node list) =
+        nodes
+        |> List.map Serialization.encodeNode
+        |> Encode.list
+
+    let private encodeMatch (key: Match) =
+        match key with
+        | Text text -> "text", Encode.string text
+        | Generation generation -> "generation", Encode.int generation
+
+    /// Find reply plus the Want answer `nodes` list of hit Headers.
+    let encodeReplyWithNodes (reply: Reply) (nodes: Node list) =
+        Encode.object
+            [ "ids", encodeIds reply.ids
+              encodeMatch reply.matchKey
+              "nodes", encodeNodes nodes ]
+
     let encodeReply (reply: Reply) =
-        let ids =
-            reply.ids
-            |> List.map Serialization.encodeNodeId
-            |> Encode.list
-        match reply.matchKey with
-        | Text text ->
-            Encode.object
-                [ "ids", ids
-                  "text", Encode.string text ]
-        | Generation generation ->
-            Encode.object
-                [ "ids", ids
-                  "generation", Encode.int generation ]
+        Encode.object
+            [ "ids", encodeIds reply.ids
+              encodeMatch reply.matchKey ]
+
+    /// Headers on the Want answer `nodes` list. Absent field is an empty list.
+    let decodeWantNodes: Decoder<Node list> =
+        Decode.object (fun get ->
+            get.Optional.Field
+                "nodes"
+                (Decode.list Serialization.decodeNode)
+            |> Option.defaultValue [])
 
     let decodeRequest: Decoder<Request> =
         Decode.object (fun get ->
