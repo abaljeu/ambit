@@ -30,6 +30,7 @@ The main push is cleaning up that architecture:
 - Start: the current frontier of that Actor migration
 - Ticket dependencies set the order
 - Online search resumes after this work
+- Under online search, after [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md): [Amble tools](plan/bot-amble-tools/project.md)
 
 ### Graph nodes and their files
 
@@ -78,6 +79,7 @@ The main push is cleaning up that architecture:
 - 2026-10-07: Alan approved: home [[plan/online-search/project.md]] on Chapter [[epics/chapters/find-what-i-wrote.md]] (Ambot keeps implement / server Search Want-fulfillment). Search hydration stays Browser residency. Leave `plan/online-search/` for its own sessions. Recorded here; no Roadmap issue file.
 - 2026-10-07: Alan approved: [[plan/workspace-git/project.md]] Stage dead; prior home superseded by [[plan/github-transport/project.md]] / Chapter [[epics/chapters/send-to-and-from-github.md]]. Recorded here; no Roadmap issue file.
 - 2026-10-07: Alan lock: solid core built via [[plan/core-creation/project.md]] (v1 implemented, Stage `done`); [[plan/core-refinement/project.md]] is v2. Chapter [[epics/chapters/initial-core.md]] met; current Chapter [[epics/chapters/actors-supported.md]]. Leftover core-creation issues continue as pointer tickets [[plan/core-refinement/issues/08-pointer-core-actor-pool.md]]–[[plan/core-refinement/issues/17-pointer-prove-testactor-hello.md]]. Recorded here; no Roadmap issue file.
+- 2026-11-14: Amble tools follows 24 — Remove CoreMsg.RecordSearchStop under online search. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 
