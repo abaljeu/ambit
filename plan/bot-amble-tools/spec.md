@@ -32,10 +32,7 @@ Map: [[map.md]]
 ## 3. Limits
 
 [ ] Answer cap — One run materialises at most 50 Answers.
-[ ] Round cap — One reply executes a bounded count of run lines. The count is Open question 1.
-[ ] Returned-text cap — A character cap on the returned text is Open question 2.
+[ ] Round cap — One reply executes at most 4 run lines.
+[ ] Returned-text cap — One run returns at most 8000 characters of text, after the answer cap. The outline holds every materialised child.
 
-## 4. Open questions
-
-1. Round cap — The proposed default is 4 executed run lines in one reply.
-2. Returned-text cap — The proposed default is a cap of 8000 characters on the returned `text` of one run, after the answer cap. The outline still holds every materialised child.
+Open questions: none.
