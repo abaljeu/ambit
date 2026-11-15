@@ -28,11 +28,11 @@ These symbols have left:
 
 ## Present pages
 
-These pages still describe `CoreMsg.RecordSearchStop` as present. This build leaves them. They sit outside the ticket Inputs.
+[24 — Remove CoreMsg.RecordSearchStop](24-doc.md) records these pages. Each page matches the program.
 
-- [Online search architecture](../arch.md) still lists `recordSearchStop` and says that case stores a second stop.
-- [Online search spec](../spec.md) section **Search Actor door** still names the mailbox case `RecordSearchStop`.
-- [Online search](../project.md) still marks this ticket `defined`.
-- [Core refinement](../../core-refinement/project.md) still says `CoreMsg` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
+- [Online search architecture](../arch.md) names one `Notice.ActorStopped` from `CoreActorPool.postStopUnlessCancelled`.
+- [Online search spec](../spec.md) section **Search Actor door** says `recordStart` places `Order.StartActor` for the actor `search`, and `recordStop` returns unit.
+- [Online search](../project.md) marks this ticket `coded`.
+- [Core refinement](../../core-refinement/project.md) says `CoreMsg` is `StartLoadSaveCommand` and `PostEvent`.
 
 Open question: none.

@@ -189,7 +189,7 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 postSearch : SearchActorDoor -> string -> Async<IResult>
 ```
 
-[x] `postSearch` reads State through `changes`, records the start, runs Find and Move reply, records the stop at the root, and returns one reply. Errors are `Result` values.
+[x] `postSearch` reads State through `changes`, records the start, runs the Find and Move reply, and returns one reply. A finished search logs one `Notice.ActorStopped` from `CoreActorPool.postStopUnlessCancelled`. Errors are `Result` values.
 
 ### Root-only start
 
@@ -220,10 +220,9 @@ reply : (unit -> Graph) -> SearchPicture.Request -> SearchPicture.Reply
 
 ```fsharp
 recordSearchStart : MailboxHost -> Caller -> ActorStart -> Async<Result<unit, string>>
-recordSearchStop : MailboxHost -> Caller -> NodeId -> Async<Result<unit, string>>
 ```
 
-[x] `recordSearchStart` commits `ActorStart` on the event source. `recordSearchStop` commits `ActorStop`. The walk stays off this queue.
+[x] `recordSearchStart` places `Order.StartActor` for the actor `search`. A finished search logs one `Notice.ActorStopped` from `CoreActorPool.postStopUnlessCancelled`. The walk stays off this queue.
 
 ### Run command
 
@@ -302,7 +301,7 @@ answerNodeIds : NodeId -> Graph -> string -> NodeId list
 ### Actor stop
 
 [x] `SearchActor.queryActorBody` returns `ActorQuery`. `CoreActorPool.runReturned` binds that result. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
-[x] `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `SearchActor.actorCaller` has left. `SearchActor.searchActorAt` returns `ActorSucceeded`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`. `CoreMailboxLoop.logActorStopped` stores that row through `CoreEventDispatch.actorStop` with `Authority "Actor"`. `CoreMsg.RecordSearchStop` still stores a second stop through `CoreEventDispatch.actorStop`. [24 — Remove CoreMsg.RecordSearchStop](issues/24-remove-coremsg-recordsearchstop.md) removes that case.
+[x] `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `SearchActor.actorCaller` has left. `SearchActor.searchActorAt` returns `ActorSucceeded`. `CoreActorPool.postStopUnlessCancelled` posts one `Notice.ActorStopped`. `CoreMailboxLoop.logActorStopped` stores that row through `CoreEventDispatch.actorStop` with `Authority "Actor"`.
 
 ### Query ref post
 
@@ -448,7 +447,7 @@ Sync install
    - Uses:
      1. [x] Local search
 10. **Search event record**
-    - Interface: `src/Server/Core/CoreMailboxApi.fs` `recordSearchStart`, `recordSearchStop`
+    - Interface: `src/Server/Core/CoreMailboxApi.fs` `recordSearchStart`
     - Uses:
       1. [x] none
 11. **Run command**

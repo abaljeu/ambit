@@ -13,7 +13,7 @@ These symbols have left:
 - `ActorChanges.actorStop`
 - `CoreMailboxActors.dispatchActorStop`
 
-`CoreMsg` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`. `CoreMailboxLoop.runMsg` still matches `RecordSearchStop` and calls `CoreEventDispatch.actorStop`. `EventBody.ActorStop` and `Notice.ActorStopped` stay. `src/Server/SearchActor.fs` stays.
+`CoreMsg` is `StartLoadSaveCommand` and `PostEvent`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. `EventBody.ActorStop` and `Notice.ActorStopped` stay. `src/Server/SearchActor.fs` stays.
 
 ``ActorStopped Notice drops live row`` and ``ActorStopped Notice is logged and drops live row`` post `Notice.ActorStopped` with `CoreMailboxApi.postNotice`. Each recording pool's `trySecretForActorNode` returns the live secret. The logged stop row's authority is `Authority "Actor"`.
 

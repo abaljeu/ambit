@@ -2,7 +2,7 @@
 
 **Status**: defined
 
-One job: The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. The log stays the same, and every client reply stays the same. The work of `CoreMailboxActors.postActorStart` moves into `placeOrder`'s `ClientRequestActor` arm. There is one cancel, by the focused node. `placeOrder`'s `CancelActor` arm always gives `postCancel`'s reply: the stored event when `storedBySubmission` finds the submission, else `runCancel`'s stored event, else the draft id. That arm replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. Tests that pin a real cancel post `EventBody.Cancel` the way the client does. Tests that only pin `cancelByFocus` leave. `CoreMsg.PostEvent` then leaves. `CoreMsg` stays `StartLoadSaveCommand` and `RecordSearchStop`. The reason is Alan, 2026-11-15.
+One job: The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. The log stays the same, and every client reply stays the same. The work of `CoreMailboxActors.postActorStart` moves into `placeOrder`'s `ClientRequestActor` arm. There is one cancel, by the focused node. `placeOrder`'s `CancelActor` arm always gives `postCancel`'s reply: the stored event when `storedBySubmission` finds the submission, else `runCancel`'s stored event, else the draft id. That arm replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. Tests that pin a real cancel post `EventBody.Cancel` the way the client does. Tests that only pin `cancelByFocus` leave. `CoreMsg.PostEvent` then leaves. `CoreMsg` stays `StartLoadSaveCommand`. The reason is Alan, 2026-11-15.
 
 Type: coding
 
@@ -17,11 +17,11 @@ Blockers:
 
 ## Scope
 
-Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor` arm takes the work of `postActorStart`. `placeOrder`'s `CancelActor` arm takes `postCancel`'s reply and replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. `StartLoadSaveCommand` and `RecordSearchStop` stay. The edit adds no `Order` case and no `CoreMsg` case.
+Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor` arm takes the work of `postActorStart`. `placeOrder`'s `CancelActor` arm takes `postCancel`'s reply and replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. `StartLoadSaveCommand` stays. The edit adds no `Order` case and no `CoreMsg` case.
 
 ### Signatures
 
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand` and `PostEvent`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 [x] `PostEvent` is `caller: Caller * event: Ev * AsyncReplyChannel<Result<EventId, string>>`.
 [x] `EventBody.ActorStart` in `src/Shared/History.fs` builds `EventBody.Order` of `Order.ClientRequestActor`.
 [x] `EventBody.Cancel` in `src/Shared/History.fs` builds `EventBody.Order` of `Order.CancelActor`.
@@ -34,7 +34,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [x] `CoreEventDispatch.persistNew` in `src/Server/Core/CoreEventDispatch.fs` replies `Error "posted EventId must be zero"` when `event.id` is not `EventId.zero`.
 [x] `parseBuild` replies that same error for a Parse post whose id is not zero.
 [x] `MailboxLog.eventFromPlacedOrder` builds the logged `Ev` at `EventId.zero`. `replyEdit` and `replyPlaced` call `CoreEventDispatch.postEvent` with that event.
-[x] `runMsg` and `messageCaller` in `src/Server/Core/CoreMailboxLoop.fs` match `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
+[x] `runMsg` and `messageCaller` in `src/Server/Core/CoreMailboxLoop.fs` match `StartLoadSaveCommand` and `PostEvent`.
 [x] `runMsg` sends `PostEvent` to `CoreMailboxActors.dispatchPostEvent`.
 [x] `operationContext` and `replyFailure` in `src/Server/Core/CoreMailboxEvents.fs` match those three cases.
 [x] `dispatchPostEvent` replies `Error "ActorStop is not a client event type"` for `EventBody.ActorStop`.
@@ -54,8 +54,8 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [x] `postCancel`'s `Ok None` reply is `event.id`. `PlacedOrder` is `orderId`, `authority`, `commandName`, and `order`.
 [x] `queueAdmittedAi` in `src/Server/Core/CoreMailboxActors.fs` documents `actorNodeId` as the focus id `cancelByFocus` uses.
 [x] `postBuiltOrder`, `queueAdmittedFocus`, `queueAdmittedTest`, `queueAdmittedAi`, `queueAdmittedQuery`, `whenAdmitted`, and `admittedQueue` have no caller besides `postActorStart`.
-[x] `recordSearchStop` and `startLoadSaveCommand` call `reply`. `addCoreMsg` has no caller in `src/`.
-[x] `dispatchMailbox` and `isStartupRead` match `Mailbox.CoreMsg`. Those arms stay, because `StartLoadSaveCommand` and `RecordSearchStop` stay.
+[x] `startLoadSaveCommand` calls `reply`. `addCoreMsg` has no caller in `src/`.
+[x] `dispatchMailbox` and `isStartupRead` match `Mailbox.CoreMsg`. Those arms stay, because `StartLoadSaveCommand` stays.
 
 ### Where the logic goes
 
@@ -113,7 +113,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 
 ## Later
 
-[ ] The `CoreMsg` type leaves after [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) and [20 — Move Desk Load and Desk Save](../../actor-as-client/issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). `StartLoadSaveCommand` is the desk message. This ticket leaves that closing ticket unwritten.
+[ ] The `CoreMsg` type leaves after [20 — Move Desk Load and Desk Save](../../actor-as-client/issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). `StartLoadSaveCommand` is the desk message. [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`. This ticket leaves that closing ticket unwritten.
 [ ] That later ticket owns the renames ``CoreMsg is gone`` and ``Mailbox is PlaceOrder, Ask, and Notice``.
 
 ## Inputs
@@ -130,10 +130,10 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 
 ## Do not load
 
-[x] `recordSearchStop` and `startLoadSaveCommand` call `reply`. `addCoreMsg` has no caller in `src/`.
+[x] `startLoadSaveCommand` calls `reply`. `addCoreMsg` has no caller in `src/`.
 [ ] The edit leaves `CoreMsg`, `Mailbox.CoreMsg`, `MailboxHost.coreMsgItem`, `MailboxHost.postAndAsyncReply`, `CoreMailboxApi.addCoreMsg`, and `CoreMailboxApi.reply`.
 [ ] The `PostEvent` arm of `runMsg` leaves, and the `PostEvent` arm of `messageCaller` leaves. The other arms stay.
-[ ] The edit leaves `CoreMsg.RecordSearchStop`, `CoreMsg.StartLoadSaveCommand`, and `CoreEventDispatch.actorStop`.
+[ ] The edit leaves `CoreMsg.StartLoadSaveCommand` and `CoreEventDispatch.actorStop`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 [ ] The edit leaves `runCancel`. `replyCancel` leaves when the `CancelActor` arm gives `postCancel`'s reply.
 [ ] `CoreMailboxApi.cancelByFocus` leaves.
 [ ] `placeOrder`'s `ClientRequestActor` arm is in this ticket. The edit adds no `Order` case.
@@ -160,7 +160,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [ ] Filter: `Undo, Redo, and Cancel are placed as orders`
 [ ] Rename ``postEvent runs through Mailbox CoreMsg`` to ``postEvent runs through Mailbox PlaceOrder``.
 [ ] Filter: `postEvent runs through Mailbox PlaceOrder`
-[ ] ``Mailbox is CoreMsg, PlaceOrder, and Ask`` keeps its name. Its `CoreMsg` sample becomes `StartLoadSaveCommand` or `RecordSearchStop`.
+[ ] ``Mailbox is CoreMsg, PlaceOrder, and Ask`` keeps its name. Its `CoreMsg` sample becomes `StartLoadSaveCommand`.
 [ ] Rename ``postPlacedOrder refuses ClientRequestActor and appends nothing`` to ``postPlacedOrder of an absent ClientRequestActor replies unknown actor``. The absent node reaches `placeOrder`. The reply is `Error "unknown actor"`. The log is unchanged.
 [ ] Filter: `postPlacedOrder of an absent ClientRequestActor replies unknown actor`
 
@@ -203,7 +203,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 
 [ ] Rewrite `68-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when the edit removes `CoreMsg`, `Mailbox.CoreMsg`, `MailboxHost.coreMsgItem`, `MailboxHost.postAndAsyncReply`, `CoreMailboxApi.addCoreMsg`, `CoreMailboxApi.reply`, or `runMsg`.
-[ ] Stop when the edit removes `RecordSearchStop` or `StartLoadSaveCommand`.
+[ ] Stop when the edit removes `StartLoadSaveCommand` or adds a search-specific stop notice.
 [ ] Stop when the edit changes a log row.
 [ ] Stop when a client `postEvent` or `postEvents` reply changes.
 [ ] Stop when `CoreMailboxApi.cancelByFocus` remains.
