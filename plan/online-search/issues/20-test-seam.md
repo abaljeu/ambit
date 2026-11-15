@@ -6,11 +6,11 @@
 
 ## Context
 
-The shared Find and Move result and the query Ref Replace are in place from [19 — Shared segments](19-shared-segments.md). A test needs one narrow place to prove them. Story path **Test seam** is [Online search architecture](plan/online-search/arch.md) §1.
+The shared Find and Move result and the query id result are in place from [19 — Shared segments](19-shared-segments.md). A test needs one narrow place to prove them. Story path **Test seam** is [Online search architecture](plan/online-search/arch.md) §1.
 
 ## What to build
 
-Tests share one result of at most 200 Node ids. Find and Move tests install that result through the Want install door. Query tests also expect the Ref Replace under the query line, and a function stop under 200.
+Find and Move tests share one result of at most 200 Node ids and install that result through the Want install door. Query tests expect `ActorQuery` of existing Node ids, a stop at `ExprRun.maxMaterialisedAnswers`, and the same Focus children. That number is 50. Refs under the query line stay [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md).
 
 ### 1. Want nodes for hits
 
@@ -22,7 +22,7 @@ The Find and Move install is a lock on [Online search architecture](plan/online-
 
 The Ref Replace stays the proposed design on [Online search architecture](plan/online-search/arch.md) §2 item 2 **Query Actor**. Identity of a hit is Node id (`NodeId`).
 
-1. [ ] Query proof — Query tests also expect the Ref Replace under the query line, and a function stop under 200.
+1. [ ] Query proof — Query tests expect `ActorQuery` of existing Node ids, a stop at `ExprRun.maxMaterialisedAnswers`, and the same Focus children. That number is 50. The Ref insert stays 16 — Insert Refs under the query line.
 
 ## See also
 

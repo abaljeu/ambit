@@ -30,17 +30,24 @@ Map: [[map.md]]
 [ ] Input Answer — The expression's input Answer is the focused Node, the same Node `ExprRun.run` uses when it applies a run line.
 [ ] Answer order — The node list follows Answer order.
 [ ] Run cap — The node list stops at the Run cap in Limits.
-[ ] Parse failure — A parse failure leaves the node list empty.
-[ ] Type error — A type error leaves the node list empty.
-[ ] No Node Answer — The node list is empty when the expression yields no Node Answer.
+[ ] Parse failure — A parse failure shows the `ParseFailed` text in the dialog. That row has no selectable index.
+[ ] Type error — A type error shows the text `type error` in the dialog. That row has no selectable index.
+[ ] No Node Answer — The node list is empty when the result type is Node and the expression yields no Node Answer.
 
 ### Text Answers
 
-[ ] Text Answer — An expression that yields Text Answers leaves the node list empty. `ExprDialog.tryHits` returns that empty list when `ExprCompile.evalOutcome` is `Hits` of `ExprAnswerType.Text`.
+[ ] Static check — The check is static. `ExprCompile.inferType` yields one result type before evaluation. The rows `text` and `name` use `nodeToTextSig`.
+[ ] Node result — The dialog lists Node Answers when that result type is `ExprAnswerType.Node`.
+[ ] Text result — A result type of `ExprAnswerType.Text` is a type error for the whole expression in this dialog. The dialog shows the text `type error`.
+[ ] Text shapes — The result type is Text when the expression ends in `text`, `name`, a quoted literal, or a prefix or suffix (`left` or `right`).
+[ ] Text test — `ExprDialog.tryHits "= root text"` reports that type error. The dialog shows `type error`.
+[ ] Mixed sequence — `(name, child)` is a type error for the whole expression. `name` yields Text and `child` yields the Children. Comma requires one result type, so `ExprCompile.inferType` rejects the sequence.
+[ ] Mixed test — `ExprDialog.tryHits "= (name, child)"` reports that type error and returns no row. The dialog shows `type error`.
+[ ] Run text — `ExprCompile.evalOutcome` still returns `Hits` of `ExprAnswerType.Text` for a Text result. `ExprRun.run` still accepts that result.
 [ ] Node row — A Node Answer is one row. `ExprDialog.tryHits` copies that Node's id, `node.text`, and name onto the row.
 [ ] Named row — `formatNamedDialogHit` shows a `Filename.Ok` name, two spaces, and the Header text.
 [ ] Unnamed row — `formatNamedDialogHit` shows the Header text for any other name.
-[ ] Empty label — An empty node list shows the label `Zero results`. `dialogResultLabels` supplies that label.
+[ ] Empty label — An empty node list from a Node result shows the label `Zero results`. `dialogResultLabels` supplies that label.
 [ ] Empty pick — An empty node list has no selectable row. `dialogResultPick` returns no index for that list.
 [ ] Answer cases — An Answer here is a Node or Text. `ExprAnswer` has those two cases.
 

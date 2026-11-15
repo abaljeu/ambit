@@ -60,7 +60,7 @@ Blockers:
 
 ## Do not load
 
-[ ] `CoreMsg.PostEvent`. [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) converts that case.
+[x] `CoreMsg.PostEvent`. [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../../../core-refinement/issues/68-remove-coremsg-postevent.md) does this job.
 [ ] `CoreEventDispatch.actorStop` while `RecordSearchStop` still calls it from `CoreMailboxLoop.runMsg`.
 [ ] `FunctionRun`. It stays `getGraph` and `secret`.
 [ ] `ActorInput.sessionId` and the live-row `sessionId`. `putFunctionStart` already stores that id.

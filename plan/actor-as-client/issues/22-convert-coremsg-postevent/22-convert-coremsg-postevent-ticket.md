@@ -1,5 +1,9 @@
 # 22 — Convert CoreMsg.PostEvent
-**Status**: defined
+
+**Status**: superseded
+
+[68 — Remove CoreMsg.PostEvent](../../../core-refinement/issues/68-remove-coremsg-postevent.md) does this job.
+
 One job: A client `Order` is posted through `Mailbox.PlaceOrder`. A client `Notice` is refused. `CoreMsg.PostEvent` is gone, and so is `CoreMsg` when that case is the last one.
 
 The blockers remove the other `CoreMsg` cases. This ticket removes the last one. `placeOrder` in `src/Server/Core/CoreMailboxLoop.fs` is the Order path. `CoreQueue.Notice` is the Notice path. A client notice stays refused, so this ticket does not call `CoreMailboxApi.postNotice` for a client event.

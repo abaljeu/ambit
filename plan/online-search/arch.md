@@ -293,7 +293,7 @@ startFunction : FunctionStart -> Result<Credential, string>
 answerNodeIds : NodeId -> Graph -> string -> NodeId list
 ```
 
-[ ] `answerNodeIds` returns at most 200 ids. A function stop under that cap stays. Ordinary eval omits a node equal to `GraphBuild.trashId`. The signature stays `NodeId -> Graph -> string -> NodeId list`. There is no page.
+[ ] `answerNodeIds` returns at most `ExprRun.maxMaterialisedAnswers` ids. That number is 50. A function stop under that cap stays. Ordinary eval omits a node equal to `GraphBuild.trashId`. The signature stays `NodeId -> Graph -> string -> NodeId list`. There is no page. The Find word-search cap stays 200.
 
 ### Trash function
 
@@ -312,7 +312,7 @@ answerNodeIds : NodeId -> Graph -> string -> NodeId list
 postEvents : CoreChangesDoor -> Ev list -> Async<Result<CoreChangesAccepted, string>>
 ```
 
-[ ] Proposed Query Ref post. The Query Actor posts `Op.Replace`. Each result child is `ChildNode.reference`. The same response carries the Want `nodes`.
+[ ] Proposed Query Ref post. This post is the insert on [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). Each result child is `ChildNode.reference`. The same response carries the Want `nodes`. [25 — The server evaluates Run](issues/25-server-evaluates-run.md) returns existing Node ids and writes no children.
 
 ### Want nodes
 
@@ -391,7 +391,7 @@ Actor stop
 
 5. **Proposed Query Ref post**
 
-[ ] The query results become Refs under the query line, with their Want `nodes`.
+[ ] The insert on 16 — Insert Refs under the query line places Refs under the query line, with their Want `nodes`. 25 — The server evaluates Run returns existing Node ids and writes no children.
 
 ```fsharp
 Query answer

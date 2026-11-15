@@ -6,7 +6,7 @@
 
 ## Projects
 
-- [[plan/<slug>/project.md]]
+- [[plan/<slug>/map.md]]
 
 A Project issue, when the Chapter needs one:
 

@@ -3,7 +3,7 @@
 One job: The Browser queues an `ActorStart` request and posts it, and its event-log copy records the `ActorOrder` the Server returns. The Browser never builds an `ActorOrder`, and `EventBody.ActorStart` with `(|ActorStart|_|)` stays.
 
 [ ] [16 — Rename the client start request to ClientRequestActor](../16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md) depends on this ticket.
-[ ] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) covers the `dispatchPostEvent` arm. This ticket leaves that arm to 22.
+[x] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../../../core-refinement/issues/68-remove-coremsg-postevent.md) covers the `dispatchPostEvent` arm. This ticket leaves that arm to 68.
 
 Type:
 
@@ -28,7 +28,7 @@ Blockers:
 
 ## Do not load
 
-[ ] `dispatchPostEvent`. 22 — Convert CoreMsg.PostEvent owns it.
+[x] `dispatchPostEvent`. 22 — Convert CoreMsg.PostEvent is superseded. 68 — Remove CoreMsg.PostEvent owns it.
 [ ] `CoreMailboxApi.coreMailboxStartActor`. 25 — Remove the coreMailboxStartActor door owns it.
 [ ] `Order.ClientRequestActor`, its codec, and its log arm. 16 — Rename the client start request to ClientRequestActor keeps them.
 [ ] A new `Order` case or a new `CoreMsg` case.

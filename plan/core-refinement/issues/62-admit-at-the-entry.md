@@ -19,7 +19,7 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 1. [ ] **Work order** — The order is [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md), then [63 — Move queries to Ask](63-move-queries-to-ask.md), then this ticket, then [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md). This ticket is blocked by [60 — Add Mailbox beside CoreMsg](60-add-mailbox-beside-coremsg.md) only. That ticket establishes `Mailbox.CoreMsg`, `PlaceOrder`, and `Ask` beside one another.
 2. [ ] **Session handoff** — [61 — Move Session off the core mailbox](61-move-session-off-the-core-mailbox.md) is blocked by this ticket and by [63 — Move queries to Ask](63-move-queries-to-ask.md). Its route admission and its logout use the entry rule from this ticket. Logout stops admitting and queues `CoreQueue.DropAuthority`. The core removes the authority when it processes that case.
 3. [ ] **Actor handoff** — [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md) is also blocked by this ticket. Complete Actor admission at start before that ticket moves Actor posts to the new order door.
-4. [ ] **Collapse gate** — [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md) is also blocked by this ticket. It collapses the expansion seam after this ticket is complete. Every remaining order door receives only a logged-in user or an Actor admitted at start.
+4. [ ] **Collapse gate** — [68 — Remove CoreMsg.PostEvent](68-remove-coremsg-postevent.md) removes `PostEvent` after this ticket. `StartLoadSaveCommand` and `RecordSearchStop` stay. Every remaining order door receives only a logged-in user or an Actor admitted at start.
 
 ### 2. Change
 
@@ -62,5 +62,5 @@ Check a logged-in user at the route, and admit an Actor in the start handler. `p
 - [63 — Move queries to Ask](63-move-queries-to-ask.md)
 - [64 — Place Edit changes as Order.Change](64-merge-postevent-and-postgraphonly-into-change.md)
 - [66 — Move Actor orders onto Order and Notice](66-move-actor-orders-onto-order-and-notice.md)
-- [68 — Remove the CoreMsg case](68-remove-the-coremsg-case.md)
+- [68 — Remove CoreMsg.PostEvent](68-remove-coremsg-postevent.md)
 - [GLOSSARY](../../../GLOSSARY.md)

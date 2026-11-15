@@ -6,11 +6,11 @@
 
 ## Context
 
-Find, Move, and Query each have their own story path. The person still sees one cap, one Find and Move Actor, and one query Actor. Story path **Shared segments** is [Online search architecture](plan/online-search/arch.md) §1.
+Find, Move, and Query each have their own story path. Find and Move share the cap of 200. The query cap is `ExprRun.maxMaterialisedAnswers`. That number is 50. The person still sees one Find and Move Actor and one query Actor. Story path **Shared segments** is [Online search architecture](plan/online-search/arch.md) §1.
 
 ## What to build
 
-Find and Move share one walk off the mailbox. That walk posts one reply and stops. The walk is the client search algorithm. Query starts its own Actor when the line runs, posts one reply, and posts the Ref Replace on the event source. Each reply holds at most 200 Node ids. A query function may stop under 200.
+Find and Move share one walk off the mailbox. That walk posts one reply and stops. The walk is the client search algorithm. That reply holds at most 200 Node ids. Query starts its own Actor when the line runs. The reply is `ActorQuery` of existing Node ids. That actor posts no ops. The query cap is `ExprRun.maxMaterialisedAnswers`. That number is 50. A query function may stop under 50. [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) inserts Refs under the query line.
 
 ### 1. Search Actor
 
@@ -24,9 +24,9 @@ Find and Move share one walk off the mailbox. That walk posts one reply and stop
 
 **Query Actor** stays on [Online search architecture](plan/online-search/arch.md) §2 item 2. The Ref post stays a proposed design. Say event source.
 
-1. [ ] Own start — Query starts its own Actor when the line runs. It posts one reply and stops.
-2. [ ] Ref Change — Query also posts the Ref Replace on the event source.
-3. [ ] Lower limit — When the function stops under 200, the result uses that stop. Otherwise the result stops at 200.
+1. [ ] Own start — Query starts its own Actor when the line runs. The reply is `ActorQuery` of existing Node ids. The actor posts no ops. The Focus node's children stay as they are.
+2. [ ] Insert — Refs under the query line stay 16 — Insert Refs under the query line. This actor writes no children.
+3. [ ] Lower limit — When the function stops under `ExprRun.maxMaterialisedAnswers`, the result uses that stop. Otherwise the result stops at that cap. That number is 50. The Find and Move cap stays 200.
 
 ## See also
 
