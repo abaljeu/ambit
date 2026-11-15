@@ -27,6 +27,7 @@ Map: [[map.md]]
 [ ] Execute — AMBLE mode builds the node list on an explicit execute.
 [ ] Parsed expression — That execute builds the node list when the expression parses.
 [ ] Server Graph — The server evaluates the expression on the full database.
+[ ] Input Answer — The expression's input Answer is the focused Node, the same Node `ExprRun.run` uses when it applies a run line.
 [ ] Answer order — The node list follows Answer order.
 [ ] Run cap — The node list stops at the Run cap in Limits.
 [ ] Parse failure — A parse failure leaves the node list empty.
@@ -65,14 +66,4 @@ Map: [[map.md]]
 [ ] Find cap — A word search stops at 200 hits. That number is `ViewModelSearch.searchHitCap` and `SearchDialog.searchPictureCount`. The dialog sends it as `SearchPicture.Request.count`. A request that omits `count` decodes as 200.
 [ ] Run cap — AMBLE mode lists at most 50 Node Answers. That bound is `ExprRun.maxMaterialisedAnswers`, the same bound as an Amble run.
 
-## 4. Open questions
-
-### 1. Input Node
-
-The server evaluates the expression on the full database.
-
-`ExprDialog.tryHits` applies the expression to the zoom root.
-
-`ExprRun.run` applies a run line to the focus Node.
-
-Which Node is the input Answer in AMBLE mode?
+Open questions: none.

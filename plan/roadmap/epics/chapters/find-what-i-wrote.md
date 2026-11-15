@@ -8,7 +8,7 @@ When a person needs a thing they already wrote, they get to it.
 
 - [[plan/online-search/project.md]] — Ambot; server Search Want-fulfillment of Find
 - [[plan/bot-amble-tools/project.md]] — Amble run lines in the AI reply, after [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md)
-- [[plan/search-amble/project.md]] — The Find and Move dialog has an AMBLE mode that lists Node Answers on an explicit execute, word search lists Nodes as the person types, and the outline keeps its Nodes and Children, after 24 — Remove CoreMsg.RecordSearchStop
+- [[plan/search-amble/project.md]] — The Find and Move dialog has an AMBLE mode that lists Node Answers on an explicit execute from the focused Node, word search lists Nodes as the person types, and the outline keeps its Nodes and Children, after 24 — Remove CoreMsg.RecordSearchStop
 - [[plan/expression-language/project.md]] — Find expression remainder (eval stays local)
 - [[plan/transport-layer/project.md]] — inbound, outbound, round-trip. This Chapter depends on it.
 - [[plan/graph-view/project.md]] — radial focus-centric graph view with Ref overlay
