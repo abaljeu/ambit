@@ -268,16 +268,7 @@ let ``postSearch records ActorStart at the root`` () = task {
                         testCaller
                         searchActor
                         start
-              recordStop =
-                fun rootId ->
-                    async {
-                        let! _ =
-                            CoreMailboxApi.recordSearchStop
-                                host
-                                testCaller
-                                rootId
-                        return ()
-                    } }
+              recordStop = fun _ -> async.Return () }
         let! result = Api.postSearch searchDoor body |> Async.StartAsTask
         match box result with
         | :? ContentHttpResult -> ()

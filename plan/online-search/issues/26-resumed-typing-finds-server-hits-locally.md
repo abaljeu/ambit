@@ -10,7 +10,7 @@ Blockers:
 
 [23 — Server search works](23-server-search-works.md) is done. The Server returns Find hit Headers on the Want answer `nodes` list. The client adds those Headers to the residency Graph. The dialog appends a server hit that was not Resident before the reply.
 
-[24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) is defined. This ticket starts while that removal is still ahead. The Find stop stays `Notice.ActorStopped` through the actor stop.
+[24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) is `coded`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 
 ## Inputs
 
@@ -41,7 +41,7 @@ Blockers:
 
 ## Do not load
 
-[ ] `CoreMsg.RecordSearchStop` and the Find stop path on 24 — Remove CoreMsg.RecordSearchStop.
+[ ] The Find stop. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. This ticket leaves that stop.
 [ ] The query expression and a Run line.
 [ ] File search.
 [ ] A new reply field. Hit Headers stay on the Want answer `nodes` list.

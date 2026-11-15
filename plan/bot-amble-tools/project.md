@@ -10,4 +10,4 @@ Started: 2026-11-14
 ## Notes
 
 - Spec: [[spec.md]]
-- Follows [25 — The server evaluates Run](../online-search/issues/25-server-evaluates-run.md). [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) stays the Find stop and does not supply this run.
+- Follows [25 — The server evaluates Run](../online-search/issues/25-server-evaluates-run.md). [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. This run is separate.

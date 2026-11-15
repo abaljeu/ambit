@@ -7,7 +7,7 @@ Blockers: none
 
 [ ] [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md) chooses which line runs Amble.
 [ ] This ticket is where the plan runs.
-[ ] [24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) stays the Find stop.
+[ ] [24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) is `coded`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 [ ] [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) inserts Refs under the query line.
 [ ] This ticket returns existing Node ids. The Focus node's children stay as they are.
 [ ] [Amble tools](../../bot-amble-tools/project.md) follows this server evaluation.
@@ -43,7 +43,7 @@ Blockers: none
 ## Do not load
 
 [ ] The owner scan, the `?` Actor start, and which line runs Amble. Those rules stay in 22 — Run sends = lines to Amble.
-[ ] `CoreMsg.RecordSearchStop` and the Find stop path in 24 — Remove CoreMsg.RecordSearchStop.
+[ ] The Find stop. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. This ticket leaves that stop.
 [ ] A line that starts with `>`. `AmbleRun.legacyRun` stays the client plan for that line.
 [ ] `src/Shared/History.fs`, `src/Shared/EventJson.fs`, and `src/Shared/ActorLive.fs`. `ActorStop` stays `ActorQuery`.
 [ ] The Find and Move walk in `SearchActor.reply`. The Find word-search cap stays 200.

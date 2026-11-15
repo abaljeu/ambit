@@ -64,7 +64,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.
 10. **Vocabulary** — Say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
 11. **Root only** — Alan, 2026-11-13. Both searches start at the zoom root. The client search reads the residency from the zoom root. The server search reads the full database from the zoom root.
-12. **Search Actor door** — Find and Move use `Api.SearchActorDoor`. The fields are `changes`, `recordStart`, and `recordStop`. `changes` reads State. `recordStart` records ActorStart. The mailbox case is `RecordSearchStart`. `recordStop` is a message to the queue. The mailbox case is `RecordSearchStop`. The queue puts ActorStop on the event source. The id is the root.
+12. **Search Actor door** — Find and Move use `Api.SearchActorDoor`. The fields are `changes`, `recordStart`, and `recordStop`. `changes` reads State. `recordStart` places `Order.StartActor` for the actor `search`. `recordStop` returns unit. The stop row is one `Notice.ActorStopped` from `CoreActorPool.postStopUnlessCancelled`. The id is the root.
 13. **Start fields** — The request carries `text`. It may carry `generation` for the reply match. It carries `startId`. `startId` is the zoom root. Both searches start at that zoom root. The dialog excludes Node ids the client search found when it appends the server hits.
 
 ## 2. Query spec
