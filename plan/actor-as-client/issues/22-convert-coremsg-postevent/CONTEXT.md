@@ -8,4 +8,4 @@ This folder is ticket 22 — Convert CoreMsg.PostEvent.
 
 ## Stage
 
-defined
+superseded
