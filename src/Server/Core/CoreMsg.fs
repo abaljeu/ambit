@@ -15,10 +15,6 @@ type internal CoreMsg =
         caller: Caller *
         rootId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
-    | ActorStop of
-        caller: Caller *
-        result: ActorResult *
-        AsyncReplyChannel<Result<unit, string>>
     | PostEvent of
         caller: Caller *
         event: Ev *

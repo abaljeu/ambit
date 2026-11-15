@@ -20,8 +20,6 @@ module internal CoreMailboxLoop =
             reply.Reply(
                 CoreEventDispatch.actorStop
                     dispatch caller rootId ActorSucceeded)
-        | ActorStop (caller, result, reply) ->
-            CoreMailboxActors.dispatchActorStop context caller result reply
         | PostEvent (caller, event, reply) ->
             CoreMailboxActors.dispatchPostEvent context caller event reply
 
@@ -57,7 +55,6 @@ module internal CoreMailboxLoop =
         match msg with
         | StartLoadSaveCommand (caller, _, _, _, _)
         | RecordSearchStop (caller, _, _)
-        | ActorStop (caller, _, _)
         | PostEvent (caller, _, _) -> caller
 
     let private rejectDropped (msg: CoreMsg) =

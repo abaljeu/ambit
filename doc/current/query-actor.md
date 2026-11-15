@@ -36,7 +36,7 @@ A query expression runs on its own Actor.
 [x] A refused query Run replies with the failure. The edit in that post stays. The live-actor failure text is `actor node already has a live Actor`.
 [o] `actorNodeId` is a field of the old start record.
 [o] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids.
-[ ] Eval reply. The result is Node ids on `Notice.ActorStopped` (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
+[x] Eval reply. The result is Node ids on `Notice.ActorStopped` (`ActorQuery`). `SearchActor.queryActorBody` returns `ActorQuery`. `CoreActorPool.postStopUnlessCancelled` posts that notice. `CoreMailboxLoop.logActorStopped` stores it through `CoreEventDispatch.actorStop`. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json

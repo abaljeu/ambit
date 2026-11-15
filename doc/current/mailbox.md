@@ -45,7 +45,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 `MailboxHost` holds `Session` beside the core mailbox. Login registers the caller's authority and opens admission. Admit checks that the caller may start a route. Logout stops admitting that caller and queues `CoreQueue.DropAuthority` behind orders already on the queue. The route returns at that post. The core removes the authority when it processes `DropAuthority`. At Receive, [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) rejects an order whose current generation `DropAuthority` closed. `PlaceOrder` replies `Error` with a reason. Nothing is applied or logged. A caller with an open generation still runs. Login returns `Ok`. A login while admission is closed opens a new generation, and the queued drop closes only the generation logout queued. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
 
 [ ] Each public order posts `Mailbox.PlaceOrder`.
-[o] `CoreMailbox.coreChanges` returns a `CoreChanges` record: `getState`, `getEventId`, `getEventsSince`, `postEvents`, `postGraphOnly`, `actorStop`, `asCaller`.
+[x] `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills `ActorChanges` in `src/Shared/History.fs` with `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `CoreChangesDoor` in `src/Server/Core/CoreChangesDoor.fs` is `host`, `caller`, and `writable`.
 
 `CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
 
@@ -60,8 +60,7 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 [x] `replyActorOrder` asks the pool first. `startFunction` admits the actor and `schedule` launches it. The mailbox appends `Order.StartActor` of `ActorOrder` after that affirmation. A refusal posts no row. The caller reply is that failure.
 [x] `MailboxHost.postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and posts nothing. [Mailbox host](../../src/Server/Core/MailboxHost.fs).
 [x] `placeOrder` uses that same refusal for `Order.ClientRequestActor`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
-[x] `CoreMsg.ActorStop` is the fast stop message on this loop.
-[ ] `Notice.ActorStopped` is the logged actor stop. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
+[x] `Notice.ActorStopped` is the fast stop on this loop. `CoreMailboxLoop.dispatchItem` sends it to `CoreMailboxLoop.logActorStopped`. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`. `CoreMsg` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`. `CoreMailboxLoop.runMsg` matches `RecordSearchStop` and calls `CoreEventDispatch.actorStop`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
 [o] `Notice`: Shared type in [History](../../src/Shared/History.fs). Not an Op. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.

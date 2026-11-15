@@ -30,19 +30,19 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 [x] `RunAgentActor.stop` has left. `RunAgentActor.actorFn` returns the result.
 [x] `SearchActor.queryActorBody` returns the `ActorQuery` and does not call a stop. `SearchActor.functionStart` and `SearchActor.functionActorAt` return that async. `SearchActor.searchActorAt` returns `ActorSucceeded` and does not call a stop.
 [x] `TestActor.dispatch` and `TestActor.runBehavior` return the result and do not call a stop.
-[x] `CoreMailboxActors.dispatchActorStop` checks `Authority "Actor"`, appends the stop with `CoreEventDispatch.actorStop`, and calls `pool.finish`.
+[x] `CoreMailboxLoop.logActorStopped` reads `CoreActorPool.trySecretForActorNode`, logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`, and calls `pool.finish`. The stored authority is `Authority "Actor"`.
 [x] `CoreMailboxActors.runCancel` appends `EventBody.ActorStop` of the focus and `ActorCancelled`, then calls `pool.finish`. A focus with no live run logs nothing.
-[x] `CoreMailboxLoop.runMsg` still matches `CoreMsg.ActorStop` and calls `dispatchActorStop`. Tests call `CoreMailboxApi.actorStop` until [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md).
+[x] `CoreMailboxLoop.runMsg` matches `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`. The `RecordSearchStop` arm calls `CoreEventDispatch.actorStop`. [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) is `coded`.
 
 ### Existing tests
 
 [x] ``mailbox appends StartActor and ActorStop in lifecycle order`` starts `TestActor.functionActorAt` and asserts the stop body and `Authority "Actor"`.
-[x] ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs` calls `CoreMailboxApi.actorStop` after a Cancel. The log holds one stop.
+[x] ``actorStop after cancel does not emit a root Focus ActorStop`` in `tests/Server.Tests/CancelByFocusTests.fs` posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice` after a Cancel. The log holds one stop.
 [x] ``ActorStop reads the carrier graph once`` starts `SearchActor.functionStart` and reads `ActorQuery`.
 
 ### Copy-from
 
-[x] `CoreEventDispatch.actorStop` is the stop-row append that stores the caller authority. `CoreEventDispatch.logNotice` is the append for every other notice. `CoreMailboxLoop.dispatchItem` is the notice arm. `CoreActorPool.trySecretForActorNode` is the live-row lookup `dispatchActorStop` does with `getActorNodeId`. `CoreDoor.actorCaller` builds the Actor caller from a secret.
+[x] `CoreEventDispatch.actorStop` is the stop-row append that stores the caller authority. `CoreEventDispatch.logNotice` is the append for every other notice. `CoreMailboxLoop.logActorStopped` is the `Notice.ActorStopped` arm. `CoreActorPool.trySecretForActorNode` is the live-secret lookup. `CoreDoor.actorCaller` builds the Actor caller from a secret.
 
 ### Overlap
 
@@ -85,7 +85,7 @@ Slice: one change. `runSchedule` reads the `ActorResult` and posts `Notice.Actor
 
 ## Do not load
 
-[x] `CoreMsg.ActorStop`, `CoreMailboxApi.actorStop`, `CoreDoor.actorStop`, `CoreDoor.actorChanges`, and `ActorChanges.actorStop`. 114 — Remove CoreMsg.ActorStop removes them after the tests leave them.
+[x] `CoreMsg` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`. `CoreDoor.actorChanges` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) is `coded`.
 [x] `CoreMsg.RecordSearchStop` stays. 24 — Remove CoreMsg.RecordSearchStop owns that case. `CoreEventDispatch.actorStop` stays, and the pool-posted stop uses it for the log write.
 [x] `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply`.
 [x] `CoreMailboxLoad`. Load dispatch stays there.
