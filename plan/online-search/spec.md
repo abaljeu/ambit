@@ -35,6 +35,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
 10. **Dialog shows server hits** — As a person, I want the Find dialog to keep the residency-search hits and append the server hits the client search did not find, after the client adds the carried nodes to the residency Graph, including a hit that was not resident before the reply, so that I see those server hits in the dialog.
 11. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
+12. **Resumed typing** — As a person, I want the next residency search to use nodes that an earlier server reply installed, so that a changed search text lists those nodes before any new server reply.
 
 ### 4. Out of Scope
 
