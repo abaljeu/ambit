@@ -20,8 +20,6 @@ module internal CoreMailboxLoop =
             reply.Reply(
                 CoreEventDispatch.actorStop
                     dispatch caller rootId ActorSucceeded)
-        | PostEvent (caller, event, reply) ->
-            CoreMailboxActors.dispatchPostEvent context caller event reply
 
     let private reportDispatchException
         (context: MailboxContext)
@@ -54,8 +52,7 @@ module internal CoreMailboxLoop =
     let private messageCaller (msg: CoreMsg) =
         match msg with
         | StartLoadSaveCommand (caller, _, _, _, _)
-        | RecordSearchStop (caller, _, _)
-        | PostEvent (caller, _, _) -> caller
+        | RecordSearchStop (caller, _, _) -> caller
 
     let private rejectDropped (msg: CoreMsg) =
         CoreMailboxEvents.replyFailure droppedAuthority msg
@@ -266,12 +263,13 @@ module internal CoreMailboxLoop =
         | Order.Redo _ ->
             replyPlaced context placed caller reply
         | Order.CancelActor focusId ->
-            CoreMailboxActors.replyCancel
+            CoreMailboxActors.replyPlacedCancel
                 context placed caller reply focusId
         | Order.StartActor order ->
             replyActorOrder context placed caller reply order
-        | Order.ClientRequestActor _ ->
-            reply.Reply(Error MailboxHost.clientRequestRetired)
+        | Order.ClientRequestActor request ->
+            CoreMailboxActors.replyClientRequest
+                context placed caller reply request
 
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with

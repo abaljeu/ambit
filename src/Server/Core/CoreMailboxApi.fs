@@ -67,46 +67,50 @@ module CoreMailboxApi =
             return log.events
         }
 
-    let private postEventAccepted
-        (host: MailboxHost)
-        (caller: Caller)
-        (event: Ev)
-        =
-        reply host (fun channel -> PostEvent(caller, event, channel))
-
-    let private isUndoOrRedo (event: Ev) =
+    let private sendsAsOrder (event: Ev) =
         match event.body with
         | EventBody.Undo _
-        | EventBody.Redo _ -> true
+        | EventBody.Redo _
+        | EventBody.ActorStart _
+        | EventBody.Cancel _ -> true
+        | EventBody.Change _ -> event.id = EventId.zero
         | _ -> false
 
-    let private sendsAsOrder (event: Ev) =
-        if isUndoOrRedo event then
-            true
-        else
-            match event.body with
-            | EventBody.Change _ -> event.id = EventId.zero
-            | _ -> false
+    /// Client events that stay off PlaceOrder.
+    /// ActorStop is refused before the zero-id check.
+    let private refusedClientEvent (event: Ev) =
+        match event.body with
+        | EventBody.ActorStop _ ->
+            Error "ActorStop is not a client event type"
+        | _ when event.id <> EventId.zero ->
+            Error "posted EventId must be zero"
+        | EventBody.Notice _ ->
+            Error "Notice is not a client event type"
+        | EventBody.Load _ ->
+            Error "Load Events are mailbox-generated"
+        | _ ->
+            Error "Order Events are mailbox-generated"
 
-    let private messageForPosted
-        (caller: Caller)
-        (event: Ev)
-        (channel: AsyncReplyChannel<Result<EventId, string>>)
-        =
-        match sendsAsOrder event, MailboxLog.placedOrderFromEvent event with
-        | true, Ok placed ->
-            Mailbox.placeForCaller placed caller channel
-        | _ -> Mailbox.CoreMsg(PostEvent(caller, event, channel))
+    let private placedForPosted (event: Ev) =
+        if sendsAsOrder event then
+            MailboxLog.placedOrderFromEvent event
+        else
+            refusedClientEvent event
+
+    let private messageForPosted (caller: Caller) (event: Ev) =
+        placedForPosted event
+        |> Result.map (fun placed channel ->
+            Mailbox.placeForCaller placed caller channel)
 
     let private acceptOne
         (host: MailboxHost)
         (caller: Caller)
         (event: Ev)
         =
-        match isUndoOrRedo event, MailboxLog.placedOrderFromEvent event with
-        | true, Ok placed ->
+        match placedForPosted event with
+        | Error err -> async.Return(Error err)
+        | Ok placed ->
             MailboxHost.postPlacedOrder host caller placed
-        | _ -> postEventAccepted host caller event
 
     let private isClientActorStop (event: Ev) =
         match event.body with
@@ -272,9 +276,7 @@ module CoreMailboxApi =
     let private editBuild (caller: Caller) (event: Ev) =
         match zeroChange event with
         | Some(_, ChangeOrigin.Parse) -> Error "unsupported"
-        | _ ->
-            Ok(fun channel ->
-                messageForPosted caller event channel)
+        | _ -> messageForPosted caller event
 
     let private oneBuild caller origin event =
         match origin with
@@ -404,21 +406,6 @@ module CoreMailboxApi =
             authority = caller.authority
             commandName = None
             order = Order.Load subject }
-
-    let cancelByFocus
-        (host: MailboxHost)
-        (caller: Caller)
-        (focusId: NodeId)
-        : Async<Result<unit, string>> =
-        async {
-            let! replied =
-                MailboxHost.postPlacedOrder host caller {
-                    orderId = OrderId.New()
-                    authority = caller.authority
-                    commandName = None
-                    order = Order.CancelActor focusId }
-            return Result.map (fun _ -> ()) replied
-        }
 
     let login
         (host: MailboxHost)

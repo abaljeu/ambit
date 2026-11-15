@@ -351,7 +351,9 @@ let ``?test Run admits the caller and queues ActorOrder`` () =
     })
 
 [<Fact>]
-let ``postPlacedOrder refuses ClientRequestActor and appends nothing`` () =
+let ``postPlacedOrder of an absent ClientRequestActor replies unknown actor``
+    ()
+    =
     withHost (fun host _ -> task {
         let! before = eventPast host |> Async.StartAsTask
         let focusId = NodeId.New()
@@ -363,7 +365,7 @@ let ``postPlacedOrder refuses ClientRequestActor and appends nothing`` () =
                 commandName = None
                 order = Order.ClientRequestActor request }
             |> Async.StartAsTask
-        Assert.Equal(Error "ClientRequestActor is retired", reply)
+        Assert.Equal(Error "unknown actor", reply)
         let! after = eventPast host |> Async.StartAsTask
         Assert.Equal<Ev list>(before, after)
     })

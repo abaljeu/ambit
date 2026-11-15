@@ -15,10 +15,7 @@ type internal CoreMsg =
         caller: Caller *
         rootId: NodeId *
         AsyncReplyChannel<Result<unit, string>>
-    | PostEvent of
-        caller: Caller *
-        event: Ev *
-        AsyncReplyChannel<Result<EventId, string>>
+
 [<RequireQualifiedAccess>]
 type internal Query =
     | GraphAtEvent of AsyncReplyChannel<Result<GraphAtEvent, string>>

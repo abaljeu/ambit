@@ -1021,7 +1021,7 @@ let ``postEvents places Order.Change with origin Edit`` () =
     })
 
 [<Fact>]
-let ``Undo and Redo post as orders; Cancel posts as PostEvent`` () =
+let ``Undo, Redo, and Cancel are placed as orders`` () =
     withHost (fun host _ -> task {
         let _, create = addRootChildEvent "undo-target"
         let! created =
