@@ -1,7 +1,7 @@
 # Search Amble
 
 Stage: spec
-Summary: An Amble expression in the Find dialog lists its Answers in the dialog, and the outline keeps its Nodes and Children.
+Summary: The Find and Move dialog has an AMBLE mode that lists Node Answers on an explicit execute, word search lists Nodes as the person types, and the outline keeps its Nodes and Children.
 Updated: 2026-11-15
 Started: 2026-11-15
 
