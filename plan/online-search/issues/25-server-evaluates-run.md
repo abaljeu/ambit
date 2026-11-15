@@ -1,19 +1,16 @@
 # 25 — The server evaluates Run
 **Status:** defined
-One job: The Server evaluates a Run line on the Server Graph and posts the Ref children and the Text children. The Browser applies those ops from the event log. Alan, 2026-11-15, because the residency holds only the Browser Graph, and the plan already built by `ExprRun.run` is the result that belongs on the Server. The Query spec states the server-eval lock in [spec](../spec.md).
+One job: The Server evaluates a Run line on the full database and returns the existing Node ids on `ActorQuery`. The Focus node's children stay as they are. The Query spec states that return in [spec](../spec.md).
 
 Type: coding
-Blockers:
+Blockers: none
 
-STOP: [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md) is defined and not started. Its target runs Amble on the client. A focused line that contains `=` still starts the query actor and returns node ids.
-
-[24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) removes `CoreMsg.RecordSearchStop` on Find. That ticket shares no file with this one, and it does not block this ticket.
-
-22 — Run sends = lines to Amble chooses the line. A line that contains `=` runs Amble. A line that starts with `?` starts that Actor. The owner scan stays in that ticket. This ticket does not restate those door rules. This ticket is the place the Amble plan runs.
-
-[16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) posts Ref children from the query actor. This ticket posts the same plan, and that plan also carries Text children. The Browser does not build the plan on the residency Graph.
-
-[Amble tools](../../bot-amble-tools/project.md) runs `ExprRun.run` on the graph the actor posts to, and it posts that plan. That project depends on this server execution. Search Amble is draft pull request 623. Its folder `plan/search-amble` is not on staging. It evaluates an expression on the Server Graph for the Find and Move dialog, and it lists at most 50 Node Answers. It depends on server-side evaluation. It does not write the outline children this ticket posts.
+[ ] [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md) chooses which line runs Amble.
+[ ] This ticket is where the plan runs.
+[ ] [24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) stays the Find stop.
+[ ] [16 — Insert Refs under the query line](16-insert-refs-under-the-query-line.md) inserts Refs under the query line.
+[ ] This ticket returns existing Node ids. The Focus node's children stay as they are.
+[ ] [Amble tools](../../bot-amble-tools/project.md) follows this server evaluation.
 
 ## Inputs
 
@@ -27,54 +24,63 @@ STOP: [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md)
 [x] `AmbleRun.runPlanOnNode` in `src/Shared/AmbleRun.fs` reads the focused node's text and calls `AmbleRun.runPlan`.
 [x] `AmbleRun.runPlan` calls `ExprRun.run`. `ExprRun.Apply` becomes the plan. A line that starts with `>` and is not a run statement stays on `legacyRun`.
 [x] `AmbleRun.shouldExec` is true when the focused line is a run statement or the trimmed line starts with `>`.
-[x] `ExprRun.maxMaterialisedAnswers` in `src/Shared/ExprRun.fs` is 50. `ExprRun.run` materialises at most that many Answers.
-[x] `ExprRun.addAnswer` emits `ChildNode.reference` for a Node Answer that is present on the Graph. It emits `Op.NewNode` and `ChildNode.owner` for a Text Answer.
-[x] `SearchActor.queryActorBody` in `src/Server/SearchActor.fs` returns `ActorQuery` of `ExprRun.answerNodeIds` on the Server Graph. It does not call `ExprRun.run`. It does not post ops.
+[x] `ExprRun.maxMaterialisedAnswers` in `src/Shared/ExprRun.fs` is 50. `ExprRun.run` takes at most that many Answers through `ExprEval.take`.
+[x] `ExprRun.addAnswer` emits `ChildNode.reference` for a Node Answer that is present on the Graph. It emits `Op.NewNode` and `ChildNode.owner` for a Text Answer. `ExprRun.run` is that materialisation. This ticket leaves that function in place and does not call it.
+[x] `ExprRun.answerNodeIds` returns Node ids of Node Answers that exist on the graph. `nodeIdOf` returns a Node id only for `ExprAnswer.Node` when `graph.nodes` contains that id. A Text Answer yields no Node id.
+[x] `ExprDialog.tryHits` in `src/Shared/ExprDialog.fs` returns an empty list when `ExprCompile.evalOutcome` is `Hits` of `ExprAnswerType.Text`. A Node Answer becomes a row with that Node's id, text, and name.
+[x] `SearchActor.queryActorBody` in `src/Server/SearchActor.fs` returns `ActorQuery` of `ExprRun.answerNodeIds` on the Server Graph. It reads that graph once. It posts no ops.
 [x] `SearchActor.functionActorAt` and `SearchActor.functionStart` call `queryActorBody`. `getGraph` supplies the Server Graph.
 [x] `CoreMailboxActors.admittedQueue` queues that actor when `SearchActor.isQueryRequest` is true. The actor name is `query`.
-[x] `ActorChanges.postChanges` accepts an event list. `RunAgentActor` posts one `EventBody.Change` through that function. `CoreDoor.actorChanges` builds `ActorChanges` from the pool door.
 [x] `tests/Server.Tests/QueryActorTests.fs` test ``ActorStop reads the carrier graph once`` expects one `getGraph` call and `ActorQuery` of the named node id.
 [x] ``empty equals line stops with no node ids`` expects `ActorQuery` of an empty id list for a line whose text is `=`.
 
 ### Reference
 
-[x] Alan, 2026-11-15: the Server evaluates the Run line and produces the ops. The Browser receives those ops on the event log.
+[x] The Server evaluates the Run line on the full database. `ActorQuery` carries the Node ids of existing nodes. This path posts no ops. The Focus node's children stay as they are. The cap is `ExprRun.maxMaterialisedAnswers`.
 [x] [Size limit](../../context/size-limit.md) allows 8 source files and 4 tests.
-[x] The Query spec named in the One job line locks server evaluation. Section 2 says results are Refs, the cap is 200, and Owned Children are out of scope.
+[x] The Query spec named in the One job line states this return, the cap of 50, and the Find word-search cap of 200.
 
 ## Do not load
 
-[ ] The owner scan, the `?` Actor start, and the removal of the query-by-`=` path. Those rules stay in 22 — Run sends = lines to Amble.
+[ ] The owner scan, the `?` Actor start, and which line runs Amble. Those rules stay in 22 — Run sends = lines to Amble.
 [ ] `CoreMsg.RecordSearchStop` and the Find stop path in 24 — Remove CoreMsg.RecordSearchStop.
 [ ] A line that starts with `>`. `AmbleRun.legacyRun` stays the client plan for that line.
 [ ] `src/Shared/History.fs`, `src/Shared/EventJson.fs`, and `src/Shared/ActorLive.fs`. `ActorStop` stays `ActorQuery`.
-[ ] The Find and Move walk in `SearchActor.reply`.
+[ ] The Find and Move walk in `SearchActor.reply`. The Find word-search cap stays 200.
 [ ] Expression-language files, including [14 — Server-side search](../../expression-language/issues/14-server-side-search.md).
-[ ] `plan/search-amble` and the files on draft pull request 623.
-[ ] `AmbleRun.applyUnfold`. Unfold stays a Browser SiteMap step. This ticket does not post it.
+[ ] `plan/search-amble`.
+[ ] The insert of Refs under the query line. That insert stays 16 — Insert Refs under the query line.
+[ ] `ExprRun.run` and `ExprRun.addAnswer`. Text Answers stay on that materialisation. This ticket does not call it.
+[ ] `AmbleRun.applyUnfold`. This path writes no children.
 
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] If the STOP line in Blockers is still true, stop and leave every source file unchanged.
-3. [ ] Change `queryActorBody` in `src/Server/SearchActor.fs` so the actor reads the Server Graph once, calls `AmbleRun.runPlan` for that line, and posts `plan.ops` as one `EventBody.Change` through `ActorChanges.postChanges`. The event shape matches the Change that `RunAgentActor` posts. `functionActorAt` passes its `ActorChanges` into that body. `functionStart` builds `ActorChanges` with `CoreDoor.actorChanges` and passes that same body.
-4. [ ] Change that body so `ActorQuery` carries the ids of the Ref children in the posted plan. A Text child stays in the ops and stays out of the id list. The actor returns that `ActorQuery` after the post.
-5. [ ] Change `execAmbleRunOp` in `src/Client/Commands.fs` so a run statement does not call `runAmbleOp`. A focused run statement already queues `ActorStart` in `submitQuery`. That queue stays the only evaluation of the line.
-6. [ ] Change `runAmbleOp` in `src/Client/UpdateAmbleRun.fs` so a run statement returns the committed model and the commit effects. That return does not call `runPlanOnNode`.
+2. [ ] Change `queryActorBody` in `src/Server/SearchActor.fs` so the actor reads the Server Graph once and returns `ActorQuery` of the existing Node ids for that line. The actor posts no ops. The Focus node's children stay as they are.
+3. [ ] Change that id list so a run whose Answers are all Node Answers returns at most `ExprRun.maxMaterialisedAnswers` ids. That number is 50.
+4. [ ] Change `execAmbleRunOp` in `src/Client/Commands.fs` so a run statement does not call `runAmbleOp`. A focused run statement that `submitQuery` queues stays on that queue.
+5. [ ] Change `runAmbleOp` in `src/Client/UpdateAmbleRun.fs` so a run statement returns the committed model and the commit effects. That return does not call `runPlanOnNode`.
 
 ## Outputs
 
 [ ] Source files: `src/Server/SearchActor.fs`, `src/Client/Commands.fs`, and `src/Client/UpdateAmbleRun.fs`.
 [ ] That list is 3 source files. The limit in Reference names 8.
-[ ] `tests/Server.Tests/QueryActorTests.fs` adds ``server run posts the Ref child for a Node Answer``. The line is `= root descendant named "Bob"`. The event log contains `Op.Replace` whose new children include `ChildNode.reference` of that node. ``ActorStop reads the carrier graph once`` still expects one `getGraph` call and `ActorQuery` of that node id.
-[ ] The same file adds ``server run posts an owned child for a Text Answer``. The line is `= text`. The event log contains `Op.NewNode` and `ChildNode.owner` for that Text. `ActorQuery` does not contain that new id.
+[ ] `tests/Server.Tests/QueryActorTests.fs` adds ``server run returns the existing node id``. The line is `= root descendant named "Bob"`. `ActorQuery` carries that existing node id. The focus node's children stay the children they had. ``ActorStop reads the carrier graph once`` still expects one `getGraph` call and `ActorQuery` of that node id.
+[ ] The same file adds ``server run returns at most maxMaterialisedAnswers node ids``. The Answers are Node Answers. `ActorQuery` carries at most `ExprRun.maxMaterialisedAnswers` ids.
 [ ] That list is 2 tests added. The same limit names 4 tests.
+
+## Open question
+
+[ ] A Text Answer stays, and this path returns existing Node ids and writes no children. A Text Answer is not an existing node. `ExprRun.answerNodeIds` carries no Node id for a Text Answer. `ExprDialog.tryHits` returns an empty list when the hits are `ExprAnswerType.Text`. The choice is which result `ActorQuery` carries for a Text Answer: no Node id, as those two functions do, or the text, with no new node and no child.
 
 ## Stop when
 
 [ ] Rewrite `25-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when the edit needs a file outside Inputs.
-[ ] Stop when the edit drops Text children or raises the plan cap from `ExprRun.maxMaterialisedAnswers` to 200. The Query spec still says Refs only and a cap of 200. Those two sentences are not this plan.
+[ ] Stop when the edit posts ops, generates a Ref, or writes a child on the Focus node.
+[ ] Stop when the edit raises the cap from `ExprRun.maxMaterialisedAnswers` to 200, or changes the Find word-search cap.
+[ ] Stop when the edit removes Text Answers from `ExprRun.run`.
+[ ] Stop when the edit chooses the Open question. That choice is open.
 
 ## Check
 
@@ -82,8 +88,8 @@ STOP: [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md)
 [ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: ``ActorStop reads the carrier graph once``
   - `tests/Server.Tests`: ``empty equals line stops with no node ids``
-  - `tests/Server.Tests`: ``server run posts the Ref child for a Node Answer``
-  - `tests/Server.Tests`: ``server run posts an owned child for a Text Answer``
+  - `tests/Server.Tests`: ``server run returns the existing node id``
+  - `tests/Server.Tests`: ``server run returns at most maxMaterialisedAnswers node ids``
 [ ] All executed tests pass.
 [ ] Rewrite `25-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
