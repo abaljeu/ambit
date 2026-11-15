@@ -154,6 +154,8 @@ postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, st
 
 [x] `placeOrder` runs `replyActorOrder` for `Order.StartActor` of `ActorOrder` (`src/Server/Core/CoreMailboxLoop.fs`).
 
+[ ] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) places a client `ActorStart` and a client `Cancel` through `Mailbox.PlaceOrder` and removes `CoreMsg.PostEvent`. `StartLoadSaveCommand` and `RecordSearchStop` stay.
+
 ```fsharp
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
 ```

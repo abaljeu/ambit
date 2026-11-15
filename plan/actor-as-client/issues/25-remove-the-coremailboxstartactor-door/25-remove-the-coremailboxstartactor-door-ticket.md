@@ -13,7 +13,7 @@ Blockers:
 [x] [11 — Move door and case tests](../11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md). `coreMailboxStartActor` is gone from `CoreMailboxDoorTests.fs`, `CoreMsgActorCasesTests.fs`, and `AskCancelHarness.fs`.
 [x] [12 — Move pool and issue tests](../12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md). `coreMailboxStartActor` is gone from `CoreActorPoolDeliverTests.fs`, `Issue41CoreMailboxTests.fs`, and `MailboxHistoryDurabilityTests.fs`.
 [x] [13 — Move persist and command tests](../13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md). `coreMailboxStartActor` is gone from `PersistHandlersRestoreTests.fs`.
-[x] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md). `coreMailboxStartActor` is gone from ``mailbox appends StartActor and ActorStop in lifecycle order`` in `Issue41CoreMailboxTests.fs`.
+[x] [22 — Convert CoreMsg.PostEvent](../22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../../../core-refinement/issues/68-remove-coremsg-postevent.md) does that job. `coreMailboxStartActor` is gone from ``mailbox appends StartActor and ActorStop in lifecycle order`` in `Issue41CoreMailboxTests.fs`.
 
 ## Inputs
 
