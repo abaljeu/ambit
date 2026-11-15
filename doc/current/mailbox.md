@@ -58,9 +58,9 @@ Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph 
 
 ## Messages
 [x] `replyActorOrder` asks the pool first. `startFunction` admits the actor and `schedule` launches it. The mailbox appends `Order.StartActor` of `ActorOrder` after that affirmation. A refusal posts no row. The caller reply is that failure.
-[x] `MailboxHost.postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and posts nothing. [Mailbox host](../../src/Server/Core/MailboxHost.fs).
-[x] `placeOrder` uses that same refusal for `Order.ClientRequestActor`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
-[x] `Notice.ActorStopped` is the fast stop on this loop. `CoreMailboxLoop.dispatchItem` sends it to `CoreMailboxLoop.logActorStopped`. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`. `CoreMsg` is `StartLoadSaveCommand` and `PostEvent`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
+[x] `MailboxHost.postPlacedOrder` queues `Order.ClientRequestActor`. [Mailbox host](../../src/Server/Core/MailboxHost.fs).
+[x] `placeOrder` runs `CoreMailboxActors.replyClientRequest` for `Order.ClientRequestActor` and `CoreMailboxActors.replyPlacedCancel` for `Order.CancelActor`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
+[x] `Notice.ActorStopped` is the fast stop on this loop. `CoreMailboxLoop.dispatchItem` sends it to `CoreMailboxLoop.logActorStopped`. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`. `CoreMsg` is `StartLoadSaveCommand`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
 [o] `Notice`: Shared type in [History](../../src/Shared/History.fs). Not an Op. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
 [ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
@@ -86,8 +86,7 @@ One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The no
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
 The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The mailbox applies that posted list whole.
 
-[o] `postEvents` pushes that list onto the queue as one `PostEvent` after another.
-[ ] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+[x] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
 [x] On ActorStart, a refusal and a fail are the same stored pair: the start and a failed stop.
 [o] A pool name-table miss uses `unknown actor`. `Rejected` uses that message.

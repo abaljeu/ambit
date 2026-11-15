@@ -112,7 +112,7 @@ The Browser posts the start JSON to `POST /ambit/search`. The `200` body is the 
 [x] Find and Move: `recordSearchStart` places `Order.StartActor` of `ActorOrder`. The actor name is `search`. The actor node id is the root, taken from `ActorStart.focusId`. The actor is `BootActors.search`.
 [x] Install: `RouteRegistration.CreateBoot` sets `BootActors.search` to `SearchActor.searchActorAt`. `searchDoor` passes that value into `recordSearchStart`. A pool with no install replies `search actor is not installed`.
 [x] Reply: `Api.searchReply` places the start, then returns `SearchActor.reply`. `SearchActor.searchActorAt` returns `ActorSucceeded`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` of the root and that result. The walk reads the full server Graph from `Query.State`. Search does not read a focus.
-[x] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. `changes` asks `Query.State`. `CoreMsg` is `StartLoadSaveCommand` and `PostEvent`.
+[x] Door: [Api](../../src/Server/Api.fs) `SearchActorDoor` has `changes`, `recordStart`, and `recordStop`. `changes` asks `Query.State`. `CoreMsg` is `StartLoadSaveCommand`.
 [x] Stop: `SearchActor.searchActorAt` returns `ActorSucceeded`. `CoreActorPool.postStopUnlessCancelled` posts one `Notice.ActorStopped` of the root and that result. `CoreMailboxLoop.logActorStopped` stores that row through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`.
 [x] Stop: `RouteRegistration.searchDoor.recordStop` returns unit.
 [x] A refused Find and Move start returns `400`. The body is `{ "error": "<failure>" }`.

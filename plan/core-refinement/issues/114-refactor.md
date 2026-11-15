@@ -17,7 +17,7 @@ Behavior is `126b4c81`. `origin/staging` at `80cad19c` is the merge base. That c
 
 ## 2. Kept path
 
-1. **Message.** `CoreMsg` is `StartLoadSaveCommand` and `PostEvent`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
+1. **Message.** `CoreMsg` is `StartLoadSaveCommand`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. [68 — Remove CoreMsg.PostEvent](68-remove-coremsg-postevent.md) is `coded`.
 2. **Notice.** `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`. `CoreMailboxLoop.logActorStopped` stores one stop row. The authority is `Authority "Actor"`.
 3. **Refusal.** `CoreAuth.refuse` stays for admission. ``function start with blank Authority does not hand off`` still expects that error. A `Notice.ActorStopped` carries no caller.
 4. **Names.** These tests post `Notice.ActorStopped` and keep their names:

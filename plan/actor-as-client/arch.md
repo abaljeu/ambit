@@ -154,7 +154,7 @@ postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, st
 
 [x] `placeOrder` runs `replyActorOrder` for `Order.StartActor` of `ActorOrder` (`src/Server/Core/CoreMailboxLoop.fs`).
 
-[ ] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) places a client `ActorStart` and a client `Cancel` through `Mailbox.PlaceOrder` and removes `CoreMsg.PostEvent`. `StartLoadSaveCommand` stays. `CoreMsg` is `StartLoadSaveCommand` and `PostEvent`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
+[x] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) places a client `ActorStart` and a client `Cancel` through `Mailbox.PlaceOrder`. `CoreMsg.PostEvent` has left. [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`. `CoreMsg` is `StartLoadSaveCommand`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 
 ```fsharp
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
@@ -166,7 +166,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
 [ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
-[x] `postPlacedOrder` returns `Error "ClientRequestActor is retired"` for `Order.ClientRequestActor` and does not post that order. `placeOrder` uses that same refusal.
+[x] `postPlacedOrder` queues `Order.ClientRequestActor`. `placeOrder` runs `CoreMailboxActors.replyClientRequest` for that order.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
 [o] A new `CoreMsg` case.
@@ -210,15 +210,15 @@ runSchedule : (Credential -> (PendingBody * LiveRow) option) -> Credential -> Co
 
 ### Posted run
 
-[x] `postActorStart` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, and a query Run through `queueAdmittedQuery`. Every other name replies `Error "unknown actor"` (`src/Server/Core/CoreMailboxActors.fs`).
+[x] `replyClientRequest` starts `?test` through `queueAdmittedTest`, `?ai` through `queueAdmittedAi`, and a query Run through `queueAdmittedQuery`. Every other name replies `Error "unknown actor"` (`src/Server/Core/CoreMailboxActors.fs`).
 
 ```fsharp
-postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
+replyClientRequest : MailboxContext -> PlacedOrder -> Caller -> PostedReply -> ActorStart -> unit
 ```
 
-[x] `postActorStart` for `?test` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postActorOrder` with that `Caller`.
-[x] `postActorStart` for `?ai` reads `runDefinitionId` from that Run, applies `RunAgentActor.actorFn` to that `ActorStart`, builds `ActorOrder`, and calls **Post actor order** with that `Caller`.
-[x] `postActorStart` for a query Run calls `SearchActor.isQueryRequest`, applies `SearchActor.functionActorAt`, builds `ActorOrder` with `actorName` `query`, and calls **Post actor order**.
+[x] `queueAdmittedTest` reads `runDefinitionId`, applies `TestActor.functionActorAt`, builds `ActorOrder`, and calls `postBuiltOrder`.
+[x] `queueAdmittedAi` applies `RunAgentActor.aiActorOrder` to that `ActorStart`, builds `ActorOrder`, and calls `postBuiltOrder`.
+[x] `queueAdmittedQuery` calls `SearchActor.isQueryRequest`, applies `SearchActor.functionActorAt`, builds `ActorOrder` with `actorName` `query`, and calls `postBuiltOrder`.
 
 ### Test command
 
@@ -241,7 +241,7 @@ functionActorAt : NodeId -> NodeId -> ActorFunction
 
 ### Cancel by focus node
 
-[x] `cancelByFocus` takes the focus node id.
+[x] `replyPlacedCancel` takes the focus node id. A client Cancel is `EventBody.Cancel` placed as `Order.CancelActor`.
 [ ] That node id is the actor handle. The live row leaves from that path.
 
 ### Query command
@@ -340,7 +340,7 @@ Log actor order
 
 6. **Query start today**
 
-[x] `postActorStart` sends a query Run through `queueAdmittedQuery`, which places `Order.StartActor`. The admitted names are `test`, `ai`, and a query. Every other name replies `Error "unknown actor"`.
+[x] `replyClientRequest` sends a query Run through `queueAdmittedQuery`, which places `Order.StartActor`. The admitted names are `test`, `ai`, and a query. Every other name replies `Error "unknown actor"`.
 
 ```fsharp
 Posted run
@@ -412,7 +412,7 @@ Place actor order
     - Uses:
       1. [x] Pool start
 11. **Posted run**
-    - Interface: `src/Server/Core/CoreMailboxActors.fs` `postActorStart`
+    - Interface: `src/Server/Core/CoreMailboxActors.fs` `replyClientRequest`
     - Uses:
       1. [ ] Curried actor
       2. [ ] Post actor order

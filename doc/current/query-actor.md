@@ -25,7 +25,7 @@ A query expression runs on its own Actor.
 ## Interface
 
 [o] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `actorNodeId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The wire key for `actorNodeId` is `"commandId"`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
-[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. `postActorStart` places `Order.StartActor` of `ActorOrder`. The actor name is `query`. The actor node id is the focus id of that line. The post is `POST /ambit/changes`. The result is Node ids on `ActorStop` (`ActorQuery`).
+[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. `CoreMailboxActors.replyClientRequest` places that Run through `queueAdmittedQuery` and `postBuiltOrder` as `Order.StartActor` of `ActorOrder`. The actor name is `query`. The actor node id is the focus id of that line. The post is `POST /ambit/changes`. The result is Node ids on `ActorStop` (`ActorQuery`).
 [o] That Run request carries `zoomId`, `actorNodeId`, `graphIds`, and `eventId` on the start record.
 [ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 

@@ -99,32 +99,27 @@ module internal CoreMailboxActors =
                 | Error err -> Error err
                 | Ok () -> Ok(Some stored)
 
-    /// Every Cancel reply is the draft EventId.
-    let replyCancel
-        (context: MailboxContext)
-        (placed: PlacedOrder)
-        (caller: Caller)
-        (reply: AsyncReplyChannel<Result<EventId, string>>)
-        (focusId: NodeId)
-        =
-        match
-            runCancel
-                context
-                caller
-                focusId
-                placed.orderId.Value
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok EventId.zero)
-
     let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
         let graph = CoreMailboxEvents.graphNow context
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node -> CommandRequest.actorNameFromText node.text
 
-    /// The stored StartActor uses the posted submission id.
-    /// A second post of that submission returns the stored event.
+    /// A repeated submission replies the stored event.
+    let private replyStoredOr
+        (context: MailboxContext)
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        (fresh: unit -> unit)
+        =
+        match
+            CoreMailboxEvents.storedBySubmission context submissionId
+        with
+        | Some stored ->
+            CoreMailboxEvents.replyStored reply stored
+        | None -> fresh ()
+
+    /// Places Order.StartActor and replies that place.
     let private postBuiltOrder
         (context: MailboxContext)
         (caller: Caller)
@@ -177,7 +172,7 @@ module internal CoreMailboxActors =
     let private queueAdmittedQuery =
         queueAdmittedFocus SearchActor.functionActorAt "query"
 
-    /// Admitted `?ai` Run. `actorNodeId` is the focus id `cancelByFocus` uses.
+    /// Admitted `?ai` Run. `actorNodeId` is the focus id.
     let private queueAdmittedAi
         (context: MailboxContext)
         (caller: Caller)
@@ -226,53 +221,37 @@ module internal CoreMailboxActors =
                     context caller request reply submissionId)
         | _ -> None
 
-    let private postActorStart context caller event request reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored ->
-            CoreMailboxEvents.replyStored reply stored
-        | None ->
+    /// `?test`, `?ai`, and a query are placed as Order.StartActor.
+    /// Any other name replies Error "unknown actor".
+    let replyClientRequest
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: PostedReply)
+        (request: Gambol.Shared.ActorStart)
+        =
+        let submissionId = placed.orderId.Value
+        replyStoredOr context reply submissionId (fun () ->
             match
                 admittedQueue
-                    context caller request reply event.submissionId
+                    context caller request reply submissionId
             with
             | Some queue ->
                 whenAdmitted context caller reply queue
-            | None ->
-                reply.Reply(Error "unknown actor")
+            | None -> reply.Reply(Error "unknown actor"))
 
-    let private postCancel context caller event focusId reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored -> CoreMailboxEvents.replyStored reply stored
-        | None ->
-            match
-                runCancel
-                    context caller focusId event.submissionId
-            with
+    /// A fresh cancel replies the stored stop, or EventId.zero.
+    let replyPlacedCancel
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: PostedReply)
+        (focusId: NodeId)
+        =
+        let submissionId = placed.orderId.Value
+        replyStoredOr context reply submissionId (fun () ->
+            match runCancel context caller focusId submissionId with
             | Error err -> reply.Reply(Error err)
             | Ok (Some stored) ->
                 CoreMailboxEvents.replyStored reply stored
-            | Ok None -> CoreMailboxEvents.replyStored reply event
-
-    let dispatchPostEvent
-        (context: MailboxContext)
-        (caller: Caller)
-        (event: Ev)
-        (reply: PostedReply)
-        =
-        match event.body with
-        | EventBody.ActorStop _ ->
-            reply.Reply(Error "ActorStop is not a client event type")
-        | EventBody.ActorStart request ->
-            postActorStart context caller event request reply
-        | EventBody.Cancel focusId ->
-            postCancel context caller event focusId reply
-        | _ ->
-            match
-                CoreEventDispatch.postEvent
-                    (CoreMailboxEvents.eventDispatchContext context)
-                    caller
-                    event
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok (stored, _) ->
-                CoreMailboxEvents.replyStored reply stored
+            | Ok None -> reply.Reply(Ok EventId.zero))

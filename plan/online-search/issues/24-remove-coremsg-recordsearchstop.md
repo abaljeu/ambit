@@ -11,7 +11,7 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 ### Working
 
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand` and `RecordSearchStop`.
 [x] `RecordSearchStop` is `caller: Caller * rootId: NodeId * AsyncReplyChannel<Result<unit, string>>`. The comment says the case puts ActorStop on the event source, and the id is the root.
 [x] `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs` takes `MailboxHost`, `Caller`, and `NodeId`, and returns `Async<Result<unit, string>>`. It posts `RecordSearchStop` through `MailboxHost.postAndAsyncReply`.
 [x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` handles `RecordSearchStop` by calling `CoreEventDispatch.actorStop` with that caller, that root id, and `ActorSucceeded`.

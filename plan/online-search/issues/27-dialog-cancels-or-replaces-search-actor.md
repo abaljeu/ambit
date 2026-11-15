@@ -32,14 +32,14 @@ Blockers:
 [x] `SearchActor.searchActorAt` returns `ActorSucceeded`.
 [x] `CoreActorPool.postStopUnlessCancelled` in `src/Server/Core/CoreActorPool.fs` posts `Notice.ActorStopped` of the row's actor node id and the returned result when the row token is open.
 [x] `Api.searchReply` leaves `door.recordStop` uncalled. `RouteRegistration.searchDoor.recordStop` returns unit.
-[x] `CoreMailboxApi.cancelByFocus` in `src/Server/Core/CoreMailboxApi.fs` posts `Order.CancelActor` of the focus id.
-[x] `CoreMailboxLoop.placeOrder` matches `Order.CancelActor` and calls `CoreMailboxActors.replyCancel`.
-[x] `CoreMailboxActors.dispatchPostEvent` in `src/Server/Core/CoreMailboxActors.fs` matches `EventBody.Cancel` and calls `postCancel`. `postCancel` calls `runCancel`.
+[x] A client `EventBody.Cancel` is placed by `CoreMailboxApi.messageForPosted` as `Mailbox.PlaceOrder` of `Order.CancelActor`.
+[x] `CoreMailboxLoop.placeOrder` matches `Order.CancelActor` and calls `CoreMailboxActors.replyPlacedCancel`.
+[x] `replyPlacedCancel` calls `runCancel` when `storedBySubmission` finds no submission.
 [x] `CoreMailboxActors.runCancel` reads `CoreActorPool.trySecretForActorNode`. It stores `EventBody.ActorStop` of that id and `ActorCancelled` through `CoreEventDispatch.appendLifecycle`, then calls `CoreActorPool.finish` with `ActorCancelled`.
 [x] `EventBody.ActorStop` in `src/Shared/History.fs` builds `EventBody.Notice` of `Notice.ActorStopped`.
 [x] `CoreActorPool.finish` cancels that row's token and removes the live row.
 [x] `CoreActorPool.postStopUnlessCancelled` posts no second stop when that token is already cancelled.
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand` and `PostEvent`.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`.
 [x] ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` waits for `EventBody.ActorStop` of the root with `ActorSucceeded`.
 [x] ``cancel by Focus accepts Cancelled and drops the live row`` in `tests/Server.Tests/CancelByFocusTests.fs` cancels a live actor and expects `ActorCancelled`.
 [x] ``stale reply is ignored and a matching reply is kept`` in `tests/Shared.Tests/SearchPictureTests.fs` expects `applyReply` to return `None` for other text, and `keepReply` to return the ids already kept.
@@ -66,7 +66,7 @@ Blockers:
 2. [ ] Change `closeSearchDialogOp` in `src/Client/SearchDialog.fs` so closing the dialog while a search actor is pending reaches `CoreMailboxActors.runCancel` for that actor. The focus id is the graph root from `SearchActor.actorStart`.
 3. [ ] Change `searchPictureEffects` in `src/Client/SearchDialog.fs` so a quiet-gap commit that returns `RequestSearchPicture` cancels the pending actor for the earlier text through `runCancel`, then starts the actor for the new text.
 4. [ ] Change the in-flight search so that the live row stays until the reply is produced or `runCancel` cancels the row. `SearchActor.searchActorAt` is that actor. `Api.searchReply` starts it through `recordSearchStart`. Today `searchActorAt` returns `ActorSucceeded` and `SearchActor.reply` runs on the request after that return.
-5. [ ] `runCancel` stores `Notice.ActorStopped` of `ActorCancelled` and `CoreActorPool.finish` cancels the row token. `postStopUnlessCancelled` posts no second stop. The reachable entries stay `CoreMailboxApi.cancelByFocus` and `EventBody.Cancel` on `dispatchPostEvent`. Add no `Notice` case. Add no `CoreMsg` case.
+5. [ ] `runCancel` stores `Notice.ActorStopped` of `ActorCancelled` and `CoreActorPool.finish` cancels the row token. `postStopUnlessCancelled` posts no second stop. The reachable entry is `placeOrder`'s `CancelActor` arm, `replyPlacedCancel`. Add no `Notice` case. Add no `CoreMsg` case.
 
 ## Outputs
 

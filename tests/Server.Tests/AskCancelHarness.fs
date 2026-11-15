@@ -391,10 +391,16 @@ let postChildThenWait focusId childText =
 
 let cancelFocus host focusId =
     task {
+        let cancel =
+            { id = EventId.zero
+              submissionId = System.Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = "Cancel"
+              body = EventBody.Cancel focusId }
         let! result =
-            CoreMailboxApi.cancelByFocus host testCaller focusId
+            CoreMailboxApi.postEvents host testCaller [ cancel ]
             |> Async.StartAsTask
-        requireOk "cancelByFocus" result
+        requireOk "cancel" result |> ignore
     }
 
 let expectActorCancelled host pool focusId =

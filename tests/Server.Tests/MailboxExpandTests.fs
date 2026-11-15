@@ -29,13 +29,11 @@ let private mailboxKind (message: Mailbox) =
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let core =
         Mailbox.CoreMsg (
-            PostEvent(
+            StartLoadSaveCommand(
                 testCaller,
-                { id = EventId.zero
-                  submissionId = Guid.Empty
-                  authority = testCaller.authority
-                  commandName = ""
-                  body = EventBody.Cancel Graph.rootId },
+                LoadSavePath.Git,
+                PeerActorName "load",
+                Unchecked.defaultof<_>,
                 Unchecked.defaultof<_>))
     let placed = {
         orderId = OrderId Guid.Empty
@@ -63,7 +61,7 @@ let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     Assert.True(isNull serverPeer)
 
 [<Fact>]
-let ``postEvent runs through Mailbox CoreMsg`` () =
+let ``postEvent runs through Mailbox PlaceOrder`` () =
     task {
         let dataDir = newTempDir ()
         let host =

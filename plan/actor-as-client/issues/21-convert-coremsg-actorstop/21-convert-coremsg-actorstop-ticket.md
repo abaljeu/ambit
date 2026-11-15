@@ -22,11 +22,11 @@ Blockers:
 
 ### Working
 
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
-[x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` matches those three. The `RecordSearchStop` arm calls `CoreEventDispatch.actorStop`.
-[x] `CoreMailboxLoop.messageCaller` reads the caller from `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`.
-[x] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches those three.
-[x] `CoreMailboxEvents.replyFailure` replies on those three.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`.
+[x] `CoreMailboxLoop.runMsg` in `src/Server/Core/CoreMailboxLoop.fs` matches `StartLoadSaveCommand`.
+[x] `CoreMailboxLoop.messageCaller` reads the caller from `StartLoadSaveCommand`.
+[x] `CoreMailboxEvents.operationContext` in `src/Server/Core/CoreMailboxEvents.fs` matches `StartLoadSaveCommand`.
+[x] `CoreMailboxEvents.replyFailure` replies on `StartLoadSaveCommand`.
 [x] `CoreMailboxLoop.logActorStopped` reads `CoreActorPool.trySecretForActorNode`. A secret logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`, then `CoreActorPool.finish`. The stored authority is `Authority "Actor"`. No secret logs nothing and finishes nothing.
 [x] `CoreActorPool.trySecretForActorNode` in `src/Server/Core/CoreActorPool.fs` returns the secret for an actor node id.
 [x] `Notice.ActorStopped` is `focusId` and `result` in `src/Shared/History.fs`.
