@@ -1,5 +1,5 @@
 # 24 — Remove CoreMsg.RecordSearchStop
-**Status:** defined
+**Status:** coded
 One job: The Server records a finished search as `Notice.ActorStopped` through the actor stop, and `CoreMsg.RecordSearchStop` leaves, while the Find start still places `Order.StartActor` for the actor `search`. The reason is Alan's decision on 2026-11-13 in [core-refinement](../../core-refinement/project.md).
 
 Type: coding
@@ -43,19 +43,19 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 ## Process
 
-1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Contract: delete the `RecordSearchStop` case from `CoreMsg` in `src/Server/Core/CoreMsg.fs`.
-3. [ ] Contract: delete the `RecordSearchStop` arm of `runMsg` and the `RecordSearchStop` arm of `messageCaller` in `src/Server/Core/CoreMailboxLoop.fs`.
-4. [ ] Contract: delete the `RecordSearchStop` arm of `operationContext` and the `RecordSearchStop` arm of `replyFailure` in `src/Server/Core/CoreMailboxEvents.fs`.
-5. [ ] Contract: delete `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs`.
-6. [ ] Change: `RouteRegistration.searchDoor.recordStop` is `fun _ -> async.Return ()`.
-7. [ ] Change: in ``postSearch records ActorStart at the root``, the `recordStop` closure is `fun _ -> async.Return ()`. The assertion stays on `EventBody.ActorStop` of the root with `ActorSucceeded`.
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] Contract: delete the `RecordSearchStop` case from `CoreMsg` in `src/Server/Core/CoreMsg.fs`.
+3. [x] Contract: delete the `RecordSearchStop` arm of `runMsg` and the `RecordSearchStop` arm of `messageCaller` in `src/Server/Core/CoreMailboxLoop.fs`.
+4. [x] Contract: delete the `RecordSearchStop` arm of `operationContext` and the `RecordSearchStop` arm of `replyFailure` in `src/Server/Core/CoreMailboxEvents.fs`.
+5. [x] Contract: delete `CoreMailboxApi.recordSearchStop` in `src/Server/Core/CoreMailboxApi.fs`.
+6. [x] Change: `RouteRegistration.searchDoor.recordStop` is `fun _ -> async.Return ()`.
+7. [x] Change: in ``postSearch records ActorStart at the root``, the `recordStop` closure is `fun _ -> async.Return ()`. The assertion stays on `EventBody.ActorStop` of the root with `ActorSucceeded`.
 
 ## Outputs
 
-[ ] Source files: `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxApi.fs`, and `src/Server/RouteRegistration.fs`.
-[ ] That list is 5 source files. [Size limit](../../context/size-limit.md) names 8.
-[ ] `tests/Server.Tests/SearchActorTests.fs` keeps ``postSearch records ActorStart at the root``. The `recordStop` closure returns unit. The log assertion stays on the actor stop of the root with `ActorSucceeded`, which is `Notice.ActorStopped`.
+[x] Source files: `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxApi.fs`, and `src/Server/RouteRegistration.fs`.
+[x] That list is 5 source files. [Size limit](../../context/size-limit.md) names 8.
+[x] `tests/Server.Tests/SearchActorTests.fs` keeps ``postSearch records ActorStart at the root``. The `recordStop` closure returns unit. The log assertion stays on the actor stop of the root with `ActorSucceeded`, which is `Notice.ActorStopped`.
 
 ## Stop when
 
@@ -65,9 +65,9 @@ Prerequisite: [23 — Server search works](23-server-search-works.md).
 
 ## Check
 
-[ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
   - `tests/Server.Tests`: ``postSearch records ActorStart at the root``
-[ ] All executed tests pass.
-[ ] Rewrite `24-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
-[ ] A reader who reads only the One job line can say what the ticket builds.
+[x] All executed tests pass.
+[x] Rewrite `24-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

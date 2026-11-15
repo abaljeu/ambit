@@ -14,7 +14,7 @@ Status stays `coded`.
 
 [[../../../doc/current/query-actor.md]]
 
-- `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand` and `RecordSearchStop`.
+- `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`.
 - `MailboxHost.postPlacedOrder` queues `Order.ClientRequestActor`.
 - `CoreMailboxLoop.placeOrder` runs `CoreMailboxActors.replyClientRequest` for `Order.ClientRequestActor` and `CoreMailboxActors.replyPlacedCancel` for `Order.CancelActor`.
 - `replyClientRequest` places a query Run through `queueAdmittedQuery` and `postBuiltOrder` as `Order.StartActor`. The actor name is `query`.
@@ -42,7 +42,7 @@ Status stays `coded`.
 
 [[../../actor-as-client/issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md]]
 
-- The queue text names `CoreMsg` as `StartLoadSaveCommand` and `RecordSearchStop`.
+- The queue text names `CoreMsg` as `StartLoadSaveCommand`.
 - This ticket is Status `coded`. `messageForPosted` and `acceptOne` place the client ActorStart and the client Cancel.
 - 24 — Remove CoreMsg.RecordSearchStop records `CoreMsg` as `StartLoadSaveCommand` and `RecordSearchStop`.
 - 27 — Dialog cancels or replaces the search actor names `replyPlacedCancel` as the Cancel entry.
@@ -53,7 +53,7 @@ Status stays `coded`.
 
 - Core creation architecture keeps the hello-cut hops. The file date is 2026-09-20.
 - Single event source architecture keeps `PostEvent` of Ev on that cut's module map.
-- The 2026-11-13 journal line for 114 — Remove CoreMsg.ActorStop in the core-refinement project keeps the cases recorded that day.
+- The 2026-11-13 journal line for 114 — Remove CoreMsg.ActorStop in the core-refinement project names `CoreMsg` as `StartLoadSaveCommand`.
 - The 2026-09-19 journal line in the llm-connector project keeps `cancelByFocus` as the name coded that day.
 - Closed tickets and review files keep their records.
 - `FileAgent.processPostEvents` stays.

@@ -15,11 +15,6 @@ module internal CoreMailboxLoop =
         | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
             CoreMailboxLoad.dispatchStartLoadSaveCommand
                 context caller path peerName request reply
-        | RecordSearchStop (caller, rootId, reply) ->
-            let dispatch = CoreMailboxEvents.eventDispatchContext context
-            reply.Reply(
-                CoreEventDispatch.actorStop
-                    dispatch caller rootId ActorSucceeded)
 
     let private reportDispatchException
         (context: MailboxContext)
@@ -51,8 +46,7 @@ module internal CoreMailboxLoop =
 
     let private messageCaller (msg: CoreMsg) =
         match msg with
-        | StartLoadSaveCommand (caller, _, _, _, _)
-        | RecordSearchStop (caller, _, _) -> caller
+        | StartLoadSaveCommand (caller, _, _, _, _) -> caller
 
     let private rejectDropped (msg: CoreMsg) =
         CoreMailboxEvents.replyFailure droppedAuthority msg

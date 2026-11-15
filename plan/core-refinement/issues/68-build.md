@@ -2,7 +2,7 @@
 
 Ticket: [68 — Remove CoreMsg.PostEvent](68-remove-coremsg-postevent.md)
 
-The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. `CoreMsg` is `StartLoadSaveCommand` and `RecordSearchStop`.
+The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. `CoreMsg` is `StartLoadSaveCommand`. [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`.
 
 `messageForPosted` and `acceptOne` place `EventBody.ActorStart`, `EventBody.Cancel`, `EventBody.Undo`, `EventBody.Redo`, and a zero-id `EventBody.Change`. `MailboxHost.postPlacedOrder` queues `Order.ClientRequestActor`. `placeOrder`'s `ClientRequestActor` arm replies the stored event, places `?test`, `?ai`, and a query as `Order.StartActor`, and replies `Error "unknown actor"` for any other name. `placeOrder`'s `CancelActor` arm replies the stored event, else `runCancel`'s stored event, else `EventId.zero`.
 

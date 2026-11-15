@@ -9,12 +9,6 @@ type internal CoreMsg =
         peerName: PeerActorName *
         request: LoadSaveCommandRequest *
         AsyncReplyChannel<Result<unit, string>>
-    /// Search Actor bookkeeping. Puts ActorStop on the event source.
-    /// The id is the root.
-    | RecordSearchStop of
-        caller: Caller *
-        rootId: NodeId *
-        AsyncReplyChannel<Result<unit, string>>
 
 [<RequireQualifiedAccess>]
 type internal Query =

@@ -29,9 +29,11 @@ let private mailboxKind (message: Mailbox) =
 let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let core =
         Mailbox.CoreMsg (
-            RecordSearchStop(
+            StartLoadSaveCommand(
                 testCaller,
-                Graph.rootId,
+                LoadSavePath.Git,
+                PeerActorName "load",
+                Unchecked.defaultof<_>,
                 Unchecked.defaultof<_>))
     let placed = {
         orderId = OrderId Guid.Empty

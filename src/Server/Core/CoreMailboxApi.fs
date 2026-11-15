@@ -371,15 +371,6 @@ module CoreMailboxApi =
             return Result.map ignore placed
         }
 
-    /// Enqueue ActorStop for that Search Actor. The id is the root.
-    let recordSearchStop
-        (host: MailboxHost)
-        (caller: Caller)
-        (rootId: NodeId)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStop(caller, rootId, channel))
-
     let startLoadSaveCommand
         (host: MailboxHost)
         (caller: Caller)

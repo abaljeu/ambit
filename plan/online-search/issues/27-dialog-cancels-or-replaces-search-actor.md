@@ -7,7 +7,7 @@ Blockers:
 
 [23 — Server search works](23-server-search-works.md) is done. The Server returns Find hits, and the dialog appends the hits the client search did not find.
 
-[24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) is defined. This ticket starts while that removal is still ahead. The ordinary finish of a search stays `Notice.ActorStopped` through the actor stop. This ticket uses the existing cancel. 24 — Remove CoreMsg.RecordSearchStop owns `CoreMsg.RecordSearchStop`.
+[24 — Remove CoreMsg.RecordSearchStop](24-remove-coremsg-recordsearchstop.md) is `coded`. The ordinary finish of a search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. This ticket uses the existing cancel.
 
 [26 — Resumed typing finds server hits locally](26-resumed-typing-finds-server-hits-locally.md) is defined. This ticket leaves the residency list after an installed hit to that ticket.
 
@@ -31,7 +31,7 @@ Blockers:
 [x] `CoreMailboxLoop.scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs` calls `CoreActorPool.startFunction`. A start for an actor node id that is already live returns the error `actor node already has a live Actor`.
 [x] `SearchActor.searchActorAt` returns `ActorSucceeded`.
 [x] `CoreActorPool.postStopUnlessCancelled` in `src/Server/Core/CoreActorPool.fs` posts `Notice.ActorStopped` of the row's actor node id and the returned result when the row token is open.
-[x] `Api.searchReply` leaves `door.recordStop` uncalled. `RouteRegistration.searchDoor.recordStop` calls `CoreMailboxApi.recordSearchStop`.
+[x] `Api.searchReply` leaves `door.recordStop` uncalled. `RouteRegistration.searchDoor.recordStop` returns unit.
 [x] A client `EventBody.Cancel` is placed by `CoreMailboxApi.messageForPosted` as `Mailbox.PlaceOrder` of `Order.CancelActor`.
 [x] `CoreMailboxLoop.placeOrder` matches `Order.CancelActor` and calls `CoreMailboxActors.replyPlacedCancel`.
 [x] `replyPlacedCancel` calls `runCancel` when `storedBySubmission` finds no submission.
@@ -39,7 +39,7 @@ Blockers:
 [x] `EventBody.ActorStop` in `src/Shared/History.fs` builds `EventBody.Notice` of `Notice.ActorStopped`.
 [x] `CoreActorPool.finish` cancels that row's token and removes the live row.
 [x] `CoreActorPool.postStopUnlessCancelled` posts no second stop when that token is already cancelled.
-[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand` and `RecordSearchStop`. `CoreMsg.PostEvent` has left.
+[x] `CoreMsg` in `src/Server/Core/CoreMsg.fs` is `StartLoadSaveCommand`.
 [x] ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` waits for `EventBody.ActorStop` of the root with `ActorSucceeded`.
 [x] ``cancel by Focus accepts Cancelled and drops the live row`` in `tests/Server.Tests/CancelByFocusTests.fs` cancels a live actor and expects `ActorCancelled`.
 [x] ``stale reply is ignored and a matching reply is kept`` in `tests/Shared.Tests/SearchPictureTests.fs` expects `applyReply` to return `None` for other text, and `keepReply` to return the ids already kept.
@@ -52,7 +52,7 @@ Blockers:
 
 ## Do not load
 
-[ ] `CoreMsg.RecordSearchStop` and `CoreMailboxApi.recordSearchStop`. 24 — Remove CoreMsg.RecordSearchStop owns that removal.
+[ ] The Find finish notice. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. This ticket leaves that notice.
 [ ] The residency list after an installed hit. 26 — Resumed typing finds server hits locally owns that list.
 [ ] The Run line, `ActorQuery`, and the Focus node's children. [25 — The server evaluates Run](25-server-evaluates-run.md) owns that evaluation.
 [ ] A new `Notice` case.
@@ -81,7 +81,7 @@ Blockers:
 [ ] Rewrite `27-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
 [ ] Stop when the edit needs a file outside Inputs.
 [ ] Stop when the edit adds a `Notice` case or a `CoreMsg` case.
-[ ] Stop when the edit changes `CoreMsg.RecordSearchStop` or `CoreMailboxApi.recordSearchStop`.
+[ ] Stop when the edit adds a search-specific stop notice.
 [ ] Stop when the edit contradicts story 13 **Dialog cancels or replaces the search actor**.
 
 ## Check
