@@ -39,14 +39,11 @@ module internal CoreMailboxEvents =
         match msg with
         | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
             "StartLoadSaveCommand", $"{path}:{name}"
-        | RecordSearchStop _ -> "RecordSearchStop", ""
         | PostEvent _ -> "PostEvent", ""
 
     let replyFailure error msg =
         match msg with
         | StartLoadSaveCommand (_, _, _, _, reply) ->
-            reply.Reply(Error error)
-        | RecordSearchStop (_, _, reply) ->
             reply.Reply(Error error)
         | PostEvent (_, _, reply) -> reply.Reply(Error error)
 

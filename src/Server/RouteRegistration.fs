@@ -218,13 +218,7 @@ module RouteRegistration =
                         caller
                         install.search
                         start
-          recordStop =
-            fun rootId ->
-                async {
-                    let! _ =
-                        CoreMailboxApi.recordSearchStop host caller rootId
-                    return ()
-                } }
+          recordStop = fun _ -> async.Return () }
 
     let private postSearchRequest
         (persistence: PersistenceContext)
