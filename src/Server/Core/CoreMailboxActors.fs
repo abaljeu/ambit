@@ -105,8 +105,21 @@ module internal CoreMailboxActors =
         | None -> None
         | Some node -> CommandRequest.actorNameFromText node.text
 
-    /// The stored StartActor uses the posted submission id.
-    /// A second post of that submission returns the stored event.
+    /// A repeated submission replies the stored event.
+    let private replyStoredOr
+        (context: MailboxContext)
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        (fresh: unit -> unit)
+        =
+        match
+            CoreMailboxEvents.storedBySubmission context submissionId
+        with
+        | Some stored ->
+            CoreMailboxEvents.replyStored reply stored
+        | None -> fresh ()
+
+    /// Places Order.StartActor and replies that place.
     let private postBuiltOrder
         (context: MailboxContext)
         (caller: Caller)
@@ -208,8 +221,8 @@ module internal CoreMailboxActors =
                     context caller request reply submissionId)
         | _ -> None
 
-    /// Repeated submission replies the stored event.
     /// `?test`, `?ai`, and a query are placed as Order.StartActor.
+    /// Any other name replies Error "unknown actor".
     let replyClientRequest
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -218,21 +231,16 @@ module internal CoreMailboxActors =
         (request: Gambol.Shared.ActorStart)
         =
         let submissionId = placed.orderId.Value
-        match
-            CoreMailboxEvents.storedBySubmission context submissionId
-        with
-        | Some stored ->
-            CoreMailboxEvents.replyStored reply stored
-        | None ->
+        replyStoredOr context reply submissionId (fun () ->
             match
                 admittedQueue
                     context caller request reply submissionId
             with
             | Some queue ->
                 whenAdmitted context caller reply queue
-            | None -> reply.Reply(Error "unknown actor")
+            | None -> reply.Reply(Error "unknown actor"))
 
-    /// Stored submission, else the stored stop, else the draft id.
+    /// A fresh cancel replies the stored stop, or EventId.zero.
     let replyPlacedCancel
         (context: MailboxContext)
         (placed: PlacedOrder)
@@ -241,14 +249,9 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         =
         let submissionId = placed.orderId.Value
-        match
-            CoreMailboxEvents.storedBySubmission context submissionId
-        with
-        | Some stored ->
-            CoreMailboxEvents.replyStored reply stored
-        | None ->
+        replyStoredOr context reply submissionId (fun () ->
             match runCancel context caller focusId submissionId with
             | Error err -> reply.Reply(Error err)
             | Ok (Some stored) ->
                 CoreMailboxEvents.replyStored reply stored
-            | Ok None -> reply.Reply(Ok EventId.zero)
+            | Ok None -> reply.Reply(Ok EventId.zero))
