@@ -2,7 +2,7 @@
 
 **Status**: defined
 
-One job: The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. The log stays the same, and every client reply stays the same. The work of `CoreMailboxActors.postActorStart` moves into `placeOrder`'s `ClientRequestActor` arm. There is one cancel, by the focused node. `placeOrder`'s `CancelActor` arm always gives `postCancel`'s reply: the stored event when `storedBySubmission` finds the submission, else `runCancel`'s stored event, else the draft id. That arm replaces `replyCancel`. `cancelByFocus` returns `Result<unit, string>` and drops the `EventId`. Its callers are tests. `CoreMsg.PostEvent` then leaves. `CoreMsg` stays `StartLoadSaveCommand` and `RecordSearchStop`. The reason is Alan, 2026-11-15.
+One job: The server places a client ActorStart and a client Cancel through `Mailbox.PlaceOrder`. The log stays the same, and every client reply stays the same. The work of `CoreMailboxActors.postActorStart` moves into `placeOrder`'s `ClientRequestActor` arm. There is one cancel, by the focused node. `placeOrder`'s `CancelActor` arm always gives `postCancel`'s reply: the stored event when `storedBySubmission` finds the submission, else `runCancel`'s stored event, else the draft id. That arm replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. Tests that pin a real cancel post `EventBody.Cancel` the way the client does. Tests that only pin `cancelByFocus` leave. `CoreMsg.PostEvent` then leaves. `CoreMsg` stays `StartLoadSaveCommand` and `RecordSearchStop`. The reason is Alan, 2026-11-15.
 
 Type: coding
 
@@ -17,7 +17,7 @@ Blockers:
 
 ## Scope
 
-Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor` arm takes the work of `postActorStart`. `placeOrder`'s `CancelActor` arm takes `postCancel`'s reply and replaces `replyCancel`. `StartLoadSaveCommand` and `RecordSearchStop` stay. The edit adds no `Order` case and no `CoreMsg` case.
+Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor` arm takes the work of `postActorStart`. `placeOrder`'s `CancelActor` arm takes `postCancel`'s reply and replaces `replyCancel`. `CoreMailboxApi.cancelByFocus` leaves. `StartLoadSaveCommand` and `RecordSearchStop` stay. The edit adds no `Order` case and no `CoreMsg` case.
 
 ### Signatures
 
@@ -52,6 +52,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [x] `RunLaunch.queueCancel` in `src/Shared/RunLaunch.fs` posts `commandName` `"Cancel"` and `id` `EventId.zero`.
 [x] `MailboxLog.placedOrderFromEvent` in `src/Shared/MailboxLog.fs` sets `orderId` to `OrderId event.submissionId`.
 [x] `postCancel`'s `Ok None` reply is `event.id`. `PlacedOrder` is `orderId`, `authority`, `commandName`, and `order`.
+[x] `queueAdmittedAi` in `src/Server/Core/CoreMailboxActors.fs` documents `actorNodeId` as the focus id `cancelByFocus` uses.
 [x] `postBuiltOrder`, `queueAdmittedFocus`, `queueAdmittedTest`, `queueAdmittedAi`, `queueAdmittedQuery`, `whenAdmitted`, and `admittedQueue` have no caller besides `postActorStart`.
 [x] `recordSearchStop` and `startLoadSaveCommand` call `reply`. `addCoreMsg` has no caller in `src/`.
 [x] `dispatchMailbox` and `isStartupRead` match `Mailbox.CoreMsg`. Those arms stay, because `StartLoadSaveCommand` and `RecordSearchStop` stay.
@@ -70,7 +71,27 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [ ] Else the reply is `runCancel`'s stored event.
 [ ] Else the reply is the draft id.
 [ ] `replyCancel` leaves. The arm replaces it.
-[ ] `cancelByFocus` keeps `Async<Result<unit, string>>` and still drops the `EventId`.
+[ ] `CoreMailboxApi.cancelByFocus` leaves.
+[ ] `cancelFocus` in `tests/Server.Tests/AskCancelHarness.fs` posts `EventBody.Cancel` through `CoreMailboxApi.postEvents`, with `id` `EventId.zero` and `commandName` `"Cancel"`, the event `RunLaunch.queueCancel` builds. After this ticket that post is `Mailbox.PlaceOrder`.
+[ ] The `queueAdmittedAi` comment names the focus id. The words `cancelByFocus` leave that comment.
+
+### Tests that call cancelByFocus
+
+[x] `cancelFocusOp` in `src/Client/UpdateActorLive.fs` is the Browser op. The server function's callers are the tests in this section.
+[ ] Migrate ``cancel by Focus accepts Cancelled and drops the live row``. It calls `cancelFocus`. The live row drops, the owned texts stay, and the fake observes the cancel.
+[ ] Migrate ``Cancel before Change rejects later Agent replace``. It calls `cancelFocus`. The later replace stays off the focus.
+[ ] Migrate ``Change before Cancel keeps the accepted children``. It calls `cancelFocus`. The accepted child stays.
+[ ] Migrate ``late duplicate completion after cancel is ignored``. It calls `cancelFocus` twice. The focus has one stop.
+[ ] Migrate ``actorStop after cancel does not emit a root Focus ActorStop``. It calls `cancelFocus`. A later `Notice.ActorStopped` of `ActorSucceeded` adds no root stop.
+[ ] Migrate ``second Cancel for the same run logs no stop``. The first call is `cancelFocus`. The second call is `cancelByFocus`, and the test expects `Ok ()`. The second post is a client Cancel. The cancelled-stop list stays the list from the first cancel. The `Ok ()` match leaves with the function.
+[ ] ``posted Cancel cancels a hanging Focus by NodeId`` already posts `EventBody.Cancel` through `postEvents`. It stays on that path.
+[ ] Delete ``cancelByFocus places Order.CancelActor``. It calls `cancelByFocus` and expects `Ok ()`. The live-row drop and the cancelled stop are already pinned by ``cancel by Focus accepts Cancelled and drops the live row`` and ``posted Cancel cancels a hanging Focus by NodeId``.
+[ ] ``second Cancel on the same focus replies the same`` does not call `cancelByFocus`. It posts `Order.CancelActor` through `postPlacedOrder`.
+[x] ``next open angle commits Focus child before next tag closes`` in `tests/Server.Tests/AgentActorStreamTests.fs` calls `cancelFocus`.
+[x] ``cancel mid-stream drops live and keeps streamed children`` in `tests/Server.Tests/AgentActorStreamTests.fs` calls `cancelFocus`.
+[x] ``inbound deliver stays live for a second chunk`` in `tests/Server.Tests/AgentGrokBotStreamTests.fs` calls `cancelFocus`.
+[x] ``cancel mid Grok stream drops live and keeps children`` in `tests/Server.Tests/AgentGrokBotStreamTests.fs` calls `cancelFocus`.
+[ ] Those four tests migrate through `cancelFocus`. Their files stay as they are.
 
 ### Existing tests
 
@@ -114,7 +135,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [ ] The `PostEvent` arm of `runMsg` leaves, and the `PostEvent` arm of `messageCaller` leaves. The other arms stay.
 [ ] The edit leaves `CoreMsg.RecordSearchStop`, `CoreMsg.StartLoadSaveCommand`, and `CoreEventDispatch.actorStop`.
 [ ] The edit leaves `runCancel`. `replyCancel` leaves when the `CancelActor` arm gives `postCancel`'s reply.
-[ ] `cancelByFocus` keeps `Async<Result<unit, string>>`.
+[ ] `CoreMailboxApi.cancelByFocus` leaves.
 [ ] `placeOrder`'s `ClientRequestActor` arm is in this ticket. The edit adds no `Order` case.
 [ ] The edit adds no `CoreMsg` case.
 
@@ -126,9 +147,10 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 4. [ ] `postPlacedOrder` queues `Order.ClientRequestActor`. `clientRequestRetired` leaves when nothing calls it. The client post then reaches `placeOrder` and keeps today's `postActorStart` reply.
 5. [ ] Move `postActorStart`'s work into `placeOrder`'s `ClientRequestActor` arm. A repeated submission replies the stored event. `?test`, `?ai`, and a query are placed as `Order.StartActor` through `postBuiltOrder` and the `queueAdmitted` helpers. Those helpers move or stay. Any other name replies `Error "unknown actor"`.
 6. [ ] Move `postCancel`'s reply into `placeOrder`'s `CancelActor` arm for every `Order.CancelActor`. A repeated submission replies the stored event. Else `runCancel`'s stored event. Else the draft id. `replyCancel` leaves. The arm uses that one reply.
-7. [ ] A zero-id Change that `postEventAccepted` accepts is placed as `Mailbox.PlaceOrder`, the path `messageForPosted` already uses when `sendsAsOrder` is true.
-8. [ ] Remove `PostEvent` from `CoreMsg`, and remove its arms in `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`.
-9. [ ] Remove `dispatchPostEvent`, `postActorStart`, and `postCancel` when nothing else calls them. Remove `postBuiltOrder`, `queueAdmittedFocus`, `queueAdmittedTest`, `queueAdmittedAi`, `queueAdmittedQuery`, `whenAdmitted`, and `admittedQueue` when nothing else calls them.
+7. [ ] Delete `CoreMailboxApi.cancelByFocus`. `cancelFocus` posts the client Cancel from Scope. Migrate the tests Scope names. Delete ``cancelByFocus places Order.CancelActor``. Rewrite the `queueAdmittedAi` comment so it names the focus id and the words `cancelByFocus` are gone.
+8. [ ] A zero-id Change that `postEventAccepted` accepts is placed as `Mailbox.PlaceOrder`, the path `messageForPosted` already uses when `sendsAsOrder` is true.
+9. [ ] Remove `PostEvent` from `CoreMsg`, and remove its arms in `runMsg`, `messageCaller`, `operationContext`, and `replyFailure`.
+10. [ ] Remove `dispatchPostEvent`, `postActorStart`, and `postCancel` when nothing else calls them. Remove `postBuiltOrder`, `queueAdmittedFocus`, `queueAdmittedTest`, `queueAdmittedAi`, `queueAdmittedQuery`, `whenAdmitted`, and `admittedQueue` when nothing else calls them.
 
 ## Tests
 
@@ -163,15 +185,17 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [ ] Filter: `edit then unknown ActorStart replies unknown actor`
 [ ] Keep ``production events door replies unknown actor``.
 [ ] Filter: `production events door replies unknown actor`
-[ ] ``second Cancel on the same focus replies the same`` reads the `EventId` that `cancelByFocus` drops. The live place replies the stored stop id. Change the test to that reply.
+[ ] ``second Cancel on the same focus replies the same`` reads the placed `EventId`. The live place replies the stored stop id. Change the test to that reply.
 [ ] Filter: `second Cancel on the same focus replies the same`
-[ ] Keep the tests that call `cancelByFocus`. They read `Result<unit, string>`.
+[ ] Delete ``cancelByFocus places Order.CancelActor``.
 [ ] Filter: `CancelByFocusTests`
 
 ## Outputs
 
 [ ] Source files: `src/Server/Core/CoreMailboxApi.fs`, `src/Server/Core/CoreMsg.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/Core/CoreMailboxEvents.fs`, `src/Server/Core/CoreMailboxActors.fs`, and `src/Server/Core/MailboxHost.fs`. 6 source files.
-[ ] Test files: `tests/Server.Tests/MailboxExpandTests.fs`, `tests/Server.Tests/CoreMailboxDoorTests.fs`, `tests/Server.Tests/TestActorCommandErrorTests.fs`, and `tests/Server.Tests/CancelByFocusTests.fs`. 4 test files.
+[ ] Test files: `tests/Server.Tests/MailboxExpandTests.fs`, `tests/Server.Tests/CoreMailboxDoorTests.fs`, `tests/Server.Tests/TestActorCommandErrorTests.fs`, `tests/Server.Tests/CancelByFocusTests.fs`, and `tests/Server.Tests/AskCancelHarness.fs`. 5 test files.
+[x] The size limit allows 8 source files and 4 tests. The fifth test file is `tests/Server.Tests/AskCancelHarness.fs`.
+[ ] `tests/Server.Tests/AgentActorStreamTests.fs` and `tests/Server.Tests/AgentGrokBotStreamTests.fs` stay as they are. Their cancels call `cancelFocus`.
 [ ] `tests/Server.Tests/Issue41CoreMailboxTests.fs` stays as it is. The non-zero id test keeps its name and its error text.
 [ ] `tests/Server.Tests/QueryActorTests.fs` and `tests/Server.Tests/OrderedEventStreamTests.fs` stay as they are. Their unknown-actor tests already pin `Error "unknown actor"`.
 
@@ -182,7 +206,7 @@ Slice: contract. `CoreMsg.PostEvent` leaves. `placeOrder`'s `ClientRequestActor`
 [ ] Stop when the edit removes `RecordSearchStop` or `StartLoadSaveCommand`.
 [ ] Stop when the edit changes a log row.
 [ ] Stop when a client `postEvent` or `postEvents` reply changes.
-[ ] Stop when `cancelByFocus` changes its return type or returns the `EventId`.
+[ ] Stop when `CoreMailboxApi.cancelByFocus` remains.
 [ ] Stop when the edit adds an `Order` case or a `CoreMsg` case.
 [ ] Stop when the edit needs a file outside Outputs.
 [ ] `postPlacedOrder`'s retired error for `Order.ClientRequestActor` is the change that lets the client post reach `placeOrder`.
