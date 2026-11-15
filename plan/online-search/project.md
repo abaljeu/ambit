@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: Two specs in one file. Find opens on the residency search. A query expression inserts results under the query line. Query eval is remote.
-Updated: 2026-11-13
+Updated: 2026-11-15
 Started: 2026-10-04
 Actual: 10h
 
@@ -12,6 +12,7 @@ Actual: 10h
 - Specs: [[spec.md]] holds the Search spec and the Query spec. Both specs live in that file.
 - Architecture: [[arch.md]]. Sequence is tracer-cut. The cap of 200, Want nodes for hits, and `src/Server/SearchActor.fs` are locks. The Query Ref post stays a proposed design. Next and Page are not in this project.
 - [22 — Run sends = lines to Amble](issues/22-run-sends-equals-lines-to-amble.md) is `defined` and not started. It replaces the Run door on [11 — Server evaluates](issues/11-server-evaluates.md). A line that contains `=` runs Amble. There is no query-by-`=` path.
+- [25 — The server evaluates Run](issues/25-server-evaluates-run.md) is `defined`. The Server posts the Amble plan for a Run line. The Browser applies that plan from the event log. 22 — Run sends = lines to Amble chooses the line, and its target still runs Amble on the client. 24 — Remove CoreMsg.RecordSearchStop does not block this ticket. [Amble tools](../bot-amble-tools/project.md) depends on this server execution. Search Amble, draft pull request 623, folder `plan/search-amble`, depends on server-side evaluation and is not on staging.
 - Frontier: [07 — Server completes the picture](issues/07-server-completes-the-picture.md) is coded. [Server evaluates](issues/11-server-evaluates.md) is coded. Run on a `=` line queues ActorStart behind the edit and evals on the server Graph. The reply is Node ids on ActorStop. The Ref post stays [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md). [14 — Cap of 200](issues/14-cap-of-200.md) section 2 **Query cap** is not started. [06 — Residence hits first](issues/06-residence-hits-first.md) is done. [08 — Duplicates on Node id](issues/08-duplicates-on-node-id.md) is cancelled. [23 — Server search works](issues/23-server-search-works.md) is done. It proves the server returns Find hits and their Want nodes, that the client adds those nodes to the residency Graph, and that the dialog appends server hits the client search did not find, including a hit that was not resident before the reply. [24 — Remove CoreMsg.RecordSearchStop](issues/24-remove-coremsg-recordsearchstop.md) is `defined` and its prerequisite is that ticket. It removes `CoreMsg.RecordSearchStop`. The search stop is `Notice.ActorStopped` through the actor stop.
 - Coded pages: [Search](../../doc/current/search.md) and [Search Actor](../../doc/current/search-actor.md). [Want nodes for hits](../../doc/current/want-nodes.md) is the Find reply ride.
 - Committed claims: [Search Actor](../../doc/current/search-actor.md), [Query Actor](../../doc/current/query-actor.md), and [Want nodes for hits](../../doc/current/want-nodes.md). Those pages do not hold the Query Ref post. That post stays a proposed design.

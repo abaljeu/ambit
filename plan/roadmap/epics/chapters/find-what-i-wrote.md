@@ -7,7 +7,7 @@ When a person needs a thing they already wrote, they get to it.
 ## Projects
 
 - [[plan/online-search/project.md]] — Ambot; server Search Want-fulfillment of Find
-- [[plan/bot-amble-tools/project.md]] — Amble run lines in the AI reply, after [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md)
+- [[plan/bot-amble-tools/project.md]] — Amble run lines in the AI reply, after [25 — The server evaluates Run](plan/online-search/issues/25-server-evaluates-run.md). [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md) stays the Find stop.
 - [[plan/expression-language/project.md]] — Find expression remainder (eval stays local)
 - [[plan/transport-layer/project.md]] — inbound, outbound, round-trip. This Chapter depends on it.
 - [[plan/graph-view/project.md]] — radial focus-centric graph view with Ref overlay
