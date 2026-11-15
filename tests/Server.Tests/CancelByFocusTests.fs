@@ -17,11 +17,6 @@ let private decodeUniversal json =
         ApiResponseSerialization.decodeUniversalResponseDecoder
         json
 
-let private actorCaller secret : Caller =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
 let private cancelledStops (log: EventLog) focusId =
     log.events
     |> List.filter (fun event ->
@@ -143,18 +138,13 @@ type CancelByFocusTests() =
             withHost (fun host pool -> task {
                 let! request = startLiveAsk host pool "?ai"
                 do! awaitHang hangStarted
-                let secret =
-                    match pool.trySecretForActorNode request.focusId with
-                    | Some value -> value
-                    | None -> failwith "expected live secret"
                 do! cancelFocus host request.focusId
                 do! expectActorCancelled host pool request.focusId
-                let! _ =
-                    CoreMailboxApi.actorStop
-                        host
-                        (actorCaller secret)
-                        ActorSucceeded
-                    |> Async.StartAsTask
+                CoreMailboxApi.postNotice
+                    host
+                    (Notice.ActorStopped(
+                        request.focusId,
+                        ActorSucceeded))
                 let! rootStops = actorStopCount host Graph.rootId
                 Assert.Equal(0, rootStops)
                 let! stops = actorStopCount host request.focusId

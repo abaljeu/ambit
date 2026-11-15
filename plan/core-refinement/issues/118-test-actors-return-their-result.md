@@ -8,8 +8,7 @@ Blockers: 117 — The pool posts Notice.ActorStopped when an Actor ends. 114's b
 ## Scope
 
 [x] Alan, 2026-11-13: 114 holds the two recording-pool tests from this ticket.
-[x] The tests are ``CoreMailboxApi.actorStop with valid credential drops live row`` and ``CoreMailboxApi.actorStop appends ActorStop and drops live row`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`.
-[ ] 114 renames them ``ActorStopped Notice drops live row`` and ``ActorStopped Notice is logged and drops live row``.
+[x] The two recording-pool tests in `tests/Server.Tests/CoreMailboxDoorTests.fs` are ``ActorStopped Notice drops live row`` and ``ActorStopped Notice is logged and drops live row``. Each posts `Notice.ActorStopped` with `CoreMailboxApi.postNotice`.
 [x] The chain is 113, then 117, then 114.
 
 ## Inputs

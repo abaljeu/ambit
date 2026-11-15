@@ -1,13 +1,13 @@
 # 113 — Actors return their ActorResult
 **Status**: `coded`
-One job: An Actor returns its `ActorResult` to the pool, and the pool ignores that result. The Actor still sends the stop. This is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The reason is the 2026-10-24 decision in [core-refinement](../project.md): an Actor ends, and the pool posts the stop.
+One job: An Actor returns its `ActorResult`. `CoreActorPool.runReturned` binds that result. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`. This is a strict refactor. The observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results stay the same. The reason is the 2026-10-24 decision in [core-refinement](../project.md): an Actor ends, and the pool posts the stop.
 
 Type: coding
 Blockers: [112 — Place Cancel through PlaceOrder](112-place-cancel-through-placeorder.md) is `coded` and landed on staging in PR 522.
 
 ## Scope
 
-Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `runSchedule` discards that result with `Async.Ignore`. Each stop call stays.
+Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `CoreActorPool.runReturned` binds that result. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`.
 
 [x] The build keeps the observable log (`EventBody.ActorStop` alias, `Notice.ActorStopped`) and the results the same.
 
@@ -19,18 +19,18 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 [x] `ActorOrderFromStart.FunctionActorPlacement` in `src/Server/ActorOrderFromStart.fs` is the placement record. Its `actor` field is the shared `ActorFunction`. The source name `FunctionActor` occurs only in that record.
 [x] `CoreActorPool.runSchedule` in `src/Server/Core/CoreActorPool.fs` is private. `CoreActorPool.schedule` is `runSchedule`. It starts the pending body with `Async.Start` on the row cancellation token.
 [x] The shared `ActorFunction`, the pool `ActorFunction`, and the leftover `ActorFn` return `Async<ActorResult>`.
-[x] `runSchedule` starts `work |> Async.Ignore`. The pool does not read the result.
+[x] `CoreActorPool.runSchedule` starts `CoreActorPool.runReturned`. `runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
 
 ### Match sites
 
-[x] `GithubTransportActor.finishActor` in `src/Server/GithubTransportActor.fs` calls `changes.actorStop` with `actorOutcome`, then returns that outcome. `loadActorFunction` and `saveActorFunction` use `finishActor`.
-[x] `RunAgentActor.stop` in `src/Server/RunAgentActor.fs` calls `changes.actorStop`, then returns that result. `RunAgentActor.actorFn` returns that result.
-[x] `SearchActor.queryActorBody` in `src/Server/SearchActor.fs` returns `Async<ActorResult>`. It calls the supplied stop with `ActorQuery` and returns that `ActorResult`.
-[x] `SearchActor.functionStart` builds a pool `ActorFunction` and passes `CoreDoor.actorStop` to `queryActorBody`. `SearchActor.functionActorAt` is a shared `ActorFunction` and passes `ActorChanges.actorStop` to `queryActorBody`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded` and returns `ActorSucceeded`.
-[x] `TestActor.dispatch` in `src/Server/TestActor.fs` calls `CoreDoor.actorStop`, then returns that result. `TestActor.actorFn` is `dispatch`. `TestActor.runBehavior` calls `changes.actorStop`, then returns that result. `TestActor.functionActor` is the pool `ActorFunction`. `TestActor.functionActorAt` is the shared `ActorFunction`. Both call `runBehavior`.
+[x] `GithubTransportActor.finishActor` in `src/Server/GithubTransportActor.fs` returns `actorOutcome`. `loadActorFunction` and `saveActorFunction` use `finishActor`.
+[x] `RunAgentActor.stop` has left. `RunAgentActor.actorFn` in `src/Server/RunAgentActor.fs` returns the result.
+[x] `SearchActor.queryActorBody` in `src/Server/SearchActor.fs` returns `Async<ActorResult>`.
+[x] `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result. `searchActorAt` returns `ActorSucceeded`.
+[x] `TestActor.dispatch` and `TestActor.runBehavior` in `src/Server/TestActor.fs` return the result. `TestActor.actorFn` is `dispatch`. `TestActor.functionActor` is the pool `ActorFunction`. `TestActor.functionActorAt` is the shared `ActorFunction`. Both call `runBehavior`.
 [x] `CoreMailboxLoop.poolActor` in `src/Server/Core/CoreMailboxLoop.fs` calls the shared `ActorFunction` and returns that `ActorResult`.
 [x] `EventJson.stubActor` in `src/Shared/EventJson.fs` is an `ActorFunction` that returns `ActorSucceeded`.
-[x] `CoreDoor.actorStop`, `CoreDoor.actorChanges`, and `ActorChanges.actorStop` stay. This ticket still calls them.
+[x] `CoreDoor.actorChanges` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `ActorChanges` is those fields.
 
 ### Existing tests
 
@@ -47,13 +47,13 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 
 ### Copy-from
 
-[x] `CoreActorPool.runSchedule` already starts the body and does not read a result. `Async.Ignore` is the discard that keeps that shape when the body returns `ActorResult`.
+[x] `CoreActorPool.runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped` unless the row token is cancelled.
 
 ### Overlap
 
 [x] [23 — Server search works](../../online-search/issues/23-server-search-works.md) has landed. It changed `SearchActor.reply`. This ticket leaves that function.
 [x] This ticket's `SearchActor` edits are `queryActorBody`, `functionStart`, `functionActorAt`, and `searchActorAt`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
-[x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md). Its build waits until [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) lands. This ticket does not edit that file. `SearchActor.searchActorAt` stays the Find actor. The stop call stays in this ticket's return change.
+[x] [24 — Remove CoreMsg.RecordSearchStop](../../online-search/issues/24-remove-coremsg-recordsearchstop.md) is next. [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) is `coded`. `SearchActor.searchActorAt` returns `ActorSucceeded`. The pool posts `Notice.ActorStopped`. `CoreMsg.RecordSearchStop` stays.
 
 ## Inputs
 
@@ -62,12 +62,12 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 [x] The shared `ActorFunction` in `src/Shared/History.fs` is the live start contract.
 [x] The pool `ActorFunction` in `src/Server/Core/CoreActorPool.fs` is the wrapper `runSchedule` calls for `FunctionPending`.
 [x] `ActorFn` in `src/Server/Core/CoreActorPool.fs` is the leftover id-bag contract. `runSchedule` still starts `BagPending`.
-[x] `GithubTransportActor.finishActor` calls `ActorChanges.actorStop`.
-[x] `RunAgentActor.stop` calls `ActorChanges.actorStop`.
-[x] `SearchActor.queryActorBody` calls the supplied stop and returns that `ActorResult`. `SearchActor.functionStart` passes `CoreDoor.actorStop`. `SearchActor.functionActorAt` passes `ActorChanges.actorStop`. `SearchActor.searchActorAt` calls `changes.actorStop` with `ActorSucceeded`.
-[x] `TestActor.dispatch` and `TestActor.runBehavior` call a stop.
-[x] `CoreMailboxApi.actorStop` in `src/Server/Core/CoreMailboxApi.fs` stays. `CoreDoor.actorStop` and `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` stay. `CoreMailboxActors.dispatchActorStop` in `src/Server/Core/CoreMailboxActors.fs` stays.
-[x] Each of those producers returns the same `ActorResult` it passes to the stop.
+[x] `GithubTransportActor.finishActor` returns `actorOutcome`.
+[x] `RunAgentActor.stop` has left. `RunAgentActor.actorFn` returns the result.
+[x] `SearchActor.queryActorBody`, `SearchActor.functionStart`, `SearchActor.functionActorAt`, and `SearchActor.searchActorAt` return the result. `searchActorAt` returns `ActorSucceeded`.
+[x] `TestActor.dispatch` and `TestActor.runBehavior` return the result.
+[x] `CoreDoor.actorChanges` fills `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`.
+[x] Each of those producers returns the `ActorResult`. The pool posts `Notice.ActorStopped`.
 [x] A test body that is started, and that does not assert a stop, calls `TestBackend.waitCancelled` after its observation. The row stays live. `CoreActorPool.finish` cancels that wait.
 [x] ``function start reply is bookkeeping without waiting for an Actor body`` and ``ActorOrder places the actor on the thread pool`` keep their assertions. The body calls `TestBackend.waitCancelled`.
 [x] `EventJson.stubActor` and the two unrun `ActorFunction` values in ``ActorOrder round-trips on the wire with stubActor`` return `ActorSucceeded`.
@@ -79,7 +79,7 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 
 ## Do not load
 
-[x] `CoreMsg.ActorStop`. 114 — Remove CoreMsg.ActorStop removes that case.
+[x] `CoreMsg` is `StartLoadSaveCommand`, `RecordSearchStop`, and `PostEvent`. [114 — Remove CoreMsg.ActorStop](114-remove-coremsg-actorstop.md) is `coded`.
 [x] `CoreMailboxLoop.dispatchItem`. [117 — The pool posts Notice.ActorStopped when an Actor ends](117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md) posts the notice.
 [x] `CoreMsg.RecordSearchStop`. 24 — Remove CoreMsg.RecordSearchStop owns that case.
 [x] `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply`. 23 — Server search works owns the Find reply path.
@@ -90,18 +90,18 @@ Slice: expand the return of the live Actor contract to `Async<ActorResult>`. `ru
 2. [x] Change `ActorFunction` in `src/Shared/History.fs` to return `Async<ActorResult>`.
 3. [x] Change `ActorFunction` and `ActorFn` in `src/Server/Core/CoreActorPool.fs` to return `Async<ActorResult>`.
 4. [x] `CoreMailboxLoop.poolActor` returns the shared actor's `ActorResult`.
-5. [x] `runSchedule` starts `work |> Async.Ignore` on the row cancellation token.
-6. [x] `GithubTransportActor.finishActor` calls `changes.actorStop` with the outcome, then returns that outcome.
-7. [x] `RunAgentActor.stop` calls `changes.actorStop`, then `RunAgentActor.actorFn` returns that result.
-8. [x] `SearchActor.queryActorBody` calls the supplied stop and returns that `ActorResult`. `functionStart` and `functionActorAt` return that async. `searchActorAt` calls `changes.actorStop` with `ActorSucceeded` and returns `ActorSucceeded`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
-9. [x] `TestActor.dispatch` and `TestActor.runBehavior` call the same stop, then return that result.
+5. [x] `CoreActorPool.runSchedule` starts `CoreActorPool.runReturned` on the row cancellation token. `runReturned` binds the `ActorResult`.
+6. [x] `GithubTransportActor.finishActor` returns the outcome.
+7. [x] `RunAgentActor.stop` has left. `RunAgentActor.actorFn` returns the result.
+8. [x] `SearchActor.queryActorBody`, `functionStart`, and `functionActorAt` return the `ActorResult`. `searchActorAt` returns `ActorSucceeded`. `SearchActor.reply`, `SearchActor.actorStart`, and `SearchActor.oneReply` stay.
+9. [x] `TestActor.dispatch` and `TestActor.runBehavior` return the result.
 10. [x] `EventJson.stubActor` returns `ActorSucceeded`.
 11. [x] Each started test body that must stay live calls `TestBackend.waitCancelled` after its observation. The assertions stay.
 
 ## Outputs
 
 [x] Source files: `src/Shared/History.fs`, `src/Server/Core/CoreActorPool.fs`, `src/Server/Core/CoreMailboxLoop.fs`, `src/Server/GithubTransportActor.fs`, `src/Server/RunAgentActor.fs`, `src/Server/SearchActor.fs`, `src/Server/TestActor.fs`, and `src/Shared/EventJson.fs`. 8 source files.
-[x] Plan file: [Actor as client architecture](../../actor-as-client/arch.md). The shared `ActorFunction`, the pool `ActorFunction`, and `ActorFn` return `Async<ActorResult>`. Pool launch records that `runSchedule` starts `work |> Async.Ignore`.
+[x] Plan file: [Actor as client architecture](../../actor-as-client/arch.md). The shared `ActorFunction`, the pool `ActorFunction`, and `ActorFn` return `Async<ActorResult>`. Pool launch records that `CoreActorPool.runReturned` binds the `ActorResult` and `CoreActorPool.postStopUnlessCancelled` posts `Notice.ActorStopped`.
 [x] Test files: `tests/Server.Tests/CoreMsgActorCasesTests.fs`, `tests/Server.Tests/AskCancelHarness.fs`, `tests/Server.Tests/CoreActorPoolDeliverTests.fs`, `tests/Server.Tests/ActorCoreChangesDoorTests.fs`, `tests/Server.Tests/ActorOrderFromStartTests.fs`, `tests/Shared.Tests/EventJsonTests.fs`, `tests/Server.Tests/CoreMailboxDoorTests.fs`, `tests/Server.Tests/SearchActorTests.fs`, and `tests/Server.Tests/TestBackend.fs`. 9 test files. Over the 4-test limit. The 2026-10-24 acceptance covers this ticket. `TestBackend.waitCancelled` is the shared wait.
 [x] ``postSearch records ActorStart at the root`` in `tests/Server.Tests/SearchActorTests.fs` returns the result of `SearchActor.searchActorAt`. The assertions stay.
 [x] No test assertion changes.

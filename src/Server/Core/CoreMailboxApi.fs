@@ -405,14 +405,6 @@ module CoreMailboxApi =
             commandName = None
             order = Order.Load subject }
 
-    let actorStop
-        (host: MailboxHost)
-        (caller: Caller)
-        (result: ActorResult)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            ActorStop(caller, result, channel))
-
     let cancelByFocus
         (host: MailboxHost)
         (caller: Caller)
