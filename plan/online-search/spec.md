@@ -21,6 +21,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 6. **Cap of 200** — The residency search stops at 200 client hits. The full-database search stops at 200 server hits. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 7. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
 8. **Move** — Move uses this same search. Find lists the residency-search hits and the appended server hits in the dialog. Move uses that same hit list. Both use the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
+9. **Cancel or replace** — Alan, 2026-11-15. Closing the Find dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text. The cancel is the existing actor cancel on [27 — Dialog cancels or replaces the search actor](issues/27-dialog-cancels-or-replaces-search-actor.md). The stored row is `Notice.ActorStopped` of `ActorCancelled`. `CoreMsg` stays as it is.
 
 ### 3. User Stories
 
@@ -36,6 +37,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 10. **Dialog shows server hits** — As a person, I want the Find dialog to keep the residency-search hits and append the server hits the client search did not find, after the client adds the carried nodes to the residency Graph, including a hit that was not resident before the reply, so that I see those server hits in the dialog.
 11. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
 12. **Resumed typing** — As a person, I want the next residency search to use nodes that an earlier server reply installed, so that a changed search text lists those nodes before any new server reply.
+13. **Dialog cancels or replaces the search actor** — As a person, I want closing the Find dialog to cancel its pending server search, and a committed change of the search text to cancel the earlier search and run the new one, so that the dialog shows the new search.
 
 ### 4. Out of Scope
 

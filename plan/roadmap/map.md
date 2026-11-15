@@ -31,6 +31,7 @@ The main push is cleaning up that architecture:
 - Ticket dependencies set the order
 - Online search resumes after this work
 - Under online search, after [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md): [25 — The server evaluates Run](plan/online-search/issues/25-server-evaluates-run.md), then [Amble tools](plan/bot-amble-tools/project.md)
+- Find dialog: [27 — Dialog cancels or replaces the search actor](plan/online-search/issues/27-dialog-cancels-or-replaces-search-actor.md). Closing the dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text.
 
 ### Graph nodes and their files
 
@@ -81,6 +82,7 @@ The main push is cleaning up that architecture:
 - 2026-10-07: Alan lock: solid core built via [[plan/core-creation/project.md]] (v1 implemented, Stage `done`); [[plan/core-refinement/project.md]] is v2. Chapter [[epics/chapters/initial-core.md]] met; current Chapter [[epics/chapters/actors-supported.md]]. Leftover core-creation issues continue as pointer tickets [[plan/core-refinement/issues/08-pointer-core-actor-pool.md]]–[[plan/core-refinement/issues/17-pointer-prove-testactor-hello.md]]. Recorded here; no Roadmap issue file.
 - 2026-11-14: Amble tools follows 24 — Remove CoreMsg.RecordSearchStop under online search. Recorded here; no Roadmap issue file.
 - 2026-11-15: Alan places 25 — The server evaluates Run before Amble tools. 24 — Remove CoreMsg.RecordSearchStop stays the Find stop ahead of that line. Recorded here; no Roadmap issue file.
+- 2026-11-15: Alan: closing the Find dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text. The cancel is the existing actor cancel. The stored row is `Notice.ActorStopped` of `ActorCancelled`. The ticket is 27 — Dialog cancels or replaces the search actor. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 
