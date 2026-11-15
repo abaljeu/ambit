@@ -21,6 +21,7 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 6. **Cap of 200** — The residency search stops at 200 client hits. The full-database search stops at 200 server hits. Find and Move share that cap. There is no paging. There is no continuation cursor. This cap is a lock.
 7. **Trash** — Search skips trash unless it starts at the trash node. The trash node is TRASH.
 8. **Move** — Move uses this same search. Find lists the residency-search hits and the appended server hits in the dialog. Move uses that same hit list. Both use the same server request, the same Want nodes ride, the same cap of 200, the same Node id list, and the same trash rule. File search is not in this spec.
+9. **Cancel or replace** — Alan, 2026-11-15. Closing the Find dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text. The cancel is the existing actor cancel on [27 — Dialog cancels or replaces the search actor](issues/27-dialog-cancels-or-replaces-search-actor.md). The stored row is `Notice.ActorStopped` of `ActorCancelled`. `CoreMsg` stays as it is.
 
 ### 3. User Stories
 
@@ -35,6 +36,8 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 9. **Start at the trash node** — As a person, I want search to include trash when it starts at the trash node TRASH, so that a search that starts there can see trash.
 10. **Dialog shows server hits** — As a person, I want the Find dialog to keep the residency-search hits and append the server hits the client search did not find, after the client adds the carried nodes to the residency Graph, including a hit that was not resident before the reply, so that I see those server hits in the dialog.
 11. **Move uses the same search** — As a person, I want Move to use this same search, so that Move shares the Want nodes ride, the cap of 200, the Node id list, and the trash rule.
+12. **Resumed typing** — As a person, I want the next residency search to use nodes that an earlier server reply installed, so that a changed search text lists those nodes before any new server reply.
+13. **Dialog cancels or replaces the search actor** — As a person, I want closing the Find dialog to cancel its pending server search, and a committed change of the search text to cancel the earlier search and run the new one, so that the dialog shows the new search.
 
 ### 4. Out of Scope
 
@@ -68,51 +71,54 @@ This file records the Destination, the Notes that still stand, and Alan's later 
 
 ### 1. Problem Statement
 
-1. **Results under the query line** — A person writes an expression such as `= root descendants with name like "Bob"` and wants the results under that query line.
-2. **Server eval** — The server evaluates the query. This spec drops the earlier assumption that eval stays on the client Graph.
-3. **Refs** — Those results are Refs. They are not Owned Children.
+1. **Run line** — A person writes an expression such as `= root descendants with name like "Bob"` and runs that line.
+2. **Full database** — The server evaluates that expression against the full database.
+3. **Existing nodes** — The result is existing nodes. The Focus node's children stay as they are.
+4. **Text Answers** — A Text Answer stays an answer. A Text Answer is not an existing node.
 
 ### 2. Solution
 
-1. **Insert under the query line** — The expression inserts its results under the query line as Refs.
-2. **Server evaluates** — The server evaluates the query once, when the line runs. The query has its own server support. A keypress does not send a query message.
-3. **Cap of 200** — The query function may stop under 200. The server returns at most 200 hits and then stops. If the function asks for more than 200, the server stops at 200. The query does not page. 200 is the cap that keeps a short keystroke from returning the whole Graph. This cap is a lock.
-4. **Trash** — Query skips trash, except the trash function. The trash function is named `trash`. It works like `root` for reaching trash.
-5. **Want-fulfillment** — If the server finds N items, the query expression inserts them. That insert is Want-fulfillment.
-6. **Separate from Find** — This spec is not the Find dialog. Find and Move are [§1 Search spec](#1-search-spec).
+1. **Server evaluates** — The server evaluates the expression once, when the line runs. The query has its own server support. A keypress does not send a query message.
+2. **Node ids** — The actor stop is `ActorQuery`. That stop carries the Node ids of the existing nodes. This path posts no ops.
+3. **Cap of 50** — The cap is `ExprRun.maxMaterialisedAnswers`. That number is 50. A query function may stop under 50. The server stops at 50. The query does not page. This cap is a lock.
+4. **Find cap** — The Find word-search cap stays 200. That cap is §1 Search spec in this file.
+5. **Trash** — Query skips trash, except the trash function. The trash function is named `trash`. It works like `root` for reaching trash.
+6. **Separate from Find** — This spec is not the Find dialog. Find and Move are §1 Search spec in this file.
 7. **Example is not a catalog row** — The expression `= root descendants with name like "Bob"` shows the kind of expression. It does not add words to the expression-language catalog. The word `trash` is the locked function name.
-8. **Insertion module** — [ExprRun](src/Shared/ExprRun.fs) already builds a Ref for a Node answer (`ChildNode.reference` on the path `run` uses to materialise). Server eval is a lock. See [map](map.md) Decisions so far item 6 **Remote query eval**. Posting that Ref under the query line stays a proposed design in [arch](arch.md). That post is not a second lock on top of Refs.
+8. **Text Answer carrier** — What `ActorQuery` carries for a Text Answer is the open question on [25 — The server evaluates Run](issues/25-server-evaluates-run.md).
+9. **Line and plan** — [22 — Run sends = lines to Amble](issues/22-run-sends-equals-lines-to-amble.md) chooses which line runs Amble. 25 — The server evaluates Run is where the plan runs.
 
 ### 3. User Stories
 
-1. **Insert Refs under the query line** — As a person, I want an expression such as `= root descendants with name like "Bob"` to insert Refs under the query line, so that those Nodes appear under that line and the line does not own them.
-2. **Cap of 200** — As a person, I want the server to stop at 200 even when the query function asks for more, and to stop under 200 when the function stops there, so that the query does not return the whole Graph and does not page.
+1. **Existing nodes** — As a person, I want the server evaluation of an expression such as `= root descendants with name like "Bob"` to return the existing nodes, so that the Focus node's children stay as they are.
+2. **Cap of 50** — As a person, I want the server to stop at 50 answers, and to stop under 50 when the function stops there, so that the expression does not return the whole database and does not page.
 3. **Skip trash** — As a person, I want an ordinary query to skip trash, so that deleted Nodes stay out of the results.
 4. **Trash function** — As a person, I want the function `trash` to work like `root` for reaching trash, so that a query can start from trash the way `root` starts from ROOT.
-5. **Server items inserted** — As a person, I want the query expression to insert the N items the server finds, so that the server answer appears under the query line as Refs.
-6. **Server evaluates** — As a person, I want the server to evaluate the query once when the line runs, so that the result is the server's evaluation and typing a key does not send a message.
+5. **Insert Refs under the query line** — As a person, I want Refs under the query line, so that those Nodes appear under that line and the line does not own them. That insert is [16 — Insert Refs under the query line](issues/16-insert-refs-under-the-query-line.md).
+6. **Server evaluates** — As a person, I want the server to evaluate the expression once when the line runs, so that the result is that evaluation and typing a key does not send a message.
 
 ### 4. Out of Scope
 
-1. **Find dialog** — Find and Move are [§1 Search spec](#1-search-spec). Dialog UI is out of scope for this Query spec.
+1. **Find dialog** — Find and Move are §1 Search spec in this file. Dialog UI is out of scope for this Query spec.
 2. **File search** — File search is out of scope for this Query spec.
 3. **Expression catalog** — Syntax and the catalog, other than the locked name `trash`, stay on [expression language](plan/expression-language/project.md).
 4. **Search hydration** — Fetch before navigate when a hit is not Resident stays on [browser residency](plan/browser-residency/project.md).
 5. **Browser-residency Server Find** — [05 — Chart server-mode Find](plan/browser-residency/issues/05-chart-server-mode-find.md) stays postponed on that map.
 6. **Search zoom select** — Zoom framing on a Find pick stays on [search zoom select](plan/search-zoom-select/project.md).
 7. **Selective client loading** — That done project stays [selective client loading](plan/selective-client-loading/project.md).
-8. **Owned results** — Owned Children under the query line are out of scope for this Query spec. Results are Refs.
-9. **Paging** — Paging and a continuation cursor are out of scope for this Query spec.
+8. **Children** — This evaluation writes no children on the Focus node.
+9. **Refs** — This evaluation generates no Refs. The insert of Refs stays the user story **Insert Refs under the query line**.
+10. **Paging** — Paging and a continuation cursor are out of scope for this Query spec.
 
 ### 5. Further Notes
 
-1. **Server eval** — This lock replaces the earlier local-eval assumption for this spec. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) is not resolved by this spec. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) stays that project's amendment.
-2. **Cap of 200** — The server never returns more than 200 for a query. A query function may stop under 200. This spec does not add expression spelling for that stop.
+1. **Server eval** — The server evaluates the expression on the full database. [05 — Query fulfillment while eval stays local](issues/05-query-fulfillment-while-eval-stays-local.md) is not resolved by this spec. [14 — Server-side search](plan/expression-language/issues/14-server-side-search.md) stays that project's amendment.
+2. **Cap of 50** — The server returns at most `ExprRun.maxMaterialisedAnswers` answers for this evaluation. That number is 50. A query function may stop under 50. This spec does not add expression spelling for that stop. The Find word-search cap stays 200.
 3. **Trash function** — The name is `trash`. It works like `root` for reaching trash.
-4. **Refs** — Results under the query line are Refs.
-5. **Proposed mechanisms** — The Query Ref post stays a proposed design in [arch](arch.md). Find hit Headers on the Want answer `nodes` list are a lock. See [map](map.md) Decisions so far item 11 **Want nodes**.
+4. **Existing nodes** — `ActorQuery` carries the Node ids of existing nodes. The Focus node's children stay as they are. This path posts no ops.
+5. **Insert** — The Query Ref post stays a proposed design in [arch](arch.md) for the insert story **Insert Refs under the query line**. This evaluation writes no children.
 6. **One spec file** — Both specs live in this file. See [map](map.md) Decisions so far item 1 **One spec file**.
 7. **Research reports** — Reports linked from the research tickets are not accepted Answers.
 8. **Map** — [map](map.md) Decisions so far holds the locks. This spec does not resolve a ticket.
-9. **Query name** — In this project, Query means the expression that inserts Refs under the query line.
+9. **Query name** — In this project, Query means the expression the server evaluates on the full database. This evaluation returns existing Node ids.
 10. **Vocabulary** — Say event source. Say Server git Actor for that git Actor. Do not say CAS. Do not say Peer.
