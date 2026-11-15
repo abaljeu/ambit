@@ -260,10 +260,10 @@ queueStart : ActorStart -> EventId -> SyncInfo -> Effect list -> SyncInfo * Effe
 [x]
 
 ```fsharp
-postActorStart : MailboxContext -> Caller -> Ev -> ActorStart -> PostedReply -> unit
+replyClientRequest : MailboxContext -> PlacedOrder -> Caller -> PostedReply -> ActorStart -> unit
 ```
 
-[x] `postActorStart` runs Query function for a posted Run, then Pool start.
+[x] `replyClientRequest` runs a query Run through `queueAdmittedQuery`, which places `Order.StartActor`.
 
 ### Query function
 
@@ -465,7 +465,7 @@ Sync install
     - Uses:
       1. [x] none
 14. **Posted query start**
-    - Interface: `src/Server/Core/CoreMailboxActors.fs` `postActorStart`
+    - Interface: `src/Server/Core/CoreMailboxActors.fs` `replyClientRequest`
     - Uses:
       1. [x] Query function
       2. [x] Pool start
