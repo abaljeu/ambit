@@ -1,0 +1,13 @@
+# Search Amble
+
+Stage: spec
+Summary: An Amble expression in the Find dialog lists its Answers in the dialog, and the outline keeps its Nodes and Children.
+Updated: 2026-11-15
+Started: 2026-11-15
+
+**Part of:** [[plan/roadmap/epics/chapters/find-what-i-wrote.md]] on [[plan/roadmap/epics/operate-a-pkm.md]]
+
+## Notes
+
+- Spec: [[spec.md]]
+- Follows [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) under Online search, beside [Amble tools](../bot-amble-tools/project.md).
