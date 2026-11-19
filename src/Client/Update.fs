@@ -144,8 +144,43 @@ let private downloadPolledOps
         model
     |> continueAutoWant syncResponse
 
+let private eventsAreNotices (events: Ev list) =
+    events
+    |> List.forall (fun event ->
+        match event.body with
+        | EventBody.Notice _ -> true
+        | _ -> false)
+
+let private keepDataOutdated (readyModel: VM) (si: SyncInfo) : VM * Effect list =
+    { readyModel with
+        syncInfo = SyncInfo.withSyncState DataOutdated si },
+    []
+
+/// Apply a Notice tail, keep the pending queue, and submit that queue.
+let private submitPendingAfterNotices
+    (syncResponse: SyncResponse)
+    (readyModel: VM)
+    (si: SyncInfo)
+    : VM * Effect list =
+    match
+        SyncLogic.applySyncResponse
+            syncResponse
+            (clientSyncState readyModel)
+    with
+    | Error _ -> keepDataOutdated readyModel si
+    | Ok newState ->
+        let applied =
+            { readyModel with
+                graph = newState.graph
+                eventId = newState.eventId
+                syncInfo = si }
+        let syncInfo, effects =
+            SyncPlanner.tryStartSubmit newState.eventId si
+        { applied with syncInfo = syncInfo }, effects
+
 /// Empty pending and an empty event list leave the Idle sync state in si.
-/// A non-empty pending queue stays DataOutdated.
+/// A Notice tail with a pending queue applies, keeps that queue, and submits.
+/// Any other pending queue stays DataOutdated.
 let private applyPollDataOutdated
     (events: Ev list)
     (syncResponse: SyncResponse)
@@ -153,8 +188,10 @@ let private applyPollDataOutdated
     (si: SyncInfo)
     : VM * Effect list =
     if not readyModel.syncInfo.pending.IsEmpty then
-        { readyModel with
-            syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        if events.IsEmpty || not (eventsAreNotices events) then
+            keepDataOutdated readyModel si
+        else
+            submitPendingAfterNotices syncResponse readyModel si
     elif events.IsEmpty then
         { readyModel with syncInfo = si }, []
     else
