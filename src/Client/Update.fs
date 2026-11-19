@@ -200,9 +200,7 @@ let private applyPollDataOutdated
                 syncResponse
                 (clientSyncState readyModel)
         with
-        | Error _ ->
-            { readyModel with
-                syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        | Error _ -> keepDataOutdated readyModel si
         | Ok newState ->
             consoleLog (
                 "[Gambol sync] PollDone autoSync applied="
