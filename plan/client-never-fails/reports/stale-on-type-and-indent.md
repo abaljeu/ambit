@@ -8,7 +8,7 @@ Investigation only. The throwaway probe below was run and then left out of the c
 
 [10 — Editing returnTo vs Poll/Load under edit+indent Tab CAS](../../client-start-time/issues/10-edit-indent-old-text-mismatch.md) owns the compare-and-swap claim. Status on this tree: `ready-for-agent`. Its report is [Edit + indent — old text does not match](../../client-start-time/reports/edit-indent-old-text-mismatch.md).
 
-Close that ticket. The Tab compare-and-swap it names is already handled. Write a new client-never-fails ticket for the Poll overlap below. Leave ticket 10's text as history.
+That ticket stays open. Its file stays as it is. The Tab compare-and-swap it names is already handled on this tree. The Poll overlap below is [20 — Apply own persist notices during a Poll](../issues/20-apply-own-persist-notices-during-a-poll/20-apply-own-persist-notices-during-a-poll-ticket.md).
 
 These other tickets are the wrong owner:
 
@@ -55,9 +55,13 @@ The client fact then did the overlap those notices create:
 
 1. `syncState` is `Polling`. `pending` holds one local Change. `eventId` is still `EventId.zero`.
 2. `SyncPlanner.enqueuePending` leaves `syncState` at `Polling`, grows `pending` to 2, and emits no `SubmitPendingBatch` (`submit=False`).
-3. The Poll body is one `Notice.NodeUnpersisted` whose id is ahead of the client.
+3. The thrown-away probe sent one `Notice.NodeUnpersisted` whose id is ahead of the client. The create log on the server was a Change, then `Notice.NodePersisting`, then `Notice.NodePersisted`.
 4. `SyncLogic.getPollOutcome` returns `Some DataOutdated`.
 5. `Update.update` of `PollDone` sets `syncState` to `DataOutdated` and leaves the pending Change unsent.
+
+`CoreEventDispatch.markForPersist` logs `Notice.NodeUnpersisted` before the ack returns. `PersistThread.runRequest` logs `Notice.NodePersisting` and then `Notice.NodePersisted` after that ack. The next Poll carries those two notices, and its event id is ahead of the ack.
+
+Keystrokes in the edit box leave `pending` empty. With an empty queue, `applyPollDataOutdated` applies a non-empty event list. The banner in this case is a commit while `syncState` is `Polling`. A click on `#sync-status` reloads the page for `DataOutdated`.
 
 That is the banner. The server never saw a bad Enter or Tab.
 
@@ -95,24 +99,9 @@ The compare-and-swap for Tab is honest on this tree. `commitTextOps` sends the g
 
 Keep every server check. The client sends the same ops the probe posted.
 
-On `PollDone`, when the tail is notices and `pending` is non-empty:
+`getPollOutcome` stays a pure id compare. A pending Change from `ClientHistory.mintChange` has `EventId.zero`, so that Change stays off the sorted response event list. A foreign Change stays `DataOutdated`. The steps and the file set are in the ticket named above.
 
-- Apply the notices with `SyncLogic.applySyncResponse`.
-- Leave `pending` in place.
-- Set `syncState` so `SyncPlanner.tryStartSubmit` emits `SubmitPendingBatch` for that queue.
-- Leave `DataOutdated` for a tail that fails to apply.
-
-`getPollOutcome` can stay a pure id compare. `applyPollDataOutdated` is the branch that must stop treating a notice tail plus a local queue as a stale view.
-
-## Files a fix would touch
-
-- `src/Client/Update.fs` — `applyPollDataOutdated`
-- `src/Client/App.fs` — `runPollServer`
-- `src/Shared/SyncLogic.fs` — `getPollOutcome`, `applySyncResponse`
-- `src/Shared/SyncPlanner.fs` — `tryStartSubmit`, `enqueuePending`
-- `tests/Server.Tests/BrowserResidencyClientTests.fs` — extend the existing `PollDone leaves Sync Idle when the edit box holds new text` fact with the pending-notice case
-
-## Ticket 10 and its report
+## 10 — Editing returnTo vs Poll/Load under edit+indent Tab CAS
 
 The August report's line numbers are stale. The symbols below are the ones on this tree.
 
