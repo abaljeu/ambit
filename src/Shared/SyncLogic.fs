@@ -15,8 +15,8 @@ module SyncLogic =
     /// Returns Some DataOutdated if server event id is ahead of the client,
     /// or None if the client is up to date.
     /// Does not branch on apiVersion: one live API; apply what arrived.
-    /// Callers must only invoke this when there are no pending local events
-    /// (otherwise a higher server event id may reflect our own in-flight POST).
+    /// App.runPollServer calls this with the Browser event id on a decoded Poll reply.
+    /// App.runLoadServer calls this with the Browser event id on a decoded Load reply.
     let getPollOutcome
         (poll: ChangeSuccessResponse)
         (clientEventId: EventId)
