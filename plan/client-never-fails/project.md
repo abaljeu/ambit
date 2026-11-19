@@ -2,7 +2,7 @@
 
 Stage: slicing
 Summary: The Browser takes in every Event and answer that the Server sends, and never asks the user to reload because of server data.
-Updated: 2026-10-29
+Updated: 2026-11-19
 Started: 2026-10-29
 
 ## Notes
@@ -17,6 +17,10 @@ Started: 2026-10-29
 - 2026-10-29 — Alan: the placeholder comes before the child-list step. Order: Notices, Event then Graph, placeholder, child list on each Node, Absent fetch, protocol then the one-second typing pause, reload prompt last.
 - 2026-10-29 — Slicing revised. `ChildrenStatus` stays. The Server-sends-child-list ticket is 06 — Server sends each Node with its child list. `includeWorkspace` is one ticket, 07 — Delete includeWorkspace, blocked by 16 — Poll for nearby Absent Nodes. Ticket `Status` stays empty. The worker sets the stage when it starts that stage. Scope facts sit in each ticket.
 - Alan 2026-11-05 — Want third child rank + per-poll Want cap 100 (Want list only; child-id list width decision from 2026-10-29 unchanged).
+
+## Tickets
+
+- [20 — Apply own persist notices during a Poll](issues/20-apply-own-persist-notices-during-a-poll/20-apply-own-persist-notices-during-a-poll-ticket.md)
 
 ## Open questions
 
