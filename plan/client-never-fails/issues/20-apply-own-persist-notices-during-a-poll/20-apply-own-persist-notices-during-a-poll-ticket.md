@@ -1,5 +1,5 @@
 # 20 — Apply own persist notices during a Poll
-**Status**: ready-for-agent
+**Status**: coded
 One job: The outliner who commits while a Poll is in flight sees that Poll apply `Notice.NodePersisting` and `Notice.NodePersisted` for the earlier change, sees the queued edits stay queued, and sees those edits submit. The story Poll with pending changes in [Client never fails on server data](plan/client-never-fails/spec.md) is the reason.
 
 Type: bug-fixing
@@ -7,8 +7,9 @@ Blockers: none
 
 ## Scope
 
-[x] `Update.applyPollDataOutdated` in `src/Client/Update.fs` sets `syncState` to `DataOutdated` when `pending` is non-empty, and returns no effects.
-[x] That arm returns before `SyncLogic.applySyncResponse`.
+[x] `Update.applyPollDataOutdated` in `src/Client/Update.fs` calls `SyncLogic.applySyncResponse` when `pending` is non-empty, the event list is non-empty, and every body is `EventBody.Notice`.
+[x] That path keeps `pending` in the same order and calls `SyncPlanner.tryStartSubmit`. The effects include `SubmitPendingBatch`.
+[x] A non-empty `pending` queue with an empty event list, or with any body other than `EventBody.Notice`, sets `syncState` to `DataOutdated` and returns before `SyncLogic.applySyncResponse`.
 [x] `App.runPollServer` in `src/Client/App.fs`. It calls `SyncLogic.getPollOutcome` with `model.eventId` and dispatches `PollDone`.
 [x] `SyncLogic.getPollOutcome` in `src/Shared/SyncLogic.fs`. It returns `Some DataOutdated` when `poll.eventId` is greater than the Browser event id.
 [x] `SyncLogic.applySyncResponse` in `src/Shared/SyncLogic.fs`. It applies the event tail on a `SyncResponse`.
@@ -29,7 +30,7 @@ Blockers: none
 [x] `Notice.NodePersisting` and `Notice.NodePersisted` in `src/Shared/History.fs`.
 [x] ``PollDone leaves Sync Idle when the edit box holds new text`` in `tests/Server.Tests/BrowserResidencyClientTests.fs`. That fact starts with an empty `pending` list.
 [x] `enqueuePending` during `Polling`, with `eventId` `EventId.zero` and one Change already on `pending`, grows `pending` and emits no `SubmitPendingBatch`.
-[x] `PollDone` of `Some DataOutdated` with that queue leaves `syncState` at `DataOutdated` and leaves the queue unsent.
+[x] `PollDone` of `Some DataOutdated` with that queue stays `DataOutdated` and leaves the queue unsent when the event list is empty or contains a body other than `EventBody.Notice`.
 [x] [10 — Editing returnTo vs Poll/Load under edit+indent Tab CAS](plan/client-start-time/issues/10-edit-indent-old-text-mismatch.md) has status `ready-for-agent` on this tree.
 [x] That client-start-time ticket stays open. This ticket leaves its file as it is.
 
@@ -62,7 +63,7 @@ Blockers: none
 2. [x] Change `applyPollDataOutdated` for a non-empty `pending` queue whose event list is non-empty and whose every body is `EventBody.Notice`. Call `SyncLogic.applySyncResponse` with that Poll `SyncResponse`. Keep `pending` as the same Events in the same order. The event list passed to `applySyncResponse` stays the Poll events. Copy the applied graph and the applied event id onto the model. Call `SyncPlanner.tryStartSubmit` with the Idle `SyncInfo` from the `PollDone` arm, that same `pending`, and the event id the apply stored. The effects include `SubmitPendingBatch`.
 3. [x] A non-empty `pending` queue whose event list is empty, or whose list contains a body other than `EventBody.Notice`, stays `DataOutdated`. `pending` stays. The Browser event id stays. The effects include no `SubmitPendingBatch`.
 4. [x] An `applySyncResponse` result of Error keeps `DataOutdated` and emits no `SubmitPendingBatch`. `pending` stays.
-5. [x] Add the two facts named in Outputs. On this tree the notice fact's `PollDone` asserts fail until step 2. On this tree the foreign Change fact passes, and it still passes after step 2.
+5. [x] The two facts named in Outputs pass.
 
 ## Outputs
 
@@ -74,12 +75,12 @@ Blockers: none
 [x] `SyncLogic.getPollOutcome` on that Poll is `Some DataOutdated`.
 [x] `Update.update` of `PollDone` uses that outcome, `SyncLogic.changeSuccessToSync`, and the Poll event id, the same arguments `runPollServer` dispatches.
 [x] After `PollDone`, `pending` is those same two Changes in that order, `syncState` is `Sending 1`, the effects include `SubmitPendingBatch` for that queue, the batch base event id is the `NodePersisted` event id, and the model `eventId` is that same id.
-[x] On this tree those `PollDone` asserts fail. After step 2 they pass.
+[x] Those `PollDone` asserts pass.
 [x] `tests/Server.Tests/BrowserResidencyClientTests.fs` — add ``a foreign Change during a Poll stays DataOutdated``.
 [x] That fact uses the same queue of two Changes. The Poll event list is one `EventBody.Change` whose event id is ahead of `EventId.zero`. Its op is `Op.SetText` whose old text is that Node's current text, so `applySyncResponse` would accept it. `nodes` is empty and `childMap` is empty.
 [x] `SyncLogic.getPollOutcome` on that Poll is `Some DataOutdated`.
 [x] After `PollDone`, `pending` length is 2, `syncState` is `DataOutdated`, the effects include no `SubmitPendingBatch`, and `eventId` is `EventId.zero`.
-[x] On this tree that fact passes. After step 2 it still passes.
+[x] That fact passes.
 
 ## Stop when
 
