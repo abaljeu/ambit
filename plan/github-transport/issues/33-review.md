@@ -1,109 +1,61 @@
 # 33 — File Load leaves the File Unparsed: review
 
-Verdict: back to build, then document.
+Verdict: back to document.
 
-- The code does not implement the Load algorithm for every subject and pre-pick. Finding B1, finding B2, finding B3, finding B4, and finding B5 name each gap.
-- The plain File Load and plain Directory Load fix through the web route is correct, and its outcome tests are real. Finding T1 names the evidence.
-- Save routing is unchanged. Finding S1 names the evidence.
-- The spec, arch, map, user doc, and ticket 33 still differ from the algorithm or from the code in places. Finding D1 to finding D8 name each one.
+- The code at `d23b0a11` implements the owner's Load rules across `PathPick.resolveCommand`, `PathPick.plainLoadPath`, `UpdateWorkspaceLoad` (`prePickForLoad`, `plannedUpload`), `LoadSaveRouting.resolvePath`, `DeskLoadPush.runLoadSave`, and `GithubTransportActor`, and leaves Save routing unchanged.
+- Full Server and Shared suites pass with `DOTNET_ThreadPool_ForceMinWorkerThreads=64` and `COMPlus_ThreadPool_ForceMinWorkerThreads=64`. The outcome tests exercise the production route, assert post-Load graph and disk state, would fail on `d57b5be6` routing, and every removed test was obsolete under the owner's rules. All modified source files and split test files are under 800 lines, and no modified or added line exceeds 100 characters.
+- Two low-severity code cleanups remain: `LoadSubject.enclosingSubject` (`src/Shared/PathPick.fs:33-47`) is now dead code, and `UpdateWorkspaceLoad.subjectsForLoad` (`src/Client/UpdateWorkspaceLoad.fs:125-136`) returns `[]` for explicit git Load of a non-Workspace, skipping owning-file resolution and multi-selection.
+- The document step is required: spec, arch, map, project, user reference, and [33 — File Load leaves the File Unparsed](33-file-load-leaves-file-unparsed.md) still contradict the owner's rules in multiple places.
 
-Ticket: [33 — File Load leaves the File Unparsed](33-file-load-leaves-file-unparsed.md)
-
-Pull request: 632 — Restore the Load rule: a plain File or Directory Load parses from disk, with git only for a Workspace. Branch `cursor/revert-load-spec-nonworkspace-404e`. Reviewed head `399311c2`. The last source and test commit is `d18369f1`. `399311c2` changes only five doc files. Base `staging` at `caea653b`.
-
-## Standard
-
-The owner's Load algorithm is the standard for this review. Ticket 33 states it at `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:60`.
-
-- Workspace subject: the transport step, then reconcile. The transport step is git Load when a remote exists, desk Load when only a local mapping exists, and nothing otherwise.
-- Any other subject (File, Directory, non-subject): reconcile only.
-- A failed or skipped desk Load does not matter, because reconcile still runs.
-
-## Trace
-
-Each cell is what the code does. The trace follows `UpdateWorkspaceLoad.prePickForLoad` and `loadOpFor`, `PathPick.plainLoadPath`, `LoadSaveRouting.resolvePath`, `PathPick.resolveCommand`, `LoadSaveStart.startCommand`, `DeskLoadPush.runLoadSave`, `LoadSaveCommandClient.applyResponse`, and `GithubTransportActor.loadActorFunction`, `runLoadBody`, `runLoadChoice`, and `runGitOrNeither`.
-
-| Subject | Plain | Explicit git | Explicit desk |
-|---|---|---|---|
-| Workspace, including ROOT | Load actor. Remote: pull, mark, `loadNode` Workspace. No remote: Neither, `loadNode` Workspace. Local mapping only: Neither, and no desktop push. | Same as plain with a remote. No remote: Neither. | Desktop and mapping: desktop push, then `stackLoad`. Otherwise: parse push. |
-| File or Directory | Web: parse push (reconcile). Desktop and mapping: desktop push first, then `stackLoad`. | Load actor on the enclosing Workspace. Pull when a remote exists. `loadNode` Workspace only. The File stays Unparsed. | Same as plain. |
-| Non-subject | Server: nothing. | Inside a Workspace: Load actor pulls the Workspace. Outside: Neither with label `SYSTEM`. | Server: nothing. |
-
-The Workspace row matches the standard when the transport step succeeds. The other two rows match only in the Plain column on the web.
+Pull request: [632 — Restore the Load rule: a plain File or Directory Load parses from disk, with git only for a Workspace](https://github.com/abaljeu/ambit/pull/632). Branch `cursor/revert-load-spec-nonworkspace-404e`, reviewed head `d23b0a11`, base `caea653b`.
 
 ## Findings
 
-### Build
+| ID | Category | Location | Severity | Finding |
+|---|---|---|---|---|
+| C1 | Code | `src/Shared/PathPick.fs:33-47` | Low | `LoadSubject.enclosingSubject` and its private helper `isSubjectNode` have no callers left after `d23b0a11` removed the call in `GithubTransportActor.fs`. |
+| C2 | Code | `src/Client/UpdateWorkspaceLoad.fs:125-136` | Low | `subjectsForLoad` matches `LoadSavePrePick.Git, _` and returns `[]` even for a non-Workspace focus, so explicit git Load on a Normal node inside a File or on multiple selected Files sends one raw focus node instead of resolving `WorkspaceUpload.loadSubjects` (unlike `plannedUpload`, which already distinguishes `Git` on Workspace vs non-Workspace). |
+| C3 | Code (pre-existing) | `src/Shared/PathPick.fs:66-80` | Info | `PathPick.choose` and `PathPick.resolve` have no production callers outside `tests/Shared.Tests/PathPickTests.fs`. |
+| C4 | Code (pre-existing) | `src/Server/Core/CoreActorPool.fs:242-251` | Info | `CoreActorPool.startLoadSaveCommand` ignores its arguments and returns `Ok None` on both paths. |
+| T1 | Tests | `tests/Server.Tests/LoadSaveCommandTests.fs:271-489` | Info | Outcome tests run through `Api.postLoadSaveCommand`, `LoadSaveRouting.resolvePath`, and `LoadSaveStart.startCommand` on `createParsingHost`, asserting File and Directory end `Current` with children, no pull of a newer remote commit, Workspace pull plus reconcile, and failed pull aborting before reconcile; all fail on `d57b5be6` routing. All 14 removed tests asserted pre-rule non-Workspace actor/pull behavior and were genuinely obsolete. |
+| T2 | Tests | `tests/Server.Tests/LoadSaveCommandTests.fs:291-319` | Low | `plain Load of a File or Directory with a remote parses and does not pull` asserts `assertParsed` for `fileId` and no remote pull, but does not assert `assertDirectoryParsed` for `dirId` (Directory reconcile is covered by `explicit git Load of a Directory reconciles disk and does not pull` at `:356`). |
+| T3 | Tests | `tests/Server.Tests/LoadSaveCommandFixtures.fs:481-489` | Low | `waitUntilPredicate` polls with `Task.Delay 10` to a 5-second deadline, repeating the polling pattern in `waitForStopCount`. |
+| S1 | Save | `src/Shared/PathPick.fs:89-103`, `src/Shared/PathPick.fs:122-133`, `src/Client/UpdateSave.fs:60-90` | Info | Save routing is unchanged: `nonWorkspaceLoad` gates on `LoadSaveOperation.Load`, `plainSavePath` and `UpdateSave.fs` are untouched, and all Save tests in `tests/Server.Tests/LoadSaveSaveCommandTests.fs` pass. |
+| K1 | Known / out of scope | `src/Client/UpdateWorkspaceLoad.fs:148`, `src/Shared/WorkspaceUpload.fs:82-92` | Info | Plain and desk Load of a File or Directory on Desktop with a local mapping still plan `DesktopPush` before reconcile. Out of scope per owner's rules. |
+| K2 | Known / out of scope | `src/Server/Core/DeskLoadPush.fs:18-20` | Info | Desk Load of a non-subject returns `None` from `subjectToLoad` and reconciles nothing. Out of scope per owner's rules. |
+| K3 | Known / out of scope | `src/Shared/PathPick.fs:95-103`, `src/Client/LoadSaveCommandClient.fs:31-35` | Info | Plain Load of a local-only Workspace (no remote, local mapping only) enters the Load actor Neither arm and does not run desktop upload. Out of scope per owner's rules. |
+| D1 | Doc (spec) | `plan/github-transport/spec.md:22` | Medium | Solution 5 — Load and Save restricts reconcile-only to Plain Load of a File, Directory, or non-subject, and states that git Load starts the Server Actor without restricting git pull to a Workspace subject. |
+| D2 | Doc (spec) | `plan/github-transport/spec.md:23-24` | Medium | Solution 6 — Person-started only and Solution 7 — Thin handoff to Core restrict the no-git parse-stack rule to Plain Load of a File or Directory, omitting explicit git Load of non-Workspace subjects. |
+| D3 | Doc (spec) | `plan/github-transport/spec.md:27` | Medium | Solution 10 — Git Load/Save are Workspace-scoped states that explicit git Load from a subnode pulls the whole Workspace, contradicting the Workspace-only pull rule, and cites deleted `PathPick.effectiveLoadPath`. |
+| D4 | Doc (spec) | `plan/github-transport/spec.md:42` | Low | User Story 2 — Every Workspace may connect cites `PathPick.choose`, which is unused in production. |
+| D5 | Doc (spec) | `plan/github-transport/spec.md:43` | Medium | User Story 3 — Server-git when a remote exists restricts reconcile-only to Plain Load of a File, Directory, or non-subject, omitting explicit git Load. |
+| D6 | Doc (spec) | `plan/github-transport/spec.md:50` | Medium | User Story 10 — git Load states that explicit git Load merges the tracked remote branch even from a subnode, contradicting the Workspace-only pull rule. |
+| D7 | Doc (spec) | `plan/github-transport/spec.md:54` | Medium | User Story 14 — Plain Load prefers git states "Explicit git Load still pulls the Workspace" without restricting to a Workspace subject, and states "Reconcile runs whether or not the transport step did anything" without stating that a failed step aborts before reconcile. |
+| D8 | Doc (spec) | `plan/github-transport/spec.md:64` | Medium | User Story 24 — Workspace-scoped git states that git Load from a subnode pulls the whole Workspace work tree, contradicting the Workspace-only pull rule. |
+| D9 | Doc (arch) | `plan/github-transport/arch.md:63` | Medium | Story path 8 — Load, step 4 states that PathPick git invokes the Server Actor whenever the pre-pick is explicit git Load, contradicting the Workspace-only pull rule. |
+| D10 | Doc (arch) | `plan/github-transport/arch.md:72-75` | Medium | Story path 10 — git Load, steps 1–3 state that PathPick is skipped and the Server Actor runs for explicit git Load without restricting to a Workspace subject. |
+| D11 | Doc (arch) | `plan/github-transport/arch.md:107-108` | Medium | Story path 14 — Plain Load prefers git, steps 2–3 restrict reconcile-only to Plain Load of a File, Directory, or non-subject, and omit that a failed transport step aborts before reconcile. |
+| D12 | Doc (arch) | `plan/github-transport/arch.md:160` | Medium | Story path 24 — Workspace-scoped git, step 1 states that git Load from a subnode uses whole-tree pull, contradicting the Workspace-only pull rule. |
+| D13 | Doc (arch) | `plan/github-transport/arch.md:191`, `plan/github-transport/arch.md:310` | Low | Narrowest shared test seam (PathPick entry) and Seams 1 — PathPick choose restrict no-git to Plain Load of a File, Directory, or non-subject, omitting explicit git Load. |
+| D14 | Doc (arch) | `plan/github-transport/arch.md:206-207` | Low | Module map 1 — Command Load/Save omits `PathPick.plainLoadPath` and states that explicit Git skips the plain choice without noting the non-Workspace Desk routing. |
+| D15 | Doc (arch) | `plan/github-transport/arch.md:225` | Medium | Module map 2 — PathPick states "`resolveCommand` returns Git for Plain and for Git, and Desk for Desk", contradicting both the rule and the code (non-Workspace Load returns `Desk` for Plain and Git). |
+| D16 | Doc (map) | `plan/github-transport/map.md:44` | Medium | Decision 8 — Actor command surface states "Plain Load of a Workspace Node is git when a remote exists, else desk" (missing the default nothing arm), restricts no-git to Plain Load, and states "The git actor starts for a Workspace Node, or for explicit git Load." |
+| D17 | Doc (map) | `plan/github-transport/map.md:45` | Medium | Decision 9 — When pull and push fire restricts reconcile-only to Plain Load of a File, Directory, or non-subject, omitting explicit git Load and abort-on-failure. |
+| D18 | Doc (map) | `plan/github-transport/map.md:47` | Medium | Decision 11 — Git Load/Save are Workspace-scoped states that explicit git Load from a subnode pulls the whole Workspace work tree, contradicting the Workspace-only pull rule. |
+| D19 | Doc (project) | `plan/github-transport/project.md:18`, `plan/github-transport/project.md:42-43` | Low | The 2026-09-26 note still says git vs desk with no default nothing arm; the 2026-11-20 notes restrict no-git to plain Load and mark 33 — File Load leaves the File Unparsed `done` before the document step finishes. |
+| D20 | Doc (user) | `doc/user/reference/commands/files.md:21` | Medium | Load reference says "git Load pulls files when a git upstream is defined" without restricting git pull to a Workspace subject, and restricts reconcile-only to Plain Load of a File, Directory, or no selection. |
+| D21 | Doc (ticket) | `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:3`, `:67`, `:69` | Medium | Marks status `done` before the document step; line 67 calls ROOT a non-subject (`GraphBuild` creates ROOT as `Special Workspace` at `src/Shared/GraphBuild.fs:52`, so `LoadSubject.ofId` returns `Workspace` and ROOT enters the Load actor Neither arm); line 69 says "Reconcile runs whether or not the transport step did anything" without stating that a failed step aborts before reconcile. |
+| D22 | Doc (other ticket) | `plan/actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md:91` | Low | Comment 1 restricts the no-git parse-stack rule to plain Load of a File or Directory, omitting explicit git Load of non-Workspace subjects. |
 
-- **B1 — Explicit git Load of a File or a Directory pulls the Workspace and leaves the File Unparsed.** Severity: High. `src/Shared/PathPick.fs:103-104` sends explicit Git to the Load actor for every subject. `src/Server/GithubTransportActor.fs:306-310` `runLoadChoice` ignores the subject (`Some _`). `src/Server/GithubTransportActor.fs:160-171` `startParse` and `finishLoadOn` load only `target.workspaceId`. A scratch test on `d18369f1` (explicit Git Load of a File through `Api.postLoadSaveCommand` on a host with a parse thread, no remote) ends `ActorSucceeded` and fails `assertParsed` with `plain Load left the File Unparsed with no children`. That is the ticket 33 bug on the explicit git pre-pick. The standard says reconcile only.
-- **B2 — Explicit git Load of a non-subject inside a Workspace pulls the whole Workspace.** Severity: High. `src/Server/GithubTransportActor.fs:507-509` resolves the focus to `LoadSubject.enclosingSubject`, which includes the Workspace, so `runGitOrNeither` pulls. The standard says reconcile only.
-- **B3 — Plain Load and desk Load of a File or a Directory on the desktop run desk Load first.** Severity: High. `src/Client/UpdateWorkspaceLoad.fs:138-147` and `:177-179` plan an upload for every non-Git pre-pick. `src/Shared/WorkspaceUpload.fs:82-92` returns `DesktopPush` for a File, Directory, or Workspace target when the desktop can push and a local mapping exists. `holdFor` sets `holdStack`, so `src/Server/Core/DeskLoadPush.fs:13-14` skips the parse push. Reconcile runs only from `loadAfterDesktopPush` after a successful push (`src/Client/UpdateWorkspaceSync.fs:233-266`). The standard says reconcile only for these subjects.
-- **B4 — Reconcile is skipped when the transport step fails.** Severity: Medium. A failed desktop push ends in `failWorkspacePush` with no `stackLoad` (`src/Client/UpdateWorkspaceSync.fs:252`, `:261`, `:265-266`). A `remoteExists` error other than `not a git repository` returns the error with no reconcile (`src/Server/GithubTransportActor.fs:299-304`). A failed commit, fetch, or merge returns before `startParse` (`src/Server/GithubTransportActor.fs:245-248`). The standard says reconcile still runs.
-- **B5 — Plain Load and desk Load of a non-subject reconcile nothing.** Severity: Medium. `src/Server/Core/DeskLoadPush.fs:16-21` returns `None` when the focus is not a Load subject, so no parse push happens. `plan/github-transport/spec.md:22` and `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:58` say a non-subject only reconciles.
-- **B6 — Plain Workspace Load with only a local mapping runs no desk Load.** Severity: Low. The client plans `DesktopPush` and sets `holdStack` (`src/Client/UpdateWorkspaceLoad.fs:138-147`). `PathPick.resolveCommand` returns Git for a plain Workspace Load (`src/Shared/PathPick.fs:103-104`), so the Load actor runs Neither and the response path is Git. `LoadSaveCommandClient.applyResponse` calls `commandDone`, not `continueDesk` (`src/Client/LoadSaveCommandClient.fs:31-35`), so the desktop push never starts. Reconcile runs. The standard accepts a desk Load that does nothing. The docs say desk Load runs (finding D1).
+## Test counts
 
-### Tests
-
-- **T1 — The two new outcome tests check the outcome through the production route and fail on the regressing code.** Severity: Info. ``plain Load of a File parses that file from disk`` (`tests/Server.Tests/LoadSaveCommandTests.fs:892`) and ``plain Load of a File or Directory with a remote parses and does not pull`` (`:912`) post through `Api.postLoadSaveCommand` with `LoadSaveRouting.resolvePath` and `LoadSaveStart.startCommand` on `createParsingHost` (`:153`), and assert the File is Current with its child text. With `src/Shared/PathPick.fs` from `caea653b` (the routing that `d57b5be6` introduced), all six restored or new route tests fail. Each fails first at the route assertion `Expected: Desk, Actual: Git` (`:876`, `:541`, `:1103`, and `tests/Server.Tests/ParseThreadLoadTests.fs:217`). With that route assertion removed, both outcome tests still fail at `assertParsed` (`:888`) with `plain Load left the File Unparsed with no children`.
-- **T2 — Some restored tests check routing or the parse push, not the parse result.** Severity: Low. ``plain Load of a non-Workspace returns Desk when a remote exists`` (`tests/Server.Tests/LoadSaveCommandTests.fs:522`) checks the path and that no actor started. ``plain Load of a File or Directory pushes that node onto the parse stack`` (`tests/Server.Tests/ParseThreadLoadTests.fs:362`) checks the push list. ``plain Load of a Directory does not leave a cancelable actor`` (`tests/Server.Tests/ParseThreadLoadTests.fs:231`) checks the live set. The remote test at `tests/Server.Tests/LoadSaveCommandTests.fs:912` checks no outcome for the Directory.
-- **T3 — No test checks the outcome of explicit git Load or explicit desk Load of a File or a Directory, or the client upload plan for a File.** Severity: Medium. That gap leaves finding B1 and finding B3 unseen. `UpdateWorkspaceLoad.loadOpFor` has no test for a File or a Workspace with a desktop mapping.
-- **T4 — Existing tests pin behavior that differs from the standard.** Severity: Medium. ``explicit Git Load of a non-repo Directory is Neither`` (`tests/Server.Tests/LoadSaveCommandTests.fs:943`) requires the Load actor for a Directory. ``git Load pulls a staging checkout and does not reconcile`` (`:753`) and ``git Load does not reconcile a disk file into the graph`` (`:1149`) post an explicit git Load from `seed.focusId`, a Normal node, and require the pull. ``Load actor fails when git remote fails besides no repository`` (`:1030`) requires `ActorFailed` with no reconcile.
-- **T5 — The new parse wait uses time as the mechanism.** Severity: Low (Judgement). `waitForParsedFile` (`tests/Server.Tests/LoadSaveCommandTests.fs:855-864`) polls with `Task.Delay 10` to a 5 second deadline (`:887`). The tdd skill rule is "No time as a mechanism". The loop also repeats the shape of `waitForStopCount` (`:332-339`), which is Duplicated Code.
-
-### Save
-
-- **S1 — Save routing is unchanged.** Severity: Info. `plainLoadStaysDesk` requires `LoadSaveOperation.Load` (`src/Shared/PathPick.fs:89-92`). `plainSavePath` (`src/Shared/PathPick.fs:124-135`) and `src/Client/UpdateSave.fs` are not in the diff. In ``Load of a ROOT file skips git and git Save uses the data directory`` (`tests/Server.Tests/LoadSaveCommandTests.fs:1070`), the Save half is the same except that the stop count starts at 0 (`:1133`, `:1135`), because the Load no longer posts a stop.
-
-### Docs
-
-- **D1 — The docs say a plain Workspace Load with only a local mapping runs desk Load.** Severity: Low. `plan/github-transport/spec.md:22` (Solution 5 — Load and Save), `plan/github-transport/spec.md:43` (story 3 — Server-git when a remote exists), `plan/github-transport/spec.md:54` (story 14 — Plain Load prefers git), `plan/github-transport/map.md:45` (decision 9 — When pull and push fire), `plan/github-transport/arch.md:108` (path 14 — Plain Load prefers git, step 3), and `doc/user/reference/commands/files.md:21`. The code skips that desk Load (finding B6). `plan/github-transport/map.md:44` (decision 8 — Actor command surface) still says "git when a remote exists, else desk", which also differs from "nothing otherwise".
-- **D2 — The docs say explicit git Load from a File, a Directory, or a subnode pulls the Workspace.** Severity: Medium. `plan/github-transport/spec.md:27` (Solution 10 — Git Load/Save are Workspace-scoped), `plan/github-transport/spec.md:54` ("Explicit git Load still pulls the Workspace"), `plan/github-transport/map.md:44` ("The git actor starts for a Workspace Node, or for explicit git Load"), `plan/github-transport/map.md:47` (decision 11 — Git Load/Save are Workspace-scoped), `plan/github-transport/arch.md:63` (module 8 — Load, step 4), and `doc/user/reference/commands/files.md:21` ("git Load pulls files when a git upstream is defined"). The standard says reconcile only for a subject that is not a Workspace.
-- **D3 — Solution 10 cites a function that does not exist.** Severity: Medium. `plan/github-transport/spec.md:27` ends with `src/Shared/PathPick.fs` `PathPick.effectiveLoadPath`. No source file defines it. Ticket 33 states that `d57b5be6` deleted it (`plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:35`).
-- **D4 — The arch PathPick interface omits `plainLoadPath`.** Severity: Low. `plan/github-transport/arch.md:206` says plain Load asks `PathPick.resolveCommand`. The client still calls `PathPick.plainLoadPath` (`src/Client/UpdateWorkspaceLoad.fs:155`).
-- **D5 — Ticket 33 calls ROOT a non-subject.** Severity: Low. `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:58` says "no subject (ROOT with nothing selected)". `GraphBuild` creates ROOT as `Special Workspace` (`src/Shared/GraphBuild.fs:52`), so `LoadSubject.ofId` returns Workspace, and a plain ROOT Load enters the Load actor. The pull request body says the same thing about ROOT.
-- **D6 — Ticket 33 describes explicit git Load as unchanged and omits that it keeps the bug.** Severity: Medium. `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:41` says explicit git Load is unchanged. The Bug section (`:9-11`) is "A person runs Load on a File Node". Finding B1 shows the explicit git Load of a File still leaves it Unparsed.
-- **D7 — Ticket 33 is `done` before review and is not in the ticket template.** Severity: Low. `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:3` and `plan/github-transport/project.md:43` say `done`. The file has no One job, Inputs, Process, Outputs, Stop when, or Check section from `plan/context/ticket-work.md`. Recent tickets use a ticket folder, for example `plan/github-transport/issues/32-route-plain-save/`.
-- **D8 — Repeated text.** Severity: Low. `.agents/rules/writing-markdown.md` Repetition.
-  - `plan/github-transport/arch.md:108` (path 14, step 3) restates the desk Load message, parse push, and subject list from `plan/github-transport/arch.md:64` (module 8, step 5).
-  - `plan/github-transport/issues/33-file-load-leaves-file-unparsed.md:60` restates the algorithm from `plan/github-transport/spec.md:22`.
-  - The user doc says a plain File Load or Directory Load only reconciles (`doc/user/reference/commands/files.md:21`). On the desktop with a local mapping, it uploads first (finding B3).
-
-### Unrequested edits
-
-- **U1 — `Updated:` dates bumped.** Severity: Low. `plan/github-transport/spec.md:3`, `plan/github-transport/arch.md:4`, and `plan/github-transport/project.md:5` say `2026-11-20`.
-- **U2 — Two dated project entries.** Severity: Low. `plan/github-transport/project.md:42-43`. The first entry restates the spec rule from `plan/github-transport/spec.md:22`.
-- **U3 — A Comments section on a ticket in another Project.** Severity: Low (Judgement). `plan/actor-as-client/issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md:89-92`, on 23 — Run the Load actor for Git and Neither.
-
-### Code
-
-- **C1 — `plainLoadStaysDesk` tests the pre-pick twice.** Severity: Low (Judgement, Overcomplication). `src/Shared/PathPick.fs:91` checks `prePick = Plain` inside the `LoadSavePrePick.Plain when` guard at `:101`.
-- **C2 — Stale comments.** Severity: Low.
-  - `src/Server/LoadSaveRouting.fs:16-17` says Desk is an explicit pre-pick. A plain Load of a File or a Directory now resolves to Desk.
-  - `src/Server/Core/DeskLoadPush.fs:23` says a plain Load is not moved onto Desk. `PathPick.resolveCommand` now does that.
-  - `src/Client/UpdateWorkspaceLoad.fs:149` says plain Load sends Git when the workspace has both mappings. `plainLoadPath` now does that only for a Workspace subject.
-  - `src/Server/GithubTransportActor.fs:306` says Workspace, Directory, and File share the remote check. A plain Directory Load or plain File Load no longer reaches it.
-- **C3 — `plainLoadPath` repeats a server decision.** Severity: Low (Judgement, Duplicated Code). `src/Shared/PathPick.fs:139-151` and `src/Client/UpdateWorkspaceLoad.fs:150-162` upgrade a plain Workspace Load to Git. `PathPick.resolveCommand` already sends a plain Workspace Load to the Load actor, and `runGitOrNeither` checks the remote.
-- **C4 — A test file over the size limit grows.** Severity: Low (Hard). `tests/Server.Tests/LoadSaveCommandTests.fs` goes from 1593 to 1603 lines. `.agents/rules/fsharp-source.md` sets 800 lines per file and asks for a split when a change increases a longer file.
-- **C5 — A test name is over the line limit.** Severity: Low (Hard). `tests/Shared.Tests/PathPickTests.fs:166` is 120 characters. `.agents/rules/fsharp-source.md` sets 100.
-
-## Test runs
-
-Both suites ran on `d18369f1` with `DOTNET_ThreadPool_ForceMinWorkerThreads=64` and `COMPlus_ThreadPool_ForceMinWorkerThreads=64` through `scripts/agent-test.sh --full`. `399311c2` changes no source or test file.
+Both full suites ran on `d23b0a11` with `DOTNET_ThreadPool_ForceMinWorkerThreads=64`, `COMPlus_ThreadPool_ForceMinWorkerThreads=64`, and `AMBIT_FULL_SUITE=1` (`dotnet test -nodeReuse:false -p:AMBIT_FULL_SUITE=1`).
 
 | Suite | Passed | Failed | Skipped | Total |
 |---|---|---|---|---|
-| `tests/Server.Tests` | 777 | 0 | 1 | 778 |
-| `tests/Shared.Tests` | 1947 | 0 | 3 | 1950 |
+| `tests/Server.Tests` | 778 | 0 | 1 | 779 |
+| `tests/Shared.Tests` | 1948 | 0 | 3 | 1951 |
 
-- The Server skip is ``Change.upload structure persistence preserves existing file mtime``.
-- The Shared skips are ``reuses existing owned path without duplicating``, ``planServerFilePresentOps transitions only matching absent files``, and ``listForPush without git still returns walk``.
-- `LoadSaveCommandTests` and `ParseThreadLoadTests` with `src/Shared/PathPick.fs` from `caea653b`: 42 passed, 6 failed. The six are the restored or new plain Load route tests (finding T1).
-- `scripts/standards-scan.py --diff origin/staging` on `399311c2` prints `tests/Shared.Tests/PathPickTests.fs:166 LONG (120)` and `plainLoadStaysDesk` at 5 lines.
-
-## Found elsewhere
-
-"The following issues were found beyond the ticket scope.  The fixes are suggested."
-
-- **Problem.** `PathPick.choose` and `PathPick.resolve` (`src/Shared/PathPick.fs:65-80`) have no caller outside `tests/Shared.Tests/PathPickTests.fs`. **Fix.** Delete them and their tests, or give them a production caller.
-- **Problem.** `CoreActorPool.startLoadSaveCommand` (`src/Server/Core/CoreActorPool.fs:242-251`) ignores its arguments and returns `Ok None` for both paths. **Fix.** Remove it from `DeskLoadPush.runLoadSave`, or give it a job.
-- **Problem.** `.cursor/rules` points at `.agents/rules/no-retrofit.md`, `.agents/rules/gambol.md`, `.agents/rules/project-values.md`, `.agents/rules/environment.md`, `.agents/rules/project-stage.md`, and `.agents/rules/core-agent-behavior.md`. None of these files exists. The cloud-agent-git skill path `.agents/skills/cloud-agent-git/SKILL.md` does not exist. **Fix.** Restore those files, or remove the pointers.
+- The Server skip is `DocumentPersistenceTests.Change.upload structure persistence preserves existing file mtime`.
+- The Shared skips are `WorkspaceLocalInventoryTests.listForPush without git still returns walk`, `WorkspaceUploadStructureTests.reuses existing owned path without duplicating`, and `WorkspaceUploadStructureTests.planServerFilePresentOps transitions only matching absent files`.
+- `python3 scripts/standards-scan.py --diff caea653b` reports zero F# line-length or binding-size violations across all modified and added files.
