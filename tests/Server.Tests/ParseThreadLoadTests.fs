@@ -203,25 +203,31 @@ let private deskLoadRequest (nodeId: NodeId) =
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
 
-let rec private waitForActorStop host focusId remaining = task {
-    let! history =
-        CoreMailboxApi.eventHistory host |> Async.StartAsTask
-    let stopped =
-        history.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, _) -> id = focusId
-            | _ -> false)
-    if stopped || remaining <= 0 then
-        return history
-    else
-        do! Task.Delay 10
-        return! waitForActorStop host focusId (remaining - 10)
-}
+/// Plain Load through the production route: resolve the path, then start it.
+let private routePlainLoad host dataDir (nodeId: NodeId) =
+    task {
+        let request =
+            { deskLoadRequest nodeId with prePick = LoadSavePrePick.Plain }
+        let! state =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let path =
+            requireOk
+                "path"
+                (LoadSaveRouting.resolvePath (requireOk "state" state) request)
+        Assert.Equal(LoadSavePath.Desk, path)
+        let! started =
+            LoadSaveStart.startCommand
+                (CoreDoor.create true host testCaller)
+                dataDir
+                path
+                request
+            |> Async.StartAsTask
+        requireOk "start" started
+    }
 
-/// Neither: no Git and no desktop mapping. The Load actor starts, reconciles, and stops.
+/// The client shows Cancel while this id is in the live set.
 [<Fact>]
-let ``Neither Load of a Directory starts the Load actor and then stops`` () =
+let ``plain Load of a Directory does not leave a cancelable actor`` () =
     task {
         let dataDir = newTempDir ()
         let host =
@@ -232,41 +238,11 @@ let ``Neither Load of a Directory starts the Load actor and then stops`` () =
                 ignore
         try
             let! _, dirId = seedDocsFile host
-            let! state =
-                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
-            let state = requireOk "state" state
-            let request =
-                { deskLoadRequest dirId with
-                    prePick = LoadSavePrePick.Plain }
-            let path =
-                requireOk
-                    "path"
-                    (LoadSaveRouting.resolvePath state request)
-            Assert.Equal(LoadSavePath.Git, path)
-            let! started =
-                GithubTransportActor.start
-                    host
-                    testCaller
-                    dataDir
-                    GithubTransportActor.productionDependencies
-                    GithubTransportOperation.Load
-                    request.start
-                |> Async.StartAsTask
-            requireOk "start" started
-            let! history = waitForActorStop host dirId 3000
-            let startedActor =
-                history.events |> List.exists (githubLoadStarted dirId)
-            let stopped =
-                history.events
-                |> List.tryPick (fun event ->
-                    match event.body with
-                    | EventBody.ActorStop(id, result) when id = dirId ->
-                        Some result
-                    | _ -> None)
-            Assert.True(startedActor, "Load actor posted no StartActor")
-            Assert.Equal(Some ActorSucceeded, stopped)
-            let live =
-                ActorLive.applyEvents (List.rev history.events) Set.empty
+            do! routePlainLoad host dataDir dirId
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.DoesNotContain(history.events, githubLoadStarted dirId)
+            let live = ActorLive.applyEvents history.events Set.empty
             Assert.False(
                 Set.contains dirId live,
                 "Directory Load left a live actor, so Cancel stays")
@@ -381,11 +357,8 @@ let ``Desk Load command pushes a Directory and a File`` () =
             CoreMailboxApi.dispose host
     }
 
-let private plainLoadRequest (nodeId: NodeId) (prePick: LoadSavePrePick) =
-    { deskLoadRequest nodeId with prePick = prePick }
-
 [<Fact>]
-let ``plain Load does not coerce a Git path onto the parse stack`` () =
+let ``plain Load of a File or Directory pushes that node onto the parse stack`` () =
     task {
         let dataDir = newTempDir ()
         let pushed = ResizeArray<NodeId>()
@@ -397,25 +370,11 @@ let ``plain Load does not coerce a Git path onto the parse stack`` () =
                 pushed.Add
         try
             let! fileId, dirId = seedDocsFile host
-            let! directory =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest dirId LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            requireOk "directory" directory
-            let! file =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest fileId LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            requireOk "file" file
-            Assert.Empty(pushed)
+            do! routePlainLoad host dataDir dirId
+            do! routePlainLoad host dataDir fileId
+            Assert.Equal<NodeId list>(
+                [ dirId; fileId ],
+                pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
     }
