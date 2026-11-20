@@ -89,3 +89,4 @@ Blockers:
 ## Comments
 
 1. The github-transport spec states that git pull and push on Load happen only when the Load subject is a Workspace. A plain Load of a File Node or a Directory Node does no git pull or push and is the parse-stack load of that node from disk. The paragraph and process step above that send a plain Load of any subject to the Load actor do not match that spec, and the code that follows them is to be corrected to the spec.
+2. github-transport ticket 33 — File Load leaves the File Unparsed corrects the code to that spec.
