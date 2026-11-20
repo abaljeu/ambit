@@ -85,3 +85,7 @@ Blockers:
 [ ] All executed tests pass.
 [ ] Write the verdict to `plan/actor-as-client/reports/23-run-the-load-actor-for-git-and-neither-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.
+
+## Comments
+
+1. The github-transport spec states that git pull and push on Load happen only when the Load subject is a Workspace. A plain Load of a File Node or a Directory Node does no git pull or push and is the parse-stack load of that node from disk. The paragraph and process step above that send a plain Load of any subject to the Load actor do not match that spec, and the code that follows them is to be corrected to the spec.

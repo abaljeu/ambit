@@ -1,7 +1,7 @@
 # github-transport architecture
 
 Spec: [[spec.md]]
-Updated: 2026-11-13
+Updated: 2026-11-20
 Sequence: module-build
 
 Sources: 
@@ -60,7 +60,7 @@ Sources:
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
    2. [x] The Load command sends a core message through the mailbox to the actor pool (not Run, not `?git`). It does not send a Command or an Event
    3. [x] Plain Load asks PathPick
-   4. [x] Plain Load enters the Load actor. `PathPick.resolveCommand` returns Git for Plain. Desk Load is the explicit desk pre-pick
+   4. [x] PathPick git → pool invokes Server Actor when the target is a Workspace, or when the pre-pick is explicit git Load. Plain Load of a File or a Directory does no git pull or push and stays on the parse stack. PathPick desk → desk Load
    5. [x] Git Load informs Core after the pull lands. Desk Load sends a core message whose subject is a Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it onto the parse stack. A node inside a File Node uses that File Node. The subject list is the whole selection. The mailbox posts Events. Desktop-mapped WebDAV stays [26 — Desk WebDAV](issues/26-desk-webdav.md). Fetch+Poll stays
 
 9. **Save**
@@ -103,8 +103,9 @@ Sources:
     3. [x] The tree keeps the staging desk command. `LoadSaveStart.startCommand` starts Desk. `deskSaveOp` posts `ContinueDeskSave` when `canGitSave` is true
 
 14. **Plain Load prefers git**
-    1. [x] Plain Load enters the Load actor. `PathPick.resolveCommand` returns Git for Plain and for Git
-    2. [x] `PathPick.plainLoadPath` returns Git when that workspace label is in both `githubLabels` and `localLabels`
+    1. [x] Plain Load of a Workspace Node with a remote starts the git actor, same hops as **git Load**
+    2. [x] Plain Load of a File Node or a Directory Node does no git pull or push, even when a remote exists. It is the parse-stack load of that node from disk
+    3. [x] Plain Load of a Workspace Node with no remote uses **desk Load**. The Load command sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it. The subject list is the whole selection. Nodes inside one File Node share that File Node. The mailbox posts Events.
 
 15. **Plain Save prefers git**
     1. [x] Plain Save with a remote uses the Save actor Remote arm. That arm commits, pulls, and pushes
@@ -187,7 +188,7 @@ Shared segments:
 8. [x] Reject UX: condensed git error; conflict names a path
 
 Narrowest shared test seam:
-1. [x] `PathPick.plainSavePath` returns Desk for a local mapping and no remote. Other plain Save stays on the Save actor. Plain Load enters the Load actor (pure; no git process)
+1. [x] `PathPick.plainSavePath` returns Desk for a local mapping and no remote. Other plain Save stays on the Save actor. Plain Load of a Directory, a File, or a non-subject does no git pull or push even when a remote exists (pure; no git process)
 2. [x] WorkspaceGit remote-exists + tracked-branch push stays fast-forward-only through GitRun on a temp work tree.
 3. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
 4. [x] Server Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
@@ -202,7 +203,7 @@ Narrowest shared test seam:
       2. [x] Path pre-pick: Plain | Git | Desk on `LoadSaveCommandRequest` (not a new primary command name)
    2. Interface
       1. [x] Person Command Load and Save
-      2. [x] Plain Save asks `PathPick.plainSavePath`. Plain Load asks `PathPick.plainLoadPath` and `PathPick.resolveCommand`
+      2. [x] Plain Save asks `PathPick.plainSavePath`. Plain Load asks `PathPick.resolveCommand`
       3. [x] Explicit Git or Desk skips that plain choice
       4. [x] Download is Save. `CommandEntry` Save keys are `Ctrl+S` and `Ctrl+Shift+<`
       5. [x] No schedule, post-Persist, or post-Download start
@@ -306,7 +307,7 @@ Narrowest shared test seam:
 ## 3. Seams
 
 1. **PathPick choose**
-   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Plain Load of a Directory, a File, and a Workspace enters the Load actor. No git process.
+   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Plain Load of a Directory or a File does no git pull or push. Plain Load of a Workspace follows the remote. No git process.
    1. [x] Pure `choose` Git vs Desk
    2. [x] `plainSavePath` returns Desk only for a local mapping and no remote
 
