@@ -275,7 +275,7 @@ let ``git Load gates pull from subnode Focus`` () =
         })
 
 [<Fact>]
-let ``git Load posts that Workspace id and does not reconcile`` () =
+let ``git Load of a Normal node pulls without reconciling the Workspace`` () =
     let steps = ResizeArray<string>()
     let pushed = ResizeArray<NodeId>()
     let pull root _ =
@@ -301,10 +301,7 @@ let ``git Load posts that Workspace id and does not reconcile`` () =
             requireOk "start Load" started
             let! stopped = waitForStop host seed.focusId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
-            Assert.Equal<NodeId list>(
-                [ seed.workspaceId ],
-                pushed |> Seq.toList)
-            Assert.DoesNotContain(seed.focusId, pushed)
+            Assert.Empty(pushed)
             let! history =
                 CoreMailboxApi.eventHistory host
                 |> Async.StartAsTask

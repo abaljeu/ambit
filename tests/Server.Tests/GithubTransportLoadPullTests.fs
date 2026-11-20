@@ -550,7 +550,8 @@ let ``fetch completes before the workspace lock then the pull merges and marks``
                   root = root }
                 { changes = markChanges
                   dataDir = dataDir
-                  workspaceId = workspaceId }
+                  workspaceId = workspaceId
+                  reconcileId = Some workspaceId }
                 trackedBranch
         mergeAndMark
         |> Async.RunSynchronously

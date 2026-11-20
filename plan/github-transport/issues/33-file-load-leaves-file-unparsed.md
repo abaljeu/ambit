@@ -38,19 +38,25 @@ The same commit `d57b5be6` inverted or replaced every test that held this rule. 
 
 - `PathPick.resolveCommand` keeps a plain Load of a Directory, a File, or a non-subject on the Desk path. `DeskLoadPush.runLoadSave` sends the mailbox Load for that node, which marks it Unparsed and pushes it onto the parse stack. There is no git pull or push.
 - A plain Load of a Workspace still enters the Load actor. A remote pulls. No remote is the Neither arm.
-- Explicit git Load, explicit desk Load, and all Save routing are unchanged.
+- `GithubTransportActor` tracks `reconcileId` separately from the enclosing `workspaceId` on `WorkspaceTarget`. After a successful git step (pull or Neither), `startParse` reconciles the selected File, Directory, or Workspace via `loadNode`, and skips `loadNode` for a non-subject node rather than reconciling the enclosing Workspace. A failed git step aborts before reconcile.
+- Explicit desk Load and all Save routing are unchanged.
 - `PathPick.plainLoadPath` turns a plain Load into a git Load only when the subject is a Workspace with a remote and a local mapping.
 
 ## Tests
 
 - [x] `plain Load of a File parses that file from disk` sends a plain Load of a File through the production router on a host with a parse thread. The File ends Current with its child, and no Load actor starts. It failed before the fix. On worktrees it passes at `d57b5be6^` and fails at `d57b5be6`.
 - [x] `plain Load of a File or Directory with a remote parses and does not pull` uses a real git remote with a new commit. The File is parsed, the remote file does not arrive, and no Load actor starts.
+- [x] `explicit git Load of a File pulls and parses that file` sends an explicit git Load of a File through the production router on a host with a parse thread and a real git remote. The File ends Current with the pulled child.
+- [x] `explicit git Load of a Directory pulls and reconciles it` sends an explicit git Load of a Directory through the production router on a host with a parse thread and a real git remote. The Directory ends Current with the pulled child.
+- [x] `failed git Load of a File does not reconcile` fails the git pull on a parsing host and verifies the File stays Unparsed with no children and no reconcile Load event.
+- [x] `git Load of a Normal node pulls without reconciling the Workspace` in `GithubTransportActorTests.fs` replaces `git Load posts that Workspace id and does not reconcile` and asserts no node is pushed onto the parse stack for a non-subject focus.
 - [x] `plain Load of a non-Workspace returns Desk when a remote exists` is restored.
 - [x] `Load actor fails when git remote fails besides no repository` now loads the Workspace, which still enters the actor.
 - [x] `Load of a ROOT file skips git and git Save uses the data directory` now expects Desk for the Load.
 - [x] `plain Load of a Directory does not leave a cancelable actor` and `plain Load of a File or Directory pushes that node onto the parse stack` restore the two parse-stack tests through `LoadSaveRouting.resolvePath` and `LoadSaveStart.startCommand`.
 - [x] `plain Load of a Directory, File, or non-subject stays Desk` is restored.
-- [x] `a File in a workspace with both mappings keeps a plain Load with no git` is new. `a Workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)` replaces the File case of the old test.
+- [x] `a File in a workspace with both mappings keeps a plain Load with no git` and `plain Load of a Workspace with both mappings chooses Git` cover `PathPick.plainLoadPath`.
+- [x] `LoadSaveCommandTests.fs` is split into `LoadSaveCommandFixtures.fs`, `LoadSaveCommandTests.fs`, and `LoadSaveSaveCommandTests.fs` so each file stays under the 800-line limit.
 
 ## Open
 

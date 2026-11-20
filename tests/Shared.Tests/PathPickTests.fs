@@ -163,7 +163,7 @@ let private plainLoadPathWithBothMappings pick =
         presence
 
 [<Fact>]
-let ``a Workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)`` () =
+let ``plain Load of a Workspace with both mappings chooses Git`` () =
     Assert.Equal(Some LoadSavePath.Git, plainLoadPathWithBothMappings fst)
 
 [<Fact>]
