@@ -240,9 +240,6 @@ let postRoutedFocus operation prePick focusId harness = task {
     Assert.True(Option.isSome response.command)
 }
 
-let postRouted operation prePick harness =
-    postRoutedFocus operation prePick harness.seed.focusId harness
-
 let assertDeskResponse (result: IResult) =
     let response = requireResponse result
     Assert.Equal(LoadSavePath.Desk, response.path)
@@ -404,35 +401,6 @@ let readGraph host =
     |> requireOk "state"
     |> fun state -> state.graph
 
-let childNamed graph parentId name =
-    Graph.children graph parentId
-    |> List.pick (fun child ->
-        match Filename.tryValue graph.nodes.[child.id].name with
-        | Some candidate when candidate = name -> Some graph.nodes.[child.id]
-        | _ -> None)
-
-let publishStaging parent =
-    let remote = Path.Combine(parent, "remote.git")
-    let source = Path.Combine(parent, "source")
-    Directory.CreateDirectory(remote) |> ignore
-    Directory.CreateDirectory(source) |> ignore
-    git remote "init --bare -b staging" |> ignore
-    git source "init -b staging" |> ignore
-    configureIdentity source
-    File.WriteAllText(Path.Combine(source, "note.txt"), "from-staging")
-    File.WriteAllText(Path.Combine(source, "arrived.txt"), "arrived")
-    git source "add -A" |> ignore
-    git source "commit -m seed" |> ignore
-    git source $"remote add origin {remote}" |> ignore
-    git source "push -u origin staging" |> ignore
-    remote
-
-let fetchSwitchStaging workspace remote =
-    git workspace "init -b master" |> ignore
-    git workspace $"remote add origin {remote}" |> ignore
-    git workspace "fetch" |> ignore
-    git workspace "switch staging" |> ignore
-
 let applyTail label events state =
     match SyncLogic.applyServerTail events state with
     | Ok next -> next
@@ -520,18 +488,21 @@ let rec private waitUntilPredicate predicate (deadline: DateTime) = task {
         return! waitUntilPredicate predicate deadline
 }
 
-/// Plain Load through the production router. The response path is Desk.
-let postPlainLoad host dataDir seed focusId = task {
+let postDeskLoad prePick host dataDir seed focusId = task {
     let command =
-        requestForFocus LoadSaveOperation.Load LoadSavePrePick.Plain seed focusId
+        requestForFocus LoadSaveOperation.Load prePick seed focusId
     let! result =
         Api.postLoadSaveCommand
             (routerFor host dataDir)
             (CoreDoor.create true host testCaller)
             (encodeRequest command)
         |> Async.StartAsTask
-    Assert.Equal(LoadSavePath.Desk, (requireResponse result).path)
+    assertDeskResponse result
 }
+
+/// Plain Load through the production router. The response path is Desk.
+let postPlainLoad host dataDir seed focusId =
+    postDeskLoad LoadSavePrePick.Plain host dataDir seed focusId
 
 let assertNoLoadActor host focusIds =
     let history =

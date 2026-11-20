@@ -120,7 +120,7 @@ let ``desktop-mapped Load and git Load after-step use the Parse stack`` () =
     let _, gitEffects =
         UpdateWorkspaceLoad.loadOpFor LoadSavePrePick.Git fileModel
     match stackLoads gitEffects with
-    | [ request, None ] ->
+    | [ request, Some WorkspaceUploadAction.ReconcileServerDisk ] ->
         Assert.Equal(LoadSavePrePick.Git, request.prePick)
         Assert.False(request.holdStack)
         Assert.Equal(fileId, request.start.focusId)

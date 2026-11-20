@@ -84,25 +84,23 @@ module PathPick =
         | Ok subject -> Some subject
         | Error _ -> None
 
-    /// Plain Load of a Directory, a File, or a non-subject is the parse-stack
-    /// Load of that node. It does no git pull or push, even with a remote.
-    let private plainLoadStaysDesk (choice: LoadPathChoice) =
+    /// Load of a Directory, a File, or a non-subject is the parse-stack
+    /// Load of that node. It does no git pull or push, even on explicit git.
+    let private nonWorkspaceLoad (choice: LoadPathChoice) =
         choice.operation = LoadSaveOperation.Load
-        && choice.prePick = LoadSavePrePick.Plain
         && choice.subject <> Some LoadSubject.Workspace
 
-    /// Plain Load of a Workspace and plain Save enter their actors.
-    /// Explicit git stays Git. Explicit desk stays Desk.
+    /// Load of a Workspace and Save enter their actors on Plain or Git.
+    /// Non-Workspace Load and explicit Desk stay Desk.
     /// The Load and Save actors choose git or Neither from the work tree.
     let resolveCommand
         (choice: LoadPathChoice)
         : Result<LoadSavePath, string> =
         match choice.prePick with
-        | LoadSavePrePick.Plain when plainLoadStaysDesk choice ->
-            Ok LoadSavePath.Desk
+        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
+        | _ when nonWorkspaceLoad choice -> Ok LoadSavePath.Desk
         | LoadSavePrePick.Plain
         | LoadSavePrePick.Git -> Ok LoadSavePath.Git
-        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
 
     let private normalizedLabel (label: string) =
         if isNull label then ""

@@ -199,7 +199,7 @@ let ``git Load tells the client the actor completed`` () =
                         host
                         deps
                         GithubTransportOperation.Load
-                        (request seed)
+                        (workspaceRequest seed)
                 requireOk "start Load" started
                 do! entered.Task.WaitAsync(TimeSpan.FromSeconds 2.0)
                 let! commandEvents =
@@ -214,10 +214,10 @@ let ``git Load tells the client the actor completed`` () =
                             baseline.eventId
                             (ClientHistory.clear ()))
                 Assert.True(
-                    offersCancel seed.focusId afterCommand,
+                    offersCancel seed.workspaceId afterCommand,
                     "command response did not show Cancel")
                 release.TrySetResult() |> ignore
-                let! stopped = waitForStop host seed.focusId 2000
+                let! stopped = waitForStop host seed.workspaceId 2000
                 Assert.Equal(Some ActorSucceeded, stopped)
                 postGraph
                     host
@@ -233,14 +233,14 @@ let ``git Load tells the client the actor completed`` () =
                 let afterPoll =
                     applyTail "poll" pollEvents afterCommand
                 Assert.False(
-                    offersCancel seed.focusId afterPoll,
+                    offersCancel seed.workspaceId afterPoll,
                     "Cancel stays: client was not told the actor completed")
             finally
                 release.TrySetResult() |> ignore
         })
 
 [<Fact>]
-let ``git Load gates pull from subnode Focus`` () =
+let ``git Load gates pull from Workspace focus`` () =
     let steps = ResizeArray<string>()
     let pull root _ =
         steps.Add($"pull {root}")
@@ -261,9 +261,9 @@ let ``git Load gates pull from subnode Focus`` () =
                     host
                     deps
                     operation
-                    (request seed)
+                    (workspaceRequest seed)
             requireOk "start Load" started
-            let! stopped = waitForStop host seed.focusId 1000
+            let! stopped = waitForStop host seed.workspaceId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
             let root = Path.Combine(dataDir, "home")
             Assert.Equal<string list>(
@@ -271,47 +271,7 @@ let ``git Load gates pull from subnode Focus`` () =
                   $"pull {root}" ],
                 steps |> Seq.toList)
             Assert.False(
-                Set.contains seed.focusId (pool.liveActorNodeIds ()))
-        })
-
-[<Fact>]
-let ``git Load of a Normal node pulls without reconciling the Workspace`` () =
-    let steps = ResizeArray<string>()
-    let pushed = ResizeArray<NodeId>()
-    let pull root _ =
-        steps.Add($"pull {root}")
-        Ok "pulled"
-    let commit _ _ _ = Ok(tracked, GitSave.nothingToCommitMessage)
-    let push _ _ _ = Error "push unused"
-    let deps =
-        dependencies steps pull commit push
-    runActor
-        GithubTransportOperation.Load
-        deps
-        "load"
-        (fun id -> pushed.Add id)
-        (fun dataDir host _ operation seed -> task {
-            let! started =
-                startTransport
-                    dataDir
-                    host
-                    deps
-                    operation
-                    (request seed)
-            requireOk "start Load" started
-            let! stopped = waitForStop host seed.focusId 1000
-            Assert.Equal(Some ActorSucceeded, stopped)
-            Assert.Empty(pushed)
-            let! history =
-                CoreMailboxApi.eventHistory host
-                |> Async.StartAsTask
-            let reconciled =
-                history.events
-                |> List.exists (fun event ->
-                    event.commandName = "Parse")
-            Assert.False(reconciled)
-            let root = Path.Combine(dataDir, "home")
-            Assert.Contains($"pull {root}", steps)
+                Set.contains seed.workspaceId (pool.liveActorNodeIds ()))
         })
 
 [<Fact>]
@@ -338,13 +298,13 @@ let ``git Load ends when the pull fails and posts nothing`` () =
                     host
                     deps
                     operation
-                    (request seed)
+                    (workspaceRequest seed)
             requireOk "start Load" started
-            let! stopped = waitForStop host seed.focusId 1000
+            let! stopped = waitForStop host seed.workspaceId 1000
             Assert.Equal(Some(ActorFailed conflict), stopped)
             Assert.Empty(pushed)
             Assert.False(
-                Set.contains seed.focusId (pool.liveActorNodeIds ()))
+                Set.contains seed.workspaceId (pool.liveActorNodeIds ()))
         })
 
 [<Fact>]
@@ -604,16 +564,16 @@ let ``Peer Actor row is live only while git work runs`` () =
                     host
                     deps
                     operation
-                    (request seed)
+                    (workspaceRequest seed)
             requireOk "start Load" started
             do! entered.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
             Assert.True(
-                Set.contains seed.focusId (pool.liveActorNodeIds ()))
+                Set.contains seed.workspaceId (pool.liveActorNodeIds ()))
             release.SetResult()
-            let! stopped = waitForStop host seed.focusId 1000
+            let! stopped = waitForStop host seed.workspaceId 1000
             Assert.Equal(Some ActorSucceeded, stopped)
             Assert.False(
-                Set.contains seed.focusId (pool.liveActorNodeIds ()))
+                Set.contains seed.workspaceId (pool.liveActorNodeIds ()))
         })
 
 [<Theory>]
@@ -634,11 +594,7 @@ let ``Load and Save return the same conflict reject shape`` operationName =
             GithubTransportOperation.Save
     withActor operation deps operationName
         (fun dataDir host _ operation seed -> task {
-            let actorRequest =
-                if operationName = "save" then
-                    workspaceRequest seed
-                else
-                    request seed
+            let actorRequest = workspaceRequest seed
             let! started =
                 startTransport
                     dataDir

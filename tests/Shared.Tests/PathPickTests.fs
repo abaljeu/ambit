@@ -8,12 +8,12 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private plainLoad subject =
+let private loadCommand prePick subject =
     PathPick.resolveCommand
-        (choice
-            LoadSaveOperation.Load
-            LoadSavePrePick.Plain
-            subject)
+        (choice LoadSaveOperation.Load prePick subject)
+
+let private plainLoad subject =
+    loadCommand LoadSavePrePick.Plain subject
 
 [<Fact>]
 let ``choose returns Git when a remote exists`` () =
@@ -66,13 +66,19 @@ let ``plain Load of a Workspace chooses the Load actor`` () =
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
-let ``explicit git Load of a File stays Git`` () =
+let ``explicit git Load of a Directory, File, or non-subject stays Desk`` () =
+    for subject in
+        [ Some LoadSubject.Directory
+          Some LoadSubject.File
+          None ] do
+        Assert.Equal(
+            Ok LoadSavePath.Desk,
+            loadCommand LoadSavePrePick.Git subject)
+
+[<Fact>]
+let ``explicit git Load of a Workspace chooses Git`` () =
     let actual =
-        PathPick.resolveCommand
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Git
-                (Some LoadSubject.File))
+        loadCommand LoadSavePrePick.Git (Some LoadSubject.Workspace)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]

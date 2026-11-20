@@ -20,7 +20,7 @@ module internal DeskLoadPush =
                 | Error _ -> None
             | _ -> None
 
-    /// Mailbox-Load when the path is Desk. A plain Load is not moved onto Desk.
+    /// Mailbox-Load when the path is Desk.
     let runLoadSave
         (run: LoadSaveContext)
         (load: NodeId -> Result<unit, string>)

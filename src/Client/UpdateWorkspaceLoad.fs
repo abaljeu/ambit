@@ -137,7 +137,13 @@ let private subjectsForLoad
 
 let private plannedUpload (prePick: LoadSavePrePick) (model: VM) =
     if prePick = LoadSavePrePick.Git then
-        None
+        if
+            PathPick.subjectOf model.graph (commandFocusId model)
+            = Some LoadSubject.Workspace
+        then
+            None
+        else
+            Some WorkspaceUploadAction.ReconcileServerDisk
     else
         Some (uploadPlan model)
 
@@ -146,7 +152,7 @@ let private holdFor (plan: WorkspaceUploadAction option) =
     | Some (WorkspaceUploadAction.DesktopPush _) -> true
     | _ -> false
 
-/// Plain Load sends Git when the focus workspace has both mappings.
+/// Plain Load of a Workspace sends Git when it has both mappings.
 let private prePickForLoad
     (prePick: LoadSavePrePick)
     (model: VM)
