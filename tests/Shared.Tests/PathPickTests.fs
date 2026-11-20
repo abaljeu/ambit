@@ -8,12 +8,12 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private plainLoad subject =
+let private loadCommand prePick subject =
     PathPick.resolveCommand
-        (choice
-            LoadSaveOperation.Load
-            LoadSavePrePick.Plain
-            subject)
+        (choice LoadSaveOperation.Load prePick subject)
+
+let private plainLoad subject =
+    loadCommand LoadSavePrePick.Plain subject
 
 [<Fact>]
 let ``choose returns Git when a remote exists`` () =
@@ -53,12 +53,12 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
     Assert.Equal(Ok expected, actual)
 
 [<Fact>]
-let ``plain Load of a Directory or a File chooses the Load actor`` () =
+let ``plain Load of a Directory, File, or non-subject stays Desk`` () =
     for subject in
         [ Some LoadSubject.Directory
           Some LoadSubject.File
           None ] do
-        Assert.Equal(Ok LoadSavePath.Git, plainLoad subject)
+        Assert.Equal(Ok LoadSavePath.Desk, plainLoad subject)
 
 [<Fact>]
 let ``plain Load of a Workspace chooses the Load actor`` () =
@@ -66,13 +66,19 @@ let ``plain Load of a Workspace chooses the Load actor`` () =
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
-let ``explicit git Load of a File stays Git`` () =
+let ``explicit git Load of a Directory, File, or non-subject stays Desk`` () =
+    for subject in
+        [ Some LoadSubject.Directory
+          Some LoadSubject.File
+          None ] do
+        Assert.Equal(
+            Ok LoadSavePath.Desk,
+            loadCommand LoadSavePrePick.Git subject)
+
+[<Fact>]
+let ``explicit git Load of a Workspace chooses Git`` () =
     let actual =
-        PathPick.resolveCommand
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Git
-                (Some LoadSubject.File))
+        loadCommand LoadSavePrePick.Git (Some LoadSubject.Workspace)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
@@ -144,8 +150,7 @@ let ``plain Save with no remote and no local mapping stays on the Save actor`` (
             graph fileId LoadSavePrePick.Plain labels
     Assert.Equal(None, path)
 
-[<Fact>]
-let ``a node in a workspace with both a GitHub mapping and a local mapping gets a plain Load that chooses GitHub (Git path)`` () =
+let private plainLoadPathWithBothMappings pick =
     let graph0 = Graph.create ()
     let workspaceId, workspaceOps =
         FileNodeOps.planCreateWorkspace graph0 "home"
@@ -157,10 +162,16 @@ let ``a node in a workspace with both a GitHub mapping and a local mapping gets 
         githubLabels = Set.singleton "home"
         localLabels = Set.singleton "home"
     }
-    let path =
-        PathPick.plainLoadPath
-            graph
-            fileId
-            LoadSavePrePick.Plain
-            presence
-    Assert.Equal(Some LoadSavePath.Git, path)
+    PathPick.plainLoadPath
+        graph
+        (pick (workspaceId, fileId))
+        LoadSavePrePick.Plain
+        presence
+
+[<Fact>]
+let ``plain Load of a Workspace with both mappings chooses Git`` () =
+    Assert.Equal(Some LoadSavePath.Git, plainLoadPathWithBothMappings fst)
+
+[<Fact>]
+let ``a File in a workspace with both mappings keeps a plain Load with no git`` () =
+    Assert.Equal(None, plainLoadPathWithBothMappings snd)

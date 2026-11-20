@@ -13,8 +13,8 @@ type LoadSaveCommandRouter =
 [<RequireQualifiedAccess>]
 module LoadSaveRouting =
 
-    /// Plain Save enters the Save actor. Desk is an explicit pre-pick,
-    /// including the client's local-mapping choice.
+    /// Workspace Load and Save enter their actors on Plain or Git.
+    /// Non-Workspace Load and explicit Desk stay Desk.
     let resolvePath
         (state: GraphAtEvent)
         (request: LoadSaveCommandRequest)

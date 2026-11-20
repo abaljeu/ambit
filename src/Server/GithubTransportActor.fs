@@ -67,7 +67,7 @@ module GithubTransportActor =
         { beforeHead: Result<string option, string>
           afterHead: Result<string option, string> }
 
-    /// Actor changes, data directory, and Workspace id for one Git Load.
+    /// Actor changes, data directory, and Workspace id to reconcile.
     type internal WorkspaceTarget =
         { changes: ActorChanges
           dataDir: string
@@ -101,9 +101,6 @@ module GithubTransportActor =
                             root = root
                         })
         }
-
-    let private readFocusWorkspace dataDir focusId changes =
-        readWorkspace workspaceFromFocus dataDir focusId changes
 
     let private readSaveWorkspace dataDir focusId changes =
         readWorkspace saveWorkspace dataDir focusId changes
@@ -264,9 +261,6 @@ module GithubTransportActor =
               dataDir = dataDir
               workspaceId = workspaceId }
 
-    let private missingSubject =
-        Error "Focus is not in a Workspace, Directory, or File."
-
     /// Neither. The arm is empty. Reconcile records no received paths.
     let private runNeither (target: WorkspaceTarget) (label: string) =
         finishLoadOn target label []
@@ -302,21 +296,6 @@ module GithubTransportActor =
         | Ok GitRemoteArm.Remote -> runLoadOn dependencies root target
         | Ok GitRemoteArm.Neither -> runNeither target label
         | Error message -> async.Return (Error message)
-
-    /// Workspace, Directory, and File share the work-tree remote check.
-    let private runLoadChoice dependencies root target choice =
-        match choice with
-        | Some _ -> runGitOrNeither dependencies root target
-        | None -> async.Return missingSubject
-
-    /// No workspace work tree: Neither, then reconcile. No git pull.
-    /// An empty receipt still needs a sync root, so the label is SYSTEM.
-    let private runOutsideWorkspace changes dataDir focusId =
-        runNeither
-            { changes = changes
-              dataDir = dataDir
-              workspaceId = focusId }
-            "SYSTEM"
 
     let private actorOutcome =
         function
@@ -492,27 +471,29 @@ module GithubTransportActor =
 
     let private runLoadBody dataDir dependencies focusId changes =
         async {
-            match! readFocusWorkspace dataDir focusId changes with
+            match! readWorkspace workspaceFromFocus dataDir focusId changes with
             | Error err -> return Error err
             | Ok None ->
-                return! runOutsideWorkspace changes dataDir focusId
+                return!
+                    runNeither
+                        { changes = changes
+                          dataDir = dataDir
+                          workspaceId = focusId }
+                        "SYSTEM"
             | Ok (Some place) ->
                 return!
-                    runLoadChoice
+                    runGitOrNeither
                         dependencies
                         place.root
                         { changes = changes
                           dataDir = dataDir
                           workspaceId = place.workspaceId }
-                        (LoadSubject.enclosingSubject
-                            place.graph
-                            focusId)
         }
 
     let private actorFunction body : ActorFunction =
         fun _ changes -> finishActor (body changes)
 
-    /// Load reads the enclosing Workspace, then loads that subject.
+    /// Load runs the git step on the Workspace, then reconciles it.
     let loadActorFunction dataDir dependencies focusId =
         actorFunction (runLoadBody dataDir dependencies focusId)
 

@@ -84,16 +84,23 @@ module PathPick =
         | Ok subject -> Some subject
         | Error _ -> None
 
-    /// Plain Load and plain Save enter their actors.
-    /// Explicit git stays Git. Explicit desk stays Desk.
-    /// The Save actor chooses git or Neither from the work tree.
+    /// Load of a Directory, a File, or a non-subject is the parse-stack
+    /// Load of that node. It does no git pull or push, even on explicit git.
+    let private nonWorkspaceLoad (choice: LoadPathChoice) =
+        choice.operation = LoadSaveOperation.Load
+        && choice.subject <> Some LoadSubject.Workspace
+
+    /// Load of a Workspace and Save enter their actors on Plain or Git.
+    /// Non-Workspace Load and explicit Desk stay Desk.
+    /// The Load and Save actors choose git or Neither from the work tree.
     let resolveCommand
         (choice: LoadPathChoice)
         : Result<LoadSavePath, string> =
         match choice.prePick with
+        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
+        | _ when nonWorkspaceLoad choice -> Ok LoadSavePath.Desk
         | LoadSavePrePick.Plain
         | LoadSavePrePick.Git -> Ok LoadSavePath.Git
-        | LoadSavePrePick.Desk -> Ok LoadSavePath.Desk
 
     let private normalizedLabel (label: string) =
         if isNull label then ""
@@ -125,7 +132,8 @@ module PathPick =
             Some LoadSavePath.Desk
         | _ -> None
 
-    /// Plain Load chooses Git when that workspace has both mappings.
+    /// Plain Load of a Workspace chooses Git when it has both mappings.
+    /// A Directory or a File stays plain, so it does no git pull.
     let plainLoadPath
         (graph: Graph)
         (nodeId: NodeId)
@@ -134,7 +142,8 @@ module PathPick =
         : LoadSavePath option =
         match prePick, labeledWorkspace graph nodeId with
         | LoadSavePrePick.Plain, Some label
-            when Set.contains label presence.githubLabels
+            when subjectOf graph nodeId = Some LoadSubject.Workspace
+                 && Set.contains label presence.githubLabels
                  && Set.contains label presence.localLabels ->
             Some LoadSavePath.Git
         | _ -> None
