@@ -78,9 +78,8 @@ Alan step 5, Absent fetch. This includes the whole-Workspace request and the rac
 Alan step 6, protocol, then the one-second typing pause.
 
 10. **Poll with pending changes**
-    1. **Notice apply** — A post reply undoes the posted changes and replays the server Events. A Poll has an empty undo list, so the server Events apply.
-    2. **Sync planner** — `tryStartPoll` emits `PollServer` while pending changes wait.
-    3. **Sync planner** — Those pending changes post after the Poll applies.
+    1. **Sync planner** — `SyncPlanner.tryStartPoll` emits `PollServer` only when `syncState` is `Idle` and `pending` is empty. That gate is [09 — Poll with pending changes](issues/09-poll-with-pending-changes/09-poll-with-pending-changes-ticket.md).
+    2. **Notice apply** — [20 — Apply own persist notices during a Poll](issues/20-apply-own-persist-notices-during-a-poll/20-apply-own-persist-notices-during-a-poll-ticket.md) is `Update.applyPollDataOutdated` in `src/Client/Update.fs`. A Notice-only Poll tail while edits are pending is applied and the queue is submitted. A tail with any other body stays `DataOutdated`. An empty tail with that queue stays `DataOutdated`.
 
 11. **Merge in progress**
     1. **Notice apply** — A reply that carries our own changes is accepted.

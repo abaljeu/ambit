@@ -31,7 +31,7 @@ Multi-client sync is last-write-wins by arrival order on the server, and the run
 [x] When the graph changes, the server appends the event and auto-persists affected document artifacts under `DataDir`. Detail: [Persistence model](persistence-model.md).
 [x] The Browser uses the changes response and the poll response on separate paths.
 [x] The Browser polls `POST /ambit/poll` on a 5 second interval, on window focus, and when activity wakes an inactive poll. Wire: [HTTP contract](http-contract.md).
-[x] When the client is behind, poll returns the event tail. The Browser applies that tail. The graph comes from `GET /ambit/state` on initial load or on resync.
+[x] When the client is behind, poll returns the event tail. `Update.applyPollDataOutdated` in `src/Client/Update.fs` applies a non-empty tail when `pending` is empty. It applies a non-empty Notice-only tail when `pending` is non-empty, keeps that queue, and `SyncPlanner.tryStartSubmit` submits it. A tail with any other body, or an empty tail, while `pending` is non-empty stays `DataOutdated`. An `Error` from `SyncLogic.applySyncResponse` stays `DataOutdated`. The graph comes from `GET /ambit/state` on initial load or on resync.
 [ ] Multi-document routes live under `/documents/{docId}`.
 [ ] The server can push on a WebSocket instead of poll, or in addition to poll.
 

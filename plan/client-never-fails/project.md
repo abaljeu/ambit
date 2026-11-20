@@ -20,7 +20,7 @@ Started: 2026-10-29
 
 ## Tickets
 
-- [20 — Apply own persist notices during a Poll](issues/20-apply-own-persist-notices-during-a-poll/20-apply-own-persist-notices-during-a-poll-ticket.md)
+- [20 — Apply own persist notices during a Poll](issues/20-apply-own-persist-notices-during-a-poll/20-apply-own-persist-notices-during-a-poll-ticket.md) — Status `coded`.
 
 ## Open questions
 

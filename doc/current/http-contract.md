@@ -571,7 +571,7 @@ Graph {
 2. [o] **Local edit.** The client builds an event whose `eventId` is `0` and whose `submissionId` is new.
 3. [ ] **Local edit.** The client builds an `Order` whose `orderId` is new. `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 16 Order carries its envelope fields.
 4. [x] **Submit.** `POST /ambit/changes` sends `events` and `want`. On success the client reads `r`, `c`, `nodes`, and `childMap`.
-5. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. The client applies the `c` tail when it is behind. A Notice in that tail does not start a catch-up, a rewind, or a replay. Another client's Change still does.
+5. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. `Update.applyPollDataOutdated` in `src/Client/Update.fs` applies a non-empty `c` tail when `pending` is empty. It applies a non-empty Notice-only `c` tail when `pending` is non-empty, keeps that queue, and `SyncPlanner.tryStartSubmit` submits it. A `c` tail with any other body, or an empty `c` tail, while `pending` is non-empty stays `DataOutdated`. An `Error` from `SyncLogic.applySyncResponse` stays `DataOutdated`. A Notice in that tail does not start a catch-up, a rewind, or a replay.
 6. [x] **Resync.** When a resync is needed, `GET /ambit/state` returns the graph.
 7. [x] **Conflicts.** Conflict handling is last-write-wins, in server apply order. Detail: [Multi-client sync](sync-mvp.md).
 8. [o] **Undo.** Undo and redo are client-local. The client posts undo and redo events. Server undo and redo endpoints are absent.
