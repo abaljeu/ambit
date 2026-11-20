@@ -105,7 +105,7 @@ Sources:
 14. **Plain Load prefers git**
     1. [x] Plain Load of a Workspace Node with a remote starts the git actor, same hops as **git Load**
     2. [x] Plain Load of a File Node or a Directory Node does no git pull or push, even when a remote exists. It is the parse-stack load of that node from disk
-    3. [x] Plain Load of a Workspace Node with no remote uses **desk Load**. The Load command sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it. The subject list is the whole selection. Nodes inside one File Node share that File Node. The mailbox posts Events.
+    3. [x] Plain Load of a Workspace Node runs the transport step, then reconciles. The transport step is git Load when a remote exists, desk Load when only a local mapping exists, and nothing otherwise (the Load actor's Neither arm). Reconcile runs whether or not the transport step did anything. Plain Load of a File Node, a Directory Node, or a non-subject only reconciles. Desk Load sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it. The subject list is the whole selection. Nodes inside one File Node share that File Node. The mailbox posts Events.
 
 15. **Plain Save prefers git**
     1. [x] Plain Save with a remote uses the Save actor Remote arm. That arm commits, pulls, and pushes
@@ -307,7 +307,7 @@ Narrowest shared test seam:
 ## 3. Seams
 
 1. **PathPick choose**
-   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Plain Load of a Directory or a File does no git pull or push. Plain Load of a Workspace follows the remote. No git process.
+   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Plain Load of a Directory or a File does no git pull or push. Plain Load of a Workspace runs the transport step the remote and mapping select, then reconciles. No git process.
    1. [x] Pure `choose` Git vs Desk
    2. [x] `plainSavePath` returns Desk only for a local mapping and no remote
 

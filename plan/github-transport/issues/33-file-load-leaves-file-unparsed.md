@@ -54,4 +54,7 @@ The same commit `d57b5be6` inverted or replaced every test that held this rule. 
 
 ## Open
 
-- [ ] Arch item 14.3 says a plain Load of a Workspace with no remote uses desk Load. The code sends it to the Load actor's Neither arm, which reconciles and then loads that Workspace onto the parse stack. The result on the graph is the same. This ticket leaves that route unchanged.
+- [x] A plain Load of a Workspace with no remote runs the Load actor's Neither arm. Neither is the default "nothing" transport arm, and the Load then reconciles, as the Load algorithm states.
+- [x] A plain Load with a non-Workspace subject or no subject (ROOT with nothing selected) only reconciles. It does no git pull or push, and nothing else changes.
+
+The Load algorithm: a Workspace subject runs the transport step (desk when only a local mapping exists, git when a remote exists, nothing otherwise), then reconciles. Any other subject only reconciles. Reconcile runs whether or not the transport step did anything.

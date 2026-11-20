@@ -18,7 +18,7 @@ What it does: A File node in a named Workspace opens in a new browser tab. A tex
 
 Keys: Ctrl+Shift+`>`. Selection Mode.
 
-What it does: git Load pulls files when a git upstream is defined. Plain Load of a Workspace pulls when that Workspace has a git remote. Plain Load of a File or a Directory does no git pull or push and loads that node from disk. desk Load uploads the selected Workspace, Directory, or File when the Desktop app has a workspace mapping. After that, the rest of Load is the same, and a selection that spans more than one Workspace does not load.
+What it does: git Load pulls files when a git upstream is defined. Plain Load of a Workspace pulls when that Workspace has a git remote, uploads through desk Load when only a local mapping exists, and does no transport otherwise; it then reconciles. Plain Load of a File, a Directory, or no selection only reconciles that node from disk and does no git pull or push. desk Load uploads the selected Workspace, Directory, or File when the Desktop app has a workspace mapping. After that, the rest of Load is the same, and a selection that spans more than one Workspace does not load.
 
 ## Save
 
