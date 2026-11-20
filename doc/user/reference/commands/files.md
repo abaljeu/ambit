@@ -18,7 +18,7 @@ What it does: A File node in a named Workspace opens in a new browser tab. A tex
 
 Keys: Ctrl+Shift+`>`. Selection Mode.
 
-What it does: git Load pulls files when a git upstream is defined. Plain Load of a Workspace pulls when that Workspace has a git remote, uploads through desk Load when only a local mapping exists, and does no transport otherwise; it then reconciles. Plain Load of a File, a Directory, or no selection only reconciles that node from disk and does no git pull or push. desk Load uploads the selected Workspace, Directory, or File when the Desktop app has a workspace mapping. After that, the rest of Load is the same, and a selection that spans more than one Workspace does not load.
+What it does: A git pull happens only when the subject is a Workspace. Workspace Load runs the transport step (desk Load when only a local mapping exists, git Load pull when a git remote exists, nothing otherwise), then reconciles that Workspace. ROOT is a Workspace with no work tree, so its Load runs no transport and then reconciles. A failed step aborts with no reconcile. Any Load (plain or git Load) of a File, a Directory, or another non-Workspace node does no git pull or push and only reconciles that selected node from disk. desk Load uploads the selected Workspace, Directory, or File when the Desktop app has a workspace mapping. A selection that spans more than one Workspace does not load.
 
 ## Save
 

@@ -60,7 +60,7 @@ Sources:
    1. [x] Person Command Load (`CommandEntry` Load; [[src/Client/Commands.fs]] `loadOp`)
    2. [x] The Load command sends a core message through the mailbox to the actor pool (not Run, not `?git`). It does not send a Command or an Event
    3. [x] Plain Load asks PathPick
-   4. [x] PathPick git → pool invokes Server Actor when the target is a Workspace, or when the pre-pick is explicit git Load. Plain Load of a File or a Directory does no git pull or push and stays on the parse stack. PathPick desk → desk Load
+   4. [x] PathPick git → pool invokes Server Actor only when the Load subject is a Workspace (plain or explicit git); ROOT is a Workspace Node with no work tree, so its Load runs no transport and then reconciles. Any Load (plain or explicit git) of a File, a Directory, or another non-Workspace node routes to Desk, does no git pull or push, and only reconciles that selected node. PathPick desk → desk Load
    5. [x] Git Load informs Core after the pull lands. Desk Load sends a core message whose subject is a Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it onto the parse stack. A node inside a File Node uses that File Node. The subject list is the whole selection. The mailbox posts Events. Desktop-mapped WebDAV stays [26 — Desk WebDAV](issues/26-desk-webdav.md). Fetch+Poll stays
 
 9. **Save**
@@ -70,9 +70,9 @@ Sources:
    4. [x] `PathPick.plainSavePath` returns Desk for a local mapping and no remote. Other plain Save enters the Save actor. Download is Save. [[src/Shared/CommandEntry.fs]] `CommandEntry` lists Save keys `Ctrl+S` and `Ctrl+Shift+<`
 
 10. **git Load**
-    1. [x] Person names git Load (explicit pre-pick)
-    2. [x] PathPick is skipped
-    3. [x] Mailbox → actor pool invokes Server Actor; Actor uses Focus as the work tree
+    1. [x] Person names git Load (explicit pre-pick) on a Workspace Node
+    2. [x] `PathPick.resolveCommand` routes Workspace git Load to `LoadSavePath.Git`; any explicit git Load of a File, a Directory, or another non-Workspace node routes to `LoadSavePath.Desk`, does no git pull or push, and only reconciles that selected node
+    3. [x] For a Workspace Node, mailbox → actor pool invokes Server Actor; Actor uses Focus as the work tree; a failed pull aborts with no reconcile
     4. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
     5. [x] A file only the Server changed stays the Server file.
     6. [x] A file only the remote changed becomes the remote file.
@@ -104,8 +104,8 @@ Sources:
 
 14. **Plain Load prefers git**
     1. [x] Plain Load of a Workspace Node with a remote starts the git actor, same hops as **git Load**
-    2. [x] Plain Load of a File Node or a Directory Node does no git pull or push, even when a remote exists. It is the parse-stack load of that node from disk
-    3. [x] Plain Load of a Workspace Node runs the transport step, then reconciles. The transport step is git Load when a remote exists, desk Load when only a local mapping exists, and nothing otherwise (the Load actor's Neither arm). Reconcile runs whether or not the transport step did anything. Plain Load of a File Node, a Directory Node, or a non-subject only reconciles. Desk Load sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it. The subject list is the whole selection. Nodes inside one File Node share that File Node. The mailbox posts Events.
+    2. [x] Any Load (plain or explicit git) of a File Node, a Directory Node, or another non-Workspace node does no git pull or push, even when a remote exists, and only reconciles that selected node from disk
+    3. [x] Workspace Load runs the transport step (`desk -> desk Load | git -> git Load (pull) | default -> nothing`), then reconciles the Workspace; a failed step aborts with no reconcile. ROOT is a Workspace Node with no work tree, so its Load runs no transport and then reconciles. Desk Load sends a core message whose subject is that Workspace Node, Directory Node, or File Node. The parse push marks that subject Unparsed, then pushes it. The subject list is the whole selection. Nodes inside one File Node share that File Node. The mailbox posts Events.
 
 15. **Plain Save prefers git**
     1. [x] Plain Save with a remote uses the Save actor Remote arm. That arm commits, pulls, and pushes
@@ -157,7 +157,7 @@ Sources:
     3. [ ] Exclude-from-repo does not mean desk-local-only
 
 24. **Workspace-scoped git**
-    1. [x] git Load/Save from Workspace root or a subnode use the same whole-tree pull/push
+    1. [x] git Load on a Workspace Node and git Save from a Workspace root or a subnode use the same whole-tree pull/push; any Load (plain or explicit git) of a File, a Directory, or another non-Workspace node does no git pull or push and only reconciles that selected node
     2. [x] No file-level git pathspec
     3. [x] Tracked branch is the Workspace work tree’s current branch / upstream
 
@@ -188,7 +188,7 @@ Shared segments:
 8. [x] Reject UX: condensed git error; conflict names a path
 
 Narrowest shared test seam:
-1. [x] `PathPick.plainSavePath` returns Desk for a local mapping and no remote. Other plain Save stays on the Save actor. Plain Load of a Directory, a File, or a non-subject does no git pull or push even when a remote exists (pure; no git process)
+1. [x] `PathPick.plainSavePath` returns Desk for a local mapping and no remote. Other plain Save stays on the Save actor. Any Load (plain or explicit git) of a Directory, a File, or another non-Workspace node routes to Desk, does no git pull or push even when a remote exists, and only reconciles (pure; no git process)
 2. [x] WorkspaceGit remote-exists + tracked-branch push stays fast-forward-only through GitRun on a temp work tree.
 3. [x] git Load is one merge of the tracked remote branch, completed by committing that merge as part of the pull.
 4. [x] Server Actor git Load / git Save invoke that WorkspaceGit interface; no Ambit credential argument
@@ -203,8 +203,8 @@ Narrowest shared test seam:
       2. [x] Path pre-pick: Plain | Git | Desk on `LoadSaveCommandRequest` (not a new primary command name)
    2. Interface
       1. [x] Person Command Load and Save
-      2. [x] Plain Save asks `PathPick.plainSavePath`. Plain Load asks `PathPick.resolveCommand`
-      3. [x] Explicit Git or Desk skips that plain choice
+      2. [x] Plain Save asks `PathPick.plainSavePath`. Plain Load asks `PathPick.plainLoadPath` on the client and `PathPick.resolveCommand` on the server
+      3. [x] Explicit Desk skips the plain choice; explicit Git enters the actor for Save and for Workspace Load, while explicit Git Load of a non-Workspace node routes to Desk (reconcile-only, no git)
       4. [x] Download is Save. `CommandEntry` Save keys are `Ctrl+S` and `Ctrl+Shift+<`
       5. [x] No schedule, post-Persist, or post-Download start
       6. [x] The Load command sends a core message through the mailbox to the actor pool (not Run, not `?git`). Save uses that same door
@@ -222,7 +222,7 @@ Narrowest shared test seam:
    2. Interface
       1. [x] `choose: remoteExists:bool -> Git | Desk` — Git when true, Desk when false
       2. [x] `plainSavePath` returns Desk when the pre-pick is Plain, the workspace label is in `localLabels`, and that label is absent from `githubLabels`. Other plain Save stays on the Save actor
-      3. [x] `resolveCommand` returns Git for Plain and for Git, and Desk for Desk
+      3. [x] `resolveCommand` returns Desk for explicit Desk and for any non-Workspace Load (Plain or Git), and returns Git for Workspace Load (Plain or Git) and for Save (Plain or Git); `plainLoadPath` returns Git only for Plain Load of a Workspace with both a remote and a local mapping
       4. [x] No allowlist, no Workspace name list, no Server branch map
    3. Uses
       1. [x] None (pure)
@@ -307,7 +307,7 @@ Narrowest shared test seam:
 ## 3. Seams
 
 1. **PathPick choose**
-   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Plain Load of a Directory or a File does no git pull or push. Plain Load of a Workspace runs the transport step the remote and mapping select, then reconciles. No git process.
+   Interface on **PathPick**. Tests pass `plainSavePath` for a remote, a local mapping, and neither. Any Load (plain or explicit git) of a Directory, a File, or another non-Workspace node routes to Desk and does no git pull or push. Workspace Load runs the transport step (`desk -> desk Load | git -> git Load (pull) | default -> nothing`), then reconciles, aborting on failure. No git process.
    1. [x] Pure `choose` Git vs Desk
    2. [x] `plainSavePath` returns Desk only for a local mapping and no remote
 
@@ -358,5 +358,5 @@ Narrowest shared test seam:
 ## 5. Unsettled
 
 1. How desk Save does local sync is unspecified. The tree keeps the staging desk command: `LoadSaveStart.startCommand` for Desk, then `deskSaveOp`.
-2. Desk Load is open for the later desk load/save ticket.
+2. Desk Load is open for the later desk load/save ticket. Known desk limitations (out of scope, not intended design): plain and desk Load of a File or Directory on Desktop with a local mapping still plan `DesktopPush` before reconcile; desk Load of a non-subject returns `None` from `DeskLoadPush.subjectToLoad` and reconciles nothing; plain Load of a local-only Workspace (no remote, local mapping only) enters the Load actor Neither arm and does not run desktop upload.
 3. The ROOT pull label `.` is open for that ticket. `GithubTransportActor.reconcileLabel` uses `.` when the workspace id is `Graph.rootId`. `GraphQuery.trySyncRootByLabel` maps `.` to that root.
