@@ -45,3 +45,4 @@ Remove that owner-path Amble call on the focused Node. The target runs Amble on 
 
 [21 — Run consumer: `=` and `Name=` statements](plan/expression-language/issues/21-run-consumer-equals-and-name-equals-statements.md)
 [33 — Recognize `?` as a Run statement](plan/expression-language/issues/33-recognize-ask-run-statement.md) treats `?` as an Amble statement. This ticket starts an Actor instead.
+[01 — Run picks the command-line actor](plan/command-line-actor/issues/01-run-picks-the-command-line-actor.md) specifies `>` lines. Project: [Command-line actor](plan/command-line-actor/project.md).
