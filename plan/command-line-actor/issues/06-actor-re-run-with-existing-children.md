@@ -1,17 +1,15 @@
 # 06 — The actor re-runs on a node that has children
-**Status**: needs-info
-One job: A person who runs a `>` node again sees a defined result when the node already has children. The job comes from open question 5 in [spec](../spec.md).
+**Status**: defined
+One job: A re-run of a `>` node replaces the node's existing children with the new output. The job comes from the Output criteria in [spec](../spec.md).
 
 Type: coding
 Blockers: [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md)
-
-Needs-info: open question 5 in the [spec](../spec.md) holds the whole behavior of this ticket.
 
 ## Inputs
 
 ### Working
 
-[ ] `src/Client/Commands.fs`: `execAmbleRunOp`. The Amble path deletes the focus node's children before it runs. This is a pattern, not a decision.
+[ ] `src/Client/Commands.fs`: `execAmbleRunOp`. The Amble path deletes the focus node's children before it runs. This is a pattern.
 
 ### Reference
 
@@ -24,21 +22,22 @@ Needs-info: open question 5 in the [spec](../spec.md) holds the whole behavior o
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Wait for the answer to the open question named above. Then write the edits.
+2. [ ] Before the first new output line, remove the start node's existing children, then add the new output as in [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md).
 
 ## Outputs
 
-[ ] Files and tests wait on the answer to the open question.
+[ ] Re-run replacement in `CommandActor`.
+[ ] A test for the re-run criterion in the [spec](../spec.md). The test name is chosen at build.
 
 ## Stop when
 
 [ ] Rewrite `06-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
-[ ] The edit chooses an open question.
+[ ] The edit changes a decision in the [spec](../spec.md).
 
 ## Check
 
 [ ] Run `scripts/agent-test.sh` with no arguments.
-[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names. The tests are named when the ticket leaves `needs-info`.
+[ ] Run `scripts/agent-test.sh --filter` for each test the ticket names. The tests are named in Outputs.
 [ ] All executed tests pass.
 [ ] Rewrite `06-build.md` with the present line. A fail stops the run.
 [ ] A reader who reads only the One job line can say what the ticket builds.

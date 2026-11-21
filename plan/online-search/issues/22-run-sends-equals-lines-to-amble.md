@@ -33,7 +33,7 @@ Remove that owner-path Amble call on the focused Node. The target runs Amble on 
 
 ## Future consideration
 
-`>` lines are out of scope. The implementer does not remove or change `>` handling.
+`>` lines are out of scope for the Amble path of this ticket. The implementer does not remove or change `>` handling. The [Command-line actor](../../command-line-actor/project.md) Project owns `>` lines. A `>` line that the owner scan reaches runs the command, and a focused `>` line wins over `=`.
 
 ## Finish-up
 

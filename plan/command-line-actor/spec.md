@@ -5,43 +5,97 @@ Map: [map.md](map.md)
 ## 1. User stories
 
 1. Pick the actor — As a person, I want Run on a node whose text starts with `>` to start the command-line actor, so that I do not choose an actor by hand.
-2. Run the command — As a person, I want the text after the `>` to run as a shell command, so that a node holds a command I can run again.
+2. Run the command — As the owner, I want the text after the `>` to run as a program with arguments, so that a node holds a command I can run again.
 3. Run in place — As a person, I want the command to run in the focus node's directory, so that relative paths in the command mean the files beside that node.
-4. See the output — As a person, I want the stdout of the command to become child nodes of the focus node, so that I can read and edit the output as an outline.
-5. Run in Azure — As a person, I want the command to run in the Azure environment, so that it runs where the server and the data are.
+4. See the output — As a person, I want the output of the command to become child nodes of the focus node, so that I can read and edit the output as an outline.
+5. Run on the server — As the owner, I want the command to run on the server, so that it runs where the server and the data are, on Azure or on a local server.
 
 ## 2. Locked decisions
 
-Alan, 2026-11-21.
+Product owner, 2026-11-21.
 
+### Context
+
+[ ] Private MVP — Ambit is a private application. The owner runs and owns the server. This is an MVP.
+[ ] Owner only — Only the owner runs commands. There is no permission gating.
+[ ] Environment — The command sees the server environment, including App Settings environment variables. See [Secrets](../../doc/reference/secrets.md).
 [ ] Part of Run — The command-line actor is part of the Run command.
-[ ] Pick — Run picks the command-line actor when the focus node's text starts with `>`.
-[ ] Environment — The actor runs in the Azure environment.
-[ ] Working directory — The actor sets the working directory to the focus node's directory.
-[ ] Command — The actor runs the focus node's text, after the `>`, as a shell command.
-[ ] Output — The actor captures stdout and builds child nodes from it.
+[ ] Same everywhere — The local server runs the command the same way as Azure, because `Process.Start` is cross-platform.
+
+### Trigger
+
+[ ] Pick — When the first character of the focus node's text is `>`, Run executes the command-line actor.
+[ ] First character — Leading whitespace does not count. A text with whitespace before the `>` is not a command line.
+[ ] Precedence — A `>` first character wins over `=`. `> x =y` runs the command-line actor. `x=y` runs Amble as today.
+[ ] Replaces — This replaces the client-side legacy Amble meaning of a `>` line.
+[ ] Any node — No node type is special. A File Node, Directory Node, or Workspace Node whose text starts with `>` runs the actor.
+[ ] Empty — A bare `>`, with no program, does nothing.
+[ ] Owner scan — The Run code is the same for a `>` line that the owner scan of [22 — Run sends = lines to Amble](../online-search/issues/22-run-sends-equals-lines-to-amble.md) reaches. It runs the command like a focused line.
+[ ] Start path — Run posts an order to a new server actor named `CommandActor`. This follows the pattern of the search actor.
+[ ] Live actor — A second Run while the actor is live is refused, as already coded for actors.
+
+### Execution
+
+[ ] Program and arguments — The next word after the `>` is the program. The rest of the line is passed as the arguments. `> x` executes `x`. `> x =y` executes `x` with the argument `=y`.
+[ ] No shell — The actor uses .NET `Process.Start` with the first word as the file name and the rest as the arguments. This works the same on Windows and Linux.
+[ ] Shell on request — A person who wants a shell writes `> pwsh -c "..."` or `> sh -c "..."`.
+[ ] Working directory — The working directory is the focus node's enclosing directory. For a File Node or Directory Node, that is its directory. For any other node, that is the nearest enclosing directory.
+[ ] Thread — The actor runs on its own thread.
+[ ] No timeout — A command has no timeout.
+[ ] Cancel — The actor inherits the actor cancel. Cancel kills the process.
+
+### Output
+
+[ ] Child per line — Each output line becomes one plain child node. The actor does no outline parsing for now.
+[ ] stdout and stderr — The actor captures both. It interleaves them in arrival order, as a terminal shows them.
+[ ] Cap — The actor adds at most 1000 output lines as children. At the cap it stops adding children and adds a final child reading `output truncated`. The process keeps running until it exits or is cancelled.
+[ ] Exit code — A non-zero exit sets the cssclass `error` on the start node, the `>` node. No extra child is added. A successful run clears the `error` class.
+[ ] Re-run — New output replaces the start node's existing children.
+
+### Out of scope
+
+[ ] Future — The AMBLE language will later expand to encompass exec. That is not in scope.
+[ ] Placement — This Project has no Epic or Chapter for now. It stays unplaced.
 
 ## 3. Acceptance criteria
 
 ### Pick
 
-[ ] A Run on a focus node whose text starts with `>` starts the command-line actor.
-[ ] A Run on a focus node whose text does not start with `>` does not start the command-line actor.
+[ ] A Run on a focus node whose first character is `>` starts the command-line actor.
+[ ] A Run on a focus node whose first character is not `>` does not start the command-line actor.
+[ ] A text with whitespace before the `>` does not start the command-line actor.
+[ ] A text that starts with `>` and contains `=` starts the command-line actor and does not run Amble.
+[ ] A bare `>` does nothing.
+[ ] A `>` text on a File Node, Directory Node, or Workspace Node starts the actor.
+[ ] A `>` line that the owner scan reaches runs the command.
+[ ] A second Run while the actor is live is refused.
 
 ### Command
 
-[ ] The command is the focus node's text after the `>`.
-[ ] The actor runs that command as a shell command.
+[ ] The program is the first word after the `>`.
+[ ] The arguments are the rest of the line, passed unchanged.
+[ ] The actor starts the program with `Process.Start` and no shell.
+[ ] The command sees the server environment variables.
+[ ] The same text runs the same way on a local server and on Azure.
 
-### Environment and directory
+### Directory
 
-[ ] The actor runs in the Azure environment. The hosting is in [Deploying to Azure](../../doc/reference/deploy-azure.md). The on-disk data root is `DataDir`, in [Persistence model](../../doc/current/persistence-model.md).
-[ ] The working directory of the command is the focus node's directory.
+[ ] The working directory of the command is the focus node's enclosing directory. For a node that is not a File Node or Directory Node, it is the nearest enclosing directory. The hosting is in [Deploying to Azure](../../doc/reference/deploy-azure.md). The on-disk data root is `DataDir`, in [Persistence model](../../doc/current/persistence-model.md).
 
 ### Output
 
-[ ] The actor captures stdout.
-[ ] The actor builds child nodes of the focus node from that stdout.
+[ ] The actor captures stdout and stderr, interleaved in arrival order.
+[ ] Each output line becomes one plain child node of the focus node.
+[ ] After 1000 output lines the actor stops adding children and adds one final child reading `output truncated`.
+[ ] The process keeps running after the cap until it exits or is cancelled.
+[ ] A non-zero exit code sets the cssclass `error` on the focus node and adds no child.
+[ ] A zero exit code clears the cssclass `error` on the focus node.
+[ ] A re-run replaces the existing children with the new output.
+
+### Cancel
+
+[ ] The command has no timeout.
+[ ] Cancel kills the process.
 
 ## 4. Existing behavior this Project meets
 
@@ -55,31 +109,4 @@ Alan, 2026-11-21.
 
 ## 5. Open questions
 
-Nothing in this section is decided. A ticket that depends on a question has Status `needs-info`.
-
-### From Alan's brief
-
-1. Child shape — Does each stdout line become one child, or does the actor parse stdout as an outline?
-2. stderr — What happens to stderr?
-3. Exit code — What happens to a non-zero exit code?
-4. Timeouts — Does a command have a timeout? If it does, what is the limit and what happens at the limit?
-5. Re-run — What happens when the focus node already has children?
-6. Directory of a non-file node — Where does the directory come from for a node that is not a file?
-
-### From the existing Run, path, and actor docs
-
-7. Precedence over `=` — A `>` line that contains `=` is query text today, and `submitQuery` runs first. Which rule wins for such a line?
-8. Leading whitespace — `shouldExec` trims the start of the text. Does the actor need `>` as the first character, or may whitespace come before it?
-9. Existing `>` meaning — Run treats a `>` line as an Amble shell statement today. The roadmap describes argv tokens, embedded expressions, redirections, and pipes. Does the command-line actor replace that meaning, or does it run beside it?
-10. Shell text — Does the shell receive the text after the `>` unchanged, or does Ambit expand node references first?
-11. Which shell — Which shell program runs the text on the Azure host, and which environment variables does the command see? Azure App Settings are environment variables. They hold secrets, as in [Secrets](../../doc/reference/secrets.md).
-12. Who may run — Which people may run an arbitrary shell command on the Azure host?
-13. Where it starts — Today a `>` line runs on the client. The actor runs on the server. Which start path does the actor use, and what is its name?
-14. Not on Azure — What does Run do on a `>` line when the Server is not in the Azure environment, for example in a local development run?
-15. Owner scan — [22 — Run sends = lines to Amble](../online-search/issues/22-run-sends-equals-lines-to-amble.md) scans owners upward for `?` and `=` lines. Does that scan include `>` lines?
-16. Special focus — `shouldExec` is false for a Special focus node. Does a File Node, Directory Node, or Workspace Node whose text starts with `>` run the actor?
-17. Live actor — [Run](../../doc/user/reference/commands/run.md) fails a second query Run on a line that has a live Actor. Does the same rule hold for this actor?
-18. Cancel — Cancel stops the live run on the focused node. Does Cancel stop the process and the processes it started?
-19. Output cap — Does stdout have a size cap, as one run has a cap of 50 Answers in [25 — The server evaluates Run](../online-search/issues/25-server-evaluates-run.md)?
-20. Empty command — What happens when the text after the `>` is empty?
-21. Placement — Does this Project belong under an Epic or Chapter on the Roadmap?
+None. The product owner answered every question on 2026-11-21. Each answer is a decision in section 2 and a criterion in section 3.

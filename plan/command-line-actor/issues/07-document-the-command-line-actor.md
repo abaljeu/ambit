@@ -1,11 +1,15 @@
 # 07 — Document the command-line actor
-**Status**: needs-info
-One job: A reader of the user and current docs learns what Run does on a `>` line. The job comes from the Existing behavior section in [spec](../spec.md).
+**Status**: defined
+One job: A reader of the user and current docs learns what Run does on a `>` line, as the decisions in [spec](../spec.md) state.
 
 Type: coding
-Blockers: [01 — Run picks the command-line actor](01-run-picks-the-command-line-actor.md), [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md)
+Blockers:
 
-Needs-info: the docs state behavior that open questions 1 to 21 in the [spec](../spec.md) still hold.
+- [01 — Run picks the command-line actor](01-run-picks-the-command-line-actor.md)
+- [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md)
+- [04 — The actor handles stderr and the exit code](04-actor-handles-stderr-and-exit-code.md)
+- [05 — The actor stops on Cancel](05-actor-stops-on-cancel.md)
+- [06 — The actor re-runs on a node that has children](06-actor-re-run-with-existing-children.md)
 
 ## Inputs
 
@@ -27,16 +31,18 @@ Needs-info: the docs state behavior that open questions 1 to 21 in the [spec](..
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Wait for the tickets named in Blockers. Then write the edits.
+2. [ ] After the Blockers pass review, rewrite the `>` entry in `doc/user/reference/commands/run.md` to the decisions in the spec, and remove the Amble `>` text.
+3. [ ] Add `CommandActor` to `doc/current/actors.md` and `doc/user/reference/actor.md`.
+4. [ ] Move shell `>` out of the Later slices in `doc/roadmap/amble-run.md`, and note that the AMBLE language will later encompass exec.
 
 ## Outputs
 
-[ ] Files wait on the answers to the open questions.
+[ ] The four docs agree with the shipped behavior.
 
 ## Stop when
 
 [ ] Rewrite `07-build.md` with the present line. The line is `STOP: <fact>.` or `Check: pass` or `Check: fail: <why>`. Then ask.
-[ ] The edit states behavior that an open question holds.
+[ ] The edit changes a decision in the [spec](../spec.md).
 
 ## Check
 
