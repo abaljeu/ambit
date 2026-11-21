@@ -33,7 +33,7 @@ Remove that owner-path Amble call on the focused Node. The target runs Amble on 
 
 ## Future consideration
 
-`>` lines are out of scope. The implementer does not remove or change `>` handling.
+`>` lines are out of scope for the Amble path of this ticket. The implementer does not remove or change `>` handling. The [Command-line actor](../../command-line-actor/project.md) Project owns `>` lines. A `>` line that the owner scan reaches runs the command, and a focused `>` line wins over `=`.
 
 ## Finish-up
 
@@ -45,3 +45,4 @@ Remove that owner-path Amble call on the focused Node. The target runs Amble on 
 
 [21 — Run consumer: `=` and `Name=` statements](plan/expression-language/issues/21-run-consumer-equals-and-name-equals-statements.md)
 [33 — Recognize `?` as a Run statement](plan/expression-language/issues/33-recognize-ask-run-statement.md) treats `?` as an Amble statement. This ticket starts an Actor instead.
+[01 — Run picks the command-line actor](plan/command-line-actor/issues/01-run-picks-the-command-line-actor.md) specifies `>` lines. Project: [Command-line actor](plan/command-line-actor/project.md).
