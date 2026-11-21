@@ -161,6 +161,17 @@ module DocumentPersistChange =
                 with ex ->
                     Error ex.Message
 
+    let private executeCoalescedMove
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (move: DocumentPathMove)
+        : Result<unit, string> =
+        NodeLockPool.withLockResult postGraph move.nodeId (fun () ->
+            match resolveMovePaths dataDir preGraph postGraph move with
+            | Error msg -> Error msg
+            | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
+
     let executePathMoves
         (dataDir: string)
         (preGraph: Graph)
@@ -174,9 +185,7 @@ module DocumentPersistChange =
                 match acc with
                 | Error msg -> Error msg
                 | Ok () ->
-                    match resolveMovePaths dataDir preGraph postGraph move with
-                    | Error msg -> Error msg
-                    | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
+                    executeCoalescedMove dataDir preGraph postGraph move)
             (Ok ())
 
     /// Path-moves and successful writes. A failed write is not in this set.
@@ -199,36 +208,29 @@ module DocumentPersistChange =
         (preGraph: Graph)
         (postGraph: Graph)
         : Result<PersistGraphOk, string> =
-        let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
+        let moves =
+            DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
         let moveIds = moves |> List.map (fun move -> move.nodeId)
         let affected = affectedRoots moveIds
-        let gatedIds = Set.toList affected @ moveIds
-        let workTreeRoots =
-            [ for nodeId in gatedIds do
-                  DocumentPersistPath.workspaceRootFor dataDir preGraph nodeId
-                  DocumentPersistPath.workspaceRootFor dataDir postGraph nodeId ]
-            |> List.choose id
-            |> DocumentPersistPath.normalizedWorkTreeRoots
-        DocumentPersistPath.withWorkTreeGates workTreeRoots (fun () ->
-            match executePathMoves dataDir preGraph postGraph moves with
-            | Error msg -> Error msg
-            | Ok () ->
-                let stamped, message, writtenIds =
-                    affected
-                    |> Set.toList
-                    |> DocumentPersistWrite.writeDocumentsSoft dataDir postGraph
+        match executePathMoves dataDir preGraph postGraph moves with
+        | Error msg -> Error msg
+        | Ok () ->
+            let stamped, message, writtenIds =
+                affected
+                |> Set.toList
+                |> DocumentPersistWrite.writeDocumentsSoft dataDir postGraph
 
-                Ok {
-                    graph =
-                        DocumentPersistPath.stampExistingDocuments
-                            dataDir
-                            (persistedContentIds moveIds affected writtenIds)
-                            (existingStampRoots moveIds)
-                            stamped
-                    message = message
-                })
+            Ok {
+                graph =
+                    DocumentPersistPath.stampExistingDocuments
+                        dataDir
+                        (persistedContentIds moveIds affected writtenIds)
+                        (existingStampRoots moveIds)
+                        stamped
+                message = message
+            }
 
-    /// Snapshot fallback when no accepted operation batch is available.
+    /// File diff when no accepted operation batch is available.
     let persistGraphChange
         (dataDir: string)
         (preGraph: Graph)
@@ -255,6 +257,18 @@ module DocumentPersistChange =
             dataDir
             preGraph
             postGraph
+
+    /// Writes one document node's whole file from the given graph.
+    /// The time is that file's last-write time in UTC at database precision.
+    let persistNode
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : Result<DateTime, string> =
+        DocumentPersistWrite.writeDocument dataDir graph nodeId
+        |> Result.map (fun written ->
+            File.GetLastWriteTimeUtc written.path
+            |> NodeUpdateTime.toDbPrecision)
 
     let private tryMtime
         (pathByRel: Map<string, string>)

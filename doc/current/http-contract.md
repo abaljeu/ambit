@@ -61,14 +61,16 @@ sequenceDiagram
 ### 2.2 Event id
 
 1. [x] **Event id.** `eventId` is an integer. The Server assigns a positive id when it stores an event.
-2. [x] **Draft id.** A posted event sends `eventId` `0`. Any other posted `eventId` is `400`.
-3. [x] **submissionId.** `submissionId` is a client `Guid`. The same `submissionId` returns the stored event and does not append a second event. The response field `r` stays the current snapshot event id.
-4. [x] **Cursor.** Poll and load send the client event id. The success field `r` is the server event id.
-5. [ ] **Accept rule.** The Server accepts the changeset when `baseSequence` equals `currentSequence`. Otherwise it rejects the changeset with `409`.
-6. [ ] **Operation log.** The Server keeps a linear operation log.
-7. [ ] **Sequence number.** Each changeset has a sequence number.
-8. [ ] **baseSequence.** The client submits `baseSequence`.
-9. [ ] **Client retry.** On rejection, the client rewinds, replays the missed changesets, applies its change again, and retries.
+2. [o] **Draft id.** A posted event sends `eventId` `0`. Any other posted `eventId` is `400`.
+3. [ ] **Draft id.** `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+4. [o] **submissionId.** `submissionId` is a client `Guid`. The same `submissionId` returns the stored event and does not append a second event. The response field `r` stays the current snapshot event id.
+5. [ ] **orderId.** `orderId` is a client `Guid` on an `Order`. The same `orderId` returns the stored event. The response field `r` stays the current snapshot event id. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
+6. [x] **Cursor.** Poll and load send the client event id. The success field `r` is the server event id.
+7. [ ] **Accept rule.** The Server accepts the changeset when `baseSequence` equals `currentSequence`. Otherwise it rejects the changeset with `409`.
+8. [ ] **Operation log.** The Server keeps a linear operation log.
+9. [ ] **Sequence number.** Each changeset has a sequence number.
+10. [ ] **baseSequence.** The client submits `baseSequence`.
+11. [ ] **Client retry.** On rejection, the client rewinds, replays the missed changesets, applies its change again, and retries.
 
 ### 2.3 Transaction log
 
@@ -86,8 +88,8 @@ sequenceDiagram
 5. [x] **Login failure.** A mismatch redirects `302` to `/ambit/login?error=1`.
 6. [x] **Logout.** `GET /ambit/logout` clears the cookie and redirects `302` to `/ambit/login`.
 7. [x] **Cookie.** The cookie name is `gambol_auth`. The cookie is HttpOnly, SameSite=Lax, and Secure. The value is HMAC-SHA256 of the username, keyed by the password. The code is [Auth token](../../src/Shared/dotnet/AuthToken.fs).
-8. [x] **Protected routes.** When the cookie is missing, or the mailbox does not admit the caller, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body.
-9. [x] **Empty auth settings.** When both auth fields are empty, `GET /ambit` admits a session and sets `gambol_auth`. The protected routes in item 8 still return `401` when that cookie is missing.
+8. **Protected routes.** When the cookie is missing, or the caller is not logged in, `GET /ambit/state`, `POST /ambit/poll`, `POST /ambit/load`, `POST /ambit/changes`, `POST /ambit/events`, and `POST /ambit/search` return `401` with an empty body. The route checks the logged-in user. An Actor is admitted at start.
+10. [x] **Empty auth settings.** When both auth fields are empty, `GET /ambit` admits a session and sets `gambol_auth`. The protected routes in item 8 still return `401` when that cookie is missing.
 
 ### 2.5 Endpoints
 
@@ -97,7 +99,7 @@ sequenceDiagram
 4. [x] **Changes.** `POST /ambit/changes` submits events and a want list.
 5. [x] **Events alias.** `POST /ambit/events` uses the same handler as `POST /ambit/changes`.
 6. [x] **Load.** `POST /ambit/load` submits an event id and load targets.
-7. [x] **Git save.** `POST /ambit/save` commits a git save. The request has no JSON body.
+7. [x] **Save.** `POST /ambit/load-save-command` runs Save. `src/Server/LoadSaveRouting.fs` `resolvePath` chooses git or desk. `POST /ambit/save` is the desk data-directory commit. `src/Server/Api.fs` `gitSave`.
 8. [x] **User CSS.** `GET /ambit/user.css` returns `200` and `text/css` from `{dataDir}/SYSTEM/user.css` when that file exists, otherwise from wwwroot `user.css`. When neither file exists the status is `204`.
 9. [x] **Static files.** `GET /ambit/*` returns Fable client assets (`Program.js`, CSS, and the other static files).
 10. [x] **Absent sync routes.** `POST /submit`, `POST /undo`, `POST /redo`, and `GET /ops?since={revision}` are absent.
@@ -237,7 +239,7 @@ sequenceDiagram
 10. [x] **Field p.** `p` is the latest write time of the page artifacts in wwwroot, in Unix seconds. When those files are missing, `p` is the server assembly write time.
 11. [x] **Field v.** `v` is the API version integer.
 12. [x] **Field ready.** `ready` is a boolean.
-13. [x] **Field externalChanges.** On poll, `externalChanges` is `true` when `c` has one or more events.
+13. [x] **Field externalChanges.** On poll, `externalChanges` is `true` when `c` has an event whose body is not a Notice. A Notice rides in `c` and does not set the flag.
 14. [x] **Field c.** `c` is the events after the client `eventId`. The field is required. It may be empty. Each item is an Event object.
 15. [x] **Field nodes.** `nodes` is the want-answer Node array. The field is required. It may be empty.
 16. [x] **Field childMap.** `childMap` is the want-answer edge array. The field is required. It may be empty.
@@ -284,15 +286,20 @@ sequenceDiagram
 }
 ```
 
-6. [x] **events.** `events` is an array of Event objects. Each posted `eventId` is `0`. An empty `events` array is `400`.
+6. [o] **events.** `events` is an array of Event objects. Each posted `eventId` is `0`. An empty `events` array is `400`.
+7. [ ] **events.** `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. An empty `events` array is `400`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
 ```json
 { "error": "events must not be empty" }
 ```
 
-7. [x] **Apply order.** `postEvents` pushes the list onto the mailbox queue back to back. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message. The HTTP result is success.
-8. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
-9. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
+8. [o] **Apply order.** `postEvents` pushes the list onto the mailbox queue back to back. The server applies it in order. A credential refusal applies nothing. A client ActorStop applies nothing. A named start that uses `startChosen` stores a refusal as ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message. That HTTP result is success.
+[x] A refused query Run on this door returns `400`. The body is `{ "error": "<failure>" }`. The event log stores no row for that refusal. An edit earlier in that post stays.
+9. [ ] **Apply order.** The route checks the logged-in user, then `PlaceOrder` pushes each `Order` onto the mailbox queue back to back. The server applies it in order. The reply is `Result<EventId, string>`. A holder of the notice function posts `Notice.ActorStopped`. `Order.StartActor` of `ActorOrder` and `Order.Cancel` are orders. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 9 Admission at the entry.
+[o] `UnknownActor` is a miss in the pool name table.
+[ ] The dispatcher outside Core maps the command name to a function. Detail: [Actor as client](../../plan/actor-as-client/project.md).
+10. [x] **want.** `want` is an array of Node id strings. The array is required. It may be empty.
+11. [x] **Success.** `200` and `application/json`. The body uses the same change-success codec as poll.
 
 ```json
 {
@@ -326,18 +333,20 @@ sequenceDiagram
 }
 ```
 
-10. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
-11. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when later events exist.
-12. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
-13. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
-14. [x] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
-15. [x] **Draft event id.** A posted `eventId` other than `0` is `400`.
+12. [x] **Field c.** `c` contains the stored events for this post, then any later events through the snapshot.
+13. [x] **Field externalChanges.** `externalChanges` is a boolean from the accept result, or `true` when a later event is not a Notice. A later Notice still rides in `c`.
+14. [x] **Field message.** `message` is present only when artifact persistence returns a status string.
+15. [x] **Want answer.** `nodes` and `childMap` are the want answer. The body has no `graph` field.
+16. [o] **Idempotent submissionId.** The same `submissionId` returns the stored event and does not append again. `r` is the current snapshot event id.
+17. [ ] **Idempotent orderId.** The same `orderId` returns the stored event. `r` is the current snapshot event id. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
+18. [o] **Draft event id.** A posted `eventId` other than `0` is `400`.
+19. [ ] **Draft event id.** `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
 
 ```json
 { "error": "posted EventId must be zero" }
 ```
 
-16. [x] **Invalid JSON.** A body that fails decode is `400`.
+20. [x] **Invalid JSON.** A body that fails decode is `400`.
 
 ```json
 { "error": "Invalid JSON: …" }
@@ -392,20 +401,14 @@ sequenceDiagram
 { "error": "Load requires all selected targets in one Workspace" }
 ```
 
-### 2.11 POST /ambit/save
+### 2.11 Save
 
-1. [x] **Method and path.** `POST /ambit/save`.
-2. [x] **Cookie.** `gambol_auth` is required. A missing or unadmitted cookie is `401` with an empty body.
-3. [x] **Header.** `X-Gambol-Client` is an optional string. The commit message can include it.
-4. [x] **Body.** The handler does not read a JSON body.
-5. [x] **Disabled.** When the data directory is not a git repo, the status is `200` and `application/json`.
-
-```json
-{ "ok": false, "detail": "", "error": "Git save is not enabled." }
-```
-
-6. [x] **Success.** A commit returns `200` and `application/json`. `ok` is `true`. `detail` is a string. `error` is omitted.
-7. [x] **Commit failure.** A prepare or commit error is `400`. The body is `ok` `false`, `detail` `""`, and `error` as a string.
+1. [x] **Route.** Save is `POST /ambit/load-save-command`. The body type is `LoadSaveCommandRequest` in [History](../../src/Shared/History.fs). The codec is [Event JSON](../../src/Shared/EventJson.fs) `encodeLoadSaveCommandRequest`.
+2. [x] **Path.** Plain Save chooses Desk only when the workspace label is in `workspaceMappedLabels` and absent from `workspaceRemotes`. `src/Shared/PathPick.fs` `plainSavePath`. `src/Client/UpdateSave.fs` `saveOpFor`.
+3. [x] **Actor.** Every other plain Save, and `LoadSavePrePick.Git`, enter the Save actor. `src/Server/LoadSaveRouting.fs` `resolvePath`. `src/Server/GithubTransportActor.fs` `runSaveBody` runs `persistFocusWhenNotOrdinary`. A remote then commits, pulls, and pushes. `src/Server/WorkspaceGit.fs` `remoteExists` requires that folder's `.git` through `isRepo`, then reads `git remote`.
+4. [x] **Neither.** No remote is the Neither arm. `commitSaveRepository` commits through `src/Server/GitSave.fs` `commitAll` when `isRepo` finds that folder's `.git`. `saveWorkspace` uses `src/Server/DocumentPersistPath.fs` `repositoryRoot`. ROOT's repository is the data directory.
+5. [x] **Desk.** `LoadSavePrePick.Desk` stays Desk. `src/Server/LoadSaveStart.fs` `startCommand` starts that desk command. The client then runs `src/Client/UpdateSave.fs` `deskSaveOp`. When `canGitSave` is true, `deskSaveOp` posts `ContinueDeskSave` to `POST /{file}/save`. How desk Save does local sync is unspecified. This post is the staging desk command.
+6. [x] **Data-directory save.** `POST /ambit/save` has no JSON body. `X-Gambol-Client` is optional. The commit message can include it. When the data directory is not a git repo, the status is `200` and `application/json`, with `ok` false and `error` `Git save is not enabled.` A commit returns `200`, `ok` true, and `detail` as a string. A prepare or commit error is `400`.
 
 ### 2.12 JSON encoding
 
@@ -500,7 +503,8 @@ Graph {
 
 #### 2.12.5 Event
 
-1. [x] **Event.** An event has `eventId`, `submissionId`, `authority`, `commandName`, and `body`.
+1. [o] **Event.** An event has `eventId`, `submissionId`, `authority`, `commandName`, and `body`.
+2. [ ] **Event.** An `Ev` has `id` and `body`. `EventBody` is `Order of PlacedOrder | Notice of Notice`. `authority`, `orderId`, and `commandName` belong to the `PlacedOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
 
 ```json
 {
@@ -512,13 +516,19 @@ Graph {
 }
 ```
 
-2. [x] **eventId.** `eventId` is an integer.
-3. [x] **submissionId.** `submissionId` is a GUID string.
-4. [x] **authority.** `authority` is a string.
-5. [x] **commandName.** `commandName` is a string.
-6. [x] **Change body.** `body.kind` `"change"` has `ops`, an Op array.
-7. [x] **Undo body.** `body.kind` `"undo"` has `target` (integer event id) and `ops`.
-8. [x] **Redo body.** `body.kind` `"redo"` has `target` (integer event id) and `ops`.
+3. [x] **eventId.** `eventId` is an integer.
+4. [o] **submissionId.** `submissionId` is a GUID string.
+5. [ ] **orderId.** `orderId` is a GUID on the `PlacedOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
+6. [o] **authority.** `authority` is a string.
+7. [ ] **authority.** `authority` is the `Caller`'s `Authority` on the `PlacedOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 16 Order carries its envelope fields.
+8. [o] **commandName.** `commandName` is a string.
+9. [ ] **commandName.** `commandName` is a `string option` on `PlaceOrder` and on the `PlacedOrder`. Only an order that a Command started has one. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 11 commandName.
+10. [o] **Change body.** `body.kind` `"change"` has `ops`, an Op array.
+11. [ ] **Change body.** `EventBody.Order` carries a `PlacedOrder` whose logged Change holds the op list. `origin` exists only on the placed `Order.Change`. `CoreEventDispatch` reads that `origin`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin and decision 10 Order, not Command.
+12. [o] **Undo body.** `body.kind` `"undo"` has `target` (integer event id) and `ops`.
+13. [ ] **Undo body.** `Order.Undo` has `target` (integer event id). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
+14. [o] **Redo body.** `body.kind` `"redo"` has `target` (integer event id) and `ops`.
+15. [ ] **Redo body.** `Order.Redo` has `target` (integer event id). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 #### 2.12.6 Op
 
@@ -538,14 +548,15 @@ Graph {
 
 5. [x] **NewSpecialNode.** `NewSpecialNode` has `nodeId`, `kind`, and `name`. `kind` is a special-kind string.
 6. [x] **SetName.** `SetName` has `nodeId`, `oldName`, and `newName`.
-7. [x] **SetDocumentState.** `SetDocumentState` has `nodeId`, `oldState`, and `newState`.
-8. [x] **SetUpdateTime.** `SetUpdateTime` has `nodeId`, `oldTime`, and `newTime`. The time fields are integer ticks.
-9. [ ] **CreateNodes.** `CreateNodes` has `parentId`, `position`, and `nodes[]`. The nodes are recursive and use client-generated UUIDs.
-10. [ ] **CreateReference.** `CreateReference` has `parentId`, `position`, and `nodeId`.
-11. [ ] **RemoveNodes.** `RemoveNodes` has `parentId` and `range [m, n)`.
-12. [ ] **MoveNodes.** `MoveNodes` has `sourceParentId`, `sourceRange [m, n)`, `destParentId`, and `destPosition`.
-13. [ ] **EditNode.** `EditNode` has `nodeId`, `text`, and `name`.
-14. [ ] **SetMetadata.** `SetMetadata` has `nodeId`, `key`, and `value`.
+7. [o] **SetDocumentState.** `SetDocumentState` has `nodeId`, `oldState`, and `newState`.
+8. [ ] **NodeUnpersisted.** `Notice.NodeUnpersisted` of `nodeId` is the Unpersisted mark. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 12 NodeUnpersisted.
+9. [x] **SetUpdateTime.** `SetUpdateTime` has `nodeId`, `oldTime`, and `newTime`. The time fields are integer ticks.
+10. [ ] **CreateNodes.** `CreateNodes` has `parentId`, `position`, and `nodes[]`. The nodes are recursive and use client-generated UUIDs.
+11. [ ] **CreateReference.** `CreateReference` has `parentId`, `position`, and `nodeId`.
+12. [ ] **RemoveNodes.** `RemoveNodes` has `parentId` and `range [m, n)`.
+13. [ ] **MoveNodes.** `MoveNodes` has `sourceParentId`, `sourceRange [m, n)`, `destParentId`, and `destPosition`.
+14. [ ] **EditNode.** `EditNode` has `nodeId`, `text`, and `name`.
+15. [ ] **SetMetadata.** `SetMetadata` has `nodeId`, `key`, and `value`.
 
 ### 2.13 Multi-client sync
 
@@ -557,20 +568,23 @@ Graph {
 #### 2.13.2 Client flow
 
 1. [x] **Initial load.** `GET /ambit/state` returns the graph and the event id.
-2. [x] **Local edit.** The client builds an event whose `eventId` is `0` and whose `submissionId` is new.
-3. [x] **Submit.** `POST /ambit/changes` sends `events` and `want`. On success the client reads `r`, `c`, `nodes`, and `childMap`.
-4. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. The client applies the `c` tail when it is behind.
-5. [x] **Resync.** When a resync is needed, `GET /ambit/state` returns the graph.
-6. [x] **Conflicts.** Conflict handling is last-write-wins, in server apply order. Detail: [Multi-client sync](sync-mvp.md).
-7. [x] **Undo.** Undo and redo are client-local. The client posts undo and redo events. Server undo and redo endpoints are absent.
+2. [o] **Local edit.** The client builds an event whose `eventId` is `0` and whose `submissionId` is new.
+3. [ ] **Local edit.** The client builds an `Order` whose `orderId` is new. `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 16 Order carries its envelope fields.
+4. [x] **Submit.** `POST /ambit/changes` sends `events` and `want`. On success the client reads `r`, `c`, `nodes`, and `childMap`.
+5. [x] **Poll.** `POST /ambit/poll` sends `eventId` and `want` on the poll loop. `Update.applyPollDataOutdated` in `src/Client/Update.fs` applies a non-empty `c` tail when `pending` is empty. It applies a non-empty Notice-only `c` tail when `pending` is non-empty, keeps that queue, and `SyncPlanner.tryStartSubmit` submits it. A `c` tail with any other body, or an empty `c` tail, while `pending` is non-empty stays `DataOutdated`. An `Error` from `SyncLogic.applySyncResponse` stays `DataOutdated`. A Notice in that tail does not start a catch-up, a rewind, or a replay.
+6. [x] **Resync.** When a resync is needed, `GET /ambit/state` returns the graph.
+7. [x] **Conflicts.** Conflict handling is last-write-wins, in server apply order. Detail: [Multi-client sync](sync-mvp.md).
+8. [o] **Undo.** Undo and redo are client-local. The client posts undo and redo events. Server undo and redo endpoints are absent.
+9. [ ] **Undo.** Undo and redo are client-local. The client places `Order.Undo` or `Order.Redo` of the target `EventId`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed.
 
 ### 2.14 Error codes
 
 1. [x] **200.** `200` means success for state, poll, changes, events, load, and a git-save result body.
 2. [x] **302.** `302` means login, logout, or the shell auth redirect.
-3. [x] **400.** `400` means a JSON decode error, a posted `eventId` other than `0`, a load that spans workspaces, or another handler error string.
-4. [x] **401.** `401` means the cookie is missing, the mailbox does not admit the caller, or the handler error text is `Unauthorized`. The body is empty.
-5. [x] **500.** A handler error whose text starts with `Internal server error` is `500` and `text/plain`. A startup failure or a missing production config is `500` and `text/html`.
+3. [o] **400.** `400` means a JSON decode error, a posted `eventId` other than `0`, a load that spans workspaces, or another handler error string.
+4. [ ] **400.** `400` means a JSON decode error, a load that spans workspaces, or another handler error string. `PlaceOrder` replies `Result<EventId, string>`. The caller reads its `EventId` from the reply. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+5. **401.** `401` means the cookie is missing, the caller is not logged in, or the handler error text is `Unauthorized`. The route checks the logged-in user. The body is empty.
+7. [x] **500.** A handler error whose text starts with `Internal server error` is `500` and `text/plain`. A startup failure or a missing production config is `500` and `text/html`.
 
 ### 2.15 Notes
 
@@ -604,7 +618,7 @@ Graph {
 ### 2.18 POST /ambit/search
 
 1. [x] **Method and path.** `POST /ambit/search`.
-2. [x] **Cookie.** `gambol_auth` is required. A missing or unadmitted cookie is `401` with an empty body.
-3. [x] **Body.** JSON `text` (string) and `startId` (Node id). Optional `generation` (number) is the reply match when it is present. Detail: [Search Actor](search-actor.md).
-4. [x] **Success.** `200` and `application/json`. The body has `ids` (at most 200 Node ids) and either `text` or `generation`.
-5. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once, and returns that reply. There is no continuation cursor.
+2. **Cookie.** `gambol_auth` is required. A missing cookie, or a caller who is not logged in, is `401` with an empty body. The route checks the logged-in user.
+4. [x] **Body.** JSON `text` (string), `startId` (Node id), and `count` (number). Optional `generation` (number) is the reply match when it is present. A body that omits `count` decodes as 200. Detail: [Search Actor](search-actor.md).
+5. [x] **Success.** `200` and `application/json`. The body has `ids`, the Want answer `nodes` list of those hits' Headers, and either `text` or `generation`. `count` caps `ids`.
+6. [x] **One reply.** The handler reads the server graph, runs the client search algorithm once from `startId`, and returns that reply. There is no continuation cursor.

@@ -395,3 +395,134 @@ let ``amended confirmation echo routes through external ACK not Reject`` () =
         failwithf "expected external Applied, got Rejected: %s" msg
     | AckReconcile.Ignored -> failwith "expected Applied, got Ignored"
     Assert.False(SyncLogic.isConfirmationEcho [ pending ] amended)
+
+[<Fact>]
+let ``Notice in the reply keeps the confirmation echo`` () =
+    let nodeId, state, pending = seededEdit ()
+    let notice =
+        { pending with
+            id = EventIdFixtures.storedId 2
+            submissionId = Guid.NewGuid()
+            authority = Authority "Browser"
+            commandName = "Edit node"
+            body =
+                EventBody.Notice(
+                    Notice.NodePersisted(nodeId, EventId.zero, DateTime.UtcNow)) }
+    let confirmed = [ confirm pending []; notice ]
+    Assert.True(SyncLogic.isConfirmationEcho [ pending ] confirmed)
+    let applied =
+        SyncLogic.reconcileAck
+            [ pending ]
+            confirmed
+            (EventIdFixtures.storedId 2)
+            state
+            (sending [ pending ])
+    let _, syncInfo, _, _ = expectApplied applied
+    Assert.True(syncInfo.catchUp.IsNone)
+    let foreign =
+        { confirm pending [] with
+            submissionId = Guid.NewGuid()
+            body = EventBody.Change [ Op.SetText(nodeId, "before", "other") ] }
+    Assert.False(SyncLogic.isConfirmationEcho [ pending ] [ foreign; notice ])
+    match
+        SyncLogic.reconcileExternalAck
+            [ pending ]
+            (EventIdFixtures.storedId 3)
+            state
+            (sending [ pending ])
+    with
+    | AckReconcile.Applied (_, caught, _, _) ->
+        Assert.True(caught.catchUp.IsSome)
+    | other -> failwithf "expected catch-up Applied, got %A" other
+
+[<Fact>]
+let ``post reply applies a Notice then matches the confirmation`` () =
+    let fileId = NodeId.New()
+    let fileTime = DateTime(2026, 10, 23, 4, 5, 6, DateTimeKind.Utc)
+    let file =
+        Node.Create(
+            fileId,
+            text = "before",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            updateTime = DateTime(2026, 10, 23, 1, 0, 0, DateTimeKind.Utc))
+    let graph = Graph.addDetachedNode file (Graph.create ())
+    let change = textChange EventId.zero fileId "before" "after"
+    let state0 = clientState graph EventId.zero (ClientHistory.clear ())
+    match SyncLogic.applyLocalEvent { change with commandName = "Edit node" } state0 with
+    | Error msg -> failwith msg
+    | Ok (state, pending) ->
+        let version = state.graph.nodes.[fileId].documentState.changedVersion
+        let notice =
+            { pending with
+                id = EventIdFixtures.storedId 4
+                submissionId = Guid.NewGuid()
+                authority = Authority "Browser"
+                commandName = "Edit node"
+                body =
+                    EventBody.Notice(
+                        Notice.NodePersisted(fileId, version, fileTime)) }
+        let serverEventId = EventIdFixtures.storedId 5
+        let result =
+            SyncLogic.reconcileAck
+                [ pending ]
+                [ confirm pending []; notice ]
+                serverEventId
+                state
+                (sending [ pending ])
+        let next, syncInfo, _, _ = expectApplied result
+        let live = next.graph.nodes.[fileId]
+        Assert.Equal(PersistState.Persisted, live.documentState.persistState)
+        Assert.Equal(fileTime, live.updateTime)
+        Assert.Equal("after", live.text)
+        Assert.Equal(serverEventId, next.eventId)
+        Assert.Empty(syncInfo.pending)
+
+[<Fact>]
+let ``Undo ACK sets changedVersion to the Undo event id`` () =
+    let fileId = NodeId.New()
+    let persisted = EventIdFixtures.storedId 2
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let seeded =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistedVersion = persisted
+                    persistState = PersistState.Persisted } }
+    let graph = Graph.addDetachedNode seeded (Graph.create ())
+    let change =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change [ Op.SetText(fileId, "hello", "edited") ] }
+    let start =
+        clientState graph EventId.zero (ClientHistory.clear ())
+    match SyncLogic.applyLocalEvent change start with
+    | Error msg -> failwith msg
+    | Ok (afterEdit, _) ->
+        match SyncLogic.applyLocalUndo (Guid.NewGuid()) afterEdit with
+        | Some (Ok (afterUndo, pending)) ->
+            let undoId = EventIdFixtures.storedId 9
+            let confirmed = { pending with id = undoId }
+            let result =
+                SyncLogic.reconcileAck
+                    [ pending ]
+                    [ confirmed ]
+                    undoId
+                    afterUndo
+                    (sending [ pending ])
+            let next, _, _, _ = expectApplied result
+            let live = next.graph.nodes.[fileId]
+            Assert.Equal("hello", live.text)
+            Assert.Equal(
+                PersistState.Unpersisted,
+                live.documentState.persistState)
+            Assert.Equal(undoId, live.documentState.changedVersion)
+            Assert.Equal(persisted, live.documentState.persistedVersion)
+        | other -> failwithf "expected Undo, got %A" other

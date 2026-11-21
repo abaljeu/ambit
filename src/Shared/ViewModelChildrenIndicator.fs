@@ -21,3 +21,13 @@ module ViewModelChildrenIndicator =
             | None -> RowChildrenIndicator.HollowCircle
             | Some [] -> RowChildrenIndicator.SolidCircle
             | Some _ -> RowChildrenIndicator.FoldChevron
+
+    /// Placeholder Bullet for an Absent Header. The row view paints it #444444.
+    let placeholderBulletIndicator : RowChildrenIndicator =
+        RowChildrenIndicator.SolidCircle
+
+    /// Resident Header keeps its Bullet. An Absent Header is the placeholder Bullet.
+    let rowChildrenIndicatorForId (graph: Graph) (nodeId: NodeId) : RowChildrenIndicator =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> placeholderBulletIndicator
+        | Some node -> rowChildrenIndicator graph node

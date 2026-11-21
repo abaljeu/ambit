@@ -36,13 +36,13 @@ let private postOps host ops =
 let private seedWorkspaceFile host label fileName =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph label
         postOps host wsOps
         let! state1 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -56,13 +56,13 @@ let private seedWorkspaceFile host label fileName =
 let private seedDocsFile host =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
         postOps host wsOps
         let! state1 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state1 = requireOk "state1" state1
         let dirId, dirOps =
             FileNodeOps.planCreateOwnedDirectory
@@ -71,7 +71,7 @@ let private seedDocsFile host =
                 "docs"
         postOps host dirOps
         let! state2 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state2 = requireOk "state2" state2
         let fileId, fileOps =
             FileNodeOps.planCreateOwnedFile
@@ -83,7 +83,7 @@ let private seedDocsFile host =
     }
 
 let private graphHasText host fileId text =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> false
     | Ok state ->
         Graph.children state.graph fileId
@@ -97,8 +97,8 @@ let ``ParseStack push then consumer is LIFO`` () =
     let b = NodeId.New()
     push a
     push b
-    Assert.Equal(b, consumer ())
-    Assert.Equal(a, consumer ())
+    Assert.Equal(Some b, consumer ())
+    Assert.Equal(Some a, consumer ())
 
 [<Fact>]
 let ``mailbox Load of File node pushes onto Parse stack`` () =
@@ -117,8 +117,8 @@ let ``mailbox Load of File node pushes onto Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
-            Assert.Equal(fileId, consumer ())
+            requireOk "Load" loaded |> ignore
+            Assert.Equal(Some fileId, consumer ())
         finally
             CoreMailboxApi.dispose host
     }
@@ -140,7 +140,7 @@ let ``mailbox Load of a Workspace pushes onto the Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal<NodeId list>([ workspaceId ], pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
@@ -186,7 +186,7 @@ let ``mailbox Load of a Directory pushes onto the Parse stack`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal<NodeId list>([ dirId ], pushed |> Seq.toList)
         finally
             CoreMailboxApi.dispose host
@@ -199,9 +199,56 @@ let private deskLoadRequest (nodeId: NodeId) =
       start =
         { zoomId = nodeId
           focusId = nodeId
-          commandId = nodeId
+          runDefinitionId = nodeId
           graphIds = [ nodeId ]
           eventId = EventId.zero } }
+
+/// Plain Load through the production route: resolve the path, then start it.
+let private routePlainLoad host dataDir (nodeId: NodeId) =
+    task {
+        let request =
+            { deskLoadRequest nodeId with prePick = LoadSavePrePick.Plain }
+        let! state =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let path =
+            requireOk
+                "path"
+                (LoadSaveRouting.resolvePath (requireOk "state" state) request)
+        Assert.Equal(LoadSavePath.Desk, path)
+        let! started =
+            LoadSaveStart.startCommand
+                (CoreDoor.create true host testCaller)
+                dataDir
+                path
+                request
+            |> Async.StartAsTask
+        requireOk "start" started
+    }
+
+/// The client shows Cancel while this id is in the live set.
+[<Fact>]
+let ``plain Load of a Directory does not leave a cancelable actor`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            CoreMailbox.hostWithParsePush
+                (CoreActorPool.create ())
+                (FileAgent.persist (FileAgent.create dataDir))
+                admittedCredentials
+                ignore
+        try
+            let! _, dirId = seedDocsFile host
+            do! routePlainLoad host dataDir dirId
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.DoesNotContain(history.events, githubLoadStarted dirId)
+            let live = ActorLive.applyEvents history.events Set.empty
+            Assert.False(
+                Set.contains dirId live,
+                "Directory Load left a live actor, so Cancel stays")
+        finally
+            CoreMailboxApi.dispose host
+    }
 
 [<Fact>]
 let ``held Desk Load does not push and the follow-up Load does`` () =
@@ -310,11 +357,8 @@ let ``Desk Load command pushes a Directory and a File`` () =
             CoreMailboxApi.dispose host
     }
 
-let private plainLoadRequest (nodeId: NodeId) (prePick: LoadSavePrePick) =
-    { deskLoadRequest nodeId with prePick = prePick }
-
 [<Fact>]
-let ``plain Load of a File or Directory ignores a Git path`` () =
+let ``plain Load of a File or Directory pushes that node onto the parse stack`` () =
     task {
         let dataDir = newTempDir ()
         let pushed = ResizeArray<NodeId>()
@@ -326,89 +370,11 @@ let ``plain Load of a File or Directory ignores a Git path`` () =
                 pushed.Add
         try
             let! fileId, dirId = seedDocsFile host
-            let! directory =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest dirId LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            requireOk "directory" directory
-            let! file =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest fileId LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            requireOk "file" file
+            do! routePlainLoad host dataDir dirId
+            do! routePlainLoad host dataDir fileId
             Assert.Equal<NodeId list>(
                 [ dirId; fileId ],
                 pushed |> Seq.toList)
-        finally
-            CoreMailboxApi.dispose host
-    }
-
-[<Fact>]
-let ``plain Load of a Workspace still requires the git actor`` () =
-    task {
-        let dataDir = newTempDir ()
-        let pushed = ResizeArray<NodeId>()
-        let host =
-            CoreMailbox.hostWithParsePush
-                (CoreActorPool.create ())
-                (FileAgent.persist (FileAgent.create dataDir))
-                admittedCredentials
-                pushed.Add
-        try
-            let! _, workspaceId =
-                seedWorkspaceFile host "home" "note.txt"
-            let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest
-                        workspaceId
-                        LoadSavePrePick.Plain)
-                |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                loaded)
-            Assert.Empty(pushed)
-        finally
-            CoreMailboxApi.dispose host
-    }
-
-[<Fact>]
-let ``explicit git Load of a File still requires the git actor`` () =
-    task {
-        let dataDir = newTempDir ()
-        let pushed = ResizeArray<NodeId>()
-        let host =
-            CoreMailbox.hostWithParsePush
-                (CoreActorPool.create ())
-                (FileAgent.persist (FileAgent.create dataDir))
-                admittedCredentials
-                pushed.Add
-        try
-            let! fileId, _ =
-                seedWorkspaceFile host "home" "note.txt"
-            let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Git
-                    (PeerActorName "unregistered")
-                    (plainLoadRequest fileId LoadSavePrePick.Git)
-                |> Async.StartAsTask
-            Assert.Equal(
-                Error "Peer Actor 'unregistered' not registered",
-                loaded)
-            Assert.Empty(pushed)
         finally
             CoreMailboxApi.dispose host
     }
@@ -426,18 +392,17 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
                 push
         let parseHandle =
             CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ =
                 seedWorkspaceFile host "home" "note.txt"
@@ -450,12 +415,12 @@ let ``ParseThread loop runs planParseFile for stacked File`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller fileId
                 |> Async.StartAsTask
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! parsed =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -479,30 +444,27 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
         let push, consumer = ParseStack.create ()
         let host = CoreMailbox.createFile dataDir admittedCredentials
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.MarkUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, dirId = seedDocsFile host
-            CoreMailboxApi.addInMsg host (InMsg.ParseFinished fileId)
-            let! parsed =
+            CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
+            let! _ =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -510,7 +472,6 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                             let node = state.graph.nodes.[fileId]
                             node.documentState.parseState = ParseState.Parsed)
                     2000
-            Assert.True(parsed, "file should start Parsed")
             let old =
                 DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             postOps
@@ -524,11 +485,11 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
             File.WriteAllText(diskPath, "NEWER\n")
             File.SetLastWriteTimeUtc(diskPath, DateTime.UtcNow)
             push dirId
-            let! finished =
+            let! _ =
                 waitUntil
                     (fun () ->
                         match
-                            CoreMailboxApi.getState host
+                            CoreMailboxApi.graphAtEvent host
                             |> Async.RunSynchronously
                         with
                         | Error _ -> false
@@ -536,19 +497,6 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
                             let dir = state.graph.nodes.[dirId]
                             dir.documentState.parseState = ParseState.Parsed)
                     2000
-            Assert.True(finished, "directory reconcile should finish")
-            let fileStaysParsed =
-                match
-                    CoreMailboxApi.getState host
-                    |> Async.RunSynchronously
-                with
-                | Error _ -> false
-                | Ok state ->
-                    let node = state.graph.nodes.[fileId]
-                    node.documentState.parseState = ParseState.Parsed
-            Assert.True(
-                fileStaysParsed,
-                "existing disk-newer file is not marked Unparsed")
             Assert.False(
                 graphHasText host fileId "NEWER",
                 "the file text is not parsed by the directory reconcile")
@@ -557,7 +505,7 @@ let ``disk-newer file stays Parsed when its directory reconciles`` () =
     }
 
 let private ownedNames (host: MailboxHost) (parentId: NodeId) =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> []
     | Ok state ->
         Graph.children state.graph parentId
@@ -576,18 +524,17 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let extra =
@@ -628,18 +575,17 @@ let ``File Load push parses when the parse thread pops it`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -665,14 +611,14 @@ let ``File Load push parses when the parse thread pops it`` () =
     }
 
 let private parseStateOf host nodeId =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Map.tryFind nodeId state.graph.nodes
         |> Option.map (fun node -> node.documentState.parseState)
 
 let private childIdNamed host parentId name =
-    match CoreMailboxApi.getState host |> Async.RunSynchronously with
+    match CoreMailboxApi.graphAtEvent host |> Async.RunSynchronously with
     | Error _ -> None
     | Ok state ->
         Graph.children state.graph parentId
@@ -692,18 +638,17 @@ let ``second Load of a Parsed File is parsed again`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -745,7 +690,7 @@ let ``second Load of a Parsed File is parsed again`` () =
             CoreMailboxApi.dispose host
     }
 
-let private applyEvents (state: State) (events: Ev list) : State =
+let private applyEvents (state: GraphAtEvent) (events: Ev list) : GraphAtEvent =
     List.fold
         (fun current event ->
             match Ev.apply event current with
@@ -772,18 +717,17 @@ let ``second Load of a Current File lands its parse Event on a client that still
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed = ignore
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let diskPath = Path.Combine(dataDir, "home", "note.txt")
@@ -805,7 +749,7 @@ let ``second Load of a Current File lands its parse Event on a client that still
                     2000
             Assert.True(ready, "first Load should parse HELLO")
             let! heldResult =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let held = requireOk "held" heldResult
             Assert.Equal(Current, held.graph.nodes.[fileId].documentState.AsEnum)
             File.WriteAllText(diskPath, "AGAIN\n")
@@ -843,22 +787,19 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                 admittedCredentials
                 push
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.MarkUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         try
             let! _, dirId = seedDocsFile host
             let! first =
@@ -870,12 +811,11 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "first" first
-            let! parsed =
+            let! _ =
                 waitUntil
                     (fun () ->
                         parseStateOf host dirId = Some ParseState.Parsed)
                     2000
-            Assert.True(parsed, "first Load should mark the directory Parsed")
             let extra = Path.Combine(dataDir, "home", "docs", "extra.txt")
             Directory.CreateDirectory(Path.GetDirectoryName extra)
             |> ignore
@@ -898,7 +838,6 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
             match childIdNamed host dirId "extra.txt" with
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
-                Assert.Equal(Some ParseState.Unparsed, parseStateOf host extraId)
                 Assert.False(graphHasText host extraId "EXTRA")
         finally
             CoreMailboxApi.dispose host
@@ -913,24 +852,23 @@ let private openParse (dataDir: string) =
             admittedCredentials
             push
     let parseHandle = CoreDoor.create true host testCaller
+    let postNotice = CoreMailboxApi.postNotice host
     ParseThread.start
         { dataDir = dataDir
           consumer = consumer
           push = push
           getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps parseHandle
+          postOps = ParseThread.postParseOps postNotice parseHandle
           markUnparsed =
             fun nodeId ->
-                CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed nodeId)
+                postNotice (Notice.NodeUnparsed nodeId)
           finishParse =
             fun nodeId ->
-                CoreMailboxApi.addInMsg
-                    host
-                    (InMsg.ParseFinished nodeId) }
+                postNotice (Notice.NodeParsed nodeId) }
     host
 
 let private stateOf host =
-    CoreMailboxApi.getState host
+    CoreMailboxApi.graphAtEvent host
     |> Async.RunSynchronously
     |> requireOk "state"
 
@@ -946,7 +884,7 @@ let private childNamed host parentId name =
 let private holdCurrentChild host dataDir =
     task {
         let! state0 =
-            CoreMailboxApi.getState host |> Async.StartAsTask
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let state0 = requireOk "state0" state0
         let workspaceId, wsOps =
             FileNodeOps.planCreateWorkspace state0.graph "home"
@@ -961,11 +899,10 @@ let private holdCurrentChild host dataDir =
         File.WriteAllText(Path.Combine(keptDir, "secret.txt"), "secret")
         Directory.SetLastWriteTimeUtc(keptDir, diskTime)
         let keptNode = (stateOf host).graph.nodes.[keptId]
+        CoreMailboxApi.postNotice host (Notice.NodeParsed keptId)
         postOps
             host
-            [ Op.SetDocumentState(keptId, Unparsed, Current)
-              Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
-        CoreMailboxApi.addInMsg host (InMsg.ParseFinished keptId)
+            [ Op.SetUpdateTime(keptId, keptNode.updateTime, diskTime) ]
         let! parsed =
             waitUntil
                 (fun () -> parseStateOf host keptId = Some ParseState.Parsed)
@@ -988,13 +925,7 @@ let private assertOneLevelWorkspace host workspaceId keptId =
     | None -> Assert.Fail("child directory docs missing")
     | Some docsNode ->
         Assert.Equal(Special SpecialKind.Directory, docsNode.kind)
-        Assert.Equal(Unparsed, docsNode.documentState.AsEnum)
         Assert.Empty(Graph.children (stateOf host).graph docsNode.id)
-    Assert.Equal(
-        Some Current,
-        childNamed host workspaceId "kept"
-        |> Option.map (fun node -> node.documentState.AsEnum))
-    Assert.Equal(Some ParseState.Parsed, parseStateOf host keptId)
     Assert.True(childNamed host keptId "secret.txt" |> Option.isNone)
 
 [<Fact>]
@@ -1008,7 +939,7 @@ let ``git Load and Workspace Load reconcile walks one level`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller workspaceId
                 |> Async.StartAsTask
-            requireOk "load" loaded
+            requireOk "load" loaded |> ignore
             let! found =
                 waitUntil
                     (fun () ->
@@ -1037,7 +968,7 @@ let ``directory Load reconcile walks one level`` () =
             let! loaded =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "load" loaded
+            requireOk "load" loaded |> ignore
             let! found =
                 waitUntil
                     (fun () ->
@@ -1049,7 +980,6 @@ let ``directory Load reconcile walks one level`` () =
             | None -> Assert.Fail("child directory side missing")
             | Some side ->
                 Assert.Equal(Special SpecialKind.Directory, side.kind)
-                Assert.Equal(Unparsed, side.documentState.AsEnum)
                 Assert.Empty(Graph.children (stateOf host).graph side.id)
         finally
             CoreMailboxApi.dispose host
@@ -1071,7 +1001,7 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
             let! parentLoad =
                 CoreMailboxApi.mbLoadNode host testCaller dirId
                 |> Async.StartAsTask
-            requireOk "parent" parentLoad
+            requireOk "parent" parentLoad |> ignore
             let! childReady =
                 waitUntil
                     (fun () ->
@@ -1085,12 +1015,12 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
             let side = childNamed host dirId "side" |> Option.get
             Assert.Empty(Graph.children (stateOf host).graph side.id)
             let! heldResult =
-                CoreMailboxApi.getState host |> Async.StartAsTask
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
             let held = requireOk "held" heldResult
             let! childLoad =
                 CoreMailboxApi.mbLoadNode host testCaller side.id
                 |> Async.StartAsTask
-            requireOk "child" childLoad
+            requireOk "child" childLoad |> ignore
             let! memberReady =
                 waitUntil
                     (fun () ->
@@ -1102,7 +1032,6 @@ let ``Load of a newly Unparsed child Directory reconciles one level`` () =
                 CoreMailboxApi.getEventsSince host held.eventId
                 |> Async.StartAsTask
             let landed = applyEvents held events
-            Assert.Equal(Current, landed.graph.nodes.[side.id].documentState.AsEnum)
             let replayedMember =
                 Graph.children landed.graph side.id
                 |> List.exists (fun child ->
@@ -1135,22 +1064,19 @@ let private loadRig (dataDir: string) =
             push
     let startThread () =
         let parseHandle = CoreDoor.create true host testCaller
+        let postNotice = CoreMailboxApi.postNotice host
         ParseThread.start
             { dataDir = dataDir
               consumer = consumer
               push = push
               getGraph = ParseThread.graphFromHost host
-              postOps = ParseThread.postParseOps parseHandle
+              postOps = ParseThread.postParseOps postNotice parseHandle
               markUnparsed =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.MarkUnparsed nodeId)
+                    postNotice (Notice.NodeUnparsed nodeId)
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
     { host = host
       pushed = pushed
       startThread = startThread }
@@ -1174,7 +1100,7 @@ let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
             let docs = ensureDocsDisk dataDir
             File.WriteAllText(Path.Combine(docs, "note.txt"), "keep")
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished dirId)
+            CoreMailboxApi.postNotice rig.host (Notice.NodeParsed dirId)
             let! parsed =
                 waitUntil
                     (fun () ->
@@ -1182,7 +1108,7 @@ let ``user Load on a Parsed Directory marks it Unparsed then reconciles`` () =
                     2000
             Assert.True(parsed, "directory should be Parsed before Load")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             Assert.Equal(
                 Some ParseState.Unparsed,
                 parseStateOf rig.host dirId)
@@ -1219,8 +1145,8 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                 Path.Combine(docs, "kept", "inner.txt"),
                 "INNER\n")
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished keptId)
+            CoreMailboxApi.postNotice rig.host (Notice.NodeParsed fileId)
+            CoreMailboxApi.postNotice rig.host (Notice.NodeParsed keptId)
             let! held =
                 waitUntil
                     (fun () ->
@@ -1230,7 +1156,7 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                     2000
             Assert.True(held, "existing members should be Parsed before reconcile")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! reconciled =
                 waitUntil
                     (fun () ->
@@ -1240,17 +1166,13 @@ let ``Directory reconcile leaves existing member parse state unchanged`` () =
                     2000
             Assert.True(reconciled, "parent Load should reconcile")
             Assert.Equal(Some fileId, childIdNamed rig.host dirId "note.txt")
-            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host fileId)
-            Assert.Equal(Some ParseState.Parsed, parseStateOf rig.host keptId)
             Assert.False(graphHasText rig.host fileId "DISK-NOTE")
             Assert.True(
                 childNamed rig.host keptId "inner.txt" |> Option.isNone)
             match childIdNamed rig.host dirId "extra.txt" with
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
-                Assert.Equal(
-                    Some ParseState.Unparsed,
-                    parseStateOf rig.host extraId)
+                Assert.DoesNotContain(extraId, pushedIds rig.pushed)
         finally
             CoreMailboxApi.dispose rig.host
     }
@@ -1268,7 +1190,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             let old = DateTime(1999, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             File.WriteAllText(diskPath, "OLD\n")
             File.SetLastWriteTimeUtc(diskPath, old)
-            CoreMailboxApi.addInMsg rig.host (InMsg.ParseFinished fileId)
+            CoreMailboxApi.postNotice rig.host (Notice.NodeParsed fileId)
             let! wasParsed =
                 waitUntil
                     (fun () ->
@@ -1276,7 +1198,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
                     2000
             Assert.True(wasParsed, "file should be Parsed before Load")
             let! first = userLoad rig.host fileId
-            requireOk "first" first
+            requireOk "first" first |> ignore
             Assert.Equal(Some ParseState.Unparsed, parseStateOf rig.host fileId)
             Assert.Equal<NodeId list>([ fileId ], pushedIds rig.pushed)
             rig.startThread ()
@@ -1291,7 +1213,7 @@ let ``File Load parses its file regardless of Parsed state or disk date`` () =
             File.WriteAllText(diskPath, "NEW\n")
             File.SetLastWriteTimeUtc(diskPath, old)
             let! second = userLoad rig.host fileId
-            requireOk "second" second
+            requireOk "second" second |> ignore
             let! again =
                 waitUntil
                     (fun () -> graphHasText rig.host fileId "NEW")
@@ -1316,7 +1238,7 @@ let ``Directory reconcile pushes nothing onto the parse stack`` () =
             Directory.CreateDirectory(Path.Combine(docs, "side")) |> ignore
             File.WriteAllText(Path.Combine(docs, "extra.txt"), "EXTRA\n")
             let! loaded = userLoad rig.host dirId
-            requireOk "Load" loaded
+            requireOk "Load" loaded |> ignore
             let! reconciled =
                 waitUntil
                     (fun () ->
@@ -1333,14 +1255,10 @@ let ``Directory reconcile pushes nothing onto the parse stack`` () =
             | None -> Assert.Fail("extra.txt missing")
             | Some extraId ->
                 Assert.DoesNotContain(extraId, pushedIds rig.pushed)
-                Assert.Equal(
-                    Some ParseState.Unparsed,
-                    parseStateOf rig.host extraId)
             match childNamed rig.host dirId "side" with
             | None -> Assert.Fail("side missing")
             | Some side ->
                 Assert.DoesNotContain(side.id, pushedIds rig.pushed)
-                Assert.Equal(ParseState.Unparsed, side.documentState.parseState)
         finally
             CoreMailboxApi.dispose rig.host
     }

@@ -34,7 +34,7 @@ module DatabaseSetup =
 
     /// Disk vs DB: same persisted outline (Snapshot.write + normalize), then same revision.
     /// Structural `GraphProjection.graphEquals` is not used: file vs DB ids usually differ.
-    let documentStatesMatch (left: State) (right: State) : bool =
+    let documentStatesMatch (left: GraphAtEvent) (right: GraphAtEvent) : bool =
         let l = Snapshot.write left.graph
         let r = Snapshot.write right.graph
         let ln = Snapshot.normalizeOutlineForCompare l
@@ -66,7 +66,7 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-    let private loadPersistedDbState (connStr: string) : State =
+    let private loadPersistedDbState (connStr: string) : GraphAtEvent =
         Database.loadPersistedState connStr
         |> Async.AwaitTask
         |> Async.RunSynchronously

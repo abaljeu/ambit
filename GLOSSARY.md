@@ -36,7 +36,7 @@ An interview method that refines a concept that is already clear. Not a Stage an
 _Avoid_: Stage: grilling, Status: grilling
 
 **Issue tracker**:
-Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
+Local Markdown under `plan/` for specs and issues; see [[plan/CONTEXT.md]]. Not GitHub or GitLab issues. Issues may carry optional `Estimate:` / `Actual:` and a `## Time` log. Projects carry `Started:` / `Finished:` / `Actual:` filled from chat handoffs and commits when missing.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **master**:
@@ -55,8 +55,8 @@ Integration place. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch (for this place)
 
 **Roadmap**:
-The Project at [[plan/roadmap/]] that sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics.
-_Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
+The word roadmap means the Project at [[plan/roadmap/]]. That Project sequences Epics toward the application. It answers what to work on next by grouping Epics by Stage. It carries neither Stage nor Status. Epics are parallel. Continue from recent work: that Epic, its current Chapter (or Developer Required live items), then Project Stage and ticket Status. Order inside a Stage does not rank Epics. `doc/roadmap` is deprecated.
+_Avoid_: master project, master steering, doc/roadmap, numbered Epic sequence (as the listing rule)
 
 **Scope**:
 The limit of one effort (a Project, a map, a ticket, or a slice): what that work will not do now.
@@ -67,7 +67,7 @@ The arc field (`Stage:`) on a feature-set Project, an Epic, or a Chapter. The va
 _Avoid_: Status (for this field), grilling (as a Stage), steering (as a Stage), charting, tickets, active, blocked (as Stage tokens)
 
 **staging**:
-Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/cloud-agent-git/SKILL.md]].
+Published drop for finished cloud-agent work. Not a workplace. Procedure: [[.agents/skills/git-protocol/SKILL.md]].
 _Avoid_: PR (as the drop), cloud branch (as the drop)
 
 **Status**:
@@ -88,8 +88,12 @@ A Graph-changing Event: a Change, an Undo, or a Redo.
 _Avoid_: operation, lifecycle Event
 
 **Actor**:
-A Core-managed execution thread for a specific long-running task. Its public identity is durable, while its secret identity exists only while it is live.
-_Avoid_: Agent, job, task, Peer Actor, Server Actor
+A thread from the .NET thread pool that runs an actor function. Its public identity is durable, while its secret identity exists only while it is live.
+_Avoid_: Agent, job, task, Peer Actor, Server Actor. Calling the actor function an Actor.
+
+**Actor function**:
+The function an Actor runs. It is defined outside Core. `startFunction` starts it. Its input is `FunctionRun` (`getGraph` and the Actor credential) and `ActorChanges`. The pool form takes `CoreChangesDoor`. The type name is `ActorFunction`. `FunctionActor` is the prior name of that type. An old-style actor takes `actorNodeId` and, by currying, yields `ActorFunction`.
+_Avoid_: Actor (for this function), FunctionActor (as the type name)
 
 **Agent**:
 An external worker that an AI Actor runs. Not an Ambit Actor. Cursor is the name of one Agent.
@@ -118,6 +122,10 @@ _Avoid_: Desktop (in speech), shell, host app
 A named source that submits requests to Core and is recorded on accepted Events. Browser identities, Actors, Cursor, Zapier, and Amble are Authorities.
 _Avoid_: sender, user (when the source may not be a person)
 
+**artifact**:
+A File Node, Directory Node, or Workspace Node: a Special Node that corresponds to a file or directory on disk (`NodeKind.artifact`). Narrower than Special, which also covers the Workspaces Node. Also said Artifact Node.
+_Avoid_: Special (when only these three Kinds are meant), document root (in speech)
+
 **Body**: of a Special Node.  Also Graph Body.
 The collection of nodes which correspond to the disk file for that Special node.  (Disk and Workspace objects get .amb file to hold extra data.)  Calculation: recursive descent through owned children, up to the next Special Nodes.
 
@@ -142,7 +150,7 @@ The Emacs Action view of Change, Undo, and Redo Events. Not the server Event seq
 _Avoid_: History (as a module name), EventLog (for this view), the full Event sequence, audit log
 
 **Command**:
-A user operation a person invokes. A Command is not a message and is not sent.
+A user operation a person invokes. A Command is not a message and is not sent. A Command is the source of an Order.
 _Avoid_: event, core message, request payload
 
 **Core**:
@@ -181,8 +189,12 @@ _Avoid_: Document (the project), File (for the English content when it is not a 
 A user-facing command that downloads files from the Server. Not Fetch.
 _Avoid_: Fetch (for this command), pull (as the command name)
 
+**enclosing**:
+The first Node on a Node's Owned chain, counting the Node itself, that matches a predicate (`GraphQuery.enclosing`). The enclosing artifact of a Node is where that Node is persisted on disk. **Strictly enclosing** starts at the parent and excludes the Node itself. A File Node is its own enclosing artifact; the directory its file sits in comes from its strictly enclosing artifact.
+_Avoid_: owning Special, owner (for this meaning), controlling Special, Head, Foot
+
 **Event**:
-One durable record in EventLog. An Event is a Change, Undo, Redo, ActorStart, or ActorStop. The mailbox posts an Event. Code name `Ev`. It carries the Command that produced it (`commandName`).
+One durable record in EventLog, which either represents an Order that has been carried out, or a Notice from a backend process. The mailbox posts an Event as it accepts and executes orders and notices.  
 _Avoid_: Action (when lifecycle Events are included), audit record, Change (for the record), Command (a Command is not an Event), a Node sending an Event
 
 **event id**:
@@ -208,6 +220,10 @@ _Avoid_: file (bare, for the Node), document, page, note, file body
 **Graph**:
 The in-memory data store: a root and the nodes reachable from it, with ownership and ref links among those nodes.
 _Avoid_: tree, document tree, model, outline
+
+**GraphAtEvent**:
+The Graph data Core exposes at a given Event (what people meant by the `/state` / getState graph payload / StateResponse). What `/state` returns is a GraphAtEvent. The HTTP path `/state` remains; it is not renamed. getState and StateResponse are historical wire names. Prefer GraphAtEvent in new writing and code.
+_Avoid_: State (deprecated name for this concept), mapState, treating History or ActorStart/ActorStop as GraphAtEvent, using GraphAtEvent as a synonym for Event or the full server record
 
 **Header**:
 Everything in a Node except its Children.
@@ -257,12 +273,20 @@ The default Kind: ordinary outline content with no special structural role.
 _Avoid_: regular, plain, standard
 
 **Normal Node**:
-A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node.
-_Avoid_: normal (bare, for a Node), regular node, plain node
+A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node. A Normal Node carries neither parse state nor persist state.
+_Avoid_: normal (bare, for a Node), regular node, plain node, leaf node
+
+**Notice**:
+A backend process message to the system of some notable occurrence.
+_Avoid_: InMsg (say Notice), Command (a Command is not a Notice)
 
 **Op**:
 A single Graph modification, either to a Node Header or to its Children.
 _Avoid_: operation (casually for Change), mutation, edit
+
+**Order**:
+The payload a client or an Actor places through `PlaceOrder`. The log stores it as `PlacedOrder`.  It carries the Command that produced it (`commandName`).
+_Avoid_: Command (a Command is the source of an Order), core message (say Order)
 
 **OUTER**:
 An Expression combinator: the outermost acceptable Owned descendants below the input. Walk strictly below the input, Owned only; a Node that satisfies the operand yields, and the walk does not visit its descendants. Spelling is `OUTER` (capitals, same class as `NOT`).
@@ -276,9 +300,25 @@ _Avoid_: Owner (spoken synonym for this role), hard link, parent link
 A Load-stage operation that turns server files into Graph content.  This step is more than simple parsing but also reconciles pre-existing graph content with file content.
 _Avoid_: import, reconcile (as the stage name)
 
+**Parsed**:
+The Graph has the file's data. Parsed, Unparsed, and PullingFile are one three-way parse state, and stored parse state is Parsed or Unparsed.
+_Avoid_: Current (say Parsed)
+
+**Persisted**:
+The Node's data is written to its file on disk. The database records persist state in a persist field, separate from the `document_state` column.
+_Avoid_: saved, flushed
+
 **Poll**:
 A Browser request for Events since a known event id; used in Sync and lifecycle projection and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
+
+**PullingFile**:
+A file pending from the client. Parsed, Unparsed, and PullingFile are one three-way parse state; PullingFile is not stored, so after a server reboot it is not true, and a second Load can repair a failure to load.
+_Avoid_: NoServerFile, flag (for this value)
+
+**Query**:
+A read placed through `Ask`. Each case has its own reply.
+_Avoid_: Command, Order (an Order is not a Query)
 
 **Redo**:
 An Action that re-applies after Undo, following Emacs undo semantics; numbered like other Actions.
@@ -302,11 +342,7 @@ _Avoid_: root node, graph root
 
 **Run**:
 A command the person invokes on Focus. It starts an Actor (ActorStart Event) or institutes a client-sourced Change Event. That Event's `commandName` is the Run command.
-_Avoid_: treating Run as only Run AI, a third EventBody kind
-
-**Run AI**:
-The Run command that starts the AI Actor. The person types `?ai` (optional keyname and options) on Focus, then Run. `?ai` is the statement spelling.
-_Avoid_: Ask, Run Ask, Run Agent (as the spoken name — prefer Run AI), `?` alone (as this command name)
+_Avoid_: treating Run as only Run AI
 
 **section**:
 A named Normal Node. Unnamed Normal Nodes are not sections.
@@ -321,12 +357,8 @@ Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and 
 _Avoid_: common, core (as a name for Shared), lib
 
 **Special**:
-Any Kind that is not Normal; a structural or system role.
+Any Kind that is not Normal; a structural or system role. The Special Kinds are Workspaces, Workspace, Directory, and File. Every artifact is Special, but the Workspaces Node is Special and not an artifact.
 _Avoid_: system node, meta node
-
-**State**:
-The Graph data Core exposes (what people mean by the `/state` / getState graph payload, the StateResponse). Reserved for this Graph-data meaning; do not use State for Events, History, Actor lifecycle, or code type nicknames unless that Graph-data meaning.
-_Avoid_: mapState, treating History or ActorStart/ActorStop as State, using State as a synonym for Event or the full server record
 
 **subsection**:
 The Expression search for sections below the input Node. Cluster spelling `#`; `subsection "todo"` equals `#todo`.
@@ -352,6 +384,10 @@ _Avoid_: revert, rollback
 A Node whose Children are not present.
 _Avoid_: stub, hollow, partial, collapsed (for this meaning)
 
+**Unparsed**:
+The Graph does not have the file's data. Parsed, Unparsed, and PullingFile are one three-way parse state, and stored parse state is Parsed or Unparsed.
+_Avoid_: stale, dirty
+
 **Upload**:
 A Load-stage operation that pushes App files to the Server. Not the user-facing command name.
 _Avoid_: Load (for this stage), push (as the stage name)
@@ -376,7 +412,7 @@ These terms are permitted with standard definition:
 - **Session**: one webpage lifetime from load to refresh or close.
 - **SiteMap**: the client's derived view index over the resident Graph.
 - **slice**: an implementation increment, and the Project-only Stage after spec ([[doc/agents/project-status.md]]).
-- **StateResponse**: the `/state` endpoint's response payload.
+- **StateResponse**: historical wire name for the `/state` endpoint's response payload. The HTTP path `/state` remains; it is not renamed. What `/state` returns is a **GraphAtEvent**.
 - **synchronization**: plain noun form of **Sync**, same meaning.
 - **Zoom**: the command that focuses the view on a Node.
 
@@ -384,6 +420,7 @@ These terms are permitted with standard definition:
 
 - affordance
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
+- **State** (bare name for the Graph concept) — deprecated; say **GraphAtEvent**. State was the old name for GraphAtEvent. Remaining uses of State in markdown are simply misnamed and mean GraphAtEvent. The HTTP path `/state` remains. What `/state` returns is a GraphAtEvent.
 - **Peer** - as in peer actor.  The adjective is not descriptive.
 - **Piece** used as an adjective.
 - **Piece**  and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.

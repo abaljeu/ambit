@@ -21,4 +21,4 @@ style.md
 
 ## 9. Building
 
-VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Watch-task Server and F5 (`Local Server` / `Full Stack`) are alternate starters on `:5215` — see [[doc/reference/dev-debug-workflow.md]]. Desktop: `desktop: Run` → `scripts/desktop.sh run`.
+VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Watch-task Server and F5 (`Local Server` / `Full Stack`) are alternate starters on `:8081` — see [[doc/reference/dev-debug-workflow.md]]. Desktop: `desktop: Run` → `scripts/desktop.sh run`.

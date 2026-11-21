@@ -16,10 +16,10 @@ A Find or Move server reply includes the found Nodes on the Want answer `nodes` 
 
 ## Job
 
-[ ] A server reply with Find results includes the found Nodes as Want-fulfillment.
+[x] A server reply with Find results includes the found Nodes as Want-fulfillment.
 [ ] Move uses that same reply.
-[ ] Hit Headers ride the existing Want answer `nodes` list.
-[ ] There is no new package.
+[x] Hit Headers ride the existing Want answer `nodes` list.
+[x] There is no new package.
 
 ## Data
 
@@ -28,7 +28,7 @@ A Find or Move server reply includes the found Nodes on the Want answer `nodes` 
 
 ## Interface
 
-[ ] The result's Nodes are added to the Want answer `nodes` list.
+[x] The result's Nodes are added to the Want answer `nodes` list.
 [x] [installWantAnswer](../../src/Shared/ResidentProjection.fs) merges `nodes` and `childMap`.
 [ ] Ordinary Want edges stay `childMap`.
 [ ] The result does not add a `childMap` key only to carry a hit Header.
@@ -36,7 +36,7 @@ A Find or Move server reply includes the found Nodes on the Want answer `nodes` 
 ## Uses
 
 [ ] Post-Event and Poll carry the Want answer.
-[ ] The one reply uses that carrier.
+[x] The one reply uses that carrier.
 
 ## Explanation
 

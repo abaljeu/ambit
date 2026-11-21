@@ -4,31 +4,44 @@ open Gambol.Shared
 
 type MailboxHost =
     private {
-        mailbox: MailboxProcessor<QueueSum>
+        mailbox: MailboxProcessor<CoreQueue>
         gate: obj
         isReady: unit -> bool
-        flushSnapshot: unit -> Async<Result<unit, string>>
         dispose: unit -> unit
+        session: Session
     }
 
 [<RequireQualifiedAccess>]
 module MailboxHost =
 
-    let internal create mailbox (persist: PersistFilling) : MailboxHost = {
+    let internal create
+        mailbox
+        (persist: PersistFilling)
+        session
+        (shutdown: unit -> unit)
+        : MailboxHost = {
         mailbox = mailbox
         gate = obj ()
         isReady = persist.isReady
-        flushSnapshot = persist.flushSnapshot
-        dispose = persist.dispose
+        dispose =
+            fun () ->
+                shutdown ()
+                persist.dispose ()
+        session = session
     }
 
-    let internal postItem (host: MailboxHost) (item: QueueSum) =
+    let internal session (host: MailboxHost) = host.session
+
+    let internal coreMsgItem (msg: CoreMsg) : CoreQueue =
+        CoreQueue.Public (Mailbox.CoreMsg msg)
+
+    let internal postItem (host: MailboxHost) (item: CoreQueue) =
         lock host.gate (fun () -> host.mailbox.Post item)
 
     /// Post each message back to back. The gate keeps another caller out.
     let internal postForReplies
         (host: MailboxHost)
-        (builds: (AsyncReplyChannel<'Reply> -> CoreMsg) list)
+        (builds: (AsyncReplyChannel<'Reply> -> Mailbox) list)
         : Async<'Reply list> =
         let tasks =
             lock host.gate (fun () ->
@@ -38,7 +51,7 @@ module MailboxHost =
                         System.Threading.Tasks.TaskCompletionSource<_>()
                     let post =
                         host.mailbox.PostAndAsyncReply(fun channel ->
-                            QueueSum.Core(build channel))
+                            CoreQueue.Public (build channel))
                     Async.StartWithContinuations(
                         post,
                         (fun reply -> source.TrySetResult reply |> ignore),
@@ -53,21 +66,57 @@ module MailboxHost =
             return Array.toList replies
         }
 
-    let internal postAndAsyncReply
+    let private postItemAndAsyncReply
         (host: MailboxHost)
-        (build: AsyncReplyChannel<'a> -> CoreMsg)
+        (build: AsyncReplyChannel<'a> -> CoreQueue)
         : Async<'a> =
         Async.FromContinuations(fun (cont, econt, ccont) ->
             lock host.gate (fun () ->
                 Async.StartWithContinuations(
-                    host.mailbox.PostAndAsyncReply(fun channel ->
-                        QueueSum.Core(build channel)),
+                    host.mailbox.PostAndAsyncReply build,
                     cont,
                     econt,
                     ccont)))
 
-    let isReady (host: MailboxHost) = host.isReady
+    let internal postAndAsyncReply
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> CoreMsg)
+        : Async<'a> =
+        postItemAndAsyncReply host (fun channel ->
+            coreMsgItem (build channel))
 
-    let flushSnapshot (host: MailboxHost) = host.flushSnapshot ()
+    let internal postMailboxAndAsyncReply
+        (host: MailboxHost)
+        (build: AsyncReplyChannel<'a> -> Mailbox)
+        : Async<'a> =
+        postItemAndAsyncReply host (fun channel ->
+            CoreQueue.Public (build channel))
+
+    /// Place one Order and wait for the EventId reply.
+    let internal postPlacedOrder
+        (host: MailboxHost)
+        (caller: Caller)
+        (placed: PlacedOrder)
+        : Async<Result<EventId, string>> =
+        postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.placeForCaller placed caller channel)
+
+    let postActorOrder
+        (host: MailboxHost)
+        (caller: Caller)
+        (order: ActorOrder)
+        : Async<Result<EventId, string>> =
+        let commandName =
+            match order.actorName with
+            | "" -> None
+            | name -> Some name
+        let placed =
+            { orderId = OrderId(System.Guid.NewGuid())
+              authority = caller.authority
+              commandName = commandName
+              order = Order.StartActor order }
+        postPlacedOrder host caller placed
+
+    let isReady (host: MailboxHost) = host.isReady
 
     let dispose (host: MailboxHost) = host.dispose ()

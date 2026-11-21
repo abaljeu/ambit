@@ -47,7 +47,7 @@ type AgentAskTests() =
                         hasActorStart host request.focusId
                     Assert.True(started)
                     let! state =
-                        CoreMailboxApi.getState host
+                        CoreMailboxApi.graphAtEvent host
                         |> Async.StartAsTask
                     match state with
                     | Error err -> Assert.Fail(err)
@@ -90,31 +90,6 @@ type AgentAskTests() =
                 }))
 
     [<Fact>]
-    member _.``Ask extract carries Graph.focus from launch``() =
-        let seen = ref None
-        let probe: ActorFn =
-            fun input coreChanges ->
-                async {
-                    seen := input.graph.focus
-                    let caller =
-                        { authority = Authority "Actor"
-                          name = ""
-                          secret = input.secret }
-                    let! _ =
-                        CoreDoor.actorStop
-                            (CoreDoor.forCaller caller coreChanges)
-                            ActorSucceeded
-                    return ()
-                }
-        withHost (fun host pool -> task {
-            registerActor pool "probe" probe
-            let! commandId = seedCommand host "?probe"
-            let! request = startOnCommand host commandId
-            do! expectActorSucceeded host pool request.focusId
-            Assert.Equal(Some commandId, !seen)
-        })
-
-    [<Fact>]
     member _.``second launch on the same Focus is refused``() =
         withFake
             (fun _ ->
@@ -124,26 +99,100 @@ type AgentAskTests() =
                 withHost (fun host _ -> task {
                     let! seeded = seedAskTree host "?ai"
                     let request = askRequest seeded
-                    let! first =
-                        CoreMailboxApi.startActor
-                            host testCaller request
-                        |> Async.StartAsTask
+                    let! first = startAiRun host request
                     match first with
                     | Ok () -> ()
                     | Error err ->
                         Assert.Fail($"first start: {err}")
-                    let! second =
-                        CoreMailboxApi.startActor
-                            host testCaller request
-                        |> Async.StartAsTask
+                    let! second = startAiRun host request
                     match second with
                     | Error err ->
-                        Assert.Contains("focus", err)
+                        Assert.Contains(
+                            "actor node already has a live Actor",
+                            err)
                     | Ok () ->
                         Assert.Fail("expected Focus exclusivity")
                     let! _ =
                         waitForActorStop host request.focusId 2000
                     return ()
+                }))
+
+    [<Fact>]
+    member _.``?ai prompt keeps an expanded child's text and omits a folded child's descendant``
+        ()
+        =
+        withFake
+            (fun args ->
+                Assert.Contains("expanded-child-text", args.Prompt)
+                Assert.Contains("folded-row-text", args.Prompt)
+                Assert.DoesNotContain("folded-child-text", args.Prompt)
+                fakeReply "from-agent")
+            (fun () ->
+                withHost (fun host pool -> task {
+                    let zoomId = NodeId.New()
+                    let commandId = NodeId.New()
+                    let expandedId = NodeId.New()
+                    let expandedChildId = NodeId.New()
+                    let foldedId = NodeId.New()
+                    let foldedChildId = NodeId.New()
+                    let event =
+                        { id = EventId.zero
+                          submissionId = System.Guid.NewGuid()
+                          authority = Authority "Browser"
+                          commandName = ""
+                          body =
+                            EventBody.Change
+                                [ Op.NewNode(zoomId, "zoom-root")
+                                  Op.NewNode(commandId, "?ai")
+                                  Op.NewNode(
+                                      expandedId, "expanded-row-text")
+                                  Op.NewNode(
+                                      expandedChildId,
+                                      "expanded-child-text")
+                                  Op.NewNode(foldedId, "folded-row-text")
+                                  Op.NewNode(
+                                      foldedChildId, "folded-child-text")
+                                  Op.Replace(
+                                      Graph.rootId,
+                                      [],
+                                      [ ChildNode.owner zoomId ])
+                                  Op.Replace(
+                                      zoomId,
+                                      [],
+                                      [ ChildNode.owner commandId
+                                        ChildNode.owner expandedId
+                                        ChildNode.owner foldedId ])
+                                  Op.Replace(
+                                      expandedId,
+                                      [],
+                                      [ ChildNode.owner expandedChildId ])
+                                  Op.Replace(
+                                      foldedId,
+                                      [],
+                                      [ ChildNode.owner foldedChildId ]) ] }
+                    let! posted =
+                        CoreMailboxApi.postGraphOnly
+                            host testCaller event
+                        |> Async.StartAsTask
+                    match posted with
+                    | Error err -> Assert.Fail(err)
+                    | Ok _ -> ()
+                    let request =
+                        { zoomId = zoomId
+                          focusId = commandId
+                          runDefinitionId = commandId
+                          graphIds =
+                            [ zoomId
+                              commandId
+                              expandedId
+                              expandedChildId
+                              foldedId ]
+                          eventId = EventId.zero }
+                    let! started = startAiRun host request
+                    match started with
+                    | Error err -> Assert.Fail(err)
+                    | Ok () -> ()
+                    do! expectActorSucceeded host pool commandId
                 }))
 
     [<Fact>]

@@ -8,28 +8,19 @@ type ActorInput =
     { graph: Graph
       zoomId: NodeId
       focusId: NodeId
-      commandId: NodeId
+      runDefinitionId: NodeId
       sessionId: string
       secret: Credential }
 
-type ActorFn = ActorInput -> CoreChangesDoor -> Async<unit>
+type ActorFn = ActorInput -> CoreChangesDoor -> Async<ActorResult>
 
-/// Graph carrier the Actor calls. The pool does not invoke this.
-type GraphCarrier = unit -> Graph
-
-/// What a function-shaped Actor receives. No Graph or ids bag.
-type FunctionRun =
-    { getGraph: GraphCarrier
-      secret: Credential }
-
-type FunctionActor = FunctionRun -> CoreChangesDoor -> Async<unit>
+type ActorFunction = FunctionRun -> CoreChangesDoor -> Async<ActorResult>
 
 /// Lifecycle keys for the pool; Graph arrives only via getGraph.
 type FunctionStart =
-    { actor: FunctionActor
+    { actor: ActorFunction
       getGraph: GraphCarrier
-      focusId: NodeId
-      commandId: NodeId }
+      actorNodeId: NodeId }
 
 [<RequireQualifiedAccess>]
 type StartError =
@@ -46,32 +37,28 @@ module StartError =
 
 type CoreActorPool =
     { register: ActorName -> ActorFn -> unit
-      registerPeer: PeerActorName -> ActorFn -> unit
       startActor:
         Gambol.Shared.ActorStart ->
             (unit -> Graph) ->
             Result<Credential, StartError>
       startFunction: FunctionStart -> Result<Credential, string>
-      startPeerActor:
-        PeerActorName ->
-            Gambol.Shared.ActorStart ->
-            (unit -> Graph) ->
-            Result<Credential, string>
       schedule: Credential -> CoreChangesDoor -> unit
       isLive: Credential -> bool
       admit: Credential -> Result<unit, string>
       drop: Credential -> unit
       finish: Credential -> ActorResult -> Result<unit, string>
-      liveFocusIds: unit -> Set<NodeId>
-      getFocusId: Credential -> NodeId option
-      trySecretForFocus: NodeId -> Credential option
+      liveActorNodeIds: unit -> Set<NodeId>
+      trySecretForActorNode: NodeId -> Credential option
       deliver: string * string -> Result<unit, string>
-      takeInbox: string -> Result<string list, string> }
+      takeInbox: string -> Result<string list, string>
+      sessionIdFor: Credential -> string option
+      bootActors: BootActors option
+      cancelLiveActors: unit -> unit }
 
 /// Pool, graph reader, and peer name for one Load or Save.
 type LoadSaveContext =
     { pool: CoreActorPool
-      getState: unit -> Graph
+      getGraph: unit -> Graph
       peerName: PeerActorName }
 
 [<RequireQualifiedAccess>]
@@ -80,13 +67,13 @@ module CoreActorPool =
     type private PendingBody =
         | BagPending of actorFn: ActorFn * input: ActorInput
         | FunctionPending of
-            actor: FunctionActor *
+            actor: ActorFunction *
             getGraph: GraphCarrier *
             secret: Credential
 
     type private LiveRow =
-        { focusId: NodeId
-          commandId: NodeId
+        { actorNodeId: NodeId
+          runDefinitionId: NodeId
           sessionId: string
           inbox: string list
           cancel: System.Threading.CancellationTokenSource
@@ -94,20 +81,19 @@ module CoreActorPool =
 
     type private Model =
         { defs: Map<string, ActorFn>
-          peerDefs: Map<string, ActorFn>
           live: Map<Credential, LiveRow>
           bySession: Map<string, Credential> }
 
-    let private liveFocusIds (model: Model) =
+    let private liveActorNodeIds (model: Model) =
         model.live
         |> Map.toList
-        |> List.map (fun (_, row) -> row.focusId)
+        |> List.map (fun (_, row) -> row.actorNodeId)
         |> Set.ofList
 
-    let private trySecretForFocus (model: Model) focusId =
+    let private trySecretForActorNode (model: Model) actorNodeId =
         model.live
         |> Map.tryPick (fun secret row ->
-            if row.focusId = focusId then Some secret
+            if row.actorNodeId = actorNodeId then Some secret
             else None)
 
     let private runAdmit isLive secret =
@@ -142,7 +128,7 @@ module CoreActorPool =
             |> Option.defaultValue (
                 commandNode.text.Trim().ToLowerInvariant())
 
-    let private actorGraphFrom (fullGraph: Graph) (request: ActorStart) =
+    let actorGraphFrom (fullGraph: Graph) (request: ActorStart) =
         let actorNodes =
             request.graphIds
             |> List.choose (fun id ->
@@ -158,17 +144,17 @@ module CoreActorPool =
         Graph.fromExtracted request.zoomId actorNodes childMap
         |> Graph.withFocus (Some request.focusId)
 
-    let private commandIsLive (model: Model) commandId =
+    let private commandIsLive (model: Model) runDefinitionId =
         model.live
-        |> Map.exists (fun _ row -> row.commandId = commandId)
+        |> Map.exists (fun _ row -> row.runDefinitionId = runDefinitionId)
 
     let private admitStart request (model: Model) =
         if request.graphIds.IsEmpty then
             Error
                 "graphIds required: client must provide Included context (SiteMap under Zoom, honoring Fold)"
-        elif Set.contains request.focusId (liveFocusIds model) then
+        elif Set.contains request.focusId (liveActorNodeIds model) then
             Error "focus already has a live Actor"
-        elif commandIsLive model request.commandId then
+        elif commandIsLive model request.runDefinitionId then
             Error "command already has a live Actor"
         else
             Ok()
@@ -188,13 +174,13 @@ module CoreActorPool =
             { graph = actorGraph
               zoomId = request.zoomId
               focusId = request.focusId
-              commandId = request.commandId
+              runDefinitionId = request.runDefinitionId
               sessionId = sessionId
               secret = secret }
         putLive
             secret
             request.focusId
-            request.commandId
+            request.runDefinitionId
             sessionId
             (BagPending(actorFn, input))
         Ok secret
@@ -205,7 +191,7 @@ module CoreActorPool =
         | Error err -> Error (StartError.Rejected err)
         | Ok() ->
             let actorGraph = actorGraphFrom fullGraph request
-            match Map.tryFind request.commandId actorGraph.nodes with
+            match Map.tryFind request.runDefinitionId actorGraph.nodes with
             | None ->
                 Error (
                     StartError.Rejected
@@ -223,10 +209,8 @@ module CoreActorPool =
         (request: FunctionStart)
         (model: Model)
         =
-        if Set.contains request.focusId (liveFocusIds model) then
-            Error "focus already has a live Actor"
-        elif commandIsLive model request.commandId then
-            Error "command already has a live Actor"
+        if Set.contains request.actorNodeId (liveActorNodeIds model) then
+            Error "actor node already has a live Actor"
         else
             Ok()
 
@@ -240,8 +224,8 @@ module CoreActorPool =
         let sessionId = Guid.NewGuid().ToString()
         putLive
             secret
-            request.focusId
-            request.commandId
+            request.actorNodeId
+            request.actorNodeId
             sessionId
             (FunctionPending(request.actor, request.getGraph, secret))
         Ok secret
@@ -255,32 +239,16 @@ module CoreActorPool =
         | Error err -> Error err
         | Ok() -> putFunctionStart putLive request
 
-    let private runStartPeerActor putLive getModel peerName request getState =
-        let fullGraph = getState ()
-        match admitStart request (getModel ()) with
-        | Error err -> Error err
-        | Ok () ->
-            let (PeerActorName name) = peerName
-            match Map.tryFind name (getModel ()).peerDefs with
-            | None -> Error $"Peer Actor '{name}' not registered"
-            | Some actorFn ->
-                putActorStart putLive request fullGraph actorFn
-
     let startLoadSaveCommand
-        (run: LoadSaveContext)
+        (_run: LoadSaveContext)
         (path: LoadSavePath)
-        (choice: LoadPathChoice)
-        (request: LoadSaveCommandRequest)
+        (_choice: LoadPathChoice)
+        (_request: LoadSaveCommandRequest)
         : Result<Credential option, string>
         =
         match path with
-        | LoadSavePath.Desk -> Ok None
-        | LoadSavePath.Git ->
-            run.pool.startPeerActor
-                run.peerName
-                request.start
-                run.getState
-            |> Result.map Some
+        | LoadSavePath.Desk
+        | LoadSavePath.Git -> Ok None
 
     let private takePending (model: Model) secret =
         match Map.tryFind secret model.live with
@@ -292,6 +260,29 @@ module CoreActorPool =
                 let live =
                     Map.add secret { row with pending = None } model.live
                 { model with live = live }, Some (pending, row)
+
+    /// Cancel already logged the stop. A returned result posts it.
+    let private postStopUnlessCancelled
+        (coreChanges: CoreChangesDoor)
+        (row: LiveRow)
+        (result: ActorResult)
+        =
+        if row.cancel.IsCancellationRequested then
+            ()
+        else
+            CoreMailboxApi.postNotice
+                coreChanges.host
+                (Notice.ActorStopped(row.actorNodeId, result))
+
+    let private runReturned
+        (coreChanges: CoreChangesDoor)
+        (row: LiveRow)
+        (work: Async<ActorResult>)
+        =
+        async {
+            let! result = work
+            postStopUnlessCancelled coreChanges row result
+        }
 
     let private runSchedule
         (takePendingBody: Credential -> (PendingBody * LiveRow) option)
@@ -305,12 +296,14 @@ module CoreActorPool =
                 match pending with
                 | BagPending(actorFn, input) ->
                     actorFn input coreChanges
-                | FunctionPending(actor, getGraph, secret) ->
+                | FunctionPending(actor, getGraph, bodySecret) ->
                     actor
                         { getGraph = getGraph
-                          secret = secret }
+                          secret = bodySecret }
                         coreChanges
-            Async.Start(work, row.cancel.Token)
+            Async.Start(
+                runReturned coreChanges row work,
+                row.cancel.Token)
 
     let dropAndReply
         (pool: CoreActorPool)
@@ -321,89 +314,128 @@ module CoreActorPool =
         pool.drop secret
         reply.Reply(Error err)
 
-    let create () : CoreActorPool =
-        let mutable model =
-            { defs = Map.empty
-              peerDefs = Map.empty
-              live = Map.empty
-              bySession = Map.empty }
-        let getModel () = model
-        let putLive secret focusId commandId sessionId pending =
-            let row =
-                { focusId = focusId
-                  commandId = commandId
-                  sessionId = sessionId
-                  inbox = []
-                  cancel = new System.Threading.CancellationTokenSource()
-                  pending = Some pending }
-            model <-
+    let private emptyModel () =
+        { defs = Map.empty
+          live = Map.empty
+          bySession = Map.empty }
+
+    let private liveRow actorNodeId runDefinitionId sessionId pending =
+        { actorNodeId = actorNodeId
+          runDefinitionId = runDefinitionId
+          sessionId = sessionId
+          inbox = []
+          cancel = new System.Threading.CancellationTokenSource()
+          pending = Some pending }
+
+    let private addLive
+        (model: Model)
+        secret
+        actorNodeId
+        runDefinitionId
+        sessionId
+        pending
+        =
+        let row =
+            liveRow actorNodeId runDefinitionId sessionId pending
+        { model with
+            live = Map.add secret row model.live
+            bySession = Map.add sessionId secret model.bySession }
+
+    let private removeLive (model: Model) secret =
+        match Map.tryFind secret model.live with
+        | None -> model, None
+        | Some row ->
+            let next =
                 { model with
-                    live = Map.add secret row model.live
-                    bySession = Map.add sessionId secret model.bySession }
-        let takeLive secret =
-            match Map.tryFind secret model.live with
-            | None -> None
-            | Some row ->
-                model <-
-                    { model with
-                        live = Map.remove secret model.live
-                        bySession =
-                            Map.remove row.sessionId model.bySession }
-                Some row
-        let takePendingBody secret =
-            let next, pending = takePending model secret
+                    live = Map.remove secret model.live
+                    bySession =
+                        Map.remove row.sessionId model.bySession }
+            next, Some row
+
+    let private rowForSession (model: Model) sessionId =
+        Map.tryFind sessionId model.bySession
+        |> Option.bind (fun secret ->
+            Map.tryFind secret model.live
+            |> Option.map (fun row -> secret, row))
+
+    let private deliverTo (model: Model) (sessionId, text) =
+        match rowForSession model sessionId with
+        | None -> model, Error "not live"
+        | Some(secret, row) ->
+            let next = { row with inbox = text :: row.inbox }
+            let updated =
+                { model with
+                    live = Map.add secret next model.live }
+            updated, Ok ()
+
+    let private takeInboxOf (model: Model) sessionId =
+        match rowForSession model sessionId with
+        | None -> model, Error "not live"
+        | Some(secret, row) ->
+            let texts = List.rev row.inbox
+            let updated =
+                { model with
+                    live =
+                        Map.add
+                            secret
+                            { row with inbox = [] }
+                            model.live }
+            updated, Ok texts
+
+    let private sessionOf (model: Model) secret =
+        Map.tryFind secret model.live
+        |> Option.map (fun row -> row.sessionId)
+
+    let private clearRows (model: Model) =
+        let live = model.live
+        let next =
+            { model with
+                live = Map.empty
+                bySession = Map.empty }
+        next, live
+
+    let private addDef (model: Model) name actor =
+        { model with defs = Map.add name actor model.defs }
+
+    let private newPool (bootActors: BootActors option) : CoreActorPool =
+        let mutable model = emptyModel ()
+        let getModel () = model
+        let commit (next, value) =
             model <- next
-            pending
-        let liveRowFor sessionId =
-            Map.tryFind sessionId model.bySession
-            |> Option.bind (fun secret ->
-                Map.tryFind secret model.live
-                |> Option.map (fun row -> secret, row))
-        let deliver (sessionId, text) =
-            match liveRowFor sessionId with
-            | None -> Error "not live"
-            | Some(secret, row) ->
-                let next =
-                    { row with inbox = text :: row.inbox }
-                model <-
-                    { model with
-                        live = Map.add secret next model.live }
-                Ok()
-        let takeInbox sessionId =
-            match liveRowFor sessionId with
-            | None -> Error "not live"
-            | Some(secret, row) ->
-                let texts = List.rev row.inbox
-                model <-
-                    { model with
-                        live =
-                            Map.add
-                                secret
-                                { row with inbox = [] }
-                                model.live }
-                Ok texts
+            value
+        let putLive secret actorNodeId runDefinitionId sessionId pending =
+            model <-
+                addLive model secret actorNodeId runDefinitionId sessionId pending
+        let takeLive secret = commit (removeLive model secret)
+        let takePendingBody secret = commit (takePending model secret)
+        let apply change = commit (change model)
+        let clearLive () =
+            let live = commit (clearRows model)
+            Map.iter (fun _ row -> row.cancel.Cancel()) live
+        let contains secret = Map.containsKey secret model.live
+        ServerRunRegistry.registerPool clearLive
         { register =
             fun (ActorName name) actor ->
-                model <- { model with defs = Map.add name actor model.defs }
-          registerPeer =
-            fun (PeerActorName name) actor ->
-                model <-
-                    { model with
-                        peerDefs = Map.add name actor model.peerDefs }
+                model <- addDef model name actor
           startActor = runStartActor putLive getModel
           startFunction = runStartFunction putLive getModel
-          startPeerActor = runStartPeerActor putLive getModel
           schedule = runSchedule takePendingBody
-          isLive = fun secret -> Map.containsKey secret model.live
-          admit = runAdmit (fun secret -> Map.containsKey secret model.live)
+          isLive = contains
+          admit = runAdmit contains
           drop = runDrop takeLive
           finish = runFinish takeLive
-          liveFocusIds = fun () -> liveFocusIds model
-          getFocusId =
-            fun secret ->
-                Map.tryFind secret model.live
-                |> Option.map (fun row -> row.focusId)
-          trySecretForFocus =
-            fun focusId -> trySecretForFocus model focusId
-          deliver = deliver
-          takeInbox = takeInbox }
+          liveActorNodeIds = fun () -> liveActorNodeIds model
+          trySecretForActorNode =
+            fun actorNodeId -> trySecretForActorNode model actorNodeId
+          deliver = fun pair -> apply (fun current -> deliverTo current pair)
+          takeInbox =
+            fun sessionId ->
+                apply (fun current -> takeInboxOf current sessionId)
+          sessionIdFor = fun secret -> sessionOf model secret
+          bootActors = bootActors
+          cancelLiveActors = clearLive }
+
+    let create () = newPool None
+
+    let createWithInstall (install: BootActors) =
+        newPool (Some install)

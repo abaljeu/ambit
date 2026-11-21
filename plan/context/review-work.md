@@ -1,0 +1,71 @@
+# Review work
+
+## 1. Work
+
+Write `<nn>-review.md` in the ticket folder `plan/<slug>/issues/<nn>-<name>/` when the review step is about to be worked. That file states the change as it stands.
+
+On cloud, the range is the ticket's PR diff against staging.
+On Windows, the range is the current diff, or whatever diff is related to the ticket.
+
+## 2. Review template
+
+Copy these headings into the report. Leave each pointer line as written. A pointer line names its target file.
+
+```
+# <NN> — <ticket name>
+
+Ticket: [[<nn>-<name>-ticket.md]]
+Spec: [[../../spec.md]]
+Arch: [[../../arch.md]]
+
+## 1. Standards
+
+## 2. Spec
+
+## 3. Arch
+
+## 4. Tests
+
+## 5. Miss
+
+## 6. Found elsewhere
+"The following issues were found beyond the ticket scope.  The fixes are suggested."
+```
+
+## 3. Fill
+
+Follow the full suite in [[.agents/skills/tdd/SKILL.md]]. Do the rest of the review while it runs.
+
+Write each section as a list, one finding per item. An empty section is one item: `No findings.`
+
+1. **Standards.** Run `python scripts/standards-scan.py --diff origin/staging` from the repo root. A printed line is a finding when it breaks the limit in the rule it cites, or when it is a GLOSSARY.md PHRASE line. Then check the diff against each file in [[.agents/rules/]] and against the smells below. Label each finding:
+   - **Hard** — breaks a rule. Cite the rule file and the rule.
+   - **Judgement** — a smell. Name the smell and quote the hunk. Source: [[SMELLS.md]]
+2. **Spec.** Score the diff against each story the ticket names, using `spec.md` and the ticket. Label each finding:
+   - **Missing** — a requirement with no code.
+   - **Partial** — a requirement with incomplete code.
+   - **Wrong** — code that does something other than the requirement.
+   - **Extra** — behavior the ticket and spec leave out.
+   - **Unnamed** — a global type or interface the diff adds or changes that the ticket and spec leave unnamed.
+3. **Arch.** Check the diff against the story paths and the module map in `arch.md`. Each break is a **Blocker** and names the arch section and the code location.
+4. **Tests.** Check that each test Outputs names exists and checks what Outputs says. Record what `scripts/check-test.sh <pid>` prints.
+5. **Miss.** Name what returns the ticket to build:
+   - each Missing, Partial or Wrong finding
+   - each Blocker
+   - a named test that is missing
+   - a failing test
+   - a test that checks something other than Outputs
+
+6. **Found elsewhere.** Take each item in the PR body's **Found elsewhere** list. Write it as:
+   - **Problem.** The perceived flaw.
+   - **Fix.** What to do.
+
+Judgement, Extra and Unnamed findings go to the user to decide. Found elsewhere items go to the user to confirm.
+
+When Miss names anything, the code does not meet the ticket. The next step is another build round to meet it, not the refactor round. The refactor round follows only a review whose Miss section is `No findings.`
+
+A Hard finding is a standards miss, not a spec miss. It does not return the ticket to build. The refactor round fixes it, as long as the fix changes no behavior.
+
+## 4. Finish
+
+Done: the report has the six sections, each section is a list, the Miss section names what returns the ticket to build, and each Found elsewhere item is accepted or rejected.

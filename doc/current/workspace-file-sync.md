@@ -26,16 +26,19 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Job
 
-[x] Upload (`Ctrl+Shift+>`) ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
-[x] Download (`Ctrl+Shift+<`) ensures a map, then enqueues `workspace-download`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces.
+[x] Workspace upload ensures a map, then creates client stubs, then pushes bodies over WebDAV with prepare-push and finish-commit. Ensure-map: pick-folder plus Put when the label is unmapped. Workspaces focus creates a named Workspace from the folder basename. File focus then Parses.
+[x] Save keys are `Ctrl+S` and `Ctrl+Shift+<` on `CommandEntry` in [Command entry](../../src/Shared/CommandEntry.fs). Download is that Save command.
+[x] `downloadOp` in [Update workspace download](../../src/Client/UpdateWorkspaceDownload.fs) ensures a map, then enqueues `workspace-download`. Target: a named Workspace, Directory, or File. Target: not ROOT and not Workspaces. Save does not call `downloadOp`.
 [x] ROOT and Workspaces cannot acquire a mapping.
 [x] Focus sets the scope. Workspace: the whole tree. Directory: a relative prefix. File: one path.
 
 ## Transport
 
-[x] Client Upload and Download do not use a remote and do not use smart-HTTP pack transport.
+[x] Client Upload and Download do not use a remote.
 [x] Server mount: `/ambit/dav/{label}/…` on `DataDir/{label}/`.
 [x] Class 1 methods in use: `PROPFIND`, `GET`, `PUT`, and `MKCOL`.
+[x] `GET` admits the Browser auth cookie and sends no `Content-Disposition: attachment`.
+[x] `GET` sets Content-Type from the extension for PDF, images, HTML, and SVG, and from a short UTF-8 sample for every other file, through `contentTypeFor` in [WorkspaceFileMedia.fs](src/Server/WorkspaceFileMedia.fs). A text file is `text/plain; charset=utf-8` with `Content-Disposition: inline`.
 [x] After a Push batch, the desktop calls `_prepare-push`, then `_finish-commit`, on that mount.
 [x] `_prepare-push` runs `WorkspaceGit.jitCommitBeforeWorkspacePush` when DataDir is dirty.
 [x] `_finish-commit` adds and commits through [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) and [GitSave.fs](src/Server/GitSave.fs), so Server `HEAD` advances.
@@ -63,7 +66,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] An eligible bulk file is at most 1 MiB. Only eligible files and eligible bytes count toward the caps.
 [x] At most 1,500 eligible files and 16 MiB of eligible bytes keep the full structure, and the client uploads every eligible body.
 [x] Over either cap, the client keeps immediate-child structure and uploads the eligible top-level bodies.
-[x] An oversized selected file keeps a `NoServerFile` stub. The client transfers no body for that file.
+[x] An oversized selected file keeps a `PullingFile` stub. The client transfers no body for that file.
 [x] A direct single-file Upload keeps a 4 MiB body limit and does not skip on mtime.
 [x] A new File stub shows `∅` until PUT or an mtime skip confirms a server body, then shows `…` until Parse.
 [x] Desktop Upload does not run a post-upload disk-to-graph reconcile.
@@ -73,7 +76,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 [x] Download fetches every non-ignored directory and every non-ignored file in the selected server scope.
 [x] Upload bulk caps do not restrict Download.
-[x] The Download command enqueues a desktop job. The command does not block the Browser on the transfer.
+[x] `downloadOp` enqueues a desktop job. The call does not block the Browser on the transfer.
 [x] Enqueue: `POST /_desktop/workspace-download` with `{ label, relative, kind }`.
 [x] Status: `GET /_desktop/workspace-download?id=…`.
 [x] The queue holds one Running job and at most one Queued job. The queue refuses a third enqueue.
@@ -81,7 +84,7 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 [x] The client sets the local file mtime from the `PROPFIND` value `getlastmodified`.
 [x] Code: [WorkspaceDownloadManager.fs](src/Desktop/WorkspaceDownloadManager.fs), [WorkspaceDownloadQueue.fs](src/Shared/dotnet/WorkspaceDownloadQueue.fs), and [WorkspaceFileSync.fs](src/Shared/dotnet/WorkspaceFileSync.fs) `getStaged`.
 [x] `POST /_desktop/workspace-pull` still runs a blocking scoped pull on the same Get path for a mapped label.
-[x] The Download command uses the manager. The Download command does not use that blocking route.
+[x] `downloadOp` uses the manager. `downloadOp` does not use that blocking route.
 
 ## Ledger
 
@@ -98,10 +101,10 @@ Workspace file sync transfers a tree between an App folder and Server `DataDir/{
 
 ## Auto-download
 
-[x] A persisted change carries `SetUpdateTime` stamp ops on a rewritten document-root node.
-[x] The Browser reuses those stamps to refresh a mapped App folder.
-[x] An own edit uses the stamp ops on `SubmitResponse`.
-[x] A remote edit uses the same stamp ops on an applied poll Change.
+[x] A persisted Edit posts `Notice.NodePersisted` with the written file time. The Browser applies that time. [Mailbox](mailbox.md)
+[x] Auto-download targets: `Op.SetUpdateTime` on a polled Change. [Workspace upload structure](../../src/Shared/WorkspaceUploadStructure.fs) `autoDownloadFileTargets`.
+[x] An own edit's ack has no file time. A later poll applies `Notice.NodePersisted`.
+[x] A remote edit uses that same polled `Notice.NodePersisted`.
 [x] Shared coalesce keeps at most one job per label, for a File, the nearest Directory, or the whole Workspace, so the manager cap holds.
 [x] The Browser sends `POST /_desktop/workspace-download` and does not wait. There is no folder picker. A label with no mapping is dropped.
 [x] The path runs only when `DesktopCapabilities.canWorkspaceSync` is true. Plain web does nothing on this path.

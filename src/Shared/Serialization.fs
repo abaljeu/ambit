@@ -14,7 +14,7 @@ module Serialization =
         match state with
         | Current -> Encode.string "current"
         | Unparsed -> Encode.string "unparsed"
-        | NoServerFile -> Encode.string "noServerFile"
+        | PullingFile -> Encode.string "noServerFile"
 
     let private encodeParseState (state: ParseState) : IEncodable =
         match state with
@@ -45,7 +45,7 @@ module Serialization =
         |> Decode.andThen (function
             | "current" -> Decode.succeed Current
             | "unparsed" -> Decode.succeed Unparsed
-            | "noServerFile" -> Decode.succeed NoServerFile
+            | "noServerFile" -> Decode.succeed PullingFile
             | other -> Decode.fail $"Unknown document state: {other}")
 
     let private encodeChildrenStatus (status: ChildrenStatus) : IEncodable =
@@ -146,11 +146,29 @@ module Serialization =
                 encodeParseState node.documentState.parseState
               "persistState",
                 encodePersistState node.documentState.persistState
+              "persistedVersion",
+                Encode.int (EventId.toJson node.documentState.persistedVersion)
+              "changedVersion",
+                Encode.int (EventId.toJson node.documentState.changedVersion)
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
-    let private nodeFromFields
+    let private decodeEventIdField field (get: Decode.IGetters) : EventId =
+        get.Optional.Field field Decode.int
+        |> Option.map EventId.fromJson
+        |> Option.defaultValue EventId.zero
+
+    let private withDecodedPersistVersions
         (get: Decode.IGetters)
+        (node: Node)
         : Node =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistedVersion =
+                        decodeEventIdField "persistedVersion" get
+                    changedVersion = decodeEventIdField "changedVersion" get } }
+
+    let private nodeFromFields (get: Decode.IGetters) : Node =
         let kind =
             get.Optional.Field "kind" decodeNodeKind
             |> Option.defaultValue Normal
@@ -185,6 +203,7 @@ module Serialization =
             parseState = parseState,
             persistState = persistState,
             updateTime = updateTime)
+        |> withDecodedPersistVersions get
 
     let decodeNode: Decoder<Node> =
         Decode.object nodeFromFields
@@ -336,12 +355,6 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldName", Encode.string oldName
                   "newName", Encode.string newName ]
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Encode.object
-                [ "type", Encode.string "SetDocumentState"
-                  "nodeId", encodeNodeId nodeId
-                  "oldState", encodeDocumentState oldState
-                  "newState", encodeDocumentState newState ]
         | Op.SetUpdateTime(nodeId, oldTime, newTime) ->
             Encode.object
                 [ "type", Encode.string "SetUpdateTime"
@@ -388,12 +401,6 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldName" Decode.string,
                         get.Required.Field "newName" Decode.string))
-            | "SetDocumentState" ->
-                Decode.object (fun get ->
-                    Op.SetDocumentState(
-                        get.Required.Field "nodeId" decodeNodeId,
-                        get.Required.Field "oldState" decodeDocumentState,
-                        get.Required.Field "newState" decodeDocumentState))
             | "SetUpdateTime" ->
                 Decode.object (fun get ->
                     Op.SetUpdateTime(
@@ -406,24 +413,6 @@ module Serialization =
                             DateTimeKind.Utc)))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
-
-    // ---- Desktop Import ----
-
-    let encodeDesktopImportPackage (package: DesktopImportPackage) : IEncodable =
-        Encode.object
-            [ "sourcePath", Encode.string package.sourcePath
-              "isDirectory", Encode.bool package.isDirectory
-              "topLevelIds", package.topLevelIds |> List.map encodeNodeId |> Encode.list
-              "ops", package.ops |> List.map encodeOp |> Encode.list ]
-
-    let decodeDesktopImportPackage: Decoder<DesktopImportPackage> =
-        Decode.object (fun get ->
-            { sourcePath = get.Required.Field "sourcePath" Decode.string
-              isDirectory =
-                get.Optional.Field "isDirectory" Decode.bool
-                |> Option.defaultValue false
-              topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
-              ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
     // ---- Desktop Export ----
 

@@ -1,6 +1,8 @@
 module Gambol.Server.Tests.PersistApplyTests
 
 open System
+open System.IO
+open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -26,16 +28,60 @@ let private wireEvent submissionId ops : Ev =
       commandName = "persist-apply"
       body = EventBody.Change ops }
 
-let private eventsSince (handlers: PersistHandlers) after =
+let private eventsSince (handlers: CoreMailboxAccess) after =
     requireOk "getEventsSince" (handlers.getEventsSince after)
 
-let private applyThenAppend (handlers: PersistHandlers) event =
+let private applyThenAppend (handlers: CoreMailboxAccess) event =
     let accepted = requireOk "applyEvent" (handlers.applyEvent event false)
     Assert.Empty(eventsSince handlers (EventId.zero))
     requireOk "appendEvent" (handlers.appendEvent event)
     let stored = Assert.Single(eventsSince handlers (EventId.zero))
     Assert.Equal(event.submissionId, stored.submissionId)
     accepted
+
+let private fileNodeWithText () =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    fileId, node
+
+let private editFileText eventId fileId oldText newText : Ev =
+    { id = EventIdFixtures.storedId eventId
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Edit"
+      body = EventBody.Change [ Op.SetText(fileId, oldText, newText) ] }
+
+[<Fact>]
+let ``FileAgent applyEvent marks a File Node at the later Edit id`` () =
+    let fileId, node = fileNodeWithText ()
+    let agent = FileAgent.create (newTempDir ())
+    let handlers = (FileAgent.persist agent).handlers
+    let seeded =
+        match handlers.graphAtEvent () with
+        | Error error ->
+            Assert.Fail($"graphAtEvent: {error}")
+            Unchecked.defaultof<_>
+        | Ok state ->
+            Graph.addDetachedNode node state.graph
+    handlers.replaceGraph (Notice.NodePersisting fileId) seeded
+    requireOk
+        "first edit"
+        (handlers.applyEvent (editFileText 4 fileId "hello" "first") false)
+    |> ignore
+    requireOk
+        "second edit"
+        (handlers.applyEvent (editFileText 5 fileId "first" "second") false)
+    |> ignore
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(EventIdFixtures.storedId 5, live.documentState.changedVersion)
+    Assert.Equal("second", live.text)
 
 [<Fact>]
 let ``FileAgent applyEvent applies Ev Ops without leftover Change`` () =
@@ -44,7 +90,7 @@ let ``FileAgent applyEvent applies Ev Ops without leftover Change`` () =
     let agent = FileAgent.create (newTempDir ())
     let handlers = (FileAgent.persist agent).handlers
     let accepted = applyThenAppend handlers event
-    let state = requireOk "getState" (handlers.getState ())
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
     Assert.Equal("persist-apply-file", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
 
@@ -57,7 +103,7 @@ let ``DbAgent applyEvent applies Ev Ops without leftover Change`` () =
     let agent = DbAgent.createForTest initial (fun _ -> Ok [])
     let handlers = (DbAgent.persist agent).handlers
     let accepted = applyThenAppend handlers event
-    let state = requireOk "getState" (handlers.getState ())
+    let state = requireOk "graphAtEvent" (handlers.graphAtEvent ())
     Assert.Equal("persist-apply-db", state.graph.nodes.[childId].text)
     Assert.Equal(event.submissionId, Assert.Single(accepted.events).submissionId)
 
@@ -77,9 +123,9 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
             |> Async.RunSynchronously
             |> requireOk "postEvent"
         let state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.RunSynchronously
-            |> requireOk "getState"
+            |> requireOk "graphAtEvent"
         Assert.Equal("no-change-copy", state.graph.nodes.[childId].text)
         Assert.Equal(event.submissionId, stored.submissionId)
         match Ev.ops stored with
@@ -89,6 +135,276 @@ let ``CoreEventDispatch persist apply does not copy Ev to leftover Change`` () =
         let logged =
             CoreMailboxApi.getEventsSince host (EventId.zero)
             |> Async.RunSynchronously
-        Assert.Equal(event.submissionId, Assert.Single(logged).submissionId)
+        Assert.Equal(
+            event.submissionId,
+            Assert.Single(changesOnly logged).submissionId)
     finally
         CoreMailboxApi.dispose host
+
+let private withPersistedVersions changed persisted node =
+    { node with
+        documentState =
+            { node.documentState with
+                persistState = PersistState.Persisted
+                changedVersion = changed
+                persistedVersion = persisted } }
+
+let private fileAt text persisted =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = text,
+            name = Filename.create "note.txt",
+            kind = Special File)
+        |> withPersistedVersions EventId.zero persisted
+    fileId, node
+
+let private seedPersisted (handlers: CoreMailboxAccess) fileId node =
+    let state = requireOk "seed graphAtEvent" (handlers.graphAtEvent ())
+    handlers.replaceGraph
+        (Notice.NodePersisting fileId)
+        (Graph.addDetachedNode node state.graph)
+
+let private editAction id body : Ev =
+    { id = EventIdFixtures.storedId id
+      submissionId = Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = "Edit"
+      body = body }
+
+let private fileHandlers () =
+    let agent = FileAgent.create (newTempDir ())
+    (FileAgent.persist agent).handlers
+
+let private applyAction (handlers: CoreMailboxAccess) event =
+    requireOk "applyEvent" (handlers.applyEvent event false) |> ignore
+    requireOk "graphAtEvent" (handlers.graphAtEvent ())
+
+let private assertVersions state fileId text changed persisted =
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(text, live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+
+/// Edit at V, then Undo or Redo at a later id. persistedVersion stays.
+let private editThenAction
+    (handlers: CoreMailboxAccess)
+    actionId
+    bodyFor
+    =
+    let version = EventIdFixtures.storedId 4
+    let persisted = EventIdFixtures.storedId 2
+    let fileId, node = fileAt "hello" persisted
+    seedPersisted handlers fileId node
+    let edit =
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ])
+    applyAction handlers edit |> ignore
+    let action = editAction actionId (bodyFor version fileId)
+    let state = applyAction handlers action
+    fileId, persisted, state
+
+[<Fact>]
+let ``Undo sets changedVersion to the Undo event and leaves persistedVersion`` () =
+    let undo version fileId =
+        EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])
+    let fileId, persisted, state =
+        editThenAction (fileHandlers ()) 9 undo
+    assertVersions
+        state fileId "hello" (EventIdFixtures.storedId 9) persisted
+
+[<Fact>]
+let ``Redo sets changedVersion to the Redo event and leaves persistedVersion`` () =
+    let handlers = fileHandlers ()
+    let version = EventIdFixtures.storedId 4
+    let persisted = EventIdFixtures.storedId 2
+    let fileId, node = fileAt "hello" persisted
+    seedPersisted handlers fileId node
+    applyAction handlers (
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ]))
+    |> ignore
+    applyAction handlers (
+        editAction 9 (
+            EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])))
+    |> ignore
+    let state =
+        applyAction handlers (
+            editAction 12 (
+                EventBody.Redo(
+                    EventIdFixtures.storedId 9,
+                    [ Op.SetText(fileId, "hello", "edited") ])))
+    assertVersions
+        state fileId "edited" (EventIdFixtures.storedId 12) persisted
+
+let private assertPersistMark state fileId text persisted changed =
+    let live = state.graph.nodes.[fileId]
+    Assert.Equal(text, live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(changed, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``Undo sets persistState Unpersisted and leaves persistedVersion`` () =
+    let undo version fileId =
+        EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])
+    let handlers = fileHandlers ()
+    let fileId, persisted, state = editThenAction handlers 9 undo
+    assertPersistMark
+        state fileId "hello" persisted (EventIdFixtures.storedId 9)
+
+[<Fact>]
+let ``Redo sets persistState Unpersisted and leaves persistedVersion`` () =
+    let handlers = fileHandlers ()
+    let version = EventIdFixtures.storedId 4
+    let undoId = EventIdFixtures.storedId 9
+    let persisted = EventIdFixtures.storedId 2
+    let redoId = EventIdFixtures.storedId 12
+    let fileId, node = fileAt "hello" persisted
+    seedPersisted handlers fileId node
+    applyAction handlers (
+        editAction 4 (EventBody.Change [ Op.SetText(fileId, "hello", "edited") ]))
+    |> ignore
+    applyAction handlers (
+        editAction 9 (
+            EventBody.Undo(version, [ Op.SetText(fileId, "edited", "hello") ])))
+    |> ignore
+    let state =
+        applyAction handlers (
+            editAction 12 (
+                EventBody.Redo(
+                    undoId, [ Op.SetText(fileId, "hello", "edited") ])))
+    assertPersistMark state fileId "edited" persisted redoId
+
+let private postBody host commandName body =
+    let event =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = commandName
+          body = body }
+    CoreMailboxApi.postEvent host testCaller event |> Async.StartAsTask
+
+let private stateOf host = task {
+    let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+    return requireOk "graphAtEvent" state
+}
+
+let private artifactText dataDir graph fileId =
+    let path =
+        DocumentPersistPath.resolveArtifactPath dataDir graph fileId
+        |> requireOk "path"
+    if File.Exists path then File.ReadAllText path else ""
+
+/// Loaded Windows runs missed a four-second poll. The bound is a backstop.
+let private persistWait = TimeSpan.FromSeconds 30.0
+
+let rec private pollUntil label ready (start: DateTime) : Task<unit> = task {
+    let! ok = ready ()
+    if ok || (DateTime.UtcNow - start) >= persistWait then
+        Assert.True(ok, label)
+    else
+        do! Task.Delay 20
+        return! pollUntil label ready start
+}
+
+let private waitUntil label ready = pollUntil label ready DateTime.UtcNow
+
+/// PersistThread posts this after the write, stamped with the state it read.
+let private persistedFileAtOrAfter fileId version event =
+    match event.body with
+    | EventBody.Notice (Notice.NodePersisted (id, written, _)) ->
+        id = fileId
+        && EventId.value written >= EventId.value version
+    | _ -> false
+
+let private eventsOf host =
+    CoreMailboxApi.getEventsSince host EventId.zero
+    |> Async.StartAsTask
+
+let private childUnlinked graph fileId childId =
+    GraphChildren.get graph fileId
+    |> List.forall (fun child -> child.id <> childId)
+
+[<Fact>]
+let ``Undo pushes the document root and the persist thread writes the undone graph`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = admittedHostFile (FileAgent.create dataDir)
+        try
+            let! initial = stateOf host
+            let workspaceId, workspaceOps =
+                FileNodeOps.planCreateWorkspace initial.graph "home"
+            let! workspace =
+                postBody host "Create workspace" (EventBody.Change workspaceOps)
+            requireOk "workspace" workspace |> ignore
+            let! afterWorkspace = stateOf host
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    afterWorkspace.graph workspaceId "note.txt"
+            let! file =
+                postBody host "Create file" (EventBody.Change fileOps)
+            requireOk "file" file |> ignore
+            CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
+            do!
+                waitUntil "parsed file" (fun () -> task {
+                    let! state = stateOf host
+                    return
+                        state.graph.nodes.[fileId].parseState
+                        = ParseState.Parsed
+                })
+            let! afterFile = stateOf host
+            let childId = NodeId.New()
+            let oldChildren = GraphChildren.get afterFile.graph fileId
+            let addChild =
+                EventBody.Change [
+                    Op.NewNode(childId, "edited")
+                    Op.Replace(
+                        fileId,
+                        oldChildren,
+                        oldChildren @ [ ChildNode.owner childId ])
+                ]
+            let! edited = postBody host "Edit" addChild
+            let storedEdit = requireOk "edit" edited
+            do!
+                waitUntil "edited file" (fun () -> task {
+                    let! state = stateOf host
+                    let text = artifactText dataDir state.graph fileId
+                    return text.Contains "edited"
+                })
+            let! undone =
+                postBody
+                    host
+                    "Edit"
+                    (EventBody.Undo(storedEdit.id, []))
+            let storedUndo = requireOk "undo" undone
+            do!
+                waitUntil "undone file" (fun () -> task {
+                    let! state = stateOf host
+                    let! events = eventsOf host
+                    let text = artifactText dataDir state.graph fileId
+                    let unlinked =
+                        childUnlinked state.graph fileId childId
+                    let wrote =
+                        List.exists
+                            (persistedFileAtOrAfter fileId storedUndo.id)
+                            events
+                    return
+                        unlinked
+                        && wrote
+                        && not (text.Contains "edited")
+                })
+            let! final = stateOf host
+            let! events = eventsOf host
+            let wroteFile =
+                List.exists
+                    (persistedFileAtOrAfter fileId storedUndo.id)
+                    events
+            Assert.True(wroteFile, "persist thread wrote the file after Undo")
+            Assert.Equal(
+                storedUndo.id,
+                final.graph.nodes.[fileId].documentState.changedVersion)
+        finally
+            CoreMailboxApi.dispose host
+    }

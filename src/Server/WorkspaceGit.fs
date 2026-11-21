@@ -1,10 +1,7 @@
 namespace Gambol.Server
 
 open System
-open System.Collections.Concurrent
 open System.IO
-open System.Linq
-open System.Threading
 open Gambol.Shared
 
 type WorkspaceTrackedBranch = {
@@ -16,49 +13,20 @@ type WorkspaceTrackedBranch = {
 [<RequireQualifiedAccess>]
 module WorkspaceGit =
 
-    let private gateComparer =
-        if OperatingSystem.IsWindows() then
-            StringComparer.OrdinalIgnoreCase
-        else
-            StringComparer.Ordinal
-
-    let private workTreeGates =
-        ConcurrentDictionary<string, SemaphoreSlim>(gateComparer)
-
-    let normalizeWorkTreeRoot (workspaceRoot: string) =
-        let fullPath = Path.GetFullPath(workspaceRoot)
-        let trimmed =
-            fullPath.TrimEnd(
-                Path.DirectorySeparatorChar,
-                Path.AltDirectorySeparatorChar)
-        if String.IsNullOrEmpty trimmed then fullPath else trimmed
-
-    let normalizeWorkTreeRoots (workspaceRoots: string list) =
-        workspaceRoots
-        |> Seq.map normalizeWorkTreeRoot
-        |> fun roots -> roots.Distinct(gateComparer)
-        |> Seq.sortWith (fun left right -> gateComparer.Compare(left, right))
-        |> Seq.toList
-
-    let withWorkTreeGate
-        (workspaceRoot: string)
-        (action: unit -> Result<'value, string>)
-        : Result<'value, string> =
-        let gate =
-            workTreeGates.GetOrAdd(
-                normalizeWorkTreeRoot workspaceRoot,
-                fun _ -> new SemaphoreSlim(1, 1))
-        gate.Wait()
-        try
-            action ()
-        finally
-            gate.Release() |> ignore
-
     [<Literal>]
     let private reservedSystemFileExclude = "[gG][aA][mM][bB][oO][lL].*"
 
     let isRepo (workspaceRoot: string) : bool =
         Directory.Exists(Path.Combine(workspaceRoot, ".git"))
+
+    /// One `git mv -- old new` in the workspace repository.
+    let gitMove
+        (repositoryRoot: string)
+        (oldGitPath: string)
+        (newGitPath: string)
+        : Result<unit, string> =
+        GitSave.runGit repositoryRoot $"mv -- {oldGitPath} {newGitPath}"
+        |> Result.map ignore
 
     [<Literal>]
     let private canonicalBranch = "master"
@@ -114,9 +82,14 @@ module WorkspaceGit =
         GitSave.runGit workspaceRoot arguments
         |> Result.mapError condenseGitError
 
+    /// This directory's `.git` only. `git remote` would otherwise
+    /// use a repository in a parent directory.
     let remoteExists (workspaceRoot: string) : Result<bool, string> =
-        runGitCondensed workspaceRoot "remote"
-        |> Result.map (String.IsNullOrWhiteSpace >> not)
+        if not (isRepo workspaceRoot) then
+            Error "not a git repository"
+        else
+            runGitCondensed workspaceRoot "remote"
+            |> Result.map (String.IsNullOrWhiteSpace >> not)
 
     let trackedBranch
         (workspaceRoot: string)
@@ -259,25 +232,41 @@ module WorkspaceGit =
                 |> Result.bind (fun _ ->
                     runGitCondensed workspaceRoot "commit --no-edit")
 
-    let internal pullTrackedBranch
+    /// Fetch the tracked upstream. Holds no workspace lock.
+    let internal fetchTrackedBranch
         (workspaceRoot: string)
         (tracked: WorkspaceTrackedBranch)
+        : Result<string, string> =
+        runGitCondensed
+            workspaceRoot
+            $"fetch {tracked.remote} {tracked.upstream}"
+
+    /// Merge FETCH_HEAD from the unlocked fetch. Remote wins.
+    let internal mergeFetchedBranch
+        (workspaceRoot: string)
+        (_tracked: WorkspaceTrackedBranch)
         : Result<string, string> =
         unmergedPath workspaceRoot
         |> Result.bind (function
             | Some path -> Error $"Git conflict: {path}"
             | None ->
-                let arguments =
-                    "pull --no-rebase --no-edit -X theirs "
-                    + $"{tracked.remote} {tracked.upstream}"
                 completeRemoteWins
                     workspaceRoot
-                    (runGitCondensed workspaceRoot arguments))
+                    (runGitCondensed
+                        workspaceRoot
+                        "merge --no-edit -X theirs FETCH_HEAD"))
+
+    let internal pullTrackedBranch
+        (workspaceRoot: string)
+        (tracked: WorkspaceTrackedBranch)
+        : Result<string, string> =
+        fetchTrackedBranch workspaceRoot tracked
+        |> Result.bind (fun _ ->
+            mergeFetchedBranch workspaceRoot tracked)
 
     let pullTracked (workspaceRoot: string) : Result<string, string> =
-        withWorkTreeGate workspaceRoot (fun () ->
-            trackedBranch workspaceRoot
-            |> Result.bind (pullTrackedBranch workspaceRoot))
+        trackedBranch workspaceRoot
+        |> Result.bind (pullTrackedBranch workspaceRoot)
 
     let internal commitTracked
         (workspaceRoot: string)
@@ -315,8 +304,7 @@ module WorkspaceGit =
         (baseMsg: string)
         (clientHint: string option)
         : Result<string, string> =
-        withWorkTreeGate workspaceRoot (fun () ->
-            commitTracked workspaceRoot baseMsg clientHint)
+        commitTracked workspaceRoot baseMsg clientHint
         |> Result.bind (fun (tracked, commitOutput) ->
             pushTrackedBranch workspaceRoot tracked commitOutput)
 
@@ -366,18 +354,12 @@ module WorkspaceGit =
         with ex ->
             Error ex.Message
 
-    /// FF-only + allow push into non-bare checked-out branch.
+    /// Fast-forward-only push toward the tracked remote.
     let ensurePushConfig (workspaceRoot: string) : Result<unit, string> =
-        match GitSave.runGit
+        GitSave.runGit
             workspaceRoot
-            "config receive.denyNonFastForwards true" with
-        | Error err -> Error err
-        | Ok _ ->
-            match GitSave.runGit
-                workspaceRoot
-                "config receive.denyCurrentBranch updateInstead" with
-            | Error err -> Error err
-            | Ok _ -> Ok ()
+            "config receive.denyNonFastForwards true"
+        |> Result.map ignore
 
     /// Ensure `workspaceRoot` is a git repo with push policy.
     /// Skips init when `.git` already exists. Creates the directory if needed.
@@ -448,16 +430,6 @@ module WorkspaceGit =
         | Ok true ->
             commitAll workspaceRoot baseMsg clientHint
 
-    /// JIT commit when dirty (workspace-pull path only).
-    let jitCommitIfDirty
-        (workspaceRoot: string)
-        (clientHint: string option)
-        : Result<string, string> =
-        jitCommitIfDirtyWithBaseMsg
-            workspaceRoot
-            "gambol: autosave before workspace-pull"
-            clientHint
-
     /// JIT commit when dirty before workspace-push.
     let jitCommitBeforeWorkspacePush
         (workspaceRoot: string)
@@ -489,31 +461,6 @@ module WorkspaceGit =
                 | [ oid ] -> Ok(Some oid)
                 | _ -> Error headError
             | Error err -> Error err
-
-    /// After first receive into an unborn repo, point symbolic HEAD at the
-    /// sole refs/heads/* branch (client may push main while init used master).
-    let alignHeadAfterUnbornReceive
-        (workspaceRoot: string)
-        : Result<unit, string> =
-        match
-            GitSave.runGit
-                workspaceRoot
-                "for-each-ref --format=%(refname:short) refs/heads"
-        with
-        | Error err -> Error err
-        | Ok text ->
-            match
-                text.Split(
-                    [| '\r'; '\n' |],
-                    StringSplitOptions.RemoveEmptyEntries)
-                |> Array.toList
-            with
-            | [ branch ] ->
-                GitSave.runGit
-                    workspaceRoot
-                    $"symbolic-ref HEAD refs/heads/{branch}"
-                |> Result.map ignore
-            | _ -> Ok ()
 
     let private splitNulPaths (text: string) : string list =
         text.Split('\000', StringSplitOptions.RemoveEmptyEntries)

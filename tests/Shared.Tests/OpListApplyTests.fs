@@ -13,7 +13,7 @@ let private event commandName body : Ev =
       commandName = commandName
       body = body }
 
-let private textState () : State * NodeId =
+let private textState () : GraphAtEvent * NodeId =
     let graph, ids =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
     { graph = graph; eventId = EventId.zero }, List.head ids

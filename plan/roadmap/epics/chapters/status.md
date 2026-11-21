@@ -1,20 +1,11 @@
 # Chapter: Status
 
-**Part of:** [[plan/roadmap/epics/manage-a-project.md]]
 **Blocked by:** None.
 
-## Context
+Status on work items: todo, doing, done. A work item is a Node in a Workspace.
 
-A person organizes work. A work item is a Node in a Workspace.
+## Projects
 
-## Goal
-
-Status on work items (todo / doing / done).
-
-## Required for done
-
-- [ ] Status on work items (todo / doing / done).
-
-## Notes
-
-Status has no owning Project yet.
+- [[plan/expression-language/project.md]] — remainder beyond Find / `?`
+- [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)

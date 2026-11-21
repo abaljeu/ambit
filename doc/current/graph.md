@@ -41,14 +41,17 @@ The graph is the central data structure of the outliner.  There are rules for wo
 
 [x] `Current`: graph content represents the server artifact.
 [x] `Unparsed`: a server artifact exists and has not been parsed into current graph content.
-[x] `NoServerFile`: a File node has no server body.
-[x] `NoServerFile` and Unparsed documents block content edits.
-[x] Desktop Upload creates new File stubs as `NoServerFile`.
+[x] `PullingFile`: a File node has no server body.
+[x] `PullingFile` and Unparsed documents block content edits.
+[x] Desktop Upload creates new File stubs as `PullingFile`.
 [x] A successful PUT, or an already-present mtime skip, changes matching paths to Unparsed before Parse.
 [x] Directories keep their existing state behavior.
-[x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `noServerFile`.
-[x] `parseState`, `persistState`, and `noServerFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
-[o] Graph JSON and the PostgreSQL node projection still encode a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
+[x] Parsed with `pullingFile` is not a state. `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
+[x] Node field `documentState` stores the `DocumentState` record: `parseState`, `persistState`, and `pullingFile`.
+[x] `parseState`, `persistState`, and `pullingFile` live only inside that record. The Node has no standalone `parseState` or `persistState` field, and the record has no nested `documentState` field.
+[o] Graph JSON encodes a derived `documentState` enum (`current` | `unparsed` | `noServerFile`) plus sibling `parseState` and `persistState` keys.
+[x] Persist state survives reload in `persist_state`. The stored words are `persisted` and `unpersisted`. Existing rows load as Persisted.
+[x] `document_state` stores Parsed or Unparsed only. The stored word for Parsed is `current`. The stored word for Unparsed is `unparsed`. PullingFile is not written. A stored word `noServerFile` reloads as Unparsed.
 [ ] `DocumentState`: not the special-node document axis.
 [x] `ParseState` and `PersistState` markers exist on Workspace, Directory, and File content nodes. A Directory File does not carry those axes. Values: `ParseState` (`Parsed` | `Unparsed`) and `PersistState` (`Persisted` | `Unpersisted`).
 [x] A state change on a special node writes `ParseState` and `PersistState`.
@@ -73,10 +76,6 @@ The graph is the central data structure of the outliner.  There are rules for wo
 [x] The search dialog merges two result sources. Code: [ViewModelSearch](src/Shared/ViewModelSearch.fs).
 [x] Namespace-style queries are parsed and matched first.
 [x] The second source is node text matching.
-[ ] While the globe is not selected, every keypress recomputes on the client only and updates the Find dialog immediately. Code: [ViewModelSearch](../../src/Shared/ViewModelSearch.fs), [Search dialog](../../src/Client/SearchDialog.fs).
-[ ] While the globe is not selected, a keypress sends no server message.
-[ ] Move uses this same client path when the globe is not selected.
-[ ] The globe on the search bar requests the server when the local list is under 200. Detail: [Search Actor](search-actor.md).
 [x] Workspace nodes expose `//label` as their desktop file path through `NodeDesktopPath`. The file-status indicator uses that path.
 
 ## Invariants

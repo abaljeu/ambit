@@ -3,6 +3,7 @@ module Gambol.Server.Tests.TestBackend
 open System
 open System.IO
 open System.Net.Http
+open System.Reflection
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
@@ -110,22 +111,21 @@ let requireDbConnStr () =
             "or DB_CONNECTION_STRING in appsettings.Development.json. " +
             "When using appsettings.Development.json, tests derive a sibling *_test database.")
 
+/// Stops the previous server, waits for its threads, then clears the database.
 let resetTestDatabase (connStr: string) : Task<unit> =
-    task {
-        do! Database.initSchema connStr |> Async.AwaitTask
-        use conn = new NpgsqlConnection(connStr)
-        do! conn.OpenAsync()
-        use cmd = conn.CreateCommand()
-        cmd.CommandText <-
-            "TRUNCATE TABLE events, node_children, nodes, graph RESTART IDENTITY CASCADE;"
-        let! _ = cmd.ExecuteNonQueryAsync()
-        return ()
-    }
+    ServerTestReset.resetBetweenTests connStr
 
 let newTempDir () =
     let dir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")
     Directory.CreateDirectory(dir) |> ignore
     dir
+
+/// `Order.StartActor` for the Load actor on one focus.
+let githubLoadStarted focusId (event: Ev) =
+    match event.body with
+    | EventBody.Order (Order.StartActor order) ->
+        order.actorNodeId = focusId && order.actorName = "github-load"
+    | _ -> false
 
 let testAuthority = Authority "Test"
 
@@ -136,7 +136,18 @@ let testCaller =
       name = "test"
       secret = testSecret }
 
-/// Admitted Callers the mailbox holds at host start (no public add).
+/// Queues the test command for an admitted caller.
+let postTestActorOrder (host: MailboxHost) (request: ActorStart) =
+    let order =
+        ActorOrderFromStart.orderFromStart
+            TestActor.functionActorAt
+            "test"
+            (fun start -> start.focusId)
+            request
+    MailboxHost.postActorOrder host testCaller order
+    |> Async.StartAsTask
+
+/// Admitted Callers Session copies when the host starts.
 let admittedCredentials =
     CoreCredentials.ofCallers (Set.singleton testCaller)
 
@@ -166,36 +177,42 @@ let createAdmittedFileWithCredentials (dataDir: string) =
 let admittedChanges (host: MailboxHost) =
     CoreDoor.create true host testCaller
 
-let private cannedHandlers
-    (readState: unit -> Result<State, string>)
+let cannedHandlers
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
-    : PersistHandlers =
-    { getState = readState
+    : CoreMailboxAccess =
+    { graphAtEvent = readState
       getEventId = fun () ->
           readState () |> Result.map (fun state -> state.eventId)
       getEventsSince = fun after -> Ok(eventsSince after)
-      getEventLog = fun () -> Ok EventLog.empty
+      getEventLog =
+          fun () ->
+              eventsSince EventId.zero
+              |> EventLog.adoptNewestHead
+              |> Ok
       appendEvent = fun _ -> Ok ()
       applyEvent = apply
-      replaceGraph = ignore
-      snapshotDone = fun _ _ -> ()
-      noteParsed = ignore }
+      replaceGraph = fun _ _ -> ()
+      noteDiffDone = ignore
+      noteParsed = ignore
+      pushPersist = ignore
+      notePersisted = ignore
+      noteWriteFailed = ignore }
 
 let private cannedFilling readState eventsSince apply : PersistFilling =
     { handlers = cannedHandlers readState eventsSince apply
       onError = fun _ _ _ -> ()
       formatError = id
       isReady = fun () -> true
-      flushSnapshot = fun () -> async.Return(Ok ())
       dispose = ignore
       until = None
-      bindSnapshot = ignore }
+      bindPersistFinished = ignore }
 
 /// Mailbox whose reads and apply are supplied by the test.
 let hostCanned
     (pool: CoreActorPool)
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     (apply: Ev -> bool -> Result<CoreChangesAccepted, string>)
     : MailboxHost =
@@ -204,9 +221,9 @@ let hostCanned
         (cannedFilling readState eventsSince apply)
         admittedCredentials
 
-/// Door whose getState and getEventsSince come from the mailbox persist.
+/// Door whose graphAtEvent and getEventsSince come from the mailbox persist.
 let doorForReads
-    (readState: unit -> Result<State, string>)
+    (readState: unit -> Result<GraphAtEvent, string>)
     (eventsSince: EventId -> Ev list)
     : CoreChangesDoor =
     let pool = CoreActorPool.create ()
@@ -229,6 +246,20 @@ let doorForThrownRead (message: string) : CoreChangesDoor =
     let host = CoreMailbox.host pool filling admittedCredentials
     CoreDoor.create true host testCaller
 
+/// Start returns this secret. Finish leaves the row. The actor node is ROOT.
+let poolForFixedSecret (secret: Credential) : CoreActorPool =
+    { CoreActorPool.create () with
+        register = fun _ _ -> ()
+        startActor = fun _ _ -> Ok secret
+        startFunction = fun _ -> Error "unused"
+        schedule = fun _ _ -> ()
+        isLive = fun candidate -> candidate = secret
+        admit = fun _ -> Ok ()
+        drop = fun _ -> ()
+        finish = fun _ _ -> Ok ()
+        liveActorNodeIds = fun () -> Set.empty
+        trySecretForActorNode = fun _ -> None }
+
 /// Mailbox that accepts Change and ActorStop without a File graph.
 let acceptingHost (pool: CoreActorPool) : MailboxHost =
     let state =
@@ -239,9 +270,41 @@ let acceptingHost (pool: CoreActorPool) : MailboxHost =
         (fun () -> Ok state)
         (fun _ -> [])
         (fun event _ ->
-            Ok(CoreChanges.accepted event.id true [ event ] false None))
+            Ok(CoreChanges.accepted event.id true [ event ] false))
 
-let private suppressDailyGitSave (dataDir: string) =
+/// Keeps the host alive until the client is disposed, then waits until
+/// that server's persist thread has finished.
+type private DrainWhenDisposedHandler
+    (factory: WebApplicationFactory<Program>, inner: HttpMessageHandler) =
+    inherit DelegatingHandler(inner)
+    let host = factory
+
+    override _.Dispose(disposing) =
+        if disposing then
+            ignore host
+            ServerRunRegistry.drainBackground ()
+        base.Dispose(disposing)
+
+let private invokerField name =
+    typeof<HttpMessageInvoker>.GetField(
+        name,
+        BindingFlags.Instance ||| BindingFlags.NonPublic)
+
+/// CreateClient's handler follows redirects and stores cookies.
+/// The returned client disposes that handler, then drains persist.
+let private clientFromFactory (factory: WebApplicationFactory<Program>) =
+    let created = factory.CreateClient()
+    let handler = invokerField "_handler"
+    let disposeHandler = invokerField "_disposeHandler"
+    let inner = handler.GetValue created :?> HttpMessageHandler
+    disposeHandler.SetValue(created, false)
+    let baseAddress = created.BaseAddress
+    created.Dispose()
+    let client =
+        new HttpClient(new DrainWhenDisposedHandler(factory, inner), true)
+    client.BaseAddress <- baseAddress
+    client
+let suppressDailyGitSave (dataDir: string) =
     DailyGitSave.writeStamp
         dataDir
         (DailyGitSave.formatUtcDay DateTime.UtcNow)
@@ -270,7 +333,7 @@ let createClientForDirWithoutCookie (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        clientFromFactory factory
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -311,7 +374,7 @@ let createClientForDirWithAuth
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient()
+        clientFromFactory factory
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -339,7 +402,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -367,7 +430,7 @@ let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -405,7 +468,7 @@ let createDbModeWithoutConnectionClientForDir (tempDir: string) =
                         ) |> ignore
                     ) |> ignore
                 )
-        factory.CreateClient() |> withDevelopmentCookie
+        clientFromFactory factory |> withDevelopmentCookie
     finally
         if isNull priorDb then
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -425,6 +488,53 @@ let changeEvent commandName (id: EventId) submissionId ops : Ev =
       commandName = commandName
       body = EventBody.Change ops }
 
+/// True when the log holds Order.StartActor for that name and actor node.
+let hasStartActor
+    (actorName: string)
+    (actorNodeId: NodeId)
+    (events: Ev list)
+    =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.Order (Order.StartActor order) ->
+            order.actorName = actorName
+            && order.actorNodeId = actorNodeId
+        | _ -> false)
+
+/// Persisted changes also append Notice.NodePersisted. These are the other events.
+let changesOnly (events: Ev list) =
+    events
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Notice _ -> false
+        | _ -> true)
+
+/// Stay live until the row cancellation token signals, then return ActorSucceeded.
+let waitCancelled () =
+    async {
+        let! token = Async.CancellationToken
+        do! Async.AwaitWaitHandle token.WaitHandle |> Async.Ignore
+        return ActorSucceeded
+    }
+
+/// Poll the event log until `ready` is true, or two seconds pass.
+let waitForNotices
+    (read: unit -> Task<Ev list>)
+    (ready: Ev list -> bool)
+    =
+    let timeout = TimeSpan.FromSeconds(2.0)
+    let start = DateTime.UtcNow
+    let rec poll () = task {
+        let! events = read ()
+        if ready events || (DateTime.UtcNow - start) >= timeout then
+            return events
+        else
+            do! Task.Delay 20
+            return! poll ()
+    }
+    poll ()
+
 let wireEvent submissionId ops : Ev =
     { id = EventId.zero
       submissionId = submissionId
@@ -432,7 +542,7 @@ let wireEvent submissionId ops : Ev =
       commandName = ""
       body = EventBody.Change ops }
 
-let applyChange (event: Ev) (state: State) =
+let applyChange (event: Ev) (state: GraphAtEvent) =
     ChangeValidation.applyOps (eventOps event) state
 
 let addRootChildEvent text : NodeId * Ev =

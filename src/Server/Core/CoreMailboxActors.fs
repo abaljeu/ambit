@@ -29,7 +29,13 @@ module internal CoreMailboxActors =
                 let getState () = CoreMailboxEvents.graphNow context
                 match start request getState with
                 | Error err -> Error err
-                | Ok secret -> Ok(secret, make)
+                | Ok None -> Ok(None, make)
+                | Ok (Some secret) ->
+                    match context.pool.admit secret with
+                    | Ok () -> Ok(Some secret, make)
+                    | Error err ->
+                        context.pool.drop secret
+                        Error (StartError.Rejected err)
 
     let private finishReadyStart
         (context: MailboxContext)
@@ -57,84 +63,19 @@ module internal CoreMailboxActors =
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
         start
-        =
+        : Result<unit, string> =
         match prepareActorStart context caller request start with
         | Error error ->
-            reply.Reply(Error (StartError.text error))
-        | Ok (None, _) -> reply.Reply(Ok ())
+            Error (StartError.text error)
+        | Ok (None, _) -> Ok ()
         | Ok (Some secret, make) ->
             match
                 finishReadyStart
                     context caller request secret make (Guid.NewGuid())
             with
-            | Error err -> reply.Reply(Error err)
-            | Ok _ -> reply.Reply(Ok ())
-
-    /// Query reads post-edit State. `graphIds` do not replace that Graph.
-    let private startChosen
-        (context: MailboxContext)
-        (request: Gambol.Shared.ActorStart)
-        (getState: unit -> Graph)
-        : Result<Credential option, StartError> =
-        if SearchActor.isQueryRequest (getState ()) request then
-            SearchActor.functionStart request getState
-            |> context.pool.startFunction
-            |> Result.mapError StartError.Rejected
-            |> Result.map Some
-        else
-            context.pool.startActor request getState
-            |> Result.map Some
-
-    let dispatchStartActor context caller request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startActor start getState
-                |> Result.map Some)
-
-    let dispatchStartPeerActor
-        context caller peerName request reply =
-        dispatchActorStartResult
-            context
-            caller
-            request
-            reply
-            (fun start getState ->
-                context.pool.startPeerActor peerName start getState
-                |> Result.mapError StartError.Rejected
-                |> Result.map Some)
-    let dispatchActorStop
-        (context: MailboxContext)
-        (caller: Caller)
-        (result: ActorResult)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            match caller.authority with
-            | Authority "Actor" ->
-                match context.pool.getFocusId caller.secret with
-                | None -> reply.Reply(Ok ())
-                | Some focusId ->
-                    match
-                        CoreEventDispatch.actorStop
-                            (CoreMailboxEvents.eventDispatchContext context)
-                            caller
-                            focusId
-                            result
-                    with
-                    | Error err -> reply.Reply(Error err)
-                    | Ok () ->
-                        reply.Reply(
-                            context.pool.finish caller.secret result)
-            | _ ->
-                reply.Reply(Error CoreAuth.refuse)
+            | Error err -> Error err
+            | Ok _ -> Ok ()
 
     let private runCancel
         (context: MailboxContext)
@@ -142,150 +83,175 @@ module internal CoreMailboxActors =
         (focusId: NodeId)
         (submissionId: System.Guid)
         : Result<Ev option, string> =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> Error err
-        | Ok () ->
-            match context.pool.trySecretForFocus focusId with
-            | None -> Ok None
-            | Some secret ->
-                match
-                    CoreEventDispatch.appendLifecycle
-                        (CoreMailboxEvents.eventDispatchContext context)
-                        caller
-                        submissionId
-                        (EventBody.ActorStop(focusId, ActorCancelled))
-                with
-                | Error err -> Error err
-                | Ok stored ->
-                    match context.pool.finish secret ActorCancelled with
-                    | Error err -> Error err
-                    | Ok () -> Ok(Some stored)
-
-    let dispatchCancelActor
-        (context: MailboxContext)
-        (caller: Caller)
-        (focusId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        =
-        match runCancel context caller focusId (Guid.NewGuid()) with
-        | Error err -> reply.Reply(Error err)
-        | Ok _ -> reply.Reply(Ok ())
-
-    let private failedMessage error =
-        match error with
-        | StartError.UnknownActor _ -> "unknown actor"
-        | StartError.Rejected message -> message
-
-    let private recordFailedStart
-        context caller (request: Gambol.Shared.ActorStart)
-        submissionId message (reply: PostedReply) =
-        let dispatch = CoreMailboxEvents.eventDispatchContext context
-        let stop =
-            EventBody.ActorStop(request.focusId, ActorFailed message)
-        match
-            CoreEventDispatch.appendLifecycle
-                dispatch caller submissionId (EventBody.ActorStart request)
-        with
-        | Error err -> reply.Reply(Error err)
-        | Ok started ->
+        match context.pool.trySecretForActorNode focusId with
+        | None -> Ok None
+        | Some secret ->
             match
                 CoreEventDispatch.appendLifecycle
-                    dispatch caller (Guid.NewGuid()) stop
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok stopped ->
-                CoreMailboxEvents.replyList reply context stopped [ started; stopped ]
-
-    let private postActorStart context caller event request reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored ->
-            let events = CoreMailboxEvents.eventsForStored context stored
-            CoreMailboxEvents.replyList reply context (List.last events) events
-        | None ->
-            let start req getState =
-                startChosen context req getState
-            match prepareActorStart context caller request start with
-            | Error error ->
-                recordFailedStart
-                    context caller request event.submissionId
-                    (failedMessage error) reply
-            | Ok (None, _) -> CoreMailboxEvents.replyList reply context event []
-            | Ok (Some secret, make) ->
-                match
-                    finishReadyStart
-                        context caller request secret make
-                        event.submissionId
-                with
-                | Error err -> reply.Reply(Error err)
-                | Ok stored ->
-                    CoreMailboxEvents.replyList reply context stored [ stored ]
-
-    let private postCancel context caller event focusId reply =
-        match CoreMailboxEvents.storedBySubmission context event.submissionId with
-        | Some stored -> CoreMailboxEvents.replyList reply context stored [ stored ]
-        | None ->
-            match
-                runCancel
-                    context caller focusId event.submissionId
-            with
-            | Error err -> reply.Reply(Error err)
-            | Ok (Some stored) ->
-                CoreMailboxEvents.replyList reply context stored [ stored ]
-            | Ok None -> CoreMailboxEvents.replyList reply context event []
-
-    let dispatchPostEvent
-        (context: MailboxContext)
-        (caller: Caller)
-        (event: Ev)
-        (reply: PostedReply)
-        =
-        match event.body with
-        | EventBody.ActorStop _ ->
-            reply.Reply(Error "ActorStop is not a client event type")
-        | EventBody.ActorStart request ->
-            postActorStart context caller event request reply
-        | EventBody.Cancel focusId ->
-            postCancel context caller event focusId reply
-        | _ ->
-            match
-                CoreEventDispatch.postEvent
                     (CoreMailboxEvents.eventDispatchContext context)
                     caller
-                    event
-                    false
+                    submissionId
+                    (EventBody.ActorStop(focusId, ActorCancelled))
             with
-            | Ok (stored, None) ->
-                CoreMailboxEvents.replyList reply context stored [ stored ]
-            | other -> reply.Reply other
+            | Error err -> Error err
+            | Ok stored ->
+                match context.pool.finish secret ActorCancelled with
+                | Error err -> Error err
+                | Ok () -> Ok(Some stored)
 
-    let dispatchRecordSearchStart
+    let private actorNameOn (context: MailboxContext) (nodeId: NodeId) =
+        let graph = CoreMailboxEvents.graphNow context
+        match Map.tryFind nodeId graph.nodes with
+        | None -> None
+        | Some node -> CommandRequest.actorNameFromText node.text
+
+    /// A repeated submission replies the stored event.
+    let private replyStoredOr
+        (context: MailboxContext)
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        (fresh: unit -> unit)
+        =
+        match
+            CoreMailboxEvents.storedBySubmission context submissionId
+        with
+        | Some stored ->
+            CoreMailboxEvents.replyStored reply stored
+        | None -> fresh ()
+
+    /// Places Order.StartActor and replies that place.
+    let private postBuiltOrder
+        (context: MailboxContext)
+        (caller: Caller)
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        (order: ActorOrder)
+        =
+        match context.coreChanges.Value with
+        | None -> reply.Reply(Error "mailbox not initialized")
+        | Some make ->
+            let host = (make caller).host
+            let commandName =
+                match order.actorName with
+                | "" -> None
+                | name -> Some name
+            let placed =
+                { orderId = OrderId submissionId
+                  authority = caller.authority
+                  commandName = commandName
+                  order = Order.StartActor order }
+            Async.Start(async {
+                let! result =
+                    MailboxHost.postPlacedOrder host caller placed
+                reply.Reply(result)
+            })
+
+    /// Admitted Run. `actorNodeId` is the focus id.
+    let private queueAdmittedFocus
+        (makeActor: NodeId -> NodeId -> Gambol.Shared.ActorFunction)
+        (actorName: string)
         (context: MailboxContext)
         (caller: Caller)
         (request: Gambol.Shared.ActorStart)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
-        match CoreMailboxEvents.admitCaller context caller with
-        | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            CoreEventDispatch.actorStart
-                (CoreMailboxEvents.eventDispatchContext context)
-                caller
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        =
+        let order =
+            ActorOrderFromStart.orderFromStart
+                makeActor
+                actorName
+                ActorOrderFromStart.focusIdOf
                 request
-            |> reply.Reply
+        postBuiltOrder context caller reply submissionId order
 
-    /// The queue puts ActorStop on the event source. The id is the root.
-    let dispatchRecordSearchStop
+    /// Admitted `?test` Run. The ack is the placed StartActor EventId.
+    let private queueAdmittedTest =
+        queueAdmittedFocus TestActor.functionActorAt "test"
+
+    /// Admitted query Run. `actorNodeId` is the focus id.
+    let private queueAdmittedQuery =
+        queueAdmittedFocus SearchActor.functionActorAt "query"
+
+    /// Admitted `?ai` Run. `actorNodeId` is the focus id.
+    let private queueAdmittedAi
         (context: MailboxContext)
         (caller: Caller)
-        (rootId: NodeId)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        : unit =
+        (request: Gambol.Shared.ActorStart)
+        (reply: PostedReply)
+        (submissionId: System.Guid)
+        =
+        match context.pool.bootActors with
+        | None -> reply.Reply(Error "ai actor is not installed")
+        | Some install ->
+            let order =
+                RunAgentActor.aiActorOrder
+                    install
+                    context.pool.sessionIdFor
+                    request
+            postBuiltOrder context caller reply submissionId order
+
+    /// Admitted caller queues an ActorOrder. A refusal stores no lifecycle row.
+    let private whenAdmitted
+        (context: MailboxContext)
+        (caller: Caller)
+        (reply: PostedReply)
+        (queue: unit -> unit)
+        =
         match CoreMailboxEvents.admitCaller context caller with
         | Error err -> reply.Reply(Error err)
-        | Ok () ->
-            CoreEventDispatch.actorStop
-                (CoreMailboxEvents.eventDispatchContext context)
-                caller
-                rootId
-                ActorSucceeded
-            |> reply.Reply
+        | Ok () -> queue ()
+
+    let private admittedQueue
+        context caller request reply submissionId =
+        match actorNameOn context request.runDefinitionId with
+        | Some "test" ->
+            Some (fun () ->
+                queueAdmittedTest
+                    context caller request reply submissionId)
+        | Some "ai" ->
+            Some (fun () ->
+                queueAdmittedAi
+                    context caller request reply submissionId)
+        | _ when
+            SearchActor.isQueryRequest
+                (CoreMailboxEvents.graphNow context)
+                request ->
+            Some (fun () ->
+                queueAdmittedQuery
+                    context caller request reply submissionId)
+        | _ -> None
+
+    /// `?test`, `?ai`, and a query are placed as Order.StartActor.
+    /// Any other name replies Error "unknown actor".
+    let replyClientRequest
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: PostedReply)
+        (request: Gambol.Shared.ActorStart)
+        =
+        let submissionId = placed.orderId.Value
+        replyStoredOr context reply submissionId (fun () ->
+            match
+                admittedQueue
+                    context caller request reply submissionId
+            with
+            | Some queue ->
+                whenAdmitted context caller reply queue
+            | None -> reply.Reply(Error "unknown actor"))
+
+    /// A fresh cancel replies the stored stop, or EventId.zero.
+    let replyPlacedCancel
+        (context: MailboxContext)
+        (placed: PlacedOrder)
+        (caller: Caller)
+        (reply: PostedReply)
+        (focusId: NodeId)
+        =
+        let submissionId = placed.orderId.Value
+        replyStoredOr context reply submissionId (fun () ->
+            match runCancel context caller focusId submissionId with
+            | Error err -> reply.Reply(Error err)
+            | Ok (Some stored) ->
+                CoreMailboxEvents.replyStored reply stored
+            | Ok None -> reply.Reply(Ok EventId.zero))

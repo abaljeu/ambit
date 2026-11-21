@@ -10,13 +10,13 @@ The server has found N items for a query. Refs under the query line are [16 — 
 
 ## What to build
 
-The query expression inserts those N items as Refs under the query line. N is at most 200, and lower when the function stops under 200. A Ref points at a Node the Browser has.
+The query expression inserts those N items as Refs under the query line. N is at most `ExprRun.maxMaterialisedAnswers`, and lower when the function stops under that cap. That number is 50. A Ref points at a Node the Browser has. [25 — The server evaluates Run](25-server-evaluates-run.md) returns existing Node ids and writes no children. This ticket is the insert. [22 — Run sends = lines to Amble](22-run-sends-equals-lines-to-amble.md) chooses which line runs Amble. 25 — The server evaluates Run is where the plan runs.
 
 ### 1. Query Actor
 
 The insert stays on [Online search architecture](plan/online-search/arch.md) §2 item 2 **Query Actor**. The Ref post stays a proposed design.
 
-1. [ ] Insert N — The query expression inserts the N items the server finds, as Refs under the query line. N is at most 200, and lower when the function stops under 200.
+1. [ ] Insert N — The query expression inserts the N items the server finds, as Refs under the query line. N is at most `ExprRun.maxMaterialisedAnswers`, and lower when the function stops under that cap. That number is 50. The Find word-search cap stays 200.
 
 ### 2. Want nodes for hits
 

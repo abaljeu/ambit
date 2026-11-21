@@ -8,43 +8,56 @@ module ResidentProjection =
     /// structural Replace only when the parent child list is Loaded.
     let internal applyOpAllowing
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         match op with
         | Op.SetText(nodeId, _, _)
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
-        | Op.SetDocumentState(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) ->
             if Map.containsKey nodeId state.graph.nodes then
-                Op.applyAllowing guardUnparsed markUnpersisted op state
+                Op.applyAllowing guardUnparsed changedVersion op state
             else
                 ApplyResult.Unchanged state
         | Op.Replace(parentId, _, _) ->
             match Map.tryFind parentId state.graph.nodes with
             | Some _ when GraphChildren.isLoaded state.graph parentId ->
-                Op.applyAllowing guardUnparsed markUnpersisted op state
+                Op.applyAllowing guardUnparsed changedVersion op state
             | _ ->
                 ApplyResult.Unchanged state
         | Op.NewNode _
         | Op.NewSpecialNode _ ->
-            Op.applyAllowing guardUnparsed markUnpersisted op state
+            Op.applyAllowing guardUnparsed changedVersion op state
 
-    let applyOp (op: Op) (state: State) : ApplyResult =
-        applyOpAllowing true true op state
+    let applyOp (op: Op) (state: GraphAtEvent) : ApplyResult =
+        applyOpAllowing true (Some EventId.zero) op state
+
+    /// Document-state Notice for a resident Node.
+    /// An absent Node stays unchanged.
+    /// Parsing and persist Notices do not write this enum.
+    let internal applyDocumentNotice (notice: Notice) (state: GraphAtEvent) : ApplyResult =
+        match Ev.documentStateFromNotice notice with
+        | None -> ApplyResult.Unchanged state
+        | Some (nodeId, newState) ->
+            if not (Map.containsKey nodeId state.graph.nodes) then
+                ApplyResult.Unchanged state
+            else
+                match Graph.setDocumentState nodeId newState state.graph with
+                | Error msg -> ApplyResult.Invalid(state, msg)
+                | Ok graph -> ApplyResult.Changed { state with graph = graph }
 
     let internal applyOpsAllowing
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         let step (accState, hasChanged) op =
-            match applyOpAllowing guardUnparsed markUnpersisted op accState with
+            match applyOpAllowing guardUnparsed changedVersion op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -65,8 +78,8 @@ module ResidentProjection =
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
 
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
-        applyOpsAllowing true true ops state
+    let applyOps (ops: Op list) (state: GraphAtEvent) : ApplyResult =
+        applyOpsAllowing true (Some EventId.zero) ops state
 
     let private casUserMessage (message: string) =
         if message = "old name does not match" then
@@ -103,7 +116,7 @@ module ResidentProjection =
 
     let private undoAllPending
         (sync: SyncPending)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult =
         let inverses = pendingOps sync |> Op.invertAll
         if inverses.IsEmpty then
@@ -113,7 +126,7 @@ module ResidentProjection =
             | ApplyResult.Invalid _ -> ApplyResult.Unchanged state
             | other -> other
 
-    let private stateAfterUndo (result: ApplyResult) (fallback: State) =
+    let private stateAfterUndo (result: ApplyResult) (fallback: GraphAtEvent) =
         match result with
         | ApplyResult.Changed s
         | ApplyResult.Unchanged s -> s
@@ -123,17 +136,17 @@ module ResidentProjection =
     /// pending Graph op, then apply the Server payload.
     let private applyOpForSyncAllowing
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
-        match applyOpAllowing guardUnparsed markUnpersisted op state with
+        match applyOpAllowing guardUnparsed changedVersion op state with
         | ApplyResult.Invalid (s, msg) ->
             match casUserMessage msg with
             | Some userMsg ->
                 let undone = stateAfterUndo (undoAllPending sync s) s
-                match applyOpAllowing guardUnparsed markUnpersisted op undone with
+                match applyOpAllowing guardUnparsed changedVersion op undone with
                 | ApplyResult.Invalid (s', msg') ->
                     match casUserMessage msg' with
                     | Some still -> ApplyResult.Unchanged s', Some still
@@ -144,20 +157,20 @@ module ResidentProjection =
 
     let applyOpForSync
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
-        applyOpForSyncAllowing true true op state sync
+        applyOpForSyncAllowing true (Some EventId.zero) op state sync
 
     let internal applyOpsForSyncAllowing
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
         let step (accState, hasChanged, note) op =
-            match applyOpForSyncAllowing guardUnparsed markUnpersisted op accState sync with
+            match applyOpForSyncAllowing guardUnparsed changedVersion op accState sync with
             | ApplyResult.Invalid _ as err, _ -> Error err
             | ApplyResult.Unchanged s', msg ->
                 Ok (s', hasChanged, firstNote note msg)
@@ -182,12 +195,13 @@ module ResidentProjection =
 
     let applyOpsForSync
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         (sync: SyncPending)
         : ApplyResult * string option =
-        applyOpsForSyncAllowing true true ops state sync
+        applyOpsForSyncAllowing true (Some EventId.zero) ops state sync
 
-    /// Install Want-answer edges and pointed-at Nodes. Refuse dangling edges.
+    /// Install a Want answer: each returned Header and its child-id list.
+    /// A child id with no Header stays on the edge.
     /// Absent `childMap` keys stay Unloaded. A present key, including `[]`,
     /// is Loaded. Idempotent for the same package.
     let installWantAnswer
@@ -200,48 +214,33 @@ module ResidentProjection =
             |> List.fold
                 (fun acc node -> Map.add node.id node acc)
                 graph.nodes
-        let dangling =
+        let mergedChildMap =
             edges
-            |> Map.exists (fun _ kids ->
-                kids
-                |> List.exists (fun child ->
-                    not (Map.containsKey child.id mergedNodes)))
-        if dangling then
-            Error "dangling edge"
-        else
-            let mergedChildMap =
-                edges
-                |> Map.fold (fun acc key kids -> Map.add key kids acc)
-                    graph.childMap
-            Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
+            |> Map.fold (fun acc key kids -> Map.add key kids acc)
+                graph.childMap
+        Ok(Graph.fromNodes graph.root mergedNodes mergedChildMap)
 
-    /// Authoritative Children and pointed-at Nodes for Browser-supplied Want ids.
-    /// Omit a parent edge when any target Header is absent.
+    /// Header and child-id list for each requested id that has a Header.
+    /// The list is ids only. A child id with no Header stays in the list.
+    /// The returned nodes are those Headers.
     let wantAnswer
         (graph: Graph)
         (want: NodeId list)
         : Map<NodeId, ChildNode list> * Node list =
-        let completeEdge parentId =
-            GraphChildren.tryGet graph parentId
-            |> Option.bind (fun children ->
-                let nodes =
-                    children
-                    |> List.choose (fun child ->
-                        Map.tryFind child.id graph.nodes)
-                if List.length nodes = List.length children then
-                    Some(parentId, children, nodes)
-                else
-                    None)
-        let answers = want |> List.distinct |> List.choose completeEdge
+        let package id =
+            match Map.tryFind id graph.nodes with
+            | None -> None
+            | Some node ->
+                let kids =
+                    GraphChildren.tryGet graph id
+                    |> Option.defaultValue []
+                Some(node, kids)
+        let answers = want |> List.distinct |> List.choose package
         let edges =
             answers
-            |> List.map (fun (parentId, children, _) ->
-                parentId, children)
+            |> List.map (fun (node, kids) -> node.id, kids)
             |> Map.ofList
-        let nodes =
-            answers
-            |> List.collect (fun (_, _, children) -> children)
-            |> List.distinctBy (_.id)
+        let nodes = answers |> List.map fst
         edges, nodes
 
     let private reservedParentIds : NodeId list =
@@ -277,31 +276,12 @@ module ResidentProjection =
         |> List.distinct
         |> List.filter (fun id -> Map.containsKey id graph.nodes)
 
-    /// Visible-closure edges plus Nodes. Same package as installWantAnswer.
+    /// Reserved parents, Zoom ancestors, and Zoom. Same package as wantAnswer.
     let visibleClosureWantAnswer
         (savedZoom: NodeId option)
         (graph: Graph)
         : Map<NodeId, ChildNode list> * Node list =
-        let parents = loadedParentIds savedZoom graph
-        let edges =
-            parents
-            |> List.choose (fun id ->
-                GraphChildren.tryGet graph id
-                |> Option.map (fun kids -> id, kids))
-            |> Map.ofList
-        let childIds =
-            edges
-            |> Map.toList
-            |> List.collect (fun (_, kids) ->
-                kids |> List.map (fun child -> child.id))
-        let residentIds =
-            parents @ childIds
-            |> List.distinct
-            |> List.filter (fun id -> Map.containsKey id graph.nodes)
-        let nodes =
-            residentIds
-            |> List.map (fun id -> graph.nodes.[id])
-        edges, nodes
+        wantAnswer graph (loadedParentIds savedZoom graph)
 
     /// Visible-closure Graph beside complete-Workspace `rootBootstrapGraph`.
     /// Missing or stale Zoom uses ROOT. Does not widen to a Workspace.
@@ -430,10 +410,7 @@ module ResidentProjection =
         if selectionSpansMultipleWorkspaces graph targetIds then
             Error LoadRefuse.MultiWorkspace
         else
-            targets
-            |> List.choose (fun target ->
-                if target.includeWorkspace then Some target.targetId else None)
-            |> wantAnswer graph
+            wantAnswer graph targetIds
             |> Ok
 
     /// Capture LoadResponse fields at one EventId.

@@ -1,27 +1,17 @@
-# Subagent instructions
+# Sub agent
 
-The parent hands you this file. You do not auto-read [[AGENTS.md]].
+Read [[CONTEXT.md]]. Once you are inside a top-level folder, that folder's CONTEXT.md takes over.
 
-## 1. Shared rules
+## Reporting
+Write your full result to `plan/<project-name>/reports/<subagent-title>.md`. Create `reports/` if needed. When a step's work file names another path, use that path.
+Reports are write-once.  Never edit a report, except to fix your own work.
+Never read a report unless following a link.
 
-Read and follow [[.agents/rules/core-agent-behavior.md]] for Interact, Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, Build / test toolchain gate, and How to Work.
+## Git
+Never push to staging, ready, or master without an explicit instruction naming that branch.
 
-## 2. Startup
+## Cheap Scope
+A scope pass follows [Cursor scope](plan/context/cursor-scope.md). The parent prompt names that file, the mode, and the report path.
 
-At startup, follow [[.agents/skills/git-protocol/SKILL.md]] Status.
-
-## 3. Result file
-
-Write the full result to `plan/<project-name>/reports/<subagent-title>.md` (create `reports/` if needed). If a workflow specifies another report path, use that path instead. Only the final report goes to reports/; project definition stays in the project directory.
-
-## 4. Chat
-
-Chat is a short pointer to that file plus the next step — not the report and not the Task body.
-
-## 5. Reports
-
-Reports are not authority. They are the opinion of one agent, at one time, intended for the user. Reports are write-once. Never edit a report you didn't create. Never read a report unless explicitly requested.
-
-## 6. Focused tests
-
-Run focused tests only, never all tests. That limit does not skip the Build / test toolchain gate in [[.agents/rules/core-agent-behavior.md]] when tools are absent. The Client compile gate in [[.agents/skills/implement-fsharp-feature/SKILL.md]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.
+## Things you should know anyway
+The worker uses the earlier read of a path. A new read follows a write of that path, or a new human turn. Do not re-read a file the same transcript already holds unless that path was written or the human sent a new turn.

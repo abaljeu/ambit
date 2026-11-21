@@ -24,7 +24,7 @@ let private emptyChange () =
 let private host agent = admittedHostDb agent
 
 let private getStateFrom mailbox = async {
-    match! CoreMailboxApi.getState mailbox with
+    match! CoreMailboxApi.graphAtEvent mailbox with
     | Ok state -> return state
     | Error error ->
         Assert.Fail($"get state: {error}")
@@ -303,6 +303,30 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
         |> fun t -> t.GetAwaiter().GetResult()
 }
 
+/// Waits until ROOT persist notices stop arriving.
+let rec private settleRootPersisted (readLog: unit -> Task<Ev list>) (previous: int) (started: DateTime) : Task<unit> = task {
+    let! events = readLog ()
+    do! Task.Delay(30)
+    let! again = readLog ()
+    let rootPersisted =
+        again
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.Notice (Notice.NodePersisted (id, _, _)) ->
+                id = Graph.rootId
+            | _ -> false)
+    let quiet =
+        rootPersisted
+        && again.Length = events.Length
+        && again.Length = previous
+    if quiet then
+        return ()
+    elif DateTime.UtcNow - started > TimeSpan.FromSeconds(2.0) then
+        Assert.Fail("ROOT persist notices did not settle")
+    else
+        return! settleRootPersisted readLog again.Length started
+}
+
 [<Fact>]
 let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
     let connStr = requireDbConnStr ()
@@ -330,11 +354,20 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                   Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
         let body = encodeChangeBatch [ change ]
-        let! postR = CoreDoor.postEvents (admittedChanges (host agent)) (body) |> Async.StartAsTask
+        let mailbox = host agent
+        let! postR =
+            CoreDoor.postEvents (admittedChanges mailbox) body
+            |> Async.StartAsTask
 
         match postR with
         | Error e -> Assert.Fail($"postChange: {e}")
         | Ok _ -> ()
+
+        (DbAgent.persist agent).dispose ()
+        let readLog () =
+            CoreMailboxApi.getEventsSince mailbox EventId.zero
+            |> Async.StartAsTask
+        do! settleRootPersisted readLog -1 DateTime.UtcNow
 
         let fileSt = DocumentLoader.loadState tempRoot
         let! dbBefore = Database.loadPersistedState connStr |> Async.AwaitTask
@@ -485,16 +518,18 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
 }
 
 [<Fact>]
-let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
+let ``DbAgent postChange live-saves artifacts after the persist completes`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let tempRoot = newTempDir ()
 
     let agent = DbAgent.createWithDataDir connStr tempRoot
+    let mailbox = host agent
 
-    let! state0 = getState agent |> Async.StartAsTask
+    let! state0 = getStateFrom mailbox |> Async.StartAsTask
     let rootId = state0.graph.root
     let childId = NodeId.New()
+    let! beforeId = CoreMailboxApi.getEventId mailbox |> Async.StartAsTask
 
     let change =
         { id = EventId.zero
@@ -507,13 +542,29 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
 
     let! postResult =
         CoreDoor.postEvents
-            (admittedChanges (host agent))
+            (admittedChanges mailbox)
             ((encodeChangeBatch [ change ]))
         |> Async.StartAsTask
 
     match postResult with
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
+
+    let persisted (events: Ev list) =
+        events
+        |> List.exists (fun event ->
+            match event.body with
+            | EventBody.Notice (Notice.NodePersisted _) -> true
+            | _ -> false)
+
+    let! events =
+        waitForNotices
+            (fun () ->
+                CoreMailboxApi.getEventsSince mailbox beforeId
+                |> Async.StartAsTask)
+            persisted
+
+    Assert.True(persisted events, "Expected NodePersisted after the live-save write.")
 
     let ambPath = Path.Combine(tempRoot, ".amb")
     Assert.True(File.Exists ambPath)

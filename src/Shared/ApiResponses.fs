@@ -55,10 +55,9 @@ type ChangeRequest =
     { events: Ev list
       want: NodeId list }
 
-/// One selected Load target and whether its owning Workspace package is needed.
+/// One selected Load target.
 type LoadTarget =
-    { targetId: NodeId
-      includeWorkspace: bool }
+    { targetId: NodeId }
 
 /// Request body for POST /ambit/load (Fetch + Poll for the full selection).
 type LoadRequest =
@@ -81,6 +80,8 @@ type LoadResponse =
 /// Universal Command response. Either collection may be empty.
 type UniversalResponse =
     { nodes: Node list
+      /// Child-id list for each returned Node. A present key is Loaded.
+      childMap: Map<NodeId, ChildNode list>
       events: Ev list
       latestId: EventId }
 

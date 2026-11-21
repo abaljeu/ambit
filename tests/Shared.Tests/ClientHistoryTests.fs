@@ -4,7 +4,7 @@ open System
 open Gambol.Shared
 open Xunit
 
-let private applied (event: Ev) (state: State) : State =
+let private applied (event: Ev) (state: GraphAtEvent) : GraphAtEvent =
     match Ev.apply event state with
     | ApplyResult.Changed next -> next
     | ApplyResult.Unchanged _ -> failwith "expected event to alter the Graph"
@@ -60,12 +60,10 @@ let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
             [ Op.SetText(nodeId, "before", "after")
               Op.SetClasses(nodeId, oldClasses, newClasses)
               Op.SetName(nodeId, "old.txt", "new.txt")
-              Op.SetDocumentState(nodeId, Current, Unparsed)
               Op.SetUpdateTime(nodeId, oldTime, newTime) ]
     let inverse = Op.invertAll (eventOps source)
     Assert.Equal<Op list>(
         [ Op.SetUpdateTime(nodeId, newTime, oldTime)
-          Op.SetDocumentState(nodeId, Unparsed, Current)
           Op.SetName(nodeId, "new.txt", "old.txt")
           Op.SetClasses(nodeId, newClasses, oldClasses)
           Op.SetText(nodeId, "after", "before") ],
@@ -88,7 +86,7 @@ let ``ordinary inverse reverses nested Replace order`` () =
           Op.Replace(innerId, [ leaf ], []) ],
         inverse)
 
-let private createPasteScenario () : State * Ev * NodeId list =
+let private createPasteScenario () : GraphAtEvent * Ev * NodeId list =
     let initial =
         { graph = Graph.create ()
           eventId = EventId.zero }

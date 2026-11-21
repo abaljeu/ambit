@@ -35,7 +35,7 @@ module Api =
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
 
     type private SnapshotAnswer =
-        { state: State
+        { state: GraphAtEvent
           nodes: Node list
           childMap: Map<NodeId, ChildNode list> }
 
@@ -44,7 +44,7 @@ module Api =
         (want: NodeId list)
         : Async<Result<SnapshotAnswer, string>> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return Error err
             | Ok state ->
                 let childMap, nodes =
@@ -71,6 +71,11 @@ module Api =
                     |> List.filter (fun event ->
                         event.id <= snapshotId)
         }
+
+    let private countsAsExternal (event: Ev) =
+        match event.body with
+        | EventBody.Notice _ -> false
+        | _ -> true
 
     let postPoll
         (handle: CoreChangesDoor)
@@ -101,7 +106,8 @@ module Api =
                           pageBuildEpochSec = pageBuildEpochSec
                           apiVersion = ApiVersion.current
                           isReady = CoreDoor.isReady handle
-                          externalChanges = not events.IsEmpty
+                          externalChanges =
+                            List.exists countsAsExternal events
                           events = events
                           message = None
                           bootstrapHash = None
@@ -114,7 +120,7 @@ module Api =
         (targets: LoadTarget list)
         : Async<Result<Result<SnapshotAnswer, ResidentProjection.LoadRefuse>, string>> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return Error err
             | Ok state ->
                 return
@@ -185,7 +191,7 @@ module Api =
         try
             let scope = parseBootstrapScope req
             let savedZoom = parseSavedZoom req
-            let! result = CoreDoor.getState handle
+            let! result = CoreDoor.graphAtEvent handle
             match result with
             | Ok state ->
                 let response: StateResponse =
@@ -214,6 +220,28 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
+    let private acceptedChangeResult
+        buildEpochSec
+        pageBuildEpochSec
+        (accepted: CoreChangesAccepted)
+        (answer: SnapshotAnswer)
+        (laterEvents: Ev list)
+        =
+        changeSuccessResult
+            { eventId = answer.state.eventId
+              buildEpochSec = buildEpochSec
+              pageBuildEpochSec = pageBuildEpochSec
+              apiVersion = ApiVersion.current
+              isReady = accepted.isReady
+              externalChanges =
+                accepted.externalChanges
+                || List.exists countsAsExternal laterEvents
+              events = accepted.events @ laterEvents
+              message = None
+              bootstrapHash = None
+              nodes = answer.nodes
+              childMap = answer.childMap }
+
     let postEvents
         (handle: CoreChangesDoor)
         (buildEpochSec: int)
@@ -239,26 +267,18 @@ module Api =
                             accepted.eventId
                             answer.state.eventId
                     return
-                        changeSuccessResult
-                            { eventId = answer.state.eventId
-                              buildEpochSec = buildEpochSec
-                              pageBuildEpochSec = pageBuildEpochSec
-                              apiVersion = ApiVersion.current
-                              isReady = accepted.isReady
-                              externalChanges =
-                                accepted.externalChanges
-                                || not laterEvents.IsEmpty
-                              events = accepted.events @ laterEvents
-                              message = accepted.message
-                              bootstrapHash = None
-                              nodes = answer.nodes
-                              childMap = answer.childMap }
+                        acceptedChangeResult
+                            buildEpochSec
+                            pageBuildEpochSec
+                            accepted
+                            answer
+                            laterEvents
             | Error err -> return agentErrorResult err
     }
 
+    /// Each requested id that has a Header, with that Node's child-id list.
     let private nodesForRequest (graph: Graph) (graphIds: NodeId list) =
-        graphIds
-        |> List.choose (fun id -> Map.tryFind id graph.nodes)
+        ResidentProjection.wantAnswer graph graphIds
 
     let private latestEventId (events: Ev list) persistId =
         events
@@ -268,13 +288,14 @@ module Api =
     let private universalResponseFromHandle
         (handle: CoreChangesDoor)
         (after: EventId)
-        (nodes: Node list)
+        (childMap: Map<NodeId, ChildNode list>, nodes: Node list)
         : Async<UniversalResponse> =
         async {
             let! events = CoreDoor.getEventsSince handle after
             let! persistId = CoreDoor.getEventId handle
             return
                 { nodes = nodes
+                  childMap = childMap
                   events = events
                   latestId = latestEventId events persistId }
         }
@@ -295,7 +316,7 @@ module Api =
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! CoreDoor.getState handle with
+                match! CoreDoor.graphAtEvent handle with
                 | Error err -> return agentErrorResult err
                 | Ok state ->
                     match router.resolvePath state request with
@@ -309,13 +330,13 @@ module Api =
                                     LoadSavePath.Desk
                                     None
                         | Ok () ->
-                            let nodes =
-                                nodesForRequest state.graph request.start.graphIds
                             let! command =
                                 universalResponseFromHandle
                                     handle
                                     request.start.eventId
-                                    nodes
+                                    (nodesForRequest
+                                        state.graph
+                                        request.start.graphIds)
                             return
                                 loadSaveSuccessResult
                                     LoadSavePath.Git
@@ -366,7 +387,7 @@ module Api =
         (handle: CoreChangesDoor)
         : Async<IResult> =
         async {
-            match! CoreDoor.getState handle with
+            match! CoreDoor.graphAtEvent handle with
             | Error err -> return agentErrorResult err
             | Ok state ->
                 let json =
@@ -396,85 +417,6 @@ module Api =
                 |> Serialization.encodeDesktopFileStatusResponse
                 |> Encode.toString 0
                 |> jsonResult
-
-    let getImportFile (dataDir: string) (path: string) : IResult =
-        match DocumentPersistPath.importPackageForReference dataDir path with
-        | Error err -> Results.BadRequest({| error = err |})
-        | Ok package ->
-            package
-            |> Serialization.encodeDesktopImportPackage
-            |> Encode.toString 0
-            |> jsonResult
-
-    let private tryParseFileId (raw: string) : NodeId option =
-        match Guid.TryParse raw with
-        | true, guid -> Some(NodeId guid)
-        | false, _ -> None
-
-    type private ParseFileBody =
-        { fileId: string
-          text: string option }
-
-    let private decodeParseFileBody (json: string) : Result<ParseFileBody, string> =
-        let decoder =
-            Thoth.Json.Core.Decode.object (fun get ->
-                { fileId = get.Required.Field "fileId" Thoth.Json.Core.Decode.string
-                  text = get.Optional.Field "text" Thoth.Json.Core.Decode.string })
-        Decode.fromString decoder json
-
-    let private applyParseFile
-        (handle: CoreChangesDoor)
-        (dataDir: string)
-        (fileId: NodeId)
-        (text: string option)
-        (state: State)
-        : Async<IResult> =
-        async {
-            match
-                DocumentPersistWrite.planParseFile
-                    dataDir
-                    state.graph
-                    fileId
-                    text
-            with
-            | Error err ->
-                return Results.BadRequest({| error = err |})
-            | Ok [] ->
-                return jsonResult """{"ok":true}"""
-            | Ok ops ->
-                let event = GraphOnlyChangePost.mint "Parse" ops
-                match! CoreDoor.postGraphOnly handle event with
-                | Ok _ -> return jsonResult """{"ok":true}"""
-                | Error err -> return agentErrorResult err
-        }
-
-    /// ParseFile command: optional body text or DataDir read → apply on agent graph.
-    let postParseFile
-        (handle: CoreChangesDoor)
-        (dataDir: string)
-        (body: string)
-        : Async<IResult> =
-        async {
-            match decodeParseFileBody body with
-            | Error err ->
-                return Results.BadRequest({| error = err |})
-            | Ok payload ->
-                match tryParseFileId payload.fileId with
-                | None ->
-                    return Results.BadRequest({| error = "fileId is invalid" |})
-                | Some fileId ->
-                    match! CoreDoor.getState handle with
-                    | Error err ->
-                        return agentErrorResult err
-                    | Ok state ->
-                        return!
-                            applyParseFile
-                                handle
-                                dataDir
-                                fileId
-                                payload.text
-                                state
-        }
 
     let gitSave
         (prepare: unit -> Async<Result<int, string>>)
@@ -534,7 +476,7 @@ module Api =
                         Thoth.Json.Core.Decode.string |})
         Decode.fromString decoder body
 
-    /// Search door. `changes` reads State. Start and stop hit the event source.
+    /// Search door. `changes` reads GraphAtEvent. Start and stop hit the event source.
     type SearchActorDoor =
         { changes: CoreChangesDoor
           recordStart:
@@ -544,7 +486,7 @@ module Api =
     let private searchReply
         (door: SearchActorDoor)
         (request: SearchPicture.Request)
-        (state: State)
+        (state: GraphAtEvent)
         : Async<IResult> =
         async {
             let start =
@@ -556,22 +498,24 @@ module Api =
                     SearchActor.reply
                         (fun () -> state.graph)
                         request
-                do! door.recordStop start.zoomId
+                let nodes =
+                    answer.ids
+                    |> List.choose (fun id ->
+                        Map.tryFind id state.graph.nodes)
                 return
-                    answer
-                    |> SearchPicture.encodeReply
+                    SearchPicture.encodeReplyWithNodes answer nodes
                     |> Encode.toString 0
                     |> jsonResult
         }
 
-    /// One Find and Move reply. ActorStart is recorded, then the walk, then ActorStop.
+    /// One Find and Move reply. The start is placed, then the walk runs.
     let postSearch (door: SearchActorDoor) (body: string) : Async<IResult> =
         async {
             match Decode.fromString SearchPicture.decodeRequest body with
             | Error err ->
                 return agentErrorResult $"Invalid JSON: {err}"
             | Ok request ->
-                match! CoreDoor.getState door.changes with
+                match! CoreDoor.graphAtEvent door.changes with
                 | Error err -> return agentErrorResult err
                 | Ok state -> return! searchReply door request state
         }

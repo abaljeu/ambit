@@ -15,8 +15,8 @@ module SyncLogic =
     /// Returns Some DataOutdated if server event id is ahead of the client,
     /// or None if the client is up to date.
     /// Does not branch on apiVersion: one live API; apply what arrived.
-    /// Callers must only invoke this when there are no pending local events
-    /// (otherwise a higher server event id may reflect our own in-flight POST).
+    /// App.runPollServer calls this with the Browser event id on a decoded Poll reply.
+    /// App.runLoadServer calls this with the Browser event id on a decoded Load reply.
     let getPollOutcome
         (poll: ChangeSuccessResponse)
         (clientEventId: EventId)
@@ -34,14 +34,14 @@ module SyncLogic =
         && serverBuildEpochSec > 0
         && webpageDeployEpochSec <> serverBuildEpochSec
 
-    let private asProjectionState (state: ClientSyncState) : State =
+    let private asProjectionState (state: ClientSyncState) : GraphAtEvent =
         { graph = state.graph
           eventId = state.eventId }
 
     let private withProjectedGraph
         (event: Ev)
         (state: ClientSyncState)
-        (projected: State)
+        (projected: GraphAtEvent)
         (note: string option)
         : ClientSyncState =
         { state with
@@ -54,9 +54,97 @@ module SyncLogic =
                 | Some _ as existing -> existing
                 | None -> note }
 
+    let private isNoticeEvent (event: Ev) =
+        match event.body with
+        | EventBody.Notice _ -> true
+        | _ -> false
+
+    /// Latest write error on this poll. Other events are left alone.
+    let persistFailedMessage (events: Ev list) : string option =
+        events
+        |> List.fold (fun latest event ->
+            match event.body with
+            | EventBody.Notice (Notice.PersistFailed (_, message)) ->
+                Some message
+            | _ -> latest)
+            None
+
+    /// Change, undo, and redo ops. A notice contributes none.
+    let opsForDownload (event: Ev) : Op list =
+        Ev.ops event |> Option.defaultValue []
+
+    let private noticeNodeId (notice: Notice) =
+        match notice with
+        | Notice.NodeParsed nodeId
+        | Notice.NodeUploading nodeId
+        | Notice.NodeReceived nodeId
+        | Notice.NodeParsing nodeId
+        | Notice.NodePersisting nodeId
+        | Notice.NodeUnpersisted nodeId
+        | Notice.NodeUnparsed nodeId
+        | Notice.PersistFailed (nodeId, _)
+        | Notice.ParseFailed (nodeId, _) ->
+            nodeId
+        | Notice.NodePersisted (nodeId, _, _) -> nodeId
+        | Notice.ActorStopped (focusId, _) -> focusId
+
+    /// NoticeGraph.writeGraph. An absent node stays absent.
+    /// A writeGraph error leaves the graph unchanged.
+    let private applyNoticeGraph (notice: Notice) (st: ClientSyncState) =
+        let nodeId = noticeNodeId notice
+        if not (Map.containsKey nodeId st.graph.nodes) then
+            st
+        else
+            match NoticeGraph.writeGraph notice st.graph with
+            | Error _ -> st
+            | Ok graph -> { st with graph = graph }
+
+    let private projectLoggedNotice (st: ClientSyncState) (event: Ev) =
+        if event.id <= st.eventId then
+            st
+        else
+            match event.body with
+            | EventBody.Notice notice ->
+                let applied = applyNoticeGraph notice st
+                { applied with
+                    eventId = event.id
+                    actorLiveFocusIds =
+                        ActorLive.applyEvent
+                            event
+                            applied.actorLiveFocusIds }
+            | _ -> { st with eventId = event.id }
+
+    let private applyLoggedNotice
+        (event: Ev)
+        (st: ClientSyncState)
+        (undid: bool)
+        =
+        Ok(projectLoggedNotice st event, undid)
+
     /// EventLog storage is newest-head. Apply from the older id upward.
     let private inStoredOrder (events: Ev list) =
         events |> List.sortBy (fun event -> EventId.value event.id)
+
+    let private projectChangeApply
+        (event: Ev)
+        (ops: Op list)
+        (st: ClientSyncState)
+        (undid: bool)
+        (applied: ApplyResult)
+        (note: string option)
+        : Result<ClientSyncState * bool, string> =
+        match
+            ChangeAmendment.markForwardParseCreatedUnparsed
+                event
+                ops
+                applied
+        with
+        | ApplyResult.Invalid (_, msg) -> Error msg
+        | ApplyResult.Changed newSt
+        | ApplyResult.Unchanged newSt ->
+            Ok(
+                withProjectedGraph event st newSt note,
+                undid || note.IsSome)
 
     let private foldProjectedEvents
         (events: Ev list)
@@ -66,9 +154,12 @@ module SyncLogic =
             // Already applied. An append-style Replace is not idempotent.
             if event.id <= st.eventId then
                 Ok(st, undid)
+            elif isNoticeEvent event then
+                applyLoggedNotice event st undid
             else
                 let ops = Ev.ops event |> Option.defaultValue []
-                let mark = Op.marksOwningPersist event.commandName
+                let mark =
+                    Op.persistMarkVersion event.commandName event.id
                 let guard = Op.guardsUnparsedDocument event.commandName
                 match
                     ResidentProjection.applyOpsForSyncAllowing
@@ -79,12 +170,9 @@ module SyncLogic =
                         { pending = st.pending
                           submissionId = event.submissionId }
                 with
-                | ApplyResult.Changed newSt, note
-                | ApplyResult.Unchanged newSt, note ->
-                    Ok(
-                        withProjectedGraph event st newSt note,
-                        undid || note.IsSome)
                 | ApplyResult.Invalid (_, msg), _ -> Error msg
+                | applied, note ->
+                    projectChangeApply event ops st undid applied note
         inStoredOrder events
         |> List.fold
             (fun acc event ->
@@ -139,7 +227,7 @@ module SyncLogic =
                 graph = undoPendingGraph state state.pending },
             true
 
-    let private applyPendingEvent (state: State) (event: Ev) : State =
+    let private applyPendingEvent (state: GraphAtEvent) (event: Ev) : GraphAtEvent =
         let ops = Ev.ops event |> Option.defaultValue []
         match ResidentProjection.applyOps ops state with
         | ApplyResult.Changed next
@@ -193,22 +281,15 @@ module SyncLogic =
         | Error msg -> Error msg
         | Ok graph -> Ok { state with graph = graph }
 
+    /// Load reply apply. A nodes-only reply and a Notice reply both
+    /// use applySyncResponse, the same apply as any other server reply.
     let applyLoadResponse
-        (responseEventId: EventId)
-        (hasPendingLocal: bool)
+        (_responseEventId: EventId)
+        (_hasPendingLocal: bool)
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let answerOnly =
-            List.isEmpty response.events
-            && not (List.isEmpty response.nodes)
-        if
-            answerOnly
-            && (hasPendingLocal || responseEventId <> state.eventId)
-        then
-            Error "raced Load answer"
-        else
-            applySyncResponse response state
+        applySyncResponse response state
 
     let loadResponseToSync (response: LoadResponse) : SyncResponse =
         { events = response.events
@@ -226,14 +307,16 @@ module SyncLogic =
           pageBuildEpochSec = response.pageBuildEpochSec
           apiVersion = response.apiVersion
           isReady = response.isReady
-          externalChanges = not response.events.IsEmpty
+          externalChanges =
+            response.events
+            |> List.exists (fun event -> not (isNoticeEvent event))
           events = response.events
           message = None
           bootstrapHash = None
           nodes = []
           childMap = Map.empty }
 
-    /// Apply a server-supplied Ev tail onto local State (Poll path).
+    /// Apply a server-supplied Ev tail onto local GraphAtEvent (Poll path).
     /// Empty list is a no-op that preserves History.
     let applyServerTail
         (events: Ev list)
@@ -270,7 +353,15 @@ module SyncLogic =
         | None -> None
         | Some (inverse, history) ->
             let ops = Ev.ops inverse |> Option.defaultValue []
-            match ResidentProjection.applyOps ops (asProjectionState state) with
+            let version =
+                Op.persistMarkVersion inverse.commandName inverse.id
+            match
+                ResidentProjection.applyOpsAllowing
+                    true
+                    version
+                    ops
+                    (asProjectionState state)
+            with
             | ApplyResult.Invalid (_, msg) -> Some (Error msg)
             | ApplyResult.Unchanged newState
             | ApplyResult.Changed newState ->
@@ -312,10 +403,14 @@ module SyncLogic =
     let private eventOps (event: Ev) =
         Ev.ops event |> Option.defaultValue []
 
+    let private dropNotices (events: Ev list) =
+        events |> List.filter (fun event -> not (isNoticeEvent event))
+
     let private identityError
         (submitted: Ev list)
         (confirmed: Ev list)
         : string option =
+        let confirmed = dropNotices confirmed
         if confirmed.Length < submitted.Length then
             Some "missing confirmation"
         elif confirmed.Length > submitted.Length then
@@ -337,6 +432,7 @@ module SyncLogic =
         (submitted: Ev list)
         (confirmed: Ev list)
         : Result<Op list, string> =
+        let confirmed = dropNotices confirmed
         let rec loop acc submittedItems (confirmedItems: Ev list) =
             match submittedItems, confirmedItems with
             | [], [] -> Ok (List.concat (List.rev acc))
@@ -442,6 +538,90 @@ module SyncLogic =
             let nextSync = nextSync |> SyncInfo.withCatchUp (Some catchUp)
             AckReconcile.Applied(state, nextSync, effects, [])
 
+    /// Confirmed Undo and Redo raise changedVersion to their stored id.
+    let private markUndoRedoVersion (event: Ev) (graph: Graph) : Graph =
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _ ->
+            match Op.persistMarkVersion event.commandName event.id with
+            | None -> graph
+            | Some version ->
+                let ops = Ev.ops event |> Option.defaultValue []
+                DocumentOpImpact.owningSpecials graph ops
+                |> List.fold
+                    (fun graph nodeId ->
+                        GraphMutate.setUnpersistedAt nodeId version graph)
+                    graph
+        | _ -> graph
+
+    let private markUndoRedoVersions (events: Ev list) (graph: Graph) =
+        List.fold
+            (fun graph event -> markUndoRedoVersion event graph)
+            graph
+            events
+
+    /// Notices in a post reply write the graph before confirmation matching.
+    /// The stored event id stays put until confirmation matching sets it.
+    let private applyReplyNotices
+        (confirmed: Ev list)
+        (state: ClientSyncState)
+        : ClientSyncState =
+        let next =
+            confirmed
+            |> List.filter isNoticeEvent
+            |> inStoredOrder
+            |> List.fold projectLoggedNotice state
+        { next with eventId = state.eventId }
+
+    let private stateAfterApprovedSuffix
+        (confirmed: Ev list)
+        (serverEventId: Gambol.Shared.EventId)
+        (state: ClientSyncState)
+        (graph: Graph)
+        : ClientSyncState =
+        { state with
+            graph = markUndoRedoVersions confirmed graph
+            eventId = serverEventId
+            history = ClientHistory.approve confirmed state.history }
+
+    let private finishReconcileAck
+        (submitted: Ev list)
+        (confirmed: Ev list)
+        (serverEventId: Gambol.Shared.EventId)
+        (state: ClientSyncState)
+        (syncInfo: SyncInfo)
+        : AckReconcile =
+        match identityError submitted confirmed with
+        | Some err -> AckReconcile.Rejected err
+        | None ->
+            match collectSuffixes submitted confirmed with
+            | Error err -> AckReconcile.Rejected err
+            | Ok suffixOps ->
+                match
+                    queueOutcome
+                        submitted
+                        syncInfo.pending
+                        serverEventId
+                        state.eventId
+                with
+                | Error err -> AckReconcile.Rejected err
+                | Ok "ignore" -> AckReconcile.Ignored
+                | Ok _ ->
+                    match projectSuffixes suffixOps state with
+                    | Error err -> AckReconcile.Rejected err
+                    | Ok graph ->
+                        let nextSync, _, effects =
+                            SyncPlanner.retireSubmittedPrefix
+                                submitted.Length
+                                serverEventId
+                                syncInfo
+                        AckReconcile.Applied(
+                            stateAfterApprovedSuffix
+                                confirmed serverEventId state graph,
+                            nextSync,
+                            effects,
+                            suffixOps)
+
     let reconcileAck
         (submitted: Ev list)
         (confirmed: Ev list)
@@ -452,37 +632,9 @@ module SyncLogic =
         if submitted.IsEmpty then
             AckReconcile.Rejected "missing confirmation"
         else
-            match identityError submitted confirmed with
-            | Some err -> AckReconcile.Rejected err
-            | None ->
-                match collectSuffixes submitted confirmed with
-                | Error err -> AckReconcile.Rejected err
-                | Ok suffixOps ->
-                    match
-                        queueOutcome
-                            submitted
-                            syncInfo.pending
-                            serverEventId
-                            state.eventId
-                    with
-                    | Error err -> AckReconcile.Rejected err
-                    | Ok "ignore" -> AckReconcile.Ignored
-                    | Ok _ ->
-                        match projectSuffixes suffixOps state with
-                        | Error err -> AckReconcile.Rejected err
-                        | Ok graph ->
-                            let nextState =
-                                { state with
-                                    graph = graph
-                                    eventId = serverEventId
-                                    history =
-                                        ClientHistory.approve
-                                            confirmed
-                                            state.history }
-                            let nextSync, _, effects =
-                                SyncPlanner.retireSubmittedPrefix
-                                    submitted.Length
-                                    serverEventId
-                                    syncInfo
-                            AckReconcile.Applied(
-                                nextState, nextSync, effects, suffixOps)
+            finishReconcileAck
+                submitted
+                confirmed
+                serverEventId
+                (applyReplyNotices confirmed state)
+                syncInfo

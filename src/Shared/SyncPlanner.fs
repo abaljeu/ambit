@@ -11,7 +11,7 @@ module SyncPlanner =
 
     let private isBusy (syncState: SyncState) =
         match syncState with
-        | Sending _ | Polling | Uploading | Parsing | Loading -> true
+        | Sending _ | Polling | Uploading | Loading -> true
         | _ -> false
 
     let tryStartSubmit
@@ -82,8 +82,8 @@ module SyncPlanner =
     let restorePending
         (_serverEventId: Gambol.Shared.EventId)
         (saved: Ev list)
-        (state: State)
-        : State * Ev list =
+        (state: GraphAtEvent)
+        : GraphAtEvent * Ev list =
         saved
         |> List.fold
             (fun (state, reversed) event ->

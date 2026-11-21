@@ -1,9 +1,12 @@
 module EventTests
 
 open System
+open FSharp.Reflection
 open Gambol.Shared
 open Gambol.Shared
 open Xunit
+
+module Dec = Thoth.Json.Newtonsoft.Decode
 
 let private browser = Authority "Browser"
 
@@ -18,11 +21,11 @@ let private startRequest () : ActorStart =
     let zoom = NodeId.New()
     { zoomId = zoom
       focusId = NodeId.New()
-      commandId = NodeId.New()
+      runDefinitionId = NodeId.New()
       graphIds = [ zoom ]
       eventId = EventIdFixtures.storedId 4 }
 
-let private textState () : State * NodeId =
+let private textState () : GraphAtEvent * NodeId =
     let graph, ids =
         ModelBuilder.createNodes [ "old" ] (Graph.create ())
     { graph = graph; eventId = EventId.zero }, List.head ids
@@ -420,6 +423,33 @@ let ``Actor bodies do not apply`` () =
     | _ -> failwith "ActorStop must not change the Graph"
 
 [<Fact>]
+let ``Ev.withOps replaces the ops and keeps the body kind`` () =
+    let nodeId = NodeId.New()
+    let oldOps = [ Op.SetText(nodeId, "a", "b") ]
+    let newOps = [ Op.SetText(nodeId, "b", "c") ]
+    let target = EventIdFixtures.storedId 3
+    let change = event "Cut" (EventBody.Change oldOps)
+    let undo = event "Cut" (EventBody.Undo(target, oldOps))
+    let redo = event "Cut" (EventBody.Redo(target, oldOps))
+    let started = event "Cut" (EventBody.ActorStart(startRequest ()))
+    let notice = event "Cut" (EventBody.Notice(Notice.NodeParsed nodeId))
+    match (Ev.withOps change newOps).body with
+    | EventBody.Change ops -> Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Change, got %A" other
+    match (Ev.withOps undo newOps).body with
+    | EventBody.Undo(kept, ops) ->
+        Assert.Equal(target, kept)
+        Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Undo, got %A" other
+    match (Ev.withOps redo newOps).body with
+    | EventBody.Redo(kept, ops) ->
+        Assert.Equal(target, kept)
+        Assert.Equal<Op list>(newOps, ops)
+    | other -> failwithf "expected Redo, got %A" other
+    Assert.Equal(started, Ev.withOps started newOps)
+    Assert.Equal(notice, Ev.withOps notice newOps)
+
+[<Fact>]
 let ``Undo Redo carried Ops`` () =
     let state, nodeId = textState ()
     let undoOps = [ Op.SetText(nodeId, "old", "undone") ]
@@ -488,3 +518,130 @@ let ``commandName is on the Ev`` () =
     match ClientHistory.undoEvent recorded with
     | None -> failwith "expected Undo"
     | Some (undoEvent, _) -> Assert.Equal("Cut", undoEvent.commandName)
+
+let private fromOrder (id: EventId) (commandName: string) (order: Order) : Ev =
+    let placed = {
+        orderId = OrderId.New()
+        authority = browser
+        commandName = Some commandName
+        order = order }
+    match MailboxLog.eventFromPlacedOrder id placed with
+    | Ok stored -> stored
+    | Error error -> failwith error
+
+[<Fact>]
+let ``Replay sets persistState Unpersisted and ignores persist Notices`` () =
+    let fileId = NodeId.New()
+    let persisted = EventId.fromJson 2
+    let created =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    parseState = ParseState.Parsed
+                    persistState = PersistState.Persisted
+                    persistedVersion = persisted
+                    changedVersion = EventId.fromJson 1 } }
+    let graph = Graph.addDetachedNode node (Graph.create ())
+    let before = { graph = graph; eventId = EventId.fromJson 3 }
+    let changeId = EventId.fromJson 4
+    let ops = [ Op.SetText(fileId, "hello", "edited") ]
+    let change =
+        fromOrder changeId "Edit" (Order.Change(ops, ChangeOrigin.Edit))
+    let stamp = DateTime(2026, 10, 27, 0, 0, 0, DateTimeKind.Utc)
+    let written = EventId.fromJson 8
+    let notices =
+        [ EventBody.Notice (Notice.NodePersisting fileId)
+          EventBody.Notice (Notice.NodePersisted(fileId, written, stamp))
+          EventBody.Notice (Notice.PersistFailed(fileId, "disk"))
+          EventBody.Notice (Notice.NodeUnpersisted fileId)
+          EventBody.Notice (Notice.NodeParsing fileId)
+          EventBody.Notice (Notice.NodeParsed fileId)
+          EventBody.Notice (Notice.NodeUnparsed fileId)
+          EventBody.Notice (Notice.NodeReceived fileId)
+          EventBody.Notice (Notice.NodeUploading fileId) ]
+    let noticeEvents =
+        notices
+        |> List.mapi (fun index body ->
+            { event "Notice" body with id = EventId.fromJson (5 + index) })
+    let log =
+        EventLog.adoptNewestHead (List.rev (change :: noticeEvents))
+    let recovered, _ = EventLog.recover before log
+    let live = recovered.graph.nodes.[fileId]
+    Assert.Equal("edited", live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(changeId, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``Replay of Parse sets persistState Unpersisted and leaves persistedVersion`` () =
+    let fileId = NodeId.New()
+    let persisted = EventId.fromJson 2
+    let created =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    parseState = ParseState.Parsed
+                    persistState = PersistState.Persisted
+                    persistedVersion = persisted
+                    changedVersion = EventId.fromJson 1 } }
+    let before =
+        { graph = Graph.addDetachedNode node (Graph.create ())
+          eventId = EventId.fromJson 3 }
+    let parseId = EventId.fromJson 4
+    let ops = [ Op.SetText(fileId, "hello", "parsed") ]
+    let parse =
+        fromOrder parseId "Parse" (Order.Change(ops, ChangeOrigin.Parse))
+    let log = EventLog.adoptNewestHead [ parse ]
+    let recovered, _ = EventLog.recover before log
+    let live = recovered.graph.nodes.[fileId]
+    Assert.Equal("parsed", live.text)
+    Assert.Equal(PersistState.Unpersisted, live.documentState.persistState)
+    Assert.Equal(persisted, live.documentState.persistedVersion)
+    Assert.Equal(parseId, live.documentState.changedVersion)
+    Assert.Equal(ParseState.Parsed, live.documentState.parseState)
+
+[<Fact>]
+let ``no SetDocumentState message case`` () =
+    let names unionType =
+        FSharpType.GetUnionCases unionType
+        |> Array.map (fun case -> case.Name)
+    Assert.DoesNotContain("SetDocumentState", names typeof<Notice>)
+    Assert.DoesNotContain("SetDocumentState", names typeof<EventBody>)
+    let id = NodeId.New()
+    let json =
+        "{\"eventId\":0,\"submissionId\":\"00000000-0000-0000-0000-000000000001\","
+        + "\"authority\":\"\",\"commandName\":\"\",\"body\":{"
+        + "\"kind\":\"notice\",\"notice\":\"setDocumentState\",\"nodeId\":\""
+        + string id.Value
+        + "\"}}"
+    match Dec.fromString EventJson.decode json with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail("a Notice cannot carry SetDocumentState")
+
+[<Fact>]
+let ``Ev.ops reads an Order.Change body`` () =
+    let nodeId = NodeId.New()
+    let ops = [ Op.SetText(nodeId, "old", "new") ]
+    let origin = ChangeOrigin.Parse
+    let ev =
+        event "Parse" (EventBody.Order(Order.Change(ops, origin)))
+    Assert.Equal(Some ops, Ev.ops ev)
+    let replaced = [ Op.SetText(nodeId, "new", "newer") ]
+    match (Ev.withOps ev replaced).body with
+    | EventBody.Order (Order.Change(next, kept)) ->
+        Assert.Equal<Op list>(replaced, next)
+        Assert.Equal(origin, kept)
+    | other -> failwithf "expected Order.Change, got %A" other

@@ -1,7 +1,7 @@
 # 45 — Contract HistoryEvent, mailbox History, PendingKind, StartActorRequest, and ChangeLog
 
 **Status:** done
-**Blocked by:** ~~[41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate PersistHandlers restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId basis](44-migrate-browser-poll-history-pending-and-eventid.md)~~
+**Blocked by:** ~~[41 — Migrate Core mailbox, CoreMsg, and Pool onto Event](41-migrate-core-mailbox-coremsg-and-pool-onto-event.md), [42 — Migrate CoreMailboxAccess restore and getEventsSince](42-migrate-persisthandlers-restore-and-geteventssince.md), [43 — Migrate HTTP Adapter onto postEvent and Event Poll](43-migrate-http-adapter-onto-postevent-and-event-poll.md), [44 — Migrate Browser Poll, History, pending, and EventId basis](44-migrate-browser-poll-history-pending-and-eventid.md)~~
 
 ## Context
 
@@ -29,7 +29,7 @@ Remove the old start-request name. Modules **CoreMailbox**, **CoreActorPool**, *
 
 ### 3. Drop ChangeLog name
 
-Rename persist to EventLog. Module **EventLog**. Persist seam **PersistHandlers**.
+Rename persist to EventLog. Module **EventLog**. Persist seam **CoreMailboxAccess**.
 
 - [x] Drop ChangeLog name — persist is EventLog. Payload is Ev. There is no second log. Today’s [[src/Server/ChangeLog.fs]] name is gone.
 

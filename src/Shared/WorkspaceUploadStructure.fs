@@ -44,7 +44,7 @@ module WorkspaceUploadStructure =
                 isImmediateChild scopeRelative i.relative)
 
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial: State =
+        let initial: GraphAtEvent =
             { graph = graph
               eventId = EventId.zero }
 
@@ -135,91 +135,6 @@ module WorkspaceUploadStructure =
             (Ok(workspaceId, graph, []))
         |> Result.map (fun (nodeId, graph, reversed) ->
             nodeId, graph, List.rev reversed)
-
-    let private markUnparsed (graph: Graph) nodeId =
-        match Node.documentStateEnum graph.nodes.[nodeId] with
-        | Unparsed -> []
-        | Current ->
-            [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | NoServerFile ->
-            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
-
-    let private markNoServerFile (graph: Graph) nodeId =
-        match Node.documentStateEnum graph.nodes.[nodeId] with
-        | NoServerFile -> []
-        | Current ->
-            [ Op.SetDocumentState(nodeId, Current, NoServerFile) ]
-        | Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, NoServerFile) ]
-
-    let private markParentCurrent (graph: Graph) nodeId =
-        match Map.tryFind nodeId graph.nodes with
-        | Some { kind = Special (Directory | Workspace)
-                 documentState = ds } when
-            DocumentState.toLegacy ds = Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-        | _ -> []
-
-    let private hasOwnedMember (graph: Graph) (dirId: NodeId) =
-        GraphChildren.get graph dirId
-        |> List.exists (fun c ->
-            Node.childOwnership graph dirId c = Ownership.Owner)
-
-    let private foldStateOps markFn graph nodeIds =
-        nodeIds
-        |> List.fold
-            (fun result nodeId ->
-                result
-                |> Result.bind (fun (current, ops) ->
-                    let stateOps = markFn current nodeId
-
-                    applyOps current stateOps
-                    |> Result.map (fun next ->
-                        next, prependReversed stateOps ops)))
-            (Ok(graph, []))
-        |> Result.map (fun (graph, reversed) -> graph, List.rev reversed)
-
-    /// Unparsed Directory/Workspace stubs that already have owned members → Current.
-    let private promoteUnparsedDirsWithMembers (graph: Graph) =
-        graph.nodes
-        |> Map.toList
-        |> List.choose (fun (id, node) ->
-            match node.kind, Node.documentStateEnum node with
-            | Special (Directory | Workspace), Unparsed when hasOwnedMember graph id ->
-                Some id
-            | _ -> None)
-        |> foldStateOps markParentCurrent graph
-
-    let private createdStubIds kind (planned: Op list) =
-        planned
-        |> List.choose (function
-            | Op.NewSpecialNode(nodeId, createdKind, _) when createdKind = kind ->
-                Some nodeId
-            | _ -> None)
-        |> List.distinct
-
-    let private markNewStubsUnparsed graph planned =
-        let directoryIds = createdStubIds Directory planned
-        let fileIds = createdStubIds File planned
-        let stubIds = directoryIds @ fileIds
-
-        foldStateOps markUnparsed graph directoryIds
-        |> Result.bind (fun (withDirs, directoryOps) ->
-            foldStateOps markNoServerFile withDirs fileIds
-            |> Result.map (fun (withFiles, fileOps) ->
-                withFiles, directoryOps, fileOps))
-        |> Result.bind (fun (withStubs, directoryOps, fileOps) ->
-            let parentIds =
-                stubIds
-                |> List.choose (fun id ->
-                    Map.tryFind id withStubs.ownerParentByChild)
-                |> List.distinct
-
-            foldStateOps markParentCurrent withStubs parentIds
-            |> Result.bind (fun (withParents, parentOps) ->
-                promoteUnparsedDirsWithMembers withParents
-                |> Result.map (fun (_, memberOps) ->
-                    directoryOps @ fileOps @ parentOps @ memberOps)))
 
     let private orderForStubs (items: InventoryItem list) =
         let depth (rel: string) =
@@ -315,8 +230,7 @@ module WorkspaceUploadStructure =
             tryResolveFileNode graph workspaceLabel relative
             |> Option.bind (fun fileId ->
                 match Node.documentStateEnum graph.nodes.[fileId] with
-                | NoServerFile ->
-                    Some(Op.SetDocumentState(fileId, NoServerFile, Unparsed))
+                | PullingFile -> None
                 | Current
                 | Unparsed -> None))
 
@@ -327,7 +241,7 @@ module WorkspaceUploadStructure =
         function
         | Unparsed -> true
         | Current
-        | NoServerFile -> false
+        | PullingFile -> false
 
     /// Persist stamp `SetUpdateTime` node ids that resolve to a File download
     /// scope, as AutoDownloadTarget values for auto-download coalescing.
@@ -364,7 +278,7 @@ module WorkspaceUploadStructure =
                 else
                     Some(Op.SetUpdateTime(fileId, node.updateTime, stamp)))
 
-    /// Ops for one Change: Directory/File stubs, reuse owned paths, Unparsed.
+    /// Ops for one Change: Directory/File stubs, reuse owned paths.
     /// `items` must already be the volume-capped path set (1:1).
     /// Unloaded workspaces skip inventing stubs: empty children would create
     /// new ids that collide with the server's resident names on POST /changes.
@@ -390,7 +304,4 @@ module WorkspaceUploadStructure =
                             |> Result.map (fun (next, ops) ->
                                 next, prependReversed ops planned)))
                     (Ok(graph, []))
-                |> Result.bind (fun (afterCreates, createOpsReversed) ->
-                    let createOps = List.rev createOpsReversed
-                    markNewStubsUnparsed afterCreates createOps
-                    |> Result.map (fun stateOps -> createOps @ stateOps)))
+                |> Result.map (fun (_, reversed) -> List.rev reversed))

@@ -4,7 +4,7 @@ open Gambol.Shared
 
 type LoadSaveCommandRouter =
     { resolvePath:
-        State -> LoadSaveCommandRequest -> Result<LoadSavePath, string>
+        GraphAtEvent -> LoadSaveCommandRequest -> Result<LoadSavePath, string>
       startCommand:
         LoadSavePath ->
         LoadSaveCommandRequest ->
@@ -13,20 +13,11 @@ type LoadSaveCommandRouter =
 [<RequireQualifiedAccess>]
 module LoadSaveRouting =
 
+    /// Workspace Load and Save enter their actors on Plain or Git.
+    /// Non-Workspace Load and explicit Desk stay Desk.
     let resolvePath
-        (dataDir: string)
-        (state: State)
+        (state: GraphAtEvent)
         (request: LoadSaveCommandRequest)
         : Result<LoadSavePath, string> =
-        let choice =
-            LoadPathChoice.ofRequest request state.graph
-        PathPick.resolveCommand choice (fun () ->
-            match
-                DocumentPersistPath.workspaceRootFor
-                    dataDir
-                    state.graph
-                    request.start.focusId
-            with
-            | None -> Ok false
-            | Some workspaceRoot ->
-                WorkspaceGit.remoteExists workspaceRoot)
+        PathPick.resolveCommand
+            (LoadPathChoice.ofRequest request state.graph)

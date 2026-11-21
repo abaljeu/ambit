@@ -1,5 +1,0 @@
----
-globs: doc/**,**/*.plan.md,**/*roadmap*
----
-
-Obey [[.agents/rules/planning-docs.md]].

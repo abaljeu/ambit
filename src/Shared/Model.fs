@@ -70,7 +70,7 @@ module NodeKind =
 type DocumentStateEnum =
     | Current
     | Unparsed
-    | NoServerFile
+    | PullingFile
 
 /// Disk object converted to Graph. Independent of Persisted | Unpersisted.
 [<RequireQualifiedAccess>]
@@ -87,7 +87,9 @@ type PersistState =
 type DocumentState =
     { parseState: ParseState
       persistState: PersistState
-      noServerFile: bool }
+      pullingFile: bool 
+      persistedVersion: EventId
+      changedVersion: EventId }
 
 [<RequireQualifiedAccess>]
 module DocumentState =
@@ -98,26 +100,43 @@ module DocumentState =
         : DocumentState =
         { parseState = parseState
           persistState = persistState
-          noServerFile = legacy = NoServerFile }
+          pullingFile = legacy = PullingFile 
+          persistedVersion = EventId.zero
+          changedVersion = EventId.zero }
 
     let toLegacy (state: DocumentState) : DocumentStateEnum =
-        if state.noServerFile then NoServerFile
+        if state.pullingFile then PullingFile
         elif state.parseState = ParseState.Unparsed then Unparsed
         else Current
+
+    /// Persisted when already Persisted, or when the written version
+    /// has reached changedVersion. An older write stays Unpersisted.
+    let persistStateForWritten
+        (document: DocumentState)
+        (written: EventId)
+        : PersistState =
+        let caughtUp =
+            EventId.value written
+            >= EventId.value document.changedVersion
+        match document.persistState with
+        | PersistState.Persisted -> PersistState.Persisted
+        | PersistState.Unpersisted when caughtUp ->
+            PersistState.Persisted
+        | PersistState.Unpersisted -> PersistState.Unpersisted
 
 type DocumentState with
     member this.AsEnum = DocumentState.toLegacy this
 
 [<RequireQualifiedAccess>]
 module ParseState =
-    /// Mikado mirror of DocumentState. NoServerFile has no Parsed pole.
+    /// Mikado mirror of DocumentState. PullingFile has no Parsed pole.
     let ofDocumentState (state: DocumentStateEnum) : ParseState =
         match state with
         | Current -> ParseState.Parsed
         | Unparsed
-        | NoServerFile -> ParseState.Unparsed
+        | PullingFile -> ParseState.Unparsed
 
-    /// Inverse of the Current | Unparsed poles. NoServerFile stays on DocumentState.
+    /// Inverse of the Current | Unparsed poles. PullingFile stays on DocumentState.
     let toDocumentState (state: ParseState) : DocumentStateEnum =
         match state with
         | ParseState.Parsed -> Current
@@ -260,31 +279,40 @@ module Node =
         NodeKind.artifact node.kind
         && not (Filename.isDirectoryFileFilename node.name)
 
-    /// Derived Current | Unparsed | NoServerFile from the record.
+    /// Derived Current | Unparsed | PullingFile from the record.
     let documentStateEnum (node: Node) : DocumentStateEnum =
         DocumentState.toLegacy node.documentState
 
-    /// Set parseState and noServerFile from the wire enum.
+    /// Set parseState and pullingFile from the wire enum.
     let withDocumentState (state: DocumentStateEnum) (node: Node) : Node =
         { node with
             documentState =
                 { node.documentState with
                     parseState = ParseState.ofDocumentState state
-                    noServerFile = state = NoServerFile } }
+                    pullingFile = state = PullingFile } }
 
-    /// Set the parse axis. Clears noServerFile.
+    /// Set the parse axis. Clears pullingFile.
     let withParseState (state: ParseState) (node: Node) : Node =
         { node with
             documentState =
                 { node.documentState with
                     parseState = state
-                    noServerFile = false } }
+                    pullingFile = false } }
 
     /// Set the persist axis inside the record.
     let withPersistState (state: PersistState) (node: Node) : Node =
         { node with
             documentState =
                 { node.documentState with persistState = state } }
+
+    /// Mark Unpersisted and keep the newer changedVersion.
+    let withUnpersistedAt (version: EventId) (node: Node) : Node =
+        { node with
+            documentState =
+                { node.documentState with
+                    persistState = PersistState.Unpersisted
+                    changedVersion =
+                        EventId.max node.documentState.changedVersion version } }
 
     /// Owner vs Ref for the parent→child edge.
     /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(scripts/sagefs-hard-reset.sh)",
+      "Shell(scripts/sagefs-hard-reset.sh *)",
+      "Shell(scripts/sagefs-reset.sh)",
+      "Shell(scripts/sagefs-reset.sh *)",
+      "Shell(scripts/sagefs-stop-session.sh)",
+      "Shell(scripts/sagefs-stop-session.sh *)",
+      "Shell(scripts/sagefs-stop-app.sh)",
+      "Shell(scripts/sagefs-stop-app.sh *)",
+      "Shell(scripts/sagefs-workflow.sh)",
+      "Shell(scripts/sagefs-workflow.sh *)",
+      "Shell(scripts/sagefs-clear-local-data.sh)",
+      "Shell(scripts/sagefs-clear-local-data.sh *)",
+      "Shell(scripts/check-test.sh)",
+      "Shell(scripts/check-test.sh *)"
+    ]
+  }
+}

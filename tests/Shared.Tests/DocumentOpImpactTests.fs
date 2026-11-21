@@ -147,19 +147,7 @@ let ``NewSpecialNode and Replace affect new root and parent package`` () =
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops
-    Assert.Equal<Set<NodeId>>(Set.ofList [ wsId; dirAId ], affected)
-    Assert.DoesNotContain(fileId, affected)
-    Assert.DoesNotContain(fileBId, affected)
-
-[<Fact>]
-let ``SetDocumentState includes the containing parent and filters unwritable root`` () =
-    let graph, _, dirAId, _, fileAId, fileBId, _, _ = graphWithDocuments ()
-    let ops = [ Op.SetDocumentState(fileAId, Current, NoServerFile) ]
-    let post = applyOps graph ops
-    let affected = affectedByOps graph post ops
-    assertParity graph post ops
-    Assert.Equal<Set<NodeId>>(Set.singleton dirAId, affected)
-    Assert.DoesNotContain(fileAId, affected)
+    Assert.Equal<Set<NodeId>>(Set.ofList [ wsId; dirAId; fileId ], affected)
     Assert.DoesNotContain(fileBId, affected)
 
 [<Fact>]

@@ -92,7 +92,6 @@ module DatabaseProjection =
         | Op.Replace(nodeId, _, _)
         | Op.NewSpecialNode(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
-        | Op.SetDocumentState(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) -> nodeId
 
     let private replacedParentFromOp op =
@@ -155,15 +154,23 @@ module DatabaseProjection =
     let private upsertNodesSql =
         """
         INSERT INTO nodes (
-            id, text, name, css_classes, update_time, kind, document_state
+            id, text, name, css_classes, update_time, kind,
+            document_state, persist_state,
+            persisted_version, changed_version
         )
         SELECT
-            id, text, name, css_classes::jsonb, update_time, kind, document_state
+            id, text, name, css_classes::jsonb, update_time, kind,
+            document_state, persist_state,
+            persisted_version, changed_version
         FROM UNNEST(
             @ids::uuid[], @texts::text[], @names::text[], @css_classes::text[],
-            @update_times::timestamptz[], @kinds::text[], @document_states::text[]
+            @update_times::timestamptz[], @kinds::text[],
+            @document_states::text[], @persist_states::text[],
+            @persisted_versions::int[], @changed_versions::int[]
         ) AS rows(
-            id, text, name, css_classes, update_time, kind, document_state
+            id, text, name, css_classes, update_time, kind,
+            document_state, persist_state,
+            persisted_version, changed_version
         )
         ON CONFLICT (id) DO UPDATE SET
             text = EXCLUDED.text,
@@ -171,7 +178,10 @@ module DatabaseProjection =
             css_classes = EXCLUDED.css_classes,
             update_time = EXCLUDED.update_time,
             kind = EXCLUDED.kind,
-            document_state = EXCLUDED.document_state
+            document_state = EXCLUDED.document_state,
+            persist_state = EXCLUDED.persist_state,
+            persisted_version = EXCLUDED.persisted_version,
+            changed_version = EXCLUDED.changed_version
         """
 
     let private deleteChildrenSql =
@@ -216,7 +226,13 @@ module DatabaseProjection =
               { name = "update_times"; value = DateTimeValues(rows |> List.map _.updateTime) }
               { name = "kinds"; value = StringValues(rows |> List.map _.kind) }
               { name = "document_states";
-                value = StringValues(rows |> List.map _.documentState) } ]
+                value = StringValues(rows |> List.map _.documentState) }
+              { name = "persist_states";
+                value = StringValues(rows |> List.map _.persistState) }
+              { name = "persisted_versions";
+                value = IntValues(rows |> List.map _.persistedVersion) }
+              { name = "changed_versions";
+                value = IntValues(rows |> List.map _.changedVersion) } ]
         | DeleteChildren parentIds ->
             [ { name = "parent_ids"; value = GuidValues parentIds } ]
         | InsertChildren rows ->
@@ -357,6 +373,9 @@ module DatabaseProjection =
           name = if reader.IsDBNull 2 then None else Some(reader.GetString 2)
           kind = reader.GetString 5
           documentState = reader.GetString 6
+          persistState = reader.GetString 7
+          persistedVersion = reader.GetInt32 8
+          changedVersion = reader.GetInt32 9
           cssClassNames = css
           updateTime = NodeUpdateTime.toDbPrecision (reader.GetDateTime 4) }
 
@@ -519,7 +538,8 @@ module DatabaseProjection =
                     new NpgsqlCommand(
                         """
                         SELECT id, text, name, css_classes::text, update_time,
-                               kind, document_state
+                               kind, document_state, persist_state,
+                               persisted_version, changed_version
                         FROM nodes
                         """,
                         conn,

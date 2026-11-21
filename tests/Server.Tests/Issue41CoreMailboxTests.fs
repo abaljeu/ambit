@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.Issue41CoreMailboxTests
 
 open System
+open System.IO
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -49,9 +50,9 @@ let ``CoreMailboxApi.postEvents appends Change Events to EventLog`` () =
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.True(EventId.isAccepted accepted.eventId)
@@ -77,11 +78,11 @@ let ``postGraphOnly updates Graph and EventLog without file write`` () =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         Assert.True(EventId.isAccepted accepted.eventId)
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal(event.submissionId, stored.submissionId)
         Assert.Equal("graph-only", state.graph.nodes.[childId].text)
     })
@@ -95,13 +96,13 @@ let ``CoreChangesDoor builds Ev at postEvent and persists its Graph Ops`` () =
             |> Async.StartAsTask
         let accepted = requireOk "post change" accepted
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "get state" state
         let! history =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
-        let stored = Assert.Single(history.events)
+        let stored = Assert.Single(changesOnly history.events)
         Assert.Equal("through-event", state.graph.nodes.[childId].text)
         Assert.True(EventId.isAccepted accepted.eventId)
         Assert.Equal(event.submissionId, stored.submissionId)
@@ -160,7 +161,7 @@ let ``name-only Undo and Redo store completed Events with submission ids`` () =
             |> Async.StartAsTask
         let storedRedo = requireOk "redo" redoResult
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "state after redo" state
         Assert.Equal(undoId, storedUndo.submissionId)
@@ -201,90 +202,103 @@ let ``eventHistory returns full EventLog and eventsSince returns its tail`` () =
             CoreMailboxApi.postEvent host testCaller secondEvent
             |> Async.StartAsTask
         let storedSecond = requireOk "second" secondResult
+        let! _ =
+            waitForNotices
+                (fun () ->
+                    CoreMailboxApi.getEventsSince host EventId.zero
+                    |> Async.StartAsTask)
+                (fun events ->
+                    let persisted =
+                        events
+                        |> List.fold
+                            (fun persisted event ->
+                                match event.body with
+                                | EventBody.Notice (Notice.NodePersisted _) ->
+                                    persisted + 1
+                                | _ -> persisted)
+                            0
+                    persisted >= 2)
         let! full =
             CoreMailboxApi.eventHistory host
             |> Async.StartAsTask
         let! tail =
             CoreMailboxApi.eventsSince host storedFirst.id
             |> Async.StartAsTask
-        Assert.Equal(2, full.events.Length)
+        Assert.Equal(2, (changesOnly full.events).Length)
         Assert.Equal<Ev list>(
             [ storedSecond ],
-            tail.events)
+            changesOnly tail.events)
         Assert.Equal(full.nextId, tail.nextId)
     })
 
+let private eventIsStop (event: Ev) =
+    match event.body with
+    | EventBody.ActorStop _ -> true
+    | _ -> false
+
+/// The pool posts Notice.ActorStopped when the actor's work returns.
+let rec private waitForActorStop host remaining = task {
+    let! history =
+        CoreMailboxApi.eventHistory host |> Async.StartAsTask
+    if List.exists eventIsStop history.events then
+        ()
+    elif remaining <= 0 then
+        Assert.Fail("ActorStop did not land")
+    else
+        do! Async.Sleep 20 |> Async.StartAsTask
+        do! waitForActorStop host (remaining - 1)
+}
+
 [<Fact>]
-let ``mailbox appends ActorStart and ActorStop in lifecycle order`` () =
-    let actorSecret = Credential "issue-41-actor"
-    let pool: CoreActorPool =
-        { register = fun _ _ -> ()
-          registerPeer = fun _ _ -> ()
-          startActor = fun _ _ -> Ok actorSecret
-          startFunction = fun _ -> Error "unused"
-          startPeerActor = fun _ _ _ -> Error "unused"
-          schedule = fun _ _ -> ()
-          isLive = fun secret -> secret = actorSecret
-          admit = fun _ -> Ok ()
-          drop = fun _ -> ()
-          finish = fun _ _ -> Ok ()
-          liveFocusIds = fun () -> Set.empty
-          getFocusId = fun _ -> Some Graph.rootId
-          trySecretForFocus = fun _ -> None
-          deliver = fun _ -> Error "not live"
-          takeInbox = fun _ -> Error "not live" }
-    task {
-        let host =
-            CoreMailbox.host
-                pool
-                (FileAgent.persist (FileAgent.create (newTempDir ())))
-                admittedCredentials
-        try
-            let request: Gambol.Shared.ActorStart =
-                { zoomId = Graph.rootId
-                  focusId = Graph.rootId
-                  commandId = Graph.rootId
-                  graphIds = [ Graph.rootId ]
-                  eventId = EventId.zero }
-            let! started =
-                CoreMailboxApi.startActor host testCaller request
-                |> Async.StartAsTask
-            requireOk "start actor" started
-            let! afterStart =
-                CoreMailboxApi.eventHistory host
-                |> Async.StartAsTask
-            let startEvent = Assert.Single(afterStart.events)
-            let actorCaller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = actorSecret }
-            let! stopped =
-                CoreMailboxApi.actorStop host actorCaller ActorSucceeded
-                |> Async.StartAsTask
-            requireOk "stop actor" stopped
-            let! history =
-                CoreMailboxApi.eventHistory host
-                |> Async.StartAsTask
-            let ordered = history.events |> List.sortBy (_.id)
-            Assert.Equal(2, ordered.Length)
-            let stopEvent = ordered.[1]
-            Assert.Equal(
-                Gambol.Shared.Authority "Test",
-                startEvent.authority)
-            Assert.Equal(
-                Gambol.Shared.Authority "Actor",
-                stopEvent.authority)
-            Assert.Equal(
-                Gambol.Shared.EventBody.ActorStart request,
-                startEvent.body)
-            Assert.Equal(
-                Gambol.Shared.EventBody.ActorStop(
-                    request.focusId,
-                    Gambol.Shared.ActorResult.ActorSucceeded),
-                stopEvent.body)
-        finally
-            CoreMailboxApi.dispose host
-    }
+let ``mailbox appends StartActor and ActorStop in lifecycle order`` () =
+    let request: Gambol.Shared.ActorStart =
+        { zoomId = Graph.rootId
+          focusId = Graph.rootId
+          runDefinitionId = Graph.rootId
+          graphIds = [ Graph.rootId ]
+          eventId = EventId.zero }
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor =
+              TestActor.functionActorAt
+                  request.runDefinitionId
+                  request.focusId
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    withHost [] (fun host _ -> task {
+        let! started =
+            CoreMailboxApi.coreMailboxStartActorFromFunction
+                host
+                testCaller
+                placement
+            |> Async.StartAsTask
+        requireOk "start actor" started |> ignore
+        do! waitForActorStop host 50
+        let! history =
+            CoreMailboxApi.eventHistory host
+            |> Async.StartAsTask
+        let ordered = history.events |> List.sortBy (_.id)
+        Assert.Equal(2, ordered.Length)
+        let startEvent = ordered.[0]
+        let stopEvent = ordered.[1]
+        Assert.Equal(
+            Gambol.Shared.Authority "Test",
+            startEvent.authority)
+        Assert.Equal(
+            Gambol.Shared.Authority "Actor",
+            stopEvent.authority)
+        match startEvent.body with
+        | EventBody.Order (Order.StartActor order) ->
+            Assert.Equal(request.focusId, order.actorNodeId)
+            Assert.Equal("test", order.actorName)
+        | other ->
+            Assert.Fail($"stored body is StartActor, got {other}")
+        Assert.Equal(
+            Gambol.Shared.EventBody.ActorStop(
+                request.focusId,
+                Gambol.Shared.ActorResult.ActorFailed ""),
+            stopEvent.body)
+    })
 
 [<Fact>]
 let ``postEvent rejects a non-zero EventId on a new client Event`` () =
@@ -320,8 +334,259 @@ let ``two live client edits with EventId.zero are admitted`` () =
         Assert.True(EventId.isAccepted storedEdit.id)
         Assert.NotEqual(storedCreate.id, storedEdit.id)
         let! state =
-            CoreMailboxApi.getState host
+            CoreMailboxApi.graphAtEvent host
             |> Async.StartAsTask
         let state = requireOk "state after edit" state
         Assert.Equal("after", state.graph.nodes.[childId].text)
+    })
+
+[<Fact>]
+let ``a graphOnly post stores the Change without a document file write`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host =
+            admittedHostFile (FileAgent.create dataDir)
+        try
+            let wsId = NodeId.New()
+            let fileId = NodeId.New()
+            let bodyId = NodeId.New()
+            let event =
+                { id = EventId.zero
+                  submissionId = Guid.NewGuid()
+                  authority = Authority "Browser"
+                  commandName = "Parse"
+                  body =
+                    EventBody.Change
+                        [ Op.NewSpecialNode(wsId, Workspace, "home")
+                          Op.Replace(
+                              Graph.workspacesId,
+                              [],
+                              [ ChildNode.owner wsId ])
+                          Op.NewSpecialNode(fileId, File, "readme.txt")
+                          Op.Replace(wsId, [], [ ChildNode.owner fileId ])
+                          Op.NewNode(bodyId, "stored-body")
+                          Op.Replace(
+                              fileId,
+                              [],
+                              [ ChildNode.owner bodyId ]) ] }
+            let! posted =
+                CoreMailboxApi.postMailboxChange
+                    host
+                    testCaller
+                    ChangeOrigin.Parse
+                    [ event ]
+                |> Async.StartAsTask
+            requireOk "graphOnly" posted |> ignore
+            let! state =
+                CoreMailboxApi.graphAtEvent host
+                |> Async.StartAsTask
+            let state = requireOk "state" state
+            Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
+            Assert.Equal(
+                PersistState.Persisted,
+                state.graph.nodes.[fileId].documentState.persistState)
+            match
+                DocumentPersistPath.resolveArtifactPath
+                    dataDir
+                    state.graph
+                    fileId
+            with
+            | Error err -> Assert.Fail(err)
+            | Ok path -> Assert.False(File.Exists path)
+            let! history =
+                CoreMailboxApi.eventHistory host
+                |> Async.StartAsTask
+            let stored =
+                history.events
+                |> List.find (fun item ->
+                    item.submissionId = event.submissionId)
+            match stored.body with
+            | EventBody.Change _ -> ()
+            | _ -> Assert.Fail("expected stored Change")
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``dispatch takes the graph-only round from origin Parse`` () =
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "hello",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let state =
+        { graph = Graph.addDetachedNode node (Graph.create ())
+          eventId = EventId.zero }
+    let flags = ResizeArray<bool>()
+    let pushed = ResizeArray<NodeId>()
+    let apply (event: Ev) (skipFile: bool) =
+        flags.Add skipFile
+        Ok(CoreChanges.accepted event.id true [ event ] false)
+    let handlers =
+        { cannedHandlers
+            (fun () -> Ok state)
+            (fun _ -> [])
+            apply with
+            pushPersist = pushed.Add }
+    let context: CoreEventDispatch.Context = {
+        persist = handlers
+        eventLog = ref EventLog.empty
+        restartTip = EventId.zero }
+    let change origin =
+        { id = EventId.zero
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body =
+            EventBody.Order(
+                Order.Change(
+                    [ Op.SetText(fileId, "hello", "edited") ],
+                    origin)) }
+    match
+        CoreEventDispatch.postEvent
+            context
+            testCaller
+            (change ChangeOrigin.Parse)
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        Assert.Equal<bool list>([ true ], List.ofSeq flags)
+        Assert.Empty(pushed)
+    match
+        CoreEventDispatch.postEvent
+            context
+            testCaller
+            (change ChangeOrigin.Edit)
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        Assert.Equal<bool list>([ true; false ], List.ofSeq flags)
+        Assert.Equal<NodeId list>([ fileId ], List.ofSeq pushed)
+
+[<Fact>]
+let ``a placed Parse Change is stored without a document file write`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = admittedHostFile (FileAgent.create dataDir)
+        try
+            let wsId = NodeId.New()
+            let fileId = NodeId.New()
+            let bodyId = NodeId.New()
+            let submissionId = Guid.NewGuid()
+            let ops =
+                [ Op.NewSpecialNode(wsId, Workspace, "home")
+                  Op.Replace(
+                      Graph.workspacesId,
+                      [],
+                      [ ChildNode.owner wsId ])
+                  Op.NewSpecialNode(fileId, File, "readme.txt")
+                  Op.Replace(wsId, [], [ ChildNode.owner fileId ])
+                  Op.NewNode(bodyId, "stored-body")
+                  Op.Replace(fileId, [], [ ChildNode.owner bodyId ]) ]
+            let! reply =
+                MailboxHost.postPlacedOrder host testCaller {
+                    orderId = OrderId submissionId
+                    authority = testCaller.authority
+                    commandName = Some "Parse"
+                    order = Order.Change(ops, ChangeOrigin.Parse) }
+                |> Async.StartAsTask
+            match reply with
+            | Ok _ -> ()
+            | Error err -> Assert.Fail(err)
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let state = requireOk "state" state
+            Assert.Equal("stored-body", state.graph.nodes.[bodyId].text)
+            match
+                DocumentPersistPath.resolveArtifactPath
+                    dataDir
+                    state.graph
+                    fileId
+            with
+            | Error err -> Assert.Fail(err)
+            | Ok path -> Assert.False(File.Exists path)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            let stored =
+                history.events
+                |> List.find (fun item ->
+                    item.submissionId = submissionId)
+            match stored.body with
+            | EventBody.Order (Order.Change (_, ChangeOrigin.Parse)) ->
+                ()
+            | other ->
+                Assert.Fail($"stored origin Parse, got {other}")
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``a graph-only post of a Notice is refused and stores nothing`` () =
+    withHost [] (fun host _ -> task {
+        let submissionId = Guid.NewGuid()
+        let event =
+            { id = EventId.zero
+              submissionId = submissionId
+              authority = Authority "Parse"
+              commandName = ""
+              body =
+                EventBody.Notice(
+                    Notice.ActorStopped(
+                        NodeId.New(),
+                        ActorSucceeded)) }
+        let! result =
+            CoreMailboxApi.postGraphOnly host testCaller event
+            |> Async.StartAsTask
+        match result with
+        | Error _ -> ()
+        | Ok _ -> Assert.Fail("expected Error")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored =
+            history.events
+            |> List.filter (fun item ->
+                item.submissionId = submissionId)
+        Assert.Empty(stored)
+    })
+
+[<Fact>]
+let ``a graph-only post with a non-zero EventId is refused`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "nonzero-graph"
+        let dirty = { event with id = EventIdFixtures.storedId 99 }
+        let! result =
+            CoreMailboxApi.postGraphOnly host testCaller dirty
+            |> Async.StartAsTask
+        match result with
+        | Error msg ->
+            Assert.Equal("posted EventId must be zero", msg)
+        | Ok _ ->
+            Assert.Fail("expected posted EventId must be zero")
+    })
+
+[<Fact>]
+let ``postEvents refuses a Change of origin Parse`` () =
+    withHost [] (fun host _ -> task {
+        let _, event = addRootChild "parse-on-edit"
+        let ops = Ev.ops event |> Option.defaultValue []
+        let parseEvent =
+            { event with
+                body =
+                    EventBody.Order(
+                        Order.Change(ops, ChangeOrigin.Parse)) }
+        let! result =
+            CoreMailboxApi.postEvents host testCaller [ parseEvent ]
+            |> Async.StartAsTask
+        match result with
+        | Error _ -> ()
+        | Ok _ -> Assert.Fail("expected Error")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let stored =
+            history.events
+            |> List.filter (fun item ->
+                item.submissionId = parseEvent.submissionId)
+        Assert.Empty(stored)
     })

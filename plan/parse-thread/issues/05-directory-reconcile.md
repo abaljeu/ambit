@@ -15,7 +15,7 @@ The open story paths are on [Parse thread architecture](plan/parse-thread/arch.m
 
 ## What to build
 
-Directory reconcile scans the directory and updates the Body. The Body is the nodes. The scan does not read the Directory File. A read of that `.amb` file is Directory parse. Directory parse is not this ticket. A new node appends in alphabetical order under the Directory Node. A Workspace Node uses the same Directory reconcile as a Directory Node. There is no second Body for a Workspace Node. When Directory reconcile is done, the parse thread adds InMsg ParseFinished through the private function. The parse thread does not edit the graph axes. Tests cross the Directory reconcile seam. Tests do not start the mailbox, the workspace lock, or the persist thread.
+Directory reconcile scans the directory and updates the Body. The Body is the nodes. The scan does not read the Directory File. A read of that `.amb` file is Directory parse. Directory parse is not this ticket. A new node appends in alphabetical order under the Directory Node. A Workspace Node uses the same Directory reconcile as a Directory Node. There is no second Body for a Workspace Node. When Directory reconcile is done, the parse thread adds Notice ParseFinished through the private function. The parse thread does not edit the graph axes. Tests cross the Directory reconcile seam. Tests do not start the mailbox, the workspace lock, or the persist thread.
 
 State, Interface, and Uses stay on [Parse thread architecture](plan/parse-thread/arch.md) §2 Module map, item 1 **Directory reconcile**. The parse thread calls Directory reconcile when the popped node is a Directory Node.
 
@@ -37,9 +37,9 @@ A Workspace Node uses this same scan. Pull then Parse stays the existing handoff
 
 ### 3. ParseFinished
 
-When Directory reconcile is done, the parse thread adds InMsg ParseFinished for that Directory Node through the private function. The parse thread does not edit the graph axes. The core loop is [core-refinement architecture](plan/core-refinement/arch.md) §10 Core loop.
+When Directory reconcile is done, the parse thread adds Notice ParseFinished for that Directory Node through the private function. The parse thread does not edit the graph axes. The core loop is [core-refinement architecture](plan/core-refinement/arch.md) §10 Core loop.
 
-1. [x] ParseFinished — The parse thread adds InMsg ParseFinished for that Directory Node through the private function. The parse thread does not edit the graph axes.
+1. [x] ParseFinished — The parse thread adds Notice ParseFinished for that Directory Node through the private function. The parse thread does not edit the graph axes.
 
 ### 4. Tests
 

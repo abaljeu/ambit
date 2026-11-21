@@ -1,0 +1,52 @@
+# 130 — Reconcile markUnparsed drops its SetDocumentState
+
+**Status:** `defined`
+
+## 1. Type
+
+coding
+
+## 2. Blockers
+
+[ ] [135 — Backend infers document-state Notices from ops](135-backend-infers-document-state-notices-from-ops.md)
+
+## 3. Problem
+
+This is round 8 of [124 — Remove SetDocumentState one site at a time](124-remove-setdocumentstate-one-site-at-a-time.md). `LazyLoadReconciliationApply.markUnparsed` writes `Current → Unparsed` and `PullingFile → Unparsed` for three callers: `invalidateOrParseModified`, `markAddedDocumentsUnparsed`, and `renamedFileUnparsedOps`. `receivedFileIds` reads the op for a rename (`planMarksUnparsed`). That is #403.
+
+## 4. Change
+
+- Delete both arms in `markUnparsed`.
+- `receivedFileIds` takes a renamed File from the old path's File.
+
+Backend inference: a rename (`Replace` that moves a File) infers a trail `MarkUnparsed`, through `DocumentOpImpact.inferNotices` (135). For a modified file, `LazyLoadReconciliationServer.reconcileReceivedFiles` already posts `NodeReceived` from the changed-path list.
+
+Hard: a modified file's plan is only this op, so the Change has no other op. Directory reconcile (`reconcileChangedPathsWithDiscovery`, `beside = ignore`) has no changed-path post. The `PullingFile → Unparsed` stub case has no other op either.
+
+Source: `LazyLoadReconciliationApply.fs`, `LazyLoadReconciliationServer.fs`, `DocumentOpImpact.fs`.
+
+## 5. Tests
+
+[ ] `LazyLoadReconciliationTests`: `modified file becomes unparsed without losing identity or placement` and the three other facts #403 found
+[ ] `LazyLoadReconciliationServerTests` `git pull marks received files at any depth and does not discover`
+[ ] `NodeEventExpandTests`: `git changed file posts NodeReceived beside SetDocumentState`, `reconcile emits NodeReceived`, and the renamed and moved facts
+
+## 6. Decision (Alan)
+
+`Notice.NodeUnparsed` covers `Current → Unparsed`. [121 — MarkUnparsed renamed NodeUnparsed](121-markunparsed-renamed-nodeunparsed.md) renames `Notice.MarkUnparsed` to that case. Rounds 8 and 11 use it.
+
+## 7. Done
+
+[ ] Run `scripts/agent-test.sh` with no arguments.
+[ ] Run `scripts/agent-test.sh --filter` for each test above that the default run missed.
+[ ] All executed tests pass.
+
+## 8. Round
+
+[ ] `Report.unparsedIds` lists each node id passed to `markUnparsed` while the plan is built.
+[ ] `reconcileReceivedFiles` posts `Notice.NodeUnparsed` for each Current `DocumentPartition.documentRootForNode` of those ids.
+[ ] A resolve error on a Modified path is a path failure. That path adds no id. The other paths continue.
+[ ] A failed rename adds no id.
+[ ] `git load reconcile posts NodeUnparsed for a modified file` covers a modified Current file and a renamed Current file.
+[ ] `git load reconcile reports a modified kind conflict and posts NodeUnparsed for the other file` asserts the failure, the other file's Notice, and `GithubTransportActor.finishLoadPull` returns Ok.
+[ ] `DocumentOpImpact.noticesBeside` and `LazyLoadReconciliationApply.markUnparsed` are unchanged.

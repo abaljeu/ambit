@@ -4,6 +4,7 @@ open System
 open Xunit
 open Gambol.Shared
 open GraphChildMapHelpers
+open ParseApplyHelpers
 
 let private requireOk label result =
     match result with
@@ -35,7 +36,7 @@ let private applyChange (graph: Graph) (event: Ev) : Graph =
         | Error msg -> failwith msg
 
 [<Fact>]
-let ``buildFilePackage md heading produces nested replace ops`` () =
+let ``planParseFile md heading nests sections under the file`` () =
     let text =
         "# Agent Instructions"
         + Environment.NewLine
@@ -45,110 +46,34 @@ let ``buildFilePackage md heading produces nested replace ops`` () =
         + "- item"
         + Environment.NewLine
 
-    let package =
-        ImportDocument.buildFilePackage "//life/AGENTS.md" text
-        |> requireOk "build package"
-
-    Assert.Equal("//life/AGENTS.md", package.sourcePath)
-    Assert.False(package.isDirectory)
-    Assert.Equal(1, package.topLevelIds.Length)
-    Assert.NotEmpty(replaceOps package.ops)
-
-    let h1Id = package.topLevelIds.Head
-    let h1Children =
-        package.ops
-        |> List.tryPick (function
-            | Op.Replace(parentId, _, children) when parentId = h1Id ->
-                Some children
-            | _ -> None)
-
-    match h1Children with
-    | None -> failwith "expected nested children under h1"
-    | Some children ->
-        Assert.NotEmpty(children)
-        let h2Id = children.Head.id
-        let h2Children =
-            package.ops
-            |> List.tryPick (function
-                | Op.Replace(parentId, _, grandchildren) when parentId = h2Id ->
-                    Some grandchildren
-                | _ -> None)
-
-        match h2Children with
-        | None -> failwith "expected list item under h2"
-        | Some grandchildren -> Assert.NotEmpty(grandchildren)
-
-[<Fact>]
-let ``buildFilePackage md differs from paste flat siblings`` () =
-    let text = "# one" + Environment.NewLine + "plain" + Environment.NewLine + "## two" + Environment.NewLine
-
-    let documentPackage =
-        ImportDocument.buildFilePackage "//life/notes.md" text
-        |> requireOk "document package"
-
-    let pastePackage =
-        ImportText.buildPackage "//life/notes.md" text
-        |> requireOk "paste package"
-
-    Assert.Equal(1, documentPackage.topLevelIds.Length)
-    Assert.True(documentPackage.topLevelIds.Length < pastePackage.topLevelIds.Length)
-    Assert.True(replaceOps documentPackage.ops |> List.length > 0)
-
-[<Fact>]
-let ``buildFilePackage integrates with buildImportChange for md`` () =
-    let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
-    let package =
-        ImportDocument.buildFilePackage "//life/AGENTS.md" text
-        |> requireOk "build package"
-
-    let focusId = NodeId.New()
     let graph0 = Graph.create ()
+    let fileId = NodeId.New()
     let file =
         Node.Create(
-            focusId,
+            fileId,
             text = "AGENTS.md",
             name = Filename.create "AGENTS.md",
             owner = graph0.root,
             kind = Special File,
             documentState = Unparsed)
-
     let graph = Graph.addDetachedNode file graph0
 
-    let change =
-        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
+    let ops =
+        ImportDocument.planParseFile graph fileId text
+        |> requireOk "planParseFile"
+    Assert.NotEmpty(replaceOps ops)
 
-    let after = applyChange graph change
-    let sectionId = (Graph.children after focusId).Head.id
+    let after = applyGraphOnly graph ops
 
-    Assert.Equal("section", after.nodes.[sectionId].text)
-    Assert.Equal(1, (Graph.children after sectionId).Length)
-    Assert.Equal(
-        "item",
-        after.nodes.[(Graph.children after sectionId).Head.id].text)
+    let h1 = Graph.children after fileId
+    Assert.Equal(1, h1.Length)
+    let h2 = Graph.children after h1.Head.id
+    Assert.NotEmpty(h2)
+    Assert.NotEmpty(Graph.children after h2.Head.id)
 
 [<Fact>]
-let ``buildFilePackage md heading applies md-head and md-list classes`` () =
+let ``planParseFile md heading applies md-head and md-list classes`` () =
     let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
-    let package =
-        ImportDocument.buildFilePackage "//life/notes.md" text
-        |> requireOk "build package"
-
-    let hasMdHead =
-        package.ops
-        |> List.exists (function
-            | Op.SetClasses(_, _, classes) ->
-                CssClass.toList classes |> List.contains "md-head"
-            | _ -> false)
-
-    let hasMdList =
-        package.ops
-        |> List.exists (function
-            | Op.SetClasses(_, _, classes) ->
-                CssClass.toList classes |> List.contains "md-list"
-            | _ -> false)
-
-    Assert.True(hasMdHead, "expected SetClasses with md-head")
-    Assert.True(hasMdList, "expected SetClasses with md-list")
 
     let focusId = NodeId.New()
     let graph0 = Graph.create ()
@@ -163,10 +88,11 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
 
     let graph = Graph.addDetachedNode file graph0
 
-    let change =
-        ImportText.buildImportChange graph focusId [] package (Guid.NewGuid())
+    let ops =
+        ImportDocument.planParseFile graph focusId text
+        |> requireOk "planParseFile"
 
-    let after = applyChange graph change
+    let after = applyGraphOnly graph ops
     let sectionId = (Graph.children after focusId).Head.id
     let itemId = (Graph.children after sectionId).Head.id
 
@@ -188,48 +114,6 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
         + "- item"
         + Environment.NewLine,
         written)
-
-[<Fact>]
-let ``buildFilePackage rejects blank input`` () =
-    match ImportDocument.buildFilePackage "//life/empty.md" "  \n" with
-    | Ok _ -> failwith "expected blank import to fail"
-    | Error err -> Assert.Equal("cold import parser: text is empty", err)
-
-[<Fact>]
-let ``buildFilePackage rejects oversized text before graph materialization`` () =
-    let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
-    let text = String('x', actualCodeUnits)
-
-    match ImportDocument.buildFilePackage "//life/large.csv" text with
-    | Ok _ -> failwith "expected oversized import to fail"
-    | Error err ->
-        Assert.Equal(
-            DocumentParseLimits.errorForCodeUnits actualCodeUnits,
-            err)
-
-[<Fact>]
-let ``buildTextPackage Plain indent nesting under paste path`` () =
-    let text = "alpha" + Environment.NewLine + "\tbeta" + Environment.NewLine
-
-    let package =
-        ImportDocument.buildTextPackage "//paste" text None
-        |> requireOk "buildTextPackage"
-
-    Assert.False(package.isDirectory)
-    Assert.Equal(1, package.topLevelIds.Length)
-
-    let alphaId = package.topLevelIds.Head
-    let betaChildren =
-        package.ops
-        |> List.tryPick (function
-            | Op.Replace(parentId, _, children) when parentId = alphaId ->
-                Some children
-            | _ -> None)
-
-    match betaChildren with
-    | None -> failwith "expected nested child under alpha"
-    | Some children ->
-        Assert.Equal(1, children.Length)
 
 [<Fact>]
 let ``planParseFile md reorder updates child order`` () =
@@ -360,23 +244,7 @@ let ``planParseFile blank input marks Unparsed file Current`` () =
     let ops =
         ImportDocument.planParseFile graph fileId "  \n"
         |> requireOk "planParseFile blank"
-
-    Assert.True(
-        ops
-        |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
-                true
-            | _ -> false))
-
-    let after = applyChange graph {
-        id = EventId.zero
-        submissionId = Guid.NewGuid()
-        authority = Authority "Browser"
-        commandName = ""
-        body = EventBody.Change ops
-    }
-
-    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
+    applyParseThenCurrent graph fileId ops |> ignore
 
 [<Fact>]
 let ``planParseFile rejects binary image extension`` () =
@@ -439,49 +307,9 @@ let ``planParseFile unparsed marks Current`` () =
             fileId
             ("alpha" + Environment.NewLine)
         |> requireOk "planParseFile"
-
-    Assert.True(
-        ops
-        |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId -> true
-            | _ -> false))
-
-    let after = applyChange graph {
-        id = EventId.zero
-        submissionId = Guid.NewGuid()
-        authority = Authority "Browser"
-        commandName = ""
-        body = EventBody.Change ops
-    }
-
-    Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
+    let parsed, after = applyParseThenCurrent graph fileId ops
+    Assert.False(List.isEmpty (Graph.children parsed fileId))
     Assert.False(List.isEmpty (Graph.children after fileId))
-
-[<Fact>]
-let ``buildReconcilePackage rejects unparsed file`` () =
-    let graph0 = Graph.create ()
-    let fileId = NodeId.New()
-    let file =
-        Node.Create(
-            fileId,
-            text = "readme.txt",
-            name = Filename.create "readme.txt",
-            owner = graph0.root,
-            kind = Special File,
-            documentState = Unparsed)
-
-    let graph = Graph.addDetachedNode file graph0
-
-    match
-        ImportDocument.buildReconcilePackage
-            graph
-            fileId
-            "//life/readme.txt"
-            "alpha\n"
-    with
-    | Ok _ -> failwith "expected unparsed reconcile to fail"
-    | Error err ->
-        Assert.Equal("file is unparsed; use cold import", err)
 
 /// After upload/M, File is Unparsed but still owns prior children. Parse must
 /// warm-reconcile against that owner (not cold-replan Owners).
@@ -515,33 +343,11 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
             ("ALPHA" + Environment.NewLine + "beta" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    Assert.True(
-        ops
-        |> List.exists (function
-            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
-                true
-            | _ -> false),
-        "Unparsed → Current must lead the batch")
-
-    let change =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change ops }
-    let state =
-        { graph = graph; eventId = EventId.zero }
-
-    match SpecialNodeTestHelpers.applyChange change state with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
-    | ApplyResult.Unchanged _ -> failwith "expected Changed"
-    | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
-        Assert.Equal(aId, (Graph.children after.graph fileId).Head.id)
-        Assert.Equal("ALPHA", after.graph.nodes.[aId].text)
-        Assert.Equal(bId, (Graph.children after.graph fileId).[1].id)
-        Assert.Equal("beta", after.graph.nodes.[bId].text)
+    let _, after = applyParseThenCurrent graph fileId ops
+    Assert.Equal(aId, (Graph.children after fileId).Head.id)
+    Assert.Equal("ALPHA", after.nodes.[aId].text)
+    Assert.Equal(bId, (Graph.children after fileId).[1].id)
+    Assert.Equal("beta", after.nodes.[bId].text)
 
 /// Plain text projection cannot express Owner vs Ref. Warm plain reparse of a
 /// file that Owned a URL once and Refs it elsewhere must keep the Ref — not
@@ -851,7 +657,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
         { graph = graph0; eventId = EventId.zero }
-    let applyOps (s: State) ops =
+    let applyOps (s: GraphAtEvent) ops =
         ops
         |> List.fold
             (fun st op ->
@@ -880,16 +686,7 @@ let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
     let seedOps =
         ImportDocument.planParseFile seededGraph fileId seedBody
         |> requireOk "seed planParseFile"
-    let seeded =
-        match
-            SpecialNodeTestHelpers.applyChange
-                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
-        with
-        | ApplyResult.Changed s -> s.graph
-        | ApplyResult.Unchanged s -> s.graph
-        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+    let _, seeded = applyParseThenCurrent seededGraph fileId seedOps
 
     let sectionId = (Graph.children seeded fileId).[0].id
     let otherId = (Graph.children seeded fileId).[1].id
@@ -946,7 +743,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
     let state0 =
         { graph = graph0; eventId = EventId.zero }
-    let applyOps (s: State) ops =
+    let applyOps (s: GraphAtEvent) ops =
         ops
         |> List.fold
             (fun st op ->
@@ -974,16 +771,7 @@ let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
     let seedOps =
         ImportDocument.planParseFile seededGraph fileId seedBody
         |> requireOk "seed planParseFile"
-    let seeded =
-        match
-            SpecialNodeTestHelpers.applyChange
-                (SpecialNodeTestHelpers.changeEventZero "" seedOps)
-                { graph = seededGraph
-                  eventId = EventId.zero }
-        with
-        | ApplyResult.Changed s -> s.graph
-        | ApplyResult.Unchanged s -> s.graph
-        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+    let _, seeded = applyParseThenCurrent seededGraph fileId seedOps
 
     let listingId = (Graph.children seeded fileId).[0].id
     let midId = (Graph.children seeded fileId).[1].id
@@ -1071,22 +859,9 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
         ImportDocument.planParseFile graph noteId ("NEW-EDIT" + Environment.NewLine)
         |> requireOk "planParseFile"
 
-    let change =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change ops }
-    let state =
-        { graph = graph; eventId = EventId.zero }
+    applyParseThenCurrent graph noteId ops |> ignore
 
-    match SpecialNodeTestHelpers.applyChange change state with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.True(false, "plain Unparsed parse must apply; got: " + msg)
-    | ApplyResult.Unchanged _
-    | ApplyResult.Changed _ -> ()
-
-let private applyOpsState (s: State) (ops: Op list) : State =
+let private applyOpsState (s: GraphAtEvent) (ops: Op list) : GraphAtEvent =
     ops
     |> List.fold
         (fun st op ->
@@ -1142,19 +917,7 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     let ops =
         ImportDocument.planParseFile graph parseFileId body
         |> requireOk "planParseFile"
-
-    let change = SpecialNodeTestHelpers.changeEventZero "" ops
-    let state =
-        { graph = graph; eventId = EventId.zero }
-
-    match SpecialNodeTestHelpers.applyChange change state with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.True(
-            false,
-            "parse must not fail from unrelated dual-Owner; got: " + msg)
-    | ApplyResult.Unchanged after
-    | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState.AsEnum)
+    applyParseThenCurrent graph parseFileId ops |> ignore
 
 /// Dual-Owner of the File being parsed does not block applyChange: Replace parent
 /// is not ownership-scoped; only Owner-edge-touched child ids are. Global validate
@@ -1191,20 +954,13 @@ let ``planParseFile succeeds when parse File itself has dual Owner`` () =
             fileId
             ("line" + Environment.NewLine)
         |> requireOk "planParseFile"
+    applyParseThenCurrent graph fileId ops |> ignore
 
-    match
-        SpecialNodeTestHelpers.applyChange
-            (SpecialNodeTestHelpers.changeEventZero "" ops)
-            { graph = graph; eventId = EventId.zero }
-    with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
-    | ApplyResult.Unchanged after
-    | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
-
-let private markDocumentCurrent id (state: State) =
-    applyOpsState state [ Op.SetDocumentState(id, Unparsed, Current) ]
+let private markDocumentCurrent id (state: GraphAtEvent) =
+    let graph =
+        Graph.setParseState id ParseState.Parsed state.graph
+        |> requireOk "mark current"
+    { state with graph = graph }
 
 let private unparsedFileAfterInsertRef () =
     let graph0 = Graph.create ()
@@ -1247,14 +1003,4 @@ let ``planParseFile after Insert Ref reaches Current`` () =
             fileId
             ("parsed" + Environment.NewLine)
         |> requireOk "planParseFile"
-
-    match
-        SpecialNodeTestHelpers.applyChange
-            (SpecialNodeTestHelpers.changeEventZero "" ops)
-            { graph = graph; eventId = EventId.zero }
-    with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.True(false, "parse after Insert Ref must apply; got: " + msg)
-    | ApplyResult.Unchanged after
-    | ApplyResult.Changed after ->
-        Assert.Equal(Current, after.graph.nodes.[fileId].documentState.AsEnum)
+    applyParseThenCurrent graph fileId ops |> ignore

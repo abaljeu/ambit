@@ -135,7 +135,7 @@ module ChangeAmendment =
             tryAmendReplace graph parentId anchor newList message
         | _ -> Error message
 
-    let private buildAmendedOps (ops: Op list) (state: State) : Result<Op list, string> =
+    let private buildAmendedOps (ops: Op list) (state: GraphAtEvent) : Result<Op list, string> =
         let rec applyReplacement replacement current acc rest =
             match replacement with
             | [] -> foldOps rest current acc
@@ -161,16 +161,57 @@ module ChangeAmendment =
 
         foldOps ops state []
 
+    let private createdSpecialIds (ops: Op list) =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(id, _, _) -> Some id
+            | _ -> None)
+
+    /// A detected file's new node starts Current from NewSpecialNode.
+    /// Parse apply marks it Unparsed so the outline parse is not skipped.
+    let private writeCreatedUnparsed (ops: Op list) (state: GraphAtEvent) =
+        createdSpecialIds ops
+        |> List.fold (fun current id ->
+            match NoticeGraph.writeGraph (Notice.NodeUnparsed id) current.graph with
+            | Ok graph -> { current with graph = graph }
+            | Error _ -> current)
+            state
+
+    let private markCreatedUnparsed
+        (commandName: string)
+        (ops: Op list)
+        (result: ApplyResult)
+        =
+        match commandName, result with
+        | "Parse", ApplyResult.Changed state ->
+            ApplyResult.Changed (writeCreatedUnparsed ops state)
+        | "Parse", ApplyResult.Unchanged state
+            when not (List.isEmpty (createdSpecialIds ops)) ->
+            ApplyResult.Changed (writeCreatedUnparsed ops state)
+        | _ -> result
+
+    /// Client replay of a forward Parse Change. Undo and Redo skip the mark.
+    /// Server applyPosted still keys only on commandName.
+    let markForwardParseCreatedUnparsed
+        (event: Ev)
+        (ops: Op list)
+        (result: ApplyResult)
+        : ApplyResult =
+        match event.body with
+        | EventBody.Change _ ->
+            markCreatedUnparsed event.commandName ops result
+        | _ -> result
+
     let private applyMarked
         (guardUnparsed: bool)
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
         match
             ChangeValidation.applyOpsAllowing
-                guardUnparsed markUnpersisted ops state
+                guardUnparsed changedVersion ops state
         with
         | (ApplyResult.Changed _ | ApplyResult.Unchanged _) as ok ->
             ok, false, ops
@@ -182,7 +223,7 @@ module ChangeAmendment =
             | Ok amended ->
                 match
                     ChangeValidation.applyOpsAllowing
-                        guardUnparsed markUnpersisted amended state
+                        guardUnparsed changedVersion amended state
                 with
                 | ApplyResult.Invalid _ as err -> err, false, ops
                 | ApplyResult.Unchanged _ as unchanged ->
@@ -192,26 +233,55 @@ module ChangeAmendment =
             err, false, ops
 
     /// Apply Ops, amending recoverable field CAS failures instead of rejecting.
-    let applyOps (ops: Op list) (state: State) : ApplyResult * bool * Op list =
-        applyMarked true true ops state
+    let applyOps (ops: Op list) (state: GraphAtEvent) : ApplyResult * bool * Op list =
+        applyMarked true (Some EventId.zero) ops state
 
     /// Disk parse (`commandName` Parse) applies without writing PersistState.
     /// The normal-change unparsed gate still applies. Mailbox postGraphOnly
     /// uses applyForGraphOnly.
     let applyForCommand
+        (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
-        applyMarked true (Op.marksOwningPersist commandName) ops state
+        applyMarked
+            true
+            (Op.persistMarkVersion commandName changedVersion)
+            ops
+            state
 
-    /// Mailbox postGraphOnly. A document-root suffix attach may land on an
-    /// Unparsed shell. Other unparsed content edits stay blocked.
+    /// Mailbox postGraphOnly. guardUnparsed is false, so outline ops may
+    /// edit an Unparsed document. NodeParsed sets Current after the post.
     let applyForGraphOnly
+        (changedVersion: EventId)
         (commandName: string)
         (ops: Op list)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult * bool * Op list
         =
-        applyMarked false (Op.marksOwningPersist commandName) ops state
+        let result, amended, applied =
+            applyMarked
+                false
+                (Op.persistMarkVersion commandName changedVersion)
+                ops
+                state
+        markCreatedUnparsed commandName ops result, amended, applied
+
+    /// One apply for FileAgent and DbAgent. Pass the posted event id.
+    /// Undo and Redo mark at that id the same way a Change does.
+    let applyPosted
+        (graphOnly: bool)
+        (eventId: EventId)
+        (event: Ev)
+        (ops: Op list)
+        (state: GraphAtEvent)
+        : ApplyResult * bool * Op list =
+        let result, amended, applied =
+            applyMarked
+                (not graphOnly)
+                (Op.persistMarkVersion event.commandName eventId)
+                ops
+                state
+        markCreatedUnparsed event.commandName ops result, amended, applied

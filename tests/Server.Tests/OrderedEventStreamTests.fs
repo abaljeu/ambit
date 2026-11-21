@@ -30,6 +30,10 @@ let private newNode (commandName: string) (text: string) =
 let private commandNames (events: Ev list) =
     events
     |> List.sortBy (fun event -> EventId.value event.id)
+    |> List.filter (fun event ->
+        match event.body with
+        | EventBody.Notice _ -> false
+        | _ -> true)
     |> List.map (fun event -> event.commandName)
 
 let private hostWith pool =
@@ -69,7 +73,7 @@ let ``two posted lists do not interleave`` () = task {
 }
 
 [<Fact>]
-let ``credential refusal applies nothing from the list`` () = task {
+let ``direct core list does not repeat entry admission`` () = task {
     let host = testHost ()
     try
         let stranger = { testCaller with secret = Credential "nope" }
@@ -80,12 +84,10 @@ let ``credential refusal applies nothing from the list`` () = task {
         let! result =
             CoreMailboxApi.postEvents host stranger events
             |> Async.StartAsTask
-        match result with
-        | Error err -> Assert.True(CoreAuth.isAuthRefuse err, err)
-        | Ok _ -> failwith "expected credential refusal"
+        requireOk "direct list" result |> ignore
         let! after =
             CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Equal(before.events.Length, after.events.Length)
+        Assert.Equal(before.events.Length + 3, after.events.Length)
     finally
         CoreMailboxApi.dispose host
 }
@@ -117,27 +119,27 @@ let ``ActorStop in a posted list applies nothing`` () = task {
 }
 
 let private seedCommand host text = task {
-    let commandId = NodeId.New()
+    let runDefinitionId = NodeId.New()
     let event =
         posted
             "seed"
             (EventBody.Change
-                [ Op.NewNode(commandId, text)
+                [ Op.NewNode(runDefinitionId, text)
                   Op.Replace(
-                      Graph.rootId, [], [ ChildNode.owner commandId ]) ])
+                      Graph.rootId, [], [ ChildNode.owner runDefinitionId ]) ])
     let! postedResult =
         CoreMailboxApi.postEvents host testCaller [ event ]
         |> Async.StartAsTask
     requireOk "seed" postedResult |> ignore
-    return commandId
+    return runDefinitionId
 }
 
-let private launch commandId eventId : Ev =
+let private launch runDefinitionId eventId : Ev =
     let request: ActorStart =
-        { zoomId = commandId
-          focusId = commandId
-          commandId = commandId
-          graphIds = [ commandId ]
+        { zoomId = runDefinitionId
+          focusId = runDefinitionId
+          runDefinitionId = runDefinitionId
+          graphIds = [ runDefinitionId ]
           eventId = eventId }
     posted "Exec" (EventBody.ActorStart request)
 
@@ -148,7 +150,7 @@ let private waitHello host focusId timeoutMs = task {
         not found
         && (DateTime.UtcNow - started).TotalMilliseconds < float timeoutMs
         do
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         match state with
         | Ok graphState ->
             let helloChild child =
@@ -169,64 +171,30 @@ let private waitHello host focusId timeoutMs = task {
 let ``edit then ActorStart classifies the line after the edit`` () = task {
     let host = testHost ()
     try
-        let! commandId = seedCommand host "?test nope"
+        let! runDefinitionId = seedCommand host "?test nope"
         let! before =
             CoreMailboxApi.getEventId host |> Async.StartAsTask
         let edit =
             posted
                 "edit"
                 (EventBody.Change
-                    [ Op.SetText(commandId, "?test nope", "?test hello") ])
+                    [ Op.SetText(runDefinitionId, "?test nope", "?test hello") ])
         let! result =
             CoreMailboxApi.postEvents
-                host testCaller [ edit; launch commandId before ]
+                host testCaller [ edit; launch runDefinitionId before ]
             |> Async.StartAsTask
         let accepted = requireOk "list" result
         let started =
             accepted.events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStart start ->
-                    start.commandId = commandId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = runDefinitionId
+                    && order.actorName = "test"
                 | _ -> false)
-        Assert.True(started, "stored ActorStart missing")
-        let! hello = waitHello host commandId 1000
+        Assert.True(started, "stored StartActor missing")
+        let! hello = waitHello host runDefinitionId 1000
         Assert.True(hello, "hello child missing; edit was not visible")
-    finally
-        CoreMailboxApi.dispose host
-}
-
-[<Fact>]
-let ``ActorStart body does not run inside the mailbox turn`` () = task {
-    let hold = TaskCompletionSource<unit>()
-    let actor (input: ActorInput) (changes: CoreChangesDoor) =
-        async {
-            do! Async.AwaitTask hold.Task
-            let caller =
-                { authority = Authority "Actor"
-                  name = ""
-                  secret = input.secret }
-            let! _ =
-                CoreDoor.actorStop
-                    (CoreDoor.forCaller caller changes)
-                    ActorSucceeded
-            return ()
-        }
-    let pool = CoreActorPool.create ()
-    pool.register (ActorName "gate") actor
-    let host = hostWith pool
-    try
-        let! commandId = seedCommand host "?gate"
-        let! before =
-            CoreMailboxApi.getEventId host |> Async.StartAsTask
-        let posting =
-            CoreMailboxApi.postEvents
-                host testCaller [ launch commandId before ]
-            |> Async.StartAsTask
-        Assert.True(posting.Wait(1000), "list did not return while body held")
-        Assert.False(hold.Task.IsCompleted)
-        hold.TrySetResult(()) |> ignore
-        requireOk "launch" posting.Result |> ignore
     finally
         CoreMailboxApi.dispose host
 }
@@ -253,17 +221,17 @@ let private requireHttp (label: string) (response: HttpResponseMessage) = task {
 }
 
 let private seedOwned (client: HttpClient) text = task {
-    let commandId = NodeId.New()
+    let runDefinitionId = NodeId.New()
     let seed =
         posted
             "seed"
             (EventBody.Change
-                [ Op.NewNode(commandId, text)
+                [ Op.NewNode(runDefinitionId, text)
                   Op.Replace(
-                      Graph.rootId, [], [ ChildNode.owner commandId ]) ])
+                      Graph.rootId, [], [ ChildNode.owner runDefinitionId ]) ])
     let! response = postEventsHttp client [ seed ]
     let! _ = requireHttp "seed" response
-    return commandId
+    return runDefinitionId
 }
 
 let private graphFromState (client: HttpClient) = task {
@@ -301,35 +269,37 @@ let private waitHelloHttp client focusId timeoutMs = task {
 [<Fact>]
 let ``events door applies an edit then ActorStart as one list`` () = task {
     use client = createClientForDir (newTempDir ())
-    let! commandId = seedOwned client "?test nope"
+    let! runDefinitionId = seedOwned client "?test nope"
     let edit =
         posted
             "edit"
             (EventBody.Change
-                [ Op.SetText(commandId, "?test nope", "?test hello") ])
+                [ Op.SetText(runDefinitionId, "?test nope", "?test hello") ])
     let! response =
-        postEventsHttp client [ edit; launch commandId EventId.zero ]
+        postEventsHttp client [ edit; launch runDefinitionId EventId.zero ]
     let! accepted = requireHttp "list" response
     let started =
         accepted.events
         |> List.exists (fun event ->
             match event.body with
-            | EventBody.ActorStart start -> start.commandId = commandId
+            | EventBody.Order (Order.StartActor order) ->
+                order.actorNodeId = runDefinitionId
+                && order.actorName = "test"
             | _ -> false)
-    Assert.True(started, "events door did not store ActorStart")
-    let! hello = waitHelloHttp client commandId 2000
+    Assert.True(started, "events door did not store StartActor")
+    let! hello = waitHelloHttp client runDefinitionId 2000
     Assert.True(hello, "hello child missing on the events door")
 }
 
 [<Fact>]
 let ``events door accepts an edit followed by Cancel`` () = task {
     use client = createClientForDir (newTempDir ())
-    let! commandId = seedOwned client "row"
+    let! runDefinitionId = seedOwned client "row"
     let edit =
         posted
             "edit"
-            (EventBody.Change [ Op.SetText(commandId, "row", "row two") ])
-    let cancel = posted "Cancel" (EventBody.Cancel commandId)
+            (EventBody.Change [ Op.SetText(runDefinitionId, "row", "row two") ])
+    let cancel = posted "Cancel" (EventBody.Cancel runDefinitionId)
     let! response = postEventsHttp client [ edit; cancel ]
     let! accepted = requireHttp "cancel list" response
     let edited =
@@ -341,69 +311,83 @@ let ``events door accepts an edit followed by Cancel`` () = task {
     Assert.True(edited, "events door did not store the edit")
 }
 
+let private requireUnknownActor
+    (label: string)
+    (response: HttpResponseMessage)
+    =
+    task {
+        let! json = response.Content.ReadAsStringAsync()
+        Assert.True(
+            response.StatusCode = HttpStatusCode.BadRequest,
+            $"{label}: {response.StatusCode} {json}")
+        Assert.Contains("unknown actor", json)
+    }
+
+let private loggedEvents (client: HttpClient) = task {
+    let body =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodePollRequest
+                { eventId = EventId.zero; want = [] })
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    let! response = client.PostAsync("/ambit/poll", content)
+    let! json = response.Content.ReadAsStringAsync()
+    Assert.True(
+        response.StatusCode = HttpStatusCode.OK,
+        $"poll: {response.StatusCode} {json}")
+    match
+        Thoth.Json.Newtonsoft.Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok accepted -> return accepted.events
+    | Error err -> return failwith err
+}
+
+let private lineHasLifecycle (events: Ev list) (lineId: NodeId) =
+    events
+    |> List.exists (fun event ->
+        match event.body with
+        | EventBody.ActorStart start ->
+            start.runDefinitionId = lineId || start.focusId = lineId
+        | EventBody.ActorStop(id, _) -> id = lineId
+        | _ -> false)
+
 [<Fact>]
-let ``edit then unknown ActorStart stores a failed ActorStop`` () = task {
+let ``edit then unknown ActorStart replies unknown actor`` () = task {
     use client = createClientForDir (newTempDir ())
-    let! commandId = seedOwned client "row"
+    let! runDefinitionId = seedOwned client "row"
     let edit =
         posted
             "edit"
             (EventBody.Change
-                [ Op.SetText(commandId, "row", "?nope") ])
+                [ Op.SetText(runDefinitionId, "row", "?nope") ])
     let! response =
-        postEventsHttp client [ edit; launch commandId EventId.zero ]
-    let! accepted = requireHttp "unknown" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart start ->
-                start.commandId = commandId
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed "unknown actor") ->
-                id = commandId
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+        postEventsHttp client [ edit; launch runDefinitionId EventId.zero ]
+    do! requireUnknownActor "unknown" response
+    let! events = loggedEvents client
+    Assert.False(lineHasLifecycle events runDefinitionId)
 }
 
 [<Fact>]
-let ``edit then rejected ActorStart stores a failed ActorStop`` () = task {
+let ``edit then rejected ActorStart replies unknown actor`` () = task {
     use client = createClientForDir (newTempDir ())
-    let! commandId = seedOwned client "row"
+    let! runDefinitionId = seedOwned client "row"
     let edit =
         posted
             "edit"
             (EventBody.Change
-                [ Op.SetText(commandId, "row", "row b") ])
+                [ Op.SetText(runDefinitionId, "row", "row b") ])
     let request: ActorStart =
-        { zoomId = commandId
-          focusId = commandId
-          commandId = commandId
+        { zoomId = runDefinitionId
+          focusId = runDefinitionId
+          runDefinitionId = runDefinitionId
           graphIds = []
           eventId = EventId.zero }
     let start = posted "Exec" (EventBody.ActorStart request)
     let! response = postEventsHttp client [ edit; start ]
-    let! accepted = requireHttp "rejected" response
-    let started =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStart _ -> true
-            | _ -> false)
-    let failed =
-        accepted.events
-        |> List.exists (fun event ->
-            match event.body with
-            | EventBody.ActorStop(id, ActorFailed message) ->
-                id = commandId && message.StartsWith("graphIds required")
-            | _ -> false)
-    Assert.True(started, "ActorStart was not stored")
-    Assert.True(failed, "failed ActorStop was not stored")
+    do! requireUnknownActor "rejected" response
+    let! events = loggedEvents client
+    Assert.False(lineHasLifecycle events runDefinitionId)
 }
 
 [<Fact>]

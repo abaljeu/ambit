@@ -1,19 +1,20 @@
 namespace Gambol.Server
 
 open System
+open System.Collections.Concurrent
 open System.IO
+open System.Threading
 open Gambol.Shared
 
 type FileAgentDependencies = {
-    persistGraphOps:
-        string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
+    persistNode: string -> Graph -> NodeId -> Result<DateTime, string>
     appendException: string -> string -> exn -> unit
 }
 
 // FileAgent — persist filling for one dataDir. Does not start a mailbox.
 type FileAgent = private {
     filling: PersistFilling
-    initialState: Gambol.Shared.State
+    initialState: Gambol.Shared.GraphAtEvent
 }
 
 module FileAgent =
@@ -24,124 +25,58 @@ module FileAgent =
         eventStream: FileStream
         eventOffsets: int64 ResizeArray
         persistedEventLog: EventLog ref
-        state: State ref
-        persistClean: bool ref
-        lastPersisted: Graph ref
-        collect: (PersistSubmit -> PersistOutcome) option ref
-        snapshotPost: (InMsg -> unit) option ref
+        state: GraphAtEvent ref
+        stack: PersistRequest BlockingCollection option ref
+        persistFinished: (Notice -> unit) option ref
     }
 
     let defaultDependencies (dataDir: string) =
         {
-            persistGraphOps = DocumentPersistChange.persistGraphOps
+            persistNode = DocumentPersistChange.persistNode
             appendException =
                 HttpResponseLog.appendException
                     (HttpResponseLog.logPath dataDir)
                     "FileAgent"
         }
 
-    let private accepted loaded confirmed externalChanges message =
+    let private accepted loaded confirmed externalChanges =
         CoreChanges.accepted
             loaded.state.Value.eventId
             true
             confirmed
             externalChanges
-            message
-
-    let private acceptWrote
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (stamped: PersistGraphOk)
-        =
-        // Soft-fail (or prior soft-fail in this process): keep meta behind the
-        // log so startup replay can restore graph edits that never hit disk.
-        if stamped.message.IsSome then
-            loaded.persistClean.Value <- false
-        let shouldCheckpoint =
-            stamped.message.IsNone && loaded.persistClean.Value
-        if not shouldCheckpoint then
-            Ok (Some stamped)
-        else
-            match Bookkeeping.writeEventId loaded.dataDir eventId with
-            | Error err -> Error err
-            | Ok () ->
-                loaded.lastPersisted.Value <- stamped.graph
-                Ok (Some stamped)
-
-    let private collectPersist
-        (loaded: LoadedFile)
-        (preGraph: Graph)
-        (postGraph: Graph)
-        (ops: Op list)
-        =
-        match loaded.collect.Value with
-        | None -> Error "persist collectors are not bound"
-        | Some collect ->
-            Ok (collect {
-                nodeIds = PersistCollectors.owningSpecials postGraph ops
-                dataDir = Some loaded.dataDir
-                preGraph = preGraph
-                postGraph = postGraph
-                ops = ops
-                kind = PersistKind.Ops
-                notify = true
-                wait = true
-            })
-
-    let private fromOutcome
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (outcome: PersistOutcome)
-        =
-        match outcome with
-        | PersistOutcome.Wrote stamped -> acceptWrote loaded eventId stamped
-        | PersistOutcome.Blocked -> Ok None
-        | PersistOutcome.Queued -> Ok None
-        | PersistOutcome.Failed err -> Error err
-
-    let private persistCollected
-        (loaded: LoadedFile)
-        (eventId: EventId)
-        (preGraph: Graph)
-        (postGraph: Graph)
-        (ops: Op list)
-        =
-        match collectPersist loaded preGraph postGraph ops with
-        | Error err -> Error err
-        | Ok outcome -> fromOutcome loaded eventId outcome
 
     let private applyOne
         loaded
         (graphOnly: bool)
-        (s, confirmations, fresh, changed, externalChanges)
+        (s, confirmations, externalChanges)
         (event: Ev)
         =
         match loaded.persistedEventLog.Value.events
               |> List.tryFind (fun e -> e.submissionId = event.submissionId) with
         | Some storedEvent ->
-            Ok(s, storedEvent :: confirmations, fresh, changed, externalChanges)
+            Ok(s, storedEvent :: confirmations, externalChanges)
         | None ->
             match Ev.ops event with
             | None -> Error "Event has no Ops"
             | Some ops ->
                 let result, amended, appliedOps =
-                    if graphOnly then
-                        ChangeAmendment.applyForGraphOnly event.commandName ops s
-                    else
-                        ChangeAmendment.applyForCommand event.commandName ops s
+                    ChangeAmendment.applyPosted
+                        graphOnly
+                        event.id
+                        event
+                        ops
+                        s
                 match result with
                 | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                 | ApplyResult.Unchanged _ ->
                     Error "Unchanged submission is rejected."
                 | ApplyResult.Changed s' ->
                     let nextState = { s' with eventId = event.id }
-                    let applied =
-                        CoreMailboxEvents.withAppliedOps event appliedOps
+                    let applied = Ev.withOps event appliedOps
                     Ok(
                         nextState,
                         applied :: confirmations,
-                        applied :: fresh,
-                        true,
                         externalChanges || amended)
 
     let private applyBatch loaded (graphOnly: bool) (events: Ev list) =
@@ -151,9 +86,9 @@ module FileAgent =
                 match acc with
                 | Error err -> Error err
                 | Ok stateAndLog -> applyOne loaded graphOnly stateAndLog event)
-            (Ok(loaded.state.Value, [], [], false, false))
-        |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
-            newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
+            (Ok(loaded.state.Value, [], false))
+        |> Result.map (fun (newState, confirmations, externalChanges) ->
+            newState, List.rev confirmations, externalChanges)
 
     let private validatePostChange loaded graphOnly preGraph postGraph =
         if graphOnly then
@@ -169,57 +104,6 @@ module FileAgent =
                     preGraph
                     postGraph)
 
-    let private persistPostChange loaded graphOnly changed preGraph newState fresh =
-        if changed && not graphOnly then
-            let ops =
-                fresh
-                |> List.collect (fun event ->
-                    Ev.ops event |> Option.defaultValue [])
-            persistCollected
-                loaded
-                newState.eventId
-                preGraph
-                newState.graph
-                ops
-        else
-            Ok None
-
-    let private preparePostChange
-        (newState: State)
-        (confirmations: Ev list)
-        (fresh: Ev list)
-        (stampedOpt: PersistGraphOk option)
-        =
-        let stampOps, stampedGraph, persistMessage =
-            match stampedOpt with
-            | Some stamped ->
-                PersistStamp.opsBetween newState.graph stamped.graph,
-                stamped.graph,
-                stamped.message
-            | None -> [], newState.graph, None
-        let stampedFresh, ackEvents =
-            CoreMailboxEvents.overlayFreshEvents
-                confirmations
-                fresh
-                stampOps
-        let finalState =
-            match stampedOpt with
-            | Some _ -> { newState with graph = stampedGraph }
-            | None -> newState
-        finalState, ackEvents, persistMessage
-
-    let private commitPostChange
-        loaded
-        finalState
-        ackEvents
-        externalChanges
-        persistMessage
-        (reply: AsyncReplyChannel<Result<CoreChangesAccepted, string>>)
-        =
-        loaded.state.Value <- finalState
-        reply.Reply(
-            Ok(accepted loaded ackEvents externalChanges persistMessage))
-
     let private processPostEvents
         loaded
         (events: Ev list)
@@ -230,58 +114,16 @@ module FileAgent =
         else
             match applyBatch loaded graphOnly events with
             | Error err -> Error err
-            | Ok (newState, confirmations, fresh, changed, externalChanges) ->
+            | Ok (newState, confirmations, externalChanges) ->
                 let preGraph = loaded.state.Value.graph
                 match validatePostChange loaded graphOnly preGraph newState.graph with
                 | Error err -> Error err
                 | Ok () ->
-                    match
-                        persistPostChange
-                            loaded
-                            graphOnly
-                            changed
-                            preGraph
-                            newState
-                            fresh
-                    with
-                    | Error err -> Error err
-                    | Ok stampedOpt ->
-                        let finalState, ackEvents, persistMessage =
-                            preparePostChange
-                                newState
-                                confirmations
-                                fresh
-                                stampedOpt
-                        loaded.state.Value <- finalState
-                        Ok(accepted
-                            loaded
-                            ackEvents
-                            externalChanges
-                            persistMessage)
+                    loaded.state.Value <- newState
+                    Ok(accepted loaded confirmations externalChanges)
 
-    let private scheduleCatchUp (loaded: LoadedFile) (nodeId: NodeId) =
-        match loaded.collect.Value with
-        | None -> ()
-        | Some collect ->
-            let post = loaded.state.Value.graph
-            match Map.tryFind nodeId post.nodes with
-            | Some node when
-                node.parseState = ParseState.Parsed
-                && node.persistState = PersistState.Unpersisted ->
-                collect {
-                    nodeIds = [ nodeId ]
-                    dataDir = Some loaded.dataDir
-                    preGraph = loaded.lastPersisted.Value
-                    postGraph = post
-                    ops = []
-                    kind = PersistKind.Change
-                    notify = true
-                    wait = false
-                } |> ignore
-            | _ -> ()
-
-    let private persistHandlers loaded : PersistHandlers = {
-        getState = fun () -> Ok loaded.state.Value
+    let private coreMailboxAccess loaded : CoreMailboxAccess = {
+        graphAtEvent = fun () -> Ok loaded.state.Value
         getEventId = fun () -> Ok loaded.state.Value.eventId
         getEventsSince = fun after ->
             Ok(
@@ -304,11 +146,14 @@ module FileAgent =
                 Ok ()
         applyEvent = fun event graphOnly ->
             processPostEvents loaded [ event ] graphOnly
-        replaceGraph = fun graph ->
+        replaceGraph = fun _notice graph ->
             loaded.state.Value <-
                 { loaded.state.Value with graph = graph }
-        snapshotDone = fun _ _ -> ()
-        noteParsed = scheduleCatchUp loaded
+        noteDiffDone = ignore
+        noteParsed = ignore
+        pushPersist = PersistRequestStack.pushBoundNode loaded.stack
+        notePersisted = ignore
+        noteWriteFailed = ignore
     }
 
     let private loadOrFail (dataDir: string) =
@@ -316,27 +161,30 @@ module FileAgent =
         | Ok state -> state
         | Error msg -> failwith msg
 
+    let private checkpointAhead (state: GraphAtEvent) (log: EventLog) =
+        EventId.value state.eventId > EventId.value (EventLog.tip log)
+
+    // A checkpoint past the log tip drops the log. Otherwise the graph
+    // stays as loaded and the event id becomes the log tip.
     let private reconcileLoaded loaded =
-        let recovered =
-            EventLog.recover
-                loaded.state.Value
-                loaded.persistedEventLog.Value
-        if
-            not (List.isEmpty loaded.persistedEventLog.Value.events)
-            && List.isEmpty (snd recovered).events
-        then
+        let state = loaded.state.Value
+        let log = loaded.persistedEventLog.Value
+        if checkpointAhead state log then
             EventLogFile.truncate
                 loaded.eventStream
                 loaded.eventOffsets
-        loaded.state.Value <- fst recovered
-        loaded.persistedEventLog.Value <- snd recovered
+            loaded.persistedEventLog.Value <-
+                EventLog.afterCheckpoint state.eventId
+        else
+            loaded.state.Value <-
+                { state with eventId = EventLog.tip log }
 
     let private openLoaded
         (dependencies: FileAgentDependencies)
         (dataDir: string)
         (eventStream: FileStream)
         (eventOffsets: int64 ResizeArray)
-        (loadedState: State)
+        (loadedState: GraphAtEvent)
         =
         { dataDir = dataDir
           dependencies = dependencies
@@ -347,25 +195,27 @@ module FileAgent =
                 EventLogFile.readAllEvents eventStream eventOffsets
                 |> EventLog.restorePersisted)
           state = ref loadedState
-          persistClean = ref true
-          lastPersisted = ref loadedState.graph
-          collect = ref None
-          snapshotPost = ref None }
+          stack = ref None
+          persistFinished = ref None }
 
     let private startPersist
         (loaded: LoadedFile)
         (dependencies: FileAgentDependencies)
         =
-        loaded.lastPersisted.Value <- loaded.state.Value.graph
-        let collect, consumer = PersistCollectors.create ()
-        loaded.collect.Value <- Some collect
-        PersistThread.start {
-            consumer = consumer
-            persistOps = dependencies.persistGraphOps
-            persistChange = DocumentPersistChange.persistGraphChange
-            finish = PersistThread.finishWhenBound loaded.snapshotPost
-            changeFailed = fun _ _ -> ()
-        }
+        let stack = PersistRequestStack.create ()
+        loaded.stack.Value <- Some stack
+        let join =
+            PersistThread.start {
+                currentState = fun () -> Volatile.Read(&loaded.state).Value
+                take = fun () -> PersistRequestStack.takeUntilStop stack
+                persistNode =
+                    fun graph nodeId ->
+                        dependencies.persistNode loaded.dataDir graph nodeId
+                postNotice = PersistThread.postWhenBound loaded.persistFinished
+            }
+        fun () ->
+            PersistRequestStack.stop stack
+            join ()
 
     let createWithDependencies
         (dependencies: FileAgentDependencies)
@@ -378,7 +228,7 @@ module FileAgent =
             openLoaded
                 dependencies dataDir eventStream eventOffsets loadedState
         reconcileLoaded loaded
-        startPersist loaded dependencies
+        let stopPersist = startPersist loaded dependencies
         let capturedInitialState = loaded.state.Value
         eventStream.Seek(0L, SeekOrigin.End) |> ignore
         let onError operation context ex =
@@ -386,18 +236,18 @@ module FileAgent =
         let formatError operation =
             $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
         { filling =
-            { handlers = persistHandlers loaded
+            { handlers = coreMailboxAccess loaded
               onError = onError
               formatError = formatError
               isReady = fun () -> true
-              flushSnapshot = fun () -> async { return Ok () }
               dispose =
                 fun () ->
+                    stopPersist ()
                     eventStream.Flush()
                     eventStream.Dispose()
               until = None
-              bindSnapshot =
-                fun post -> loaded.snapshotPost.Value <- Some post }
+              bindPersistFinished =
+                fun post -> loaded.persistFinished.Value <- Some post }
           initialState = capturedInitialState }
 
     let create (dataDir: string) : FileAgent =
@@ -406,5 +256,5 @@ module FileAgent =
     let internal persist (agent: FileAgent) : PersistFilling =
         agent.filling
 
-    let initialState (agent: FileAgent) : State =
+    let initialState (agent: FileAgent) : GraphAtEvent =
         agent.initialState

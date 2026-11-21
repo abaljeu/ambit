@@ -1,0 +1,21 @@
+# Sequence
+
+- [x] [09 — Start the query command](issues/09-dispatch-the-query-command/09-dispatch-the-query-command-ticket.md)
+- [x] [10 — Start git Load](issues/10-dispatch-git-load-and-save/10-dispatch-git-load-and-save-ticket.md)
+- [x] [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md)
+- [x] [19 — Start git Save](issues/19-dispatch-git-save/19-dispatch-git-save-ticket.md)
+- [x] [24 — Move the remaining ActorStart writers onto StartActor](issues/24-move-the-remaining-actorstart-writers/24-move-the-remaining-actorstart-writers-ticket.md)
+- [x] [27 — Reject unknown Run commands before the queue](issues/27-reject-unknown-run-commands-before-the-queue/27-reject-unknown-run-commands-before-the-queue-ticket.md)
+- [x] [26 — Retire the posted named start](issues/26-retire-the-posted-named-start/26-retire-the-posted-named-start-ticket.md)
+- [x] [25 — Remove the coreMailboxStartActor door](issues/25-remove-the-coremailboxstartactor-door/25-remove-the-coremailboxstartactor-door-ticket.md)
+- [x] [16 — Rename the client start request to ClientRequestActor](issues/16-delete-the-old-order-cases/16-delete-the-old-order-cases-ticket.md)
+- [ ] [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md)
+- [x] [21 — Convert CoreMsg.ActorStop](issues/21-convert-coremsg-actorstop/21-convert-coremsg-actorstop-ticket.md) is superseded. Alan, 2026-10-24 and 2026-11-13. The chain is [113 — Actors return their ActorResult](../core-refinement/issues/113-actors-return-their-actorresult.md), then [117 — The pool posts Notice.ActorStopped when an Actor ends](../core-refinement/issues/117-the-pool-posts-notice-actorstopped-when-an-actor-ends.md), then [114 — Remove CoreMsg.ActorStop](../core-refinement/issues/114-remove-coremsg-actorstop.md). [118 — Test Actors return their result](../core-refinement/issues/118-test-actors-return-their-result.md) is superseded by 114. Alan, 2026-11-13.
+- [x] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) does this job. Alan, 2026-11-15.
+- [ ] [11 — Move door and case tests](issues/11-move-door-and-case-tests/11-move-door-and-case-tests-ticket.md)
+- [ ] [12 — Move pool and issue tests](issues/12-move-pool-and-issue-tests/12-move-pool-and-issue-tests-ticket.md)
+- [ ] [13 — Move persist and command tests](issues/13-move-persist-and-command-tests/13-move-persist-and-command-tests-ticket.md)
+- [ ] [14 — Move runtime and session tests](issues/14-move-runtime-and-session-tests/14-move-runtime-and-session-tests-ticket.md)
+- [ ] [01 — Actor-as-client duplex](issues/01-actor-as-client-duplex.md)
+- [ ] [02 — Graph handoff](issues/02-graph-handoff.md)
+- [x] [28 — Limit the AI extract to the visible list](issues/28-limit-the-ai-extract-to-the-visible-list/28-limit-the-ai-extract-to-the-visible-list-ticket.md)

@@ -10,8 +10,12 @@
     <Compile Include="ClientRectCaret.fs" />
     <Compile Include="ScrollIntoViewNeed.fs" />
     <Compile Include="Filename.fs" />
+    <Compile Include="FileText.fs" />
     <Compile Include="DocumentParseLimits.fs" />
     <Compile Include="SystemDirectoryPersist.fs" />
+    
+    <Compile Include="EventId.fs" />
+    <Compile Include="OrderId.fs" />
     <Compile Include="Model.fs" />
 
     <Compile Include="GraphBuild.fs" />
@@ -44,18 +48,22 @@
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="ChangeValidation.fs" />
+    <Compile Include="NoticeGraph.fs" />
+    <Compile Include="PersistStamp.fs" />
     <Compile Include="CssClassToggle.fs" />
     <Compile Include="ExprRun.fs" />
     <Compile Include="ChildListWire.fs" />
     <Compile Include="ChildListMerge.fs" />
+    <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ChangeAmendment.fs" />
     <Compile Include="ClientHistory.fs" />
-    <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ApiResponses.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="ClientIdentity.fs" />
     <Compile Include="PathPick.fs" />
     <Compile Include="LoadSaveCommand.fs" />
+    <Compile Include="MailboxLog.fs" />
     <Compile Include="WorkspaceGitRemote.fs" />
     <Compile Include="ServerCapabilities.fs" />
 
@@ -92,7 +100,6 @@
     <Compile Include="AmbleRun.fs" />
     <Compile Include="Amble.fs" />
     <Compile Include="Paste.fs" />
-    <Compile Include="ImportText.fs" />
     <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
@@ -120,6 +127,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
     <PackageReference Include="Thoth.Json.Core" Version="0.7.1" />
     <PackageReference Include="Thoth.Json.JavaScript" Version="0.4.1" />
   </ItemGroup>

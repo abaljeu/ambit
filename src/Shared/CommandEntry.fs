@@ -59,7 +59,6 @@ type CommandId =
     | JumpToTarget
     | Load
     | Save
-    | Download
     | InsertFile
     | Rename
     | Exec
@@ -270,10 +269,7 @@ let allCommands : CommandEntry list =
           keys = [ "Ctrl+Shift+>" ]; keyScope = SelectionOnly
           iconId = None }
         { id = Save; name = "Save"
-          keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
-          iconId = None }
-        { id = Download; name = "Download"
-          keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOnly
+          keys = [ "Ctrl+S"; "Ctrl+Shift+<" ]; keyScope = SelectionOrEditing
           iconId = None }
         { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing

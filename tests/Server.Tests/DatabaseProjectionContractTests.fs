@@ -81,6 +81,26 @@ let private scalar<'a> connStr sql = task {
 
 let private encodeBatch (changes: Ev list) = changes
 
+let private readStoredEvents connStr = task {
+    let! rows = Database.getEvents connStr |> Async.AwaitTask
+    return
+        rows
+        |> List.map (fun row ->
+            match EventLogFile.decodeEvent row.payload with
+            | Ok event -> event
+            | Error error -> failwith error)
+}
+
+/// One label per stored event. One Edit of ROOT adds one
+/// NodePersisted ROOT beside the Change.
+let private eventLabel (event: Ev) =
+    match event.body with
+    | EventBody.Change _ -> "Change"
+    | EventBody.Notice (Notice.NodePersisted (id, _, _))
+        when id = Graph.rootId ->
+        "NodePersisted ROOT"
+    | other -> sprintf "%A" other
+
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
@@ -160,7 +180,6 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let updateOps =
         [ Op.SetName(parentId, "initial.amb", "renamed.amb")
           Op.SetClasses(parentId, CssClass.empty, final.cssClasses)
-          Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
           Op.Replace(parentId, initialKids, finalKids) ]
     do! persistPatch connStr finalGraph (EventIdFixtures.storedId 2) [ change updateOps ]
@@ -317,10 +336,18 @@ let ``db bootstrap duplicate returns stored Change and rejects no-op`` () = task
 
     let! xminAfterNoWrites =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
-    let! eventCount = scalar<int64> connStr "SELECT count(*) FROM events"
+    let! stored = readStoredEvents connStr
     let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
     Assert.Equal(xminAfterFirst, xminAfterNoWrites)
-    Assert.Equal(1L, eventCount)
+    let labels = stored |> List.map eventLabel
+    Assert.Contains("NodePersisted ROOT", labels)
+    let change =
+        stored
+        |> List.filter (fun event -> event.submissionId = accepted.submissionId)
+        |> Assert.Single
+    match change.body with
+    | EventBody.Change _ -> ()
+    | other -> Assert.Fail($"stored Change missing, got {other}")
     Assert.Equal(EventId.toJson (EventIdFixtures.storedId 1), revision)
 }
 
@@ -617,4 +644,38 @@ let ``ownership repair shifts root with owner-and-ref sibling without pkey clash
         Assert.Equal(Graph.systemId.Value, kids.[3] |> fun (id, _, _) -> id)
         Assert.Equal(Graph.trashId.Value, kids.[4] |> fun (id, _, _) -> id)
     }
+
+[<Fact>]
+let ``document state versions survive a database round trip`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let fileId = id 96
+    let persistedVersion = EventId.fromJson 3
+    let changedVersion = EventId.fromJson 4
+    let created =
+        Node.Create(
+            fileId,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            kind = Special File,
+            persistState = PersistState.Unpersisted)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    persistedVersion = persistedVersion
+                    changedVersion = changedVersion } }
+    let graph = graphWithCustomNodes [ node ]
+    do! replaceProjection connStr graph EventId.zero
+    let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
+    match loaded with
+    | Error error -> Assert.Fail(error)
+    | Ok (loadedGraph, _) ->
+        let back = loadedGraph.nodes.[fileId]
+        Assert.Equal(
+            PersistState.Unpersisted,
+            back.documentState.persistState)
+        Assert.Equal(persistedVersion, back.documentState.persistedVersion)
+        Assert.Equal(changedVersion, back.documentState.changedVersion)
+}
 

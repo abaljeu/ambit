@@ -19,6 +19,8 @@ Ambit wakes an external agent with one ack-only POST and takes reply text on `PO
 [x] Ambit Server sends the wake and accepts deliver.
 [x] The external agent is the Grok bot. The Run Agent Actor selects this wire when the first behavior token is `gbot`.
 [x] `sessionId` is the live-pool id, a GUID string. The wake and the deliver use that same string.
+[x] The Actor `sessionId` is minted by the pool.
+[ ] The LLM HTTP session is in the AI Actor closure. The dispatcher builds that closure. Detail: [Actor as client](../../plan/actor-as-client/project.md).
 
 ## Operations
 

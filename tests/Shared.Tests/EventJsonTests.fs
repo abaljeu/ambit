@@ -48,7 +48,7 @@ let ``Ev JSON round-trips ActorStart and ActorStop`` () =
     let start =
         { zoomId = zoom
           focusId = NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
-          commandId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+          runDefinitionId = NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
           graphIds = [ zoom ]
           eventId = EventIdFixtures.storedId 4 }
     let started =
@@ -107,7 +107,7 @@ let ``ActorStop failed without message decodes as empty`` () =
               "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
               "\"authority\":\"Browser\","
               "\"commandName\":\"\","
-              "\"body\":{\"kind\":\"actorStop\",\"focusId\":\""
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"actorStopped\",\"focusId\":\""
               focusId.Value.ToString()
               "\",\"result\":\"failed\"}}" ]
     match Dec.fromString EventJson.decode legacy with
@@ -134,6 +134,210 @@ let ``cancel request JSON round-trips Focus NodeId and EventId`` () =
         Assert.Equal(request.eventId, decoded.eventId)
 
 [<Fact>]
+let ``An old change row is skipped on read`` () =
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Set text\","
+              "\"body\":{\"kind\":\"change\",\"ops\":[]}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
+let ``An old undo redo or load row is skipped on read`` () =
+    let nodeId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    let rows =
+        [ "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Undo\","
+          + "\"body\":{\"kind\":\"undo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Redo\","
+          + "\"body\":{\"kind\":\"redo\",\"target\":2,\"ops\":[]}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"\","
+          + "\"body\":{\"kind\":\"load\",\"nodeId\":\""
+          + nodeId
+          + "\"}}" ]
+    rows
+    |> List.iter (fun legacy ->
+        match Dec.fromString EventJson.decode legacy with
+        | Error _ -> ()
+        | Ok decoded ->
+            failwith $"expected Error, got {decoded}")
+
+[<Fact>]
+let ``An old actorStart or cancel row is skipped on read`` () =
+    let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    let zoom = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    let runDefinitionId = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    let rows =
+        [ "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"\","
+          + "\"body\":{\"kind\":\"actorStart\",\"zoomId\":\""
+          + zoom
+          + "\",\"focusId\":\""
+          + focusId
+          + "\",\"commandId\":\""
+          + runDefinitionId
+          + "\",\"graphIds\":[\""
+          + zoom
+          + "\"],\"eventId\":4}}"
+          "{\"eventId\":3,"
+          + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+          + "\"authority\":\"Browser\","
+          + "\"commandName\":\"Cancel\","
+          + "\"body\":{\"kind\":\"cancel\",\"focusId\":\""
+          + focusId
+          + "\"}}" ]
+    rows
+    |> List.iter (fun legacy ->
+        match Dec.fromString EventJson.decode legacy with
+        | Error _ -> ()
+        | Ok decoded ->
+            failwith $"expected Error, got {decoded}")
+
+[<Fact>]
+let ``An old actorStop row is skipped on read`` () =
+    let focusId = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    let legacy =
+        "{\"eventId\":3,"
+        + "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+        + "\"authority\":\"Browser\","
+        + "\"commandName\":\"\","
+        + "\"body\":{\"kind\":\"actorStop\",\"focusId\":\""
+        + focusId
+        + "\",\"result\":\"succeeded\"}}"
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
+let ``An old nodeStamped row is skipped on read`` () =
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"\","
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"nodeStamped\"}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error _ -> ()
+    | Ok decoded ->
+        failwith $"expected Error, got {decoded}"
+
+[<Fact>]
+let ``Notice JSON round trip`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
+    let version = EventIdFixtures.storedId 4
+    let notices =
+        [ Notice.NodeParsed nodeId
+          Notice.NodePersisted(nodeId, version, stamp)
+          Notice.NodeUnparsed nodeId
+          Notice.NodeUploading nodeId
+          Notice.NodeReceived nodeId
+          Notice.NodeParsing nodeId
+          Notice.NodePersisting nodeId
+          Notice.NodeUnpersisted nodeId
+          Notice.PersistFailed(nodeId, "disk full")
+          Notice.ParseFailed(nodeId, "parse failed")
+          Notice.ActorStopped(nodeId, ActorSucceeded) ]
+    notices
+    |> List.iter (fun notice ->
+        let event =
+            { changeEvent with
+                commandName = ""
+                body = EventBody.Notice notice }
+        Assert.Equal(event, roundTrip event))
+
+[<Fact>]
+let ``EventJson round-trips Notice.ParseFailed`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let notice = Notice.ParseFailed(nodeId, "parse failed")
+    let event =
+        { changeEvent with
+            commandName = ""
+            body = EventBody.Notice notice }
+    Assert.Equal(event, roundTrip event)
+
+[<Fact>]
+let ``Stored snapshotDone decodes as NodePersisted`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 10, 21, 18, 0, 0, DateTimeKind.Utc)
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Edit node\","
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"snapshotDone\","
+              "\"nodeId\":\""
+              nodeId.Value.ToString()
+              "\",\"updateTime\":"
+              string stamp.Ticks
+              "}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error err -> failwith err
+    | Ok decoded ->
+        match decoded.body with
+        | EventBody.Notice (Notice.NodePersisted (id, _, time)) ->
+            Assert.Equal(nodeId, id)
+            Assert.Equal(stamp, time)
+        | other -> failwith $"expected NodePersisted, {other}"
+    let current =
+        { changeEvent with
+            commandName = "Edit node"
+            body =
+                EventBody.Notice(
+                    Notice.NodePersisted(nodeId, EventId.zero, stamp)) }
+    let json = Enc.toString 0 (EventJson.encode current)
+    Assert.Contains("\"notice\":\"nodePersisted\"", json)
+    Assert.DoesNotContain("snapshotDone", json)
+
+[<Fact>]
+let ``An old nodePersisted row decodes at version zero`` () =
+    let nodeId = NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let stamp = DateTime(2026, 10, 21, 18, 0, 0, DateTimeKind.Utc)
+    let legacy =
+        String.concat
+            ""
+            [ "{\"eventId\":3,"
+              "\"submissionId\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+              "\"authority\":\"Browser\","
+              "\"commandName\":\"Edit node\","
+              "\"body\":{\"kind\":\"notice\",\"notice\":\"nodePersisted\","
+              "\"nodeId\":\""
+              nodeId.Value.ToString()
+              "\",\"updateTime\":"
+              string stamp.Ticks
+              "}}" ]
+    match Dec.fromString EventJson.decode legacy with
+    | Error err -> failwith err
+    | Ok decoded ->
+        match decoded.body with
+        | EventBody.Notice (Notice.NodePersisted (id, version, time)) ->
+            Assert.Equal(nodeId, id)
+            Assert.Equal(EventId.zero, version)
+            Assert.Equal(stamp, time)
+        | other -> failwith $"expected NodePersisted, {other}"
+
+[<Fact>]
 let ``mintChange encodes eventId 0 on the wire`` () =
     let event = ClientHistory.mintChange "Edit node" []
     Assert.Equal(EventId.zero, event.id)
@@ -151,3 +355,73 @@ let ``toWireBatch forces EventId.zero on a dirty new client Event`` () =
         Enc.toString 0 (EventJson.encodeEventBatch { events = wire })
     Assert.Contains("\"eventId\":0", json)
     Assert.DoesNotContain($"\"eventId\":{EventId.toJson dirty.id}", json)
+
+[<Fact>]
+let ``Ev JSON round-trips each EventBody.Order case`` () =
+    let nodeId =
+        NodeId(Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let zoom =
+        NodeId(Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"))
+    let runDefinitionId =
+        NodeId(Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"))
+    let start =
+        { zoomId = zoom
+          focusId = focusId
+          runDefinitionId = runDefinitionId
+          graphIds = [ zoom ]
+          eventId = EventIdFixtures.storedId 4 }
+    let ops = [ Op.SetText(nodeId, "old", "new") ]
+    let orders =
+        [ Order.Change(ops, ChangeOrigin.Parse)
+          Order.Change(ops, ChangeOrigin.Edit)
+          Order.Undo(EventIdFixtures.storedId 2, ops)
+          Order.Redo(EventIdFixtures.storedId 3, ops)
+          Order.ClientRequestActor start
+          Order.Load nodeId
+          Order.CancelActor focusId ]
+    orders
+    |> List.iter (fun order ->
+        let event =
+            { changeEvent with
+                commandName = ""
+                body = EventBody.Order order }
+        if order = Order.ClientRequestActor start then
+            let json = Enc.toString 0 (EventJson.encode event)
+            Assert.Contains("startActor", json)
+        Assert.Equal(event, roundTrip event))
+
+[<Fact>]
+let ``ActorOrder round-trips on the wire with stubActor`` () =
+    let focusId =
+        NodeId(Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+    let mutable ran = false
+    let live : ActorFunction =
+        fun _ _ ->
+            ran <- true
+            async.Return ActorSucceeded
+    let other : ActorFunction = fun _ _ -> async.Return ActorSucceeded
+    let order actor =
+        { actor = actor
+          actorNodeId = focusId
+          actorName = "hello" }
+    let jsonOf actor =
+        Enc.toString 0 (EventJson.encodeActorOrder (order actor))
+    Assert.Equal(jsonOf live, jsonOf other)
+    match EventJson.decodeActorOrder (jsonOf live) with
+    | Error err -> Assert.Fail(err)
+    | Ok decoded ->
+        Assert.Equal(focusId, decoded.actorNodeId)
+        Assert.Equal("hello", decoded.actorName)
+        Assert.False(ran)
+    let event =
+        { changeEvent with
+            commandName = "hello"
+            body = EventBody.Order(Order.StartActor (order live)) }
+    match (roundTrip event).body with
+    | EventBody.Order (Order.StartActor decoded) ->
+        Assert.Equal(focusId, decoded.actorNodeId)
+        Assert.Equal("hello", decoded.actorName)
+        Assert.False(ran)
+    | _ -> Assert.Fail("expected ActorOrder")

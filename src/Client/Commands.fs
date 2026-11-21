@@ -15,7 +15,6 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceSync
-open Gambol.Client.UpdateWorkspaceDownload
 open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
@@ -122,35 +121,44 @@ let private submitQuery
         Some (queueRun request committed commitEffects)
 
 let private execRunOp (model: VM) : VM * Effect list =
-    afterEditCommit model (fun committed commitEffects ->
-        match committed.selectedNodes with
-        | None -> committed, commitEffects
-        | Some sel ->
-            let focusId = focusedNodeId committed.graph sel
-            match submitQuery committed commitEffects focusId with
-            | Some ran -> ran
-            | None ->
-                let zoomId = committed.zoomRoot
-                if CommandRequest.isAmbleScanStop committed.graph focusId zoomId then
-                    execAmbleRunOp committed commitEffects focusId
-                else
-                    match
-                        CommandRequest.tryStart
-                            committed.graph
-                            committed.siteMap
-                            zoomId
-                            focusId
-                            committed.eventId with
-                    | Ok request ->
-                        queueRun request committed commitEffects
-                    | Error msg ->
-                        if AmbleRun.shouldExec committed.graph focusId then
-                            execAmbleRunOp committed commitEffects focusId
-                        else
-                            { committed with
-                                lastCmdResult =
-                                    Some (CmdLastResult.Error (Some "Run", msg)) },
-                            commitEffects)
+    match model.selectedNodes with
+    | Some sel when
+        CommandRequest.nodeHeaderIsAbsent
+            model.graph
+            (focusedNodeId model.graph sel) ->
+        model, []
+    | _ ->
+        afterEditCommit model (fun committed commitEffects ->
+            match committed.selectedNodes with
+            | None -> committed, commitEffects
+            | Some sel ->
+                let focusId = focusedNodeId committed.graph sel
+                match submitQuery committed commitEffects focusId with
+                | Some ran -> ran
+                | None ->
+                    let zoomId = committed.zoomRoot
+                    if CommandRequest.isAmbleScanStop
+                        committed.graph focusId zoomId then
+                        execAmbleRunOp committed commitEffects focusId
+                    else
+                        match
+                            CommandRequest.tryStart
+                                committed.graph
+                                committed.siteMap
+                                zoomId
+                                focusId
+                                committed.eventId with
+                        | Ok request ->
+                            queueRun request committed commitEffects
+                        | Error msg ->
+                            if AmbleRun.shouldExec committed.graph focusId then
+                                execAmbleRunOp committed commitEffects focusId
+                            else
+                                { committed with
+                                    lastCmdResult =
+                                        Some (
+                                            CmdLastResult.Error (Some "Run", msg)) },
+                                commitEffects)
 
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()
@@ -231,12 +239,14 @@ let private firstChildPlainOpt (graph: Graph) (focusId: NodeId) : string option 
         |> Option.bind (fun ch -> Map.tryFind ch.id graph.nodes)
         |> Option.map (fun n -> plainTextForOpenTarget n.text))
 
-let jumpTargetOp (model: VM) : VM * Effect list =
-    let focusId =
-        match model.selectedNodes with
-        | None -> viewRootNodeId model
-        | Some sel -> focusedNodeId model.graph sel
+let private openFileNode (model: VM) (focusId: NodeId) : VM * Effect list =
+    match NodeDesktopPath.fileOpenUrl model.graph focusId with
+    | Some url ->
+        openUrlInNewTab url
+        model, []
+    | None -> model, []
 
+let private openLinkTarget (model: VM) (focusId: NodeId) : VM * Effect list =
     let primaryRaw =
         match model.mode with
         | Editing _ -> readEditInputValue ()
@@ -250,6 +260,23 @@ let jumpTargetOp (model: VM) : VM * Effect list =
     | Some url ->
         openUrlInNewTab url
         model, []
+
+let jumpTargetOp (model: VM) : VM * Effect list =
+    let focusId =
+        match model.selectedNodes with
+        | None -> viewRootNodeId model
+        | Some sel -> focusedNodeId model.graph sel
+
+    match Map.tryFind focusId model.graph.nodes with
+    | None -> model, []
+    | Some node ->
+        match NodeDesktopPath.nodeOpenAction node.kind with
+        | NodeDesktopPath.NodeOpenAction.OpenFile ->
+            openFileNode model focusId
+        | NodeDesktopPath.NodeOpenAction.OpenLink ->
+            openLinkTarget model focusId
+        | NodeDesktopPath.NodeOpenAction.NoOp ->
+            model, []
 
 [<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
@@ -276,22 +303,14 @@ let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let selectedIds =
-            Graph.children model.graph sel.range.parent.nodeId
-            |> List.skip sel.range.start
-            |> List.take (sel.range.endd - sel.range.start)
-            |> List.map (fun child -> child.id)
-        let serialized = serializeSubtree model.graph model.siteMap selectedIds
-        writeClipboardText serialized ignore
-        copySelectionOp model
-
-let private downloadAvailable (model: VM) =
-    DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
-    && not (focusIsWorkspaces model)
-    && (model.selectedNodes
-        |> Option.map (focusedNodeId model.graph)
-        |> Option.bind (NodeDesktopPath.enclosingWorkspaceName model.graph)
-        |> Option.isSome)
+        let selectedIds = rangeNodeIds model.graph sel.range
+        if CommandRequest.anyNodeHeaderIsAbsent model.graph selectedIds then
+            model, []
+        else
+            let serialized =
+                serializeSubtree model.graph model.siteMap selectedIds
+            writeClipboardText serialized ignore
+            copySelectionOp model
 
 // ---------------------------------------------------------------------------
 // Command registry
@@ -309,7 +328,7 @@ let commandRegistry : CommandEntry2 list =
       cmd JoinWithNext handleDelete
       cmd CursorUp (keyAlways moveSelectionUp)
       cmd CursorDown (keyAlways moveSelectionDown)
-      cmd CursorFoldLeft (keyAlways arrowLeftSelectionNoFoldOp)
+      cmd CursorFoldLeft (keyAlways cursorFoldLeftOp)
       cmd CursorLeftToParent (keyAlways arrowFoldLeftOp)
       cmd CursorUnfoldRight (keyAlways cursorUnfoldRightOp)
       cmd CursorRightToChild (keyAlways arrowRightSelectionOp)
@@ -358,7 +377,6 @@ let commandRegistry : CommandEntry2 list =
       cmd Save (keyAlways saveOp)
       prePickCmd Save "git Save" (keyAlways (saveOpFor LoadSavePrePick.Git))
       prePickCmd Save "desk Save" (keyAlways (saveOpFor LoadSavePrePick.Desk))
-      cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
     ]
 
@@ -394,7 +412,6 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | Some e ->
             inKeyScope sel e.keyScope
             && (c.id <> Load || loadAvailable model)
-            && (c.id <> Download || downloadAvailable model)
             && (c.id <> Cancel || cancelAvailable model))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =

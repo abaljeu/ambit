@@ -25,13 +25,15 @@
   <ItemGroup>
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="ServerRunRegistry.fs" />
     <Compile Include="AmbitApp.fs" />
     <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
+    <Compile Include="NodeLockPool.fs" />
+    <Compile Include="WorkspaceFileMedia.fs" />
     <Compile Include="WorkspaceWebDav.fs" />
     <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
-    <Compile Include="GitGatewayDiagnostics.fs" />
     <Compile Include="IgnoredDestination.fs" />
     <Compile Include="DocumentPersistPath.fs" />
     <Compile Include="DocumentPersistWrite.fs" />
@@ -43,6 +45,7 @@
     <Compile Include="ParseStack.fs" />
     <Compile Include="Core\CoreChanges.fs" />
     <Compile Include="Core\CoreCredentials.fs" />
+    <Compile Include="Core\Session.fs" />
     <Compile Include="Core\CoreActorNames.fs" />
     <Compile Include="AiKeys.fs" />
     <Compile Include="AiRepos.fs" />
@@ -52,6 +55,7 @@
     <Compile Include="Core\CoreMsg.fs" />
     <Compile Include="Core\MailboxHost.fs" />
     <Compile Include="Core\CoreChangesDoor.fs" />
+    <Compile Include="ActorOrderFromStart.fs" />
     <Compile Include="Core\CoreMailboxApi.fs" />
     <Compile Include="Core\CoreDoor.fs" />
     <Compile Include="Core\CoreActorPool.fs" />
@@ -63,7 +67,9 @@
     <Compile Include="Core\CoreMailboxEvents.fs" />
     <Compile Include="Core\CoreMailboxActors.fs" />
     <Compile Include="Core\CoreMailboxLoad.fs" />
-    <Compile Include="Core\PersistCollectors.fs" />
+    <Compile Include="Core\CoreMailboxFilesAxis.fs" />
+    <Compile Include="Core\CoreMailboxLoop.fs" />
+    <Compile Include="Core\PersistRequestStack.fs" />
     <Compile Include="Core\PersistThread.fs" />
     <Compile Include="Core\FileAgent.fs" />
     <Compile Include="Database.fs" />
@@ -71,6 +77,7 @@
     <Compile Include="Core\DbAgent.fs" />
     <Compile Include="Core\CoreMailbox.fs" />
     <Compile Include="DatabaseSetup.fs" />
+    <Compile Include="ServerTestReset.fs" />
     <Compile Include="SavePrep.fs" />
     <Compile Include="Core\CoreRuntime.fs" />
     <Compile Include="GraphOnlyChangePost.fs" />
@@ -79,12 +86,13 @@
     <Compile Include="Api.fs" />
     <Compile Include="LazyLoadReconciliationServer.fs" />
     <Compile Include="GithubTransportActor.fs" />
+    <Compile Include="LoadSaveStart.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="BrowserRequestCreds.fs" />
     <Compile Include="RouteTypes.fs" />
-    <Compile Include="GitGateway.fs" />
     <Compile Include="RouteAuthentication.fs" />
     <Compile Include="RouteAppShell.fs" />
+    <Compile Include="WorkspaceUploadLock.fs" />
     <Compile Include="RouteRegistration.fs" />
     <Compile Include="ConfigurationOrder.fs" />
     <Compile Include="Server.fs" />
@@ -97,6 +105,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
     <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
     <PackageReference Include="Npgsql" Version="9.0.3" />
     <PackageReference Include="Dapper" Version="2.1.35" />

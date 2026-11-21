@@ -15,9 +15,9 @@ Today CoreActorPool ([[src/Server/Core/CoreActorPool.fs]]) registers `ActorFn` b
 ## Answer
 
 1. **Curried in-process start** — In-process start uses a curried function posted to the mailbox — not a named ActorFn registry lookup. A Command closes over what the Actor needs and posts that function.
-2. **CoreActorPool remains with cancel** — CoreActorPool remains; it retains cancel authority. The information the pool needs to cancel is provided to the function: focus ID (the cancel Focus) and name.
-3. **Named registry stays fog** — Named registry for remote or cross-process start stays fog — not locked now.
-4. **ActorStart fields** — ActorStart no longer carries the `graphIds` extract (aligned with [02 — Graph handoff](02-graph-handoff.md)’s aim: drop extract; that ticket stays open). It records focus ID and name for the pool’s cancel path.
+2. **CoreActorPool remains with cancel** — CoreActorPool remains; it retains cancel authority. The pool cancels by focus ID (the cancel Focus) alone, through [112 — Place Cancel through PlaceOrder](../../core-refinement/issues/112-place-cancel-through-placeorder.md). Alan, 2026-11-03.
+3. **No in-process registry** — Each endpoint builds its own `ActorFunction`, so there is no in-process registry. Alan, 2026-11-03. `ActorFunction` is in `src/Shared/History.fs`. Remote or cross-process start is out of scope ([Map](../map.md) section 4).
+4. **ActorStart fields** — In the end state, ActorStart no longer carries the `graphIds` extract (aligned with [02 — Graph handoff](02-graph-handoff.md)’s aim: drop extract; that ticket stays open). The Actor start cutover's intermediate state keeps the browser ActorStart payload, `graphIds` included. It records focus ID for the pool’s cancel path.
 
 Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02 — Graph handoff](02-graph-handoff.md).
 
@@ -25,6 +25,7 @@ Live versus snapshot Graph, and which start ids beyond cancel Focus, stay on [02
 
 - 2026-09-27 — Filed with the [Actor as client](../map.md) chart. Status `defined`.
 - 2026-09-27 — Locked from Alan voice. Status `done`. Feature-set remains parked.
+- 2026-11-03 — Alan unparked the Project. Answers 2 and 3 updated. The architecture is on [Arch](../arch.md). Status of this grill stays `done`.
 
 ## Time
 

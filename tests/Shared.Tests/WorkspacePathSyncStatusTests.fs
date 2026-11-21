@@ -96,13 +96,13 @@ let ``withUnparsed only overlays Synced`` () =
 let ``no server file status has empty-set glyph and tooltip`` () =
     Assert.Equal(
         "no file on server",
-        WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.NoServerFile)
+        WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.PullingFile)
     Assert.Equal(
         "\u2205",
-        WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.NoServerFile)
+        WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.PullingFile)
     Assert.Equal(
         "amb-row-sync-no-server-file",
-        WorkspacePathSyncStatus.rowClass WorkspacePathSyncStatus.NoServerFile)
+        WorkspacePathSyncStatus.rowClass WorkspacePathSyncStatus.PullingFile)
 
 [<Fact>]
 let ``resolve without compare allows Unparsed only`` () =

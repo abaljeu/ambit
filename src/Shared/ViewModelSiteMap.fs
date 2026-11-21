@@ -317,6 +317,42 @@ module ViewModelSiteMap =
             true
         | _ -> false
 
+    let private isUnfolded (graph: Graph) (entry: SiteEntry) : bool =
+        entry.expanded
+        && not (GraphChildren.get graph entry.nodeId).IsEmpty
+
+    let private unfoldedMembers
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (ids: SiteId list)
+        : SiteId list =
+        ids
+        |> List.filter (fun id ->
+            match Map.tryFind id siteMap.entries with
+            | Some entry -> isUnfolded graph entry
+            | None -> false)
+
+    let private expandedChildren (siteMap: SiteMap) (ids: SiteId list) : SiteId list =
+        ids
+        |> List.collect (fun id ->
+            match Map.tryFind id siteMap.entries with
+            | Some entry when entry.expanded -> entry.children
+            | _ -> [])
+
+    let private deepestUnfolded
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (frontier: SiteId list)
+        : SiteId list =
+        let rec loop ids best =
+            match ids with
+            | [] -> best
+            | _ ->
+                let here = unfoldedMembers graph siteMap ids
+                let nextBest = if here.IsEmpty then best else here
+                loop (expandedChildren siteMap ids) nextBest
+        loop frontier []
+
     /// Iterative-deepening unfold over a frontier of instance ids.
     /// If any frontier entry is folded (has graph children, not expanded), expand those
     /// and stop. Otherwise recurse on the site-map children of the frontier.
@@ -351,6 +387,19 @@ module ViewModelSiteMap =
                             | None -> [])
                     loop sm nextId children
         loop siteMap startId frontier
+
+    /// Fold the deepest visible unfolded entries under a frontier.
+    /// An unfolded entry is expanded and has graph children.
+    /// One depth per call. The same site map when none are unfolded.
+    let iterativeDeepenFold
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (frontier: SiteId list)
+        : SiteMap =
+        match deepestUnfolded graph siteMap frontier with
+        | [] -> siteMap
+        | ids ->
+            List.fold (fun sm id -> toggleFold id sm) siteMap ids
 
     /// Capture expanded non-root appearances from the current SiteMap in parent-first order.
     let captureFoldOccurrences (siteMap: SiteMap) : FoldOccurrenceSnapshot list =

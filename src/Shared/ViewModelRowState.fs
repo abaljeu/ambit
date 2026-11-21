@@ -158,23 +158,24 @@ module ViewModelRowState =
 
     /// Enter edit mode for a view-line instance in one model step (selection + Editing).
     /// Returns None for unknown instances or the graph root node.
+    /// A known instance with no Header keeps the current mode.
     let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM option =
         match Map.tryFind instanceId model.siteMap.entries with
         | None -> None
+        | Some entry when entry.nodeId = model.graph.root -> None
         | Some entry ->
-            if entry.nodeId = model.graph.root then
-                None
-            else
-                let text = model.graph.nodes.[entry.nodeId].text
-                let selectedNodes =
-                    if instanceId = model.siteMap.rootId then
-                        None
-                    else
-                        singleSelectionForInstance model.siteMap instanceId
+            let selectedNodes =
+                if instanceId = model.siteMap.rootId then
+                    None
+                else
+                    singleSelectionForInstance model.siteMap instanceId
+            match Map.tryFind entry.nodeId model.graph.nodes with
+            | None -> Some { model with selectedNodes = selectedNodes }
+            | Some node ->
                 Some
                     { model with
                         selectedNodes = selectedNodes
-                        mode = Editing (text, EditCaret.Utf16Index cursorPos) }
+                        mode = Editing (node.text, EditCaret.Utf16Index cursorPos) }
 
     let isActiveEntry (model: VM) (entry: SiteEntry) : bool =
         match model.selectedNodes with
@@ -279,7 +280,7 @@ module ViewModelRowState =
         | _ -> false
 
     let private graphContainsArtifactPath (graph: Graph) (path: string) : bool =
-        match NodeDesktopPath.canonicalDesktopPath path with
+        match NodeDesktopPath.canonicalDesktopPath graph path with
         | None -> false
         | Some canonicalPath ->
             graph.nodes
@@ -290,7 +291,7 @@ module ViewModelRowState =
                 | Special (Workspace | Directory | File) -> true
                 | _ -> false)
             |> Seq.choose (fun n -> NodeDesktopPath.pathForNodeId graph n.id)
-            |> Seq.choose NodeDesktopPath.canonicalDesktopPath
+            |> Seq.choose (NodeDesktopPath.canonicalDesktopPath graph)
             |> Seq.exists ((=) canonicalPath)
 
     /// Graph-derived indicator when the row's artifact cannot resolve (same DU as desktop).
@@ -463,10 +464,10 @@ module ViewModelRowState =
         : WorkspacePathSyncStatus option =
         let unparsed = rowUnparsedObservationEligible model entry
         match
-            DocumentPartition.isMemberOfNoServerFile model.graph entry.nodeId,
+            DocumentPartition.isMemberOfPullingFile model.graph entry.nodeId,
             node.kind
         with
-        | true, _ -> Some WorkspacePathSyncStatus.NoServerFile
+        | true, _ -> Some WorkspacePathSyncStatus.PullingFile
         | false, Special (Workspace | File | Directory) ->
             match tryWorkspaceSyncFact model entry.nodeId with
             | Some(label, fact) ->
@@ -540,7 +541,7 @@ module ViewModelRowState =
             match Node.documentStateEnum node with
             | Current -> "Current"
             | Unparsed -> "Unparsed"
-            | NoServerFile -> "NoServerFile"
+            | PullingFile -> "PullingFile"
         $"Residency: {children}, {document}"
 
     /// Desktop local path for a Node (e.g. "d:\life\note.md"), when its workspace label

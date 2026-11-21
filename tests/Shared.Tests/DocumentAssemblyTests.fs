@@ -141,11 +141,11 @@ let ``artifactRelativeForNodeReference maps root file and directory paths`` () =
     Assert.Equal("docs/.amb", rootDir)
 
 [<Fact>]
-let ``artifactRelativeForNodeReference maps file owns directory to sibling amb`` () =
+let ``artifactRelativeForNodeReference keeps a file segment without a graph`` () =
     let inner =
         DocumentAssembly.artifactRelativeForNodeReference "//container.txt/inner/"
         |> requireOk "non-canonical file owns directory"
-    Assert.Equal("inner/.amb", inner)
+    Assert.Equal("container.txt/inner/.amb", inner)
 
     let canonical =
         DocumentAssembly.artifactRelativeForNodeReference "//inner/"
@@ -443,7 +443,6 @@ let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
         |> requireOk "assemble"
     let file = actual.nodes.[fileId]
     Assert.Equal(Special File, file.kind)
-    Assert.Equal(Unparsed, file.documentState.AsEnum)
     Assert.Empty(Graph.children actual fileId)
     let owned =
         Graph.children actual Graph.systemId

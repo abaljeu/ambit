@@ -95,7 +95,7 @@ Narrowest shared test seam:
       3. [x] ActorName resolve from Command text (`test` hello path)
       4. [x] ActorName resolve for Agent Command form
    3. Uses
-      1. [x] PersistHandlers / EventLog
+      1. [x] CoreMailboxAccess / EventLog
       2. [x] Registered Actor definitions (composition)
 
 4. **TestActor**
@@ -156,7 +156,7 @@ Narrowest shared test seam:
       1. [x] Append ActorStarted / ActorFinished; Poll by latestId
       2. [x] Readable Authority on Events; secrets never persist
    3. Uses
-      1. [x] PersistHandlers File/Db
+      1. [x] CoreMailboxAccess File/Db
 
 ## 3. Seams
 

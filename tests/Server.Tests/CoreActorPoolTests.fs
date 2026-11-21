@@ -7,7 +7,7 @@ open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 [<Fact>]
-let ``Actor handle wrap refuses a different inactive credential`` () = task {
+let ``Actor handle with an empty secret is dropped`` () = task {
     let dataDir = newTempDir ()
     let agent, handle, _ = createAdmittedFileWithCredentials dataDir
     try
@@ -15,29 +15,23 @@ let ``Actor handle wrap refuses a different inactive credential`` () = task {
             CoreDoor.forCaller
                 { authority = Authority "Actor"
                   name = ""
-                  secret = Credential "inactive" }
+                  secret = Credential "" }
                 handle
-        let! state = CoreDoor.getState handle |> Async.StartAsTask
-        let state =
-            match state with
-            | Ok value -> value
-            | Error err ->
-                Assert.Fail($"state: {err}")
-                Unchecked.defaultof<_>
+        let childId = NodeId.New()
         let event =
             changeEvent
                 ""
                 EventId.zero
                 (Guid.NewGuid())
-                [ Op.NewNode(NodeId.New(), "nope")
+                [ Op.NewNode(childId, "direct Actor post")
                   Op.Replace(
                       Graph.rootId,
                       [],
-                      [ ChildNode.owner (NodeId.New()) ]) ]
+                      [ ChildNode.owner childId ]) ]
         let! result =
             CoreDoor.postEvents bound [ event ]
             |> Async.StartAsTask
-        Assert.Equal(Error CoreAuth.refuse, result)
+        Assert.Equal(Error "authority dropped", result)
     finally
         CoreMailboxApi.dispose agent
 }

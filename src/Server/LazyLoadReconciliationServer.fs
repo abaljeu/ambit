@@ -1,28 +1,10 @@
 namespace Gambol.Server
 
-open System
 open System.IO
-open Microsoft.AspNetCore.Http
 open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module LazyLoadReconciliationServer =
-
-    module JsonDecode = Thoth.Json.Newtonsoft.Decode
-
-    let decodeGraphState (json: string) : Result<int * Graph, string> =
-        let decoder =
-            Thoth.Json.Core.Decode.object (fun get ->
-                let eventId =
-                    get.Required.Field
-                        "eventId"
-                        EventJson.decodeEventId
-                let graph =
-                    get.Required.Field
-                        "graph"
-                        Serialization.decodeGraph
-                EventId.value eventId, graph)
-        JsonDecode.fromString decoder json
 
     let private isDirInfoPath (path: string) =
         DocumentArtifactPath.isDirectoryFile path
@@ -59,14 +41,15 @@ module LazyLoadReconciliationServer =
 
     let private readDirInfoArtifacts
         (graph: Graph)
-        (workspace: WorkspaceReconcile)
+        (dataDir: string)
+        (workspaceLabel: string)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Map<string, string> =
-        let root = Path.Combine(workspace.dataDir, workspace.workspaceLabel)
+        let root = Path.Combine(dataDir, workspaceLabel)
         let pathsToRead =
             changedPaths
             |> List.collect (fun change ->
-                if needsDirInfoArtifactRead graph workspace.workspaceLabel change then
+                if needsDirInfoArtifactRead graph workspaceLabel change then
                     match change with
                     | LazyLoadReconciliation.Added path
                     | LazyLoadReconciliation.Modified path when
@@ -94,155 +77,6 @@ module LazyLoadReconciliationServer =
                 None)
         |> Map.ofList
 
-    /// Normalize a workspace-relative directory prefix (no leading/trailing slash).
-    let private normalizeDirRel (dirRel: string) =
-        dirRel.Replace('\\', '/').Trim('/')
-
-    let private isGitDirName (name: string) =
-        String.Equals(name, ".git", StringComparison.OrdinalIgnoreCase)
-
-    /// Empty dirs (no files, no non-git subdirs) as `{rel}/.amb` so Added plans Directory.
-    let rec private emptyDirectoryFileRels (full: string) (rel: string) =
-        if not (Directory.Exists full) then
-            []
-        else
-            Directory.GetDirectories full
-            |> Array.toList
-            |> List.collect (fun dir ->
-                let name = Path.GetFileName dir
-                if isGitDirName name then
-                    []
-                else
-                    let childRel =
-                        if rel = "" then name else rel + "/" + name
-                    let nested = emptyDirectoryFileRels dir childRel
-                    let hasFile =
-                        Directory.EnumerateFiles dir |> Seq.isEmpty |> not
-                    let hasSubdir =
-                        Directory.GetDirectories dir
-                        |> Array.exists (fun d ->
-                            not (isGitDirName (Path.GetFileName d)))
-                    if hasFile || hasSubdir then nested
-                    else (childRel.Replace('\\', '/') + "/.amb") :: nested)
-
-    let private discoveryPrefixAndRoot
-        (workspace: WorkspaceReconcile)
-        (discoveryDirRel: string option)
-        =
-        let prefix =
-            discoveryDirRel
-            |> Option.map normalizeDirRel
-            |> Option.filter (fun p -> not (String.IsNullOrEmpty p))
-        let root =
-            match prefix with
-            | None ->
-                Path.Combine(workspace.dataDir, workspace.workspaceLabel)
-            | Some dirRel ->
-                Path.Combine(
-                    workspace.dataDir,
-                    workspace.workspaceLabel,
-                    dirRel.Replace('/', Path.DirectorySeparatorChar))
-        prefix, root
-
-    let private workspaceRel (prefix: string option) (rel: string) =
-        match prefix with
-        | None -> rel
-        | Some dirRel when String.IsNullOrEmpty rel -> dirRel
-        | Some dirRel -> dirRel + "/" + rel
-
-    /// Discover under DataDir/{label} or DataDir/{label}/{dirRel}; map to workspace-relative Added.
-    let private discoveredAddedPaths
-        (workspace: WorkspaceReconcile)
-        (discoveryDirRel: string option)
-        =
-        let prefix, root =
-            discoveryPrefixAndRoot workspace discoveryDirRel
-        let fileAdds =
-            root
-            |> DocumentPersistPath.discoverArtifactRelatives
-            |> Result.map (List.map (workspaceRel prefix))
-        match fileAdds with
-        | Error err -> Error err
-        | Ok fileRels ->
-            let emptyAmb =
-                emptyDirectoryFileRels root ""
-                |> List.map (workspaceRel prefix)
-            (fileRels @ emptyAmb)
-            |> List.distinct
-            |> List.map LazyLoadReconciliation.Added
-            |> Ok
-
-    let private isDirectoryMember (root: string) (rel: string) =
-        let full =
-            Path.Combine(
-                root,
-                rel.Replace('/', Path.DirectorySeparatorChar))
-        Directory.Exists full
-
-    let private directoryArtifact (workspacePath: string) =
-        workspacePath.Replace('\\', '/').Trim('/') + "/.amb"
-
-    /// Direct files and child directories. Nested paths stay out.
-    let private immediateMemberChanges
-        (workspace: WorkspaceReconcile)
-        (discoveryDirRel: string option)
-        =
-        let prefix, root =
-            discoveryPrefixAndRoot workspace discoveryDirRel
-        root
-        |> DocumentPersistPath.discoverImmediateMembers
-        |> Result.map (fun members ->
-            let tagged =
-                members
-                |> List.map (fun rel ->
-                    workspaceRel prefix rel, isDirectoryMember root rel)
-            let files =
-                tagged
-                |> List.choose (fun (path, isDir) ->
-                    if isDir then
-                        None
-                    else
-                        Some(LazyLoadReconciliation.Added path))
-            let directories =
-                tagged
-                |> List.choose (fun (path, isDir) ->
-                    if isDir then Some path else None)
-            files, directories)
-
-    let private currentChildDirectory
-        (graph: Graph)
-        (workspaceLabel: string)
-        (dirPath: string)
-        =
-        match
-            LazyLoadReconciliation.resolveOwnedPath
-                graph
-                workspaceLabel
-                (directoryArtifact dirPath)
-        with
-        | Ok(Some(nodeId, _)) ->
-            match Map.tryFind nodeId graph.nodes with
-            | Some node when
-                node.kind = Special SpecialKind.Directory
-                && Node.documentStateEnum node = Current ->
-                true
-            | _ -> false
-        | _ -> false
-
-    /// A Current child Directory stays out. A new one is an unread Directory File path.
-    let private childDirectoryAdds
-        (graph: Graph)
-        (workspaceLabel: string)
-        (directories: string list)
-        =
-        directories
-        |> List.choose (fun path ->
-            if currentChildDirectory graph workspaceLabel path then
-                None
-            else
-                Some(
-                    LazyLoadReconciliation.Added(directoryArtifact path)))
-
     let private logFailures
         (workspaceLabel: string)
         (failures: LazyLoadReconciliationReport.Failure list)
@@ -254,30 +88,140 @@ module LazyLoadReconciliationServer =
                 failure.path
                 failure.message
 
+    type private ReconcileCaps =
+        { graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
+          postNotice: Notice -> unit
+          postGraphOnly: Ev -> Async<Result<unit, string>> }
+
     type private ListedReconcile =
-        { handle: CoreChangesDoor
+        { postNotice: Notice -> unit
+          postGraphOnly: Ev -> Async<Result<unit, string>>
           dataDir: string
           workspaceLabel: string
           graph: Graph
           changes: LazyLoadReconciliation.ChangedPath list
-          artifactReads: LazyLoadReconciliation.ChangedPath list }
+          artifactReads: LazyLoadReconciliation.ChangedPath list
+          renamedDirIds: NodeId list
+          beside: LazyLoadReconciliationReport.Report -> unit }
+
+    let private postNotices
+        (postNotice: Notice -> unit)
+        (notice: NodeId -> Notice)
+        (ids: NodeId list)
+        =
+        ids |> List.iter (fun id -> postNotice (notice id))
+
+    /// Containing Directory or Workspace from the plan ids.
+    /// A PullingFile container gets no NodeUnparsed.
+    let private postContainerUnparsed
+        (postNotice: Notice -> unit)
+        (graph: Graph)
+        (ids: NodeId list)
+        =
+        ids
+        |> List.iter (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node when Node.documentStateEnum node <> PullingFile ->
+                postNotice (Notice.NodeUnparsed id)
+            | _ -> ())
+
+    /// Directories this reconcile finishes with NodeParsed.
+    let private loadedDirectoryIds
+        (report: LazyLoadReconciliationReport.Report)
+        (renamedDirIds: NodeId list)
+        =
+        List.distinct (report.parsedDirIds @ renamedDirIds)
+
+    /// Child containers. The loaded directory is not marked again.
+    let private childContainerIds
+        (report: LazyLoadReconciliationReport.Report)
+        (renamedDirIds: NodeId list)
+        =
+        let loaded = loadedDirectoryIds report renamedDirIds |> Set.ofList
+        report.containingDirIds
+        |> List.filter (fun id -> not (Set.contains id loaded))
+
+    /// Current controlling Special for each id `markUnparsed` received.
+    let private postCurrentUnparsed
+        (postNotice: Notice -> unit)
+        (graph: Graph)
+        (ids: NodeId list)
+        =
+        ids
+        |> List.choose (DocumentPartition.documentRootForNode graph)
+        |> List.iter (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node when Node.documentStateEnum node = Current ->
+                postNotice (Notice.NodeUnparsed id)
+            | _ -> ())
+
+    /// NodeUnparsed, then the Change, then NodeParsed for a loaded directory.
+    let private postBeforeChange
+        (postNotice: Notice -> unit)
+        (graph: Graph)
+        (report: LazyLoadReconciliationReport.Report)
+        =
+        postContainerUnparsed postNotice graph report.parsedDirIds
+        postNotices postNotice Notice.NodeParsing report.parsedDirIds
+
+    /// Child NodeUnparsed, then the loaded directory's NodeParsed.
+    let private postAfterChange
+        (listed: ListedReconcile)
+        (report: LazyLoadReconciliationReport.Report)
+        =
+        listed.beside report
+        postContainerUnparsed
+            listed.postNotice
+            listed.graph
+            (childContainerIds report listed.renamedDirIds)
+        postCurrentUnparsed
+            listed.postNotice
+            listed.graph
+            report.unparsedIds
+        postNotices
+            listed.postNotice
+            Notice.NodeParsed
+            (report.parsedDirIds @ listed.renamedDirIds)
+
+    let private acceptedUnit () =
+        CoreChanges.accepted EventId.zero true [] false
+
+    let private postChunk
+        (post: Ev -> Async<Result<unit, string>>)
+        (event: Ev)
+        =
+        async {
+            let! result = post event
+            return Result.map (fun () -> acceptedUnit ()) result
+        }
 
     let private postReconcileReport
-        (handle: CoreChangesDoor)
-        (workspaceLabel: string)
+        (listed: ListedReconcile)
         (report: LazyLoadReconciliationReport.Report)
         =
         async {
-            logFailures workspaceLabel report.failures
+            logFailures listed.workspaceLabel report.failures
+            postBeforeChange listed.postNotice listed.graph report
             match report.ops with
-            | [] -> return Ok report.failures
+            | [] ->
+                postAfterChange listed report
+                return Ok report.failures
             | ops ->
                 let! result =
                     GraphOnlyChangePost.postChunks
-                        (CoreDoor.postGraphOnly handle)
+                        (postChunk listed.postGraphOnly)
                         "Parse"
                         (GraphOnlyChangeChunks.split ops)
-                return result |> Result.map (fun () -> report.failures)
+                match result with
+                | Ok () ->
+                    postAfterChange listed report
+                    return Ok report.failures
+                | Error err ->
+                    postNotices
+                        listed.postNotice
+                        (fun id -> Notice.ParseFailed(id, err))
+                        report.parsedDirIds
+                    return Error err
         }
 
     /// Plan and post. `artifactReads` is the set whose text is read.
@@ -286,9 +230,8 @@ module LazyLoadReconciliationServer =
             let artifacts =
                 readDirInfoArtifacts
                     listed.graph
-                    { handle = listed.handle
-                      dataDir = listed.dataDir
-                      workspaceLabel = listed.workspaceLabel }
+                    listed.dataDir
+                    listed.workspaceLabel
                     listed.artifactReads
             match
                 plan
@@ -299,227 +242,192 @@ module LazyLoadReconciliationServer =
             with
             | Error err -> return Error err
             | Ok report ->
-                return!
-                    postReconcileReport
-                        listed.handle
-                        listed.workspaceLabel
-                        report
+                return! postReconcileReport listed report
         }
 
-    /// Shared pipeline: discover on chosen root → union with changedPaths → plan → log → post.
-    /// `discoveryDirRel` None = workspace root; Some dir = DataDir/{label}/{dir}.
-    let reconcileChangedPathsWithDiscovery
-        (workspace: WorkspaceReconcile)
-        (discoveryDirRel: string option)
+    /// Modified file not yet Unparsed, or an Added PullingFile stub.
+    /// Renamed ids are Report.renamedReceivedIds, not ops.
+    let private receivedFileIds
+        (graph: Graph)
+        (workspaceLabel: string)
+        (files: LazyLoadReconciliation.ChangedPath list)
+        : NodeId list =
+        let existingFile path =
+            match LazyLoadReconciliation.resolveOwnedPath graph workspaceLabel path with
+            | Ok(Some(id, File)) -> Some(id, Node.documentStateEnum graph.nodes.[id])
+            | _ -> None
+        files
+        |> List.choose (function
+            | LazyLoadReconciliation.Modified path ->
+                match existingFile path with
+                | Some(id, (Current | PullingFile)) -> Some id
+                | _ -> None
+            | LazyLoadReconciliation.Added path ->
+                match existingFile path with
+                | Some(id, PullingFile) -> Some id
+                | _ -> None
+            | _ -> None)
+        |> List.distinct
+
+    /// A directory-file rename is not a plan. The existing directory id is
+    /// the change Notice.
+    let private renamedDirectoryIds
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        =
+        changes
+        |> List.choose (function
+            | LazyLoadReconciliation.Renamed(oldPath, newPath) when
+                isDirInfoPath oldPath || isDirInfoPath newPath ->
+                let path =
+                    if isDirInfoPath oldPath then oldPath else newPath
+                match
+                    LazyLoadReconciliation.resolveOwnedPath
+                        graph
+                        workspaceLabel
+                        path
+                with
+                | Ok(Some(id, _)) -> Some id
+                | _ -> None
+            | _ -> None)
+        |> List.distinct
+
+    /// A File node this pull creates, absent from the pre-pull graph.
+    let private absentFileIds (graph: Graph) (ops: Op list) =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(id, kind, _) when
+                kind = File && not (Map.containsKey id graph.nodes) ->
+                Some id
+            | _ -> None)
+
+    /// PullingFile has no bytes yet. An absent node has not been held.
+    let private serverHeldBytes (graph: Graph) (id: NodeId) =
+        match Map.tryFind id graph.nodes with
+        | Some node -> Node.documentStateEnum node <> PullingFile
+        | None -> false
+
+    /// NodeReceived once, for a file the server never held.
+    let private postFirstReceipt
+        (postNotice: Notice -> unit)
+        (graph: Graph)
+        (knownIds: NodeId list)
+        (ops: Op list)
+        =
+        knownIds
+        |> List.append (absentFileIds graph ops)
+        |> List.distinct
+        |> List.filter (fun id -> not (serverHeldBytes graph id))
+        |> List.iter (fun id -> postNotice (Notice.NodeReceived id))
+
+    /// Directory-file renames stay off the plan. Added and Modified
+    /// directory files stay, so `parseDirInfoIfPresent` still runs.
+    let private plannedChanges
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        =
+        changes
+        |> List.filter (function
+            | LazyLoadReconciliation.Renamed(oldPath, newPath) ->
+                not (isDirInfoPath oldPath || isDirInfoPath newPath)
+            | _ -> true)
+
+    let private listedFrom
+        (caps: ReconcileCaps)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (graph: Graph)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        =
+        let files =
+            LazyLoadReconciliation.receivedFileChanges changedPaths
+        let planned = plannedChanges changedPaths
+        { postNotice = caps.postNotice
+          postGraphOnly = caps.postGraphOnly
+          dataDir = dataDir
+          workspaceLabel = workspaceLabel
+          graph = graph
+          changes = planned
+          artifactReads = planned
+          renamedDirIds =
+            renamedDirectoryIds graph workspaceLabel changedPaths
+          beside =
+            fun report ->
+                let known =
+                    receivedFileIds graph workspaceLabel files
+                    |> List.append report.renamedReceivedIds
+                postFirstReceipt
+                    caps.postNotice
+                    graph
+                    known
+                    report.ops }
+
+    let private reconcileWith
+        (caps: ReconcileCaps)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        =
         async {
-            let! stateResult = CoreDoor.getState workspace.handle
+            let! stateResult = caps.graphAtEvent ()
             match stateResult with
             | Error err -> return Error err
             | Ok stateResponse ->
-                let graph = stateResponse.graph
-                match discoveredAddedPaths workspace discoveryDirRel with
-                | Error err -> return Error err
-                | Ok discovered ->
-                    let allChanges = changedPaths @ discovered
-                    return!
-                        reconcileListed
-                            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
-                            { handle = workspace.handle
-                              dataDir = workspace.dataDir
-                              workspaceLabel = workspace.workspaceLabel
-                              graph = graph
-                              changes = allChanges
-                              artifactReads = allChanges }
-        }
-
-    let reconcileChangedPaths
-        (workspace: WorkspaceReconcile)
-        (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        reconcileChangedPathsWithDiscovery workspace None changedPaths
-
-    /// Git pull. Each received file is marked. An added, removed, or renamed
-    /// file marks its containing Directory. The list does not discover members.
-    let reconcileReceivedFiles
-        (workspace: WorkspaceReconcile)
-        (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        async {
-            let! stateResult = CoreDoor.getState workspace.handle
-            match stateResult with
-            | Error err -> return Error err
-            | Ok stateResponse ->
-                let files =
-                    LazyLoadReconciliation.receivedFileChanges changedPaths
                 return!
                     reconcileListed
                         LazyLoadReconciliationReport.planReceivedFiles
-                        { handle = workspace.handle
-                          dataDir = workspace.dataDir
-                          workspaceLabel = workspace.workspaceLabel
-                          graph = stateResponse.graph
-                          changes = files
-                          artifactReads = files }
+                        (listedFrom
+                            caps
+                            dataDir
+                            workspaceLabel
+                            stateResponse.graph
+                            changedPaths)
         }
 
-    /// Load's directory match. One level: direct files and child directories.
-    /// A Current child Directory is left alone. A new child Directory is Unparsed.
-    let private matchDiscoveredDirectory
+    let private doorCaps (door: CoreChangesDoor) : ReconcileCaps =
+        { graphAtEvent = fun () -> CoreDoor.graphAtEvent door
+          postNotice = CoreMailboxApi.postNotice door.host
+          postGraphOnly =
+            fun event ->
+                async {
+                    let! result = CoreDoor.postGraphOnly door event
+                    return Result.map ignore result
+                } }
+
+    let private changesCaps (changes: ActorChanges) : ReconcileCaps =
+        { graphAtEvent = changes.graphAtEvent
+          postNotice = changes.postNotice
+          postGraphOnly = changes.postGraphOnly }
+
+    /// Git pull. Added and Modified directory files reach
+    /// `parseDirInfoIfPresent`. A renamed directory file is a Notice only.
+    /// Each received file is marked. A directory this reconcile parses
+    /// is NodeUnparsed before the Change and NodeParsed after it.
+    /// A child container is NodeUnparsed between those two.
+    /// The list does not discover members.
+    /// `NodeReceived` fires once, for a file the server never held.
+    /// A file already received is marked Unparsed and gets no
+    /// `NodeReceived`. A Modified directory file with no text stays
+    /// here and lands on `unparsedIds`.
+    let reconcileReceivedFiles
         (workspace: WorkspaceReconcile)
-        (discoveryDirRel: string option)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        async {
-            let! stateResult = CoreDoor.getState workspace.handle
-            match stateResult with
-            | Error err -> return Error err
-            | Ok stateResponse ->
-                match immediateMemberChanges workspace discoveryDirRel with
-                | Error err -> return Error err
-                | Ok(files, directories) ->
-                    let graph = stateResponse.graph
-                    let label = workspace.workspaceLabel
-                    let held =
-                        LazyLoadReconciliation.currentDiscoveredAsModified
-                            graph
-                            label
-                            files
-                    let dirAdds = childDirectoryAdds graph label directories
-                    let fileChanges = held @ files
-                    return!
-                        reconcileListed
-                            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
-                            { handle = workspace.handle
-                              dataDir = workspace.dataDir
-                              workspaceLabel = label
-                              graph = graph
-                              changes = fileChanges @ dirAdds
-                              artifactReads = fileChanges }
-        }
-
-    let reconcileDirectory
-        (workspace: WorkspaceReconcile)
-        (dirRel: string)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        matchDiscoveredDirectory workspace (Some dirRel)
-
-    /// One-level discover under DataDir/{label} (workspace root).
-    let reconcileWorkspace
-        (workspace: WorkspaceReconcile)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        matchDiscoveredDirectory workspace None
-
-    let reconcileAddedPaths
-        (workspace: WorkspaceReconcile)
-        (addedPaths: string list)
-        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
-        addedPaths
-        |> List.map LazyLoadReconciliation.Added
-        |> reconcileChangedPaths workspace
-
-    type private DirectoryBody =
-        { workspace: string
-          path: string }
-
-    let private decodeDirectoryBody (json: string) : Result<DirectoryBody, string> =
-        let decoder =
-            Thoth.Json.Core.Decode.object (fun get ->
-                { workspace = get.Required.Field "workspace" Thoth.Json.Core.Decode.string
-                  path = get.Required.Field "path" Thoth.Json.Core.Decode.string })
-        JsonDecode.fromString decoder json
-
-    type private AddedBody =
-        { workspace: string
-          paths: string list }
-
-    let private decodeAddedBody (json: string) : Result<AddedBody, string> =
-        let decoder =
-            Thoth.Json.Core.Decode.object (fun get ->
-                { workspace =
-                    get.Required.Field
-                        "workspace"
-                        Thoth.Json.Core.Decode.string
-                  paths =
-                    get.Required.Field
-                        "paths"
-                        (Thoth.Json.Core.Decode.list
-                            Thoth.Json.Core.Decode.string) })
-        JsonDecode.fromString decoder json
-
-    let private failuresResult
-        (result: Result<LazyLoadReconciliationReport.Failure list, string>)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
         =
-        match result with
-        | Error err -> Results.BadRequest(err)
-        | Ok failures ->
-            Results.Content(
-                LazyLoadReconciliationDiagnostics.encodeFailures failures,
-                "application/json")
+        reconcileWith
+            (doorCaps workspace.handle)
+            workspace.dataDir
+            workspace.workspaceLabel
+            changedPaths
 
-    let registerDirectoryRoute
-        (this: AmbitApp)
-        (getHandle: unit -> CoreChangesDoor)
+    let internal reconcileFromChanges
+        (changes: ActorChanges)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
         =
-        let isAuthenticated = this.Auth.IsAuthenticated
-        let dataDir = this.DataDir
-        this.MapPost(
-            "/ambit/workspace/reconciliation/directory",
-            Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
-                task {
-                    if not (isAuthenticated req) then
-                        return Results.Unauthorized()
-                    else
-                        use reader = new StreamReader(req.Body)
-                        let! body = reader.ReadToEndAsync()
-                        match decodeDirectoryBody body with
-                        | Error err ->
-                            return Results.BadRequest("invalid body: " + err)
-                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
-                            return Results.BadRequest("missing workspace")
-                        | Ok payload ->
-                            let workspace =
-                                { handle = getHandle ()
-                                  dataDir = dataDir
-                                  workspaceLabel = payload.workspace }
-                            let! result =
-                                if String.IsNullOrWhiteSpace payload.path then
-                                    reconcileWorkspace workspace
-                                else
-                                    reconcileDirectory workspace payload.path
-                            return failuresResult result
-                })
-        )
-        |> ignore
+        reconcileWith
+            (changesCaps changes)
+            dataDir
+            workspaceLabel
+            changedPaths
 
-    let registerAddedRoute
-        (this: AmbitApp)
-        (getHandle: unit -> CoreChangesDoor)
-        =
-        let isAuthenticated = this.Auth.IsAuthenticated
-        let dataDir = this.DataDir
-        this.MapPost(
-            "/ambit/workspace/reconciliation/added",
-            Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
-                task {
-                    if not (isAuthenticated req) then
-                        return Results.Unauthorized()
-                    else
-                        use reader = new StreamReader(req.Body)
-                        let! body = reader.ReadToEndAsync()
-                        match decodeAddedBody body with
-                        | Error err ->
-                            return Results.BadRequest("invalid body: " + err)
-                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
-                            return Results.BadRequest("missing workspace")
-                        | Ok payload ->
-                            let! result =
-                                reconcileAddedPaths
-                                    { handle = getHandle ()
-                                      dataDir = dataDir
-                                      workspaceLabel = payload.workspace }
-                                    payload.paths
-                            return failuresResult result
-                })
-        )
-        |> ignore

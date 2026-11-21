@@ -11,35 +11,50 @@ module CoreMailboxApi =
         | Ok value -> value
         | Error error -> failwith error
 
-    /// Public add: CoreMsg joins the one mailbox queue.
+    /// Public add: today's CoreMsg joins the queue as Mailbox.CoreMsg.
     let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
-        MailboxHost.postItem host (QueueSum.Core msg)
+        MailboxHost.postItem host (MailboxHost.coreMsgItem msg)
 
-    /// Private add: InMsg joins that same queue. No public door.
-    let internal addInMsg (host: MailboxHost) (msg: InMsg) =
-        MailboxHost.postItem host (QueueSum.In msg)
+    /// Private add: Notice joins that same queue. No public door.
+    let internal postNotice (host: MailboxHost) (msg: Notice) =
+        MailboxHost.postItem host (CoreQueue.Notice msg)
 
     let private reply host build =
         MailboxHost.postAndAsyncReply host build
 
-    let tryGetState
-        (host: MailboxHost)
-        : Async<Result<State, string>> =
-        reply host GetState
+    let private ask host build =
+        MailboxHost.postMailboxAndAsyncReply host (fun channel ->
+            Mailbox.Ask (build channel))
 
-    let getState
+    let tryGraphAtEvent
         (host: MailboxHost)
-        : Async<Result<State, string>> =
-        tryGetState host
+        : Async<Result<GraphAtEvent, string>> =
+        ask host Query.GraphAtEvent
+
+    let graphAtEvent
+        (host: MailboxHost)
+        : Async<Result<GraphAtEvent, string>> =
+        tryGraphAtEvent host
+
+    let eventsSince
+        (host: MailboxHost)
+        (after: Gambol.Shared.EventId)
+        : Async<Gambol.Shared.EventLog> =
+        async {
+            let! result =
+                ask host (fun channel ->
+                    Query.EventsSince(after, channel))
+            return unwrap result
+        }
 
     let eventHistory
         (host: MailboxHost)
         : Async<Gambol.Shared.EventLog> =
-        reply host GetEventHistory
+        eventsSince host EventId.zero
 
     let getEventId (host: MailboxHost) : Async<Gambol.Shared.EventId> =
         async {
-            let! result = reply host GetEventId
+            let! result = ask host Query.LastEventId
             return unwrap result
         }
 
@@ -48,17 +63,165 @@ module CoreMailboxApi =
         (after: Gambol.Shared.EventId)
         : Async<Ev list> =
         async {
-            let! result =
-                reply host (fun channel -> GetEventsSince(after, channel))
-            return unwrap result
+            let! log = eventsSince host after
+            return log.events
         }
 
-    let private postEventAccepted
+    let private sendsAsOrder (event: Ev) =
+        match event.body with
+        | EventBody.Undo _
+        | EventBody.Redo _
+        | EventBody.ActorStart _
+        | EventBody.Cancel _ -> true
+        | EventBody.Change _ -> event.id = EventId.zero
+        | _ -> false
+
+    /// Client events that stay off PlaceOrder.
+    /// ActorStop is refused before the zero-id check.
+    let private refusedClientEvent (event: Ev) =
+        match event.body with
+        | EventBody.ActorStop _ ->
+            Error "ActorStop is not a client event type"
+        | _ when event.id <> EventId.zero ->
+            Error "posted EventId must be zero"
+        | EventBody.Notice _ ->
+            Error "Notice is not a client event type"
+        | EventBody.Load _ ->
+            Error "Load Events are mailbox-generated"
+        | _ ->
+            Error "Order Events are mailbox-generated"
+
+    let private placedForPosted (event: Ev) =
+        if sendsAsOrder event then
+            MailboxLog.placedOrderFromEvent event
+        else
+            refusedClientEvent event
+
+    let private messageForPosted (caller: Caller) (event: Ev) =
+        placedForPosted event
+        |> Result.map (fun placed channel ->
+            Mailbox.placeForCaller placed caller channel)
+
+    let private acceptOne
         (host: MailboxHost)
         (caller: Caller)
         (event: Ev)
         =
-        reply host (fun channel -> PostEvent(caller, event, channel))
+        match placedForPosted event with
+        | Error err -> async.Return(Error err)
+        | Ok placed ->
+            MailboxHost.postPlacedOrder host caller placed
+
+    let private isClientActorStop (event: Ev) =
+        match event.body with
+        | EventBody.ActorStop _ -> true
+        | _ -> false
+
+    let private firstError results =
+        results
+        |> List.tryPick (function
+            | Error err -> Some err
+            | Ok _ -> None)
+
+    let private idsOf results =
+        results
+        |> List.choose (function
+            | Ok eventId -> Some eventId
+            | Error _ -> None)
+
+    let private afterId ids =
+        ids
+        |> List.map EventId.value
+        |> List.min
+        |> fun n -> EventId.fromJson (n - 1)
+
+    let private expandStored log (stored: Ev) =
+        match stored.body with
+        | EventBody.ActorStart request ->
+            match EventLog.tryFind (EventId.next stored.id) log with
+            | Some stopped ->
+                match stopped.body with
+                | EventBody.ActorStop(id, _) when id = request.focusId ->
+                    [ stored; stopped ]
+                | _ -> [ stored ]
+            | None -> [ stored ]
+        | _ -> [ stored ]
+
+    let private storedEvents log ids =
+        let rec take acc remaining =
+            match remaining with
+            | [] -> Ok(List.rev acc)
+            | id :: rest when not (EventId.isAccepted id) ->
+                take acc rest
+            | id :: rest ->
+                match EventLog.tryFind id log with
+                | None ->
+                    Error
+                        $"stored Event {EventId.display id} not found"
+                | Some event ->
+                    let acc =
+                        expandStored log event
+                        |> List.fold
+                            (fun collected item -> item :: collected)
+                            acc
+                    take acc rest
+        take [] ids
+
+    let private affirmedStart events =
+        match events with
+        | [ stored ] -> Ok stored
+        | [ stored; stopped ] ->
+            match stored.body, stopped.body with
+            | EventBody.ActorStart request,
+              EventBody.ActorStop(id, _)
+                when id = request.focusId ->
+                Ok stored
+            | _ -> Error "stored Event not found"
+        | _ -> Error "stored Event not found"
+
+    /// A duplicate submissionId replies the stored id. The catch-up cursor
+    /// stays at the log tip when a later Change is already stored, so the
+    /// ack list does not gain that Change.
+    let private cursorAfterDuplicateChange
+        (log: EventLog)
+        (accepted: CoreChangesAccepted)
+        =
+        let laterChange =
+            log.events
+            |> List.exists (fun event ->
+                event.id > accepted.eventId
+                && match event.body with
+                   | EventBody.Change _ -> true
+                   | _ -> false)
+        if EventId.isAccepted accepted.eventId && laterChange then
+            let tip =
+                log.events
+                |> List.fold
+                    (fun tip event -> EventId.max tip event.id)
+                    accepted.eventId
+            { accepted with eventId = tip }
+        else
+            accepted
+
+    let private acceptedFromIds host posted ids =
+        async {
+            let! log = eventsSince host (afterId ids)
+            match storedEvents log ids with
+            | Error err -> return Error err
+            | Ok stored ->
+                return
+                    Ok(
+                        CoreChanges.fromPosted
+                            (MailboxHost.isReady host ())
+                            posted
+                            stored
+                        |> cursorAfterDuplicateChange log)
+        }
+
+    let private mergeIdReplies host posted results =
+        match firstError results with
+        | Some err -> async.Return(Error err)
+        | None -> acceptedFromIds host posted (idsOf results)
 
     let postEvent
         (host: MailboxHost)
@@ -66,90 +229,109 @@ module CoreMailboxApi =
         (event: Ev)
         : Async<Result<Ev, string>> =
         async {
-            let! result = postEventAccepted host caller event
-            return result |> Result.map fst
+            let! result = acceptOne host caller event
+            match result with
+            | Error err -> return Error err
+            | Ok eventId ->
+                let! log = eventsSince host (afterId [ eventId ])
+                match storedEvents log [ eventId ] with
+                | Error err -> return Error err
+                | Ok events -> return affirmedStart events
         }
 
-    let private isClientActorStop (event: Ev) =
+    let private clientBatchError (events: Ev list) =
+        if List.isEmpty events then
+            Some "events must not be empty"
+        elif List.exists isClientActorStop events then
+            Some "ActorStop is not a client event type"
+        else
+            None
+
+    let private zeroChange (event: Ev) =
         match event.body with
-        | EventBody.ActorStop _ -> true
-        | _ -> false
+        | EventBody.Order (Order.Change (ops, origin))
+            when event.id = EventId.zero ->
+            Some(ops, origin)
+        | _ -> None
 
-    let private replyOf host (stored: Ev, accepted) =
-        match accepted with
-        | Some value -> value
-        | None ->
-            CoreChanges.accepted
-                stored.id
-                (MailboxHost.isReady host ())
-                [ stored ]
-                false
-                None
+    let private placedParse (event: Ev) (ops: Op list) =
+        MailboxLog.placedOrderFromEvent event
+        |> Result.map (fun placed ->
+            { placed with
+                order = Order.Change(ops, ChangeOrigin.Parse) })
 
-    let private consEvents reversed events =
-        List.fold (fun acc event -> event :: acc) reversed events
+    let private parseBuild (caller: Caller) (event: Ev) =
+        if event.id <> EventId.zero then
+            Error "posted EventId must be zero"
+        else
+            match zeroChange event with
+            | None -> Error "unsupported"
+            | Some(ops, _) ->
+                match placedParse event ops with
+                | Error err -> Error err
+                | Ok placed ->
+                    Ok(fun channel ->
+                        Mailbox.placeForCaller placed caller channel)
 
-    let private mergeReplies host results =
-        let step
-            (state: Result<CoreChangesAccepted, string>, reversed)
-            result
-            =
-            match state, result with
-            | Error err, _ -> Error err, reversed
-            | _, Error err -> Error err, reversed
-            | Ok prior, Ok pair ->
-                let next = replyOf host pair
-                let merged =
-                    CoreChanges.accepted
-                        next.eventId
-                        next.isReady
-                        []
-                        (prior.externalChanges || next.externalChanges)
-                        (next.message |> Option.orElse prior.message)
-                Ok merged, consEvents reversed next.events
-        match results with
-        | [] -> Error "events must not be empty"
-        | Error err :: _ -> Error err
-        | Ok pair :: rest ->
-            let first = replyOf host pair
-            match List.fold step (Ok first, consEvents [] first.events) rest with
-            | Error err, _ -> Error err
-            | Ok last, reversed ->
-                Ok(
-                    CoreChanges.accepted
-                        last.eventId
-                        (MailboxHost.isReady host ())
-                        (List.rev reversed)
-                        last.externalChanges
-                        last.message)
+    let private editBuild (caller: Caller) (event: Ev) =
+        match zeroChange event with
+        | Some(_, ChangeOrigin.Parse) -> Error "unsupported"
+        | _ -> messageForPosted caller event
 
-    /// Push the list back to back, then merge the replies.
+    let private oneBuild caller origin event =
+        match origin with
+        | ChangeOrigin.Parse -> parseBuild caller event
+        | ChangeOrigin.Edit -> editBuild caller event
+
+    let private zipReplies prepared sent =
+        let rec take acc prepared sent =
+            match prepared, sent with
+            | [], _ -> List.rev acc
+            | Error err :: rest, _ ->
+                take (Error err :: acc) rest sent
+            | Ok _ :: rest, reply :: more ->
+                take (reply :: acc) rest more
+            | Ok _ :: _, [] ->
+                List.rev (Error "short reply" :: acc)
+        take [] prepared sent
+
+    let private postPrepared host events prepared =
+        let sends =
+            prepared
+            |> List.choose (function
+                | Ok build -> Some build
+                | Error _ -> None)
+        async {
+            let! sent =
+                if List.isEmpty sends then
+                    async.Return []
+                else
+                    MailboxHost.postForReplies host sends
+            return! mergeIdReplies host events (zipReplies prepared sent)
+        }
+
+    /// One mailbox Change post. Origin Parse skips the file write.
+    let postMailboxChange
+        (host: MailboxHost)
+        (caller: Caller)
+        (origin: ChangeOrigin)
+        (events: Ev list)
+        : Async<Result<CoreChangesAccepted, string>> =
+        match origin, clientBatchError events with
+        | ChangeOrigin.Edit, Some err -> async { return Error err }
+        | _ ->
+            events
+            |> List.map (oneBuild caller origin)
+            |> postPrepared host events
+
+    /// Push the list back to back, then rebuild the ack from the log.
     /// The push runs before this function returns, so the next call cannot pass it.
     let postEvents
         (host: MailboxHost)
         (caller: Caller)
         (events: Ev list)
         : Async<Result<CoreChangesAccepted, string>> =
-        if List.isEmpty events then
-            async { return Error "events must not be empty" }
-        elif List.exists isClientActorStop events then
-            async { return Error "ActorStop is not a client event type" }
-        else
-            let builds =
-                events
-                |> List.map (fun (event: Ev) ->
-                    fun channel -> PostEvent(caller, event, channel))
-            let waiting = MailboxHost.postForReplies host builds
-            async {
-                let! results = waiting
-                return mergeReplies host results
-            }
-
-    let eventsSince
-        (host: MailboxHost)
-        (after: Gambol.Shared.EventId)
-        : Async<Gambol.Shared.EventLog> =
-        reply host (fun channel -> EventsSince(after, channel))
+        postMailboxChange host caller ChangeOrigin.Edit events
 
     /// Graph-only Ev: same flow as postEvents, skips file persist only.
     let postGraphOnly
@@ -157,43 +339,37 @@ module CoreMailboxApi =
         (caller: Caller)
         (event: Ev)
         : Async<Result<CoreChangesAccepted, string>> =
-        reply host (fun channel ->
-            PostGraphOnly(caller, event, channel))
+        postMailboxChange host caller ChangeOrigin.Parse [ event ]
 
-    let startActor
+    /// Place Order.StartActor from a supplied function. Reply is that EventId.
+    let coreMailboxStartActorFromFunction
         (host: MailboxHost)
         (caller: Caller)
-        (request: Gambol.Shared.ActorStart)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartActor(caller, request, channel))
+        (placement: ActorOrderFromStart.FunctionActorPlacement)
+        : Async<Result<EventId, string>> =
+        ActorOrderFromStart.orderFromPlacement placement
+        |> MailboxHost.postActorOrder host caller
 
-    let startPeerActor
-        (host: MailboxHost)
-        (caller: Caller)
-        (peerName: PeerActorName)
-        (request: Gambol.Shared.ActorStart)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartPeerActor(caller, peerName, request, channel))
-
-    /// Append ActorStart for a Search Actor. The walk stays off this queue.
+    /// Place Find and Move as Order.StartActor. The actor is supplied at boot.
     let recordSearchStart
         (host: MailboxHost)
         (caller: Caller)
+        (actor: ActorFunction)
         (request: Gambol.Shared.ActorStart)
         : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStart(caller, request, channel))
-
-    /// Enqueue ActorStop for that Search Actor. The id is the root.
-    let recordSearchStop
-        (host: MailboxHost)
-        (caller: Caller)
-        (rootId: NodeId)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            RecordSearchStop(caller, rootId, channel))
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = "search"
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+        async {
+            let! placed =
+                coreMailboxStartActorFromFunction
+                    host
+                    caller
+                    placement
+            return Result.map ignore placed
+        }
 
     let startLoadSaveCommand
         (host: MailboxHost)
@@ -215,25 +391,12 @@ module CoreMailboxApi =
         (host: MailboxHost)
         (caller: Caller)
         (subject: NodeId)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            LoadNode(caller, subject, channel))
-
-    let actorStop
-        (host: MailboxHost)
-        (caller: Caller)
-        (result: ActorResult)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            ActorStop(caller, result, channel))
-
-    let cancelByFocus
-        (host: MailboxHost)
-        (caller: Caller)
-        (focusId: NodeId)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            CancelActor(caller, focusId, channel))
+        : Async<Result<EventId, string>> =
+        MailboxHost.postPlacedOrder host caller {
+            orderId = OrderId.New()
+            authority = caller.authority
+            commandName = None
+            order = Order.Load subject }
 
     let login
         (host: MailboxHost)
@@ -244,23 +407,24 @@ module CoreMailboxApi =
             { authority = Authority "Browser"
               name = name
               secret = secret }
-        reply host (fun channel -> Login(caller, channel))
+        async.Return(Session.login (MailboxHost.session host) caller)
 
-    let logout
-        (host: MailboxHost)
-        (caller: Caller)
-        : Async<Result<unit, string>> =
-        reply host (fun channel -> Logout(caller, channel))
+    /// Stop admitting and queue CoreQueue.DropAuthority. The reply is that post.
+    let logout (host: MailboxHost) (caller: Caller) : Async<unit> =
+        let session = MailboxHost.session host
+        match Session.stopAdmitting session caller with
+        | None -> ()
+        | Some closed ->
+            MailboxHost.postItem host (CoreQueue.DropAuthority closed)
+        async.Return ()
 
     let isAdmitted
         (host: MailboxHost)
         (caller: Caller)
         : Async<bool> =
-        reply host (fun channel -> AdmitCaller(caller, channel))
+        async.Return(
+            Session.admissionIsOpen (MailboxHost.session host) caller)
 
     let isReady (host: MailboxHost) = MailboxHost.isReady host ()
-
-    let flushSnapshot (host: MailboxHost) =
-        MailboxHost.flushSnapshot host
 
     let dispose (host: MailboxHost) = MailboxHost.dispose host

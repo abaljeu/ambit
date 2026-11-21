@@ -33,6 +33,28 @@ let private unloadedWorkspace () : Graph * NodeId * Node =
         |> unload wsId
     graph, wsId, ws
 
+let private applyAnswerOnlyLoad responseEventId hasPending =
+    let graph, wsId, ws = unloadedWorkspace ()
+    let state =
+        ClientSyncState.create
+            graph
+            (EventIdFixtures.storedId 4)
+            (ClientHistory.clear ())
+    match
+        SyncLogic.applyLoadResponse
+            responseEventId
+            hasPending
+            { events = []
+              nodes = [ ws ]
+              childMap = Map.ofList [ wsId, [] ] }
+            state
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal(state.history, result.history)
+        Assert.Equal(EventIdFixtures.storedId 4, result.eventId)
+        Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
+
 [<Fact>]
 let ``applyLocalEvent records the submitted Event at EventId.zero`` () =
     let graph0 = Graph.create ()
@@ -170,21 +192,8 @@ let ``answer-only Load at the same event id preserves ClientHistory`` () =
         Assert.Equal(Loaded, Graph.childrenStatus result.graph wsId)
 
 [<Fact>]
-let ``answer-only Load at the same event id refuses pending local work`` () =
-    let graph, _, ws = unloadedWorkspace ()
-    let state: ClientSyncState =
-        ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
-    match
-        SyncLogic.applyLoadResponse
-            (EventIdFixtures.storedId 4)
-            true
-            { events = []
-              nodes = [ ws ]
-              childMap = Map.ofList [ ws.id, [] ] }
-            state
-    with
-    | Ok _ -> failwith "Expected raced Load answer refusal"
-    | Error msg -> Assert.Contains("raced", msg)
+let ``answer-only Load at the same event id applies with pending local work`` () =
+    applyAnswerOnlyLoad (EventIdFixtures.storedId 4) true
 
 [<Fact>]
 let ``approve stamps matching zero when a foreign event leads the stream`` () =
@@ -234,18 +243,5 @@ let ``approve stamps Redo target written while undo id was zero`` () =
                 | _ -> failwith "expected Redo body"
 
 [<Fact>]
-let ``answer-only Load refuses an event id mismatch`` () =
-    let graph, _, ws = unloadedWorkspace ()
-    let state: ClientSyncState =
-        ClientSyncState.create graph (EventIdFixtures.storedId 4) (ClientHistory.clear ())
-    match
-        SyncLogic.applyLoadResponse
-            (EventIdFixtures.storedId 5)
-            false
-            { events = []
-              nodes = [ ws ]
-              childMap = Map.ofList [ ws.id, [] ] }
-            state
-    with
-    | Ok _ -> failwith "Expected raced Load answer refusal"
-    | Error msg -> Assert.Contains("raced", msg)
+let ``answer-only Load applies when the event id differs`` () =
+    applyAnswerOnlyLoad (EventIdFixtures.storedId 5) false

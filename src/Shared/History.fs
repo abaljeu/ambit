@@ -11,41 +11,9 @@ type Op =
         newChildren: ChildNode list
     | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
     | SetName of nodeId: NodeId * oldName: string * newName: string
-    | SetDocumentState of
-        nodeId: NodeId *
-        oldState: DocumentStateEnum *
-        newState: DocumentStateEnum
     /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
     | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
-type EventId =
-    private
-    | Zero // the Ev is a draft
-    | Int of int // The Ev is an event; accepted, uniquely numbered, 
-        // and has been stored, and applied in the system
-
-    member this.Value =
-        match this with
-        | Zero -> 0
-        | Int n -> n
-
-[<RequireQualifiedAccess>]
-module EventId =
-    let zero = Zero
-    let next (id: EventId) =
-        match id with
-        | Int n -> Int(n + 1)
-        | Zero -> Zero
-    let max (a: EventId) (b: EventId) =
-        if a.Value >= b.Value then a else b
-    let value (id: EventId) = id.Value
-    let display (id: EventId) = string id.Value
-    let isAccepted id =
-        id <> EventId.Zero
-    let fromJson n =
-        if n > 0 then Int n
-        else Zero
-    let toJson (id: EventId) = id.Value
 
 type Authority = Authority of string
 
@@ -58,34 +26,182 @@ type ActorResult =
 type ActorStart =
     { zoomId: NodeId
       focusId: NodeId
-      commandId: NodeId
+      runDefinitionId: NodeId
       graphIds: NodeId list
       eventId: EventId }
 
 [<RequireQualifiedAccess>]
-type EventBody =
-    | Change of ops: Op list
+type LoadSavePath =
+    | Git
+    | Desk
+
+[<RequireQualifiedAccess>]
+type LoadSavePrePick =
+    | Plain
+    | Git
+    | Desk
+
+[<RequireQualifiedAccess>]
+type LoadSaveOperation =
+    | Load
+    | Save
+
+type LoadSaveCommandRequest =
+    { operation: LoadSaveOperation
+      prePick: LoadSavePrePick
+      holdStack: bool
+      start: ActorStart }
+
+[<RequireQualifiedAccess>]
+type Notice =
+    | NodeParsed of nodeId: NodeId
+    | NodePersisted of
+        nodeId: NodeId *
+        persistedVersion: EventId *
+        updateTime: System.DateTime
+    | NodeUnparsed of nodeId: NodeId
+    | NodeUploading of nodeId: NodeId
+    | NodeReceived of nodeId: NodeId
+    | NodeParsing of nodeId: NodeId
+    | NodePersisting of nodeId: NodeId
+    | NodeUnpersisted of nodeId: NodeId
+    | PersistFailed of nodeId: NodeId * message: string
+    | ParseFailed of nodeId: NodeId * message: string
+    | ActorStopped of focusId: NodeId * result: ActorResult
+
+type PeerActorName = PeerActorName of string
+
+[<RequireQualifiedAccess>]
+type ChangeOrigin =
+    | Edit
+    | Parse
+
+/// Graph carrier the Actor calls. The pool does not invoke this.
+type GraphCarrier = unit -> Graph
+
+type Credential = Credential of string
+
+/// What a function-shaped Actor receives. No Graph or ids bag.
+type FunctionRun =
+    { getGraph: GraphCarrier
+      secret: Credential }
+
+type ActorFunction = FunctionRun -> ActorChanges -> Async<ActorResult>
+
+and ActorChanges =
+    { postChanges: Ev list -> Async<Result<unit, string>>
+      graphAtEvent: unit -> Async<Result<GraphAtEvent, string>>
+      loadNode: NodeId -> Async<Result<EventId, string>>
+      postNotice: Notice -> unit
+      eventsSince: EventId -> Async<Ev list>
+      postGraphOnly: Ev -> Async<Result<unit, string>> }
+
+and [<CustomEquality; NoComparison>] ActorOrder =
+    { actor: ActorFunction
+      actorNodeId: NodeId
+      actorName: string }
+
+    override this.Equals(other: obj) =
+        match other with
+        | :? ActorOrder as that ->
+            this.actorNodeId = that.actorNodeId
+            && this.actorName = that.actorName
+        | _ -> false
+
+    override this.GetHashCode() =
+        hash (this.actorNodeId, this.actorName)
+
+and [<RequireQualifiedAccess>] Order =
+    | Change of ops: Op list * origin: ChangeOrigin
     | Undo of target: EventId * ops: Op list
     | Redo of target: EventId * ops: Op list
-    | ActorStart of ActorStart
-    | ActorStop of focusId: NodeId * result: ActorResult
-    | Cancel of focusId: NodeId
+    | ClientRequestActor of ActorStart
+    | StartActor of ActorOrder
+    | Load of nodeId: NodeId
+    | CancelActor of actorNodeId: NodeId
 
-type Ev =
+and [<RequireQualifiedAccess>] EventBody =
+    | Order of Order
+    | Notice of Notice
+
+and Ev =
     { id: EventId
       submissionId: System.Guid
       authority: Authority
       commandName: string
       body: EventBody }
 
-type State =
+and GraphAtEvent =
     { graph: Graph
       eventId: EventId }
+
+[<RequireQualifiedAccess>]
+module EventBody =
+    let Change (ops: Op list) : EventBody =
+        EventBody.Order(Order.Change(ops, ChangeOrigin.Edit))
+
+    let (|Change|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Change (ops, _)) -> Some ops
+        | _ -> None
+
+    let Undo (target: EventId, ops: Op list) : EventBody =
+        EventBody.Order(Order.Undo(target, ops))
+
+    let (|Undo|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Undo (target, ops)) ->
+            Some(target, ops)
+        | _ -> None
+
+    let Redo (target: EventId, ops: Op list) : EventBody =
+        EventBody.Order(Order.Redo(target, ops))
+
+    let (|Redo|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Redo (target, ops)) ->
+            Some(target, ops)
+        | _ -> None
+
+    let Load (nodeId: NodeId) : EventBody =
+        EventBody.Order(Order.Load nodeId)
+
+    let (|Load|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.Load nodeId) -> Some nodeId
+        | _ -> None
+
+    let ActorStart (request: ActorStart) : EventBody =
+        EventBody.Order(Order.ClientRequestActor request)
+
+    let (|ActorStart|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.ClientRequestActor request) ->
+            Some request
+        | _ -> None
+
+    let Cancel (focusId: NodeId) : EventBody =
+        EventBody.Order(Order.CancelActor focusId)
+
+    let (|Cancel|_|) (body: EventBody) =
+        match body with
+        | EventBody.Order (Order.CancelActor focusId) -> Some focusId
+        | _ -> None
+
+    let ActorStop (focusId: NodeId, result: ActorResult) : EventBody =
+        EventBody.Notice(Notice.ActorStopped(focusId, result))
+
+    let (|ActorStop|_|) (body: EventBody) =
+        match body with
+        | EventBody.Notice (Notice.ActorStopped (focusId, result)) ->
+            Some(focusId, result)
+        | _ -> None
+
 [<RequireQualifiedAccess>]
 type ApplyResult =
-    | Changed of State
-    | Unchanged of State
-    | Invalid of State * string
+    | Changed of GraphAtEvent
+    | Unchanged of GraphAtEvent
+    | Invalid of GraphAtEvent * string
 
 
 [<RequireQualifiedAccess>]
@@ -98,12 +214,12 @@ module Op =
     let private reservedPathError =
         "owned artifact path contains a reserved system name"
 
-    let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
+    let private fromGraphResult (state: GraphAtEvent) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
 
-    let private fromGraphResultUnchanged (state: State) (result: Result<Graph, string>) : ApplyResult =
+    let private fromGraphResultUnchanged (state: GraphAtEvent) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
@@ -128,7 +244,6 @@ module Op =
                     Some child.id
                 else
                     None)
-        | Op.SetDocumentState _ -> []
 
     let private isCurrentDocumentRoot (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
@@ -193,9 +308,9 @@ module Op =
                 DocumentPartition.isMemberOfInaccessibleDocument graph id)
 
     let private applyAllowed
-        (markUnpersisted: bool)
+        (changedVersion: EventId option)
         (op: Op)
-        (state: State)
+        (state: GraphAtEvent)
         : ApplyResult
         =
         match op with
@@ -210,16 +325,16 @@ module Op =
                     { state with
                           graph = Graph.addDetachedNode node state.graph }
         | Op.SetText(nodeId, oldText, newText) ->
-            GraphMutate.setText markUnpersisted nodeId oldText newText state.graph
+            GraphMutate.setText changedVersion nodeId oldText newText state.graph
             |> fromGraphResult state
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             GraphMutate.setClasses
-                markUnpersisted nodeId oldClasses newClasses state.graph
+                changedVersion nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, oldChildren, newChildren) ->
             match
                 GraphMutate.replace
-                    markUnpersisted parentId 0 oldChildren newChildren state.graph
+                    changedVersion parentId 0 oldChildren newChildren state.graph
             with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok graph ->
@@ -249,16 +364,13 @@ module Op =
                             text = name,
                             name = Filename.Ok name,
                             kind = Special kind,
-                            documentState = Unparsed,
+                            documentState = Current,
                             updateTime = NodeUpdateTime.now ())
                     ApplyResult.Changed
                         { state with
                               graph = Graph.addDetachedNode node state.graph }
         | Op.SetName(nodeId, oldName, newName) ->
-            GraphMutate.setName markUnpersisted nodeId oldName newName state.graph
-            |> fromGraphResult state
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Graph.setDocumentState nodeId oldState newState state.graph
+            GraphMutate.setName changedVersion nodeId oldName newName state.graph
             |> fromGraphResult state
         | Op.SetUpdateTime(nodeId, _oldTime, newTime) ->
             match Map.tryFind nodeId state.graph.nodes with
@@ -277,33 +389,31 @@ module Op =
     /// Disk parse posts commandName "Parse" and must not write PersistState.
     let internal marksOwningPersist (commandName: string) =
         commandName <> "Parse"
+    let internal persistMarkVersion
+        (commandName: string)
+        (eventId: EventId)
+        : EventId option =
+        if marksOwningPersist commandName then Some eventId else None
     let internal guardsUnparsedDocument (commandName: string) =
         commandName <> "Parse"
 
+    /// Graph-only post passes guardUnparsed false. Outline ops may edit an
+    /// Unparsed document. Every other apply keeps the strict gate.
     let private blockedForApply guardUnparsed op graph =
-        match guardUnparsed, op with
-        | false, Op.Replace(parentId, oldChildren, newChildren) when
-            (let n = List.length oldChildren
-             List.length newChildren >= n
-             && List.take n newChildren = oldChildren
-             && List.forall (fun child ->
-                 Node.childOwnership graph parentId child = Ownership.Owner
-                 && DocumentPartition.isDocumentRootNode graph child.id)
-                 (List.skip n newChildren)) -> false
-        | _ -> isBlockedByInaccessibleDocument op graph
+        guardUnparsed && isBlockedByInaccessibleDocument op graph
 
-    let internal applyAllowing guardUnparsed markUnpersisted op state =
+    let internal applyAllowing guardUnparsed changedVersion op state =
         if blockedForApply guardUnparsed op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
-            applyAllowed markUnpersisted op state
+            applyAllowed changedVersion op state
 
-    let apply (op: Op) (state: State) : ApplyResult =
-        applyAllowing true true op state
+    let apply (op: Op) (state: GraphAtEvent) : ApplyResult =
+        applyAllowing true (Some EventId.zero) op state
 
-    let internal applyAllAllowing guardUnparsed markUnpersisted ops state =
+    let internal applyAllAllowing guardUnparsed changedVersion ops state =
         let step (accState, hasChanged) op =
-            match applyAllowing guardUnparsed markUnpersisted op accState with
+            match applyAllowing guardUnparsed changedVersion op accState with
             | ApplyResult.Invalid _ as err -> Error err
             | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
             | ApplyResult.Changed s' -> Ok(s', true)
@@ -324,8 +434,8 @@ module Op =
         | Ok(s, false) -> ApplyResult.Unchanged s
         | Ok(s, true) -> ApplyResult.Changed s
 
-    let applyAll (ops: Op list) (state: State) : ApplyResult =
-        applyAllAllowing true true ops state
+    let applyAll (ops: Op list) (state: GraphAtEvent) : ApplyResult =
+        applyAllAllowing true (Some EventId.zero) ops state
 
     let invert (op: Op) : Op =
         match op with
@@ -336,8 +446,6 @@ module Op =
             Op.Replace(parentId, newChildren, oldChildren)
         | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
         | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
-        | Op.SetDocumentState(id, old, new_) ->
-            Op.SetDocumentState(id, new_, old)
         | Op.SetUpdateTime(id, old, new_) -> Op.SetUpdateTime(id, new_, old)
 
     let invertAll (ops: Op list) : Op list =
@@ -349,7 +457,7 @@ module Op =
 
         ops |> List.rev |> List.choose retainReversible
 
-    let private undoAllowed (op: Op) (state: State) : ApplyResult =
+    let private undoAllowed (op: Op) (state: GraphAtEvent) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
@@ -376,9 +484,6 @@ module Op =
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId newName oldName state.graph
             |> fromGraphResult state
-        | Op.SetDocumentState(nodeId, oldState, newState) ->
-            Graph.setDocumentState nodeId newState oldState state.graph
-            |> fromGraphResult state
         | Op.SetUpdateTime(nodeId, oldTime, _newTime) ->
             match Map.tryFind nodeId state.graph.nodes with
             | None -> ApplyResult.Invalid(state, "node not found")
@@ -393,7 +498,7 @@ module Op =
                                 { state.graph with
                                     nodes = Map.add nodeId restored state.graph.nodes } }
 
-    let undo (op: Op) (state: State) : ApplyResult =
+    let undo (op: Op) (state: GraphAtEvent) : ApplyResult =
         if isBlockedByInaccessibleDocument op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
@@ -407,11 +512,23 @@ module Ev =
 
     let ops (event: Ev) : Op list option =
         match event.body with
-        | EventBody.Change ops
         | EventBody.Undo(_, ops)
         | EventBody.Redo(_, ops) -> Some ops
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.Notice _ -> None
+        | EventBody.Change ops -> Some ops
+        | EventBody.Order _ -> None
+
+    let withOps (event: Ev) (ops: Op list) : Ev =
+        match event.body with
+        | EventBody.Order (Order.Change(_, origin)) ->
+            { event with
+                body = EventBody.Order(Order.Change(ops, origin)) }
+        | EventBody.Undo(target, _) ->
+            { event with body = EventBody.Undo(target, ops) }
+        | EventBody.Redo(target, _) ->
+            { event with body = EventBody.Redo(target, ops) }
+        | EventBody.Notice _ -> event
+        | EventBody.Order _ -> event
 
     let isAction (event: Ev) : bool = ops event |> Option.isSome
 
@@ -419,9 +536,8 @@ module Ev =
         match event.body with
         | EventBody.Undo(target, _)
         | EventBody.Redo(target, _) -> Some target
-        | EventBody.Change _
-        | EventBody.ActorStart _ | EventBody.Cancel _
-        | EventBody.ActorStop _ -> None
+        | EventBody.Notice _ -> None
+        | EventBody.Order _ -> None
 
     let inverseOps (event: Ev) : Op list option =
         ops event |> Option.map Op.invertAll
@@ -446,355 +562,38 @@ module Ev =
         event.commandName,
         event.body
 
-    let apply (event: Ev) (state: State) : ApplyResult =
-        match ops event with
+    /// Enum a Notice writes. Graph.setDocumentState applies it.
+    let internal documentStateFromNotice (notice: Notice) =
+        match notice with
+        | Notice.NodeUploading nodeId -> Some(nodeId, PullingFile)
+        | Notice.NodeReceived nodeId
+        | Notice.NodeUnparsed nodeId -> Some(nodeId, Unparsed)
+        | Notice.NodeParsed nodeId -> Some(nodeId, Current)
+        | Notice.NodeParsing _
+        | Notice.NodePersisting _
+        | Notice.NodeUnpersisted _
+        | Notice.PersistFailed _
+        | Notice.ParseFailed _
+        | Notice.NodePersisted _
+        | Notice.ActorStopped _ -> None
+
+    let private applyNotice (notice: Notice) (state: GraphAtEvent) : ApplyResult =
+        match documentStateFromNotice notice with
         | None -> ApplyResult.Unchanged state
-        | Some opList ->
-            Op.applyAllAllowing
-                (Op.guardsUnparsedDocument event.commandName)
-                (Op.marksOwningPersist event.commandName)
-                opList
-                state
-
-/// Validation and apply functions for Change operations with ownership semantics.
-[<RequireQualifiedAccess>]
-module ChangeValidation =
-    let private validateOwnershipSemantics
-        (graph: Graph)
-        (childIdsScope: Set<NodeId> option)
-        : Result<unit, string * NodeId> =
-        let allChildren =
-            graph.childMap
-            |> Map.toList
-            |> List.collect (fun (parentId, children) ->
-                children |> List.map (fun child -> parentId, child))
-
-        let allChildIds =
-            allChildren |> List.map (fun (_, child) -> child.id) |> Set.ofList
-
-        let ownerByChildId =
-            allChildren
-            |> List.choose (fun (parentId, child) ->
-                match Node.childOwnership graph parentId child with
-                | Ownership.Owner -> Some(child.id, parentId)
-                | Ownership.Ref -> None)
-            |> List.groupBy fst
-            |> List.map (fun (childId, pairs) -> childId, (pairs |> List.map snd))
-            |> Map.ofList
-
-        let childIdsToCheck =
-            match childIdsScope with
-            | None -> allChildIds
-            | Some ids -> Set.intersect ids allChildIds
-
-        let locatedChildDetail (id: NodeId) : string =
-            let text =
-                match Map.tryFind id graph.nodes with
-                | Some n when n.text.Length <= 80 -> n.text
-                | Some n -> n.text.Substring(0, 80) + "..."
-                | None -> ""
-            let tail = NodeId.GuidTail8 id.Value
-            $"text='{text}' id={tail}"
-
-        // Prefer Owner parent from Loaded lists; else Node.owner (resident claim).
-        let ownerParentOf (childId: NodeId) : NodeId option =
-            match Map.tryFind childId ownerByChildId with
-            | Some (parentId :: _) -> Some parentId
-            | Some []
-            | None ->
-                Map.tryFind childId graph.nodes
-                |> Option.map (fun n -> n.owner)
-
-        // Proven missing only when a non-ROOT claimed owner is Loaded without
-        // an Owner edge. ROOT (Create/appendChildren default) is incomplete under
-        // selective load: the real Owner parent may be Unloaded elsewhere.
-        let isProvenMissingOwner (childId: NodeId) : bool =
-            match Map.tryFind childId ownerByChildId with
-            | Some _ -> false
-            | None ->
-                match Map.tryFind childId graph.nodes with
-                | None -> false
-                | Some childNode when childNode.owner = graph.root -> false
-                | Some childNode ->
-                    match Map.tryFind childNode.owner graph.nodes with
-                    | None -> false
-                    | Some _ when not (GraphChildren.isLoaded graph childNode.owner) ->
-                        false
-                    | Some _ -> true
-
-        let childIdsMissingOwner =
-            childIdsToCheck
-            |> Seq.filter isProvenMissingOwner
-            |> Seq.toList
-
-        if not childIdsMissingOwner.IsEmpty then
-            let childId = List.head childIdsMissingOwner
-            Error (
-                $"invalid ownership semantics: missing owner occurrence [{locatedChildDetail childId}]",
-                childId)
-        else
-            let childIdsWithMultipleOwners =
-                childIdsToCheck
-                |> Seq.filter (fun childId ->
-                    match Map.tryFind childId ownerByChildId with
-                    | None -> false
-                    | Some owners -> owners.Length <> 1)
-                |> Seq.toList
-
-            if not childIdsWithMultipleOwners.IsEmpty then
-                let childId = List.head childIdsWithMultipleOwners
-                let owners = ownerByChildId.[childId]
-                let ownersStr =
-                    owners
-                    |> List.map (fun id -> NodeId.GuidTail8 id.Value)
-                    |> String.concat ","
-                Error (
-                    $"invalid ownership semantics: expected exactly one owner occurrence [{locatedChildDetail childId} owners={ownersStr}]",
-                    childId)
-            else
-                // true = reaches root; false = cycle/broken; None = incomplete hop
-                let rec reachesRootWithoutCycle
-                    (currentId: NodeId)
-                    (visited: Set<NodeId>)
-                    : bool option =
-                    if currentId = graph.root then
-                        Some true
-                    elif Set.contains currentId visited then
-                        Some false
-                    else
-                        match Map.tryFind currentId graph.nodes with
-                        | None -> None
-                        | Some _ ->
-                            match ownerParentOf currentId with
-                            | None -> None
-                            | Some parentId ->
-                                match Map.tryFind parentId graph.nodes with
-                                | None when parentId <> graph.root -> None
-                                | _ ->
-                                    reachesRootWithoutCycle
-                                        parentId
-                                        (Set.add currentId visited)
-
-                let ownerChainIds (startId: NodeId) : NodeId list =
-                    let rec loop currentId visited acc =
-                        if Set.contains currentId visited then
-                            List.rev (currentId :: acc)
-                        else
-                            let nextAcc = currentId :: acc
-                            let nextVisited = Set.add currentId visited
-                            if currentId = graph.root then
-                                List.rev nextAcc
-                            else
-                                match ownerParentOf currentId with
-                                | Some parentId ->
-                                    loop parentId nextVisited nextAcc
-                                | None -> List.rev nextAcc
-                    loop startId Set.empty []
-
-                let formatOwnerChain (ids: NodeId list) : string =
-                    ids
-                    |> List.map (fun id -> NodeId.GuidTail8 id.Value)
-                    |> String.concat " -> "
-
-                let brokenOwnerChainChild =
-                    childIdsToCheck
-                    |> Seq.tryFind (fun childId ->
-                        match ownerParentOf childId with
-                        | None -> false
-                        | Some ownerParent ->
-                            reachesRootWithoutCycle ownerParent Set.empty = Some false)
-
-                match brokenOwnerChainChild with
-                | Some childId ->
-                    let chain = formatOwnerChain (ownerChainIds childId)
-                    Error (
-                        $"invalid ownership semantics: owner chain does not reach root [{locatedChildDetail childId} chain={chain}]",
-                        childId)
-                | None ->
-                    match childIdsScope with
-                    | Some _ -> Ok ()
-                    | None ->
-                        let invalidPlacementChild =
-                            allChildren
-                            |> Seq.tryPick (fun (parentId, child) ->
-                                match
-                                    Node.childOwnership graph parentId child,
-                                    Map.tryFind child.id graph.nodes
-                                with
-                                | Ownership.Owner,
-                                  Some { kind = Special (File | Directory) }
-                                    when not (Graph.isSystemDirectoryNode child.id) ->
-                                    if not (
-                                        GraphQuery.containerOrDescendant graph parentId) then
-                                        Some child.id
-                                    else
-                                        None
-                                | _ -> None)
-
-                        match invalidPlacementChild with
-                        | Some childId ->
-                            Error (
-                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)",
-                                childId)
-                        | None ->
-                            match GraphQuery.tryFindArtifactNameDuplicate graph with
-                            | Some dupId ->
-                                let name =
-                                    Map.tryFind dupId graph.nodes
-                                    |> Option.bind (fun n -> Filename.tryValue n.name)
-                                    |> Option.defaultValue "?"
-                                Error (
-                                    $"invalid ownership semantics: duplicate name '{name}' in artifact directory",
-                                    dupId)
-                            | None -> Ok ()
-
-    let validateOwnershipLocated (graph: Graph) : Result<unit, string * NodeId> =
-        validateOwnershipSemantics graph None
-
-    let validateOwnership (graph: Graph) : Result<unit, string> =
-        match validateOwnershipLocated graph with
-        | Ok () -> Ok ()
-        | Error (msg, _) -> Error msg
-
-    let private opChangesGraphShape =
-        function
-        | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
-        | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _
-        | Op.SetUpdateTime _ -> false
-
-    let private invalidOwnedFileDirectoryPlacement
-        (graph: Graph)
-        (parentId: NodeId)
-        (newChildren: ChildNode list)
-        : bool
-        =
-        GraphQuery.invalidOwnedFileDirectoryPlacement graph parentId newChildren
-
-    let private introducedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
-        newChildren
-        |> List.filter (fun nc ->
-            oldChildren
-            |> List.exists (fun oc -> oc.id = nc.id && oc.ref = nc.ref)
-            |> not)
-
-    let private removedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
-        oldChildren
-        |> List.filter (fun oc ->
-            newChildren
-            |> List.exists (fun nc -> nc.id = oc.id && nc.ref = oc.ref)
-            |> not)
-
-    let private validateOwnershipForOps (graph: Graph) (ops: Op list) : Result<unit, string> =
-        let shapeOps = ops |> List.filter opChangesGraphShape
-
-        if List.isEmpty shapeOps then
-            Ok ()
-        else
-            let childIds =
-                shapeOps
-                |> List.collect (Op.involvedNodeIds graph)
-                |> Set.ofList
-
-            match validateOwnershipSemantics graph (Some childIds) with
-            | Error (msg, _) -> Error msg
-            | Ok () ->
-                shapeOps
-                |> List.tryPick (fun op ->
-                    match op with
-                    | Op.Replace(parentId, oldChildren, newChildren) ->
-                        let introduced = introducedChildren oldChildren newChildren
-                        if invalidOwnedFileDirectoryPlacement graph parentId introduced then
-                            Some
-                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
-                        elif
-                            introduced
-                            |> List.exists (fun c ->
-                                Node.childOwnership graph parentId c = Ownership.Owner)
-                            && GraphQuery.artifactNameConflict graph parentId introduced
-                        then
-                            let name =
-                                introduced
-                                |> List.tryPick (fun c ->
-                                    Map.tryFind c.id graph.nodes
-                                    |> Option.bind (fun n -> Filename.tryValue n.name))
-                                |> Option.defaultValue "?"
-                            Some
-                                $"invalid ownership semantics: duplicate name '{name}' in artifact directory"
-                        else
-                            None
-                    | _ -> None)
-                |> Option.map Error
-                |> Option.defaultValue (Ok ())
-
-    let internal applyOpsAllowing guardUnparsed markUnpersisted ops state =
-        match Op.applyAllAllowing guardUnparsed markUnpersisted ops state with
-        | ApplyResult.Invalid _ as err -> err
-        | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
-        | ApplyResult.Changed s ->
-            match validateOwnershipForOps s.graph ops with
+        | Some(nodeId, newState) ->
+            match Graph.setDocumentState nodeId newState state.graph with
+            | Ok graph -> ApplyResult.Changed { state with graph = graph }
             | Error msg -> ApplyResult.Invalid(state, msg)
-            | Ok () -> ApplyResult.Changed s
 
-    let applyOpsTrusted (ops: Op list) (state: State) : ApplyResult =
-        Op.applyAll ops state
-
-    let applyOps (ops: Op list) (state: State) : ApplyResult =
-        applyOpsAllowing true true ops state
-
-/// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
-[<RequireQualifiedAccess>]
-module PersistStamp =
-
-    let private timeStampOp
-        (id: NodeId)
-        (beforeTime: System.DateTime)
-        (afterTime: System.DateTime)
-        =
-        let oldTime = NodeUpdateTime.toDbPrecision beforeTime
-        let newTime = NodeUpdateTime.toDbPrecision afterTime
-        if oldTime = newTime then None
-        else Some(Op.SetUpdateTime(id, oldTime, newTime))
-
-    let private stampOpsFor (nodeId: NodeId) (beforeNode: Node option) (afterNode: Node) =
-        let beforeTime =
-            match beforeNode with
-            | Some node -> node.updateTime
-            | None -> NodeUpdateTime.missing
-        match timeStampOp nodeId beforeTime afterNode.updateTime with
-        | None -> []
-        | Some op -> [ op ]
-
-    let opsBetween (before: Graph) (after: Graph) : Op list =
-        after.nodes
-        |> Map.toList
-        |> List.collect (fun (id, afterNode) ->
-            stampOpsFor id (Map.tryFind id before.nodes) afterNode)
-
-    let appendToOps (ops: Op list) (stampOps: Op list) : Op list =
-        if stampOps.IsEmpty then ops else ops @ stampOps
-
-    let appendToEvent (event: Ev) (stampOps: Op list) : Ev =
-        if stampOps.IsEmpty then
-            event
-        else
-            match event.body with
-            | EventBody.Change ops ->
-                { event with body = EventBody.Change(appendToOps ops stampOps) }
-            | EventBody.Undo(target, ops) ->
-                { event with
-                    body = EventBody.Undo(target, appendToOps ops stampOps) }
-            | EventBody.Redo(target, ops) ->
-                { event with
-                    body = EventBody.Redo(target, appendToOps ops stampOps) }
-            | EventBody.ActorStart _ | EventBody.Cancel _
-            | EventBody.ActorStop _ -> event
-
-    let appendToLastEvent (events: Ev list) (stampOps: Op list) : Ev list =
-        if stampOps.IsEmpty || events.IsEmpty then
-            events
-        else
-            match List.rev events with
-            | [] -> events
-            | last :: rest ->
-                List.rev (appendToEvent last stampOps :: rest)
-
+    let apply (event: Ev) (state: GraphAtEvent) : ApplyResult =
+        match event.body with
+        | EventBody.Notice notice -> applyNotice notice state
+        | _ ->
+            match ops event with
+            | None -> ApplyResult.Unchanged state
+            | Some opList ->
+                Op.applyAllAllowing
+                    (Op.guardsUnparsedDocument event.commandName)
+                    (Op.persistMarkVersion event.commandName event.id)
+                    opList
+                    state

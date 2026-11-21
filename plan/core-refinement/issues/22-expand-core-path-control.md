@@ -25,12 +25,6 @@ Core stands read file, write file, read directory, and write directory beside to
 1. [ ] **Parse and persist claim** — The Parse and persist claim names the four operations and the node or relative-path protocol.
 2. [ ] **Door test** — A test calls each of the four operations with a node or a relative path derived from a node.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [core-refinement architecture](plan/core-refinement/arch.md)

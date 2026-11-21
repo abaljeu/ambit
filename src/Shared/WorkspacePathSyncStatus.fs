@@ -12,7 +12,7 @@ type WorkspacePathPresence =
 /// Desktop/server path comparison, plus Unparsed when revisions match.
 [<RequireQualifiedAccess>]
 type WorkspacePathSyncStatus =
-    | NoServerFile
+    | PullingFile
     | OnlyOnServer
     | NewerOnServer
     | NewerOnDesktop
@@ -60,7 +60,7 @@ module WorkspacePathSyncStatus =
               glyph = glyph
               rowClass = rowClass }
         Map.ofList [
-            WorkspacePathSyncStatus.NoServerFile,
+            WorkspacePathSyncStatus.PullingFile,
             p "no file on server" "\u2205" (* empty set *)
                 "amb-row-sync-no-server-file"
             WorkspacePathSyncStatus.OnlyOnServer,

@@ -116,12 +116,37 @@ module BootCache =
             |> List.map (fun event -> event.id)
             |> List.fold EventId.max snapshotEventId
 
+    let private applyLoggedEvent (event: Ev) (st: GraphAtEvent) : Result<GraphAtEvent, string> =
+        match event.body with
+        | EventBody.Notice notice ->
+            match ResidentProjection.applyDocumentNotice notice st with
+            | ApplyResult.Invalid (_, msg) -> Error msg
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> Ok next
+        | _ ->
+            let ops = Ev.ops event |> Option.defaultValue []
+            let mark =
+                Op.persistMarkVersion event.commandName event.id
+            let guard = Op.guardsUnparsedDocument event.commandName
+            match ResidentProjection.applyOpsAllowing guard mark ops st with
+            | ApplyResult.Invalid (_, msg) -> Error msg
+            | applied ->
+                match
+                    ChangeAmendment.markForwardParseCreatedUnparsed
+                        event
+                        ops
+                        applied
+                with
+                | ApplyResult.Invalid (_, msg) -> Error msg
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> Ok next
+
     let foldLog
         (snapshot: StateResponse)
         (delta: Ev list)
         : Result<StateResponse, string> =
         let ordered = eventsAfter snapshot.eventId delta
-        let state0: State =
+        let state0: GraphAtEvent =
             { graph = snapshot.graph
               eventId = snapshot.eventId }
         ordered
@@ -129,16 +154,7 @@ module BootCache =
             (fun acc event ->
                 match acc with
                 | Error _ -> acc
-                | Ok st ->
-                    let ops = Ev.ops event |> Option.defaultValue []
-                    let mark = Op.marksOwningPersist event.commandName
-                    let guard = Op.guardsUnparsedDocument event.commandName
-                    match
-                        ResidentProjection.applyOpsAllowing guard mark ops st
-                    with
-                    | ApplyResult.Invalid (_, msg) -> Error msg
-                    | ApplyResult.Changed next
-                    | ApplyResult.Unchanged next -> Ok next)
+                | Ok st -> applyLoggedEvent event st)
             (Ok state0)
         |> Result.map (fun st ->
             { graph = st.graph

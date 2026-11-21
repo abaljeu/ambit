@@ -1,6 +1,6 @@
 # Stage
 
-This file is the single source of truth for the **Stage** list. Glossary names: [[GLOSSARY.md]]. Ticket **Status** is [[triage-labels.md]]. Tracker operations: [[issue-tracker.md]].
+This file is the single source of truth for the **Stage** list. Glossary names: [[GLOSSARY.md]]. Ticket **Status** is [[triage-labels.md]].
 
 ## Who carries Stage
 
@@ -31,7 +31,7 @@ Finished: <YYYY-MM-DD>  # when Stage is done; omit while live; omit on dead
 Actual: <Nh>            # optional; sum of issue ## Time under this project
 ```
 
-Time arc: see [[issue-tracker.md]] (Time tracking). Fill `Started` / `Finished` / `Actual` from conversation handoffs and commits when missing.
+Fill `Started` / `Finished` / `Actual` from conversation handoffs and commits when missing.
 
 ## Stage list
 

@@ -53,16 +53,6 @@ let decodeReconciliationLatest (text: string) : Result<int, string> =
     | Ok failures -> Ok failures.Length
     | Error e -> Error e
 
-/// Decode POST /ambit/workspace/reconciliation/directory → failure count.
-let decodeReconciliationDirectory (text: string) : Result<int, string> =
-    decodeReconciliationLatest text
-
-let encodeReconciliationDirectoryRequest (workspace: string) (path: string) : string =
-    Encode.object
-        [ "workspace", Encode.string workspace
-          "path", Encode.string path ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
 let encodeReconciliationAddedRequest
     (workspace: string)
     (paths: string list)
@@ -246,33 +236,6 @@ let encodeDesktopFileStatusRequest (path: string) : string =
 
 let decodeDesktopFileStatusResponse (text: string) : Result<DesktopFileStatusResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopFileStatusResponse text
-
-let decodeDesktopImportPackage (text: string) : Result<DesktopImportPackage, string> =
-    Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopImportPackage text
-
-let decodeDesktopFileContent (text: string) : Result<string, string> =
-    let decoder =
-        Decode.object (fun get ->
-            get.Required.Field "content" Decode.string)
-    Thoth.Json.JavaScript.Decode.fromString decoder text
-
-let encodeParseFileRequest (fileId: NodeId) (text: string option) : string =
-    let fields =
-        [ "fileId", Encode.guid fileId.Value ]
-        @ match text with
-          | Some t -> [ "text", Encode.string t ]
-          | None -> []
-    Encode.object fields
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
-let decodeParseFileOk (text: string) : Result<unit, string> =
-    let decoder =
-        Decode.object (fun get ->
-            get.Required.Field "ok" Decode.bool)
-    match Thoth.Json.JavaScript.Decode.fromString decoder text with
-    | Ok true -> Ok ()
-    | Ok false -> Error "parse was not acknowledged"
-    | Error err -> Error err
 
 let encodeDesktopExportRequest (request: DesktopExportRequest) : string =
     Serialization.encodeDesktopExportRequest request

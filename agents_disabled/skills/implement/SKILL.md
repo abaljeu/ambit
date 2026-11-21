@@ -1,0 +1,59 @@
+---
+name: implement
+description: Build a ticket under plan/<slug>/issues/; read every binding arch.md before coding.
+disable-model-invocation: true
+---
+
+# Implement
+
+Entry for building a ticket. Start here. Keep going. Do not stop for review between a failing test and the code that makes it pass.
+
+You cannot do the entire process yourself.  Context will be overwhelmed.  For each section spawn a subagent.
+## Process
+
+### 1. Load the ticket
+
+Prefer a ticket under `plan/<slug>/issues/`. Fetch the path or number the user names; read its full body and comments. Load the Project via [[.agents/skills/project-work/SKILL.md]]. Done: you have the ticket text and the Project slug.
+
+### 2. Load binding architecture
+
+Binding arch files are the ticket's own `plan/<slug>/arch.md`, every file named on the ticket **Binding arch** line, and every other `plan/*/arch.md` whose modules or doors the change touches. Find those others by grepping `plan/*/arch.md` for the modules, files, and doors the change names. Before coding, those names come from the plan. When a diff exists, they come from that diff. Read each binding file. Respect its Module map names, Seams (especially the test seam), and Sequence. When no binding `arch.md` exists, build from the ticket alone. Old Projects need no migration. Leave existing specs as written, including Implementation Decisions still on old specs.
+
+A planned change that contradicts a binding rule stops here. Report the arch file, the section, and the conflict. Leave the code unchanged until the rule and the plan agree.
+
+Done: binding rules are in hand, or you confirmed no `arch.md` binds this change. A contradiction is reported and coding has not started.
+
+### 2b. Asssess
+If the ticket is large spanning hundreds of lines across dozens of files, propose to abort for a replanning.  Better to abort early than after work is done but poorly.
+
+### 3. Code
+
+Git: follow [[.agents/skills/git-protocol/SKILL.md]].
+
+F# layout, targeted tests, Client compile gate, and the end-of-build suite: [[.agents/skills/implement-fsharp-feature/SKILL.md]]. Shared.Tests coverage: [[.agents/skills/add-shared-test/SKILL.md]].
+
+On first implement for this Project, set `Stage: build`.
+
+What a good test is, seams, and red-green: [[.agents/skills/tdd/SKILL.md]]. Use tdd at the test seam from arch when present, else at pre-agreed seams. Do not copy that loop here.
+
+When the change covers more than 20 files (`git diff --stat` against the base branch), stop coding and ask the user whether to continue. Explain what remains and what makes it hard to finish: the files and modules still to touch, the tests still failing, and the risk to upload, import, parse, Load, undo and persist. Continue only on the user's yes.
+
+Work in small steps: edit, then test. When a test fails, make a small fix or undo the edit. Commit only when the directly relevant tests (`scripts/agent-test.sh --filter ...`) pass; never commit or push with a failing test.
+
+Run typechecking and the directly relevant tests as you go. Done: the ticket's What to build is coded; targeted checks from the F# skill have been run.
+
+### 4. Check
+
+Start the full test suite (`scripts/agent-test.sh --full`) as a background task, and keep working while it runs: do the review, the Finish-up and the report. Do not wait on it before you commit, push or report. Check its result before you finish; when it fails, report the failing tests, and fix them with a small change or undo.
+
+Use [[.agents/skills/code-review/SKILL.md]]. The Arch pass in that review is the re-check of the binding rules from step 2. 
+
+### 5. Log time and finish
+
+Complete the ticket's Finish-up section ([[.agents/skills/to-tickets/PUBLISH.md]]).
+
+Done: the ticket's What to build is implemented and verified, and Finish-up is complete. Set ticket `**Status:** coded` only when the step 4 re-check found no contradiction. Do not set `done`. `done` is review approval only.
+
+Time: on issues you touched, append `## Time` and keep `Actual:`; on the project set/keep `Started:` / `Finished:` / `Actual:`. Backfill from this chat and commits when a session was not logged.
+
+Write a PR body, use [[.agents/skills/pr/SKILL.md]].

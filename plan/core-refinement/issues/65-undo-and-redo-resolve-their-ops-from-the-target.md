@@ -1,0 +1,105 @@
+# 65 — Place Undo and Redo as orders
+**Status**: `coded`
+One job: The Server places a posted Undo or Redo as `Order.Undo` or `Order.Redo` of a target and an Op list through `placeOrder`, `CoreEventDispatch.completeAction` handles those orders itself, and the Server logs them as `EventBody.Order`. `completeAction` refuses a target from before the restart and fills an empty Op list from the target's inverse ops. The reason is decision 2 **Undo and Redo** and decision 1 **Logged as placed** in [Message shape](plan/core-refinement/cqrs-messages.md): the logged Undo or Redo is the placed order, holding the target and the filled Op list.
+
+Type: coding
+Blockers: none ([108 — Log Change as EventBody.Order](108-log-change-as-eventbody-order.md) is on staging)
+
+## Inputs
+
+### Working
+
+#### Order and EventBody
+
+[ ] ``Order`` in `src/Shared/History.fs` has `Undo of target: EventId` and `Redo of target: EventId`. They hold no Op list.
+[ ] ``EventBody`` in `src/Shared/History.fs` has `Undo of target: EventId * ops: Op list` and `Redo of target: EventId * ops: Op list`.
+[ ] ``Ev.ops``, ``Ev.target`` and ``Ev.withOps`` in `src/Shared/History.fs` read `EventBody.Undo` and `EventBody.Redo`. For `EventBody.Order`, they read only `Order.Change`.
+[ ] ``encodeOrder`` and ``decodeOrderUndo`` / ``decodeOrderRedo`` in `src/Shared/EventJson.fs` write and read `kind` `undo` and `redo` with `target` only.
+[ ] ``orderOfBody`` in `src/Shared/MailboxLog.fs` maps `EventBody.Undo(target, _)` to `Order.Undo target`, dropping the ops. `Redo` is the same.
+[ ] ``historyBody`` in `src/Shared/MailboxLog.fs` maps `Order.Undo target` to `EventBody.Undo(target, [])`. `Redo` is the same.
+
+#### Posting
+
+[ ] ``changeMessage`` in `src/Server/Core/CoreMailboxApi.fs` places only a zero-id Change as `Mailbox.PlaceOrder`. An Undo or Redo posts `CoreMsg.PostEvent`.
+[ ] ``postEvent`` in `src/Server/Core/CoreMailboxApi.fs` posts `CoreMsg.PostEvent` for any Ev. Only tests call it.
+[ ] ``dispatchPostEvent`` in `src/Server/Core/CoreMailboxActors.fs` sends an Undo or Redo to `CoreEventDispatch.postEvent` with `graphOnly` `false`. Read only.
+[ ] ``placeOrder`` in `src/Server/Core/CoreMailboxLoop.fs` replies `Error "unsupported"` for `Order.Undo` and `Order.Redo`.
+[ ] ``postEvents`` and ``postEvent`` in `src/Server/Core/CoreMailboxApi.fs` are the posts that carry an Undo or Redo.
+[ ] ``replyEdit`` in `src/Server/Core/CoreMailboxLoop.fs` builds the Ev through `MailboxLog.toEv`, calls `CoreEventDispatch.postEvent`, and replies `Ok` of the stored id.
+
+#### completeAction
+
+[ ] ``completeAction`` in `src/Server/Core/CoreEventDispatch.fs` refuses `EventBody.Undo` or `EventBody.Redo` whose target is from before the restart, through `targetBeforeRestart`.
+[ ] ``completeAction`` fills an empty Op list of `EventBody.Undo` or `EventBody.Redo` from `Ev.inverseOps` of the target.
+[ ] ``completeAction`` passes `EventBody.Order (Order.Change _)` through unchanged.
+[ ] ``completeAction`` refuses every other `EventBody.Order` with `Error "Order Events are mailbox-generated"`.
+[ ] Alan, 2026-10-31: the `Order.Change` pass-through and the blanket `EventBody.Order` refusal are temporary. `Order` takes over each case as the old `EventBody` cases leave. This ticket begins that with `Order.Undo` and `Order.Redo`.
+
+#### Match sites
+
+[ ] `Order.Undo` and `Order.Redo` appear in `History.fs`, `EventJson.fs`, `MailboxLog.fs` and `CoreMailboxLoop.fs`.
+[ ] Tests build `Order.Undo` and `Order.Redo` in `tests/Shared.Tests/EventJsonTests.fs` and `tests/Shared.Tests/MailboxLogTests.fs`.
+[ ] `EventBody.Undo` and `EventBody.Redo` appear in 6 source files and 10 test files.
+[ ] Source patterns on `EventBody.Undo` and `EventBody.Redo` that read a stored Ev: `Ev.ops`, `Ev.target` and `Ev.withOps` in `src/Shared/History.fs`, `completeAction` and `pushChangeSpecials` in `src/Server/Core/CoreEventDispatch.fs`, and `markUndoRedoVersion` in `src/Shared/SyncLogic.fs`.
+[ ] `ActorLive.applyEvent` and `ActorLive.resultOf` in `src/Shared/ActorLive.fs` treat `EventBody.Undo`, `EventBody.Redo` and `EventBody.Order` alike.
+[ ] `ClientHistory` in `src/Shared/ClientHistory.fs` builds `EventBody.Undo` and `EventBody.Redo` for the wire. Read only.
+
+#### Tests
+
+[ ] ``Ev JSON round-trips each EventBody.Order case`` in `tests/Shared.Tests/EventJsonTests.fs` builds `Order.Undo` and `Order.Redo` of a target only.
+[ ] ``Undo and Redo keep the target and drop the ops`` in `tests/Shared.Tests/MailboxLogTests.fs`.
+[ ] ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` posts an Undo and a Redo through `postEvents`.
+[ ] ``postEvents places Order.Change with origin Edit`` in `tests/Server.Tests/CoreMailboxDoorTests.fs` reads the placed order of a stored Ev through `MailboxLog.ofEv`.
+[ ] ``name-only Undo and Redo store completed Events with submission ids`` in `tests/Server.Tests/Issue41CoreMailboxTests.fs` posts through `postEvent`.
+[ ] ``Undo after restart refuses a target from before the restart`` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` posts through `postEvent` and needs the test database.
+[ ] `bodyKind` in `tests/Server.Tests/MailboxHistoryDurabilityTests.fs` names `EventBody.Order` `order`; `assertBodiesMatch` compares two reads of the same log.
+[ ] ``Undo sets persistState Unpersisted and leaves persistedVersion`` and its siblings in `tests/Server.Tests/PersistApplyTests.fs` apply `EventBody.Undo` straight to persist handlers, not through the mailbox.
+
+### Reference
+
+[ ] [Message shape](plan/core-refinement/cqrs-messages.md) §2 **Order**, §3 decision 2 **Undo and Redo**, and decision 1 **Logged as placed**.
+
+## Do not load
+
+[ ] Removing the `EventBody.Undo` and `EventBody.Redo` cases and their `undo` and `redo` body kinds is [109 — Log Undo, Redo, and Load as EventBody.Order](109-log-undo-redo-and-load-as-eventbody-order.md).
+[ ] Load, ActorStart, Cancel and their `completeAction` arms stay.
+
+## Process
+
+1. [x] If an input is missing or does not match this ticket, stop and name that input.
+2. [x] `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list.
+3. [x] Every posted Undo or Redo, through `postEvents` or `postEvent`, reaches `placeOrder` as `Order.Undo` or `Order.Redo`. `placeOrder` no longer replies unsupported for them.
+4. [x] `completeAction` handles `Order.Undo` and `Order.Redo`: it refuses a target from before the restart, and fills an empty Op list from the target's inverse ops.
+5. [x] The Server logs the Undo or Redo as `EventBody.Order` of `Order.Undo` or `Order.Redo`, holding the target and the filled Op list.
+6. [x] A logged `Order.Undo` or `Order.Redo` still applies its ops, marks its owning special nodes, and raises `changedVersion` on the Browser, as `EventBody.Undo` and `EventBody.Redo` do today.
+7. [x] Add a test that a posted empty-op Undo of a Change logs `Order.Undo` of that target and its inverse ops, and the graph returns to its state before the Change.
+8. [x] Add a test that a posted empty-op Redo of that Undo logs `Order.Redo` of the Undo and its ops, and the graph returns to its state after the Change.
+9. [x] Keep the existing Server Undo and Redo tests as written where they still hold.
+
+## Outputs
+
+[x] The source files the builder changes, up to 8
+[x] The two tests from steps 7 and 8, in `tests/Server.Tests`
+[x] `tests/Shared.Tests/EventJsonTests.fs` and `tests/Shared.Tests/MailboxLogTests.fs`, where `Order.Undo` and `Order.Redo` change shape
+[x] ``Undo, Redo, ActorStart, and Cancel still post as PostEvent`` in `tests/Server.Tests/CoreMailboxDoorTests.fs`, whose Undo and Redo no longer post as `PostEvent`
+
+## Stop when
+
+[ ] Record the stop at `plan/core-refinement/reports/65-place-undo-and-redo-as-orders-stop.md`, then ask.
+[ ] Stop when the edit needs a file outside Inputs.
+[ ] Stop when the edit contradicts [Message shape](plan/core-refinement/cqrs-messages.md).
+[ ] Stop when the edit needs more than 8 source files or 4 test files.
+
+## Check
+
+[x] Run `scripts/agent-test.sh` with no arguments.
+[x] Run `scripts/agent-test.sh --filter` for each test the ticket names:
+  - `tests/Server.Tests`: the two new test names written in the test files
+  - `tests/Server.Tests`: ``postEvents places Order.Change with origin Edit``
+  - `tests/Server.Tests`: ``name-only Undo and Redo store completed Events with submission ids``
+  - `tests/Server.Tests`: ``Undo after restart refuses a target from before the restart``
+  - `tests/Shared.Tests`: ``Ev JSON round-trips each EventBody.Order case``
+  - `tests/Server.Tests`: ``Undo sets persistState Unpersisted and leaves persistedVersion``
+[x] All executed tests pass.
+[x] Write the verdict to `plan/core-refinement/reports/65-place-undo-and-redo-as-orders-check.md`. The first line is `pass` or `fail: <why>`. A fail stops the run.
+[x] A reader who reads only the One job line can say what the ticket builds.

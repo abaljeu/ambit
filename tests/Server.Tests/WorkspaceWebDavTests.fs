@@ -131,6 +131,192 @@ let private putBytesWithMtime (client: HttpClient) (url: string) (bytes: byte[])
         return! client.SendAsync(req)
     }
 
+let private utf8Sample (text: string) =
+    FileText.sampleFromBytes (Encoding.UTF8.GetBytes text) false
+
+let private nulSample =
+    FileText.sampleFromBytes [| 0uy; 65uy |] false
+
+let private assertContentType
+    (fileName: string)
+    (sample: FileText.Sample)
+    (expected: string)
+    =
+    Assert.Equal(expected, WorkspaceFileMedia.contentTypeFor fileName sample)
+    let dot = fileName.LastIndexOf('.')
+    if dot >= 0 then
+        let upper = fileName.Substring(0, dot) + fileName.Substring(dot).ToUpperInvariant()
+        Assert.Equal(expected, WorkspaceFileMedia.contentTypeFor upper sample)
+
+let private plain = "text/plain; charset=utf-8"
+
+[<Fact>]
+let ``content type pdf is application/pdf`` () =
+    assertContentType "doc.pdf" (utf8Sample "%PDF") "application/pdf"
+    assertContentType "doc.pdf" nulSample "application/pdf"
+
+[<Fact>]
+let ``content type png is image/png`` () =
+    assertContentType "pic.png" (utf8Sample "not-a-png") "image/png"
+    assertContentType "pic.png" nulSample "image/png"
+
+[<Fact>]
+let ``content type jpg and jpeg are image/jpeg`` () =
+    assertContentType "pic.jpg" nulSample "image/jpeg"
+    assertContentType "pic.jpeg" (utf8Sample "text") "image/jpeg"
+
+[<Fact>]
+let ``content type gif is image/gif`` () =
+    assertContentType "pic.gif" nulSample "image/gif"
+
+[<Fact>]
+let ``content type webp is image/webp`` () =
+    assertContentType "pic.webp" nulSample "image/webp"
+
+[<Fact>]
+let ``content type svg is image/svg+xml`` () =
+    assertContentType "pic.svg" (utf8Sample "<svg/>") "image/svg+xml"
+    assertContentType "pic.svg" nulSample "image/svg+xml"
+
+[<Fact>]
+let ``content type heic is image/heic`` () =
+    assertContentType "pic.heic" nulSample "image/heic"
+
+[<Fact>]
+let ``content type html and htm stay plain text`` () =
+    assertContentType "page.html" (utf8Sample "<p>hi</p>") plain
+    assertContentType "page.html" nulSample plain
+    assertContentType "page.htm" nulSample plain
+
+[<Fact>]
+let ``content type text sample is plain text`` () =
+    let text = utf8Sample "let x = 1\n"
+    assertContentType "note.fs" text plain
+    assertContentType "note.ts" text plain
+    assertContentType "note.py" text plain
+    assertContentType "note.yaml" text plain
+    assertContentType "note.toml" text plain
+    assertContentType "note.xml" text plain
+    assertContentType "note.sh" text plain
+    assertContentType "dir.amb" text plain
+    assertContentType ".gitignore" text plain
+    assertContentType "note.txt" text plain
+    assertContentType "note.md" text plain
+    assertContentType "note.json" text plain
+    Assert.Equal(plain, WorkspaceFileMedia.contentTypeFor "README" text)
+    Assert.Equal(plain, WorkspaceFileMedia.contentTypeFor "docs/README" text)
+
+[<Fact>]
+let ``content type binary sample is octet-stream`` () =
+    assertContentType "note.fs" nulSample "application/octet-stream"
+    assertContentType "archive.bin" nulSample "application/octet-stream"
+    assertContentType "note.txt" nulSample "application/octet-stream"
+    assertContentType "note.md" nulSample "application/octet-stream"
+    assertContentType "note.json" nulSample "application/octet-stream"
+    assertContentType ".gitignore" nulSample "application/octet-stream"
+    Assert.Equal(
+        "application/octet-stream",
+        WorkspaceFileMedia.contentTypeFor "README" nulSample)
+
+[<SkippableFact>]
+let ``GET pdf returns application/pdf and no attachment`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    File.WriteAllBytes(Path.Combine(home, "doc.pdf"), [| 0x25uy; 0x50uy; 0x44uy; 0x46uy |])
+    use client = createClientForDir dataDir
+    Assert.True(client.DefaultRequestHeaders.Contains("Cookie"))
+    let! resp = client.GetAsync("/ambit/dav/home/doc.pdf")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    Assert.Equal("application/pdf", resp.Content.Headers.ContentType.MediaType)
+    let disposition = resp.Content.Headers.ContentDisposition
+    Assert.True(
+        isNull disposition
+        || not (
+            String.Equals(
+                disposition.DispositionType,
+                "attachment",
+                StringComparison.OrdinalIgnoreCase)))
+}
+
+let private assertInlinePlain (resp: HttpResponseMessage) =
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let media = resp.Content.Headers.ContentType
+    Assert.False(isNull media)
+    Assert.Equal("text/plain", media.MediaType)
+    Assert.Equal("utf-8", media.CharSet)
+    let disposition = resp.Content.Headers.ContentDisposition
+    Assert.False(isNull disposition)
+    Assert.Equal("inline", disposition.DispositionType)
+
+[<SkippableFact>]
+let ``GET text file is plain text inline`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    let files = [|
+        "note.fs", "let x = 1\n"
+        "note.ts", "export const n = 1\n"
+        "note.py", "print(1)\n"
+        "note.yaml", "a: 1\n"
+        "note.toml", "a = 1\n"
+        "note.xml", "<a/>\n"
+        "note.sh", "echo hi\n"
+        "dir.amb", "body\n"
+        ".gitignore", "*.log\n"
+        "README", "hello\n"
+        "note.json", "{}\n"
+        "note.txt", "hello\n"
+        "note.md", "# hi\n"
+    |]
+    for name, body in files do
+        File.WriteAllText(Path.Combine(home, name), body)
+    use client = createClientForDir dataDir
+    for name, _ in files do
+        let! resp = client.GetAsync("/ambit/dav/home/" + Uri.EscapeDataString(name))
+        assertInlinePlain resp
+}
+
+[<SkippableFact>]
+let ``GET binary file stays octet-stream`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    File.WriteAllBytes(Path.Combine(home, "note.fs"), [| 0uy; 1uy; 2uy |])
+    use client = createClientForDir dataDir
+    let! resp = client.GetAsync("/ambit/dav/home/note.fs")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    Assert.Equal("application/octet-stream", resp.Content.Headers.ContentType.MediaType)
+    Assert.True(isNull resp.Content.Headers.ContentDisposition)
+}
+
+[<SkippableFact>]
+let ``GET html stays plain text and svg stays svg`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    File.WriteAllBytes(Path.Combine(home, "page.html"), [| 0uy; 65uy |])
+    File.WriteAllText(Path.Combine(home, "pic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+    use client = createClientForDir dataDir
+    let! html = client.GetAsync("/ambit/dav/home/page.html")
+    assertInlinePlain html
+    let! svg = client.GetAsync("/ambit/dav/home/pic.svg")
+    Assert.Equal(HttpStatusCode.OK, svg.StatusCode)
+    Assert.Equal("image/svg+xml", svg.Content.Headers.ContentType.MediaType)
+    let disposition = svg.Content.Headers.ContentDisposition
+    Assert.True(
+        isNull disposition
+        || not (
+            String.Equals(
+                disposition.DispositionType,
+                "inline",
+                StringComparison.OrdinalIgnoreCase)))
+}
+
 [<SkippableFact>]
 let ``GET after PUT round-trips bytes`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
@@ -405,6 +591,7 @@ let ``WorkspaceFileSync.post uploads edited local file into DataDir`` () = task 
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
     try
+        suppressDailyGitSave dataDir
         use factory =
             (new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>())
                 .WithWebHostBuilder(fun builder ->

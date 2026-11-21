@@ -8,14 +8,12 @@ let private choice operation prePick subject : LoadPathChoice =
       prePick = prePick
       subject = subject }
 
-let private staysDesk subject =
-    let remoteExists () = Error "remote check must not run"
+let private loadCommand prePick subject =
     PathPick.resolveCommand
-        (choice
-            LoadSaveOperation.Load
-            LoadSavePrePick.Plain
-            subject)
-        remoteExists
+        (choice LoadSaveOperation.Load prePick subject)
+
+let private plainLoad subject =
+    loadCommand LoadSavePrePick.Plain subject
 
 [<Fact>]
 let ``choose returns Git when a remote exists`` () =
@@ -56,54 +54,124 @@ let ``explicit pre-pick bypasses the remote chooser`` prePickName =
 
 [<Fact>]
 let ``plain Load of a Directory, File, or non-subject stays Desk`` () =
-    let subjects = [
-        Some LoadSubject.Directory
-        Some LoadSubject.File
-        None
-    ]
-    for subject in subjects do
-        Assert.Equal(Ok LoadSavePath.Desk, staysDesk subject)
+    for subject in
+        [ Some LoadSubject.Directory
+          Some LoadSubject.File
+          None ] do
+        Assert.Equal(Ok LoadSavePath.Desk, plainLoad subject)
 
 [<Fact>]
-let ``plain Load of a Workspace uses the remote`` () =
-    let actual =
-        PathPick.resolveCommand
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                (Some LoadSubject.Workspace))
-            (fun () -> Ok true)
+let ``plain Load of a Workspace chooses the Load actor`` () =
+    let actual = plainLoad (Some LoadSubject.Workspace)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
-let ``explicit git Load of a File stays Git`` () =
+let ``explicit git Load of a Directory, File, or non-subject stays Desk`` () =
+    for subject in
+        [ Some LoadSubject.Directory
+          Some LoadSubject.File
+          None ] do
+        Assert.Equal(
+            Ok LoadSavePath.Desk,
+            loadCommand LoadSavePrePick.Git subject)
+
+[<Fact>]
+let ``explicit git Load of a Workspace chooses Git`` () =
     let actual =
-        PathPick.resolveCommand
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Git
-                (Some LoadSubject.File))
-            (fun () -> Error "remote check must not run")
+        loadCommand LoadSavePrePick.Git (Some LoadSubject.Workspace)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
 [<Fact>]
-let ``plain Save of a Directory still asks the remote`` () =
+let ``plain Save enters the Save actor`` () =
     let actual =
         PathPick.resolveCommand
             (choice
                 LoadSaveOperation.Save
                 LoadSavePrePick.Plain
                 (Some LoadSubject.Directory))
-            (fun () -> Ok true)
     Assert.Equal(Ok LoadSavePath.Git, actual)
 
+let private mustApply (graph: Graph) (ops: Op list) =
+    let state = { graph = graph; eventId = EventId.zero }
+    let next =
+        ops
+        |> List.fold
+            (fun current op ->
+                match Op.apply op current with
+                | ApplyResult.Changed next -> next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, message) ->
+                    failwith message)
+            state
+    next.graph
+
+let private presence github local =
+    PathPick.mappingPresence (Set.ofList github) (Set.ofList local)
+
+let private savePath github local =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = mustApply graph0 workspaceOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "note.txt"
+    let graph = mustApply graph1 fileOps
+    fileId, graph, presence github local
+
 [<Fact>]
-let ``effective path forces Desk for plain File Load`` () =
+let ``plain Save with a remote and a local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [ "home" ] [ "home" ]
     let path =
-        PathPick.effectiveLoadPath
-            (choice
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                (Some LoadSubject.File))
-            LoadSavePath.Git
-    Assert.Equal(LoadSavePath.Desk, path)
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
+
+[<Fact>]
+let ``plain Save with a remote and no local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [ "home" ] []
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
+
+[<Fact>]
+let ``plain Save with no remote and a local mapping chooses Desk`` () =
+    let fileId, graph, labels = savePath [] [ "home" ]
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(Some LoadSavePath.Desk, path)
+
+[<Fact>]
+let ``plain Save with no remote and no local mapping stays on the Save actor`` () =
+    let fileId, graph, labels = savePath [] []
+    let path =
+        PathPick.plainSavePath
+            graph fileId LoadSavePrePick.Plain labels
+    Assert.Equal(None, path)
+
+let private plainLoadPathWithBothMappings pick =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let graph1 = mustApply graph0 workspaceOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph1 workspaceId "note.txt"
+    let graph = mustApply graph1 fileOps
+    let presence = {
+        githubLabels = Set.singleton "home"
+        localLabels = Set.singleton "home"
+    }
+    PathPick.plainLoadPath
+        graph
+        (pick (workspaceId, fileId))
+        LoadSavePrePick.Plain
+        presence
+
+[<Fact>]
+let ``plain Load of a Workspace with both mappings chooses Git`` () =
+    Assert.Equal(Some LoadSavePath.Git, plainLoadPathWithBothMappings fst)
+
+[<Fact>]
+let ``a File in a workspace with both mappings keeps a plain Load with no git`` () =
+    Assert.Equal(None, plainLoadPathWithBothMappings snd)

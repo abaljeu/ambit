@@ -1,136 +1,87 @@
 namespace Gambol.Server
 
+open System
 open System.Threading
 open Gambol.Shared
 
 /// Dependencies for the long-lived persist thread. The thread does not
-/// edit graph axes. finish is the private SnapshotDone add.
+/// edit graph axes. It reads live state once per taken request.
 type internal PersistThreadDeps = {
-    consumer: unit -> PersistWork
-    persistOps:
-        string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
-    persistChange:
-        string -> Graph -> Graph -> Result<PersistGraphOk, string>
-    finish: NodeId -> Graph option -> unit
-    changeFailed: NodeId list -> string -> unit
+    currentState: unit -> GraphAtEvent
+    take: unit -> PersistRequest option
+    persistNode: Graph -> NodeId -> Result<DateTime, string>
+    postNotice: Notice -> unit
 }
 
-/// One long-lived persist thread. It pulls collector jobs and calls the
-/// existing persist functions. It is not an Actor and has no MailboxProcessor.
+/// One long-lived persist thread. It takes a node id from the persist
+/// request stack and writes that node from the live graph. It is not an
+/// Actor and has no MailboxProcessor.
 [<RequireQualifiedAccess>]
 module PersistThread =
 
-    let private reply (work: PersistWork) (outcome: PersistOutcome) =
-        match work.reply with
-        | None -> ()
-        | Some send -> send outcome
+    /// True when that node is Unparsed.
+    let internal unparsedNode (graph: Graph) (nodeId: NodeId) : bool =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node when
+            node.documentState.parseState = ParseState.Unparsed ->
+            true
+        | _ -> false
 
-    let private notify
-        (deps: PersistThreadDeps)
-        (submit: PersistSubmit)
-        (graph: Graph option)
-        (ids: NodeId list)
-        =
-        if submit.notify then
-            ids |> List.iter (fun id -> deps.finish id graph)
-
-    let private notifyIds (submit: PersistSubmit) : NodeId list =
-        match submit.kind with
-        | PersistKind.Ops ->
-            submit.nodeIds
-            |> List.filter (PersistCollectors.openNode submit.postGraph)
-        | PersistKind.Change ->
-            submit.nodeIds
-            |> List.filter (fun id ->
-                not (PersistCollectors.unparsedNode submit.postGraph id))
-
-    /// A Change job writes the whole graph. One Unparsed submitted id
-    /// blocks that write. The caller does not get SnapshotDone.
-    let private changeBlocked (submit: PersistSubmit) =
-        submit.kind = PersistKind.Change
-        && submit.nodeIds
-           |> List.exists (
-               PersistCollectors.unparsedNode submit.postGraph)
-
-    let private blocked (submit: PersistSubmit) (ops: Op list) : bool =
-        let droppedOps =
-            submit.kind = PersistKind.Ops
-            && not (List.isEmpty submit.ops)
-            && List.isEmpty ops
-        droppedOps || changeBlocked submit
-
-    let private invoke
-        (deps: PersistThreadDeps)
-        (submit: PersistSubmit)
-        (ops: Op list)
-        : Result<PersistGraphOk, string> =
-        match submit.dataDir with
-        | None -> Ok { graph = submit.postGraph; message = None }
-        | Some dataDir ->
-            match submit.kind with
-            | PersistKind.Ops ->
-                deps.persistOps dataDir submit.preGraph submit.postGraph ops
-            | PersistKind.Change ->
-                deps.persistChange dataDir submit.preGraph submit.postGraph
-
-    let private afterWrite
-        (deps: PersistThreadDeps)
-        (work: PersistWork)
-        (ids: NodeId list)
-        (written: Result<PersistGraphOk, string>)
-        =
-        let submit = work.submit
-        match written with
-        | Error err ->
-            if submit.kind = PersistKind.Change then
-                deps.changeFailed submit.nodeIds err
-            reply work (PersistOutcome.Failed err)
-        | Ok stamped ->
-            let clean = stamped.message.IsNone
-            let tell =
-                submit.notify
-                && (submit.kind = PersistKind.Change || clean)
-            if tell then
-                notify deps submit (Some stamped.graph) ids
-            reply work (PersistOutcome.Wrote stamped)
-
-    let private runWrite
-        (deps: PersistThreadDeps)
-        (work: PersistWork)
-        (ops: Op list)
-        (ids: NodeId list)
-        =
-        let written =
-            try
-                invoke deps work.submit ops
-            with ex ->
-                Error ex.Message
-        afterWrite deps work ids written
-
-    let private runOne (deps: PersistThreadDeps) (work: PersistWork) =
-        let ops =
-            PersistCollectors.opsOpenForPersist work.submit.postGraph work.submit.ops
-        if blocked work.submit ops then
-            reply work PersistOutcome.Blocked
-        else
-            runWrite deps work ops (notifyIds work.submit)
+    let private runRequest (deps: PersistThreadDeps) (request: PersistRequest) =
+        let state = deps.currentState ()
+        let stillPersisted =
+            CoreEventDispatch.persistedNode state.graph request.nodeId
+        if not stillPersisted then
+            deps.postNotice (Notice.NodePersisting request.nodeId)
+            let written =
+                try
+                    deps.persistNode state.graph request.nodeId
+                with ex ->
+                    Error ex.Message
+            match written with
+            | Ok updateTime ->
+                deps.postNotice (
+                    Notice.NodePersisted(
+                        request.nodeId,
+                        state.eventId,
+                        updateTime))
+            | Error message ->
+                deps.postNotice (
+                    Notice.PersistFailed(request.nodeId, message))
 
     let private loop (deps: PersistThreadDeps) =
-        while true do
-            runOne deps (deps.consumer ())
+        let rec run () =
+            match deps.take () with
+            | None -> ()
+            | Some request ->
+                try
+                    runRequest deps request
+                finally
+                    ServerRunRegistry.notePersistFinished ()
+                run ()
+        run ()
 
-    /// Hosts the perpetual consumer on a background thread.
-    let internal start (deps: PersistThreadDeps) =
+    /// Hosts the consumer. The returned join waits until the thread exits.
+    let internal start (deps: PersistThreadDeps) : unit -> unit =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
+        thread.Name <- "gambol-persist"
         thread.Start()
+        let gate = obj ()
+        let joined = ref false
+        let join () =
+            lock gate (fun () ->
+                if not joined.Value then
+                    joined.Value <- true
+                    thread.Join())
+        ServerRunRegistry.registerPersistJoin join
+        join
 
-    /// Private add after a successful finish. A failed write does not call this.
-    let internal finishWhenBound
-        (slot: (InMsg -> unit) option ref)
-        (nodeId: NodeId)
-        (graph: Graph option)
+    /// The slot is filled with CoreMailboxApi.postNotice.
+    let internal postWhenBound
+        (slot: (Notice -> unit) option ref)
+        (notice: Notice)
         =
         match slot.Value with
         | None -> ()
-        | Some post -> post (InMsg.SnapshotDone(nodeId, graph))
+        | Some post -> post notice

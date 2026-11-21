@@ -1,201 +1,337 @@
 module Gambol.Server.Tests.PersistThreadTests
 
+open System
+open System.Diagnostics
+open System.IO
+open System.Threading
 open Xunit
 open Gambol.Server
+open Gambol.Server.Tests.TestBackend
 open Gambol.Shared
 
-let private fileGraph (parse: ParseState) (persist: PersistState) =
+let private requireOk label result =
+    match result with
+    | Ok value -> value
+    | Error error -> failwith $"{label}: {error}"
+
+let private owned = ChildNode.owners
+
+let private special id kind name owner persist =
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind,
+        parseState = ParseState.Parsed,
+        persistState = persist)
+
+let private fileGraph (body: string) =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileId = NodeId.New()
+    let bodyId = NodeId.New()
+    let graph1 =
+        graph0
+        |> Graph.addDetachedNode
+            (special wsId Workspace "home" Graph.workspacesId PersistState.Persisted)
+        |> Graph.addDetachedNode
+            (special fileId File "note.txt" wsId PersistState.Unpersisted)
+        |> Graph.addDetachedNode
+            (Node.Create(bodyId, text = body, owner = fileId))
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces"
+        |> Graph.replace wsId 0 [] (owned [ fileId ])
+        |> requireOk "file"
+        |> Graph.replace fileId 0 [] (owned [ bodyId ])
+        |> requireOk "body"
+    graph2, fileId, bodyId
+
+let private withBody (graph: Graph) (bodyId: NodeId) (text: string) =
+    let body = graph.nodes.[bodyId]
+    { graph with nodes = Map.add bodyId { body with text = text } graph.nodes }
+
+let private markPersisted (state: GraphAtEvent) (nodeId: NodeId) =
+    let node =
+        Node.withPersistState PersistState.Persisted state.graph.nodes.[nodeId]
+    { state with
+        graph =
+            { state.graph with
+                nodes = Map.add nodeId node state.graph.nodes } }
+
+let private waitUntil (label: string) (ready: unit -> bool) =
+    let sw = Stopwatch.StartNew()
+    while not (ready ()) && sw.ElapsedMilliseconds < 2000 do
+        Thread.Sleep 5
+    Assert.True(ready (), label)
+
+let private startThread
+    (state: GraphAtEvent ref)
+    (take: unit -> PersistRequest option)
+    (persistNode: Graph -> NodeId -> Result<DateTime, string>)
+    (postNotice: Notice -> unit)
+    =
+    PersistThread.start {
+        currentState = fun () -> state.Value
+        take = take
+        persistNode = persistNode
+        postNotice = postNotice
+    }
+
+[<Fact>]
+let ``persist thread writes from the live graph`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, bodyId = fileGraph "before"
+    let state = ref { graph = graph; eventId = EventId.zero }
+    let stack = PersistRequestStack.create ()
+    PersistRequestStack.push stack { nodeId = fileId }
+    state.Value <-
+        { state.Value with
+            graph = withBody state.Value.graph bodyId "after-edit" }
+    let notices = ResizeArray<Notice>()
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
+            (fun graph nodeId ->
+                DocumentPersistChange.persistNode dataDir graph nodeId)
+            notices.Add
+    waitUntil "NodePersisted" (fun () -> notices.Count > 0)
+    PersistRequestStack.stop stack
+    join ()
+    let path =
+        DocumentPersistPath.resolveArtifactPath dataDir state.Value.graph fileId
+        |> requireOk "path"
+    let text = File.ReadAllText path
+    Assert.Contains("after-edit", text)
+    Assert.DoesNotContain("before", text)
+    let persisted =
+        notices
+        |> Seq.tryPick (function
+            | Notice.NodePersisted (id, _, _) -> Some id
+            | _ -> None)
+    Assert.Equal(Some fileId, persisted)
+
+[<Fact>]
+let ``repeated pushes write once`` () =
     let id = NodeId.New()
     let node =
-        Node.Create(
-            id,
-            text = "note.txt",
-            name = Filename.create "note.txt",
-            kind = Special File,
-            documentState = ParseState.toDocumentState parse,
-            parseState = parse,
-            persistState = persist)
-    id, Graph.addDetachedNode node (Graph.create ())
+        special id File "note.txt" Graph.rootId PersistState.Unpersisted
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = EventId.zero
+        }
+    let writes = ref 0
+    let reads = ref 0
+    let stack = PersistRequestStack.create ()
+    for _ in 1 .. 4 do
+        PersistRequestStack.push stack { nodeId = id }
+    let join =
+        PersistThread.start {
+            currentState =
+                fun () ->
+                    Interlocked.Increment reads |> ignore
+                    state.Value
+            take = fun () -> PersistRequestStack.takeUntilStop stack
+            persistNode =
+                fun _ _ ->
+                    Interlocked.Increment writes |> ignore
+                    Ok DateTime.UtcNow
+            postNotice =
+                function
+                | Notice.NodePersisted (nodeId, _, _) ->
+                    state.Value <- markPersisted state.Value nodeId
+                | _ -> ()
+        }
+    waitUntil "four takes" (fun () -> reads.Value >= 4)
+    PersistRequestStack.stop stack
+    join ()
+    Assert.Equal(1, writes.Value)
 
-let private edit (id: NodeId) =
-    [ Op.SetText(id, "note.txt", "next") ]
+[<Fact>]
+let ``persist thread posts NodePersisted on success only`` () =
+    let run persistNode =
+        let id = NodeId.New()
+        let node =
+            special id File "note.txt" Graph.rootId PersistState.Unpersisted
+        let state =
+            ref {
+                graph = Graph.addDetachedNode node (Graph.create ())
+                eventId = EventId.zero
+            }
+        let stack = PersistRequestStack.create ()
+        let notices = ResizeArray<Notice>()
+        PersistRequestStack.push stack { nodeId = id }
+        let join =
+            startThread
+                state
+                (fun () -> PersistRequestStack.takeUntilStop stack)
+                persistNode
+                notices.Add
+        waitUntil "notice" (fun () -> notices.Count > 0)
+        PersistRequestStack.stop stack
+        join ()
+        id, List.ofSeq notices
 
-let private startWith persistOps persistChange =
-    let calls = ResizeArray<string>()
-    let finishes = ResizeArray<NodeId * Graph option>()
-    let failures = ResizeArray<string>()
-    let collect, consumer = PersistCollectors.create ()
-    PersistThread.start {
-        consumer = consumer
-        persistOps =
-            fun _ _ post ops ->
-                calls.Add("ops")
-                persistOps post ops
-        persistChange =
-            fun _ _ post ->
-                calls.Add("change")
-                persistChange post
-        finish = fun id graph -> finishes.Add(id, graph)
-        changeFailed = fun _ err -> failures.Add(err)
+    let written = DateTime(2026, 10, 21, 0, 0, 0, DateTimeKind.Utc)
+    let okId, okNotices = run (fun _ _ -> Ok written)
+    match okNotices with
+    | [ Notice.NodePersisting id
+        Notice.NodePersisted (persistedId, _, time) ] ->
+        Assert.Equal(okId, id)
+        Assert.Equal(okId, persistedId)
+        Assert.Equal(written, time)
+    | other ->
+        Assert.Fail(
+            $"expected NodePersisting then NodePersisted, got {other}")
+
+    let badId, badNotices = run (fun _ _ -> Error "disk full")
+    Assert.Equal<Notice list>(
+        [ Notice.NodePersisting badId
+          Notice.PersistFailed(badId, "disk full") ],
+        badNotices)
+    let persistedBad =
+        badNotices
+        |> List.exists (function
+            | Notice.NodePersisted (id, _, _) -> id = badId
+            | _ -> false)
+    Assert.False(persistedBad)
+
+let private applyPersisted
+    (graphAtEvent: GraphAtEvent ref)
+    (pushPersist: NodeId -> unit)
+    (notice: Notice)
+    =
+    let handlers : CoreMailboxAccess = {
+        graphAtEvent = fun () -> Ok graphAtEvent.Value
+        getEventId = fun () -> Ok graphAtEvent.Value.eventId
+        getEventsSince = fun _ -> Ok []
+        getEventLog = fun () -> Ok EventLog.empty
+        appendEvent = fun _ -> Ok ()
+        applyEvent = fun _ _ -> Error "unused"
+        replaceGraph =
+            fun _ graph ->
+                graphAtEvent.Value <- { graphAtEvent.Value with graph = graph }
+        noteDiffDone = ignore
+        noteParsed = ignore
+        pushPersist = pushPersist
+        notePersisted = ignore
+        noteWriteFailed = ignore
     }
-    collect, calls, finishes, failures
-
-let private okGraph post _ =
-    Ok { graph = post; message = None }
+    match CoreMailboxLoop.applyNotice handlers notice with
+    | Ok () -> ()
+    | Error err -> Assert.Fail(err)
 
 [<Fact>]
-let ``open node calls persist ops and adds SnapshotDone`` () =
-    let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
-        startWith okGraph (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = edit id
-            kind = PersistKind.Ops
-            notify = true
-            wait = true
+let ``persist thread posts the version it read`` () =
+    let id = NodeId.New()
+    let version = EventIdFixtures.storedId 4
+    let later = EventIdFixtures.storedId 9
+    let node =
+        special id File "note.txt" Graph.rootId PersistState.Unpersisted
+    let state =
+        ref {
+            graph = Graph.addDetachedNode node (Graph.create ())
+            eventId = version
         }
-    match outcome with
-    | PersistOutcome.Wrote stamped ->
-        Assert.Equal(graph, stamped.graph)
-    | other -> Assert.Fail($"expected Wrote, got {other}")
-    Assert.Equal<string>([ "ops" ], calls)
-    let finishedId, finishedGraph = Assert.Single(finishes)
-    Assert.Equal(id, finishedId)
-    Assert.Equal(Some graph, finishedGraph)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
-
-[<Fact>]
-let ``Unparsed node is blocked and does not call persist`` () =
-    let id, graph = fileGraph ParseState.Unparsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
-        startWith okGraph (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = edit id
-            kind = PersistKind.Ops
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Blocked -> ()
-    | other -> Assert.Fail($"expected Blocked, got {other}")
-    Assert.Empty(calls)
-    Assert.Empty(finishes)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
-
-[<Fact>]
-let ``snapshot change calls persist change and adds SnapshotDone`` () =
-    let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, _failures =
-        startWith okGraph (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = []
-            kind = PersistKind.Change
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Wrote _ -> ()
-    | other -> Assert.Fail($"expected Wrote, got {other}")
-    Assert.Equal<string>([ "change" ], calls)
-    let finishedId, _ = Assert.Single(finishes)
-    Assert.Equal(id, finishedId)
-
-[<Fact>]
-let ``Change is blocked when any submitted node is Unparsed`` () =
-    let openId, graph =
-        fileGraph ParseState.Parsed PersistState.Unpersisted
-    let blockedId = NodeId.New()
-    let blockedNode =
-        Node.Create(
-            blockedId,
-            text = "raw.txt",
-            name = Filename.create "raw.txt",
-            kind = Special File,
-            documentState = Unparsed,
-            parseState = ParseState.Unparsed,
-            persistState = PersistState.Unpersisted)
-    let graph = Graph.addDetachedNode blockedNode graph
-    let collect, calls, finishes, _failures =
-        startWith okGraph (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ openId; blockedId ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = []
-            kind = PersistKind.Change
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Blocked -> ()
-    | other -> Assert.Fail($"expected Blocked, got {other}")
-    Assert.Empty(calls)
-    Assert.Empty(finishes)
-
-[<Fact>]
-let ``failed Change does not add SnapshotDone`` () =
-    let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, calls, finishes, failures =
-        startWith okGraph (fun _ -> Error "disk full")
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = []
-            kind = PersistKind.Change
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Failed err -> Assert.Equal("disk full", err)
-    | other -> Assert.Fail($"expected Failed, got {other}")
-    Assert.Equal<string>([ "change" ], calls)
-    Assert.Empty(finishes)
-    Assert.Equal<string>([ "disk full" ], failures)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
-
-[<Fact>]
-let ``thrown persist ops return Failed`` () =
-    let id, graph = fileGraph ParseState.Parsed PersistState.Unpersisted
-    let collect, _calls, finishes, failures =
-        startWith
+    let stack = PersistRequestStack.create ()
+    let notices = ResizeArray<Notice>()
+    PersistRequestStack.push stack { nodeId = id }
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
             (fun _ _ ->
-                raise (System.InvalidOperationException("injected persistence failure")))
-            (fun post -> okGraph post [])
-    let outcome =
-        collect {
-            nodeIds = [ id ]
-            dataDir = Some "data"
-            preGraph = graph
-            postGraph = graph
-            ops = edit id
-            kind = PersistKind.Ops
-            notify = true
-            wait = true
-        }
-    match outcome with
-    | PersistOutcome.Failed err ->
-        Assert.Contains("injected persistence failure", err)
-    | other -> Assert.Fail($"expected Failed, got {other}")
-    Assert.Empty(finishes)
-    Assert.Empty(failures)
-    Assert.Equal(PersistState.Unpersisted, graph.nodes.[id].documentState.persistState)
+                state.Value <- { state.Value with eventId = later }
+                Ok DateTime.UtcNow)
+            notices.Add
+    waitUntil "notice" (fun () -> notices.Count > 0)
+    PersistRequestStack.stop stack
+    join ()
+    match List.ofSeq notices with
+    | [ Notice.NodePersisting persistingId
+        Notice.NodePersisted (postedId, persistedVersion, _) ] ->
+        Assert.Equal(id, persistingId)
+        Assert.Equal(id, postedId)
+        Assert.Equal(version, persistedVersion)
+    | other ->
+        Assert.Fail(
+            $"expected NodePersisting then NodePersisted, got {other}")
+
+[<Fact>]
+let ``NodePersisted carries the written file time`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, _ = fileGraph "saved"
+    let state = ref { graph = graph; eventId = EventId.zero }
+    let stack = PersistRequestStack.create ()
+    PersistRequestStack.push stack { nodeId = fileId }
+    let notices = ResizeArray<Notice>()
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
+            (fun graph nodeId ->
+                DocumentPersistChange.persistNode dataDir graph nodeId)
+            (fun notice ->
+                notices.Add notice
+                applyPersisted state ignore notice)
+    waitUntil "NodePersisted" (fun () -> notices.Count > 0)
+    PersistRequestStack.stop stack
+    join ()
+    let path =
+        DocumentPersistPath.resolveArtifactPath
+            dataDir
+            state.Value.graph
+            fileId
+        |> requireOk "path"
+    let fileTime =
+        File.GetLastWriteTimeUtc path |> NodeUpdateTime.toDbPrecision
+    match
+        notices
+        |> Seq.tryFind (function
+            | Notice.NodePersisted _ -> true
+            | _ -> false)
+    with
+    | Some (Notice.NodePersisted (id, _, updateTime)) ->
+        Assert.Equal(fileId, id)
+        Assert.Equal(fileTime, updateTime)
+        Assert.Equal(fileTime, state.Value.graph.nodes.[fileId].updateTime)
+    | other -> Assert.Fail($"expected NodePersisted, got {other}")
+
+[<Fact>]
+let ``NodeParsed leaves the written node Persisted`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId, _ = fileGraph "saved-body"
+    let state = ref { graph = graph; eventId = EventId.zero }
+    let stack = PersistRequestStack.create ()
+    let apply notice =
+        applyPersisted
+            state
+            (fun nodeId ->
+                PersistRequestStack.push stack { nodeId = nodeId })
+            notice
+    let join =
+        startThread
+            state
+            (fun () -> PersistRequestStack.takeUntilStop stack)
+            (fun graph nodeId ->
+                DocumentPersistChange.persistNode dataDir graph nodeId)
+            apply
+    apply (Notice.NodeParsed fileId)
+    let persisted () =
+        state.Value.graph.nodes.[fileId].persistState = PersistState.Persisted
+    waitUntil "Persisted" persisted
+    PersistRequestStack.stop stack
+    join ()
+    let node = state.Value.graph.nodes.[fileId]
+    Assert.Equal(PersistState.Persisted, node.persistState)
+    Assert.Equal(ParseState.Parsed, node.parseState)
+    let path =
+        DocumentPersistPath.resolveArtifactPath
+            dataDir
+            state.Value.graph
+            fileId
+        |> requireOk "path"
+    Assert.Contains("saved-body", File.ReadAllText path)

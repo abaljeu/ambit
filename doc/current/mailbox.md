@@ -13,42 +13,85 @@ The mailbox is the Core loop and the public post path.
 ## Sources
 
 [CoreMsg](../../src/Server/Core/CoreMsg.fs) - the contract
+[Session](../../src/Server/Core/Session.fs) - browser authority and admission
+[Mailbox log](../../src/Shared/MailboxLog.fs) - `Order`, `Notice`, and the mapping from today's `Ev`
 [Core mailbox](../../src/Server/Core/CoreMailbox.fs) - the queue
 [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs).
+[Core event dispatch](../../src/Server/Core/CoreEventDispatch.fs) - Change persist push
+[Document op impact](../../src/Shared/DocumentOpImpact.fs) - owning special nodes
 
 ## Data
 
-[x] The mailbox queue is one `MailboxProcessor`. Its element is a private sum of `CoreMsg` and `InMsg`. That sum has no public name.
+The mailbox queue is one `MailboxProcessor`. Its element is internal `CoreQueue`: `Public of Mailbox | Notice of Notice | DropAuthority`.
 
 ## Job
 [x] The callable door over the mailbox queue.
 [x] Core mailbox backend: the shared loop. 
 [x] Every mailbox message finishes quickly. Work that would hold the mailbox is an Actor. The Actor runs off the queue and posts more fast messages. [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
-[x] Mailbox event log: stores `ActorStart` and `ActorStop`. Undo and Redo stay Change-only. Actor events are not Undo targets.
+[o] Mailbox event log: stores `ActorStart` and `ActorStop`. Undo and Redo stay Change-only. Actor events are not Undo targets.
+[ ] Mailbox event log: `EventBody` is `Order of PlacedOrder | Notice of Notice`. `Order.Undo` and `Order.Redo` carry the target `EventId` and the Op list. `Order.StartActor` and `Notice.ActorStopped` are the logged actor cases. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 1 Logged as placed and decision 16 Order carries its envelope fields.
+[x] Restart tip: [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `makeMailBox` sets `MailboxContext.restartTip` to `EventLog.tip` of the seeded log, or `EventId.zero` when the seed fails. [Core mailbox events](../../src/Server/Core/CoreMailboxEvents.fs) `eventDispatchContext` copies that id onto [Core event dispatch](../../src/Server/Core/CoreEventDispatch.fs) `Context`. `DbAgent` and `FileAgent` share this mailbox.
+[x] Undo and Redo after a restart: `completeAction` returns `Error "target Event is from before the restart"` when the target is not `EventId.zero` and `EventId.value target <= EventId.value restartTip`. A name-only body and a body that already carries ops take that check. `prepare` calls `completeAction`.
 
 ## Interface
-[x] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
-[x] `CoreMailbox` on a `MailboxHost`. Each public function builds a `CoreMsg` and posts through `CoreMailbox.reply` → `MailboxHost.postAndAsyncReply` → the processor pump in `CoreMailboxBackend`.
-[x] `CoreMailbox.coreChanges` returns a `CoreChanges` record: `getState`, `getEventId`, `getEventsSince`, `postEvents`, `postGraphOnly`, `actorStop`, `asCaller`.
+A browser route takes a Session admission for the caller before the core order door and finishes that admission after the route queues its order or abandons the post. Actor start admits the new Actor secret when that secret is live in the pool. A later core post copies the caller's Authority onto the stored event.
+
+[o] `CoreMsg` is internal. Outside Core, a caller does not construct or post `CoreMsg`.
+[ ] `Mailbox` is the public mailbox and is server-only. A client or an Actor places an `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply and decision 10 Order, not Command.
+[o] `CoreMailbox` on a `MailboxHost`. Each public order builds a `CoreMsg`.
+
+Each public read posts `Mailbox.Ask`. `Query.State` replies with the live Graph and lock-present Focus ids. `Query.LastEventId` replies with the current event id. `Query.EventsSince` replies with the mailbox EventLog after the requested id; event id 0 returns the full log.
+
+`MailboxHost` holds `Session` beside the core mailbox. Login registers the caller's authority and opens admission. Admit checks that the caller may start a route. Logout stops admitting that caller and queues `CoreQueue.DropAuthority` behind orders already on the queue. The route returns at that post. The core removes the authority when it processes `DropAuthority`. At Receive, [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) rejects an order whose current generation `DropAuthority` closed. `PlaceOrder` replies `Error` with a reason. Nothing is applied or logged. A caller with an open generation still runs. Login returns `Ok`. A login while admission is closed opens a new generation, and the queued drop closes only the generation logout queued. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 8 Session leaves.
+
+[ ] Each public order posts `Mailbox.PlaceOrder`.
+[x] `CoreDoor.actorChanges` in `src/Server/Core/CoreDoor.fs` fills `ActorChanges` in `src/Shared/History.fs` with `postChanges`, `graphAtEvent`, `loadNode`, `postNotice`, `eventsSince`, and `postGraphOnly`. `CoreChangesDoor` in `src/Server/Core/CoreChangesDoor.fs` is `host`, `caller`, and `writable`.
+
+`CoreMailbox.coreChanges` asks `Query.State`, `Query.LastEventId`, and `Query.EventsSince`. History is `Query.EventsSince` of event id 0.
+
+[ ] `CoreMailbox.coreChanges` places `Order.Change` of ops and `ChangeOrigin` through `Mailbox.PlaceOrder`. `origin` exists only on that placed order. `Notice.ActorStopped` goes through the notice function. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [x] Server modules call `CoreMailbox` or `CoreChanges`. The client reaches Core only through HTTP routes.
 
 ## Internal 
-[x] `CoreMsg` has no `SnapshotDone`. `SnapshotDone` is a case of `InMsg`. A private function adds `InMsg` to the mailbox queue. It has no public door.
+[x] `CoreMsg` has no `SnapshotDone`. `Notice.NodePersisted` of `nodeId` is the persist-finished case. A private function adds `Notice` to the mailbox queue. It has no public door. The encoder writes `nodePersisted`. The decoder also reads `snapshotDone`.
+[ ] `Notice.NodePersisted` of `nodeId: NodeId * version: EventId`. The notice function posts that `Notice` onto `CoreQueue`. Holding the notice function is the permission. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone and decision 15 Notice has its own door.
 
 ## Messages
-[x] Fast Actor messages on this loop: `StartActor` and `ActorStop`.
+[x] `replyActorOrder` asks the pool first. `startFunction` admits the actor and `schedule` launches it. The mailbox appends `Order.StartActor` of `ActorOrder` after that affirmation. A refusal posts no row. The caller reply is that failure.
+[x] `MailboxHost.postPlacedOrder` queues `Order.ClientRequestActor`. [Mailbox host](../../src/Server/Core/MailboxHost.fs).
+[x] `placeOrder` runs `CoreMailboxActors.replyClientRequest` for `Order.ClientRequestActor` and `CoreMailboxActors.replyPlacedCancel` for `Order.CancelActor`. [Core mailbox loop](../../src/Server/Core/CoreMailboxLoop.fs).
+[x] `Notice.ActorStopped` is the fast stop on this loop. `CoreMailboxLoop.dispatchItem` sends it to `CoreMailboxLoop.logActorStopped`. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`. `CoreMsg` is `StartLoadSaveCommand`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [x] Persist handlers do not dispatch Actor cases. The file agent and the db agent do not start a mailbox.
-[x] `InMsg`: internal message type on module Core loop. Not an Op. It carries the node. Cases: `ParseFinished`, `SnapshotDone`, `MarkUnparsed`.
-[x] One queue: the mailbox queue. A private function on [Core mailbox](../../src/Server/Core/CoreMailbox.fs) adds `InMsg`. A public function adds `CoreMsg`. The queue puller in [Core mailbox backend](../../src/Server/Core/CoreMailboxBackend.fs) hands a `CoreMsg` to the `CoreMsg` handler and an `InMsg` to the `InMsg` handler. There is no second queue.
-[x] `ParseFinished`: the InMsg handler sets that node Parsed only. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged.
-[x] `MarkUnparsed`: the InMsg handler sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer. Directory reconcile does not name an existing member for this case.
-[x] `SnapshotDone`: the InMsg handler sets that node Persisted through `GraphMutate.setPersistState`, including when the snapshot graph is absent. The same completion stores the snapshot graph as `persistedGraph` when it equals the live graph, clears the in-progress flag, and starts another snapshot when one is needed. The db agent adds this case through the private function when the live-document snapshot finishes. That node is the enclosing workspace of the accepted ops that requested the snapshot.
-[ ] The persist thread adds `SnapshotDone` through the private function when a file write finishes.
-[x] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `InMsg` stays off that path.
+[o] `Notice`: Shared type in [History](../../src/Shared/History.fs). Not an Op. Cases include `NodeParsed`, `NodePersisted`, `MarkUnparsed`, `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodePersisting`, and `PersistFailed`.
+[ ] `Notice` cases: `NodeUploading`, `NodeReceived`, `NodeParsing`, `NodeParsed`, `NodePersisting`, `NodePersisted` of `NodeId * EventId`, `NodeUnpersisted` of `NodeId`, and `ActorStop` of `NodeId * ActorResult`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 12 NodeUnpersisted.
+One queue: internal `CoreQueue` (`Public of Mailbox | Notice of Notice`). The notice function posts a `Notice`. A public function posts `Mailbox`. The queue puller in [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) hands `Public` to the `Mailbox` handler and `Notice` to the `Notice` handler. There is no second queue.
+[o] `NodeParsed`: the renamed `ParseFinished`. The Notice handler sets that node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this case.
+[ ] `Notice.NodeParsed`: the Notice handler sets that node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed. The field write is [Graph mutate](../../src/Shared/GraphMutate.fs) `setParseState`. PersistState stays unchanged. `ParseThread` `finishParse` posts this `Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
+[x] `Notice.NodeParsed` push: after Parsed is written, [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `applyNotice` calls `CoreMailboxAccess.pushPersist` for a node that is Parsed and Unpersisted. The call returns before the persist thread writes. [File agent](../../src/Server/Core/FileAgent.fs) and [Db agent](../../src/Server/Core/DbAgent.fs) supply `pushPersist` as [Persist request stack](../../src/Server/Core/PersistRequestStack.fs) `pushBoundNode`. `DbAgent` supplies that push with or without a live-save data directory. `DbAgent.noteParsed` requests the file diff for a Parsed and Unpersisted node.
+[x] Edit push: after [Core event dispatch](../../src/Server/Core/CoreEventDispatch.fs) `persist` accepts a Change that is not graph-only, it reads state with `CoreMailboxAccess.getState`, takes the confirmed ops with `withConfirmedOps`, and finds the owning special nodes with [Document op impact](../../src/Shared/DocumentOpImpact.fs) `owningSpecials`. Each Persisted one is set Unpersisted through [Graph mutate](../../src/Shared/GraphMutate.fs) `setPersistState` and `CoreMailboxAccess.replaceGraph` of `Notice.NodePersisting`. `CoreMailboxAccess.pushPersist` runs for each owning special node, Parsed or Unparsed. A graph-only Change pushes nothing.
+[x] `NodeUploading`: the Notice handler sets PullingFile in memory and Unpersisted. It does not insert the node. `document_state` stores `unparsed`, not PullingFile. `NodeReceived`: the Notice handler calls `GraphMutate.setParseState` with Unparsed and `GraphMutate.setPersistState` with Persisted. `Node.withParseState` clears PullingFile. The queue puller appends both messages to the event log, then applies them.
+[ ] `Notice.NodeUploading` and `Notice.NodeReceived`: a holder of the notice function posts them. [44 — Apply document state from Node events](../../plan/core-refinement/issues/44-apply-document-state-from-file-events.md) owns those handlers. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door.
+[o] `MarkUnparsed`: the Notice handler sets that node Unparsed only. The field write is `GraphMutate.setParseState`. PersistState stays unchanged. `Op.SetDocumentState` is not the writer. Directory reconcile does not name an existing member for this case.
+[x] `Notice.NodePersisted`: the message carries the node id and the written file time. The Notice handler calls `noteDiffDone` with that id, then sets that node Persisted and its `updateTime` in one write. When that write returns Ok, it calls `notePersisted`. [Db agent](db-agents.md). [File agent](file-agents.md). A Notice event does not set `externalChanges` and does not start a browser catch-up.
+[x] `PersistFailed`: one `nodeId` and the failure message. [Persist thread](../../src/Server/Core/PersistThread.fs) `runRequest` posts one per submitted node through `CoreMailboxApi.postNotice` when a write fails. The handler does not change the persist state. The order reply is success. The edit stays in the graph. A poll of this Notice sets `lastCmdResult` to that write error and does not change the graph.
+[x] An old event log row tagged `nodeStamped` fails to decode. [Event log file](../../src/Server/EventLogFile.fs) `readAllEvents` and [Db agent](../../src/Server/Core/DbAgent.fs) `loadReconciled` skip that row.
+[ ] `Notice.NodePersisted` of `nodeId` and `version`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
+[x] [Persist thread](../../src/Server/Core/PersistThread.fs) `runRequest` adds `Notice.NodePersisted` of `nodeId` through the private function when a file write finishes.
+[ ] The persist thread adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when a file write finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
+[o] Actor post path: `CoreMailbox.postEvents` and `CoreMailbox.postGraphOnly`. `Notice` stays off that path.
+[ ] Actor post path: `Mailbox.PlaceOrder` of `Order.Change` with origin `Edit`. `CoreEventDispatch` reads that `origin` and posts `Notice.NodeUnpersisted`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
 [ ] Parsed axis and `PersistState`: internal. Outsiders may see them. The core loop writes them. Writer cases: [Op](op.md).
 
 ## Explanation
 The queue stays short so one slow body cannot block every other message. That slow body is an Actor.
-The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The only rejection is the credential check. That check refuses the whole list before anything applies. Otherwise every posted list applies whole. `postEvents` pushes that list onto the queue as one `PostEvent` after another. On ActorStart, a refusal and a fail are the same stored pair: ActorStart and a failed ActorStop. `UnknownActor` uses `unknown actor`. `Rejected` uses that message.
+The one mailbox queue is the Event Source order on the server. The puller handles one message, then the next. A later message on that queue does not pass an earlier message. A posted list is applied in order, as one unit; lists from different clients do not interleave. The mailbox applies that posted list whole.
+
+[x] The events door places each `Order` through `Mailbox.PlaceOrder`. The reply is `Result<EventId, string>`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 6 PlaceOrder reply.
+
+[x] On ActorStart, a refusal and a fail are the same stored pair: the start and a failed stop.
+[o] A pool name-table miss uses `unknown actor`. `Rejected` uses that message.
+
 How a route or an Event body changes is [API expansion](api.md#api-expansion). This page does not define a second change protocol.
-The parse thread and the persist thread finish off the loop. An `InMsg` brings that finish back onto the same queue. The puller hands it to the InMsg handler. The handler writes the axis.
+
+[o] The parse thread and the persist thread finish off the loop. An `Notice` brings that finish back onto the same queue. The puller hands it to the Notice handler. The handler writes the axis.
+[ ] The parse thread and the persist thread finish off the loop. A `Notice` brings that finish back onto `CoreQueue`. The puller hands it to the Notice handler. Holding the notice function is the permission to post that `Notice`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.

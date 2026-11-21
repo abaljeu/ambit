@@ -13,7 +13,7 @@ module Enc = Thoth.Json.Newtonsoft.Encode
 /// the size of the whole graph.
 let private nodeCount = 2000
 
-let private baseState () : State =
+let private baseState () : GraphAtEvent =
     let graph0 = Graph.create ()
     let filler =
         List.init nodeCount (fun i ->
@@ -37,13 +37,13 @@ let private parseLikeChange (parentId: NodeId) : Ev =
 
 let private eventOps = SpecialNodeTestHelpers.eventOps
 
-let private applied (state: State) (event: Ev) : State =
+let private applied (state: GraphAtEvent) (event: Ev) : GraphAtEvent =
     match Ev.apply event state with
     | ApplyResult.Changed s -> s
     | ApplyResult.Unchanged s -> s
     | ApplyResult.Invalid(_, msg) -> failwithf "apply failed: %s" msg
 
-let private undoEvent (event: Ev) (state: State) : ApplyResult =
+let private undoEvent (event: Ev) (state: GraphAtEvent) : ApplyResult =
     let ops = eventOps event
     let step (accState, hasChanged) op =
         match Op.undo op accState with
@@ -152,9 +152,11 @@ let private reachableStructure (graph: Graph) =
         else
             let node = graph.nodes.[nodeId]
             let kids = Graph.children graph nodeId
+            // Parse axis only. Undo of Replace is a graph edit: it sets the
+            // owning special Unpersisted and does not restore Persisted.
             let shape =
                 node.text, node.name, node.cssClasses, node.owner,
-                node.kind, node.documentState,
+                node.kind, DocumentState.toLegacy node.documentState,
                 Graph.childrenStatus graph nodeId, kids
             kids
             |> List.fold
@@ -207,6 +209,12 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
     let inverse, planMs = time (fun () -> undoInverse history0)
     assertNoCreateOps inverse
     let projected, projectedMs = time (fun () -> projectInverse inverse changed)
+    Assert.Equal(
+        PersistState.Unpersisted,
+        changed.graph.nodes.[state.graph.root].documentState.persistState)
+    Assert.Equal(
+        PersistState.Unpersisted,
+        projected.graph.nodes.[state.graph.root].documentState.persistState)
     Assert.True((before = reachableStructure projected.graph))
     let redo = invertEvent inverse.id (Guid.NewGuid()) inverse
     Assert.True((after = reachableStructure (applied projected redo).graph))

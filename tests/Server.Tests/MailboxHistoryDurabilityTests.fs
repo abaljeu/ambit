@@ -16,72 +16,91 @@ let private requireOk label result =
 let private sampleActorStart: ActorStart =
     { zoomId = Graph.rootId
       focusId = Graph.rootId
-      commandId = Graph.rootId
+      runDefinitionId = Graph.rootId
       graphIds = [ Graph.rootId ]
       eventId = EventId.zero }
 
-let private actorCaller secret =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
-
-let private stubPool secret : CoreActorPool =
-    { register = fun _ _ -> ()
-      registerPeer = fun _ _ -> ()
-      startActor = fun _ _ -> Ok secret
-      startFunction = fun _ -> Error "unused"
-      startPeerActor = fun _ _ _ -> Error "unused"
-      schedule = fun _ _ -> ()
-      isLive = fun s -> s = secret
-      admit = fun _ -> Ok ()
-      drop = fun _ -> ()
-      finish = fun _ _ -> Ok ()
-      liveFocusIds = fun () -> Set.empty
-      getFocusId = fun _ -> Some Graph.rootId
-      trySecretForFocus = fun _ -> None
-      deliver = fun _ -> Error "not live"
-      takeInbox = fun _ -> Error "not live" }
-
-let private hostFile dir secret =
+let private hostFile dir =
     CoreMailbox.host
-        (stubPool secret)
+        (CoreActorPool.create ())
         (FileAgent.persist (FileAgent.create dir))
         admittedCredentials
 
-let private hostDb connStr secret =
+let private hostDb connStr =
     CoreMailbox.host
-        (stubPool secret)
+        (CoreActorPool.create ())
         (DbAgent.persist (DbAgent.create connStr))
         admittedCredentials
 
-let private runMixedHello host secret childText = task {
-    let! started =
-        CoreMailboxApi.startActor host testCaller sampleActorStart
-        |> Async.StartAsTask
-    requireOk "startActor" started
+let private functionPlacement (request: ActorStart) =
+    let placement : ActorOrderFromStart.FunctionActorPlacement =
+        { request = request
+          actor =
+              TestActor.functionActorAt
+                  request.runDefinitionId
+                  request.focusId
+          actorName = "test"
+          actorNodeIdOf = ActorOrderFromStart.focusIdOf }
+    placement
+
+let private startFromFunction host request =
+    CoreMailboxApi.coreMailboxStartActorFromFunction
+        host
+        testCaller
+        (functionPlacement request)
+
+let private eventIsStop (event: Ev) =
+    match event.body with
+    | EventBody.ActorStop _ -> true
+    | _ -> false
+
+/// The pool posts Notice.ActorStopped when the actor's work returns.
+/// Wait so dispose cannot cut off that ActorStop.
+let rec private waitForActorStop host remaining = task {
+    let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+    if List.exists eventIsStop history.events then
+        ()
+    elif remaining <= 0 then
+        Assert.Fail("ActorStop did not land")
+    else
+        do! Async.Sleep 20 |> Async.StartAsTask
+        do! waitForActorStop host (remaining - 1)
+}
+
+/// The change is posted first. The pool posts Notice.ActorStopped when
+/// the actor's work returns, so a later change would race that stop.
+let private runMixedHello host childText = task {
     let childId, event = addRootChildEvent childText
     let! accepted =
         CoreMailboxApi.postEvents host testCaller [ event ]
         |> Async.StartAsTask
     requireOk "postEvents" accepted |> ignore
-    let! stopped =
-        CoreMailboxApi.actorStop
-            host
-            (actorCaller secret)
-            ActorSucceeded
+    let! started =
+        startFromFunction host sampleActorStart
         |> Async.StartAsTask
-    requireOk "actorStop" stopped
+    requireOk "startActor" started |> ignore
+    do! waitForActorStop host 50
     return childId
 }
 
 let private mixedIds (history: EventLog) =
-    match history.events with
-    | stop :: change :: start :: [] ->
-        match stop.body, change.body, start.body with
-        | EventBody.ActorStop _, EventBody.Change _, EventBody.ActorStart _ ->
-            stop.id, change.id, start.id
+    let kept =
+        history.events
+        |> List.filter (fun event ->
+            match event.body with
+            | EventBody.ActorStop _ -> true
+            | EventBody.Notice _ -> false
+            | _ -> true)
+    match kept with
+    | stop :: start :: change :: [] ->
+        match stop.body, start.body, change.body with
+        | EventBody.ActorStop _,
+          EventBody.Order (Order.StartActor _),
+          EventBody.Change _ ->
+            stop.id, start.id, change.id
         | _ ->
-            Assert.Fail("expected ActorStop, Change, ActorStart newest-head")
+            Assert.Fail(
+                "expected ActorStop, StartActor, Change newest-head")
             EventId.zero, EventId.zero, EventId.zero
     | _ ->
         Assert.Fail("expected three EventLog events")
@@ -93,8 +112,8 @@ let private assertChild state childId text =
 let private assertTipEquals host (history: EventLog) = task {
     let stopId, _, _ = mixedIds history
     let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-    Assert.Equal(stopId, eventId)
-    Assert.Equal(stopId, history.events.Head.id)
+    Assert.True(EventId.value eventId >= EventId.value stopId)
+    Assert.Contains(stopId, history.events |> List.map (fun event -> event.id))
 }
 
 let private bodyKind (event: Ev) =
@@ -103,8 +122,11 @@ let private bodyKind (event: Ev) =
     | EventBody.Change _ -> "change"
     | EventBody.ActorStop _ -> "stop"
     | EventBody.Cancel _ -> "cancel"
+    | EventBody.Load _ -> "load"
     | EventBody.Undo _ -> "undo"
     | EventBody.Redo _ -> "redo"
+    | EventBody.Notice _ -> "notice"
+    | EventBody.Order _ -> "order"
 
 let private assertBodiesMatch (history: EventLog) (since: Ev list) =
     Assert.Equal<string list>(
@@ -141,19 +163,18 @@ let private assertRestartLog host = task {
 
 let private assertRestartGraph host childId text = task {
     do! assertRestartLog host
-    let! state = CoreMailboxApi.getState host |> Async.StartAsTask
-    assertChild (requireOk "getState" state) childId text
+    let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+    assertChild (requireOk "graphAtEvent" state) childId text
 }
 
 [<Fact>]
 let ``File mixed hello survives dispose create`` () = task {
     let dir = newTempDir ()
-    let secret = Credential "mailbox-history-file-hello"
-    let first = hostFile dir secret
+    let first = hostFile dir
     let! _ =
         task {
             try
-                return! runMixedHello first secret "file-hello"
+                return! runMixedHello first "file-hello"
             finally
                 CoreMailboxApi.dispose first
         }
@@ -168,16 +189,15 @@ let ``File mixed hello survives dispose create`` () = task {
 let ``Db mixed hello survives dispose create`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
-    let secret = Credential "mailbox-history-db-hello"
-    let first = hostDb connStr secret
+    let first = hostDb connStr
     let! childId =
         task {
             try
-                return! runMixedHello first secret "db-hello"
+                return! runMixedHello first "db-hello"
             finally
                 CoreMailboxApi.dispose first
         }
-    let second = hostDb connStr (Credential "mailbox-history-db-hello-2")
+    let second = hostDb connStr
     try
         do! assertRestartGraph second childId "db-hello"
     finally
@@ -185,7 +205,7 @@ let ``Db mixed hello survives dispose create`` () = task {
 }
 
 [<Fact>]
-let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
+let ``File startup does not replay the event log`` () = task {
     let dir = newTempDir ()
     let childId, change = addRootChildEvent "file-recover"
     let agent = FileAgent.create dir
@@ -197,14 +217,15 @@ let ``File recover applies Ops Ev ahead of Graph checkpoint`` () = task {
           lifecycle
             3
             (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    let before = persist.handlers.getState () |> requireOk "before"
+    let before = persist.handlers.graphAtEvent () |> requireOk "before"
     Assert.False(before.graph.nodes.ContainsKey childId)
     persist.dispose ()
     let host = CoreMailbox.createFile dir admittedCredentials
     try
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        assertChild (requireOk "getState" state) childId "file-recover"
+        let restarted = requireOk "graphAtEvent" state
+        Assert.False(restarted.graph.nodes.ContainsKey childId)
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
         CoreMailboxApi.dispose host
@@ -224,52 +245,93 @@ let ``Db recover applies Ops Ev ahead of projection revision`` () = task {
           lifecycle
             3
             (EventBody.ActorStop(Graph.rootId, ActorSucceeded)) ]
-    let before = persist.handlers.getState () |> requireOk "before"
+    let before = persist.handlers.graphAtEvent () |> requireOk "before"
     Assert.False(before.graph.nodes.ContainsKey childId)
     persist.dispose ()
     let host = admittedHostDb (DbAgent.create connStr)
     try
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        assertChild (requireOk "getState" state) childId "db-recover"
+        assertChild (requireOk "graphAtEvent" state) childId "db-recover"
         Assert.Equal(EventId.fromJson 3, eventId)
     finally
         CoreMailboxApi.dispose host
 }
 
+let private redoWithOps target ops : Ev =
+    { id = EventId.zero
+      submissionId = Guid.NewGuid()
+      authority = Authority "Wire"
+      commandName = "test"
+      body = EventBody.Redo(target, ops) }
+
+let private assertBeforeRestart label result =
+    match result with
+    | Ok _ -> Assert.Fail($"{label} reached a target from before the restart")
+    | Error error -> Assert.Contains("before the restart", error)
+
 [<Fact>]
-let ``Undo after File restart fills Change and rejects ActorStart`` () = task {
-    let dir = newTempDir ()
-    let secret = Credential "mailbox-history-undo"
-    let first = hostFile dir secret
+let ``Undo after restart refuses a target from before the restart`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let first = hostDb connStr
     try
-        let! _ = runMixedHello first secret "undo-hello"
+        let! _ = runMixedHello first "undo-refuse"
         ()
     finally
         CoreMailboxApi.dispose first
-    let second = CoreMailbox.createFile dir admittedCredentials
+    let second = hostDb connStr
     try
         let! history = CoreMailboxApi.eventHistory second |> Async.StartAsTask
-        let stopId, changeId, startId = mixedIds history
-        Assert.NotEqual(stopId, changeId)
+        let _, _, changeId = mixedIds history
+        let change =
+            history.events
+            |> List.find (fun event -> event.id = changeId)
+        let ops = Ev.ops change |> Option.defaultValue []
+        Assert.NotEmpty(ops)
         let! undone =
             CoreMailboxApi.postEvent
                 second
                 testCaller
                 (nameOnlyUndo changeId)
             |> Async.StartAsTask
-        let stored = requireOk "undo Change" undone
-        Assert.NotEmpty(Ev.ops stored |> Option.defaultValue [])
-        let! rejected =
+        assertBeforeRestart "name-only Undo" undone
+        let! redone =
             CoreMailboxApi.postEvent
                 second
                 testCaller
-                (nameOnlyUndo startId)
+                (redoWithOps changeId ops)
             |> Async.StartAsTask
-        match rejected with
-        | Ok _ -> Assert.Fail("expected ActorStart Undo error")
-        | Error error ->
-            Assert.Contains("no inverse Ops", error)
+        assertBeforeRestart "Redo with ops" redone
+    finally
+        CoreMailboxApi.dispose second
+}
+
+[<Fact>]
+let ``Undo after restart accepts a target after the restart`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let first = hostDb connStr
+    try
+        let! _ = runMixedHello first "undo-after"
+        ()
+    finally
+        CoreMailboxApi.dispose first
+    let second = hostDb connStr
+    try
+        let _, event = addRootChildEvent "after-restart"
+        let! posted =
+            CoreMailboxApi.postEvent second testCaller event
+            |> Async.StartAsTask
+        let stored = requireOk "change after restart" posted
+        let! undone =
+            CoreMailboxApi.postEvent
+                second
+                testCaller
+                (nameOnlyUndo stored.id)
+            |> Async.StartAsTask
+        let storedUndo = requireOk "undo after restart" undone
+        Assert.NotEmpty(Ev.ops storedUndo |> Option.defaultValue [])
     finally
         CoreMailboxApi.dispose second
 }
@@ -352,16 +414,25 @@ let ``Db Graph greater than Log drops persist EventLog`` () = task {
 let ``File empty Graph checkpoint live append continues past Graph`` () = task {
     let dir = newTempDir ()
     Bookkeeping.writeEventId dir (EventId.fromJson 5) |> requireOk "writeEventId"
-    let host = hostFile dir (Credential "mailbox-history-continue")
+    let host = hostFile dir
     try
         let! started =
-            CoreMailboxApi.startActor host testCaller sampleActorStart
+            startFromFunction host sampleActorStart
             |> Async.StartAsTask
-        requireOk "startActor" started
+        requireOk "startActor" started |> ignore
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
         let! eventId = CoreMailboxApi.getEventId host |> Async.StartAsTask
-        Assert.Equal(EventId.fromJson 6, history.events.Head.id)
-        Assert.Equal(EventId.fromJson 6, eventId)
+        let startId =
+            history.events
+            |> List.tryPick (fun event ->
+                match event.body with
+                | EventBody.Order (Order.StartActor _) -> Some event.id
+                | _ -> None)
+        match startId with
+        | None -> Assert.Fail("expected Order.StartActor")
+        | Some id ->
+            Assert.Equal(EventId.fromJson 6, id)
+            Assert.True(EventId.value eventId >= EventId.value id)
     finally
         CoreMailboxApi.dispose host
 }
@@ -369,10 +440,9 @@ let ``File empty Graph checkpoint live append continues past Graph`` () = task {
 [<Fact>]
 let ``getEventId is ActorStop after in-process hello`` () = task {
     let dir = newTempDir ()
-    let secret = Credential "mailbox-history-live-serial"
-    let host = hostFile dir secret
+    let host = hostFile dir
     try
-        let! _ = runMixedHello host secret "live-serial"
+        let! _ = runMixedHello host "live-serial"
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
         do! assertTipEquals host history
     finally

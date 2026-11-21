@@ -48,18 +48,47 @@ module DocumentPersistPath =
         |> Option.bind (fun relativePath ->
             resolveUnderDataDir dataDir relativePath |> Result.toOption)
 
-    let rec withWorkTreeGates
-        (workspaceRoots: string list)
-        (action: unit -> Result<'value, string>)
-        : Result<'value, string> =
-        match workspaceRoots with
-        | [] -> action ()
-        | root :: rest ->
-            WorkspaceGit.withWorkTreeGate root (fun () ->
-                withWorkTreeGates rest action)
+    let repositoryRoot
+        (dataDir: string)
+        (graph: Graph)
+        (nodeId: NodeId)
+        : string option =
+        match GraphQuery.enclosingWorkspace graph nodeId with
+        | None -> None
+        | Some workspaceId when workspaceId = Graph.rootId ->
+            Some (dataDirBase dataDir)
+        | Some _ -> workspaceRootFor dataDir graph nodeId
 
-    let normalizedWorkTreeRoots (workspaceRoots: string list) =
-        WorkspaceGit.normalizeWorkTreeRoots workspaceRoots
+    let private dataDirectoryPath (graph: Graph) (nodeId: NodeId) =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special File } ->
+            DocumentPartition.artifactFileRelative graph nodeId
+        | Some { kind = Special Directory } ->
+            DocumentPartition.artifactDirectoryRelative graph nodeId
+        | _ -> None
+
+    let private withoutWorkspacePrefix (prefix: string) (path: string) =
+        if path.StartsWith(prefix, StringComparison.Ordinal)
+           && path.Length > prefix.Length then
+            Some (path.Substring(prefix.Length))
+        else
+            None
+
+    let gitPath (graph: Graph) (nodeId: NodeId) : string option =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special Workspace } -> None
+        | _ ->
+            match dataDirectoryPath graph nodeId with
+            | None -> None
+            | Some path ->
+                match GraphQuery.enclosingWorkspace graph nodeId with
+                | None -> None
+                | Some workspaceId when workspaceId = Graph.rootId ->
+                    Some path
+                | Some workspaceId ->
+                    DocumentPartition.artifactDirectoryRelative graph workspaceId
+                    |> Option.bind (fun prefix ->
+                        withoutWorkspacePrefix prefix path)
 
     let enumerateDocumentRoots (graph: Graph) : NodeId list =
         graph.nodes
@@ -169,31 +198,6 @@ module DocumentPersistPath =
                     directoryFileStatus nodeReference fullPath
                 else
                     existingPathStatus nodeReference fullPath
-
-    /// Read a workspace file under DataDir and build a desktop-compatible import package.
-    let importPackageForReference
-        (dataDir: string)
-        (nodeReference: string)
-        : Result<DesktopImportPackage, string> =
-        match NodeDesktopPath.artifactRelativeForReference nodeReference with
-        | Error err -> Error err
-        | Ok relativePath ->
-            match resolveUnderDataDir dataDir relativePath with
-            | Error err -> Error err
-            | Ok fullPath when Directory.Exists fullPath ->
-                Error "path is a directory"
-            | Ok fullPath when not (File.Exists fullPath) ->
-                Error "file not found"
-            | Ok fullPath ->
-                if DocumentBinary.isBinaryExtension relativePath then
-                    Error DocumentBinary.parseError
-                else
-                    try
-                        let text = File.ReadAllText fullPath
-                        ImportDocument.buildFilePackage nodeReference text
-                    with
-                    | :? IOException as ex ->
-                        Error ("read failed: " + ex.Message)
 
     let readFileTextAtRelative
         (dataDir: string)

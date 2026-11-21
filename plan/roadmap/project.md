@@ -1,5 +1,5 @@
 # Roadmap
 
-Summary: Standing goto for what to work on next; groups Epics by Stage; Chapter plus Required for done gate Epic completion.
-Updated: 2026-10-07
+Summary: The program told through Epics. A Chapter lists the Projects that serve it.
+Updated: 2026-10-22
 

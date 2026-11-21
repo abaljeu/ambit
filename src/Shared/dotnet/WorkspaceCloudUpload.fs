@@ -114,7 +114,7 @@ module WorkspaceCloudUpload =
                 label
                 paths
         if ops.IsEmpty then
-            Ok "no NoServerFile rows to mark Unparsed"
+            Ok "no PullingFile rows to mark Unparsed"
         else
             match AmbitSession.postOps session ops with
             | Error e -> Error e

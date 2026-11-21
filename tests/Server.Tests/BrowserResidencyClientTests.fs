@@ -98,6 +98,169 @@ let ``Poll answer chains the next Included residency Want`` () =
                 fixture.nextSiteId
                 fixture.browser.root)
     let nextWant = Want.compose next.graph next.siteMap next.zoomRoot
-    Assert.True(Map.containsKey fixture.childId next.graph.nodes)
+    Assert.True(Map.containsKey fixture.parentId next.graph.nodes)
+    Assert.True(GraphChildren.isLoaded next.graph fixture.parentId)
+    Assert.Contains(
+        fixture.childId,
+        Graph.children next.graph fixture.parentId
+        |> List.map (fun child -> child.id))
+    Assert.False(Map.containsKey fixture.childId next.graph.nodes)
     Assert.Equal<NodeId list>([ fixture.childId ], nextWant)
     Assert.Contains(effects, function | PollServer _ -> true | _ -> false)
+
+[<Fact>]
+let ``PollDone leaves Sync Idle when the edit box holds new text`` () =
+    let fixture = residencyFixture ()
+    let siteMap, nextId =
+        ViewModel.buildSiteMapFrom fixture.server fixture.parentId (Sid 0)
+    let model =
+        { modelFor
+            fixture.server
+            siteMap
+            nextId
+            fixture.parentId
+          with mode = Editing ("parent new", EditCaret.EndOfText) }
+    Assert.Empty(model.syncInfo.pending)
+    Assert.Equal("parent", model.graph.nodes.[fixture.parentId].text)
+    match model.mode with
+    | Editing (text, _) -> Assert.Equal("parent new", text)
+    | _ -> failwith "expected Editing"
+    let response =
+        { events = []
+          nodes = []
+          childMap = Map.empty }
+    let next, _ =
+        Update.update
+            (SysMsg (PollDone (
+                Some DataOutdated, response, None, Some EventId.zero)))
+            model
+    Assert.Equal(Idle, next.syncInfo.syncState)
+
+type private PendingPoll =
+    { model: VM
+      enqueueEffects: Effect list
+      first: Ev
+      second: Ev
+      nodeId: NodeId }
+
+let private twoChangePoll () =
+    let fixture = residencyFixture ()
+    let nodeId = fixture.parentId
+    let graph = fixture.server
+    let siteMap, nextId =
+        ViewModel.buildSiteMapFrom graph graph.root (Sid 0)
+    let first =
+        ClientHistory.mintChange
+            "Split"
+            [ Op.SetText(nodeId, "parent", "parent line") ]
+    let model =
+        { modelFor graph siteMap nextId graph.root with
+            syncInfo =
+                { SyncInfo.initial with
+                    syncState = Polling
+                    pending = [ first ] } }
+    let second = ClientHistory.mintChange "Indent" []
+    let queued, effects =
+        SyncPlanner.enqueuePending second model.eventId model.syncInfo
+    { model = { model with syncInfo = queued }
+      enqueueEffects = effects
+      first = first
+      second = second
+      nodeId = nodeId }
+
+let private loggedNotice id notice =
+    { id = id
+      submissionId = System.Guid.NewGuid()
+      authority = Authority ""
+      commandName = ""
+      body = EventBody.Notice notice }
+
+let private pollAt tip events : ChangeSuccessResponse =
+    { eventId = tip
+      buildEpochSec = 1
+      pageBuildEpochSec = 1
+      apiVersion = ApiVersion.current
+      isReady = true
+      externalChanges = false
+      events = events
+      message = None
+      bootstrapHash = None
+      nodes = []
+      childMap = Map.empty }
+
+let private submitsBatch (effects: Effect list) =
+    effects
+    |> List.exists (function
+        | SubmitPendingBatch _ -> true
+        | _ -> false)
+
+let private applyPoll (poll: ChangeSuccessResponse) (model: VM) =
+    let outcome = SyncLogic.getPollOutcome poll model.eventId
+    let response = SyncLogic.changeSuccessToSync poll
+    Update.update
+        (SysMsg(
+            PollDone(
+                outcome,
+                response,
+                Some poll.isReady,
+                Some poll.eventId)))
+        model
+    |> fun (next, effects) -> outcome, next, effects
+
+[<Fact>]
+let ``own persist notices during a Poll submit the pending queue`` () =
+    let pending = twoChangePoll ()
+    Assert.Equal(Polling, pending.model.syncInfo.syncState)
+    Assert.Equal(2, pending.model.syncInfo.pending.Length)
+    Assert.False(submitsBatch pending.enqueueEffects)
+    let persistingId = EventIdFixtures.storedId 2
+    let persistedId = EventIdFixtures.storedId 3
+    let stamp =
+        System.DateTime(2026, 11, 18, 0, 0, 0, System.DateTimeKind.Utc)
+    let events =
+        [ loggedNotice persistingId (Notice.NodePersisting pending.nodeId)
+          loggedNotice
+              persistedId
+              (Notice.NodePersisted(pending.nodeId, persistingId, stamp)) ]
+    let poll = pollAt persistedId events
+    Assert.Empty(poll.nodes)
+    Assert.True(Map.isEmpty poll.childMap)
+    Assert.True(persistedId > EventId.zero)
+    let outcome, next, effects = applyPoll poll pending.model
+    Assert.Equal(Some DataOutdated, outcome)
+    Assert.Equal<Ev list>(
+        [ pending.first; pending.second ],
+        next.syncInfo.pending)
+    Assert.Equal(Sending 1, next.syncInfo.syncState)
+    Assert.Equal(persistedId, next.eventId)
+    Assert.Contains(
+        effects,
+        function
+        | SubmitPendingBatch (baseId, batch) ->
+            baseId = persistedId
+            && batch = [ pending.first; pending.second ]
+        | _ -> false)
+
+[<Fact>]
+let ``a foreign Change during a Poll stays DataOutdated`` () =
+    let pending = twoChangePoll ()
+    let text = pending.model.graph.nodes.[pending.nodeId].text
+    let changeId = EventIdFixtures.storedId 4
+    Assert.True(changeId > EventId.zero)
+    let foreign =
+        { id = changeId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Peer"
+          commandName = "Edit"
+          body =
+            EventBody.Change
+                [ Op.SetText(pending.nodeId, text, text + " elsewhere") ] }
+    let poll = pollAt changeId [ foreign ]
+    Assert.Empty(poll.nodes)
+    Assert.True(Map.isEmpty poll.childMap)
+    let outcome, next, effects = applyPoll poll pending.model
+    Assert.Equal(Some DataOutdated, outcome)
+    Assert.Equal(2, next.syncInfo.pending.Length)
+    Assert.Equal(DataOutdated, next.syncInfo.syncState)
+    Assert.False(submitsBatch effects)
+    Assert.Equal(EventId.zero, next.eventId)

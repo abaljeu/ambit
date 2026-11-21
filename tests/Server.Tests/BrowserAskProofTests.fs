@@ -10,8 +10,10 @@ let private lifecycleIndexes (events: Ev list) focusId =
     let started =
         tryIndex (fun event ->
             match event.body with
-            | EventBody.ActorStart body
-                when body.focusId = focusId -> true
+            | EventBody.Order (Order.StartActor order)
+                when order.actorNodeId = focusId
+                    && order.actorName = "ai" ->
+                true
             | _ -> false)
     let finished =
         tryIndex (fun event ->

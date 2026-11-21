@@ -27,8 +27,8 @@ module ViewModelDeleteOps =
         =
         let isProtectedTarget =
             Graph.isSystemFolderNode child.id
-            || match graph.nodes.[child.id].kind with
-               | Special Workspace -> true
+            || match Map.tryFind child.id graph.nodes with
+               | Some { kind = Special Workspace } -> true
                | _ -> false
         isProtectedTarget
         && Node.childOwnership graph parentId child = Ownership.Owner

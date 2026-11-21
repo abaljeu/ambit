@@ -1,6 +1,6 @@
 # 23 — Directory or File Load posts to the parse stack
 
-**Status:** `coded`
+**Status:** `done`
 **Actual:** 6h
 **Type:** coding
 **Blocked by:** [28 — Stop enqueueing nodes just marked Unparsed](28-stop-enqueueing-nodes-just-marked-unparsed.md)

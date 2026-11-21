@@ -16,13 +16,13 @@ let private requireChanged (r: ApplyResult) =
     | ApplyResult.Unchanged _ -> failwith "expected Changed, got Unchanged"
     | ApplyResult.Invalid(_, msg) -> failwithf "expected Changed, got Invalid: %s" msg
 
-let private requireInvalid (r: ApplyResult) : State * string =
+let private requireInvalid (r: ApplyResult) : GraphAtEvent * string =
     match r with
     | ApplyResult.Invalid(s, msg) -> s, msg
     | ApplyResult.Changed _ -> failwith "expected Invalid, got Changed"
     | ApplyResult.Unchanged _ -> failwith "expected Invalid, got Unchanged"
 
-let private makeState (graph: Graph) : State =
+let private makeState (graph: Graph) : GraphAtEvent =
     { graph = graph; eventId = EventId.zero }
 
 let private freshState () = makeState (Graph.create ())

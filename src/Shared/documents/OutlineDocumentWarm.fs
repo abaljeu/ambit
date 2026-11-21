@@ -298,8 +298,8 @@ module OutlineDocumentWarm =
     /// Stateful fold over a write plan; `stepEmit` returns next state and chunk text.
     let executeWritePlan
         (plan: WriteEmit list)
-        (stepEmit: 'State -> WriteEmit -> 'State * string)
-        (initialState: 'State)
+        (stepEmit: 'GraphAtEvent -> WriteEmit -> 'GraphAtEvent * string)
+        (initialState: 'GraphAtEvent)
         : string =
         let sb = StringBuilder()
 

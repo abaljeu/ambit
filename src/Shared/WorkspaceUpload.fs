@@ -25,23 +25,8 @@ module WorkspaceUpload =
             | Polling -> "load queued until poll completes"
             | Sending _ -> "load queued until submit completes"
             | Uploading -> "load queued until current upload completes"
-            | Parsing -> "load queued until parse completes"
             | WaitingToRetry _ -> "load queued until retry completes"
             | _ -> "load queued until sync settles"
-
-    /// Keep parse/materialization requests from one Upload strictly ordered.
-    let sequenceParseEffects (effects: Effect list) =
-        if effects.IsEmpty then [] else [ ContinueUploadParses effects ]
-
-    /// Only a completed mapped desktop push should source parse text from desktop.
-    let desktopReadPath
-        (action: WorkspaceUploadAction)
-        (canImportDesktop: bool)
-        (path: string option)
-        : string option =
-        match action with
-        | WorkspaceUploadAction.DesktopPush _ when canImportDesktop -> path
-        | _ -> None
 
     /// Palette / key: Load when Workspaces+desktop, or File/Dir/Workspace focus.
     let isAvailable

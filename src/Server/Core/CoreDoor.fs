@@ -16,11 +16,17 @@ module CoreDoor =
           caller = caller
           writable = writable }
 
+    /// Authority Actor with the minted pool secret. Name stays empty.
+    let actorCaller (secret: Credential) : Caller =
+        { authority = Authority "Actor"
+          name = ""
+          secret = secret }
+
     let forCaller caller (door: CoreChangesDoor) =
         { door with caller = caller }
 
-    let getState door =
-        CoreMailboxApi.getState door.host
+    let graphAtEvent door =
+        CoreMailboxApi.graphAtEvent door.host
 
     let getEventId door =
         CoreMailboxApi.getEventId door.host
@@ -42,8 +48,31 @@ module CoreDoor =
     let postGraphOnly door event =
         callIfReady CoreMailboxApi.postGraphOnly door event
 
-    let actorStop door result =
-        callIfReady CoreMailboxApi.actorStop door result
-
     let loadNode door subject =
         callIfReady CoreMailboxApi.mbLoadNode door subject
+
+    let private acceptedUnit result =
+        result |> Result.map (fun (_: CoreChangesAccepted) -> ())
+
+    /// Shared door for an ActorFunction. The pool door stays CoreChangesDoor.
+    let actorChanges (door: CoreChangesDoor) : ActorChanges =
+        let post evs =
+            async {
+                let! result = postEvents door evs
+                return acceptedUnit result
+            }
+        let graph () = graphAtEvent door
+        let load nodeId = loadNode door nodeId
+        let notice notice = CoreMailboxApi.postNotice door.host notice
+        let since after = CoreMailboxApi.getEventsSince door.host after
+        let graphOnly event =
+            async {
+                let! result = postGraphOnly door event
+                return Result.map ignore result
+            }
+        { postChanges = post
+          graphAtEvent = graph
+          loadNode = load
+          postNotice = notice
+          eventsSince = since
+          postGraphOnly = graphOnly }

@@ -45,7 +45,7 @@ dotnet fable watch src/Client --outDir src/Server/wwwroot
 dotnet run --project src/Server
 ```
 
-The app will be available at **http://localhost:5215/ambit** (not the site root).
+The app will be available at **http://localhost:8081/ambit** (not the site root).
 
 ```bash
 dotnet test gambol.sln

@@ -6,10 +6,10 @@ open Gambol.Shared
 /// Dependencies for the long-lived Parse consumer thread (outside Core).
 type ParseThreadDeps =
     { dataDir: string
-      consumer: unit -> NodeId
+      consumer: unit -> NodeId option
       push: NodeId -> unit
       getGraph: unit -> Async<Result<Graph, string>>
-      postOps: Op list -> Async<Result<unit, string>>
+      postOps: NodeId -> Op list -> Async<Result<unit, string>>
       markUnparsed: NodeId -> unit
       finishParse: NodeId -> unit }
 
@@ -18,13 +18,13 @@ type ParseThreadDeps =
 [<RequireQualifiedAccess>]
 module ParseThread =
 
-    let private postContent (deps: ParseThreadDeps) (ops: Op list) =
-        async {
-            if List.isEmpty ops then
-                return Ok ()
-            else
-                return! deps.postOps ops
-        }
+    type private InnerDeps =
+        { dataDir: string
+          consumer: unit -> NodeId option
+          push: NodeId -> unit
+          getGraph: unit -> Async<Result<Graph, string>>
+          postOps: NodeId -> Op list -> Async<Result<unit, string>>
+          finishParse: NodeId -> unit }
 
     let private reportPost (err: string) =
         eprintfn "ParseThread: content post failed: %s" err
@@ -56,7 +56,7 @@ module ParseThread =
         | _ -> false
 
     let private afterPost
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (nodeId: NodeId)
         (push: NodeId list)
         (posted: Result<unit, string>)
@@ -64,7 +64,6 @@ module ParseThread =
         match posted with
         | Error err -> reportPost err
         | Ok () ->
-            push |> List.iter deps.markUnparsed
             // requeueOnUnparsed is false: Unparsed stays set, and these
             // ids are not added to the Parse queue. Queue processing is
             // currently wrong. It caused a whole-workspace reconcile that
@@ -77,7 +76,7 @@ module ParseThread =
             deps.finishParse nodeId
 
     let private parseFile
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (graph: Graph)
         (fileId: NodeId)
         =
@@ -91,31 +90,37 @@ module ParseThread =
             with
             | Error _ -> return ()
             | Ok ops ->
-                let! posted = postContent deps ops
+                let! posted = deps.postOps fileId ops
                 return afterPost deps fileId [] posted
         }
 
+    let private reconcileDirectory
+        (deps: InnerDeps)
+        (graph: Graph)
+        (directoryId: NodeId)
+        =
+        NodeLockPool.withLockResult graph directoryId (fun () ->
+            DirectoryReconcile.planDirectoryReconcile
+                { dataDir = deps.dataDir
+                  graph = graph
+                  directoryId = directoryId
+                  discover =
+                    DocumentPersistPath.discoverImmediateMembers })
+
     let private parseDirectory
-        (deps: ParseThreadDeps)
+        (deps: InnerDeps)
         (graph: Graph)
         (directoryId: NodeId)
         =
         async {
-            match
-                DirectoryReconcile.planDirectoryReconcile
-                    { dataDir = deps.dataDir
-                      graph = graph
-                      directoryId = directoryId
-                      discover =
-                        DocumentPersistPath.discoverImmediateMembers }
-            with
+            match reconcileDirectory deps graph directoryId with
             | Error _ -> return ()
             | Ok planned ->
-                let! posted = postContent deps planned.ops
+                let! posted = deps.postOps directoryId planned.ops
                 return afterPost deps directoryId planned.push posted
         }
 
-    let private parseOne (deps: ParseThreadDeps) (nodeId: NodeId) =
+    let private parseOne (deps: InnerDeps) (nodeId: NodeId) =
         async {
             let! graphResult = deps.getGraph ()
             match graphResult with
@@ -130,26 +135,58 @@ module ParseThread =
                 | _ -> return ()
         }
 
-    let private loop (deps: ParseThreadDeps) =
-        while true do
-            let fileId = deps.consumer ()
-            parseOne deps fileId |> Async.RunSynchronously
+    let private loop (deps: InnerDeps) =
+        let rec run () =
+            match deps.consumer () with
+            | None -> ()
+            | Some fileId ->
+                parseOne deps fileId |> Async.RunSynchronously
+                run ()
+        run ()
 
-    /// Hosts the perpetual consumer on a background thread.
-    let start (deps: ParseThreadDeps) =
+    /// Hosts the consumer. Reset joins this thread after the stack stops.
+    let private startInner (deps: InnerDeps) =
         let thread = Thread(ThreadStart(fun () -> loop deps))
         thread.IsBackground <- true
+        thread.Name <- "gambol-parse"
         thread.Start()
+        let gate = obj ()
+        let joined = ref false
+        let join () =
+            lock gate (fun () ->
+                if not joined.Value then
+                    joined.Value <- true
+                    thread.Join())
+        ServerRunRegistry.registerParseJoin join
 
+    let start (deps: ParseThreadDeps) =
+        startInner
+            { dataDir = deps.dataDir
+              consumer = deps.consumer
+              push = deps.push
+              getGraph = deps.getGraph
+              postOps = deps.postOps
+              finishParse = deps.finishParse }
+
+    /// Posts NodeParsing for this node, then the graph Change.
+    /// Notices go through postNotice, which boot hands in.
     let postParseOps
+        (postNotice: Notice -> unit)
         (handle: CoreChangesDoor)
+        (nodeId: NodeId)
         (ops: Op list)
         : Async<Result<unit, string>> =
         async {
-            let event = GraphOnlyChangePost.mint "Parse" ops
-            match! CoreDoor.postGraphOnly handle event with
-            | Ok _ -> return Ok ()
-            | Error err -> return Error err
+            postNotice (Notice.NodeParsing nodeId)
+            if List.isEmpty ops then
+                return Ok ()
+            else
+                let event = GraphOnlyChangePost.mint "Parse" ops
+                match! CoreDoor.postGraphOnly handle event with
+                | Ok _ -> return Ok ()
+                | Error err ->
+                    postNotice (Notice.ParseFailed(nodeId, err))
+                    return Error err
         }
 
     let graphFromHost
@@ -157,7 +194,7 @@ module ParseThread =
         : unit -> Async<Result<Graph, string>> =
         fun () ->
             async {
-                match! CoreMailboxApi.tryGetState host with
+                match! CoreMailboxApi.tryGraphAtEvent host with
                 | Error err -> return Error err
                 | Ok state -> return Ok state.graph
             }
@@ -168,20 +205,14 @@ module ParseThread =
         let core, push = CoreRuntime.createPublishing coreBoot rawPush
         let parseHandle =
             CoreDoor.create true core.host core.parseCaller
-        start
+        let postNotice = CoreMailboxApi.postNotice core.host
+        startInner
             { dataDir = coreBoot.DataDir
               consumer = consumer
               push = push
               getGraph = graphFromHost core.host
-              postOps = postParseOps parseHandle
-              markUnparsed =
-                fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        core.host
-                        (InMsg.MarkUnparsed nodeId)
+              postOps = postParseOps postNotice parseHandle
               finishParse =
                 fun nodeId ->
-                    CoreMailboxApi.addInMsg
-                        core.host
-                        (InMsg.ParseFinished nodeId) }
+                    postNotice (Notice.NodeParsed nodeId) }
         core

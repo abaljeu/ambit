@@ -12,15 +12,22 @@ Parse and persist move text between disk and the graph.
 
 [x] Server: one long-lived Parse stack and one parse thread. [Parse stack](../../src/Server/ParseStack.fs), [Parse thread](../../src/Server/ParseThread.fs).
 [x] Nobody starts an Actor after pull.
-[x] Persist thread: runs when a node is Unpersisted and Parsed. A node is blocked when its parseState is Unparsed. Persist thread: a thread. Its collectors call the persist functions in [Document persist change](../../src/Server/DocumentPersistChange.fs). Those functions stay the write body. Setup lives in [Core](../../src/Server/Core).
-[x] Parse thread: adds `InMsg` `ParseFinished` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `InMsg` to the InMsg handler. [Mailbox](mailbox.md)
-[x] Persist thread: adds `InMsg` `SnapshotDone` through the mailbox private function when that work finishes. It does not edit the graph.
+[x] Persist thread: a thread. It takes node ids from the persist stack and writes a node that is Unpersisted. The write body is [Document persist change](../../src/Server/DocumentPersistChange.fs). Setup lives in [Core](../../src/Server/Core). The push onto that stack is [Mailbox](mailbox.md).
+[o] Parse thread: adds `Notice` `NodeParsed` through the mailbox private function when that File parse finishes. It does not edit the graph axes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md)
+[ ] Parse thread: adds `Notice.NodeParsed` through the notice function when that File parse finishes. The queue puller hands `Notice` to the Notice handler. [Mailbox](mailbox.md). [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 15 Notice has its own door.
+[x] `NodeParsed` sets a File Node Parsed only when `pullingFile` is clear. When `pullingFile` is set, that File Node stays Unparsed.
+[x] Persist thread: adds `Notice.NodePersisted` of `nodeId` through the mailbox private function when that work finishes. It does not edit the graph.
+[x] A failed document write posts one `Notice.PersistFailed` per submitted node through the notice function. The edit stays in the graph. The order reply is success. The handler does not change the persist state. A poll of that Notice sets the browser command error.
+[x] An Edit document write returns before the persist thread finishes. A successful write posts one `Notice.NodePersisted`. The ack has no file time. [Mailbox](mailbox.md)
+[ ] Persist thread: adds `Notice.NodePersisted` of `nodeId: NodeId * version: EventId` through the notice function when that work finishes. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 5 SnapshotDone.
 ## Parse
 
 [x] The parse thread takes a File Node from the stack. [Document persist write](../../src/Server/DocumentPersistWrite.fs) `planParseFile` turns that file's disk text into graph ops.
 [x] [Import document](../../src/Shared/dotnet/ImportDocument.fs) `planParseFile` marks an Unparsed File Node Current.
-[x] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
-[x] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
+[o] File parse posts ops through [Parse thread](../../src/Server/ParseThread.fs) `postParseOps`. That post is the existing graph-only Change door.
+[ ] `ParseThread.postParseOps` posts ops as a placed `Order.Change` of origin `Parse` through `Mailbox.PlaceOrder`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 18 ChangeOrigin.
+[o] Mailbox Load of a Workspace Node, a Directory Node, or a File Node pushes that node onto the Parse stack. A node inside a File Node uses that File Node. The door is [Core mailbox load](../../src/Server/Core/CoreMailboxLoad.fs) `dispatchLoad`.
+[ ] `Order.Load` of a Workspace Node, a Directory Node, or a File Node is logged, then that node is pushed onto the Parse stack. A node inside a File Node uses that File Node. Effects follow as `Notice.NodeParsing`, Changes to that node and descendants, then `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) decision 2 Load is logged.
 [x] Desktop-mapped Load stores the mapped bytes, then posts mailbox Load for that Workspace Node, Directory Node, or File Node. That Load pushes the subject onto the Parse stack.
 [x] The client hop for desktop-mapped Load is retired. That Load does not read a desktop file for parse, and it does not post directory reconcile from the Browser.
 [x] The git Load after-step is retired. After git Load returns, the Browser does not run a second reconcile or parse. Git Load pushes that Workspace Node onto the Parse stack.
@@ -48,9 +55,10 @@ Parse and persist move text between disk and the graph.
 [o] [Route registration](../../src/Server/RouteRegistration.fs) calls [Parse thread](../../src/Server/ParseThread.fs) `bootCore`. That function builds the stack and starts the consumer. Route registration does not hold the push function.
 [ ] Parse setup (stack, push, and consumer) lives only in [Core](../../src/Server/Core). Route registration does not construct Parse, does not start Parse, and does not hold Parse handles.
 [ ] Every handoff uses the Parse stack.
-[ ] Unparsed starts the parse thread after the workspace lock releases.
+[x] Unparsed starts the parse thread after the Workspace `NodeLockPool.withLock` releases.
 [x] Existing member: Directory reconcile does not mark an existing File Node or an existing child Directory Node Unparsed. A disk-newer member is an existing member.
-[x] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
+[o] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, the ops start with SetDocumentState from Unparsed to Current.
+[ ] New member: a missing file gets a File Node. A missing child directory gets a Directory Node. Both start Unparsed. A member node that has no file is deleted. When the Directory Node or Workspace Node is Unparsed, directory parse posts `Notice.NodeParsing` and `Notice.NodeParsed`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [ ] Directory reconcile walks every node tied to that Directory File, including nodes below the immediate children. It creates missing File Nodes. When Directory reconcile is done, that Directory Node is Parsed only. Structure-match on a Directory Node, including a Directory Node that is not a Workspace Node, spots disk members the Graph lacks, with no extra info. Parse thread owns Directory reconcile. Axis rules: Directory Parse done and Client Load on Directory.
 ## Persist
 
@@ -59,16 +67,25 @@ Parse and persist move text between disk and the graph.
 [ ] No caller outside Core builds or holds a `DataDir` absolute path.
 ## Lock
 
-[Core locking model](../../plan/core-refinement/arch.md) Working detail of this protocol.
-[o] `WorkspaceGit.withWorkTreeGate`: the exclusive gate on Persist and git paths. [Workspace git](../../src/Server/WorkspaceGit.fs).
-[ ] Persist, parse-thread file use, and git Load/Save use the workspace lock and per-member persist locks as their only protocol.
-[ ] Locks: held only long enough to transfer data. No holder takes more than one lock. Aggregate locks exist.
-[ ] Workspace lock: an aggregate lock. It announces that member files may change. Taking it waits while those member files are already changing.
-[ ] Pending: new per-member persist locks cannot be taken. In-flight member file writes and parse reads drain. Then pull or Upload land proceeds, arrived files are marked Unparsed, and the lock releases.
-[ ] Parse: reads the member file and does not take a persist lock. The pending workspace lock holds new reads off until release.
-[ ] After release: persist of a member waits until that node is Parsed.
-[ ] Unpersisted through pull: a member can be Unpersisted when the workspace lock is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
-[ ] File backstop: a write that finds the file still being written waits until the file is released, then proceeds.
+[Core locking model](../../plan/core-refinement/arch.md) §6 is this protocol.
+[x] `WorkspaceGit.withWorkTreeGate` ([Workspace git](../../src/Server/WorkspaceGit.fs)) and the `GitRun` private gate in `gitExec` ([Git run](../../src/Shared/dotnet/GitRun.fs)) are removed by [31 — Migrate onto the workspace lock](../../plan/core-refinement/issues/31-migrate-onto-the-workspace-lock.md).
+[x] Persist, parse-thread file use, git Load, and git Save use `NodeLockPool.withLock`, including the git Save commit.
+[x] A coalesced path move holds `NodeLockPool.withLock` on the moved node. `File.Move` or `Directory.Move` runs inside that action.
+[x] `withWorkTreeGate` and the `GitRun` private gate are gone from Persist and git paths. `NodeLockPool.withLock` is the only protocol on those paths.
+[x] There is one graph. The pool stores no graph. Conflict checks read the live graph passed with the request.
+[x] An absent node conflicts with nothing.
+[ ] A request waits on the same node, a taken ancestor, or a taken descendant.
+[ ] Locks are held only long enough to transfer data. A holder calls `withLock` once, runs a finite algorithm, and then releases.
+[x] A holder that already holds a pool lock and requests another gets `Error HolderHoldsLock` immediately instead of waiting. The same thread is `Environment.CurrentManagedThreadId`. That reject is how the pool enforces that nobody takes two locks. It prevents a holder waiting on itself.
+[ ] A Directory or Workspace `withLock` waits while a conflicting request is in flight. A new conflicting `withLock` waits until that release.
+[x] Fetch runs to completion first. Fetch holds no `withLock`.
+[x] The Workspace `withLock` covers the pull. The pull merges the fetched commits and marks the arrived nodes Unparsed. The lock then releases.
+[x] `Notice.NodeReceived` fires once per node, when the server first holds that node's bytes. A WebDAV PUT posts it while the File node is still PullingFile. A later PUT posts `Notice.NodeUnparsed` and posts no `Notice.NodeReceived`. Git pull posts `Notice.NodeReceived` only for a file the server never held. A file already received is marked Unparsed and gets no `Notice.NodeReceived`.
+[x] git Save calls `withLock` on the Workspace node for the commit.
+[x] A parse read is `withLock` on its node. Directory reconcile calls `withLock` on that Directory node.
+[ ] After release, persist of a member waits until that node is Parsed.
+[ ] A member can be Unpersisted when the Workspace `withLock` is requested. The pull still marks it Unparsed. A later persist can write the graph over the file that just arrived.
+[ ] A write that finds the file still being written waits until the file is released, then proceeds.
 ## Explanation
 
 An Actor is a different worker.

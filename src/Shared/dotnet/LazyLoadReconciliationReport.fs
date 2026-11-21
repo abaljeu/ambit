@@ -11,7 +11,11 @@ module LazyLoadReconciliationReport =
 
     type Report =
         { ops: Op list
-          failures: Failure list }
+          failures: Failure list
+          unparsedIds: NodeId list
+          parsedDirIds: NodeId list
+          renamedReceivedIds: NodeId list
+          containingDirIds: NodeId list }
 
     type private PathItem =
         { path: string
@@ -148,15 +152,78 @@ module LazyLoadReconciliationReport =
                     createOps
                     item.info
             then
-                Ok(withFiles, fileOps)
+                Ok(withFiles, fileOps, None)
             else
                 LazyLoadReconciliationApply.parseDirInfoIfPresent
                     withFiles
                     workspaceId
                     artifacts
                     item.info
-                |> Result.map (fun (finalGraph, parseOps) ->
-                    finalGraph, fileOps @ parseOps))
+                |> Result.map (fun (finalGraph, parseOps, dirId) ->
+                    finalGraph, fileOps @ parseOps, dirId))
+
+    let private consOnto acc items =
+        List.fold (fun acc item -> item :: acc) acc items
+
+    let private consDir dirId revDirs =
+        match dirId with
+        | Some id -> id :: revDirs
+        | None -> revDirs
+
+    let private foldFinalizedAdds
+        artifacts
+        workspaceId
+        (graph, ops, failures)
+        items
+        =
+        let graph, revOps, revFailures, revDirs =
+            items
+            |> List.fold
+                (fun (graph, revOps, revFailures, revDirs) item ->
+                    match finalizeAdded artifacts workspaceId graph item with
+                    | Ok(next, nextOps, dirId) ->
+                        next,
+                        consOnto revOps nextOps,
+                        revFailures,
+                        consDir dirId revDirs
+                    | Error message ->
+                        let itemInfo, _ = item
+                        graph,
+                        revOps,
+                        { path = itemInfo.path
+                          message = message }
+                        :: revFailures,
+                        revDirs)
+                (graph, [], [], [])
+        graph,
+        ops @ List.rev revOps,
+        failures @ List.rev revFailures,
+        List.rev revDirs
+
+    let private foldModified artifacts workspaceId state items =
+        let folded, ids, revDirs =
+            items
+            |> List.fold (fun ((graph, ops, failures), ids, revDirs) item ->
+                match
+                    LazyLoadReconciliation.invalidateOrParseModified
+                        artifacts
+                        workspaceId
+                        graph
+                        item.info
+                with
+                | Ok(next, nextOps, touched, dirId) ->
+                    (next, ops @ nextOps, failures),
+                    ids @ touched,
+                    consDir dirId revDirs
+                | Error message ->
+                    (graph,
+                     ops,
+                     failures
+                     @ [ { path = item.path
+                           message = message } ]),
+                    ids,
+                    revDirs) (state, [], [])
+        folded, ids, List.rev revDirs
 
     let planChangedPathsWithArtifacts
         (graph: Graph)
@@ -224,27 +291,58 @@ module LazyLoadReconciliationReport =
                             item.newInfo)
                     afterDeletes
             let afterAdds, acceptedAdds = foldAdded workspaceId afterRenames added
-            let afterModified =
-                modified
-                |> foldItems
-                    (fun item -> item.path)
-                    (fun current item ->
-                        LazyLoadReconciliation.invalidateOrParseModified
-                            artifacts
-                            workspaceId
-                            current
-                            item.info)
-                    afterAdds
-            let _, ops, failures =
-                acceptedAdds
-                |> foldItems
-                    (fun (item, _) -> item.path)
-                    (finalizeAdded artifacts workspaceId)
+            let afterModified, modifiedIds, modifiedDirs =
+                foldModified artifacts workspaceId afterAdds modified
+            let _, ops, failures, addedDirs =
+                foldFinalizedAdds
+                    artifacts
+                    workspaceId
                     afterModified
-            Ok { ops = ops; failures = failures })
+                    acceptedAdds
+            Ok {
+                ops = ops
+                failures = failures
+                unparsedIds = modifiedIds
+                parsedDirIds = List.distinct (modifiedDirs @ addedDirs)
+                renamedReceivedIds = []
+                containingDirIds = [] })
+
+    /// A renamed File the pull actually moved. Resolve oldPath on the
+    /// pre-plan graph. A failed rename is not marked.
+    let private renamedFileUnparsedOps
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: LazyLoadReconciliation.ChangedPath list)
+        (failures: Failure list)
+        : Op list * NodeId list =
+        let failed =
+            failures |> List.map (fun failure -> failure.path) |> Set.ofList
+        let renameFailed oldPath newPath =
+            failed.Contains(oldPath + " -> " + newPath)
+            || failed.Contains(oldPath)
+            || failed.Contains(newPath)
+        let ids =
+            changes
+            |> List.choose (function
+                | LazyLoadReconciliation.Renamed(oldPath, newPath) when
+                    not (renameFailed oldPath newPath) ->
+                    match
+                        LazyLoadReconciliation.resolveOwnedPath
+                            graph
+                            workspaceLabel
+                            oldPath
+                    with
+                    | Ok(Some(id, File)) -> Some id
+                    | _ -> None
+                | _ -> None)
+        let ops =
+            ids
+            |> List.collect (fun id ->
+                LazyLoadReconciliationApply.markUnparsed graph id)
+        ops, ids
 
     /// Git pull plan. Each file is marked. An added, removed, or renamed file
-    /// also marks the containing Directory, or the nearest ancestor that exists.
+    /// records the containing Directory, or the nearest ancestor that exists.
     let planReceivedFiles
         (graph: Graph)
         (workspaceLabel: string)
@@ -253,9 +351,24 @@ module LazyLoadReconciliationReport =
         : Result<Report, string> =
         planChangedPathsWithArtifacts graph workspaceLabel changes artifacts
         |> Result.bind (fun report ->
-            LazyLoadReconciliation.containingDirectoryMarkOps
+            LazyLoadReconciliation.containingDirectoryIds
                 graph
                 workspaceLabel
                 changes
-            |> Result.map (fun markOps ->
-                { report with ops = report.ops @ markOps }))
+            |> Result.map (fun dirIds ->
+                let fileOps, fileIds =
+                    renamedFileUnparsedOps
+                        graph
+                        workspaceLabel
+                        changes
+                        report.failures
+                let renamedReceivedIds =
+                    fileIds
+                    |> List.filter (
+                        LazyLoadReconciliationApply.decidesUnparsedMark
+                            graph)
+                { report with
+                    ops = report.ops @ fileOps
+                    unparsedIds = report.unparsedIds @ fileIds
+                    renamedReceivedIds = renamedReceivedIds
+                    containingDirIds = dirIds }))

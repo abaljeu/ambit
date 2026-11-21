@@ -55,13 +55,6 @@ let private loadFocuses (effects: Effect list) =
             Some request.start.focusId
         | _ -> None)
 
-let private postsReconcileOrParse (effects: Effect list) =
-    effects
-    |> List.exists (function
-        | Effect.ContinueDirectoryReconcile _
-        | Effect.ContinueParseFile _ -> true
-        | _ -> false)
-
 let private withDesktopMap (model: VM) =
     { model with
         desktopCapabilities =
@@ -92,10 +85,8 @@ let ``desktop-mapped Load and git Load after-step use the Parse stack`` () =
         Assert.True(request.holdStack)
     | other ->
         Assert.Fail($"expected a held file push, got {other}")
-    Assert.False(postsReconcileOrParse fileEffects)
     let _, afterFile =
         UpdateWorkspaceSync.loadAfterDesktopPush (Some fileId) fileModel
-    Assert.False(postsReconcileOrParse afterFile)
     match stackLoads afterFile with
     | [ request, Some (WorkspaceUploadAction.ParseServerDisk id) ] ->
         Assert.Equal(fileId, id)
@@ -117,10 +108,8 @@ let ``desktop-mapped Load and git Load after-step use the Parse stack`` () =
         Assert.True(request.holdStack)
     | other ->
         Assert.Fail($"expected a held directory push, got {other}")
-    Assert.False(postsReconcileOrParse dirEffects)
     let _, afterDir =
         UpdateWorkspaceSync.loadAfterDesktopPush (Some dirId) dirModel
-    Assert.False(postsReconcileOrParse afterDir)
     match stackLoads afterDir with
     | [ request, Some WorkspaceUploadAction.ReconcileServerDisk ] ->
         Assert.Equal(dirId, request.start.focusId)
@@ -130,9 +119,8 @@ let ``desktop-mapped Load and git Load after-step use the Parse stack`` () =
 
     let _, gitEffects =
         UpdateWorkspaceLoad.loadOpFor LoadSavePrePick.Git fileModel
-    Assert.False(postsReconcileOrParse gitEffects)
     match stackLoads gitEffects with
-    | [ request, None ] ->
+    | [ request, Some WorkspaceUploadAction.ReconcileServerDisk ] ->
         Assert.Equal(LoadSavePrePick.Git, request.prePick)
         Assert.False(request.holdStack)
         Assert.Equal(fileId, request.start.focusId)
@@ -148,9 +136,7 @@ let ``Directory Load posts that directory on the Load command`` () =
         |> fun ready -> selectRange ready 0 1
     let _, effects = UpdateWorkspaceLoad.loadOp model
     Assert.Equal<NodeId list>([ dirId ], loadFocuses effects)
-    Assert.False(postsReconcileOrParse effects)
     let _, after = UpdateWorkspaceLoad.deskLoadOp model
-    Assert.False(postsReconcileOrParse after)
     Assert.Empty(loadFocuses after)
 
 [<Fact>]
@@ -162,7 +148,6 @@ let ``File Load posts that file on the Load command`` () =
         |> fun ready -> selectRange ready 0 1
     let _, effects = UpdateWorkspaceLoad.loadOp model
     Assert.Equal<NodeId list>([ fileId ], loadFocuses effects)
-    Assert.False(postsReconcileOrParse effects)
 
 [<Fact>]
 let ``two selected files post one Load command each`` () =
@@ -176,7 +161,6 @@ let ``two selected files post one Load command each`` () =
     let focuses = loadFocuses effects
     Assert.Equal<NodeId list>([ firstId; secondId ], focuses)
     Assert.DoesNotContain(wsId, focuses)
-    Assert.False(postsReconcileOrParse effects)
 
 [<Fact>]
 let ``a normal sibling does not post its parent workspace`` () =
@@ -207,7 +191,6 @@ let ``Workspace Load names that Workspace`` () =
         |> fun ready -> selectRange ready 0 1
     let _, effects = UpdateWorkspaceLoad.loadOp model
     Assert.Equal<NodeId list>([ wsId ], loadFocuses effects)
-    Assert.False(postsReconcileOrParse effects)
 
 [<Fact>]
 let ``two nodes inside one File yield that File once`` () =
@@ -251,7 +234,6 @@ let ``a node inside a file posts that file`` () =
     let focuses = loadFocuses effects
     Assert.Equal<NodeId list>([ fileId ], focuses)
     Assert.DoesNotContain(wsId, focuses)
-    Assert.False(postsReconcileOrParse effects)
 
 [<Fact>]
 let ``a non-focus File and Directory each get a Load message`` () =
@@ -283,4 +265,3 @@ let ``a non-focus File and Directory each get a Load message`` () =
     Assert.Equal<NodeId list>([ fileId; dirId ], focuses)
     Assert.DoesNotContain(noteId, focuses)
     Assert.DoesNotContain(wsId, focuses)
-    Assert.False(postsReconcileOrParse effects)

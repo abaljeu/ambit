@@ -178,6 +178,45 @@ let ``walk recurses present Ref and omits missing ids`` () =
     Assert.DoesNotContain(missingId.Value.ToString(), text)
 
 [<Fact>]
+let ``pack omits a folded child's descendants and keeps an expanded child's`` () =
+    let zoomId = NodeId.New()
+    let expandedId = NodeId.New()
+    let expandedChildId = NodeId.New()
+    let foldedId = NodeId.New()
+    let foldedChildId = NodeId.New()
+    let graph =
+        Graph.fromExtracted
+            zoomId
+            (Map.ofList
+                [ zoomId, Node.Create(zoomId, text = "zoom-root")
+                  expandedId, Node.Create(expandedId, text = "expanded-row")
+                  expandedChildId,
+                    Node.Create(expandedChildId, text = "expanded-child")
+                  foldedId, Node.Create(foldedId, text = "folded-row")
+                  foldedChildId,
+                    Node.Create(foldedChildId, text = "folded-child") ])
+            (Map.ofList
+                [ zoomId, owned [ expandedId; foldedId ]
+                  expandedId, owned [ expandedChildId ]
+                  expandedChildId, []
+                  foldedId, owned [ foldedChildId ]
+                  foldedChildId, [] ])
+    let start : ActorStart =
+        { zoomId = zoomId
+          focusId = zoomId
+          runDefinitionId = zoomId
+          graphIds = [ zoomId; expandedId; expandedChildId; foldedId ]
+          eventId = EventId.zero }
+    let cut = CoreActorPool.actorGraphFrom graph start
+    let text =
+        AiExtractPack.packExtract cut start.zoomId start.focusId
+        |> requireOk "pack"
+    Assert.Contains("expanded-child", text)
+    Assert.Contains("folded-row", text)
+    Assert.DoesNotContain("folded-child", text)
+    Assert.True(Map.containsKey foldedChildId graph.nodes)
+
+[<Fact>]
 let ``pack does not persist a file path`` () =
     let graph, zoomId, childId = zoomWithChild "visible"
     let text =

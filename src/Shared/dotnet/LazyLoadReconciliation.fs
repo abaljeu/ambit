@@ -57,28 +57,6 @@ module LazyLoadReconciliation =
                 | None -> Ok None
                 | Some info -> Path.resolveInfo graph workspaceId info))
 
-    let private currentDiscoveredPath graph workspaceLabel path =
-        match resolveOwnedPath graph workspaceLabel path with
-        | Ok(Some(nodeId, _)) ->
-            match Map.tryFind nodeId graph.nodes with
-            | Some node when Node.documentStateEnum node = Current -> Some path
-            | _ -> None
-        | _ -> None
-
-    /// Discovered paths the graph already holds as Current, so a later
-    /// checkout can re-parse or mark them Unparsed instead of skipping them.
-    let currentDiscoveredAsModified
-        (graph: Graph)
-        (workspaceLabel: string)
-        (discovered: ChangedPath list)
-        : ChangedPath list =
-        discovered
-        |> List.choose (function
-            | Added path ->
-                currentDiscoveredPath graph workspaceLabel path
-                |> Option.map Modified
-            | _ -> None)
-
     let internal planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.parts.IsEmpty then
             Ok(graph, [])
@@ -279,6 +257,9 @@ module LazyLoadReconciliation =
                 else
                     None))
 
+    /// Ops for one modified path, the id passed to `markUnparsed`, and the
+    /// Directory or Workspace `parseDirInfoIfPresent` parsed, if it did.
+    /// A resolve error is `Error` so the plan records a path failure.
     let internal invalidateOrParseModified
         (artifacts: Map<string, string>)
         workspaceId
@@ -293,14 +274,15 @@ module LazyLoadReconciliation =
                 workspaceId
                 artifacts
                 info
+            |> Result.map (fun (next, ops, dirId) -> next, ops, [], dirId)
         else
             Path.resolveInfo current workspaceId info
             |> Result.bind (function
-                | None -> Ok(current, [])
+                | None -> Ok(current, [], [], None)
                 | Some(nodeId, _) ->
                     let ops = markUnparsed current nodeId
                     applyOps current ops
-                    |> Result.map (fun next -> next, ops))
+                    |> Result.map (fun next -> next, ops, [ nodeId ], None))
 
     let private changePaths change =
         match change with
@@ -359,29 +341,19 @@ module LazyLoadReconciliation =
             List.choose fileParentParts [ oldPath; newPath ]
         | Modified _ -> []
 
-    let private containingDirectoryIds graph workspaceId changes =
-        changes
-        |> List.collect changedFileParents
-        |> List.map (nearestExistingDirectory graph workspaceId)
-        |> List.distinct
-
-    /// Always Unparsed. Appended after the file plan, so it follows markParentCurrent.
-    let private unparsedStateOp (graph: Graph) nodeId =
-        Op.SetDocumentState(
-            nodeId,
-            Node.documentStateEnum graph.nodes.[nodeId],
-            Unparsed)
-
-    /// Marks for an added, removed, or renamed file. Targets come from `graph`.
-    let containingDirectoryMarkOps
+    /// Directory or Workspace for an added, removed, or renamed file.
+    /// Modified paths add none. Targets come from `graph`.
+    let containingDirectoryIds
         (graph: Graph)
         (workspaceLabel: string)
         (changes: ChangedPath list)
-        : Result<Op list, string> =
+        : Result<NodeId list, string> =
         GraphQuery.trySyncRootByLabel graph workspaceLabel
         |> Result.map (fun workspaceId ->
-            containingDirectoryIds graph workspaceId changes
-            |> List.map (unparsedStateOp graph))
+            changes
+            |> List.collect changedFileParents
+            |> List.map (nearestExistingDirectory graph workspaceId)
+            |> List.distinct)
 
     let planChangedPathsWithArtifacts
         (graph: Graph)
@@ -490,7 +462,14 @@ module LazyLoadReconciliation =
                             added)
                     |> Result.bind (fun afterAdds ->
                         foldPlans
-                            (invalidateOrParseModified artifacts workspaceId)
+                            (fun current info ->
+                                invalidateOrParseModified
+                                    artifacts
+                                    workspaceId
+                                    current
+                                    info
+                                |> Result.map (fun (next, ops, _, _) ->
+                                    next, ops))
                             afterAdds
                             modified)
                     |> Result.bind (fun (finalGraph, planned) ->

@@ -3,34 +3,36 @@ namespace Gambol.Shared
 [<RequireQualifiedAccess>]
 module internal LazyLoadReconciliationApply =
 
+    /// Same apply as mailbox postGraphOnly: guardUnparsed false, command Parse.
     let applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial =
-            { graph = graph
-              eventId = EventId.zero }
-        ops
-        |> List.fold (fun result op ->
-            result
-            |> Result.bind (fun state ->
-                match Op.apply op state with
-                | ApplyResult.Changed next
-                | ApplyResult.Unchanged next -> Ok next
-                | ApplyResult.Invalid(_, error) -> Error error)) (Ok initial)
-        |> Result.map (fun state -> state.graph)
+        if ops.IsEmpty then
+            Ok graph
+        else
+            let state =
+                { graph = graph
+                  eventId = EventId.zero }
+            match
+                ChangeAmendment.applyForGraphOnly
+                    EventId.zero
+                    "Parse"
+                    ops
+                    state
+            with
+            | ApplyResult.Changed next, _, _
+            | ApplyResult.Unchanged next, _, _ -> Ok next.graph
+            | ApplyResult.Invalid(_, error), _, _ -> Error error
 
-    let markUnparsed (graph: Graph) nodeId =
+    /// Current or PullingFile. Already Unparsed is not a new mark.
+    let decidesUnparsedMark (graph: Graph) nodeId =
         match Node.documentStateEnum graph.nodes.[nodeId] with
-        | Unparsed -> []
-        | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
-        | NoServerFile ->
-            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
+        | Unparsed -> false
+        | Current
+        | PullingFile -> true
 
-    let private markParentCurrent (graph: Graph) nodeId =
-        match Map.tryFind nodeId graph.nodes with
-        | Some { kind = Special (Directory | Workspace)
-                 documentState = ds } when
-            DocumentState.toLegacy ds = Unparsed ->
-            [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-        | _ -> []
+    /// Returns no ops. Callers record the id.
+    let markUnparsed (graph: Graph) nodeId =
+        decidesUnparsedMark graph nodeId |> ignore
+        []
 
     let private foldDocumentStateOps markFn graph nodeIds =
         nodeIds
@@ -54,7 +56,7 @@ module internal LazyLoadReconciliationApply =
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
                 | Ok(Some(nodeId, k)) when k = kind ->
                     match Map.tryFind nodeId graph.nodes with
-                    | Some node when Node.documentStateEnum node = NoServerFile ->
+                    | Some node when Node.documentStateEnum node = PullingFile ->
                         Some nodeId
                     | _ -> None
                 | _ -> None)
@@ -69,20 +71,11 @@ module internal LazyLoadReconciliationApply =
         else
             String.concat "/" info.parts + "/.amb"
 
-    /// File/Directory stubs → Unparsed; parents that gained those members → Current.
+    /// File and Directory stubs stay Unparsed.
     /// `planned` is only for stub discovery (NewSpecialNode ids); not re-emitted.
     let markAddedDocumentsUnparsed graph workspaceId added planned =
         let stubIds = addedStubIds graph workspaceId added planned
         foldDocumentStateOps markUnparsed graph stubIds
-        |> Result.bind (fun (withStubs, stubOps) ->
-            let parentIds =
-                stubIds
-                |> List.choose (fun id ->
-                    Map.tryFind id withStubs.ownerParentByChild)
-                |> List.distinct
-            foldDocumentStateOps markParentCurrent withStubs parentIds
-            |> Result.map (fun (finalGraph, parentOps) ->
-                finalGraph, stubOps @ parentOps))
 
     let tryArtifactText
         (artifacts: Map<string, string>)
@@ -98,7 +91,7 @@ module internal LazyLoadReconciliationApply =
         | _ -> None
 
     /// Skip Added-path Directory File parse when stub already exists Current
-    /// and ensureChild emitted no creates. New / Unparsed / NoServerFile parse.
+    /// and ensureChild emitted no creates. New / Unparsed / PullingFile parse.
     let skipParseAddedDirInfo
         (graph: Graph)
         workspaceId
@@ -115,6 +108,27 @@ module internal LazyLoadReconciliationApply =
                 Node.documentStateEnum graph.nodes.[nodeId] = Current
             | _ -> false
 
+    let private noParsedDir graph =
+        Ok(graph, [], None)
+
+    /// `dirId` is the Directory or Workspace this parse applied.
+    let private planParsedDir graph nodeId relativePath text docState =
+        let previousText =
+            match docState with
+            | Unparsed
+            | PullingFile -> None
+            | Current ->
+                previousArtifactText graph nodeId relativePath
+        DocumentParseOps.planApplyArtifact
+            graph
+            nodeId
+            relativePath
+            text
+            previousText
+        |> Result.bind (fun parseOps ->
+            applyOps graph parseOps
+            |> Result.map (fun next -> next, parseOps, Some nodeId))
+
     let parseDirInfoIfPresent
         graph
         workspaceId
@@ -122,43 +136,24 @@ module internal LazyLoadReconciliationApply =
         (info: LazyLoadReconciliationPath.PathInfo)
         =
         if not info.isDirInfo then
-            Ok(graph, [])
+            noParsedDir graph
         else
             match tryArtifactText artifacts info with
-            | None -> Ok(graph, [])
+            | None -> noParsedDir graph
             | Some text ->
                 LazyLoadReconciliationPath.resolveInfo graph workspaceId info
                 |> Result.bind (function
-                    | None -> Ok(graph, [])
+                    | None -> noParsedDir graph
                     | Some(nodeId, _) ->
                         let relativePath = directoryFileRelativePath info
-                        let docState = Node.documentStateEnum graph.nodes.[nodeId]
-                        let previousText =
-                            match docState with
-                            | Unparsed
-                            | NoServerFile -> None
-                            | Current ->
-                                previousArtifactText graph nodeId relativePath
-                        let markCurrent =
-                            match docState with
-                            | Unparsed ->
-                                [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
-                            | NoServerFile ->
-                                [ Op.SetDocumentState(
-                                    nodeId,
-                                    NoServerFile,
-                                    Current) ]
-                            | Current -> []
-                        DocumentParseOps.planApplyArtifact
+                        let docState =
+                            Node.documentStateEnum graph.nodes.[nodeId]
+                        planParsedDir
                             graph
                             nodeId
                             relativePath
                             text
-                            previousText
-                        |> Result.bind (fun parseOps ->
-                            let ops = markCurrent @ parseOps
-                            applyOps graph ops
-                            |> Result.map (fun next -> next, ops)))
+                            docState)
 
     let parseDirInfoInfos
         graph
@@ -174,5 +169,5 @@ module internal LazyLoadReconciliationApply =
                     Ok(current, ops)
                 else
                     parseDirInfoIfPresent current workspaceId artifacts info
-                    |> Result.map (fun (next, parseOps) ->
+                    |> Result.map (fun (next, parseOps, _) ->
                         next, ops @ parseOps))) (Ok(graph, []))

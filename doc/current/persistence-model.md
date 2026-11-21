@@ -167,7 +167,7 @@ CREATE INDEX idx_node_children_child ON node_children (child_id);
 
 [x] Missing root: a present singleton whose `root_id` is missing from `nodes` fails closed, as other maintenance failures do.
 
-[x] Startup reads: the mailbox stays available while startup maintenance runs. In that mode it selectively serves `GetState`, `GetRevision`, and `GetChangesSince` from the frozen loaded state. Ordinary mutations stay buffered in FIFO order.
+Startup reads: the mailbox stays available while startup maintenance runs. In that mode it serves the `Ask` queries `State`, `LastEventId`, and `EventsSince`. History is events since zero. Ordinary mutations stay buffered in FIFO order.
 
 [x] Readiness: after a successful maintenance commit and Graph reload, or after a no-op that skips reload, the agent publishes readiness and enters its normal serialized receive loop.
 
@@ -179,7 +179,7 @@ CREATE INDEX idx_node_children_child ON node_children (child_id);
 
 [x] Unchanged documents: incremental writes skip unchanged documents.
 
-[x] Persist thread: an accepted change calls the collectors. The persist thread calls `DocumentPersistChange.persistGraphOps` / `persistGraphChange`. `FileAgent` and `DbAgent` do not call those functions on the post path.
+[x] Persist thread: the post path pushes a node id onto the persist stack and returns. The thread calls [Document persist change](../../src/Server/DocumentPersistChange.fs) `persistNode`. [Parse and persist](parse-persist.md)
 
 [ ] Browser residency: want-driven.
 

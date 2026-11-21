@@ -46,7 +46,7 @@ module CommandRequest =
             afterFirstToken (afterQuestion text)
             |> fun rest -> rest.ToLowerInvariant()
 
-    let private noRunnableCommand =
+    let private noRunnableActor =
         "No command found"
 
     let private ownerPathToZoom
@@ -86,8 +86,8 @@ module CommandRequest =
         ownerPathToZoom graph focusId zoomId
         |> Option.bind (firstScanStop graph)
 
-    /// Actor Command id: scan-stop whose text starts with `?`. `=` is not one.
-    let commandOnOwnerPath
+    /// Actor node id: scan-stop whose text starts with `?`. `=` is not one.
+    let actorNodeOnOwnerPath
         (graph: Graph)
         (focusId: NodeId)
         (zoomId: NodeId)
@@ -106,7 +106,7 @@ module CommandRequest =
         (zoomId: NodeId)
         : bool =
         Option.isSome (scanStopOnOwnerPath graph focusId zoomId)
-        && Option.isNone (commandOnOwnerPath graph focusId zoomId)
+        && Option.isNone (actorNodeOnOwnerPath graph focusId zoomId)
 
     /// ActorStart. graphIds are the Included expand of Zoom.
     let actorStart
@@ -114,16 +114,17 @@ module CommandRequest =
         (siteMap: SiteMap)
         (zoomId: NodeId)
         (focusId: NodeId)
-        (commandId: NodeId)
+        (runDefinitionId: NodeId)
         (eventId: EventId)
         : ActorStart =
         { zoomId = zoomId
           focusId = focusId
-          commandId = commandId
+          runDefinitionId = runDefinitionId
           graphIds = IncludedDescendantIds.throughChildrenOfExpandedNodes graph siteMap zoomId
           eventId = eventId }
 
     /// Product ActorStart. Zoom is the Included extract root. `=` is not Actor.
+    /// `test` and `ai` queue. Every other `?` name is `unknown actor`.
     let tryStart
         (graph: Graph)
         (siteMap: SiteMap)
@@ -131,14 +132,26 @@ module CommandRequest =
         (focusId: NodeId)
         (eventId: EventId)
         : Result<ActorStart, string> =
-        match commandOnOwnerPath graph focusId zoomId with
-        | None -> Error noRunnableCommand
-        | Some commandId ->
-            Ok
-                (actorStart
-                    graph siteMap zoomId focusId commandId eventId)
+        match actorNodeOnOwnerPath graph focusId zoomId with
+        | None -> Error noRunnableActor
+        | Some runDefinitionId ->
+            let name =
+                nodeText graph runDefinitionId
+                |> Option.bind actorNameFromText
+            match name with
+            | Some "test"
+            | Some "ai" ->
+                Ok (
+                    actorStart
+                        graph
+                        siteMap
+                        zoomId
+                        focusId
+                        runDefinitionId
+                        eventId)
+            | _ -> Error "unknown actor"
 
-    /// Run on a query line. `focusId` and `commandId` are that line.
+    /// Run on a query line. `focusId` and `runDefinitionId` are that line.
     let tryQueryStart
         (graph: Graph)
         (siteMap: SiteMap)
@@ -152,6 +165,16 @@ module CommandRequest =
                 (actorStart
                     graph siteMap zoomId focusId focusId eventId)
         | _ -> None
+
+    /// True when `id` has no Header. Copy, Cut, Edit classes, and Exec need that text.
+    let nodeHeaderIsAbsent (graph: Graph) (id: NodeId) : bool =
+        match Map.tryFind id graph.nodes with
+        | None -> true
+        | Some _ -> false
+
+    /// True when any id in `ids` has no Header.
+    let anyNodeHeaderIsAbsent (graph: Graph) (ids: NodeId list) : bool =
+        List.exists (nodeHeaderIsAbsent graph) ids
 
     /// One-Node ActorStart. Client supplies unfolded Included `graphIds`.
     let oneNodeStart

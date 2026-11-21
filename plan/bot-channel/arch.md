@@ -140,7 +140,7 @@ Narrowest shared test seam:
       5. [ ] Inbox readable by the scheduled Actor body (opt-in consume); Actors that never read ignore messages
       6. [ ] Drop / Cancel / Finish clears `sessionId` index and inbox
    3. Uses
-      1. [x] PersistHandlers / EventLog via CoreMailbox
+      1. [x] CoreMailboxAccess / EventLog via CoreMailbox
       2. [x] Registered Actor definitions (composition)
 
 6. **Run Agent Actor — gbot function**

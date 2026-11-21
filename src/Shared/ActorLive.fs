@@ -41,12 +41,13 @@ module ActorLive =
 
     let applyEvent (event: Ev) (live: Set<NodeId>) : Set<NodeId> =
         match event.body with
+        | EventBody.Order (Order.StartActor order) ->
+            Set.add order.actorNodeId live
         | EventBody.ActorStart start -> Set.add start.focusId live
         | EventBody.ActorStop(focusId, _) -> Set.remove focusId live
         | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _
-        | EventBody.Cancel _ -> live
+        | EventBody.Notice _ -> live
+        | EventBody.Order _ -> live
 
     let applyEvents (events: Ev list) (live: Set<NodeId>) : Set<NodeId> =
         List.fold (fun acc event -> applyEvent event acc) live events
@@ -152,9 +153,8 @@ module ActorLive =
             | ActorCancelled ->
                 Some (CmdLastResult.Error (chip, "Actor cancelled."))
         | EventBody.Change _
-        | EventBody.Undo _
-        | EventBody.Redo _
-        | EventBody.Cancel _ -> None
+        | EventBody.Notice _ -> None
+        | EventBody.Order _ -> None
 
     let lastCmdResult
         (graph: Graph)

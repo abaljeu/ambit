@@ -1,13 +1,14 @@
 namespace Gambol.Shared
 
 /// Auto-want for one Poll. No durable state. Empty list is allowed.
-/// Unloaded members of the Included walk, then two ranks of children,
+/// Absent ids on the Included walk, then three ranks of children,
 /// including children of folded members. No reserved or Zoom tier.
+/// Each Poll Want keeps at most 100 ids in that walk order.
 [<RequireQualifiedAccess>]
 module Want =
 
-    /// Unloaded members of the walk, then two ranks of their children.
-    /// Fold stops the walk; those children are still wanted. No throttle.
+    /// Ids on that walk whose Header is absent. Fold stops the Included
+    /// walk. The three child ranks still run. The list keeps at most 100.
     let compose
         (graph: Graph)
         (siteMap: SiteMap)
@@ -18,6 +19,12 @@ module Want =
                 graph
                 siteMap
                 zoomRoot
+        let headerIsAbsent id =
+            match Map.tryFind id graph.nodes with
+            | None -> true
+            | Some _ -> false
         IncludedDescendantIds.plusChildrenOfEach graph included
         |> IncludedDescendantIds.plusChildrenOfEach graph
-        |> List.filter (fun id -> not (GraphChildren.isLoaded graph id))
+        |> IncludedDescendantIds.plusChildrenOfEach graph
+        |> List.filter headerIsAbsent
+        |> List.truncate 100

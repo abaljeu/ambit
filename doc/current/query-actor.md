@@ -20,18 +20,23 @@ A query expression runs on its own Actor.
 ## Job
 
 [x] The server evaluates the query once, when the line runs.
-[x] This Actor does not use the Find and Move Actor or the Find globe. Detail: [Search Actor](search-actor.md).
+[x] This Actor does not use the Find and Move Actor. Detail: [Search Actor](search-actor.md).
 
 ## Interface
 
-[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `commandId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
+[o] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. The request is the existing Run ActorStart (`zoomId`, `focusId`, `actorNodeId`, `graphIds`, `eventId`) queued on `syncInfo.pending` behind the edit. The post is `POST /ambit/changes`. The wire key for `actorNodeId` is `"commandId"`. The observable reply is Node ids on ActorStop (`ActorQuery`). Detail: [Server evaluates](../../plan/online-search/issues/11-server-evaluates.md).
+[x] Eval: one evaluation of the expression on the server Graph when Run hits a Node whose text contains `=`. `CoreMailboxActors.replyClientRequest` places that Run through `queueAdmittedQuery` and `postBuiltOrder` as `Order.StartActor` of `ActorOrder`. The actor name is `query`. The actor node id is the focus id of that line. The post is `POST /ambit/changes`. The result is Node ids on `ActorStop` (`ActorQuery`).
+[o] That Run request carries `zoomId`, `actorNodeId`, `graphIds`, and `eventId` on the start record.
 [ ] Refs: each result under the query line is a Ref, `ChildNode.reference`, not an Owned Child. That post is a proposed design. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns it.
 
 ## Messages
 
 [x] Eval. The Actor starts when the line runs. A keypress does not start this Actor.
-[x] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `commandId` is that same Node.
-[x] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids.
+[o] Start. Run on a Node whose text contains `=`. The request is the existing ActorStart. `focusId` is that line when Run is on it. `actorNodeId` is that same Node.
+[x] A refused query Run replies with the failure. The edit in that post stays. The live-actor failure text is `actor node already has a live Actor`.
+[o] `actorNodeId` is a field of the old start record.
+[o] Eval reply. The result is Node ids on ActorStop (`ActorQuery`). This reply is the server evaluation. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids.
+[x] Eval reply. The result is Node ids on `Notice.ActorStopped` (`ActorQuery`). `SearchActor.queryActorBody` returns `ActorQuery`. `CoreActorPool.postStopUnlessCancelled` posts that notice. `CoreMailboxLoop.logActorStopped` stores it through `CoreEventDispatch.actorStop`. The client reads the ids from that event on the events-door answer or a later Poll. The applied chip keeps those ids. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice.
 [ ] Result item. Proposed design. Each result under the query line is one `ChildNode.reference`. `ref` is the string `ref`. `id` is a Node id string. [16 — Insert Refs under the query line](../../plan/online-search/issues/16-insert-refs-under-the-query-line.md) owns this post. It is not the eval reply.
 
 ```json
@@ -46,7 +51,6 @@ A query expression runs on its own Actor.
 ## Seams
 
 [ ] Cap: the server stops at 200. A query function may stop lower.
-[x] Globe: this Actor does not use the Find globe. Detail: [Search Actor](search-actor.md).
 
 ## Explanation
 

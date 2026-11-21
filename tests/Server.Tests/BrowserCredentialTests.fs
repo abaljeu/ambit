@@ -49,12 +49,22 @@ let ``Browser message without a live cookie is the same auth refuse as inactive 
         let! poll = postPoll client
         use changesBody = jsonContent "{}"
         let! changes = client.PostAsync("/ambit/changes", changesBody)
+        use eventsBody = jsonContent "{}"
+        let! events = client.PostAsync("/ambit/events", eventsBody)
         use loadBody = jsonContent "{}"
         let! load = client.PostAsync("/ambit/load", loadBody)
+        use searchBody = jsonContent "{}"
+        let! search = client.PostAsync("/ambit/search", searchBody)
+        use loadSaveBody = jsonContent "{}"
+        let! loadSave =
+            client.PostAsync("/ambit/load-save-command", loadSaveBody)
         Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
         Assert.Equal(HttpStatusCode.Unauthorized, poll.StatusCode)
         Assert.Equal(HttpStatusCode.Unauthorized, changes.StatusCode)
+        Assert.Equal(HttpStatusCode.Unauthorized, events.StatusCode)
         Assert.Equal(HttpStatusCode.Unauthorized, load.StatusCode)
+        Assert.Equal(HttpStatusCode.Unauthorized, search.StatusCode)
+        Assert.Equal(HttpStatusCode.Unauthorized, loadSave.StatusCode)
         Assert.Equal("Unauthorized", CoreAuth.refuse)
     }
 
@@ -83,7 +93,10 @@ let ``present cookie is admitted only when mailbox contains the Caller`` () =
         use client = createClientForDirWithAuth dataDir "alice" "secret"
         client.DefaultRequestHeaders.Add("Cookie", "gambol_auth=not-seeded")
         let! state = client.GetAsync("/ambit/state")
+        use eventsBody = jsonContent "{}"
+        let! events = client.PostAsync("/ambit/events", eventsBody)
         Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
+        Assert.Equal(HttpStatusCode.Unauthorized, events.StatusCode)
     }
 
 [<Fact>]
@@ -94,13 +107,23 @@ let ``Empty Auth Browser APIs without cookie are refused`` () = task {
     let! poll = postPoll client
     use changesBody = jsonContent "{}"
     let! changes = client.PostAsync("/ambit/changes", changesBody)
+    use eventsBody = jsonContent "{}"
+    let! events = client.PostAsync("/ambit/events", eventsBody)
     use loadBody = jsonContent """{"revision":0,"targets":[]}"""
     let! load = client.PostAsync("/ambit/load", loadBody)
+    use searchBody = jsonContent "{}"
+    let! search = client.PostAsync("/ambit/search", searchBody)
+    use loadSaveBody = jsonContent "{}"
+    let! loadSave =
+        client.PostAsync("/ambit/load-save-command", loadSaveBody)
     let! capabilities = client.GetAsync("/ambit/capabilities")
     Assert.Equal(HttpStatusCode.Unauthorized, state.StatusCode)
     Assert.Equal(HttpStatusCode.Unauthorized, poll.StatusCode)
     Assert.Equal(HttpStatusCode.Unauthorized, changes.StatusCode)
+    Assert.Equal(HttpStatusCode.Unauthorized, events.StatusCode)
     Assert.Equal(HttpStatusCode.Unauthorized, load.StatusCode)
+    Assert.Equal(HttpStatusCode.Unauthorized, search.StatusCode)
+    Assert.Equal(HttpStatusCode.Unauthorized, loadSave.StatusCode)
     Assert.Equal(HttpStatusCode.Unauthorized, capabilities.StatusCode)
 }
 

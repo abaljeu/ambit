@@ -11,6 +11,9 @@ module GraphProjection =
           name: string option
           kind: string
           documentState: string
+          persistState: string
+          persistedVersion: int
+          changedVersion: int
           cssClassNames: string list
           updateTime: System.DateTime }
 
@@ -29,6 +32,9 @@ module GraphProjection =
         && a.name = b.name
         && a.kind = b.kind
         && Node.documentStateEnum a = Node.documentStateEnum b
+        && a.documentState.persistState = b.documentState.persistState
+        && a.documentState.persistedVersion = b.documentState.persistedVersion
+        && a.documentState.changedVersion = b.documentState.changedVersion
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
 
@@ -57,16 +63,37 @@ module GraphProjection =
                     | Some other -> childListEquals kids other)
             nodesEqual && childMapsEqual
 
+    let private storedDocumentWord (state: DocumentState) : string =
+        match state.parseState with
+        | ParseState.Parsed -> "current"
+        | ParseState.Unparsed -> "unparsed"
+
+    let private storedPersistWord (state: PersistState) : string =
+        match state with
+        | PersistState.Persisted -> "persisted"
+        | PersistState.Unpersisted -> "unpersisted"
+
+    let private documentEnumFromStoredWord (word: string) : DocumentStateEnum =
+        match word with
+        | "unparsed"
+        | "noServerFile" -> Unparsed
+        | _ -> Current
+
+    let private persistFromStoredWord (word: string) : PersistState =
+        match word with
+        | "unpersisted" -> PersistState.Unpersisted
+        | _ -> PersistState.Persisted
+
     let nodeRowFromNode (node: Node) : NodePersistenceRow =
         { id = node.id.Value
           text = node.text
           name = Filename.tryValue node.name
           kind = NodeKindPersistence.toPersistString node.kind
-          documentState =
-            match DocumentState.toLegacy node.documentState with
-            | Current -> "current"
-            | Unparsed -> "unparsed"
-            | NoServerFile -> "noServerFile"
+          documentState = storedDocumentWord node.documentState
+          persistState = storedPersistWord node.documentState.persistState
+          persistedVersion =
+            EventId.toJson node.documentState.persistedVersion
+          changedVersion = EventId.toJson node.documentState.changedVersion
           cssClassNames = CssClass.toList node.cssClasses
           updateTime = node.updateTime }
 
@@ -127,20 +154,27 @@ module GraphProjection =
                     r.name
                     |> Option.map Filename.create
                     |> Option.defaultValue Filename.Empty
-                let documentState =
-                    match r.documentState with
-                    | "unparsed" -> Unparsed
-                    | "noServerFile" -> NoServerFile
-                    | _ -> Current
+                let created =
+                    Node.Create(
+                        nid,
+                        text = r.text,
+                        name = name,
+                        cssClasses = CssClass.ofList r.cssClassNames,
+                        kind =
+                            NodeKindPersistence.legacyKindForCanonical
+                                nid
+                                parsedKind,
+                        documentState = documentEnumFromStoredWord r.documentState,
+                        persistState = persistFromStoredWord r.persistState,
+                        updateTime = r.updateTime)
                 nid,
-                Node.Create(
-                    nid,
-                    text = r.text,
-                    name = name,
-                    cssClasses = CssClass.ofList r.cssClassNames,
-                    kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind,
-                    documentState = documentState,
-                    updateTime = r.updateTime))
+                { created with
+                    documentState =
+                        { created.documentState with
+                            persistedVersion =
+                                EventId.fromJson r.persistedVersion
+                            changedVersion =
+                                EventId.fromJson r.changedVersion } })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

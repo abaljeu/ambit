@@ -53,8 +53,8 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [x] **Insert…** (`f`): New Workspace (focus on Workspaces); New File / New Folder (elsewhere); pick existing file → insert Ref
 - [x] **Rename** (`F2`) for Directory / File / Normal; workspace rename refused (immutable names)
 - [x] **Delete** (move to TRASH), **Move Selected** (`m`), Indent / Outdent, Duplicate (link)
-- [x] **Upload** (`Ctrl+Shift+>`) — parse focused Unparsed File, or upload focused Workspace / scope via WebDAV ([[plan/transport-layer/project.md]]); **Download** (`Ctrl+Shift+<`) for focused scope. See [[lazy-load]].
-- [x] **Save** (`Ctrl+S`)
+- [x] **Load** (`Ctrl+Shift+>`) — parse focused Unparsed File, or upload focused Workspace / scope via WebDAV ([[plan/transport-layer/project.md]]). See [[lazy-load]].
+- [x] **Save** (`Ctrl+S` and `Ctrl+Shift+<`) — git Save when the focus Workspace has a git remote. desk Save when that Workspace has a local mapping and no remote. No remote and no local mapping persists the focus and commits when that folder is a git repository.
 - [x] Navigate: Find, Zoom in / out / owner, Jump to Target
 - [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
 - [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse** branch of `Ctrl+Shift+>`

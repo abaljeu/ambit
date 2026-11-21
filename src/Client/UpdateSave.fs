@@ -3,9 +3,17 @@ module Gambol.Client.UpdateSave
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
+let private oneWorkspaceError (model: VM) : VM * Effect list =
+    withResult
+        model
+        (CmdLastResult.Error(
+            Some(displayName Save),
+            "Save requires all selected targets in one Workspace"))
 
 let private canSave (model: VM) =
     match model.serverCapabilities with
@@ -48,16 +56,35 @@ let runDeskSaveWith
                 + LogText.summarizeHttpBody 200 text))
         (fun () -> log "[Gambol] save network error")
 
+/// Desk when plain Save has a local mapping and no remote. Otherwise the actor.
+let private prePickForSave
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : LoadSavePrePick =
+    match
+        PathPick.plainSavePath
+            model.graph
+            (commandFocusId model)
+            prePick
+            (workspaceMappingPresence model)
+    with
+    | Some LoadSavePath.Desk -> LoadSavePrePick.Desk
+    | _ -> prePick
+
 let saveOpFor
     (prePick: LoadSavePrePick)
     (model: VM)
     : VM * Effect list =
-    model,
-    [ SubmitLoadSaveCommand (
-        loadSaveCommandRequest
-            LoadSaveOperation.Save
-            prePick
-            model,
-        None) ]
+    if selectionSpansWorkspaces model then
+        oneWorkspaceError model
+    else
+        let prePick = prePickForSave prePick model
+        model,
+        [ SubmitLoadSaveCommand (
+            loadSaveCommandRequest
+                LoadSaveOperation.Save
+                prePick
+                model,
+            None) ]
 
 let saveOp = saveOpFor LoadSavePrePick.Plain

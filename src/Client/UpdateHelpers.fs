@@ -58,16 +58,26 @@ let currentChangeRequest (events: Ev list) (model: VM) : ChangeRequest =
     { events = SyncBatch.toWireBatch events
       want = currentWant model }
 
+/// Selection focus, or the zoom root when the selection is empty.
+let commandFocusId (model: VM) : NodeId =
+    match model.selectedNodes with
+    | Some selection -> focusedNodeId model.graph selection
+    | None -> model.zoomRoot
+
+let workspaceMappingPresence (model: VM) : WorkspaceMappingPresence =
+    let labels =
+        model.workspaceRemotes
+        |> Map.toList
+        |> List.map fst
+        |> Set.ofList
+    PathPick.mappingPresence labels model.workspaceMappedLabels
+
 let loadSaveCommandRequest
     (operation: LoadSaveOperation)
     (prePick: LoadSavePrePick)
     (model: VM)
     : LoadSaveCommandRequest =
-    let focusId =
-        match model.selectedNodes with
-        | Some selection ->
-            focusedNodeId model.graph selection
-        | None -> model.zoomRoot
+    let focusId = commandFocusId model
     { operation = operation
       prePick = prePick
       holdStack = false
@@ -102,12 +112,13 @@ let selectedLoadTargetIds (model: VM) : NodeId list =
             |> List.take (sel.range.endd - sel.range.start)
             |> List.map (fun child -> child.id)
 
-let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
-    let includeWorkspace =
-        match Map.tryFind targetId graph.nodes with
-        | Some _ when not (Graph.isLoaded graph targetId) -> true
-        | _ -> false
-    { targetId = targetId; includeWorkspace = includeWorkspace }
+let selectionSpansWorkspaces (model: VM) =
+    ResidentProjection.selectionSpansMultipleWorkspaces
+        model.graph
+        (selectedLoadTargetIds model)
+
+let private loadTargetIntent (targetId: NodeId) : LoadTarget =
+    { targetId = targetId }
 
 /// After Upload/Parse stages: Fetch+Poll for the full selection; else ordinary Poll.
 let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
@@ -121,8 +132,7 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
     then
         model.syncInfo, []
     else
-        let targets =
-            targetIds |> List.map (loadTargetIntent model.graph)
+        let targets = targetIds |> List.map loadTargetIntent
         SyncPlanner.tryStartLoad
             (model.eventId)
             targets

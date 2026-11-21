@@ -228,19 +228,40 @@ let ``Unparsed node round-trip`` () =
     Assert.Equal(Unparsed, decoded.documentState.AsEnum)
 
 [<Fact>]
-let ``NoServerFile node and state op round-trip`` () =
+let ``PullingFile round-trip`` () =
     let node =
         Node.Create(
             NodeId.New(),
             text = "file",
             kind = Special File,
-            documentState = NoServerFile)
+            documentState = PullingFile)
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    Assert.Contains("\"documentState\":\"noServerFile\"", json)
+    Assert.DoesNotContain("pullingFile", json)
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
-    Assert.Equal(NoServerFile, decoded.documentState.AsEnum)
+    Assert.Equal(PullingFile, decoded.documentState.AsEnum)
+    Assert.True(decoded.documentState.pullingFile)
 
-    let op =
-        Op.SetDocumentState(node.id, NoServerFile, Unparsed)
-    Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
+    let row = GraphProjection.nodeRowFromNode node
+    Assert.Equal("unparsed", row.documentState)
+    let graph = Graph.create () |> Graph.addDetachedNode node
+    match GraphProjection.graphRoundTrip graph with
+    | Error msg -> failwith msg
+    | Ok loaded ->
+        let back = loaded.nodes.[node.id]
+        Assert.Equal(Unparsed, back.documentState.AsEnum)
+        Assert.False(back.documentState.pullingFile)
+
+[<Fact>]
+let ``PullingFile node and state op round-trip`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = PullingFile)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.Equal(PullingFile, decoded.documentState.AsEnum)
 
 [<Fact>]
 let ``Graph round-trip`` () =
@@ -316,12 +337,6 @@ let ``Op.Replace round-trip preserves child ownership`` () =
             [],
             [ ChildNode.owner shared
               ChildNode.reference shared ])
-    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
-    Assert.Equal(op, decoded)
-
-[<Fact>]
-let ``Op.SetDocumentState round-trip`` () =
-    let op = Op.SetDocumentState(NodeId.New(), Current, Unparsed)
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
     Assert.Equal(op, decoded)
 
@@ -671,11 +686,13 @@ let ``SyncWant always encodes want`` () =
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =
+    let firstId = NodeId.New()
+    let secondId = NodeId.New()
     let request: LoadRequest =
         { eventId = EventIdFixtures.storedId 11
           targets =
-            [ { targetId = NodeId.New(); includeWorkspace = true }
-              { targetId = NodeId.New(); includeWorkspace = false } ] }
+            [ { targetId = firstId }
+              { targetId = secondId } ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadRequest
@@ -683,9 +700,8 @@ let ``LoadRequest round-trip`` () =
             request
     Assert.Equal(request.eventId, decoded.eventId)
     Assert.Equal(2, decoded.targets.Length)
-    Assert.Equal(request.targets.[0].targetId, decoded.targets.[0].targetId)
-    Assert.True(decoded.targets.[0].includeWorkspace)
-    Assert.False(decoded.targets.[1].includeWorkspace)
+    Assert.Equal(firstId, decoded.targets.[0].targetId)
+    Assert.Equal(secondId, decoded.targets.[1].targetId)
 
 [<Fact>]
 let ``LoadResponse round-trip with nodes and childMap`` () =
@@ -789,7 +805,7 @@ let ``ActorStart Command request round-trips named Core ids`` () =
     let start: ActorStart =
         { zoomId = zoom
           focusId = zoom
-          commandId = zoom
+          runDefinitionId = zoom
           graphIds = [ zoom ]
           eventId = EventId.fromJson 4 }
     let decoded =
@@ -811,8 +827,10 @@ let ``UniversalResponse round-trips nodes events and latestId`` () =
           authority = Authority "Browser"
           commandName = "Exec"
           body = EventBody.Change [] }
+    let childId = NodeId.New()
     let response: UniversalResponse =
         { nodes = [ node ]
+          childMap = Map.ofList [ node.id, [ ChildNode.owner childId ] ]
           events = [ event ]
           latestId = EventId.fromJson 2 }
     let decoded =
@@ -823,5 +841,8 @@ let ``UniversalResponse round-trips nodes events and latestId`` () =
     Assert.Equal(response.latestId, decoded.latestId)
     Assert.Equal(1, decoded.nodes.Length)
     Assert.Equal(node.id, decoded.nodes.[0].id)
+    Assert.Equal<ChildNode list>(
+        [ ChildNode.owner childId ],
+        decoded.childMap.[node.id])
     Assert.Equal(1, decoded.events.Length)
     Assert.Equal(event.id, decoded.events.[0].id)

@@ -207,9 +207,10 @@ body {
 .amb-row-sync-synced .amb-file-indicator {
     color: #668866;
 }
-.amb-row-artifact-absent .amb-text {
-    color: #aa2222;
+.amb-row-absent {
+    background-color: #777777;
 }
+
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
@@ -244,14 +245,20 @@ body {
     background: transparent;
     border: 1.5px solid currentColor;
 }
+/* Larger than the 0.4em bullets so the slash stays readable. Center stays at 0.65em. */
 .amb-bullet-hollow-slash::before {
+    width: 0.7em;
+    height: 0.7em;
+    margin-top: 0.3em;
     border: 1.5px solid currentColor;
-    background: linear-gradient(
+    background-color: transparent;
+    background-clip: padding-box;
+    background-image: linear-gradient(
         135deg,
-        transparent calc(50% - 0.75px),
-        currentColor calc(50% - 0.75px),
-        currentColor calc(50% + 0.75px),
-        transparent calc(50% + 0.75px));
+        transparent calc(50% - 1px),
+        currentColor calc(50% - 1px),
+        currentColor calc(50% + 1px),
+        transparent calc(50% + 1px));
 }
 .amb-row-owned .amb-fold-toggle {
     color: #000;
@@ -329,7 +336,7 @@ body {
     color: #530;
 }
 .amb-db-status.amb-db-absent {
-    background: #ddd;
+    background: #444;
     color: #444;
 }
 
@@ -401,6 +408,11 @@ body {
 .amb-dialog-results li:hover,
 .amb-dialog-results li.amb-dialog-selected {
     background: #a8d0fe;
+}
+.amb-dialog-results li.amb-dialog-zero,
+.amb-dialog-results li.amb-dialog-zero:hover {
+    background: transparent;
+    cursor: default;
 }
 
 /* Blocking sync-risk alert (above palette z-index) */

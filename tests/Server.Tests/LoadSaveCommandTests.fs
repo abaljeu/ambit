@@ -3,54 +3,11 @@ module Gambol.Server.Tests.LoadSaveCommandTests
 open System
 open System.IO
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
-open Thoth.Json.Newtonsoft
-
-module Encode = Thoth.Json.Newtonsoft.Encode
-module Decode = Thoth.Json.Newtonsoft.Decode
-
-let private encodeRequest request =
-    EventJson.encodeLoadSaveCommandRequest request
-    |> Encode.toString 0
-
-let private request operation prePick nodeId eventId =
-    { operation = operation
-      prePick = prePick
-      holdStack = false
-      start =
-        { zoomId = nodeId
-          focusId = nodeId
-          commandId = nodeId
-          graphIds = [ Graph.rootId; nodeId ]
-          eventId = eventId } }
-
-let private requireResponse (result: IResult) =
-    match box result with
-    | :? ContentHttpResult as content ->
-        match
-            Decode.fromString
-                ApiResponseSerialization.decodeLoadSaveCommandResponseDecoder
-                content.ResponseContent
-        with
-        | Result.Ok response -> response
-        | Result.Error err ->
-            Assert.Fail(err)
-            Unchecked.defaultof<_>
-    | other ->
-        Assert.Fail($"expected JSON content, got {other.GetType().Name}")
-        Unchecked.defaultof<_>
-
-let private requireOk label =
-    function
-    | Result.Ok value -> value
-    | Result.Error err ->
-        Assert.Fail($"{label}: {err}")
-        Unchecked.defaultof<_>
+open Gambol.Server.Tests.LoadSaveCommandFixtures
 
 [<Fact>]
 let ``Desk request reaches pool without starting Peer Actor`` () = task {
@@ -93,242 +50,6 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
         CoreMailboxApi.dispose host
 }
 
-type private Seed =
-    { workspaceId: NodeId
-      commandId: NodeId
-      focusId: NodeId
-      eventId: EventId }
-
-type private GitHarness =
-    { dataDir: string
-      parent: string
-      remote: string
-      source: string
-      workspace: string
-      host: MailboxHost
-      seed: Seed }
-
-let private git root arguments =
-    GitSave.runGit root arguments |> requireOk arguments
-
-let private configureIdentity root =
-    git root "config user.email test@gambol" |> ignore
-    git root "config user.name test" |> ignore
-
-let private commitFile
-    (root: string)
-    (path: string)
-    (text: string)
-    (message: string)
-    =
-    File.WriteAllText(Path.Combine(root, path), text)
-    git root "add -A" |> ignore
-    git root $"commit -m {message}" |> ignore
-
-let private createTrackedWorkspace dataDir =
-    let parent = newTempDir ()
-    let remote = Path.Combine(parent, "remote.git")
-    let source = Path.Combine(parent, "source")
-    let workspace = Path.Combine(dataDir, "home")
-    Directory.CreateDirectory(remote) |> ignore
-    Directory.CreateDirectory(source) |> ignore
-    git remote "init --bare -b main" |> ignore
-    git source "init -b main" |> ignore
-    configureIdentity source
-    commitFile source "note.txt" "seed" "seed"
-    git source $"remote add origin {remote}" |> ignore
-    git source "push -u origin main" |> ignore
-    git dataDir $"clone {remote} home" |> ignore
-    configureIdentity workspace
-    parent, remote, source, workspace
-
-let private registerPeer dataDir pool operation dependencies =
-    pool.registerPeer
-        (GithubTransportActor.peerName operation)
-        (GithubTransportActor.actorFn
-            dataDir operation dependencies)
-
-let private createProductionHost dataDir =
-    let pool = CoreActorPool.create ()
-    let dependencies =
-        GithubTransportActor.productionDependencies
-    registerPeer dataDir pool GithubTransportOperation.Load dependencies
-    registerPeer dataDir pool GithubTransportOperation.Save dependencies
-    CoreMailbox.host
-        pool
-        (FileAgent.persist (FileAgent.create dataDir))
-        admittedCredentials
-
-let private seedWorkspace host operationName =
-    let workspaceId, workspaceOps =
-        FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
-    let commandId, focusId = NodeId.New(), NodeId.New()
-    let ops =
-        workspaceOps
-        @ [ Op.SetDocumentState(workspaceId, Unparsed, Current)
-            Op.NewNode(commandId, operationName)
-            Op.NewNode(focusId, "focus")
-            Op.Replace(
-                workspaceId,
-                [],
-                [ ChildNode.owner commandId
-                  ChildNode.owner focusId ]) ]
-    let event =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change ops }
-    let accepted =
-        CoreMailboxApi.postGraphOnly host testCaller event
-        |> Async.RunSynchronously
-        |> requireOk "seed workspace"
-    { workspaceId = workspaceId
-      commandId = commandId
-      focusId = focusId
-      eventId = accepted.eventId }
-
-let private createGitHarness operationName =
-    let dataDir = newTempDir ()
-    let parent, remote, source, workspace =
-        createTrackedWorkspace dataDir
-    let host = createProductionHost dataDir
-    { dataDir = dataDir
-      parent = parent
-      remote = remote
-      source = source
-      workspace = workspace
-      host = host
-      seed = seedWorkspace host operationName }
-
-let private operationFor =
-    function
-    | LoadSaveOperation.Load -> GithubTransportOperation.Load
-    | LoadSaveOperation.Save -> GithubTransportOperation.Save
-
-let private productionRouter harness =
-    { resolvePath = LoadSaveRouting.resolvePath harness.dataDir
-      startCommand =
-        fun path command ->
-            CoreMailboxApi.startLoadSaveCommand
-                harness.host
-                testCaller
-                path
-                (GithubTransportActor.peerName
-                    (operationFor command.operation))
-                command }
-
-let private requestFor operation prePick seed =
-    { operation = operation
-      prePick = prePick
-      holdStack = false
-      start =
-        { zoomId = seed.workspaceId
-          focusId = seed.focusId
-          commandId = seed.commandId
-          graphIds =
-            [ Graph.rootId
-              Graph.workspacesId
-              seed.workspaceId
-              seed.commandId
-              seed.focusId ]
-          eventId = seed.eventId } }
-
-let private requestForFocus operation prePick seed focusId =
-    let command = requestFor operation prePick seed
-    { command with
-        start =
-            { command.start with
-                zoomId = focusId
-                focusId = focusId } }
-
-let private postRoutedFocus operation prePick focusId harness = task {
-    let command = requestForFocus operation prePick harness.seed focusId
-    let! result =
-        Api.postLoadSaveCommand
-            (productionRouter harness)
-            (CoreDoor.create true harness.host testCaller)
-            (encodeRequest command)
-        |> Async.StartAsTask
-    let response = requireResponse result
-    Assert.Equal(LoadSavePath.Git, response.path)
-    Assert.True(Option.isSome response.command)
-}
-
-let private postRouted operation prePick harness =
-    postRoutedFocus operation prePick harness.seed.focusId harness
-
-let rec private waitForStopUntil
-    host
-    focusId
-    (deadline: DateTime)
-    (delayMs: int)
-    =
-    task {
-        let! history =
-            CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        let stopped =
-            history.events
-            |> List.tryPick (fun event ->
-                match event.body with
-                | EventBody.ActorStop(id, result) when id = focusId ->
-                    Some result
-                | _ -> None)
-        match stopped with
-        | Some result -> return Some result
-        | None when DateTime.UtcNow >= deadline -> return None
-        | None ->
-            do! Task.Delay delayMs
-            return!
-                waitForStopUntil
-                    host focusId deadline (min 250 (delayMs * 2))
-    }
-
-let private waitForStop host focusId =
-    waitForStopUntil
-        host focusId (DateTime.UtcNow.AddSeconds 30.0) 10
-
-let private decodePoll result =
-    match box result with
-    | :? ContentHttpResult as content ->
-        Decode.fromString
-            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
-            content.ResponseContent
-        |> requireOk "decode Poll"
-    | other ->
-        failwith $"expected Poll JSON, got {other.GetType().Name}"
-
-let private pollSince harness = task {
-    let body =
-        ApiResponseSerialization.encodePollRequest
-            { eventId = harness.seed.eventId; want = [] }
-        |> Encode.toString 0
-    let! result =
-        Api.postPoll
-            (CoreDoor.create true harness.host testCaller)
-            10
-            20
-            body
-        |> Async.StartAsTask
-    return decodePoll result
-}
-
-let private hasActorStart focusId event =
-    match event.body with
-    | EventBody.ActorStart start -> start.focusId = focusId
-    | _ -> false
-
-let private hasActorStop focusId event =
-    match event.body with
-    | EventBody.ActorStop(id, ActorSucceeded) -> id = focusId
-    | _ -> false
-
-let private isParseChange event =
-    event.commandName = "Parse"
-    && match event.body with
-       | EventBody.Change _ -> true
-       | _ -> false
-
 let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
     let markStarted () = started.TrySetResult() |> ignore
     let tracked =
@@ -336,8 +57,8 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
           remote = "origin"
           upstream = "refs/heads/main" }
     { git =
-        { withWorkTreeGate = fun _ action -> action ()
-          trackedBranch = fun _ -> Result.Ok tracked
+        { remoteExists = fun _ -> Result.Ok true
+          fetchTracked = fun _ _ -> Result.Ok "fetched"
           pullTracked =
             fun _ _ ->
                 markStarted ()
@@ -348,37 +69,22 @@ let private routeMatrixDependencies (started: TaskCompletionSource<unit>) =
                 Result.Ok(tracked, "committed")
           pushTracked = fun _ _ _ -> Result.Ok "pushed" } }
 
-let private routeMatrixHarness operation operationName =
+let private routeMatrixHarness operationName =
     let dataDir = newTempDir ()
     let started =
         TaskCompletionSource<unit>(
             TaskCreationOptions.RunContinuationsAsynchronously)
+    let dependencies = routeMatrixDependencies started
     let pool = CoreActorPool.create ()
-    registerPeer
-        dataDir pool (operationFor operation)
-        (routeMatrixDependencies started)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
-    host, seedWorkspace host operationName, started
+    host, seedWorkspace host operationName, started, dataDir, dependencies
 
-let private routeMatrixRouter host operation =
-    { resolvePath =
-        fun _ command ->
-            PathPick.resolveCommand
-                { operation = command.operation
-                  prePick = command.prePick
-                  subject = Some LoadSubject.Directory }
-                (fun () -> Result.Ok true)
-      startCommand =
-        fun path command ->
-            CoreMailboxApi.startLoadSaveCommand
-                host testCaller path
-                (GithubTransportActor.peerName
-                    (operationFor operation))
-                command }
+let private routeMatrixRouter host dataDir dependencies operation =
+    actorRouter host dataDir dependencies operation
 
 let private operationFromName =
     function
@@ -406,13 +112,15 @@ let ``every Git choice starts the Server Peer Actor``
     = task {
     let operation = operationFromName operationName
     let prePick = prePickFromName prePickName
-    let host, seed, started =
-        routeMatrixHarness operation operationName
+    let host, seed, started, dataDir, dependencies =
+        routeMatrixHarness operationName
+    let locksBefore = NodeLockPool.entryCount ()
     try
-        let command = requestFor operation prePick seed
+        let focusId = seed.workspaceId
+        let command = requestForFocus operation prePick seed focusId
         let! result =
             Api.postLoadSaveCommand
-                (routeMatrixRouter host operation)
+                (routeMatrixRouter host dataDir dependencies operation)
                 (CoreDoor.create true host testCaller)
                 (encodeRequest command)
             |> Async.StartAsTask
@@ -421,23 +129,30 @@ let ``every Git choice starts the Server Peer Actor``
         Assert.True(Option.isSome response.command)
         do! started.Task.WaitAsync(TimeSpan.FromSeconds 1.0)
         let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
-        Assert.Contains(history.events, hasActorStart seed.focusId)
+        Assert.Contains(history.events, hasStartedActor focusId)
+        let! stopped = waitUntilActorStops host focusId 2000
+        Assert.True(stopped, "git actor still holds the workspace lock")
     finally
         CoreMailboxApi.dispose host
+    Assert.Equal(locksBefore, NodeLockPool.entryCount ())
 }
 
 [<Fact>]
 let ``plain Load of a non-Workspace returns Desk when a remote exists`` () =
     task {
         let operation = LoadSaveOperation.Load
-        let host, seed, started =
-            routeMatrixHarness operation "load"
+        let host, seed, started, dataDir, dependencies =
+            routeMatrixHarness "load"
         try
             let command =
                 requestFor operation LoadSavePrePick.Plain seed
             let! result =
                 Api.postLoadSaveCommand
-                    (routeMatrixRouter host operation)
+                    (routeMatrixRouter
+                        host
+                        dataDir
+                        dependencies
+                        operation)
                     (CoreDoor.create true host testCaller)
                     (encodeRequest command)
                 |> Async.StartAsTask
@@ -448,32 +163,6 @@ let ``plain Load of a non-Workspace returns Desk when a remote exists`` () =
         finally
             CoreMailboxApi.dispose host
     }
-
-[<SkippableFact>]
-let ``routed Git Save commits then pushes through Peer Actor`` () = task {
-    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let harness = createGitHarness "save"
-    try
-        File.WriteAllText(
-            Path.Combine(harness.workspace, "saved.txt"),
-            "saved")
-        do!
-            postRouted
-                LoadSaveOperation.Save
-                LoadSavePrePick.Git
-                harness
-        let! stopped =
-            waitForStop harness.host harness.seed.focusId
-        Assert.Equal(Some ActorSucceeded, stopped)
-        let verify = Path.Combine(harness.parent, "verify")
-        git harness.parent $"clone {harness.remote} verify" |> ignore
-        Assert.True(File.Exists(Path.Combine(verify, "saved.txt")))
-        Assert.Equal(
-            git verify "rev-parse refs/heads/main",
-            git harness.workspace "rev-parse refs/heads/main")
-    finally
-        CoreMailboxApi.dispose harness.host
-}
 
 [<SkippableFact>]
 let ``routed Git Load pulls the tracked branch`` () = task {
@@ -502,7 +191,7 @@ let ``routed Git Load pulls the tracked branch`` () = task {
         let! poll = pollSince harness
         Assert.Contains(
             poll.events,
-            hasActorStart harness.seed.workspaceId)
+            hasStartedActor harness.seed.workspaceId)
         Assert.Contains(
             poll.events,
             hasActorStop harness.seed.workspaceId)
@@ -511,204 +200,77 @@ let ``routed Git Load pulls the tracked branch`` () = task {
         CoreMailboxApi.dispose harness.host
 }
 
-let private postChange host ops =
-    let event =
-        { id = EventId.zero
-          submissionId = Guid.NewGuid()
-          authority = Authority "Browser"
-          commandName = ""
-          body = EventBody.Change ops }
-    CoreMailboxApi.postGraphOnly host testCaller event
-    |> Async.RunSynchronously
-    |> requireOk "post change"
-    |> ignore
-
-let private readGraph host =
-    CoreMailboxApi.getState host
-    |> Async.RunSynchronously
-    |> requireOk "state"
-    |> fun state -> state.graph
-
-let private childNamed graph parentId name =
-    Graph.children graph parentId
-    |> List.pick (fun child ->
-        match Filename.tryValue graph.nodes.[child.id].name with
-        | Some candidate when candidate = name -> Some graph.nodes.[child.id]
-        | _ -> None)
-
-let private publishStaging parent =
-    let remote = Path.Combine(parent, "remote.git")
-    let source = Path.Combine(parent, "source")
-    Directory.CreateDirectory(remote) |> ignore
-    Directory.CreateDirectory(source) |> ignore
-    git remote "init --bare -b staging" |> ignore
-    git source "init -b staging" |> ignore
-    configureIdentity source
-    File.WriteAllText(Path.Combine(source, "note.txt"), "from-staging")
-    File.WriteAllText(Path.Combine(source, "arrived.txt"), "arrived")
-    git source "add -A" |> ignore
-    git source "commit -m seed" |> ignore
-    git source $"remote add origin {remote}" |> ignore
-    git source "push -u origin staging" |> ignore
-    remote
-
-let private fetchSwitchStaging workspace remote =
-    git workspace "init -b master" |> ignore
-    git workspace $"remote add origin {remote}" |> ignore
-    git workspace "fetch" |> ignore
-    git workspace "switch staging" |> ignore
-
-[<SkippableFact>]
-let ``git Load pulls a staging checkout and does not reconcile`` () = task {
-    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let dataDir = newTempDir ()
-    let workspace = Path.Combine(dataDir, "home")
-    Directory.CreateDirectory(workspace) |> ignore
-    let remote = publishStaging (newTempDir ())
-    let host = createProductionHost dataDir
+/// Git Load of a Workspace posts github-load. The client must drop Cancel.
+[<Fact>]
+let ``git Load of a Workspace clears Cancel after the actor stops`` () = task {
+    let operation = LoadSaveOperation.Load
+    let host, seed, _started, dataDir, dependencies =
+        routeMatrixHarness "load"
     try
-        let seed = seedWorkspace host "load"
-        let graph = readGraph host
-        let _, fileOps =
-            FileNodeOps.planCreateOwnedFile graph seed.workspaceId "note.txt"
-        postChange host fileOps
-        fetchSwitchStaging workspace remote
-        let harness =
-            { dataDir = dataDir
-              parent = dataDir
-              remote = remote
-              source = remote
-              workspace = workspace
-              host = host
-              seed = seed }
-        do!
-            postRouted
-                LoadSaveOperation.Load
-                LoadSavePrePick.Git
-                harness
-        let! stopped = waitForStop host seed.focusId
+        let wsId = seed.workspaceId
+        let! before =
+            CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+        let before = requireOk "before" before
+        let command =
+            requestForFocus operation LoadSavePrePick.Git seed wsId
+        let command =
+            { command with
+                start = { command.start with eventId = before.eventId } }
+        let! result =
+            Api.postLoadSaveCommand
+                (routeMatrixRouter host dataDir dependencies operation)
+                (CoreDoor.create true host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        let response = requireResponse result
+        Assert.Equal(LoadSavePath.Git, response.path)
+        let commandEvents =
+            match response.command with
+            | Some loaded -> loaded.events
+            | None -> []
+        let baseline =
+            ClientSyncState.create
+                before.graph
+                before.eventId
+                (ClientHistory.clear ())
+        let afterCommand = applyTail "command response" commandEvents baseline
+        let! stopped = waitForStop host wsId
+        Assert.True(
+            stopped.IsSome,
+            "github-load posted no stop for the Workspace")
+        let stopInCommand =
+            commandEvents
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.ActorStop(id, _) -> id = wsId
+                | _ -> false)
+        if stopInCommand then
+            Assert.False(
+                ActorLive.offersCancel wsId afterCommand.actorLiveFocusIds,
+                "the command response included the stop and left Cancel up")
+        else
+            Assert.True(
+                ActorLive.offersCancel wsId afterCommand.actorLiveFocusIds,
+                "command response did not show Cancel")
+        let! poll = pollFrom host afterCommand.eventId
+        let afterPoll = applyTail "poll" poll.events afterCommand
+        Assert.False(
+            ActorLive.offersCancel wsId afterPoll.actorLiveFocusIds,
+            "Cancel stays: poll did not clear the Workspace actor")
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let started =
+            history.events |> List.exists (githubLoadStarted wsId)
+        Assert.True(started, "github-load StartActor was not for the Workspace")
         Assert.Equal(Some ActorSucceeded, stopped)
-        let after = readGraph host
-        let names =
-            Graph.children after seed.workspaceId
-            |> List.choose (fun child ->
-                Filename.tryValue after.nodes.[child.id].name)
-        Assert.Equal(
-            "arrived",
-            File.ReadAllText(Path.Combine(workspace, "arrived.txt")))
-        Assert.DoesNotContain("arrived.txt", names)
-        Assert.Equal(
-            Unparsed,
-            (childNamed after seed.workspaceId "note.txt").documentState.AsEnum)
     finally
         CoreMailboxApi.dispose host
 }
 
-[<SkippableFact>]
-let ``plain Load of a File or Directory stays Desk when a remote exists`` () =
-    task {
-        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-        let harness = createGitHarness "load"
-        try
-            let graph = readGraph harness.host
-            let fileId, fileOps =
-                FileNodeOps.planCreateOwnedFile
-                    graph
-                    harness.seed.workspaceId
-                    "note.txt"
-            postChange harness.host fileOps
-            let graph = readGraph harness.host
-            let dirId, dirOps =
-                FileNodeOps.planCreateOwnedDirectory
-                    graph
-                    harness.seed.workspaceId
-                    "docs"
-            postChange harness.host dirOps
-            for focusId in [ fileId; dirId ] do
-                let command =
-                    requestForFocus
-                        LoadSaveOperation.Load
-                        LoadSavePrePick.Plain
-                        harness.seed
-                        focusId
-                let! result =
-                    Api.postLoadSaveCommand
-                        (productionRouter harness)
-                        (CoreDoor.create true
-                            harness.host
-                            testCaller)
-                        (encodeRequest command)
-                    |> Async.StartAsTask
-                let response = requireResponse result
-                Assert.Equal(LoadSavePath.Desk, response.path)
-                Assert.True(response.command.IsNone)
-            let! history =
-                CoreMailboxApi.eventHistory harness.host
-                |> Async.StartAsTask
-            Assert.DoesNotContain(history.events, hasActorStart fileId)
-            Assert.DoesNotContain(history.events, hasActorStart dirId)
-        finally
-            CoreMailboxApi.dispose harness.host
-    }
-
-let rec private waitForParsedFile host fileId text deadline = task {
-    let after = readGraph host
-    let parsed =
-        match Map.tryFind fileId after.nodes with
-        | Some node when Node.documentStateEnum node = Current ->
-            Graph.children after fileId
-            |> List.exists (fun kid ->
-                after.nodes.[kid.id].text = text)
-        | _ -> false
-    if parsed then
-        return Some after
-    elif DateTime.UtcNow >= deadline then
-        return None
-    else
-        do! Task.Delay 10
-        return! waitForParsedFile host fileId text deadline
-}
-
-let private fileLoadHost (dataDir: string) =
-    let push, consumer = ParseStack.create ()
-    let host =
-        CoreMailbox.hostWithParsePush
-            (CoreActorPool.create ())
-            (FileAgent.persist (FileAgent.create dataDir))
-            admittedCredentials
-            push
-    let handle = CoreDoor.create true host testCaller
-    ParseThread.start
-        { dataDir = dataDir
-          consumer = consumer
-          push = push
-          getGraph = ParseThread.graphFromHost host
-          postOps = ParseThread.postParseOps handle
-          markUnparsed =
-            fun nodeId ->
-                CoreMailboxApi.addInMsg host (InMsg.MarkUnparsed nodeId)
-          finishParse =
-            fun nodeId ->
-                CoreMailboxApi.addInMsg
-                    host
-                    (InMsg.ParseFinished nodeId) }
-    let router =
-        { resolvePath = LoadSaveRouting.resolvePath dataDir
-          startCommand =
-            fun path request ->
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    path
-                    (GithubTransportActor.peerName
-                        GithubTransportOperation.Load)
-                    request }
-    host, handle, router
-
 [<Fact>]
-let ``Load on a file parses that file`` () = task {
+let ``plain Load of a File parses that file from disk`` () = task {
     let dataDir = newTempDir ()
-    let host, handle, router = fileLoadHost dataDir
+    let host = createParsingHost dataDir
     try
         let seed = seedWorkspace host "load"
         let fileId, fileOps =
@@ -718,59 +280,368 @@ let ``Load on a file parses that file`` () = task {
         let disk = Path.Combine(dataDir, "home", "note.txt")
         Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
         File.WriteAllText(disk, "seed")
-        let command =
-            requestForFocus
-                LoadSaveOperation.Load
-                LoadSavePrePick.Plain
-                seed
-                fileId
-        let! result =
-            Api.postLoadSaveCommand
-                router
-                handle
-                (encodeRequest command)
-            |> Async.StartAsTask
-        Assert.Equal(LoadSavePath.Desk, (requireResponse result).path)
-        let! parsed =
-            waitForParsedFile host fileId "seed" (DateTime.UtcNow.AddSeconds 2.0)
-        match parsed with
-        | Some after ->
-            Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
-            Assert.Equal(
-                "seed",
-                after.nodes.[(Graph.children after fileId).Head.id].text)
-        | None -> Assert.Fail("Load did not parse the file")
+        do! postPlainLoad host dataDir seed fileId
+        do! assertParsed host fileId "seed"
+        assertNoLoadActor host [ fileId ]
     finally
         CoreMailboxApi.dispose host
 }
 
 [<SkippableFact>]
-let ``git Load does not reconcile a disk file into the graph`` () = task {
+let ``plain Load of a File or Directory with a remote parses and does not pull`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let harness = createGitHarnessOn createParsingHost "load"
+        try
+            let fileId, fileOps =
+                FileNodeOps.planCreateOwnedFile
+                    (readGraph harness.host)
+                    harness.seed.workspaceId
+                    "note.txt"
+            postChange harness.host fileOps
+            let dirId, dirOps =
+                FileNodeOps.planCreateOwnedDirectory
+                    (readGraph harness.host)
+                    harness.seed.workspaceId
+                    "docs"
+            postChange harness.host dirOps
+            commitFile harness.source "from-remote.txt" "pulled" "remote-change"
+            git harness.source "push origin main" |> ignore
+            for focusId in [ dirId; fileId ] do
+                do! postPlainLoad harness.host harness.dataDir harness.seed focusId
+            do! assertParsed harness.host fileId "seed"
+            Assert.False(
+                File.Exists(Path.Combine(harness.workspace, "from-remote.txt")),
+                "plain File or Directory Load pulled the remote")
+            assertNoLoadActor harness.host [ fileId; dirId ]
+        finally
+            CoreMailboxApi.dispose harness.host
+    }
+
+[<SkippableFact>]
+let ``explicit git Load of a File parses disk and does not pull`` () = task {
     Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
-    let harness = createGitHarness "load"
+    let harness = createGitHarnessOn createParsingHost "load"
     try
-        File.WriteAllText(
-            Path.Combine(harness.workspace, "leftover.txt"),
-            "already on disk")
+        let fileId, fileOps =
+            FileNodeOps.planCreateOwnedFile
+                (readGraph harness.host)
+                harness.seed.workspaceId
+                "note.txt"
+        postChange harness.host fileOps
+        CoreMailboxApi.postNotice harness.host (Notice.NodeUnparsed fileId)
+        commitFile harness.source "note.txt" "from-remote" "update-note"
+        commitFile harness.source "from-remote.txt" "pulled" "add-remote"
+        git harness.source "push origin main" |> ignore
         do!
-            postRouted
-                LoadSaveOperation.Load
+            postDeskLoad
                 LoadSavePrePick.Git
-                harness
-        let! stopped =
-            waitForStop harness.host harness.seed.focusId
-        Assert.Equal(Some ActorSucceeded, stopped)
-        let after = readGraph harness.host
-        let names =
-            Graph.children after harness.seed.workspaceId
-            |> List.choose (fun child ->
-                Filename.tryValue after.nodes.[child.id].name)
+                harness.host
+                harness.dataDir
+                harness.seed
+                fileId
+        do! assertParsed harness.host fileId "seed"
         Assert.Equal(
-            "already on disk",
-            File.ReadAllText(
-                Path.Combine(harness.workspace, "leftover.txt")))
-        Assert.DoesNotContain("leftover.txt", names)
-        Assert.DoesNotContain("note.txt", names)
+            "seed",
+            File.ReadAllText(Path.Combine(harness.workspace, "note.txt")))
+        Assert.False(
+            File.Exists(Path.Combine(harness.workspace, "from-remote.txt")),
+            "explicit git File Load pulled the remote")
+        assertNoLoadActor harness.host [ fileId; harness.seed.workspaceId ]
     finally
         CoreMailboxApi.dispose harness.host
 }
+
+[<SkippableFact>]
+let ``explicit git Load of a Directory reconciles disk and does not pull`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let harness = createGitHarnessOn createParsingHost "load"
+        try
+            let dirId, dirOps =
+                FileNodeOps.planCreateOwnedDirectory
+                    (readGraph harness.host)
+                    harness.seed.workspaceId
+                    "docs"
+            postChange harness.host dirOps
+            CoreMailboxApi.postNotice harness.host (Notice.NodeUnparsed dirId)
+            let local = Path.Combine(harness.workspace, "docs", "local.txt")
+            Directory.CreateDirectory(Path.GetDirectoryName local) |> ignore
+            File.WriteAllText(local, "local")
+            commitFile harness.source "docs/remote.txt" "remote" "add-remote"
+            git harness.source "push origin main" |> ignore
+            do!
+                postDeskLoad
+                    LoadSavePrePick.Git
+                    harness.host
+                    harness.dataDir
+                    harness.seed
+                    dirId
+            do! assertDirectoryParsed harness.host dirId "local.txt"
+            Assert.False(
+                File.Exists(
+                    Path.Combine(harness.workspace, "docs", "remote.txt")),
+                "explicit git Directory Load pulled the remote")
+            assertNoLoadActor harness.host [ dirId; harness.seed.workspaceId ]
+        finally
+            CoreMailboxApi.dispose harness.host
+    }
+
+[<SkippableFact>]
+let ``explicit git Load of a Normal node in a Workspace does not pull`` () =
+    task {
+        Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+        let harness = createGitHarness "load"
+        try
+            commitFile harness.source "from-remote.txt" "pulled" "add-remote"
+            git harness.source "push origin main" |> ignore
+            do!
+                postDeskLoad
+                    LoadSavePrePick.Git
+                    harness.host
+                    harness.dataDir
+                    harness.seed
+                    harness.seed.focusId
+            Assert.False(
+                File.Exists(Path.Combine(harness.workspace, "from-remote.txt")),
+                "explicit git Load of a Normal node pulled the remote")
+            assertNoLoadActor
+                harness.host
+                [ harness.seed.focusId; harness.seed.workspaceId ]
+        finally
+            CoreMailboxApi.dispose harness.host
+    }
+
+[<SkippableFact>]
+let ``explicit git Load of a Workspace pulls and reconciles`` () = task {
+    Skip.IfNot(DesktopGit.isAvailable(), "git not on PATH")
+    let harness = createGitHarnessOn createParsingHost "load"
+    try
+        commitFile harness.source "from-remote.txt" "pulled" "remote-change"
+        git harness.source "push origin main" |> ignore
+        do!
+            postRoutedFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Git
+                harness.seed.workspaceId
+                harness
+        let! stopped = waitForStop harness.host harness.seed.workspaceId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        Assert.Equal(
+            "pulled",
+            File.ReadAllText(
+                Path.Combine(harness.workspace, "from-remote.txt")))
+        do!
+            assertDirectoryParsed
+                harness.host
+                harness.seed.workspaceId
+                "from-remote.txt"
+    finally
+        CoreMailboxApi.dispose harness.host
+}
+
+[<Fact>]
+let ``failed git Load of a Workspace does not reconcile`` () = task {
+    let dataDir = newTempDir ()
+    let host = createParsingHost dataDir
+    let conflict = "merge conflict"
+    let _, _, baseDeps = countingGit ()
+    let dependencies =
+        { git =
+            { baseDeps.git with
+                remoteExists = fun _ -> Result.Ok true
+                pullTracked = fun _ _ -> Result.Error conflict } }
+    try
+        let seed = seedWorkspace host "load"
+        CoreMailboxApi.postNotice host (Notice.NodeUnparsed seed.workspaceId)
+        let disk = Path.Combine(dataDir, "home", "extra.txt")
+        Directory.CreateDirectory(Path.GetDirectoryName disk) |> ignore
+        File.WriteAllText(disk, "extra")
+        let command =
+            requestForFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Git
+                seed
+                seed.workspaceId
+        let! result =
+            Api.postLoadSaveCommand
+                (actorRouter host dataDir dependencies LoadSaveOperation.Load)
+                (CoreDoor.create true host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+        let! stopped = waitForStop host seed.workspaceId
+        Assert.Equal(Some (ActorFailed conflict), stopped)
+        let after = readGraph host
+        Assert.Equal(
+            Unparsed,
+            Node.documentStateEnum after.nodes.[seed.workspaceId])
+        let! history = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        let loaded =
+            history.events
+            |> List.exists (fun event ->
+                match event.body with
+                | EventBody.Load _ -> true
+                | _ -> false)
+        Assert.False(loaded, "failed git Load posted a reconcile Load")
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``plain Workspace Load with no Git remote is Neither`` () = task {
+    let dataDir = newTempDir ()
+    let host = createProductionHost dataDir
+    let pulls, pushes, dependencies =
+        withRemote (fun _ -> Result.Ok false)
+    try
+        let seed = seedWorkspace host "load"
+        let command =
+            requestForFocus
+                LoadSaveOperation.Load
+                LoadSavePrePick.Plain
+                seed
+                seed.workspaceId
+        let! result =
+            Api.postLoadSaveCommand
+                (actorRouter
+                    host
+                    dataDir
+                    dependencies
+                    LoadSaveOperation.Load)
+                (CoreDoor.create true host testCaller)
+                (encodeRequest command)
+            |> Async.StartAsTask
+        Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+        let! stopped = waitForStop host seed.workspaceId
+        Assert.Equal(Some ActorSucceeded, stopped)
+        Assert.Empty(pulls)
+        Assert.Empty(pushes)
+        let! history =
+            CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.True(
+            history.events
+            |> List.exists (githubLoadStarted seed.workspaceId),
+            "Neither Workspace Load posted no StartActor")
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``Load actor fails when git remote fails besides no repository`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = createProductionHost dataDir
+        let gitError = "fatal: bad config line 1 in file .git/config"
+        let pulls, _, dependencies =
+            withRemote (fun _ -> Result.Error gitError)
+        try
+            Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
+            let seed = seedWorkspace host "load"
+            let command =
+                requestForFocus
+                    LoadSaveOperation.Load
+                    LoadSavePrePick.Plain
+                    seed
+                    seed.workspaceId
+            let! result =
+                Api.postLoadSaveCommand
+                    (actorRouter
+                        host
+                        dataDir
+                        dependencies
+                        LoadSaveOperation.Load)
+                    (CoreDoor.create true host testCaller)
+                    (encodeRequest command)
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Git, (requireResponse result).path)
+            let! stopped = waitForStop host seed.workspaceId
+            Assert.Equal(Some (ActorFailed gitError), stopped)
+            Assert.Empty(pulls)
+            let! history =
+                CoreMailboxApi.eventHistory host |> Async.StartAsTask
+            Assert.True(
+                history.events |> List.exists (githubLoadStarted seed.workspaceId),
+                "failed Load posted no StartActor")
+        finally
+            CoreMailboxApi.dispose host
+    }
+
+[<Fact>]
+let ``Load of a ROOT file skips git and git Save uses the data directory`` () =
+    task {
+        let dataDir = newTempDir ()
+        let host = createProductionHost dataDir
+        let pulls, pushes, dependencies = countingGit ()
+        try
+            let seed = seedWorkspace host "load"
+            let graph = readGraph host
+            let fileId = NodeId.New()
+            let children = Graph.children graph Graph.rootId
+            postChange
+                host
+                [ Op.NewSpecialNode(fileId, SpecialKind.File, "loose.txt")
+                  Op.Replace(
+                      Graph.rootId,
+                      children,
+                      children @ [ ChildNode.owner fileId ]) ]
+            let load =
+                requestForFocus
+                    LoadSaveOperation.Load
+                    LoadSavePrePick.Plain
+                    seed
+                    fileId
+            let! loaded =
+                Api.postLoadSaveCommand
+                    (actorRouter
+                        host
+                        dataDir
+                        dependencies
+                        LoadSaveOperation.Load)
+                    (CoreDoor.create true host testCaller)
+                    (encodeRequest load)
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Desk, (requireResponse loaded).path)
+            Assert.Empty(pulls)
+            Assert.Empty(pushes)
+            assertNoLoadActor host [ fileId ]
+            let save =
+                requestForFocus
+                    LoadSaveOperation.Save
+                    LoadSavePrePick.Git
+                    seed
+                    fileId
+            let saveDependencies =
+                { dependencies with
+                    git =
+                        { dependencies.git with
+                            remoteExists = fun _ -> Result.Ok true } }
+            let! saved =
+                Api.postLoadSaveCommand
+                    (actorRouter
+                        host
+                        dataDir
+                        saveDependencies
+                        LoadSaveOperation.Save)
+                    (CoreDoor.create true host testCaller)
+                    (encodeRequest save)
+                |> Async.StartAsTask
+            Assert.Equal(LoadSavePath.Git, (requireResponse saved).path)
+            let! stopsAfter =
+                waitForStopCount
+                    host
+                    fileId
+                    1
+                    (DateTime.UtcNow.AddSeconds 5.0)
+            Assert.True(stopsAfter > 0, "Save posted no stop")
+            let dataRoot =
+                Path.GetFullPath(DocumentPersistPath.dataDirBase dataDir)
+            let recorded roots =
+                roots
+                |> Seq.map Path.GetFullPath
+                |> Seq.toList
+            Assert.Equal<string list>([ dataRoot ], recorded pulls)
+            Assert.Equal<string list>([ dataRoot ], recorded pushes)
+        finally
+            CoreMailboxApi.dispose host
+    }

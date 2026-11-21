@@ -84,7 +84,11 @@ let private commitFailingSetTextCas (model: VM) : VM * Effect list =
             ViewModelSelection.focusedNodeId model.graph sel
         match
             GraphMutate.setText
-                true editingId originalText "?test hello X" model.graph with
+                (Some EventId.zero)
+                editingId
+                originalText
+                "?test hello X"
+                model.graph with
         | Ok _ -> failwith "expected old text does not match"
         | Error msg ->
             ViewModelMoveOps.withMoveError
@@ -178,7 +182,7 @@ let ``edit then Run queues ActorStart behind the edit in one batch`` () =
     | [ edit; start ] ->
         match edit.body, start.body with
         | EventBody.Change _, EventBody.ActorStart request ->
-            Assert.Equal(focusId, request.commandId)
+            Assert.Equal(focusId, request.runDefinitionId)
         | _ -> failwith "expected Change then ActorStart"
     | other -> failwith $"expected two pending, got %A{other}"
     let batches =
@@ -248,7 +252,7 @@ let ``edit then Run on an equals line queues ActorStart behind the edit`` () =
     | [ edit; start ] ->
         match edit.body, start.body with
         | EventBody.Change _, EventBody.ActorStart request ->
-            Assert.Equal(focusId, request.commandId)
+            Assert.Equal(focusId, request.runDefinitionId)
             Assert.Equal(focusId, request.focusId)
         | _ -> failwith "expected Change then ActorStart"
     | other -> failwith $"expected two pending, got %A{other}"
@@ -284,6 +288,30 @@ let ``Cancel queues behind an edit and does not post a side channel`` () =
             | SubmitPendingBatch (_, events) -> Some events
             | _ -> None)
     Assert.Equal<Ev list list>([ queued.pending ], batches)
+
+[<Fact>]
+let ``?nope Run leaves the queue and shows the Run error`` () =
+    let graph, _, ids = ownerChain [ "?nope" ]
+    let focusId = ids.[0]
+    let model = emptyModel graph
+    let selected =
+        match ViewModelSelection.singleSelection graph model.siteMap focusId with
+        | None -> failwith "expected command selection"
+        | Some sel ->
+            { model with
+                selectedNodes = Some sel
+                zoomRoot = focusId }
+    let ran, effects =
+        afterEditCommitThenTryStart (fun vm -> vm, []) selected
+    Assert.Empty(effects)
+    Assert.Empty(
+        ran.syncInfo.pending
+        |> List.choose (function
+            | { body = EventBody.ActorStart _ } -> Some ()
+            | _ -> None))
+    match ran.lastCmdResult with
+    | Some (CmdLastResult.Error (Some "Run", "unknown actor")) -> ()
+    | other -> failwith $"expected Run unknown actor, got %A{other}"
 
 [<Fact>]
 let ``stale Editing snapshot commits live text and queues ActorStart`` () =

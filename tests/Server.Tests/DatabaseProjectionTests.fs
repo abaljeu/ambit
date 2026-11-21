@@ -44,17 +44,22 @@ let private expectedRow node =
       name = Filename.tryValue node.name
       kind = NodeKindPersistence.toPersistString node.kind
       documentState =
-        match Node.documentStateEnum node with
-        | Current -> "current"
-        | Unparsed -> "unparsed"
-        | NoServerFile -> "noServerFile"
+        match node.documentState.parseState with
+        | ParseState.Parsed -> "current"
+        | ParseState.Unparsed -> "unparsed"
+      persistState =
+        match node.documentState.persistState with
+        | PersistState.Persisted -> "persisted"
+        | PersistState.Unpersisted -> "unpersisted"
+      persistedVersion = 0
+      changedVersion = 0
       cssClassNames = CssClass.toList node.cssClasses
       updateTime = node.updateTime }
     : GraphProjection.NodePersistenceRow
 
 [<Fact>]
 let ``plan selects complete final node rows for every current op`` () =
-    let ids = [ 1..8 ] |> List.map id
+    let ids = [ 1..7 ] |> List.map id
     let nodes = ids |> List.mapi (fun index nodeId -> completeNode nodeId $"final-{index}")
     let graph = graphFromNodes nodes
     let classes = CssClass.ofList [ "old" ]
@@ -67,8 +72,7 @@ let ``plan selects complete final node rows for every current op`` () =
           Op.Replace(ids.[3], [], [ child ])
           Op.NewSpecialNode(ids.[4], SpecialKind.File, "initial.amb")
           Op.SetName(ids.[5], "before.amb", "after.amb")
-          Op.SetDocumentState(ids.[6], Current, Unparsed)
-          Op.SetUpdateTime(ids.[7], stamp 0, stamp 1) ]
+          Op.SetUpdateTime(ids.[6], stamp 0, stamp 1) ]
         |> List.map change
 
     let eventId = EventIdFixtures.storedId 23
@@ -228,7 +232,8 @@ let ``commands expose deterministic SQL and bind values`` () =
 
     Assert.Equal<string list>(
         [ "ids"; "texts"; "names"; "css_classes"; "update_times"; "kinds";
-          "document_states" ],
+          "document_states"; "persist_states"; "persisted_versions";
+          "changed_versions" ],
         bindings.[0] |> List.map _.name)
 
     match bindings.[0].Head.value with

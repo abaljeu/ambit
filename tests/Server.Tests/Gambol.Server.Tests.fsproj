@@ -16,7 +16,10 @@
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
-    <Compile Include="DocumentPersistenceTests.fs" />
+    <Compile Include="DocumentPersistenceFixtures.fs" />
+    <Compile Include="DocumentPersistPathTests.fs" />
+    <Compile Include="DocumentPersistWriteTests.fs" />
+    <Compile Include="DocumentPersistChangeTests.fs" />
     <Compile Include="DocumentOpPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
     <Compile Include="IgnoredDestinationValidationTests.fs" />
@@ -25,7 +28,7 @@
     <Compile Include="GitSaveTests.fs" />
     <Compile Include="DailyGitSaveTests.fs" />
     <Compile Include="WorkspaceGitTests.fs" />
-    <Compile Include="GitGatewayTests.fs" />
+    <Compile Include="NodeLockPoolTests.fs" />
     <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GraphOnlyChangePostTests.fs" />
     <Compile Include="CoreChangesTests.fs" />
@@ -33,6 +36,9 @@
     <Compile Include="CredentialedChangePostsTests.fs" />
     <Compile Include="CoreMsgActorCasesTests.fs" />
     <Compile Include="CoreMailboxDoorTests.fs" />
+    <Compile Include="MailboxExpandTests.fs" />
+    <Compile Include="SessionTests.fs" />
+    <Compile Include="MailboxAskTests.fs" />
     <Compile Include="Issue41CoreMailboxTests.fs" />
     <Compile Include="PersistApplyTests.fs" />
     <Compile Include="PersistHandlersRestoreTests.fs" />
@@ -49,9 +55,12 @@
     <Compile Include="GithubTransportLoadPullTests.fs" />
     <Compile Include="ParseThreadLoadTests.fs" />
     <Compile Include="PersistThreadTests.fs" />
-    <Compile Include="CoreLoopInMsgTests.fs" />
+    <Compile Include="PersistRequestStackTests.fs" />
+    <Compile Include="CoreLoopNoticeTests.fs" />
+    <Compile Include="NodeEventExpandTests.fs" />
     <Compile Include="TestActorHelloTests.fs" />
     <Compile Include="TestActorCommandErrorTests.fs" />
+    <Compile Include="ActorOrderFromStartTests.fs" />
     <Compile Include="AskCancelHarness.fs" />
     <Compile Include="AgentAskTests.fs" />
     <Compile Include="AgentActorStreamTests.fs" />
@@ -75,7 +84,9 @@
     <Compile Include="BrowserResidencyClientTests.fs" />
     <Compile Include="LoadSaveCommandClientTests.fs" />
     <Compile Include="DeskLoadParseStackTests.fs" />
+    <Compile Include="LoadSaveCommandFixtures.fs" />
     <Compile Include="LoadSaveCommandTests.fs" />
+    <Compile Include="LoadSaveSaveCommandTests.fs" />
     <Compile Include="OrderedEventStreamTests.fs" />
     <Compile Include="ApiPostCommandTests.fs" />
     <Compile Include="ApiPostCancelTests.fs" />
@@ -83,9 +94,12 @@
     <Compile Include="DatabaseProjectionTests.fs" />
     <Compile Include="DatabaseProjectionContractTests.fs" />
     <Compile Include="DbAgentTests.fs" />
+    <Compile Include="DbAgentNoticeTests.fs" />
     <Compile Include="DbAgentFailureTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
+    <Compile Include="StateEndpointGetTests.fs" />
     <Compile Include="SearchActorTests.fs" />
+    <Compile Include="SearchDialogTests.fs" />
     <Compile Include="QueryActorTests.fs" />
   </ItemGroup>
 

@@ -15,13 +15,37 @@ module Database =
     let getConnection (connectionString: string) =
         new NpgsqlConnection(connectionString)
 
-    let initSchema (connectionString: string) : Task =
-        task {
-            use conn = getConnection connectionString
-            do! conn.OpenAsync()
-            use cmd = conn.CreateCommand()
+    let private deadlockSqlState = "40P01"
 
-            cmd.CommandText <- """
+    let private isDeadlock (ex: exn) =
+        match ex with
+        | :? PostgresException as pg ->
+            pg.SqlState = deadlockSqlState
+        | _ -> false
+
+    /// Retry when Postgres aborts this transaction as the deadlock victim.
+    /// Schema work locks `nodes` before `node_children`. A peer that already
+    /// holds `node_children` and then waits for `nodes` deadlocks with it.
+    let private executeWithDeadlockRetry
+        (connectionString: string)
+        (sql: string)
+        : Task =
+        let rec attempt (retriesLeft: int) : Task =
+            task {
+                try
+                    use conn = getConnection connectionString
+                    do! conn.OpenAsync()
+                    use cmd = conn.CreateCommand()
+                    cmd.CommandText <- sql
+                    do! cmd.ExecuteNonQueryAsync() :> Task
+                with ex when isDeadlock ex && retriesLeft > 0 ->
+                    do! attempt (retriesLeft - 1)
+            }
+
+        attempt 4
+
+    let initSchema (connectionString: string) : Task =
+        executeWithDeadlockRetry connectionString """
                 DROP TABLE IF EXISTS snapshots;
                 DROP TABLE IF EXISTS changes;
 
@@ -66,6 +90,17 @@ module Database =
                 ALTER TABLE nodes
                     ADD COLUMN IF NOT EXISTS document_state TEXT NOT NULL DEFAULT 'current';
 
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS persist_state TEXT NOT NULL DEFAULT 'persisted';
+
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS persisted_version
+                    INTEGER NOT NULL DEFAULT 0;
+
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS changed_version
+                    INTEGER NOT NULL DEFAULT 0;
+
                 UPDATE nodes
                 SET kind = 'workspace'
                 WHERE id = '00000000-0000-0000-0000-000000000000';
@@ -90,9 +125,6 @@ module Database =
                     ON node_children (child_id);
             """
 
-            do! cmd.ExecuteNonQueryAsync() :> Task
-        }
-
     type EventRow =
         { event_id: int
           payload: string }
@@ -108,7 +140,10 @@ module Database =
           css_classes: string
           update_time: DateTime
           kind: string
-          document_state: string }
+          document_state: string
+          persist_state: string
+          persisted_version: int
+          changed_version: int }
 
     type NodeChildDbRow =
         { parent_id: Guid
@@ -155,6 +190,18 @@ module Database =
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             do! conn.ExecuteAsync("DELETE FROM events") :> Task
+        }
+
+    /// Schema plus an empty graph. Identity on events restarts at 1.
+    let resetStoredTables (connectionString: string) : Task<unit> =
+        task {
+            do! initSchema connectionString
+            do!
+                executeWithDeadlockRetry
+                    connectionString
+                    ("TRUNCATE TABLE events, node_children, nodes, graph " +
+                     "RESTART IDENTITY CASCADE;")
+            return ()
         }
 
     let getEventsAfter
@@ -217,7 +264,9 @@ module Database =
             let! rows =
                 conn.QueryAsync<NodeDbRow>(
                     """
-                    SELECT id, text, name, css_classes::text, update_time, kind, document_state
+                    SELECT id, text, name, css_classes::text, update_time, kind,
+                           document_state, persist_state,
+                           persisted_version, changed_version
                     FROM nodes
                     """)
             return rows |> Seq.toList
@@ -272,6 +321,9 @@ module Database =
                                 Some r.name
                            kind = r.kind
                            documentState = r.document_state
+                           persistState = r.persist_state
+                           persistedVersion = r.persisted_version
+                           changedVersion = r.changed_version
                            cssClassNames = CssClass.toList (decodeCss r.css_classes)
                            updateTime = NodeUpdateTime.toDbPrecision r.update_time }
                         : GraphProjection.NodePersistenceRow))
@@ -323,11 +375,14 @@ module Database =
                     conn.ExecuteAsync(
                         """
                         INSERT INTO nodes (
-                            id, text, name, css_classes, update_time, kind, document_state
+                            id, text, name, css_classes, update_time, kind,
+                            document_state, persist_state,
+                            persisted_version, changed_version
                         )
                         VALUES (
                             @id, @text, @name, CAST(@css AS jsonb), @update_time, @kind,
-                            @document_state
+                            @document_state, @persist_state,
+                            @persisted_version, @changed_version
                         )
                         """,
                         {| id = r.id
@@ -336,7 +391,10 @@ module Database =
                            css = cssJson (CssClass.ofList r.cssClassNames)
                            update_time = NodeUpdateTime.toDbPrecision r.updateTime
                            kind = r.kind
-                           document_state = r.documentState |},
+                           document_state = r.documentState
+                           persist_state = r.persistState
+                           persisted_version = r.persistedVersion
+                           changed_version = r.changedVersion |},
                         tx)
                     :> Task
 
@@ -364,7 +422,7 @@ module Database =
 
     let loadPersistedState
         (connectionString: string)
-        : Task<State> =
+        : Task<GraphAtEvent> =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
@@ -378,8 +436,8 @@ module Database =
                   eventId = eventId }
         }
 
-    /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
-    let rebuildFromDocumentFiles (connectionString: string) (fileState: State) : Task =
+    /// Truncate SQL tables and replace the projection from a pre-loaded file `GraphAtEvent`.
+    let rebuildFromDocumentFiles (connectionString: string) (fileState: GraphAtEvent) : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
@@ -401,3 +459,141 @@ module Database =
                 |> Async.AwaitTask
             tx.Commit()
         }
+
+    let private updateDocumentStateSql =
+        """
+        UPDATE nodes
+        SET document_state = @document_state
+        WHERE id = @id
+        """
+
+    let private updatePersistStateSql =
+        """
+        UPDATE nodes
+        SET persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version
+        WHERE id = @id
+        """
+
+    let private updatePersistedSql =
+        """
+        UPDATE nodes
+        SET persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version,
+            update_time = @update_time
+        WHERE id = @id
+        """
+
+    let private updateReceivedNodeSql =
+        """
+        UPDATE nodes
+        SET text = @text,
+            name = @name,
+            css_classes = CAST(@css AS jsonb),
+            update_time = @update_time,
+            kind = @kind,
+            document_state = @document_state,
+            persist_state = @persist_state,
+            persisted_version = @persisted_version,
+            changed_version = @changed_version
+        WHERE id = @id
+        """
+
+    let private executeSql
+        (connectionString: string)
+        (sql: string)
+        (args: obj)
+        : Task<unit> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! _ = conn.ExecuteAsync(sql, args)
+            return ()
+        }
+
+    let private rowOf (graph: Graph) (nodeId: NodeId) =
+        Map.tryFind nodeId graph.nodes
+        |> Option.map GraphProjection.nodeRowFromNode
+
+    let private writeDocumentState connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updateDocumentStateSql
+                {| id = row.id
+                   document_state = row.documentState |}
+
+    let private writePersistState connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updatePersistStateSql
+                {| id = row.id
+                   persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion |}
+
+    let private writePersistedNode connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            executeSql
+                connectionString
+                updatePersistedSql
+                {| id = row.id
+                   persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion
+                   update_time = row.updateTime |}
+
+    let private writeReceivedNode connectionString graph nodeId =
+        match rowOf graph nodeId with
+        | None -> task { return () }
+        | Some row ->
+            let nameParam: obj =
+                match row.name with
+                | None -> null
+                | Some name -> box name
+            executeSql
+                connectionString
+                updateReceivedNodeSql
+                {| id = row.id
+                   text = row.text
+                   name = nameParam
+                   css = cssJson (CssClass.ofList row.cssClassNames)
+                   update_time = row.updateTime
+                   kind = row.kind
+                   document_state = row.documentState
+                   persist_state = row.persistState
+                   persisted_version = row.persistedVersion
+                   changed_version = row.changedVersion |}
+
+    /// One node row for a Notice. Other Notices do not write.
+    let writeNoticeRow
+        (connectionString: string)
+        (notice: Notice)
+        (graph: Graph)
+        : Task =
+        match notice with
+        | Notice.NodeParsed nodeId
+        | Notice.NodeUnparsed nodeId ->
+            writeDocumentState connectionString graph nodeId
+        | Notice.NodeUnpersisted nodeId ->
+            writePersistState connectionString graph nodeId
+        | Notice.NodePersisted (nodeId, _, _) ->
+            writePersistedNode connectionString graph nodeId
+        | Notice.NodeReceived nodeId ->
+            writeReceivedNode connectionString graph nodeId
+        | Notice.NodeUploading _
+        | Notice.NodeParsing _
+        | Notice.NodePersisting _
+        | Notice.PersistFailed _
+        | Notice.ParseFailed _
+        | Notice.ActorStopped _ ->
+            task { return () }

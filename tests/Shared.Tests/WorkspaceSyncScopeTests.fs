@@ -18,12 +18,12 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
         owner = owner,
         kind = Special kind)
 
-let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
+let private graphWithWorkspaceTree (label: string) : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let dirId = NodeId.New()
     let fileId = NodeId.New()
-    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
+    let wsNode = specialNode wsId Workspace label Graph.workspacesId
     let dirNode = specialNode dirId Directory "docs" wsId
     let fileNode = specialNode fileId File "readme.txt" dirId
 
@@ -65,7 +65,7 @@ let ``normalizeRelative rejects dotdot and empty segments`` () =
 
 [<Fact>]
 let ``tryFromFocus workspace is empty relative`` () =
-    let graph, wsId, _, _ = graphWithWorkspaceTree ()
+    let graph, wsId, _, _ = graphWithWorkspaceTree "home"
     match WorkspaceSyncScope.tryFromFocus graph wsId with
     | Error e -> Assert.Fail(e)
     | Ok scope ->
@@ -75,7 +75,7 @@ let ``tryFromFocus workspace is empty relative`` () =
 
 [<Fact>]
 let ``tryFromFocus directory and file use relative prefix`` () =
-    let graph, _, dirId, fileId = graphWithWorkspaceTree ()
+    let graph, _, dirId, fileId = graphWithWorkspaceTree "home"
     match WorkspaceSyncScope.tryFromFocus graph dirId with
     | Error e -> Assert.Fail(e)
     | Ok scope ->
@@ -92,7 +92,7 @@ let ``tryFromFocus directory and file use relative prefix`` () =
 
 [<Fact>]
 let ``tryWorkspaceRootFromFocus lifts file focus to workspace root`` () =
-    let graph, _, _, fileId = graphWithWorkspaceTree ()
+    let graph, _, _, fileId = graphWithWorkspaceTree "home"
     match WorkspaceSyncScope.tryWorkspaceRootFromFocus graph fileId with
     | Error e -> Assert.Fail(e)
     | Ok scope ->
@@ -189,8 +189,24 @@ let ``tryRelativeUnderLabel rejects other workspace`` () =
     | Error e -> Assert.Equal("path escapes workspace label", e)
 
 [<Fact>]
+let ``tryFromFocus file in a dotted workspace uses that label`` () =
+    let graph, _, _, fileId = graphWithWorkspaceTree "my.notes"
+    match WorkspaceSyncScope.tryFromFocus graph fileId with
+    | Error e -> Assert.Fail(e)
+    | Ok scope ->
+        Assert.Equal("my.notes", scope.label)
+        Assert.Equal("docs/readme.txt", scope.relative)
+        Assert.Equal(SyncScopeKind.File, scope.kind)
+
+[<Fact>]
 let ``tryRelativeUnderLabel accepts matching label`` () =
     match WorkspaceSyncScope.tryRelativeUnderLabel "home" "//home/docs/a.txt" with
+    | Error e -> Assert.Fail(e)
+    | Ok rel -> Assert.Equal("docs/a.txt", rel)
+
+[<Fact>]
+let ``tryRelativeUnderLabel accepts a dotted workspace label`` () =
+    match WorkspaceSyncScope.tryRelativeUnderLabel "my.notes" "//my.notes/docs/a.txt" with
     | Error e -> Assert.Fail(e)
     | Ok rel -> Assert.Equal("docs/a.txt", rel)
 
@@ -260,7 +276,7 @@ let ``coalesceDownloadTargets drops empty label or relative`` () =
 
 [<Fact>]
 let ``autoDownloadFileTargets keeps File stamps drops non-file`` () =
-    let graph, wsId, _, fileId = graphWithWorkspaceTree ()
+    let graph, wsId, _, fileId = graphWithWorkspaceTree "home"
     let stamp = System.DateTime(2024, 1, 1)
     let ops =
         [ Op.SetUpdateTime(fileId, NodeUpdateTime.missing, stamp)

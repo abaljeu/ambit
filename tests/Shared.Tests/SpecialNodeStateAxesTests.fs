@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.SpecialNodeStateAxesTests
 
 open Xunit
 open Gambol.Shared
+open ParseApplyHelpers
 
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
@@ -19,7 +20,7 @@ let private apply (ops: Op list) (graph: Graph) : Graph =
     | ApplyResult.Unchanged state -> state.graph
     | ApplyResult.Invalid(_, msg) -> failwith msg
 
-let private freshState (graph: Graph) : State =
+let private freshState (graph: Graph) : GraphAtEvent =
     { graph = graph; eventId = EventId.zero }
 
 let private artifact (kind: SpecialKind) (name: string) : Graph * NodeId =
@@ -41,20 +42,22 @@ let private place (parentId: NodeId) (childId: NodeId) (graph: Graph) : Graph =
         graph
 
 [<Fact>]
-let ``special node stores parse persist and noServerFile only inside DocumentState`` () =
+let ``special node stores parse persist and pullingFile only inside DocumentState`` () =
     let id = NodeId.New()
     let graph =
         apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+        |> Graph.setDocumentState id Unparsed
+        |> requireOk
     let created = graph.nodes.[id]
     Assert.Equal(ParseState.Unparsed, created.documentState.parseState)
     Assert.Equal(PersistState.Persisted, created.documentState.persistState)
-    Assert.False(created.documentState.noServerFile)
+    Assert.False(created.documentState.pullingFile)
 
     let parsed = Graph.setParseState id ParseState.Parsed graph |> requireOk
     let parsedNode = parsed.nodes.[id]
     Assert.Equal(ParseState.Parsed, parsedNode.documentState.parseState)
     Assert.Equal(PersistState.Persisted, parsedNode.documentState.persistState)
-    Assert.False(parsedNode.documentState.noServerFile)
+    Assert.False(parsedNode.documentState.pullingFile)
 
     let dirty =
         Graph.setPersistState id PersistState.Unpersisted parsed |> requireOk
@@ -63,12 +66,12 @@ let ``special node stores parse persist and noServerFile only inside DocumentSta
         PersistState.Unpersisted,
         dirtyNode.documentState.persistState)
     Assert.Equal(ParseState.Parsed, dirtyNode.documentState.parseState)
-    Assert.False(dirtyNode.documentState.noServerFile)
+    Assert.False(dirtyNode.documentState.pullingFile)
 
     let absent =
-        apply [ Op.SetDocumentState(id, Current, NoServerFile) ] dirty
+        Graph.setDocumentState id PullingFile dirty |> requireOk
     let absentNode = absent.nodes.[id]
-    Assert.True(absentNode.documentState.noServerFile)
+    Assert.True(absentNode.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, absentNode.documentState.parseState)
     Assert.Equal(
         PersistState.Unpersisted,
@@ -80,8 +83,8 @@ let ``special node stores parse persist and noServerFile only inside DocumentSta
             text = "stub.txt",
             name = Filename.create "stub.txt",
             kind = Special File,
-            documentState = NoServerFile)
-    Assert.True(stub.documentState.noServerFile)
+            documentState = PullingFile)
+    Assert.True(stub.documentState.pullingFile)
     Assert.Equal(ParseState.Unparsed, stub.documentState.parseState)
     Assert.Equal(PersistState.Persisted, stub.documentState.persistState)
 
@@ -124,40 +127,15 @@ let ``axes reject Normal and Workspaces nodes`` () =
         Result.isError (Graph.setPersistState Graph.workspacesId PersistState.Unpersisted graph))
 
 [<Fact>]
-let ``NewSpecialNode starts Unparsed and Persisted`` () =
+let ``NewSpecialNode starts Current and Persisted`` () =
     for kind, name in kinds do
         let id = NodeId.New()
         let graph =
             apply [ Op.NewSpecialNode(id, kind, name) ] (Graph.create ())
         let node = graph.nodes.[id]
-        Assert.Equal(Unparsed, node.documentState.AsEnum)
-        Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
+        Assert.Equal(Current, node.documentState.AsEnum)
+        Assert.Equal(ParseState.Parsed, node.documentState.parseState)
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
-
-[<Fact>]
-let ``SetDocumentState writes parseState and noServerFile together`` () =
-    let graph, id = artifact File "file.txt"
-    let dirty = Graph.setPersistState id PersistState.Unpersisted graph |> requireOk
-    let unparsed =
-        apply [ Op.SetDocumentState(id, Current, Unparsed) ] dirty
-    Assert.Equal(Unparsed, unparsed.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Unparsed, unparsed.nodes.[id].documentState.parseState)
-    Assert.False(unparsed.nodes.[id].documentState.noServerFile)
-    Assert.Equal(PersistState.Unpersisted, unparsed.nodes.[id].documentState.persistState)
-
-    let parsed =
-        apply [ Op.SetDocumentState(id, Unparsed, Current) ] unparsed
-    Assert.Equal(Current, parsed.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Parsed, parsed.nodes.[id].documentState.parseState)
-    Assert.False(parsed.nodes.[id].documentState.noServerFile)
-    Assert.Equal(PersistState.Unpersisted, parsed.nodes.[id].documentState.persistState)
-
-    let absent =
-        apply [ Op.SetDocumentState(id, Current, NoServerFile) ] parsed
-    Assert.Equal(NoServerFile, absent.nodes.[id].documentState.AsEnum)
-    Assert.Equal(ParseState.Unparsed, absent.nodes.[id].documentState.parseState)
-    Assert.True(absent.nodes.[id].documentState.noServerFile)
-    Assert.Equal(PersistState.Unpersisted, absent.nodes.[id].documentState.persistState)
 
 let private markPersisted id graph =
     Graph.setPersistState id PersistState.Persisted graph |> requireOk
@@ -175,7 +153,7 @@ let private persistedOwnedFile () =
         |> place wsId dirId
         |> apply [ Op.NewSpecialNode(fileId, File, "file.txt") ]
         |> place dirId fileId
-        |> apply [ Op.SetDocumentState(fileId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState fileId ParseState.Parsed g |> requireOk
         |> apply [ Op.NewNode(childId, "body") ]
         |> place fileId childId
         |> markPersisted wsId
@@ -185,7 +163,13 @@ let private persistedOwnedFile () =
 
 [<Fact>]
 let ``graph edit marks only the nearest owning special Unpersisted`` () =
-    let graph, wsId, dirId, fileId, childId = persistedOwnedFile ()
+    let created, wsId, dirId, fileId, childId = persistedOwnedFile ()
+    let graph =
+        created
+        |> Graph.setDocumentState dirId Unparsed
+        |> requireOk
+        |> Graph.setDocumentState wsId Unparsed
+        |> requireOk
     let edited = apply [ Op.SetText(childId, "body", "edited") ] graph
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[fileId].documentState.persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[dirId].documentState.persistState)
@@ -196,8 +180,8 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
 
     let opened =
         edited
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
-        |> apply [ Op.SetDocumentState(wsId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
+        |> fun g -> Graph.setParseState wsId ParseState.Parsed g |> requireOk
     let reset =
         opened
         |> markPersisted fileId
@@ -211,7 +195,10 @@ let ``graph edit marks only the nearest owning special Unpersisted`` () =
 [<Fact>]
 let ``failed edit of an Unparsed special does not mark Unpersisted`` () =
     let id = NodeId.New()
-    let graph = apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+    let graph =
+        apply [ Op.NewSpecialNode(id, File, "file.txt") ] (Graph.create ())
+        |> Graph.setDocumentState id Unparsed
+        |> requireOk
     Assert.Equal(PersistState.Persisted, graph.nodes.[id].documentState.persistState)
     match Op.apply (Op.SetText(id, "file.txt", "changed")) (freshState graph) with
     | ApplyResult.Invalid(state, _) ->
@@ -230,7 +217,7 @@ let ``directory Replace marks that directory only`` () =
         |> place Graph.workspacesId wsId
         |> apply [ Op.NewSpecialNode(dirId, Directory, "dir") ]
         |> place wsId dirId
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
         |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
         |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
         |> apply [ Op.NewNode(noteId, "note") ]
@@ -240,8 +227,8 @@ let ``directory Replace marks that directory only`` () =
     Assert.Equal(ParseState.Parsed, edited.nodes.[dirId].documentState.parseState)
 
 [<Fact>]
-let ``SQL reload derives parse state and defaults persist to Persisted`` () =
-    let cases = [ Current; Unparsed; NoServerFile ]
+let ``SQL reload keeps persist state and reloads PullingFile as Unparsed`` () =
+    let cases = [ Current; Unparsed; PullingFile ]
     for documentState in cases do
         let id = NodeId.New()
         let node =
@@ -257,9 +244,17 @@ let ``SQL reload derives parse state and defaults persist to Persisted`` () =
         | Error msg -> failwith msg
         | Ok loaded ->
             let back = loaded.nodes.[id]
-            Assert.Equal(documentState, back.documentState.AsEnum)
-            Assert.Equal(ParseState.ofDocumentState documentState, back.documentState.parseState)
-            Assert.Equal(PersistState.Persisted, back.documentState.persistState)
+            let expectedEnum =
+                if documentState = PullingFile then Unparsed else documentState
+            let expectedParse =
+                if documentState = PullingFile then
+                    ParseState.Unparsed
+                else
+                    ParseState.ofDocumentState documentState
+            Assert.Equal(expectedEnum, back.documentState.AsEnum)
+            Assert.Equal(expectedParse, back.documentState.parseState)
+            Assert.False(back.documentState.pullingFile)
+            Assert.Equal(PersistState.Unpersisted, back.documentState.persistState)
 
 [<Fact>]
 let ``JSON without axes derives parse state and defaults persist`` () =
@@ -272,7 +267,7 @@ let ``JSON without axes derives parse state and defaults persist`` () =
     match Dec.fromString Serialization.decodeNode json with
     | Error msg -> failwith msg
     | Ok node ->
-        Assert.Equal(NoServerFile, node.documentState.AsEnum)
+        Assert.Equal(PullingFile, node.documentState.AsEnum)
         Assert.Equal(ParseState.Unparsed, node.documentState.parseState)
         Assert.Equal(PersistState.Persisted, node.documentState.persistState)
 
@@ -305,8 +300,8 @@ let ``directory file amb node is excluded from state axes`` () =
                 name = Filename.create ".amb",
                 kind = Special File))
         |> place dirId ambId
-        |> apply [ Op.SetDocumentState(dirId, Unparsed, Current) ]
-        |> apply [ Op.SetDocumentState(wsId, Unparsed, Current) ]
+        |> fun g -> Graph.setParseState dirId ParseState.Parsed g |> requireOk
+        |> fun g -> Graph.setParseState wsId ParseState.Parsed g |> requireOk
         |> fun g -> Graph.setPersistState dirId PersistState.Persisted g |> requireOk
         |> fun g -> Graph.setPersistState wsId PersistState.Persisted g |> requireOk
     Assert.True(Result.isError (Graph.setParseState ambId ParseState.Unparsed graph))
@@ -317,18 +312,11 @@ let ``directory file amb node is excluded from state axes`` () =
     Assert.Equal(PersistState.Unpersisted, edited.nodes.[dirId].documentState.persistState)
     Assert.Equal(PersistState.Persisted, edited.nodes.[wsId].documentState.persistState)
     Assert.Equal(ParseState.Parsed, edited.nodes.[ambId].documentState.parseState)
-    let stated = apply [ Op.SetDocumentState(ambId, Current, Unparsed) ] graph
+    let stated =
+        Graph.setDocumentState ambId Unparsed graph |> requireOk
     Assert.Equal(Unparsed, stated.nodes.[ambId].documentState.AsEnum)
     Assert.Equal(ParseState.Unparsed, stated.nodes.[ambId].documentState.parseState)
     Assert.Equal(PersistState.Persisted, stated.nodes.[ambId].documentState.persistState)
-
-let private applyDiskParse (ops: Op list) (graph: Graph) : Graph =
-    let state = { graph = graph; eventId = EventId.zero }
-    let result, _, _ = ChangeAmendment.applyForCommand "Parse" ops state
-    match result with
-    | ApplyResult.Changed next
-    | ApplyResult.Unchanged next -> next.graph
-    | ApplyResult.Invalid(_, msg) -> failwith msg
 
 [<Fact>]
 let ``disk parse ops set Parsed and keep PersistState`` () =
@@ -345,7 +333,6 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
                     kind = Special File))
             |> Graph.addDetachedNode (Node.Create(lineId, text = "alpha"))
             |> place fileId lineId
-            |> apply [ Op.SetDocumentState(fileId, Current, Unparsed) ]
             |> fun g -> Graph.setParseState fileId ParseState.Unparsed g |> requireOk
             |> fun g -> Graph.setPersistState fileId persist g |> requireOk
         let ops =
@@ -357,7 +344,10 @@ let ``disk parse ops set Parsed and keep PersistState`` () =
             with
             | Ok planned -> planned
             | Error err -> failwith err
-        let after = applyDiskParse ops graph
+        let parsed = applyGraphOnly graph ops
+        Assert.Equal(Unparsed, parsed.nodes.[fileId].documentState.AsEnum)
+        Assert.Equal(persist, parsed.nodes.[fileId].documentState.persistState)
+        let after = applyNodeParsed parsed fileId
         Assert.Equal(Current, after.nodes.[fileId].documentState.AsEnum)
         Assert.Equal(ParseState.Parsed, after.nodes.[fileId].documentState.parseState)
         Assert.Equal(persist, after.nodes.[fileId].documentState.persistState)
@@ -382,3 +372,134 @@ let ``JSON round-trip keeps an explicit Unpersisted axis`` () =
         Assert.Equal(ParseState.Unparsed, decoded.documentState.parseState)
         Assert.Equal(PersistState.Unpersisted, decoded.documentState.persistState)
         Assert.Equal(Unparsed, decoded.documentState.AsEnum)
+
+[<Fact>]
+let ``document state versions survive a JSON round trip`` () =
+    let id = NodeId.New()
+    let persistedVersion = EventId.fromJson 3
+    let changedVersion = EventId.fromJson 4
+    let created =
+        Node.Create(
+            id,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            kind = Special File,
+            persistState = PersistState.Unpersisted)
+    let node =
+        { created with
+            documentState =
+                { created.documentState with
+                    persistedVersion = persistedVersion
+                    changedVersion = changedVersion } }
+    let json = Enc.toString 0 (Serialization.encodeNode node)
+    match Dec.fromString Serialization.decodeNode json with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(persistedVersion, decoded.documentState.persistedVersion)
+        Assert.Equal(changedVersion, decoded.documentState.changedVersion)
+
+    let legacyJson =
+        "{\"id\":\""
+        + string id.Value
+        + "\",\"text\":\"file\",\"persistState\":\"unpersisted\"}"
+    match Dec.fromString Serialization.decodeNode legacyJson with
+    | Error msg -> failwith msg
+    | Ok decoded ->
+        Assert.Equal(
+            PersistState.Unpersisted,
+            decoded.documentState.persistState)
+        Assert.Equal(EventId.zero, decoded.documentState.persistedVersion)
+        Assert.Equal(EventId.zero, decoded.documentState.changedVersion)
+
+[<Fact>]
+let ``unpersisted mark keeps the newer changedVersion`` () =
+    let created = Node.Create(NodeId.New())
+    Assert.Equal(EventId.zero, created.documentState.persistedVersion)
+    Assert.Equal(EventId.zero, created.documentState.changedVersion)
+    Assert.Equal(PersistState.Persisted, created.documentState.persistState)
+
+    let version = EventId.fromJson 4
+    let atVersion = Node.withUnpersistedAt version created
+    Assert.Equal(PersistState.Unpersisted, atVersion.documentState.persistState)
+    Assert.Equal(version, atVersion.documentState.changedVersion)
+    Assert.Equal(EventId.zero, atVersion.documentState.persistedVersion)
+
+    let newer = EventId.next version
+    let atNewer = Node.withUnpersistedAt newer atVersion
+    Assert.Equal(PersistState.Unpersisted, atNewer.documentState.persistState)
+    Assert.Equal(newer, atNewer.documentState.changedVersion)
+
+    let again = Node.withUnpersistedAt version atNewer
+    Assert.Equal(PersistState.Unpersisted, again.documentState.persistState)
+    Assert.Equal(newer, again.documentState.changedVersion)
+
+let private editEvent id commandName ops : Ev =
+    { id = id
+      submissionId = System.Guid.NewGuid()
+      authority = Authority "Browser"
+      commandName = commandName
+      body = EventBody.Change ops }
+
+let private applyEvent (event: Ev) (graph: Graph) : Graph =
+    match Ev.apply event (freshState graph) with
+    | ApplyResult.Changed state -> state.graph
+    | ApplyResult.Unchanged state -> state.graph
+    | ApplyResult.Invalid(_, msg) -> failwith msg
+
+[<Fact>]
+let ``graph change sets Unpersisted with the newer version`` () =
+    let fileId = NodeId.New()
+    let childId = NodeId.New()
+    let graph =
+        Graph.create ()
+        |> Graph.addDetachedNode (
+            Node.Create(
+                fileId,
+                text = "notes.txt",
+                name = Filename.create "notes.txt",
+                kind = Special File))
+        |> Graph.addDetachedNode (Node.Create(childId, text = "alpha"))
+        |> place fileId childId
+        |> fun g ->
+            Graph.setPersistState fileId PersistState.Persisted g |> requireOk
+    Assert.Equal(
+        PersistState.Persisted,
+        graph.nodes.[fileId].documentState.persistState)
+    Assert.Equal(EventId.zero, graph.nodes.[fileId].documentState.changedVersion)
+
+    let version = EventId.fromJson 4
+    let first =
+        applyEvent
+            (editEvent version "Edit" [ Op.SetText(childId, "alpha", "beta") ])
+            graph
+    Assert.Equal(
+        PersistState.Unpersisted,
+        first.nodes.[fileId].documentState.persistState)
+    Assert.Equal(version, first.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("beta", first.nodes.[childId].text)
+
+    let newer = EventId.next version
+    let second =
+        applyEvent
+            (editEvent newer "Edit" [ Op.SetText(childId, "beta", "gamma") ])
+            first
+    Assert.Equal(
+        PersistState.Unpersisted,
+        second.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, second.nodes.[fileId].documentState.changedVersion)
+
+    let afterParse =
+        applyEvent
+            (editEvent
+                (EventId.next newer)
+                "Parse"
+                [ Op.SetText(childId, "gamma", "parsed") ])
+            second
+    Assert.Equal(
+        PersistState.Unpersisted,
+        afterParse.nodes.[fileId].documentState.persistState)
+    Assert.Equal(newer, afterParse.nodes.[fileId].documentState.changedVersion)
+    Assert.Equal("parsed", afterParse.nodes.[childId].text)

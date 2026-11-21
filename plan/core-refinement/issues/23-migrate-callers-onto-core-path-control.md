@@ -25,12 +25,6 @@ Each inventoried DataDir use is classified. It is already one of the four Core o
 1. [ ] **Inventory match** — The DataDir caller inventory and the Parse and persist claim agree on the classification.
 2. [ ] **Caller test** — A test shows a migrated caller passes a node or a relative path and does not build the absolute path.
 
-## Finish-up
-
-[ ] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
-[ ] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
-[ ] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket, adding what's missing (but skipping minutia, and avoiding repetition within the documentation)), deleting things no longer true and checking off things newly achieved.
-
 ## See also
 
 - [core-refinement architecture](plan/core-refinement/arch.md)

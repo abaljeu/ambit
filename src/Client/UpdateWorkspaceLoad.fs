@@ -78,11 +78,6 @@ let private uploadPlan (model: VM) : WorkspaceUploadAction =
         (focusIsWorkspaces model)
         (contextualTargetForModel model)
 
-let private spansWorkspaces (model: VM) =
-    ResidentProjection.selectionSpansMultipleWorkspaces
-        model.graph
-        (selectedLoadTargetIds model)
-
 let private oneWorkspaceError (model: VM) : VM * Effect list =
     withResult
         model
@@ -94,7 +89,7 @@ let private deskAfter
     (action: WorkspaceUploadAction)
     (model: VM)
     : VM * Effect list =
-    if spansWorkspaces model then
+    if selectionSpansWorkspaces model then
         oneWorkspaceError model
     else
         runDeskLoadAction action model
@@ -122,7 +117,7 @@ let private loadRequestFor
       start =
         { zoomId = model.zoomRoot
           focusId = nodeId
-          commandId = nodeId
+          runDefinitionId = nodeId
           graphIds = graphIds
           eventId = model.eventId } }
 
@@ -142,7 +137,13 @@ let private subjectsForLoad
 
 let private plannedUpload (prePick: LoadSavePrePick) (model: VM) =
     if prePick = LoadSavePrePick.Git then
-        None
+        if
+            PathPick.subjectOf model.graph (commandFocusId model)
+            = Some LoadSubject.Workspace
+        then
+            None
+        else
+            Some WorkspaceUploadAction.ReconcileServerDisk
     else
         Some (uploadPlan model)
 
@@ -150,6 +151,21 @@ let private holdFor (plan: WorkspaceUploadAction option) =
     match plan with
     | Some (WorkspaceUploadAction.DesktopPush _) -> true
     | _ -> false
+
+/// Plain Load of a Workspace sends Git when it has both mappings.
+let private prePickForLoad
+    (prePick: LoadSavePrePick)
+    (model: VM)
+    : LoadSavePrePick =
+    match
+        PathPick.plainLoadPath
+            model.graph
+            (commandFocusId model)
+            prePick
+            (workspaceMappingPresence model)
+    with
+    | Some LoadSavePath.Git -> LoadSavePrePick.Git
+    | _ -> prePick
 
 let private submitLoad
     (plan: WorkspaceUploadAction option)
@@ -161,9 +177,10 @@ let loadOpFor
     (prePick: LoadSavePrePick)
     (model: VM)
     : VM * Effect list =
-    if spansWorkspaces model then
+    if selectionSpansWorkspaces model then
         oneWorkspaceError model
     else
+        let prePick = prePickForLoad prePick model
         let plan = plannedUpload prePick model
         let targets = subjectsForLoad prePick plan model
         let graphIds =

@@ -207,26 +207,6 @@ let withPathSyncRefresh
     : VM * Effect list =
     model, RequestWorkspacePathSyncSnapshot :: effs
 
-/// After async directory reconcile: clear busy, decode, poll + path-sync refresh.
-let completeDirectoryReconcile (text: string) (model: VM) : VM * Effect list =
-    let model' = clearUploading model
-    match decodeReconciliationDirectory text with
-    | Ok n when n > 0 ->
-        okDetailWithPoll model' $"reconciled with warnings ({n})"
-        |> withPathSyncRefresh
-    | Ok _ -> okWithPoll model' |> withPathSyncRefresh
-    | Error e -> fail model' e |> withPathSyncRefresh
-
-let failDirectoryReconcile (msg: string) (model: VM) : VM * Effect list =
-    fail (clearUploading model) msg |> withPathSyncRefresh
-
-let failDirectoryReconcileHttp
-    (status: int)
-    (body: string)
-    (model: VM)
-    : VM * Effect list =
-    failDirectoryReconcile (httpError status body) model
-
 let private quietPlan (subjectId: NodeId) (model: VM) =
     match Map.tryFind subjectId model.graph.nodes with
     | Some { kind = Special File } ->

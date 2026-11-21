@@ -1,0 +1,42 @@
+# 74 — Add the Notice event body
+
+**Status:** `coded`
+**Type:** coding
+**Blocked by:** None — can start immediately
+**Trackers:** architecture
+
+## Context
+
+Split from [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md). Expand step. Today `CoreMailboxLoad.dispatchItem` adds each `Notice` to `context.noticeLog`, an in-memory list. That list is not the event log, so a poll does not return a Notice. `Notice` is in `src/Shared/MailboxLog.fs`. History `EventBody` has no `Notice` case, and `EventJson` has no Notice encoding. This ticket adds the event form beside the existing ones. Nothing writes it yet. [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md) switches the mailbox to it.
+
+## What to build
+
+No behaviour changes.
+
+1. [x] **Event body** — Add History `EventBody.Notice of Notice`, beside the existing History `EventBody` cases. Move `Notice` to where History `EventBody` can use it. Every match on History `EventBody` treats a Notice as no ops, no target, and no Actor change.
+2. [x] **JSON** — `EventJson` encodes and decodes each `Notice` case, built like the existing body encodings. Server and client both decode it.
+
+### Acceptance Criteria
+
+1. [x] **Test** — `Notice JSON round trip`. Each `Notice` case encodes and decodes to the same value.
+2. [x] **Still working** — Upload, import, parse, Load, undo, and persist still complete.
+
+## Finish-up
+
+[x] Amendments - changes during implementation are written on this ticket, or the ticket records that none changed.
+[x] Basis and reference docs — the ticket's basis, and the reference docs for each tracker named on Trackers, match those changes.
+[x] Documentation - files in [[doc/current]] and [[doc/user]] reflect what has been implemented by this ticket.
+
+## Amendments
+
+None changed. `Notice` moved to its own file so History `EventBody` can name it. A Notice body encodes as `kind` `"notice"`, a `notice` tag, and `nodeId`.
+
+## Time
+
+- 2026-10-20 1h — Notice event body and JSON (from chat)
+
+## See also
+
+- [76 — Log Notices on the event log](76-log-notices-on-the-event-log.md)
+- [69 — Persist an Edit without waiting](69-persist-an-edit-without-waiting.md)
+- [Message shape](../cqrs-messages.md)

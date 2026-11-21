@@ -11,14 +11,21 @@ See Also:
 [Search Actor](search-actor.md)
 [Query Actor](query-actor.md)
 
-An Actor is a function outside Core.
+An Actor is a thread from the .NET thread pool. It runs an actor function.
 
 ## Job
 
 [x] Off-queue function. Runs off the mailbox queue and posts fast messages back to the mailbox.
-[x] An Actor receives a Graph and posts messages to the mailbox. Core does not own the Actor body. Callers register an `ActorFn` on Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
-[x] The mailbox calls `startActor`, records `ActorStart`, and does not wait for the body. The pool schedules the body. Detail: Mailbox.
-[x] `ActorStop`: a fast mailbox message. Cancel and finish stay on [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
+[x] The actor function receives a Graph and posts messages to the mailbox. Core does not own the actor function.
+[o] An Actor is the actor function.
+[o] Callers register an `ActorFn` by name on the Core actor pool (`src/Server/Core/CoreActorPool.fs`) before the mailbox starts.
+[x] `startFunction` is the pool start. The actor function's input is `FunctionRun` (`getGraph` and the credential) and `CoreChangesDoor`. The pool mints the Actor session id.
+[o] `startPeerActor` and `CoreMsg.StartPeerActor` were never the start path.
+[x] `Order.StartActor` of `ActorOrder` is the logged actor start.
+[o] The start provides `ActorStart` of `zoomId`, `focusId`, `actorNodeId`, `graphIds`, and `eventId`. The wire key for `actorNodeId` is `"commandId"`.
+[o] The browser `ActorStart` payload changes in this cutover.
+[ ] Per-run endpoints: the endpoint varies by what is being run, each with its own payload.
+[x] `Notice.ActorStopped`: `CoreActorPool.runReturned` binds the `ActorResult`. `CoreActorPool.postStopUnlessCancelled` posts that notice through `CoreMailboxApi.postNotice` unless the row token is cancelled. A cancelled row posts nothing. `CoreMailboxLoop.dispatchItem` sends that notice to `CoreMailboxLoop.logActorStopped`. A secret from `CoreActorPool.trySecretForActorNode` logs through `CoreEventDispatch.actorStop` with `CoreDoor.actorCaller`. The stored authority is `Authority "Actor"`. `CoreMailboxActors.runCancel` logs `EventBody.ActorStop` of the focus and `ActorCancelled`. [Message shape](../../plan/core-refinement/cqrs-messages.md) §2 Notice and decision 15 Notice has its own door. [Core mailbox messages clear fast](../../doc/Decisions/0004-core-mailbox-messages-clear-fast.md).
 [x] `TestActor`: an injected proof Actor. The name is `test`. File: `src/Server/TestActor.fs`.
 [x] A CloudAgents Agent is not an Actor. Detail: Gambol.CloudAgents.
 [ ] An Actor requests git Load, git Save, pull, push, or commit by a post to the mailbox. The Actor does not perform that git mutation. Detail: Core.
@@ -30,4 +37,6 @@ An Actor is a function outside Core.
 ## Pool
 
 [x] `CoreActorPool` keeps the live table: public Actor identity, secret, termination handle, and Focus. The mailbox is the only thread that reads or writes that table.
+[x] `BootActors` is the boot install record: `keys`, `repos`, `grok`, and `search`. The pool stores that record on `bootActors`.
+[o] The pool keeps a name table for `startActor` and a second name table for `startPeerActor`.
 [x] Persist thread: a thread. Detail: Parse and persist.

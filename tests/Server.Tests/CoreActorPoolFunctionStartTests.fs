@@ -20,13 +20,11 @@ let private carrierGraph (text: string) : Graph * NodeId =
 
 let private functionStart
     (getGraph: GraphCarrier)
-    (focusId: NodeId)
-    (commandId: NodeId)
+    (actorNodeId: NodeId)
     : FunctionStart =
     { actor = TestActor.functionActor
       getGraph = getGraph
-      focusId = focusId
-      commandId = commandId }
+      actorNodeId = actorNodeId }
 
 let private postedTexts (events: Ev list) =
     events
@@ -69,11 +67,11 @@ let ``function start does not invoke Graph carrier`` () =
         graph
     let pool = CoreActorPool.create ()
     let secret =
-        pool.startFunction (functionStart getGraph nodeId nodeId)
+        pool.startFunction (functionStart getGraph nodeId)
         |> requireOk "startFunction"
     Assert.Equal(0, !calls)
     Assert.True(pool.isLive secret)
-    Assert.True(Set.contains nodeId (pool.liveFocusIds ()))
+    Assert.True(Set.contains nodeId (pool.liveActorNodeIds ()))
 
 [<Fact>]
 let ``TestActor function start posts hello from Graph carrier`` () =
@@ -87,7 +85,7 @@ let ``TestActor function start posts hello from Graph carrier`` () =
         let host = acceptingHost pool
         try
             let secret =
-                pool.startFunction (functionStart getGraph nodeId nodeId)
+                pool.startFunction (functionStart getGraph nodeId)
                 |> requireOk "startFunction"
             Assert.Equal(0, !calls)
             pool.schedule secret (CoreDoor.create true host testCaller)
@@ -110,7 +108,7 @@ let ``TestActor function start routes ping to pong`` () =
         try
             let secret =
                 pool.startFunction
-                    (functionStart (fun () -> graph) nodeId nodeId)
+                    (functionStart (fun () -> graph) nodeId)
                 |> requireOk "startFunction"
             pool.schedule secret (CoreDoor.create true host testCaller)
             let! log = waitLog host
@@ -131,7 +129,7 @@ let ``ID-bag startActor still starts TestActor hello`` () =
         let request: ActorStart =
             { zoomId = helloGraph.root
               focusId = helloId
-              commandId = helloId
+              runDefinitionId = helloId
               graphIds = [ helloGraph.root; helloId ]
               eventId = EventId.zero }
         let pool = CoreActorPool.create ()

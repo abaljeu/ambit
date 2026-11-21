@@ -3,7 +3,7 @@ module ResidentProjectionApplyTests
 open Gambol.Shared
 open Xunit
 
-let private stateWithNode text : State * NodeId =
+let private stateWithNode text : GraphAtEvent * NodeId =
     let graph, nodeId = Graph.newNode text (Graph.create ())
     { graph = graph; eventId = EventId.zero }, nodeId
 
@@ -119,7 +119,7 @@ let ``applyLocalEvent SetName CAS stays Error`` () =
     | Error msg -> Assert.Equal("old name does not match", msg)
     | Ok _ -> failwith "expected local apply to stay Error"
 
-let private namedState () : State * NodeId =
+let private namedState () : GraphAtEvent * NodeId =
     let graph0, nodeId = Graph.newNode "n" (Graph.create ())
     match Graph.setName nodeId "" "keep.md" graph0 with
     | Error msg -> failwith msg

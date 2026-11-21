@@ -1,0 +1,4 @@
+# Skip report dumps and archived history in ripgrep / the Grep tool.
+# Do not ignore all of plan/ or all of doc/.
+doc/history/
+plan/**/reports/

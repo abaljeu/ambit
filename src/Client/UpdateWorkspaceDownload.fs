@@ -60,7 +60,7 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             | [] ->
                 okDetail model job.detail |> withPathSyncRefresh
             | ops ->
-                match applyAndPostSync (displayName Download) ops model with
+                match applyAndPostSync (displayName Save) ops model with
                 | Error e -> failWorkspaceDownload e model
                 | Ok model' ->
                     okDetail (withSiteMap model') job.detail

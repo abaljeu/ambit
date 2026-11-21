@@ -2,7 +2,13 @@
 
 ALL your data in one infinite outline.
 
-- [Infinite Outliner](infinite-outliner.md) presents a graph as outline with cross-linking and focused views.
+- [Infinite Outliner](infinite-outliner.md) presents a graph as an outline with cross-linking, zooming into focused views, and folding.
+
+## Modes
+
+[x] Selection Mode: act on nodes.
+[x] Edit Mode: text editing within a line.
+[x] Any Mode: the command works in Selection Mode and in Edit Mode.
 
 Multi-Client/Single Server (plus postgres) service
 - [Multi-Client Sync](multi-client-sync.md) enables independent views to simultaneously edit with safe automatic merge.

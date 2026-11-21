@@ -8,6 +8,7 @@ See Also:
 [Operations](operations.md)
 [Multi-client sync](sync-mvp.md)
 [Desktop local files](desktop-local-files.md)
+[Workspace file sync](workspace-file-sync.md)
 [Gambol.Client](gambol-client.md)
 
 The Browser is the spoken name for Gambol.Client.
@@ -27,6 +28,15 @@ The Browser is the spoken name for Gambol.Client.
 [x] Server serves the Browser under `/ambit` from `wwwroot`. Fable `--outDir`: `src/Server/wwwroot`.
 [x] In the desktop shell, the Browser talks to `localhost` through the local proxy. Graph authority remains the cloud server.
 [x] The App adds `/_desktop/*` for capabilities and local file access. Detail: Desktop local files.
+
+## Commands
+
+[x] Jump to Target (`Alt+j`, `j`) is Open. File: [Commands.fs](src/Client/Commands.fs) `jumpTargetOp`.
+[x] A File node inside a named Workspace opens `/ambit/dav/{label}/{relative}` in a new tab. `fileOpenUrl` builds that URL from the Workspace node's kind. A Workspace name may contain `.`. File: [NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs).
+[x] A File node outside a named Workspace has no URL. Jump to Target does nothing for that node. The name may contain `.` or no `.`.
+[x] A File node does not fall back to link search.
+[x] A Workspace node or a Directory node does nothing. A dot in the name is not an extension. A File node inside that Workspace or Directory still opens.
+[x] Any other node opens a link from the node text, then the first Child, in a new tab.
 
 ## Explanation
 

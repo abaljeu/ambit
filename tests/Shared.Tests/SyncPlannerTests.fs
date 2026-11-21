@@ -135,7 +135,7 @@ let ``tryStartPoll returns no effects when uploading`` () =
 [<Fact>]
 let ``tryStartLoad emits LoadServer when idle with empty queue`` () =
     let targetId = NodeId.New()
-    let targets = [ { targetId = targetId; includeWorkspace = true } ]
+    let targets = [ { targetId = targetId } ]
     let si, effects =
         SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets SyncInfo.initial
     Assert.Equal(Loading, si.syncState)
@@ -144,7 +144,6 @@ let ``tryStartLoad emits LoadServer when idle with empty queue`` () =
         Assert.Equal(EventIdFixtures.storedId 5, eventId)
         Assert.Equal(1, loadTargets.Length)
         Assert.Equal(targetId, loadTargets.[0].targetId)
-        Assert.True(loadTargets.[0].includeWorkspace)
     | _ -> failwith "Expected single LoadServer effect"
 
 [<Fact>]
@@ -152,7 +151,7 @@ let ``tryStartLoad returns no effects when already loading`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Loading }
     let targets =
-        [ { targetId = NodeId.New(); includeWorkspace = false } ]
+        [ { targetId = NodeId.New() } ]
     let si, effects =
         SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets syncInfo
     Assert.Equal(Loading, si.syncState)
@@ -282,35 +281,6 @@ let ``tryStartSubmit returns no effects when uploading`` () =
             syncState = Uploading }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
     Assert.Equal(Uploading, nextInfo.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
-let ``tryStartPoll returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with syncState = Parsing }
-    let si, effects = SyncPlanner.tryStartPoll (EventIdFixtures.storedId 5) syncInfo
-    Assert.Equal(Parsing, si.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
-let ``tryStartSubmit returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with
-            pending = [ mkChange 1 ]
-            syncState = Parsing }
-    let nextInfo, effects = SyncPlanner.tryStartSubmit (EventIdFixtures.storedId 1) syncInfo
-    Assert.Equal(Parsing, nextInfo.syncState)
-    Assert.Empty(effects)
-
-[<Fact>]
-let ``tryStartLoad returns no effects when parsing`` () =
-    let syncInfo =
-        { SyncInfo.initial with syncState = Parsing }
-    let targets =
-        [ { targetId = NodeId.New(); includeWorkspace = false } ]
-    let si, effects =
-        SyncPlanner.tryStartLoad (EventIdFixtures.storedId 5) targets syncInfo
-    Assert.Equal(Parsing, si.syncState)
     Assert.Empty(effects)
 
 [<Fact>]

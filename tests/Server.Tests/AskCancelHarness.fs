@@ -11,7 +11,7 @@ open Gambol.Server.Tests.TestBackend
 
 type SeededAsk =
     { zoomId: NodeId
-      commandId: NodeId
+      runDefinitionId: NodeId
       graphIds: NodeId list }
 
 let private requireOk label result =
@@ -67,18 +67,25 @@ let private grokBinding config =
     { Config = config
       ResponseUrl = unusedResponseUrl }
 
+let private aiPools =
+    System.Runtime.CompilerServices.ConditionalWeakTable<
+        MailboxHost, CoreActorPool>()
+
 let private createHost keys repos grok =
     let dataDir = newTempDir ()
-    let pool = CoreActorPool.create ()
+    let install =
+        { keys = keys
+          repos = repos
+          grok = grok
+          search = SearchActor.searchActorAt }
+    let pool = CoreActorPool.createWithInstall install
     pool.register (ActorName "test") TestActor.actorFn
-    pool.register
-        (ActorName "ai")
-        (RunAgentActor.actorFn keys repos grok)
     let host =
         CoreMailbox.host
             pool
             (FileAgent.persist (FileAgent.create dataDir))
             admittedCredentials
+    aiPools.Add(host, pool)
     host, pool
 
 let private clearFake () =
@@ -95,21 +102,16 @@ let private clearFake () =
 
 let private graphState host =
     task {
-        let! state = CoreMailboxApi.getState host |> Async.StartAsTask
+        let! state = CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
         return requireOk "getState" state
     }
 
-let private sampleRequest zoomId focusId commandId graphIds : ActorStart =
+let private sampleRequest zoomId focusId runDefinitionId graphIds : ActorStart =
     { zoomId = zoomId
       focusId = focusId
-      commandId = commandId
+      runDefinitionId = runDefinitionId
       graphIds = graphIds
       eventId = EventId.zero }
-
-let private actorCaller secret : Caller =
-    { authority = Authority "Actor"
-      name = ""
-      secret = secret }
 
 let private replaceFocusChild focusId text =
     let childId = NodeId.New()
@@ -149,7 +151,7 @@ let private expectActorStop expected host focusId =
     }
 
 let private expectLiveGone pool focusId =
-    Assert.False(Set.contains focusId (pool.liveFocusIds ()))
+    Assert.False(Set.contains focusId (pool.liveActorNodeIds ()))
 
 let fakeReply text =
     Finished
@@ -218,7 +220,7 @@ let askRequest (seeded: SeededAsk) =
     sampleRequest
         seeded.zoomId
         seeded.zoomId
-        seeded.commandId
+        seeded.runDefinitionId
         seeded.graphIds
 
 let ownedTexts (graph: Graph) focusId =
@@ -266,11 +268,11 @@ let private postBrowserChange host label ops =
 let seedAskTree host commandText =
     task {
         let zoomId = NodeId.New()
-        let commandId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let noteId = NodeId.New()
         let ops =
             [ Op.NewNode(zoomId, "zoom")
-              Op.NewNode(commandId, commandText)
+              Op.NewNode(runDefinitionId, commandText)
               Op.NewNode(noteId, "visible-context")
               Op.Replace(
                   Graph.rootId,
@@ -279,28 +281,46 @@ let seedAskTree host commandText =
               Op.Replace(
                   zoomId,
                   [],
-                  [ ChildNode.owner commandId
+                  [ ChildNode.owner runDefinitionId
                     ChildNode.owner noteId ]) ]
         do! postBrowserChange host "seed" ops
         return
             { zoomId = zoomId
-              commandId = commandId
-              graphIds = [ zoomId; commandId; noteId ] }
+              runDefinitionId = runDefinitionId
+              graphIds = [ zoomId; runDefinitionId; noteId ] }
     }
+
+/// Ask start for `?ai`. Posts `Order.StartActor` for this host's binding.
+let startAiRun (host: MailboxHost) (request: ActorStart) =
+    match aiPools.TryGetValue host with
+    | false, _ -> Task.FromResult(Error "ai host binding missing")
+    | true, pool ->
+        match pool.bootActors with
+        | None -> Task.FromResult(Error "ai host binding missing")
+        | Some install ->
+            let order =
+                RunAgentActor.aiActorOrder
+                    install
+                    pool.sessionIdFor
+                    request
+            async {
+                let! placed =
+                    MailboxHost.postActorOrder host testCaller order
+                return Result.map (fun _ -> ()) placed
+            }
+            |> Async.StartAsTask
 
 let startAsk host (seeded: SeededAsk) =
     task {
         let request = askRequest seeded
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = startAiRun host request
+        requireOk "startAiRun" result
         return request
     }
 
 let waitLive pool focusId timeoutMs =
     waitUntil timeoutMs (fun () -> task {
-        return Set.contains focusId (pool.liveFocusIds ())
+        return Set.contains focusId (pool.liveActorNodeIds ())
     })
 
 let startLiveAsk host pool commandText =
@@ -314,61 +334,73 @@ let startLiveAsk host pool commandText =
 
 let seedCommand host text =
     task {
-        let commandId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let ops =
-            [ Op.NewNode(commandId, text)
+            [ Op.NewNode(runDefinitionId, text)
               Op.Replace(
                   Graph.rootId,
                   [],
-                  [ ChildNode.owner commandId ]) ]
+                  [ ChildNode.owner runDefinitionId ]) ]
         do! postBrowserChange host "seed command" ops
-        return commandId
+        return runDefinitionId
     }
 
-let startOnCommand host commandId =
+/// Function start on the command node. Places Order.StartActor.
+let startFromFunction
+    host
+    (actor: ActorFunction)
+    runDefinitionId
+    =
     task {
         let request =
             sampleRequest
-                commandId commandId commandId [ commandId ]
+                runDefinitionId
+                runDefinitionId
+                runDefinitionId
+                [ runDefinitionId ]
+        let placement : ActorOrderFromStart.FunctionActorPlacement =
+            { request = request
+              actor = actor
+              actorName = "probe"
+              actorNodeIdOf = ActorOrderFromStart.focusIdOf }
         let! result =
-            CoreMailboxApi.startActor host testCaller request
+            CoreMailboxApi.coreMailboxStartActorFromFunction
+                host
+                testCaller
+                placement
             |> Async.StartAsTask
-        requireOk "start command" result
+        requireOk "start command" result |> ignore
         return request
     }
 
-let registerActor pool name actorFn =
-    pool.register (ActorName name) actorFn
-
-let postChildThenWait childText =
+/// Posts one owned child under the launch focus, then stays live.
+let postChildThenWait focusId childText =
     let posted = TaskCompletionSource<unit>()
-    let actor: ActorFn =
-        fun input coreChanges ->
+    let actor: ActorFunction =
+        fun _ changes ->
             async {
-                let event =
-                    replaceFocusChild input.focusId childText
-                let! accepted =
-                    CoreDoor.postEvents
-                        (CoreDoor.forCaller
-                            (actorCaller input.secret)
-                            coreChanges)
-                        [ event ]
+                let event = replaceFocusChild focusId childText
+                let! accepted = changes.postChanges [ event ]
                 match accepted with
                 | Ok _ -> posted.TrySetResult() |> ignore
                 | Error err ->
                     posted.TrySetException(Exception err) |> ignore
-                let! ct = Async.CancellationToken
-                while not ct.IsCancellationRequested do
-                    do! Async.Sleep 20
+                return! waitCancelled ()
             }
     posted, actor
 
 let cancelFocus host focusId =
     task {
+        let cancel =
+            { id = EventId.zero
+              submissionId = System.Guid.NewGuid()
+              authority = Authority "Browser"
+              commandName = "Cancel"
+              body = EventBody.Cancel focusId }
         let! result =
-            CoreMailboxApi.cancelByFocus host testCaller focusId
+            CoreMailboxApi.postEvents host testCaller [ cancel ]
             |> Async.StartAsTask
-        requireOk "cancelByFocus" result
+        requireOk "cancel" result |> ignore
     }
 
 let expectActorCancelled host pool focusId =
@@ -473,8 +505,9 @@ let hasActorStart host focusId =
             events
             |> List.exists (fun event ->
                 match event.body with
-                | EventBody.ActorStart started ->
-                    started.focusId = focusId
+                | EventBody.Order (Order.StartActor order) ->
+                    order.actorNodeId = focusId
+                    && order.actorName = "ai"
                 | _ -> false)
     }
 
@@ -507,41 +540,39 @@ let postOwnedChild host focusId text =
 
 let private seedBrowserCommand host commandText =
     task {
-        let commandId = NodeId.New()
+        let runDefinitionId = NodeId.New()
         let noteId = NodeId.New()
         let ops =
-            [ Op.NewNode(commandId, commandText)
+            [ Op.NewNode(runDefinitionId, commandText)
               Op.NewNode(noteId, "visible-context")
               Op.Replace(
                   Graph.rootId,
                   [],
-                  [ ChildNode.owner commandId ])
+                  [ ChildNode.owner runDefinitionId ])
               Op.Replace(
-                  commandId,
+                  runDefinitionId,
                   [],
                   [ ChildNode.owner noteId ]) ]
         do! postBrowserChange host "seed Browser Command" ops
-        return commandId
+        return runDefinitionId
     }
 
-let private startBrowserAsk host commandId =
+let private startBrowserAsk host runDefinitionId =
     task {
         let! state = graphState host
         let siteMap, _ =
             ViewModel.buildSiteMapFrom
                 state.graph
-                commandId
+                runDefinitionId
                 (Sid 0)
         let request =
             CommandRequest.oneNodeStart
                 state.graph
                 siteMap
-                commandId
+                runDefinitionId
                 state.eventId
-        let! result =
-            CoreMailboxApi.startActor host testCaller request
-            |> Async.StartAsTask
-        requireOk "startActor" result
+        let! result = startAiRun host request
+        requireOk "startAiRun" result
         return request
     }
 
@@ -552,9 +583,9 @@ type BrowserAskLaunch =
 
 let launchBrowserAsk host commandText =
     task {
-        let! commandId = seedBrowserCommand host commandText
+        let! runDefinitionId = seedBrowserCommand host commandText
         let! state = graphState host
-        let! request = startBrowserAsk host commandId
+        let! request = startBrowserAsk host runDefinitionId
         return
             { request = request
               pollAfter = state.eventId
@@ -566,7 +597,7 @@ let pollEventsSince host afterId =
     |> Async.StartAsTask
 
 let expectOneNodeStart (request: ActorStart) =
-    Assert.Equal(request.commandId, request.zoomId)
-    Assert.Equal(request.commandId, request.focusId)
-    Assert.Contains(request.commandId, request.graphIds)
+    Assert.Equal(request.runDefinitionId, request.zoomId)
+    Assert.Equal(request.runDefinitionId, request.focusId)
+    Assert.Contains(request.runDefinitionId, request.graphIds)
 

@@ -1,0 +1,5 @@
+---
+globs: **/*.{md,mdc}
+---
+
+Obey [[.agents/rules/writing-markdown.md]].

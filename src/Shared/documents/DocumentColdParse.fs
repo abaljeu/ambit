@@ -291,7 +291,6 @@ module DocumentColdParse =
         | Op.SetName(id, _, _) when id = documentRootId -> true
         | Op.SetClasses(id, _, _) when id = documentRootId -> true
         | Op.NewSpecialNode(id, _, _) when id = documentRootId -> true
-        | Op.SetDocumentState(id, _, _) when id = documentRootId -> true
         | Op.SetUpdateTime(id, _, _) when id = documentRootId -> true
         | _ -> false
 

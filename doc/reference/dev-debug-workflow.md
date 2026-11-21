@@ -5,7 +5,7 @@ See also: , [[.vscode/launch.json]], [[.vscode/tasks.json]]
 
 ## Local app URL
 
-The local app is `http://localhost:5215/ambit`. Open `http://localhost:5215/ambit?debug=1` for unbundled Fable modules and source maps. Other docs name this URL by linking here; they do not copy host, port, path, or query.
+The local app is `http://localhost:8081/ambit`. Open `http://localhost:8081/ambit?debug=1` for unbundled Fable modules and source maps. Other docs name this URL by linking here; they do not copy host, port, path, or query.
 
 ## Two Server starters
 
@@ -16,17 +16,19 @@ Gambol has two alternate ways to start the Server on that port. They are mutuall
 | Watch task | Run [[.vscode/tasks.json|dev: Watch + Run]] or [[.vscode/tasks.json|server: Run]] (`dotnet watch run`) | No |
 | F5 | Launch [[.vscode/launch.json|Local Server]] or [[.vscode/launch.json|Full Stack]] | Yes |
 
-F5 does not replace a running watch-task Server. If the watch task already owns `:5215`, F5 tries to start a second Server and fails.
+F5 does not replace a running watch-task Server. If the watch task already owns `:8081`, F5 tries to start a second Server and fails.
 
 ## Windows Hyper-V port exclusion
 
-On Windows, Hyper-V reserves dynamic TCP port ranges that can include the old dev port `5115`. If Kestrel fails with *access forbidden by its access permissions* (not *address already in use*), check exclusions in PowerShell:
+On Windows, Hyper-V, WSL2, and Docker Desktop reserve **dynamic** TCP port ranges. Those blocks often cover much of **5000–5600**, so ports like `5115` and `5215` are **not** reliable dev choices — they may fail with *access forbidden by its access permissions* even when nothing is listening.
+
+Gambol’s default HTTP dev port is **8081** (above that band, and not the commonly held **8080**). Before first run on a new machine, confirm **8081** is not in an exclusion list:
 
 ```powershell
 netsh interface ipv4 show excludedportrange protocol=tcp
 ```
 
-Gambol dev now uses `:5215`, outside typical exclusion blocks. Pick another free port if `5215` is ever reserved locally.
+If **8081** appears inside any range, pick another port that does not, then set `ASPNETCORE_URLS=http://localhost:<port>` (and match Desktop / browser URLs). `applicationUrl` in [[src/Server/Properties/launchSettings.json]] is the repo default.
 
 ## Fable watch
 

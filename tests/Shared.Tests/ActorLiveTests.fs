@@ -24,7 +24,7 @@ let private actorStartAt eventId focusId zoomId : Ev =
         EventBody.ActorStart
             { zoomId = zoomId
               focusId = focusId
-              commandId = NodeId.New()
+              runDefinitionId = NodeId.New()
               graphIds = [ focusId ]
               eventId = eventId } }
 
@@ -214,11 +214,11 @@ let ``focusIdsFromLockPresent reads GetState overlay`` () =
 let private graphWithCommand (commandText: string) : Graph * NodeId =
     let g0 = Graph.create ()
     let g1, ids = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = ids.[0]
+    let runDefinitionId = ids.[0]
     let graph =
-        Graph.replace g1.root 0 [] (owned [ commandId ]) g1
+        Graph.replace g1.root 0 [] (owned [ runDefinitionId ]) g1
         |> requireOk "graphWithCommand.root"
-    graph, commandId
+    graph, runDefinitionId
 
 let private graphWithCommandChild
     (commandText: string)
@@ -226,24 +226,24 @@ let private graphWithCommandChild
     : Graph * NodeId * NodeId =
     let g0 = Graph.create ()
     let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = commandIds.[0]
+    let runDefinitionId = commandIds.[0]
     let g2, childIds = ModelBuilder.createNodes [ childText ] g1
     let childId = childIds.[0]
     let g3 =
-        Graph.replace g2.root 0 [] (owned [ commandId ]) g2
+        Graph.replace g2.root 0 [] (owned [ runDefinitionId ]) g2
         |> requireOk "graphWithCommandChild.root"
     let graph =
-        Graph.replace commandId 0 [] (owned [ childId ]) g3
+        Graph.replace runDefinitionId 0 [] (owned [ childId ]) g3
         |> requireOk "graphWithCommandChild.command"
-    graph, commandId, childId
+    graph, runDefinitionId, childId
 
 [<Fact>]
 let ``?test start and stop use TitleCase Test not AI`` () =
-    let graph, commandId = graphWithCommand "?test hello"
+    let graph, runDefinitionId = graphWithCommand "?test hello"
     let started =
-        actorStartAt (EventIdFixtures.storedId 1) commandId commandId
+        actorStartAt (EventIdFixtures.storedId 1) runDefinitionId runDefinitionId
     let startResult =
-        ActorLive.lastCmdResult graph commandId [ started ]
+        ActorLive.lastCmdResult graph runDefinitionId [ started ]
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Test started.")),
         startResult)
@@ -253,53 +253,53 @@ let ``?test start and stop use TitleCase Test not AI`` () =
             (CmdLastResult.Detail (Some "Run", "Test started.")))
     let stopped =
         actorStopEvent
-            (EventIdFixtures.storedId 2) commandId ActorSucceeded
+            (EventIdFixtures.storedId 2) runDefinitionId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph runDefinitionId [ stopped ])
     let failed =
         actorStopEvent
-            (EventIdFixtures.storedId 3) commandId (ActorFailed "")
+            (EventIdFixtures.storedId 3) runDefinitionId (ActorFailed "")
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Test", "Actor failed.")),
-        ActorLive.lastCmdResult graph commandId [ failed ])
+        ActorLive.lastCmdResult graph runDefinitionId [ failed ])
     let cancelled =
         actorStopEvent
-            (EventIdFixtures.storedId 4) commandId ActorCancelled
+            (EventIdFixtures.storedId 4) runDefinitionId ActorCancelled
     Assert.Equal(
         Some (CmdLastResult.Error (Some "Test", "Actor cancelled.")),
-        ActorLive.lastCmdResult graph commandId [ cancelled ])
+        ActorLive.lastCmdResult graph runDefinitionId [ cancelled ])
 
 [<Fact>]
 let ``?test ancestor Command labels Focus child start and stop`` () =
-    let graph, commandId, childId =
+    let graph, runDefinitionId, childId =
         graphWithCommandChild "?test hello" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 7) childId commandId
+        actorStartAt (EventIdFixtures.storedId 7) childId runDefinitionId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Test started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph runDefinitionId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 8) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Test", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph runDefinitionId [ stopped ])
 
 [<Fact>]
 let ``?ai start and stop use TitleCase Ai not hardcoded AI`` () =
-    let graph, commandId = graphWithCommand "?ai later"
+    let graph, runDefinitionId = graphWithCommand "?ai later"
     let started =
-        actorStartAt (EventIdFixtures.storedId 9) commandId commandId
+        actorStartAt (EventIdFixtures.storedId 9) runDefinitionId runDefinitionId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Ai started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph runDefinitionId [ started ])
     let stopped =
         actorStopEvent
-            (EventIdFixtures.storedId 10) commandId ActorSucceeded
+            (EventIdFixtures.storedId 10) runDefinitionId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Ai", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph runDefinitionId [ stopped ])
 
 [<Fact>]
 let ``no Command on owner path uses generic wording not AI`` () =
@@ -329,21 +329,21 @@ let private graphWithCommandMidChild
     : Graph * NodeId * NodeId * NodeId =
     let g0 = Graph.create ()
     let g1, commandIds = ModelBuilder.createNodes [ commandText ] g0
-    let commandId = commandIds.[0]
+    let runDefinitionId = commandIds.[0]
     let g2, midIds = ModelBuilder.createNodes [ midText ] g1
     let midId = midIds.[0]
     let g3, childIds = ModelBuilder.createNodes [ childText ] g2
     let childId = childIds.[0]
     let g4 =
-        Graph.replace g3.root 0 [] (owned [ commandId ]) g3
+        Graph.replace g3.root 0 [] (owned [ runDefinitionId ]) g3
         |> requireOk "graphWithCommandMidChild.root"
     let g5 =
-        Graph.replace commandId 0 [] (owned [ midId ]) g4
+        Graph.replace runDefinitionId 0 [] (owned [ midId ]) g4
         |> requireOk "graphWithCommandMidChild.command"
     let graph =
         Graph.replace midId 0 [] (owned [ childId ]) g5
         |> requireOk "graphWithCommandMidChild.mid"
-    graph, commandId, midId, childId
+    graph, runDefinitionId, midId, childId
 
 [<Fact>]
 let ``equals Command uses TitleCase name token not a product name`` () =
@@ -362,37 +362,69 @@ let ``equals Command uses TitleCase name token not a product name`` () =
 
 [<Fact>]
 let ``equals ancestor stops scan and does not use ? above`` () =
-    let graph, commandId, equalsId, childId =
+    let graph, runDefinitionId, equalsId, childId =
         graphWithCommandMidChild "?test hello" "count=1+2" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 14) childId commandId
+        actorStartAt (EventIdFixtures.storedId 14) childId runDefinitionId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Count started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph runDefinitionId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 15) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Count", "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph runDefinitionId [ stopped ])
     let onEquals =
-        actorStartAt (EventIdFixtures.storedId 16) equalsId commandId
+        actorStartAt (EventIdFixtures.storedId 16) equalsId runDefinitionId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Count started.")),
-        ActorLive.lastCmdResult graph commandId [ onEquals ])
+        ActorLive.lastCmdResult graph runDefinitionId [ onEquals ])
 
 [<Fact>]
 let ``equals form with no name token uses generic not ? ancestor`` () =
-    let graph, commandId, _, childId =
+    let graph, runDefinitionId, _, childId =
         graphWithCommandMidChild "?ai later" "=1+2" "note"
     let started =
-        actorStartAt (EventIdFixtures.storedId 17) childId commandId
+        actorStartAt (EventIdFixtures.storedId 17) childId runDefinitionId
     Assert.Equal(
         Some (CmdLastResult.Detail (Some "Run", "Actor started.")),
-        ActorLive.lastCmdResult graph commandId [ started ])
+        ActorLive.lastCmdResult graph runDefinitionId [ started ])
     let stopped =
         actorStopEvent
             (EventIdFixtures.storedId 18) childId ActorSucceeded
     Assert.Equal(
         Some (CmdLastResult.Detail (None, "Actor succeeded.")),
-        ActorLive.lastCmdResult graph commandId [ stopped ])
+        ActorLive.lastCmdResult graph runDefinitionId [ stopped ])
+
+[<Fact>]
+let ``a stop-only poll removes the live focus and starts no catch-up`` () =
+    let focusId = NodeId.New()
+    let state =
+        { ClientSyncState.create
+            (Graph.create ())
+            (EventIdFixtures.storedId 5)
+            (ClientHistory.clear ()) with
+            actorLiveFocusIds = Set.singleton focusId }
+    let stopped =
+        { id = EventIdFixtures.storedId 6
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = ""
+          body =
+            EventBody.Notice(
+                Notice.ActorStopped(focusId, ActorSucceeded)) }
+    match SyncLogic.applyServerTail [ stopped ] state with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok after ->
+        Assert.False(Set.contains focusId after.actorLiveFocusIds)
+        let poll: LoadResponse =
+            { eventId = EventIdFixtures.storedId 6
+              buildEpochSec = 0
+              pageBuildEpochSec = 0
+              apiVersion = 0
+              isReady = true
+              events = [ stopped ]
+              nodes = []
+              childMap = Map.empty }
+        Assert.False((SyncLogic.loadResponseToPoll poll).externalChanges)

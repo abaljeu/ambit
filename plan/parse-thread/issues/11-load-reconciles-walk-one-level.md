@@ -1,6 +1,6 @@
 # 11 — Load reconciles walk one level
 
-**Status:** `coded`
+**Status:** `done`
 Actual: 1h 5m
 **Type:** coding
 **Blocked by:** 10 — Add discoverImmediateMembers

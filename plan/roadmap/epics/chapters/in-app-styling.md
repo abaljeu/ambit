@@ -1,20 +1,7 @@
 # Chapter: In-app styling
 
-**Part of:** [[plan/roadmap/epics/create-and-publish-web-pages.md]]
 **Blocked by:** [[html-codec.md]].
 
-## Context
+HTML look in the App. Published-page CSS is [[published-page-css.md]]. The App stylesheet is [[doc/reference/style.md]]. Markdown look is [[markdown-styling.md]].
 
-A person creates web pages in the App. This Chapter is not Published-page CSS and not the App stylesheet.
-
-## Goal
-
-HTML look in the App. Not [[published-page-css.md]]. Not the App stylesheet [[doc/reference/style.md]]. Parallel to [[markdown-styling.md]].
-
-## Required for done
-
-- [ ] HTML look in the App. Not Published-page CSS. Not the App stylesheet [[doc/reference/style.md]].
-
-## Notes
-
-In-app styling has no owning Project yet.
+## Projects

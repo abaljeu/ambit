@@ -33,9 +33,6 @@ let private renderSyncStatus (model: VM) =
             | Uploading ->
                 el.textContent <- "Uploading\u2026"
                 el.className <- "amb-sync-status amb-syncing"
-            | Parsing ->
-                el.textContent <- "Parsing\u2026"
-                el.className <- "amb-sync-status amb-syncing"
             | Loading ->
                 el.textContent <- "Loading\u2026"
                 el.className <- "amb-sync-status amb-syncing"
