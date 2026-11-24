@@ -21,16 +21,24 @@ A filled circle is a Directory, File, or Workspace Node that is Parsed with an e
 
 The investigation report section 2 is the full table with code references. Section 5 lists every confirmed-emptied file and the commit that emptied it.
 
+## Findings (2026-11-24)
+
+Ticket 01's event-log queries ran against production Postgres, read-only. The newest event is 27784 at 2026-11-22 11:57 EST, when the user stopped using the app; as of that event LAPS (`161b30c1-73e6-4909-b477-e32060e223ad`) had 14 children and the ambit workspace (`56df2956-22d0-4434-95f6-16dc1d486328`) had 31. No event ever emptied LAPS's child list; every change was a 1–2 child user edit, and there are no orphans. [[evidence/results/results.txt]] holds the result sets.
+
+On 2026-11-23, when the user first connected, LAPS's descendants and the ambit workspace showed no children (filled-circle bullets, Parsed with empty lists) before the user did anything. On 2026-11-24 the same Nodes showed their children again, with no event between those times that touched either list. The data was intact on the server throughout; the client, or the initial feed, was missing it. This is a display/load bug, not data loss, and it is [06 — Children missing on the first connect after idle](issues/06-children-missing-on-connect.md).
+
+The only confirmed real loss is issue 07, emptied by a Save on an Unparsed Node (events 27360→27362→27364, 2026-11-21 16:37 EST). That is ticket 04's cause. The causes behind tickets 03 and 05 were not seen in the event log; they stand as hardening, not as proven causes of an actual loss.
+
 ## Candidate causes, ranked
 
-Ranking and evidence are the investigation report section 9. Confirming or revising this ranking is ticket 01, below.
+Ranking and evidence are the investigation report section 9. Confirming or revising this ranking is ticket 01, below. The Findings above revise the "Confirmed by" column for ranks 1, 3, and 4.
 
 | Rank | Cause | Code | Confirmed by |
 |---|---|---|---|
-| 1 | Load → `DirectoryReconcile` against a missing or wrong-case folder | `src/Server/DocumentPersistPath.fs` `discoverInDirectory` can return an empty listing for a folder that does not exist; `src/Shared/dotnet/DirectoryReconcile.fs` `planFromEntries` then trashes every owned child not in that listing | Q14–Q17 |
+| 1 | Load → `DirectoryReconcile` against a missing or wrong-case folder | `src/Server/DocumentPersistPath.fs` `discoverInDirectory` can return an empty listing for a folder that does not exist; `src/Shared/dotnet/DirectoryReconcile.fs` `planFromEntries` then trashes every owned child not in that listing | Not seen in the event log (Findings above); ticket 03 is hardening, not a proven cause |
 | 2 | Run on the Node itself | `?ai`/Amble Run replacing the focus Node's children | Q18 |
-| 3 | Save on an Unparsed Node | `GithubTransportActor.focusCanBeParsed`; emptied [07 — Document the command-line actor](../command-line-actor/issues/07-document-the-command-line-actor.md) at `3a1a0aa8` | Q11 (already observed) |
-| 4 | Desktop Upload stubs created Parsed | `WorkspaceUploadStructure.planStubOps` | Q5, Q10 (already observed on the life root) |
+| 3 | Save on an Unparsed Node | `GithubTransportActor.focusCanBeParsed`; emptied [07 — Document the command-line actor](../command-line-actor/issues/07-document-the-command-line-actor.md) at `3a1a0aa8` | Confirmed — the only real loss found in the log (Findings above) |
+| 4 | Desktop Upload stubs created Parsed | `WorkspaceUploadStructure.planStubOps` | Not seen in the event log (Findings above); ticket 05 is hardening, not a proven cause |
 | 5 | Run hitting a Node other than its focus | — | No code path found; see the investigation report section 8 |
 
 ## Issues
@@ -42,6 +50,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 03 | [Guard DirectoryReconcile against a missing folder](issues/03-reconcile-missing-folder-guard.md) | pending confirmation from 01 |
 | 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | pending confirmation from 01 |
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
+| 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
 
 ## Decisions
 
