@@ -9,10 +9,10 @@ Blockers: [01 — Run the event-log queries](01-run-event-log-queries.md) — th
 
 ## Done
 
-[ ] Save on an Unparsed File or Directory focus parses it from disk before any persist write.
-[ ] A focus whose disk read fails, or that is gone from disk, refuses the Save instead of persisting empty content.
-[ ] A test Saves an Unparsed focus with real disk content and asserts the persisted content is not empty.
-[ ] A test Saves an Unparsed focus whose disk read fails and asserts the Save is refused, not silently emptied.
+[x] Save on an Unparsed File or Directory focus parses it from disk before any persist write.
+[x] A focus whose disk read fails, or that is gone from disk, refuses the Save instead of persisting empty content.
+[x] A test Saves an Unparsed focus with real disk content and asserts the persisted content is not empty.
+[x] A test Saves an Unparsed focus whose disk read fails and asserts the Save is refused, not silently emptied.
 
 ## Stop
 
