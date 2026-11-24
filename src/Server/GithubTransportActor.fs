@@ -320,87 +320,29 @@ module GithubTransportActor =
                         Ok(current.eventId, current.graph, node))
         }
 
-    /// Parsed is required. A pulling file stays Unparsed.
+    /// Parsed is required. An Unparsed, non-pulling focus is refused
+    /// outright instead of being flipped to Parsed: `3a1a0aa8` emptied
+    /// issue 07 by flipping an Unparsed focus this way, before persist
+    /// ever read it, so persist wrote empty content over real disk
+    /// content. Every other focus (Parsed, or a pulling file) keeps the
+    /// original check below unchanged.
     let private focusCanBeParsed (graph: Graph) (focusId: NodeId) =
-        match GraphMutate.setParseState focusId ParseState.Parsed graph with
-        | Error err -> Error err
-        | Ok parsed ->
-            match Map.tryFind focusId parsed.nodes with
-            | Some node when node.parseState = ParseState.Parsed ->
-                Ok ()
-            | Some node when node.documentState.pullingFile ->
-                Error
-                    "focused node stays unparsed while a file is pulling"
-            | _ -> Error "focused node was not marked parsed"
-
-    /// The Directory's own folder, not its members. A missing folder
-    /// reads as empty (`DocumentPersistPath.discoverImmediateMembers`),
-    /// which would otherwise look like a Directory with no children.
-    let private directoryGoneFromDisk dataDir (graph: Graph) focusId =
-        match DocumentPartition.artifactDirectoryRelative graph focusId with
-        | None -> Error "focused node has no disk path"
-        | Some relative ->
-            match DocumentPersistPath.resolveUnderDataDir dataDir relative with
-            | Error err -> Error err
-            | Ok full when System.IO.Directory.Exists full -> Ok ()
-            | Ok _ -> Error "focused node is gone from disk"
-
-    /// Reconcile ops from the Directory's real disk members. Locked like
-    /// `ParseThread.reconcileDirectory`; `planDirectoryReconcile` itself
-    /// takes no lock.
-    let private planDirectoryFromDisk dataDir (graph: Graph) focusId =
-        NodeLockPool.withLockResult graph focusId (fun () ->
-            match directoryGoneFromDisk dataDir graph focusId with
-            | Error err -> Error err
-            | Ok () ->
-                DirectoryReconcile.planDirectoryReconcile
-                    { dataDir = dataDir
-                      graph = graph
-                      directoryId = focusId
-                      discover =
-                        DocumentPersistPath.discoverImmediateMembers }
-                |> Result.map (fun planned -> planned.ops))
-
-    /// Ops that load the focus's real disk content. `[]` when the focus
-    /// is already Parsed, or pulling (that case is `focusCanBeParsed`'s
-    /// refusal, not a disk read). `DocumentPersistWrite.planParseFile`
-    /// takes its own lock, so a File is not locked again here.
-    let private planUnparsedFocusFromDisk dataDir (graph: Graph) focusId =
         match Map.tryFind focusId graph.nodes with
         | Some node when
-            node.parseState <> ParseState.Unparsed
-            || node.documentState.pullingFile ->
-            Ok []
-        | Some { kind = Special File } ->
-            DocumentPersistWrite.planParseFile dataDir graph focusId None
-        | Some { kind = Special (Directory | Workspace) } ->
-            planDirectoryFromDisk dataDir graph focusId
-        | _ -> Ok []
-
-    /// Save on an Unparsed focus loads that focus's real disk content
-    /// before any persist write, so persist never overwrites a File or
-    /// Directory that still exists on disk with empty content (`3a1a0aa8`
-    /// emptied issue 07 this way). A missing path, or a read failure,
-    /// refuses the Save instead.
-    let private parseUnparsedFocusFromDisk
-        (changes: ActorChanges)
-        dataDir
-        focusId
-        (graph: Graph)
-        : Async<Result<Graph, string>> =
-        async {
-            match planUnparsedFocusFromDisk dataDir graph focusId with
-            | Error err -> return Error err
-            | Ok [] -> return Ok graph
-            | Ok ops ->
-                let event = GraphOnlyChangePost.mint "Parse" ops
-                match! changes.postGraphOnly event with
-                | Error err -> return Error err
-                | Ok () ->
-                    match! changes.graphAtEvent () with
-                    | Error err -> return Error err
-                    | Ok current -> return Ok current.graph
-        }
+            node.parseState = ParseState.Unparsed
+            && not node.documentState.pullingFile ->
+            Error "focused node is unparsed"
+        | _ ->
+            match GraphMutate.setParseState focusId ParseState.Parsed graph with
+            | Error err -> Error err
+            | Ok parsed ->
+                match Map.tryFind focusId parsed.nodes with
+                | Some node when node.parseState = ParseState.Parsed ->
+                    Ok ()
+                | Some node when node.documentState.pullingFile ->
+                    Error
+                        "focused node stays unparsed while a file is pulling"
+                | _ -> Error "focused node was not marked parsed"
 
     let private failedPersistMessage focusId (event: Ev) =
         match event.body with
@@ -440,34 +382,29 @@ module GithubTransportActor =
     /// until the persist thread sets Persisted.
     let private persistFocus
         (changes: ActorChanges)
-        dataDir
         focusId
         eventId
         (graph: Graph)
         =
         async {
-            match! parseUnparsedFocusFromDisk changes dataDir focusId graph with
+            match focusCanBeParsed graph focusId with
             | Error err -> return Error err
-            | Ok parsedGraph ->
-                match focusCanBeParsed parsedGraph focusId with
-                | Error err -> return Error err
-                | Ok () ->
-                    changes.postNotice (Notice.NodeUnpersisted focusId)
-                    changes.postNotice (Notice.NodeParsed focusId)
-                    return! waitUntilPersisted changes eventId focusId
+            | Ok () ->
+                changes.postNotice (Notice.NodeUnpersisted focusId)
+                changes.postNotice (Notice.NodeParsed focusId)
+                return! waitUntilPersisted changes eventId focusId
         }
 
     /// The focus is persisted when it is not an ordinary node.
     let private persistFocusWhenNotOrdinary
         (changes: ActorChanges)
-        dataDir
         focusId
         =
         async {
             match! readFocusNode changes focusId with
             | Error err -> return Error err
             | Ok (eventId, graph, node) when node.kind <> Normal ->
-                return! persistFocus changes dataDir focusId eventId graph
+                return! persistFocus changes focusId eventId graph
             | Ok _ -> return Ok ()
         }
 
@@ -528,7 +465,7 @@ module GithubTransportActor =
     /// repository, and a repository with no remote are Neither.
     let private runSaveBody dataDir dependencies focusId changes =
         async {
-            match! persistFocusWhenNotOrdinary changes dataDir focusId with
+            match! persistFocusWhenNotOrdinary changes focusId with
             | Error err -> return Error err
             | Ok () ->
                 match! readSaveWorkspace dataDir focusId changes with
