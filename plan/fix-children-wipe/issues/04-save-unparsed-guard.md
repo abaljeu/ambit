@@ -1,0 +1,21 @@
+# 04 — Guard Save on an Unparsed Node
+
+**Status**: pending confirmation from 01
+Blockers: [01 — Run the event-log queries](01-run-event-log-queries.md) — this ticket does not start before the event-log results confirm Rank 3 on [[../project.md]].
+
+## Scope
+
+`GithubTransportActor.focusCanBeParsed` lets Save flip an Unparsed File or Directory focus to Parsed without reading its disk content first, then persist writes empty content over it. Commit `3a1a0aa8` emptied [07 — Document the command-line actor](../../command-line-actor/issues/07-document-the-command-line-actor.md) this way. Save on an Unparsed focus must parse that focus from disk first, or refuse the Save.
+
+## Done
+
+[ ] Save on an Unparsed File or Directory focus parses it from disk before any persist write.
+[ ] A focus whose disk read fails, or that is gone from disk, refuses the Save instead of persisting empty content.
+[ ] A test Saves an Unparsed focus with real disk content and asserts the persisted content is not empty.
+[ ] A test Saves an Unparsed focus whose disk read fails and asserts the Save is refused, not silently emptied.
+
+## Stop
+
+[ ] Stop before ticket 01's results confirm the issue-07 loss matches this path; this ticket does not start before that confirmation.
+[ ] Stop if the fix changes Save on a focus that is already Parsed.
+[ ] Stop if the change reaches outside `GithubTransportActor.fs` plus its direct callers and tests.

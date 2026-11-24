@@ -84,6 +84,7 @@ The main push is cleaning up that architecture:
 - 2026-11-15: Alan places 25 — The server evaluates Run before Amble tools. 24 — Remove CoreMsg.RecordSearchStop is `coded`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`. Recorded here; no Roadmap issue file.
 - 2026-11-15: Search Amble follows 24 — Remove CoreMsg.RecordSearchStop under online search, beside Amble tools. Recorded here; no Roadmap issue file.
 - 2026-11-15: Alan: closing the Find dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text. The cancel is the existing actor cancel. The stored row is `Notice.ActorStopped` of `ActorCancelled`. The ticket is 27 — Dialog cancels or replaces the search actor. Recorded here; no Roadmap issue file.
+- 2026-11-24: Alan: the child-list data loss (Nodes losing their owned children, three Workspace kinds, filled-circle glyph) gets its own fix Project, [[plan/fix-children-wipe/project.md]]. It is unplaced: no Epic or Chapter yet. Recovery comes before any code fix, and no Load, Save, or Upload runs on the affected Workspaces until recovery is agreed. The cause is confirmed only by the event-log query results Alan runs himself. Recorded here; no Roadmap issue file.
 
 ## Not yet specified
 
