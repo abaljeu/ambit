@@ -1,6 +1,6 @@
 # 06 — The actor re-runs on a node that has children
 **Status**: defined
-One job: A re-run of a `>` node replaces the node's existing children with the new output. The job comes from the Output criteria in [spec](../spec.md).
+One job: A re-run of a `>` node appends the new output as children after the node's existing children, without removing them. The job comes from the Output criteria in [spec](../spec.md).
 
 Type: coding
 Blockers: [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md)
@@ -9,7 +9,7 @@ Blockers: [03 — The actor builds children from stdout](03-actor-builds-childre
 
 ### Working
 
-[ ] `src/Client/Commands.fs`: `execAmbleRunOp`. The Amble path deletes the focus node's children before it runs. This is a pattern.
+[ ] `src/Client/Commands.fs`: `execAmbleRunOp`. The Amble path deletes the focus node's children before it runs. `CommandActor` does not follow that pattern; it appends instead.
 
 ### Reference
 
@@ -22,11 +22,11 @@ Blockers: [03 — The actor builds children from stdout](03-actor-builds-childre
 ## Process
 
 1. [ ] If an input is missing or does not match this ticket, stop and name that input.
-2. [ ] Before the first new output line, remove the start node's existing children, then add the new output as in [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md).
+2. [ ] Add the new output as new children after the start node's existing children, as in [03 — The actor builds children from stdout](03-actor-builds-children-from-stdout.md). Existing children are not removed.
 
 ## Outputs
 
-[ ] Re-run replacement in `CommandActor`.
+[ ] Re-run append in `CommandActor`.
 [ ] A test for the re-run criterion in the [spec](../spec.md). The test name is chosen at build.
 
 ## Stop when
