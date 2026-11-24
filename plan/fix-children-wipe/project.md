@@ -48,7 +48,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 01 | [Run the event-log queries](issues/01-run-event-log-queries.md) | ready-for-human |
 | 02 | [Recover the lost children](issues/02-recover-children.md) | blocked by 01 |
 | 03 | [Guard DirectoryReconcile against a missing folder](issues/03-reconcile-missing-folder-guard.md) | pending confirmation from 01 |
-| 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | pending confirmation from 01 |
+| 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | coded |
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
 | 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
 

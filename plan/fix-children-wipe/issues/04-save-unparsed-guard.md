@@ -1,7 +1,7 @@
 # 04 — Guard Save on an Unparsed Node
 
-**Status**: pending confirmation from 01
-Blockers: [01 — Run the event-log queries](01-run-event-log-queries.md) — this ticket does not start before the event-log results confirm Rank 3 on [[../project.md]].
+**Status**: coded
+[01 — Run the event-log queries](01-run-event-log-queries.md) confirmed this ticket's cause; see the Findings on [[../project.md]].
 
 ## Scope
 
