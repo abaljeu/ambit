@@ -30,11 +30,10 @@ Map: [[map.md]]
 [ ] Answer cap — Materialisation stops at the answer cap in Limits.
 [ ] Round stop — After this reply has executed the round cap, a later run line stays stored text, and the deliver that completed it has an empty response body. Other outline nodes from the reply still appear.
 [ ] Poll permission — The Agent may send the client's poll during the live AI Actor run for the command `?ai gbot`.
-[ ] Client poll — The request is `POST /ambit/poll` with JSON fields `eventId` and `want`, as in [HTTP contract](doc/current/http-contract.md) section 2.8 POST /ambit/poll.
+[ ] Client poll — The request is the client's poll, `POST /ambit/poll`, as in [HTTP contract](doc/current/http-contract.md) section 2.8 POST /ambit/poll. The Agent sends `want` and sends no `eventId`.
 [ ] Want list — The Agent sets `want` to the Node ids it wants to read, including ids that are outside the wake extract.
-[ ] Poll response — A successful poll returns the same change-success envelope the client's poll returns, including the want-answer fields `nodes` and `childMap`.
-[ ] Poll secret — The Agent sends the same inbound secret the deliver door uses, in header `X-Ambit-Inbound-Secret`.
-[ ] Live session — That poll is admitted when the session from the wake is live.
+[ ] Poll response — A successful Agent poll returns only the residency half of the client's poll response: the want-answer fields `nodes` and `childMap`. It carries no event tail.
+[ ] Poll authorization — The Agent receives its authorization when Ambit sends the wake. The permit that lets the Agent deliver a reply also admits its poll.
 [ ] Wake poll — The wake text says that the Agent may poll for specific Node ids.
 
 ## 3. Limits
@@ -44,7 +43,4 @@ Map: [[map.md]]
 [ ] Returned-text cap — One run returns at most 8000 characters of text, after the answer cap. The outline holds every materialised child.
 [ ] Poll cap — One Agent poll returns at most 200 lines of residency.
 
-## 4. Open questions
-
-- How the Agent presents `sessionId` on `POST /ambit/poll`. The current poll body has only `eventId` and `want`. The Browser authenticates with the `gambol_auth` cookie.
-- Which `eventId` the Agent sends. That field is required. Field `c` in the success body is the event tail after that id.
+Open questions: none.
