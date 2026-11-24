@@ -26,7 +26,7 @@ Out of scope: the AMBLE exec language, and the Amble `=` and `?` paths.
 
 ## 4. Flow paths
 
-1. Run on a focus node → Run text test → Command order → `CommandActor` → working directory lookup → `Process.Start` → Output lines → child replace → exit code → `error` class.
+1. Run on a focus node → Run text test → Command order → `CommandActor` → working directory lookup → `Process.Start` → Output lines → child append → exit code → `error` class.
 2. Cancel → actor cancel → process kill.
 3. Owner scan reaches a `>` line → the same flow from the Run text test.
 
@@ -39,14 +39,14 @@ Out of scope: the AMBLE exec language, and the Amble `=` and `?` paths.
 [ ] `CommandActor`. A new actor function that takes the `ActorFunction` input, started by a Command order as the search actor is. It runs on its own thread and refuses a second Run while live.
 [ ] Directory lookup. Derives the enclosing directory of the start node. The Glossary entry for the enclosing artifact is the vocabulary. `GraphQuery.enclosing` is the nearest owner.
 [ ] Process run. Starts the process with the program as file name and the arguments as one argument string, with no shell. Reads stdout and stderr in arrival order. Kills the process on cancel. It has no timeout.
-[ ] Child build. Replaces the start node's children with one plain child per Output line. At 1000 lines it adds `output truncated` and stops adding children.
+[ ] Child build. Appends one plain child per Output line after the start node's existing children, without removing them. At 1000 lines in the run it adds `output truncated` and stops adding children for that run.
 [ ] Exit mark. Sets the `error` class on the start node for a non-zero exit and clears it for a zero exit.
 
 ## 6. Seams
 
 [ ] Run choice and `CommandActor`. Tests cross the start of the actor from a `>` line.
 [ ] `CommandActor` and Process run. Tests cross the process boundary with a fake runner.
-[ ] `CommandActor` and Child build. Tests cross the Output lines to the children, the cap, and the re-run replace.
+[ ] `CommandActor` and Child build. Tests cross the Output lines to the children, the cap, and the re-run append.
 
 ## 7. Slicing strategy
 

@@ -48,9 +48,9 @@ Product owner, 2026-11-21.
 
 [ ] Child per line — Each output line becomes one plain child node. The actor does no outline parsing for now.
 [ ] stdout and stderr — The actor captures both. It interleaves them in arrival order, as a terminal shows them.
-[ ] Cap — The actor adds at most 1000 output lines as children. At the cap it stops adding children and adds a final child reading `output truncated`. The process keeps running until it exits or is cancelled.
+[ ] Cap — The actor adds at most 1000 output lines as children per run. At the cap it stops adding children for that run and adds a final child reading `output truncated`. The process keeps running until it exits or is cancelled.
 [ ] Exit code — A non-zero exit sets the cssclass `error` on the start node, the `>` node. No extra child is added. A successful run clears the `error` class.
-[ ] Re-run — New output replaces the start node's existing children.
+[ ] Re-run — Decision (Alan, 2026-11-24): Run appends the new output as children after the start node's existing children. Existing children are never removed by Run. A re-run appends a fresh batch.
 
 ### Out of scope
 
@@ -86,11 +86,11 @@ Product owner, 2026-11-21.
 
 [ ] The actor captures stdout and stderr, interleaved in arrival order.
 [ ] Each output line becomes one plain child node of the focus node.
-[ ] After 1000 output lines the actor stops adding children and adds one final child reading `output truncated`.
+[ ] After 1000 output lines in a run the actor stops adding children for that run and adds one final child reading `output truncated`.
 [ ] The process keeps running after the cap until it exits or is cancelled.
 [ ] A non-zero exit code sets the cssclass `error` on the focus node and adds no child.
 [ ] A zero exit code clears the cssclass `error` on the focus node.
-[ ] A re-run replaces the existing children with the new output.
+[ ] A re-run appends the new output as new children after the existing children. The existing children stay.
 
 ### Cancel
 
