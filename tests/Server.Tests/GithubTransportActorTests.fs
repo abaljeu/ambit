@@ -349,17 +349,22 @@ type private NoteSave =
       fileId: NodeId
       steps: ResizeArray<string>
       wroteFile: ResizeArray<bool>
+      fileText: ResizeArray<string>
       deps: GithubTransportActorDependencies }
 
 let private withNoteSave (body: NoteSave -> Task) =
     let steps = ResizeArray<string>()
     let wroteFile = ResizeArray<bool>()
+    let fileText = ResizeArray<string>()
     let pull root _ =
         steps.Add($"pull {root}")
         Ok "pulled"
     let commit root _ _ =
         steps.Add($"commit {root}")
-        wroteFile.Add(File.Exists(Path.Combine(root, "note.txt")))
+        let path = Path.Combine(root, "note.txt")
+        wroteFile.Add(File.Exists path)
+        if File.Exists path then
+            fileText.Add(File.ReadAllText path)
         Ok(tracked, "committed")
     let push root _ _ =
         steps.Add($"push {root}")
@@ -386,6 +391,7 @@ let private withNoteSave (body: NoteSave -> Task) =
                       fileId = fileId
                       steps = steps
                       wroteFile = wroteFile
+                      fileText = fileText
                       deps = deps }
         })
 
@@ -421,9 +427,14 @@ let ``git Save persists focus then commits pulls and pushes`` () =
         Assert.Equal<string list>(saveOrder root, save.steps |> Seq.toList)
     })
 
+/// 3a1a0aa8 emptied issue 07 by flipping an Unparsed focus to Parsed
+/// without reading its real disk content first.
 [<Fact>]
-let ``git Save marks an unparsed file parsed and writes it before commit`` () =
+let ``git Save on an unparsed file with real disk content persists that content, not empty`` () =
     withNoteSave (fun save -> task {
+        let root = Path.Combine(save.dataDir, "home")
+        Directory.CreateDirectory root |> ignore
+        File.WriteAllText(Path.Combine(root, "note.txt"), "real content")
         CoreMailboxApi.postNotice
             save.host
             (Notice.NodeUnparsed save.fileId)
@@ -438,10 +449,32 @@ let ``git Save marks an unparsed file parsed and writes it before commit`` () =
         let! stopped = waitForStop save.host save.fileId 1000
         Assert.Equal(Some ActorSucceeded, stopped)
         Assert.Equal<bool list>([ true ], save.wroteFile |> Seq.toList)
+        Assert.Equal<string list>(
+            [ "real content" ], save.fileText |> Seq.toList)
         let! after =
             CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
         let saved = (requireOk "saved" after).graph.nodes.[save.fileId]
         Assert.Equal(ParseState.Parsed, saved.parseState)
+    })
+
+/// A disk read failure refuses the Save instead of persisting empty
+/// content over the focus's lost real content.
+[<Fact>]
+let ``git Save on an unparsed file gone from disk refuses the Save`` () =
+    withNoteSave (fun save -> task {
+        CoreMailboxApi.postNotice
+            save.host
+            (Notice.NodeUnparsed save.fileId)
+        let! started = startNoteSave save
+        requireOk "start Save" started
+        let! stopped = waitForStop save.host save.fileId 1000
+        Assert.Equal(Some(ActorFailed "file not found"), stopped)
+        Assert.Empty(save.wroteFile)
+        Assert.Empty(save.steps)
+        let! after =
+            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
+        let saved = (requireOk "saved" after).graph.nodes.[save.fileId]
+        Assert.Equal(ParseState.Unparsed, saved.parseState)
     })
 
 let private persistNoticeId =
