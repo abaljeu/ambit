@@ -42,9 +42,9 @@ Map: [[map.md]]
 [ ] Answer cap — One run materialises at most 50 Answers.
 [ ] Round cap — One reply executes at most 4 run lines.
 [ ] Returned-text cap — One run returns at most 8000 characters of text, after the answer cap. The outline holds every materialised child.
+[ ] Poll cap — One Agent poll returns at most 200 lines of residency.
 
 ## 4. Open questions
 
 - How the Agent presents `sessionId` on `POST /ambit/poll`. The current poll body has only `eventId` and `want`. The Browser authenticates with the `gambol_auth` cookie.
 - Which `eventId` the Agent sends. That field is required. Field `c` in the success body is the event tail after that id.
-- Whether one reply has a cap on poll count or `want` length.
