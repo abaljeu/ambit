@@ -58,6 +58,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 2. **Recovery first** — Recovery comes before any code fix. Ticket 02 is not blocked on 03–05, and 03–05 do not start before recovery is agreed.
 3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed.
 4. **Confirmation is the query results, not this report** — The ranking above is a candidate, read from the code and the commits. The cause is confirmed only once Alan runs the queries against the Azure Postgres store (read-only) and the results are pasted into `evidence/results/`.
+5. **The only Save guard is the Unparsed refusal** — Alan, 2026-11-24: Save on an Unparsed focus (File, Directory, or Workspace) is refused with an Error before any persist write, commit, pull, or push. This replaces ticket 04's earlier read-from-disk-then-save approach. A file or folder missing from disk is not an Unparsed case, so that refusal does not apply to it; Save on a missing file or folder proceeds exactly as it did before ticket 04. No other Save guards.
 
 ## See also
 
