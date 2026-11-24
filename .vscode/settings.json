@@ -11,6 +11,7 @@
     "workbench.editorAssociations": {
             "*.svg": "default"
     },
-    "dotnet.defaultSolution": "disable"
+    "dotnet.defaultSolution": "disable",
+    "r.lsp.promptToInstall": false
 }
 
