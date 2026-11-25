@@ -420,34 +420,21 @@ module Database =
                     :> Task
         }
 
-    let private loadPersistedStateCore
-        (connectionString: string)
-        : Task<GraphAtEvent * string option> =
-        task {
-            let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
-
-            let graph, eventId, fallbackReason =
-                match proj with
-                | Ok (g, id) -> g, id, None
-                | Error e -> Graph.create (), EventId.zero, Some e
-
-            return { graph = graph; eventId = eventId }, fallbackReason
-        }
-
     let loadPersistedState
         (connectionString: string)
         : Task<GraphAtEvent> =
         task {
-            let! state, _ = loadPersistedStateCore connectionString
-            return state
-        }
+            let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
-    /// Same as `loadPersistedState`; also returns the `tryLoadGraphFromProjection`
-    /// `Error` reason when the fallback to an empty Graph fired. Diagnostic only.
-    let loadPersistedStateWithFallbackReason
-        (connectionString: string)
-        : Task<GraphAtEvent * string option> =
-        loadPersistedStateCore connectionString
+            let graph, eventId =
+                match proj with
+                | Ok (g, id) -> g, id
+                | Error _ -> Graph.create (), EventId.zero
+
+            return
+                { graph = graph
+                  eventId = eventId }
+        }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `GraphAtEvent`.
     let rebuildFromDocumentFiles (connectionString: string) (fileState: GraphAtEvent) : Task =

@@ -112,61 +112,31 @@ module EventLog =
                     state.graph
             { state with graph = graph }
 
-    /// Resulting state, plus the `ApplyResult.Invalid` reason when that event
-    /// was skipped. `appliedState` below is this with the reason dropped.
-    let private appliedStateResult (state: GraphAtEvent) (event: Ev) =
+    let private appliedState state event =
         match event.body with
         | EventBody.Notice notice when replaySkipsNotice notice ->
-            state, None
+            state
         | _ ->
             match Ev.apply event state with
-            | ApplyResult.Changed next -> flagParseReplay event next, None
-            | ApplyResult.Unchanged next -> next, None
-            | ApplyResult.Invalid (next, reason) -> next, Some reason
-
-    let private appliedState state event =
-        fst (appliedStateResult state event)
+            | ApplyResult.Changed next -> flagParseReplay event next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid (next, _) -> next
 
     let private applyRecover state event =
         { appliedState state event with eventId = event.id }
 
-    /// Same per-event step as `applyRecover`; also accumulates (oldest-first
-    /// after a final reverse) each skipped event's id and invalid reason.
-    let private applyRecoverWithSkip
-        ((state, skips): GraphAtEvent * (EventId * string) list)
-        (event: Ev)
-        : GraphAtEvent * (EventId * string) list =
-        let next, invalidReason = appliedStateResult state event
-        let state' = { next with eventId = event.id }
-        match invalidReason with
-        | None -> state', skips
-        | Some reason -> state', (event.id, reason) :: skips
-
-    let private eventsAhead (state: GraphAtEvent) (log: EventLog) : Ev list =
-        let graphId = EventId.value state.eventId
-        log.events
-        |> List.rev
-        |> List.filter (fun event -> EventId.value event.id > graphId)
-
-    /// Same computation as `recover`; also returns, oldest first, every event
-    /// `recover` advances past via `ApplyResult.Invalid`, with its id and the
-    /// invalid reason. Diagnostic only — `recover` discards this third value.
-    let recoverWithInvalidSkips
-        (state: GraphAtEvent)
-        (log: EventLog)
-        : GraphAtEvent * EventLog * (EventId * string) list =
+    /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
+    let recover (state: GraphAtEvent) (log: EventLog) : GraphAtEvent * EventLog =
         let graphId = EventId.value state.eventId
         let logId = EventId.value (tip log)
         if graphId > logId then
-            state, afterCheckpoint state.eventId, []
+            state, afterCheckpoint state.eventId
         elif graphId = logId then
-            state, log, []
+            state, log
         else
-            let finalState, skips =
-                List.fold applyRecoverWithSkip (state, []) (eventsAhead state log)
-            finalState, log, List.rev skips
-
-    /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
-    let recover (state: GraphAtEvent) (log: EventLog) : GraphAtEvent * EventLog =
-        let state, log, _ = recoverWithInvalidSkips state log
-        state, log
+            let ahead =
+                log.events
+                |> List.rev
+                |> List.filter (fun event ->
+                    EventId.value event.id > graphId)
+            List.fold applyRecover state ahead, log

@@ -251,38 +251,6 @@ let ``recover moves EventId only by apply`` () =
     Assert.Equal(EventId.fromJson 2, applied.eventId)
     Assert.Equal("applied", applied.graph.nodes.[childId].text)
 
-[<Fact>]
-let ``recoverWithInvalidSkips reports the event id and reason recover discards`` () =
-    let parentId = NodeId.New()
-    let childId = NodeId.New()
-    let graph0 =
-        Graph.addDetachedNode (Node.Create(parentId, text = "parent")) (Graph.create ())
-    let before = { graph = graph0; eventId = EventId.zero }
-    let staleReplace =
-        { id = EventId.fromJson 2
-          submissionId = Guid.NewGuid()
-          authority = browser
-          commandName = "Edit"
-          body =
-            EventBody.Change
-                [ Op.Replace(parentId, ChildNode.owners [ childId ], []) ] }
-    let log = EventLog.adoptNewestHead [ staleReplace ]
-
-    let recovered, keptLog, skips = EventLog.recoverWithInvalidSkips before log
-    let recoveredViaRecover, keptViaRecover = EventLog.recover before log
-
-    // Same result `recover` gives: state unchanged, eventId still advances.
-    Assert.Equal(recoveredViaRecover, recovered)
-    Assert.Equal<Ev list>(keptViaRecover.events, keptLog.events)
-    Assert.Equal(before.graph, recovered.graph)
-    Assert.Equal(EventId.fromJson 2, recovered.eventId)
-
-    // The diagnostic `recover` discards: the skipped event's id and reason.
-    Assert.Equal(1, List.length skips)
-    let skippedId, reason = List.head skips
-    Assert.Equal(EventId.fromJson 2, skippedId)
-    Assert.False(String.IsNullOrWhiteSpace reason)
-
 [<Fact(Skip =
     "06: cold replay silently drops a Replace whose recorded span no longer "
     + "matches, freezing the parent's children Loaded-empty — see "

@@ -50,32 +50,6 @@ let ``appendProjectionRepair writes the projection repair message`` () =
     Assert.Contains("deleted=1", text)
 
 [<Fact>]
-let ``appendLoadFallback writes the fallback reason`` () =
-    let dataDir = newTempDir ()
-    ErrorLog.appendLoadFallback (Some dataDir) "non-dense ordinals"
-    let text = File.ReadAllText(ErrorLog.logPath dataDir)
-    Assert.Contains("LOAD-FALLBACK", text)
-    Assert.Contains("reason=non-dense ordinals", text)
-
-[<Fact>]
-let ``appendDecodeDrop writes the row's event id and decode error`` () =
-    let dataDir = newTempDir ()
-    ErrorLog.appendDecodeDrop (Some dataDir) 42 "bad json"
-    let text = File.ReadAllText(ErrorLog.logPath dataDir)
-    Assert.Contains("DECODE-DROP", text)
-    Assert.Contains("eventId=42", text)
-    Assert.Contains("reason=bad json", text)
-
-[<Fact>]
-let ``appendRecoverInvalid writes the skipped event id and invalid reason`` () =
-    let dataDir = newTempDir ()
-    ErrorLog.appendRecoverInvalid (Some dataDir) 7 "old span out of bounds"
-    let text = File.ReadAllText(ErrorLog.logPath dataDir)
-    Assert.Contains("RECOVER-INVALID", text)
-    Assert.Contains("eventId=7", text)
-    Assert.Contains("reason=old span out of bounds", text)
-
-[<Fact>]
 let ``appendDbConnectionFallback writes the fallback message`` () =
     let dataDir = newTempDir ()
     ErrorLog.appendDbConnectionFallback (Some dataDir) "falling back to file store"
@@ -84,34 +58,9 @@ let ``appendDbConnectionFallback writes the fallback message`` () =
     Assert.Contains("falling back to file store", text)
 
 [<Fact>]
-let ``appendStartupFallback writes the source and detail`` () =
-    let dataDir = newTempDir ()
-    ErrorLog.appendStartupFallback (Some dataDir) "SomeModule.someFunction" "detail text"
-    let text = File.ReadAllText(ErrorLog.logPath dataDir)
-    Assert.Contains("STARTUP-FALLBACK", text)
-    Assert.Contains("source=SomeModule.someFunction", text)
-    Assert.Contains("detail=detail text", text)
-
-[<Fact>]
-let ``appendStartupException writes the source, exception type and message`` () =
-    let dataDir = newTempDir ()
-    ErrorLog.appendStartupException
-        (Some dataDir) "SomeModule.someFunction" (InvalidOperationException("boom"))
-    let text = File.ReadAllText(ErrorLog.logPath dataDir)
-    Assert.Contains("STARTUP-EXCEPTION", text)
-    Assert.Contains("source=SomeModule.someFunction", text)
-    Assert.Contains("type=System.InvalidOperationException", text)
-    Assert.Contains("message=boom", text)
-
-[<Fact>]
 let ``a None data directory is a no-op, not an exception`` () =
-    ErrorLog.appendLoadFallback None "unused"
-    ErrorLog.appendDecodeDrop None 1 "unused"
-    ErrorLog.appendRecoverInvalid None 1 "unused"
     ErrorLog.appendProjectionRepair None "unused"
     ErrorLog.appendDbConnectionFallback None "unused"
-    ErrorLog.appendStartupFallback None "unused" "unused"
-    ErrorLog.appendStartupException None "unused" (Exception("unused"))
 
 [<Fact>]
 let ``logPath sits at SYSTEM errors.log under the data directory`` () =

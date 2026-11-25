@@ -52,6 +52,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
 | 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
 | 07 | [Persistent server error log](issues/07-persistent-error-log.md) | ready-for-human |
+| 08 | [Error log remaining uses](issues/08-error-log-remaining-uses.md) | defined |
 
 ## Decisions
 
