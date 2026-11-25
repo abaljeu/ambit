@@ -51,6 +51,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | pending confirmation from 01 |
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
 | 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
+| 07 | [Persistent server error log](issues/07-persistent-error-log.md) | pending |
 
 ## Decisions
 
