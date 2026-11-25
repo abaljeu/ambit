@@ -11,5 +11,5 @@ Started: 2026-11-21
 - Spec: [spec.md](spec.md)
 - Architecture: [arch.md](arch.md)
 - The product owner answered every open question on 2026-11-21. The spec has no open questions, the architecture is written, and every ticket is `defined`. Stage moves from `spec` to `slice`. Nothing material stays open.
-- The Project is unplaced. It has no Epic or Chapter. The Roadmap is not edited by this Project.
+- The Project sits on Chapter [Act through CLI](../roadmap/epics/chapters/act-through-cli.md), under Epic Agent chat with managed context. The Roadmap is not edited by this Project.
 - [22 — Run sends = lines to Amble](../online-search/issues/22-run-sends-equals-lines-to-amble.md) leaves `>` handling to this Project. The owner scan of that ticket runs a `>` line with the same Run code.

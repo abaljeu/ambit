@@ -55,7 +55,7 @@ Product owner, 2026-11-21.
 ### Out of scope
 
 [ ] Future — The AMBLE language will later expand to encompass exec. That is not in scope.
-[ ] Placement — This Project has no Epic or Chapter for now. It stays unplaced.
+[ ] Placement — This Project sits on Chapter [Act through CLI](../roadmap/epics/chapters/act-through-cli.md), under Epic Agent chat with managed context.
 
 ## 3. Acceptance criteria
 
