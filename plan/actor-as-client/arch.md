@@ -154,7 +154,7 @@ postActorOrder : MailboxHost -> Caller -> ActorOrder -> Async<Result<EventId, st
 
 [x] `placeOrder` runs `replyActorOrder` for `Order.StartActor` of `ActorOrder` (`src/Server/Core/CoreMailboxLoop.fs`).
 
-[x] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) places a client `ActorStart` and a client `Cancel` through `Mailbox.PlaceOrder`. `CoreMsg.PostEvent` has left. [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`. `CoreMsg` is `StartLoadSaveCommand`. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
+[x] [22 — Convert CoreMsg.PostEvent](issues/22-convert-coremsg-postevent/22-convert-coremsg-postevent-ticket.md) is superseded. [68 — Remove CoreMsg.PostEvent](../core-refinement/issues/68-remove-coremsg-postevent.md) places a client `ActorStart` and a client `Cancel` through `Mailbox.PlaceOrder`. `CoreMsg.PostEvent` has left. [24 — Remove CoreMsg.RecordSearchStop](../online-search/issues/24-remove-coremsg-recordsearchstop.md) is `coded`. `CoreMsg` is removed. A finished search logs one `Notice.ActorStopped` through `CoreActorPool.postStopUnlessCancelled`.
 
 ```fsharp
 placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result<EventId, string>> -> unit
@@ -165,7 +165,7 @@ placeOrder : MailboxContext -> PlacedOrder -> Caller -> AsyncReplyChannel<Result
 [x] The mailbox supplies `getGraph` when `scheduleActorOrder` builds `FunctionStart`. `ActorOrder` does not carry `getGraph`.
 [x] `FunctionStart.actorNodeId` is `order.actorNodeId` (`scheduleActorOrder` in `src/Server/Core/CoreMailboxLoop.fs`).
 [x] The `Caller` is the client's `Caller` on `Mailbox.PlaceOrder`.
-[ ] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md).
+[x] The Neither case runs inside the Load actor. [23 — Run the Load actor for Git and Neither](issues/23-run-the-load-actor-for-git-and-neither/23-run-the-load-actor-for-git-and-neither-ticket.md). Desktop_mapped moves directly onto the order queue on [20 — Move Desk Load and Desk Save](issues/20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md), with no WebDAV redesign first. Alan, 2026-11-25.
 [x] `postPlacedOrder` queues `Order.ClientRequestActor`. `placeOrder` runs `CoreMailboxActors.replyClientRequest` for that order.
 [o] `placeOrder` runs `stubActor`.
 [o] `src/Server/ActorDispatch.fs`
@@ -255,9 +255,9 @@ postSearchRequest : PersistenceContext -> HttpRequest -> Task<IResult>
 
 ### Load and save
 
-[x] Git Load and Git Save call `GithubTransportActor.start`, which places `Order.StartActor` (`src/Server/RouteRegistration.fs`). Desk calls `CoreMailboxApi.startLoadSaveCommand`.
+[x] Git Load and Git Save call `GithubTransportActor.start`, which places `Order.StartActor` (`src/Server/RouteRegistration.fs`). Desk calls `LoadSaveStart.startDesk`, which places `Order.Load` for a Desk Load.
 [ ] `postLoadSaveCommand` builds the git `ActorFunction` through Curried actor and calls Post actor order.
-[ ] 20 — Move Desk Load and Desk Save takes Desktop_mapped callers off `CoreMsg.StartLoadSaveCommand` after 23 — Run the Load actor for Git and Neither. WebDAV has its own design effort first. The message is deleted at the end of that ticket.
+[x] 20 — Move Desk Load and Desk Save took Desktop_mapped callers off `CoreMsg.StartLoadSaveCommand`, then deleted that message and the `CoreMsg` type.
 
 ```fsharp
 postLoadSaveCommand : LoadSaveCommandRouter -> CoreChangesDoor -> string -> Async<IResult>
@@ -320,7 +320,7 @@ Place actor order
 
 4. **Desktop_mapped Load or Save**
 
-[ ] Desktop_mapped Load and Save leave `CoreMsg.StartLoadSaveCommand` in 20 — Move Desk Load and Desk Save after the Git case and the Neither case are straight.
+[x] Desktop_mapped Load and Save left `CoreMsg.StartLoadSaveCommand` in 20 — Move Desk Load and Desk Save.
 
 ```fsharp
 Load and save
@@ -453,7 +453,7 @@ Place actor order
 2. [x] **Wire actor order** / **Actor order** — ``ActorOrder round-trips on the wire with stubActor`` in `tests/Shared.Tests/EventJsonTests.fs`.
 3. [x] **Pool start** / **Test command** — ``TestActor function start posts hello from Graph carrier`` in `tests/Server.Tests/CoreActorPoolFunctionStartTests.fs`.
 4. [ ] **Place actor order** / **Pool start** — ``ActorOrder places the actor on the thread pool`` in `tests/Server.Tests/CoreMsgActorCasesTests.fs`.
-5. [ ] **Place actor order** / **Load and save** — ``Desk load-save places its order and runs no Actor`` in `tests/Server.Tests/LoadSaveCommandTests.fs`.
+5. [x] **Place actor order** / **Load and save** — ``Desk Load of a Workspace places Order.Load and Desk Save places nothing`` in `tests/Server.Tests/LoadSaveCommandTests.fs`.
 6. [ ] **Test command** / **Place actor order** — ``TestActor hello posts one Owned child text hello under Focus`` in `tests/Server.Tests/TestActorHelloTests.fs`.
 
 ## 7. Slicing strategy

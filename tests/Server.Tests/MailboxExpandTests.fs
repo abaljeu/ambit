@@ -21,20 +21,11 @@ let private requireOk label result =
 
 let private mailboxKind (message: Mailbox) =
     match message with
-    | Mailbox.CoreMsg _ -> "CoreMsg"
     | Mailbox.PlaceOrder _ -> "PlaceOrder"
     | Mailbox.Ask _ -> "Ask"
 
 [<Fact>]
-let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
-    let core =
-        Mailbox.CoreMsg (
-            StartLoadSaveCommand(
-                testCaller,
-                LoadSavePath.Git,
-                PeerActorName "load",
-                Unchecked.defaultof<_>,
-                Unchecked.defaultof<_>))
+let ``Mailbox is PlaceOrder and Ask`` () =
     let placed = {
         orderId = OrderId Guid.Empty
         authority = testCaller.authority
@@ -45,12 +36,10 @@ let ``Mailbox is CoreMsg, PlaceOrder, and Ask`` () =
     let place = Mailbox.PlaceOrder(placed, caller, reply)
     let ask =
         Mailbox.Ask (Query.LastEventId (Unchecked.defaultof<_>))
-    Assert.Equal("CoreMsg", mailboxKind core)
     Assert.Equal("PlaceOrder", mailboxKind place)
     Assert.Equal("Ask", mailboxKind ask)
-    match CoreQueue.Public core with
-    | CoreQueue.Public (Mailbox.CoreMsg _) -> ()
-    | CoreQueue.Public _ -> Assert.Fail("Public carries Mailbox")
+    match CoreQueue.Public place with
+    | CoreQueue.Public _ -> ()
     | CoreQueue.Notice _ -> Assert.Fail("Public is not Notice")
     | CoreQueue.DropAuthority _ ->
         Assert.Fail("Public is not DropAuthority")
@@ -270,7 +259,6 @@ let private unionCaseNames (unionType: Type) =
 [<Fact>]
 let ``SetDocumentState leaves the Op list`` () =
     Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<Op>)
-    Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<CoreMsg>)
     Assert.DoesNotContain("SetDocumentState", unionCaseNames typeof<EventBody>)
     let id = NodeId.New()
     let opJson =
@@ -288,10 +276,4 @@ let ``SetDocumentState leaves the Op list`` () =
         + "]}}"
     match Dec.fromString EventJson.decode changeJson with
     | Error _ -> ()
-    | Ok _ -> Assert.Fail("a CoreMsg Change cannot carry SetDocumentState")
-
-[<Fact>]
-let ``CoreMsg has no PostGraphOnly case`` () =
-    Assert.DoesNotContain(
-        "PostGraphOnly",
-        unionCaseNames typeof<CoreMsg>)
+    | Ok _ -> Assert.Fail("a Change cannot carry SetDocumentState")

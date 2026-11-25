@@ -192,11 +192,8 @@ let ``Desk load-save runs no Actor and posts no StartActor`` () = task {
             { resolvePath = fun _ _ -> Result.Ok LoadSavePath.Desk
               startCommand =
                 fun path command ->
-                    CoreMailboxApi.startLoadSaveCommand
-                        host
-                        testCaller
-                        path
-                        (PeerActorName "unregistered")
+                    LoadSaveStart.startDesk
+                        (CoreDoor.create true host testCaller)
                         command }
         let body =
             request

@@ -32,9 +32,6 @@ module MailboxHost =
 
     let internal session (host: MailboxHost) = host.session
 
-    let internal coreMsgItem (msg: CoreMsg) : CoreQueue =
-        CoreQueue.Public (Mailbox.CoreMsg msg)
-
     let internal postItem (host: MailboxHost) (item: CoreQueue) =
         lock host.gate (fun () -> host.mailbox.Post item)
 
@@ -77,13 +74,6 @@ module MailboxHost =
                     cont,
                     econt,
                     ccont)))
-
-    let internal postAndAsyncReply
-        (host: MailboxHost)
-        (build: AsyncReplyChannel<'a> -> CoreMsg)
-        : Async<'a> =
-        postItemAndAsyncReply host (fun channel ->
-            coreMsgItem (build channel))
 
     let internal postMailboxAndAsyncReply
         (host: MailboxHost)

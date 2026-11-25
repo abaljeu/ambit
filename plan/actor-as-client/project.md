@@ -2,7 +2,7 @@
 
 Stage: build
 Summary: `startFunction` is the one pool start. An Actor is a thread from the .NET thread pool and runs an actor function. `Order.StartActor` of `ActorOrder` carries that function, and the log stores it as-is.
-Updated: 2026-11-08
+Updated: 2026-11-25
 Started: 2026-09-27
 Actual: 2h
 
@@ -10,6 +10,7 @@ Actual: 2h
 
 ## Notes
 
+- 2026-11-25 Alan: the desk path moves directly onto the order queue; no WebDAV redesign first.
 - 2026-11-08 — Alan live-call definitions for the actor-start refactor: [2026-11-08 live-call refactor context](reports/2026-11-08-live-call-refactor-context.md).
 - 2026-11-03 — Alan unparked this Project. The architecture is on [Arch](arch.md). The cutover tickets are 06 through 17 in `issues/`. The run order is in [Sequence](sequence.md).
 - 2026-11-05 — Alan: `FunctionActor` is renamed `ActorFunction`. An old-style actor takes `actorNodeId` and yields `ActorFunction`. [18 — Place ActorOrder through PlaceOrder](issues/18-place-actororder-through-placeorder/18-place-actororder-through-placeorder-ticket.md) replaces 80 — Place Actor starts through PlaceOrder. Arch was rewritten from [[plan/context/arch-work.md]].

@@ -11,16 +11,9 @@ module CoreMailboxApi =
         | Ok value -> value
         | Error error -> failwith error
 
-    /// Public add: today's CoreMsg joins the queue as Mailbox.CoreMsg.
-    let internal addCoreMsg (host: MailboxHost) (msg: CoreMsg) =
-        MailboxHost.postItem host (MailboxHost.coreMsgItem msg)
-
     /// Private add: Notice joins that same queue. No public door.
     let internal postNotice (host: MailboxHost) (msg: Notice) =
         MailboxHost.postItem host (CoreQueue.Notice msg)
-
-    let private reply host build =
-        MailboxHost.postAndAsyncReply host build
 
     let private ask host build =
         MailboxHost.postMailboxAndAsyncReply host (fun channel ->
@@ -370,21 +363,6 @@ module CoreMailboxApi =
                     placement
             return Result.map ignore placed
         }
-
-    let startLoadSaveCommand
-        (host: MailboxHost)
-        (caller: Caller)
-        (path: LoadSavePath)
-        (peerName: PeerActorName)
-        (request: LoadSaveCommandRequest)
-        : Async<Result<unit, string>> =
-        reply host (fun channel ->
-            StartLoadSaveCommand(
-                caller,
-                path,
-                peerName,
-                request,
-                channel))
 
     /// Mailbox Load of a Workspace, Directory, or File: push onto the Parse stack.
     let mbLoadNode

@@ -22,11 +22,8 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
             { resolvePath = fun _ _ -> Result.Ok LoadSavePath.Desk
               startCommand =
                 fun path command ->
-                    CoreMailboxApi.startLoadSaveCommand
-                        host
-                        testCaller
-                        path
-                        (PeerActorName "unregistered")
+                    LoadSaveStart.startDesk
+                        (CoreDoor.create true host testCaller)
                         command }
         let body =
             request
@@ -46,6 +43,48 @@ let ``Desk request reaches pool without starting Peer Actor`` () = task {
         let response = requireResponse result
         Assert.Equal(LoadSavePath.Desk, response.path)
         Assert.Equal(None, response.command)
+    finally
+        CoreMailboxApi.dispose host
+}
+
+[<Fact>]
+let ``Desk Load of a Workspace places Order.Load and Desk Save places nothing`` () = task {
+    let host =
+        CoreMailbox.host
+            (CoreActorPool.create ())
+            (FileAgent.persist (FileAgent.create (newTempDir ())))
+            admittedCredentials
+    try
+        let seed = seedWorkspace host "load"
+        let door = CoreDoor.create true host testCaller
+        let desk operation =
+            request
+                operation
+                LoadSavePrePick.Desk
+                seed.workspaceId
+                EventId.zero
+        let loadedCount (history: EventLog) =
+            history.events
+            |> List.filter (fun event ->
+                match event.body with
+                | EventBody.Load id -> id = seed.workspaceId
+                | _ -> false)
+            |> List.length
+        let! saved =
+            LoadSaveStart.startDesk door (desk LoadSaveOperation.Save)
+            |> Async.StartAsTask
+        Assert.Equal(Result.Ok (), saved)
+        let! afterSave = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.Equal(0, loadedCount afterSave)
+        let! loaded =
+            LoadSaveStart.startDesk door (desk LoadSaveOperation.Load)
+            |> Async.StartAsTask
+        Assert.Equal(Result.Ok (), loaded)
+        let! afterLoad = CoreMailboxApi.eventHistory host |> Async.StartAsTask
+        Assert.Equal(1, loadedCount afterLoad)
+        Assert.DoesNotContain(
+            afterLoad.events,
+            hasStartedActor seed.workspaceId)
     finally
         CoreMailboxApi.dispose host
 }

@@ -10,12 +10,6 @@ module internal CoreMailboxLoop =
     type Started = CoreMailboxEvents.Started
     module EventLog = Gambol.Shared.EventLog
 
-    let private runMsg (context: MailboxContext) (msg: CoreMsg) =
-        match msg with
-        | StartLoadSaveCommand (caller, path, peerName, request, reply) ->
-            CoreMailboxLoad.dispatchStartLoadSaveCommand
-                context caller path peerName request reply
-
     let private reportDispatchException
         (context: MailboxContext)
         (operation, detail)
@@ -44,13 +38,6 @@ module internal CoreMailboxLoop =
             CoreMailboxEvents.actorReceiptIsLive context.pool caller
         | _ -> not (Session.wasDropped context.session caller)
 
-    let private messageCaller (msg: CoreMsg) =
-        match msg with
-        | StartLoadSaveCommand (caller, _, _, _, _) -> caller
-
-    let private rejectDropped (msg: CoreMsg) =
-        CoreMailboxEvents.replyFailure droppedAuthority msg
-
     let private catchDispatch
         (context: MailboxContext)
         (operation: string * string)
@@ -65,17 +52,6 @@ module internal CoreMailboxLoop =
                 operation
                 ex
                 replyFailure
-
-    let private dispatch (context: MailboxContext) (msg: CoreMsg) : unit =
-        if authorityHeld context (messageCaller msg) then
-            catchDispatch
-                context
-                (CoreMailboxEvents.operationContext msg)
-                (fun error ->
-                    CoreMailboxEvents.replyFailure error msg)
-                (fun () -> runMsg context msg)
-        else
-            rejectDropped msg
 
     let internal applyNotice
         (persist: CoreMailboxAccess)
@@ -312,7 +288,6 @@ module internal CoreMailboxLoop =
         (message: Mailbox)
         =
         match message with
-        | Mailbox.CoreMsg msg -> dispatch context msg
         | Mailbox.PlaceOrder (placed, caller, reply) ->
             if authorityHeld context caller then
                 catchDispatch
@@ -485,7 +460,6 @@ module internal CoreMailboxLoop =
         | Mailbox.Ask (Query.GraphAtEvent _)
         | Mailbox.Ask (Query.LastEventId _)
         | Mailbox.Ask (Query.EventsSince _) -> true
-        | Mailbox.CoreMsg _
         | Mailbox.PlaceOrder _ -> false
 
     let rec private pump
