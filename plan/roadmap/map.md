@@ -33,6 +33,13 @@ The main push is cleaning up that architecture:
 - Under online search, after [24 — Remove CoreMsg.RecordSearchStop](plan/online-search/issues/24-remove-coremsg-recordsearchstop.md): [25 — The server evaluates Run](plan/online-search/issues/25-server-evaluates-run.md), then [Amble tools](plan/bot-amble-tools/project.md) and [Search Amble](plan/search-amble/project.md)
 - Find dialog: [27 — Dialog cancels or replaces the search actor](plan/online-search/issues/27-dialog-cancels-or-replaces-search-actor.md). Closing the dialog cancels its pending server search actor. A committed change of the search text cancels the pending actor for the earlier text and starts the actor for the new text.
 
+### Command-line actor
+
+- Run on a node whose text starts with `>` runs a shell command and shows its output as child nodes
+- Chapter: [Act through CLI](epics/chapters/act-through-cli.md), on Agent chat with managed context
+- Project: [Command-line actor](plan/command-line-actor/project.md), Stage spec
+- Owned by AmbotX
+
 ### Graph nodes and their files
 
 - Files are persisted and moved.
