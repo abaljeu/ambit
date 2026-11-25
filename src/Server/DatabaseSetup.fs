@@ -66,10 +66,17 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-    let private loadPersistedDbState (connStr: string) : GraphAtEvent =
-        Database.loadPersistedState connStr
-        |> Async.AwaitTask
-        |> Async.RunSynchronously
+    let private loadPersistedDbState (dataDir: string option) (connStr: string) : GraphAtEvent =
+        let state, fallbackReason =
+            Database.loadPersistedStateWithFallbackReason connStr
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+        fallbackReason |> Option.iter (ErrorLog.appendLoadFallback dataDir)
+        state
+
+    let private logOutlineMismatch (dataDir: string) (detail: string) =
+        ErrorLog.appendStartupFallback
+            (Some dataDir) "DatabaseSetup.validateAmbNetworkAgainstDb" detail
 
     let private validateAmbNetworkAgainstDb (connStr: string) (dataDir: string) : DbStatus =
         let fileState =
@@ -77,16 +84,21 @@ module DatabaseSetup =
             | Microsoft.FSharp.Core.Ok state -> state
             | Microsoft.FSharp.Core.Error msg -> failwith msg
 
-        let dbState = loadPersistedDbState connStr
+        let dbState = loadPersistedDbState (Some dataDir) connStr
         let matchesBefore = documentStatesMatch fileState dbState
 
         if not matchesBefore then
+            logOutlineMismatch
+                dataDir "file/db outline mismatch before rebuild; rebuilding from files"
             Database.rebuildFromDocumentFiles connStr fileState
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let dbAfter = loadPersistedDbState connStr
+        let dbAfter = loadPersistedDbState (Some dataDir) connStr
         let matchesAfter = documentStatesMatch fileState dbAfter
+        if not matchesAfter then
+            logOutlineMismatch
+                dataDir "file/db outline mismatch persists after rebuilding from files"
         statusFromMatches matchesBefore matchesAfter
 
     /// Initialise schema. `file` mode may seed an empty DB from files.
@@ -118,7 +130,11 @@ module DatabaseSetup =
 
                 status
             with ex ->
-                eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
+                let message =
+                    "Gambol: DB connection failed - falling back to file store. "
+                    + ex.Message
+                eprintfn "%s" message
+                ErrorLog.appendDbConnectionFallback (Some dataDir) message
                 DbStatus.Absent
 
     /// Former two-host Db cache. CoreRuntime starts one host; tests still call this.

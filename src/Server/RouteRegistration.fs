@@ -444,29 +444,37 @@ module RouteRegistration =
             Auth =
                 { this.Auth with
                     IsAuthenticated = mailboxIsAuthenticated persistence } }
+    let private registerPersistenceAndRoutesOk (this: AmbitApp) : AmbitApp =
+        let persistence = createPersistenceContext this
+        registerRunningHost this
+        let this = withMailboxAdmit this persistence
+        let assets, stamps = RouteAppShell.createBuildStamps this
+        let routes =
+            {
+                AmbitApp = this
+                Assets = assets
+                Stamps = stamps
+                Persistence = persistence
+            }
+        registerAuthRoutes routes
+        registerStateRoutes routes
+        registerSaveRoutes routes
+        registerErrorReportRoute routes
+        LazyLoadReconciliationDiagnostics.registerRoute this
+        WorkspaceWebDav.registerRoutes this (landUpload persistence)
+        RouteAppShell.registerCssAndShellRoutes routes
+        DailyGitSave.register this
+        this
+
     let registerPersistenceAndRoutes (this: AmbitApp) : AmbitApp =
         match this.DataDirResult with
         | Error ex ->
             registerStartupError this (ex.ToString())
             this
-        | Ok _ ->
-            let persistence = createPersistenceContext this
-            registerRunningHost this
-            let this = withMailboxAdmit this persistence
-            let assets, stamps = RouteAppShell.createBuildStamps this
-            let routes =
-                {
-                    AmbitApp = this
-                    Assets = assets
-                    Stamps = stamps
-                    Persistence = persistence
-                }
-            registerAuthRoutes routes
-            registerStateRoutes routes
-            registerSaveRoutes routes
-            registerErrorReportRoute routes
-            LazyLoadReconciliationDiagnostics.registerRoute this
-            WorkspaceWebDav.registerRoutes this (landUpload persistence)
-            RouteAppShell.registerCssAndShellRoutes routes
-            DailyGitSave.register this
-            this
+        | Ok dataDir ->
+            try
+                registerPersistenceAndRoutesOk this
+            with ex ->
+                ErrorLog.appendStartupException
+                    (Some dataDir) "RouteRegistration.registerPersistenceAndRoutes" ex
+                reraise ()

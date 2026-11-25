@@ -45,10 +45,10 @@ module DbAgent =
             |> List.reduce EventId.max
             |> fun maxId -> EventLog.advancePast maxId log
 
-    let private loadReconciled
-        (connectionString: string)
-        (state: GraphAtEvent)
-        : GraphAtEvent * EventLog =
+    let private loadReconciled (loaded: LoadedPersist) : GraphAtEvent * EventLog =
+        let connectionString = loaded.connectionString
+        let dataDir = loaded.liveSaveDataDir
+        let state = loaded.state.Value
         let log =
             if String.IsNullOrWhiteSpace connectionString then
                 EventLog.empty
@@ -60,24 +60,38 @@ module DbAgent =
                 let decoded =
                     rows
                     |> List.choose (fun row ->
-                        EventLogFile.decodeEvent row.payload
-                        |> Result.toOption
-                        |> Option.map (overlayRowId row))
+                        match EventLogFile.decodeEvent row.payload with
+                        | Ok event -> Some(overlayRowId row event)
+                        | Error reason ->
+                            ErrorLog.appendDecodeDrop dataDir row.event_id reason
+                            None)
                 advancePastRowIds rows (EventLog.restorePersisted decoded)
-        let recovered = EventLog.recover state log
+        let recoveredState, recoveredLog, invalidSkips =
+            EventLog.recoverWithInvalidSkips state log
+        invalidSkips
+        |> List.iter (fun (eventId, reason) ->
+            ErrorLog.appendRecoverInvalid dataDir (EventId.value eventId) reason)
         if
             not (String.IsNullOrWhiteSpace connectionString)
             && not (List.isEmpty log.events)
-            && List.isEmpty (snd recovered).events
+            && List.isEmpty recoveredLog.events
         then
             Database.clearEvents connectionString
             |> Async.AwaitTask
             |> Async.RunSynchronously
-        recovered
+        recoveredState, recoveredLog
 
-    let private loadInitialState (connectionString: string) : Async<GraphAtEvent> =
-        Database.loadPersistedState connectionString
-        |> Async.AwaitTask
+    let private loadInitialState
+        (dataDir: string option)
+        (connectionString: string)
+        : Async<GraphAtEvent> =
+        async {
+            let! state, fallbackReason =
+                Database.loadPersistedStateWithFallbackReason connectionString
+                |> Async.AwaitTask
+            fallbackReason |> Option.iter (ErrorLog.appendLoadFallback dataDir)
+            return state
+        }
 
     let private makeLoaded
         (initialState: GraphAtEvent)
@@ -536,6 +550,13 @@ module DbAgent =
         | None ->
             $"Internal server error in DbAgent {operation}."
 
+    let private failStartup loaded (error: string) = async {
+        ErrorLog.appendStartupFallback
+            loaded.liveSaveDataDir "DbAgent.startupPrelude" error
+        loaded.startupError.Value <- Some error
+        return Error error
+    }
+
     let private startupPrelude loaded runStartupSweep = async {
         let result =
             try
@@ -548,12 +569,8 @@ module DbAgent =
             | Ok () ->
                 loaded.ready.TrySetResult() |> ignore
                 return Ok ()
-            | Error error ->
-                loaded.startupError.Value <- Some error
-                return Error error
-        | Error error ->
-            loaded.startupError.Value <- Some error
-            return Error error
+            | Error error -> return! failStartup loaded error
+        | Error error -> return! failStartup loaded error
     }
 
     /// No data directory: there is no file. Keep the node's current time.
@@ -584,7 +601,7 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistNode
-        let recovered = loadReconciled connectionString initialState
+        let recovered = loadReconciled loaded
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
         let stack = PersistRequestStack.create ()
@@ -615,7 +632,11 @@ module DbAgent =
               bindPersistFinished =
                 fun post -> loaded.persistFinished.Value <- Some post } }
 
-    let private liveStartupSweep (connectionString: string) (_: Graph) =
+    let private liveStartupSweep
+        (dataDir: string option)
+        (connectionString: string)
+        (_: Graph)
+        =
         try
             let result =
                 DatabaseProjection.startupSweepPatch
@@ -631,13 +652,15 @@ module DbAgent =
                     facts.affectedNodeIds
                     |> List.map string
                     |> String.concat ", "
-                eprintfn "%s"
-                    ($"DbAgent: projection repair deleted={facts.deletedCount} "
-                     + $"ownershipUpdates={facts.ownershipUpdateCount} "
-                     + $"insertNodes={facts.insertNodeCount} "
-                     + $"insertChildren={facts.insertChildCount} "
-                     + $"ordinalShifts={facts.ordinalShiftCount} "
-                     + $"affected=[{affected}]")
+                let message =
+                    $"DbAgent: projection repair deleted={facts.deletedCount} "
+                    + $"ownershipUpdates={facts.ownershipUpdateCount} "
+                    + $"insertNodes={facts.insertNodeCount} "
+                    + $"insertChildren={facts.insertChildCount} "
+                    + $"ordinalShifts={facts.ordinalShiftCount} "
+                    + $"affected=[{affected}]"
+                eprintfn "%s" message
+                ErrorLog.appendProjectionRepair dataDir message
                 Ok r
         with ex ->
             Error $"Startup projection sweep failed: {ex.Message}"
@@ -647,13 +670,14 @@ module DbAgent =
         (liveSaveDataDir: string option)
         : DbAgent =
         let initialState =
-            loadInitialState connectionString |> Async.RunSynchronously
+            loadInitialState liveSaveDataDir connectionString
+            |> Async.RunSynchronously
         createLoaded
             initialState
             connectionString
             liveSaveDataDir
             DocumentPersistChange.persistNode
-            (liveStartupSweep connectionString)
+            (liveStartupSweep liveSaveDataDir connectionString)
 
     let private wrapFakeSweep
         (runStartupSweep: Graph -> Result<Guid list, string>)

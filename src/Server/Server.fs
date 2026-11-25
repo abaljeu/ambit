@@ -250,7 +250,11 @@ module Main =
         let config = app.Configuration
         let dataDirResult =
             try Ok (resolveDataDir app.Environment.ContentRootPath config)
-            with ex -> Error ex
+            with ex ->
+                // No dataDir exists yet, so errors.log has nowhere to go; stderr
+                // is the only record this one cold-start failure can leave.
+                eprintfn "Gambol: resolveDataDir failed: %s" ex.Message
+                Error ex
         // Early: capture status + body for errors / mutating / DAV / git.
         // Log file is wiped fresh on each process start; lives under dataDir/SYSTEM/.
         let httpLogFile =
