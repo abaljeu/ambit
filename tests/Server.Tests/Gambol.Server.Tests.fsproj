@@ -14,9 +14,9 @@
     <Compile Include="HeadPresenceTests.fs" />
     <Compile Include="DataDirTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />
-    <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
     <Compile Include="DocumentPersistenceFixtures.fs" />
+    <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="DocumentPersistPathTests.fs" />
     <Compile Include="DocumentPersistWriteTests.fs" />
     <Compile Include="DocumentPersistChangeTests.fs" />
@@ -77,6 +77,8 @@
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />
+    <Compile Include="ErrorLogTests.fs" />
+    <Compile Include="RouteRegistrationTests.fs" />
     <Compile Include="FileAgentFailureTests.fs" />
     <Compile Include="ApiGetStateTests.fs" />
     <Compile Include="ResponseCompressionTests.fs" />
