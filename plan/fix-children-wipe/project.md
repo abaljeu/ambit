@@ -59,6 +59,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 2. **Recovery first** — Recovery comes before any code fix. Ticket 02 is not blocked on 03–05, and 03–05 do not start before recovery is agreed.
 3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed.
 4. **Confirmation is the query results, not this report** — The ranking above is a candidate, read from the code and the commits. The cause is confirmed only once Alan runs the queries against the Azure Postgres store (read-only) and the results are pasted into `evidence/results/`.
+5. **Database intact; 06 — Children missing on the first connect after idle is the display/load fix** — Alan, 2026-11-25: the database was intact; a startup process error masked the issues. The database-repair dependency is dropped; 06 — Children missing on the first connect after idle is the display/load fix.
 
 ## See also
 
