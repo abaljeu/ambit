@@ -58,10 +58,11 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 
 1. **Its own Project** — Alan, 2026-11-24: this bug gets its own fix Project, separate from any feature Project already in flight.
 2. **Recovery first** — Recovery comes before any code fix. Ticket 02 is not blocked on 03–05, and 03–05 do not start before recovery is agreed. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary.
-3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary.
+3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary. The hold is lifted (Decision 7).
 4. **Confirmation is the query results, not this report** — The ranking above is a candidate, read from the code and the commits. The cause is confirmed only once Alan runs the queries against the Azure Postgres store (read-only) and the results are pasted into `evidence/results/`.
 5. **Database intact; 06 — Children missing on the first connect after idle is the display/load fix** — Alan, 2026-11-25: the database was intact; a startup process error masked the issues. The database-repair dependency is dropped; 06 — Children missing on the first connect after idle is the display/load fix.
 6. **Recovery is agreed unnecessary** — 2026-11-25 Alan: recovery is agreed unnecessary. The data was intact; the missing children came from a startup error, not data loss.
+7. **Load, Save, and Upload hold lifted** — Alan, 2026-11-25: the Load, Save, and Upload hold on ambit, life, and the other affected Workspaces is lifted.
 
 ## See also
 

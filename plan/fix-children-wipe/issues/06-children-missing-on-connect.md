@@ -33,4 +33,3 @@ Investigate these paths by reading the source, then find which one served the em
 
 [ ] Stop before concluding a path is the cause from code alone; confirm against a captured occurrence (browser console, server startup log, and `db-status` tooltip) first.
 [ ] Stop if investigation turns up an event that actually emptied a child list; that is data loss, not this display bug, and belongs with [02 — Recover the lost children](02-recover-children.md) or [04 — Guard Save on an Unparsed Node](04-save-unparsed-guard.md) instead.
-[ ] Stop before any Load, Save, or Upload on the ambit workspace or any other Workspace [[../project.md]] Decision 3 still bars, while recovery is in progress.
