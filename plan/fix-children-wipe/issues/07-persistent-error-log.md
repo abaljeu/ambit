@@ -1,7 +1,7 @@
 # 07 — Persistent server error log
 
-**Status**: pending
-Blockers: none — can start immediately.
+**Status**: ready-for-human
+Blockers: none — built; see [07-build.md](07-persistent-error-log/07-build.md).
 
 ## Scope
 
@@ -19,15 +19,23 @@ The log captures at least:
 - Each event `EventLog.recover` advances past with `ApplyResult.Invalid`, with that event's id and the invalid reason.
 - The DB-connection fallback in `DatabaseSetup.resolveDbConnection` (`src/Server/DatabaseSetup.fs`), the line that today is only `eprintfn "Gambol: DB connection failed - falling back to file store. …"`.
 
+**Scope addition — Alan, 2026-11-25**: besides the events above, log every other cold-start error or fallback path in server startup, for example:
+
+- `Server.Main.configureApplication`'s `resolveDataDir` failure (`src/Server/Server.fs`). No `dataDir` exists yet when this fails, so the entry cannot go to `errors.log`; `eprintfn` is the only record this one case can leave.
+- `DbAgent`'s startup projection sweep `Error "Startup projection sweep failed: …"` (`src/Server/Core/DbAgent.fs` `startupPrelude`), from a sweep exception, a sweep `Error`, or a failed post-sweep reload.
+- `DatabaseSetup.validateAmbNetworkAgainstDb`'s file/DB outline mismatch fallback (`src/Server/DatabaseSetup.fs`), alongside its existing `eprintfn` outline-mismatch detail.
+- Any other unhandled exception raised while composing the persistence layer and routes at startup (`RouteRegistration.registerPersistenceAndRoutes`, `src/Server/RouteRegistration.fs`), including a `DocumentLoader.loadState` failure inside `FileAgent.create`.
+
 This ticket only adds logging. It does not change the fallback, the decode drop, or how `EventLog.recover` handles `ApplyResult.Invalid`. Those behavior questions stay with [06 — Children missing on the first connect after idle](06-children-missing-on-connect.md).
 
 ## Done
 
-[ ] A new append-only file `<dataDir>/SYSTEM/errors.log` is written on the events in Scope, each entry timestamped.
-[ ] Starting the server a second time leaves the previous entries in that file; nothing equivalent to `HttpResponseLog.prepareFresh` runs against it.
-[ ] The existing `eprintfn` lines named in Scope still go to stderr, unchanged.
-[ ] A test writes at least one of those events, restarts (or re-opens) the log path, and asserts the earlier entry is still there.
-[ ] A test asserts a `loadPersistedState` fallback, a decode drop, and an `ApplyResult.Invalid` recover skip each produce an entry that includes the event id or the fallback reason.
+[x] A new append-only file `<dataDir>/SYSTEM/errors.log` is written on the events in Scope, each entry timestamped.
+[x] Starting the server a second time leaves the previous entries in that file; nothing equivalent to `HttpResponseLog.prepareFresh` runs against it.
+[x] The existing `eprintfn` lines named in Scope still go to stderr, unchanged.
+[x] A test writes at least one of those events, restarts (or re-opens) the log path, and asserts the earlier entry is still there.
+[x] A test asserts a `loadPersistedState` fallback, a decode drop, and an `ApplyResult.Invalid` recover skip each produce an entry that includes the event id or the fallback reason.
+[x] A startup sweep failure, a file/DB outline mismatch, and an unhandled exception while composing the persistence layer and routes each produce an entry in `errors.log`.
 
 ## Stop
 
