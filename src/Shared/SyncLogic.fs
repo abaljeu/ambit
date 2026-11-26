@@ -11,9 +11,19 @@ type AckReconcile =
 [<RequireQualifiedAccess>]
 module SyncLogic =
 
+    /// Startup log bound. DbAgent.startupEventWindow is this value.
+    [<Literal>]
+    let catchUpWindow = 1024
+
+    /// More than the startup window behind. That client cannot catch up.
+    let pastCatchUpWindow (serverId: EventId) (clientId: EventId) =
+        EventId.value serverId - EventId.value clientId > catchUpWindow
+
     /// Determine if the poll response indicates the client is outdated.
     /// Returns Some DataOutdated if server event id is ahead of the client,
     /// or None if the client is up to date.
+    /// A gap of one still returns DataOutdated so a pending queue can reload.
+    /// pastCatchUpWindow is the gap that must stay DataOutdated and not apply.
     /// Does not branch on apiVersion: one live API; apply what arrived.
     /// App.runPollServer calls this with the Browser event id on a decoded Poll reply.
     /// App.runLoadServer calls this with the Browser event id on a decoded Load reply.

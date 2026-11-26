@@ -1,6 +1,6 @@
 # 10 — Last 1024 events at startup
 
-**Status**: defined
+**Status**: coded
 Blockers: none — [PR 646](https://github.com/abaljeu/ambit/pull/646) already summarizes decode and recover drops to one line per load.
 
 ## Scope
@@ -40,17 +40,17 @@ Stop before `FileAgent` and `EventLogFile.readAllEvents`; that file-store path i
 
 ## Done
 
-[ ] `DbAgent.loadReconciled` starts with at most the newest 1024 event rows (all of them when the table is smaller), via SQL `ORDER BY event_id DESC LIMIT`. The bound is a named constant in `DbAgent`, set to 1024.
-[ ] After that load, `EventLog.nextId` is past the maximum `event_id` in the table, including rows older than the window and rows `decodeRows` dropped.
-[ ] `EventLog.recoverOnInvalid` applies kept events after the projection checkpoint only when that checkpoint is at or after the window floor (or the table was not truncated). A `LOAD-FALLBACK` empty graph, or a projection older than the floor, is left as loaded and is not rebuilt from the window. `LOAD-FALLBACK` is still written.
-[ ] The `events` table still holds the older rows.
-[ ] `Api.eventsThroughSnapshot` (Poll and Load) reports Stale, not a partial window, when the client's event id is older than the floor. A client whose event id is inside the window still receives the later kept events and can catch up. The client surfaces that Stale as `DataOutdated` (reload required).
-[ ] `getEventsSince EventId.zero` still succeeds with the kept window, so mailbox seed does not fail.
-[ ] A test inserts more than 1024 events, starts `DbAgent`, and asserts `getEventsSince EventId.zero` returns only the newest 1024, in order, and that the next assignable id is past the true tip.
-[ ] A test whose projection checkpoint sits inside that window asserts the events after the checkpoint are still applied.
-[ ] A test whose projection or fallback graph is older than the floor asserts recover does not apply the window onto that graph, and that `LOAD-FALLBACK` still logs in the fallback case.
-[ ] A test asserts rows older than the window are still in the table after startup (`Database.getEvents` or `Database.getEventsAfter`).
-[ ] A test asserts Poll or Load from an event id older than the floor is Stale, and that a cursor inside the window returns the later events.
+[x] `DbAgent.loadReconciled` starts with at most the newest 1024 event rows (all of them when the table is smaller), via SQL `ORDER BY event_id DESC LIMIT`. The bound is a named constant in `DbAgent`, set to 1024.
+[x] After that load, `EventLog.nextId` is past the maximum `event_id` in the table, including rows older than the window and rows `decodeRows` dropped.
+[x] `EventLog.recoverOnInvalid` applies kept events after the projection checkpoint only when that checkpoint is at or after the window floor (or the table was not truncated). A `LOAD-FALLBACK` empty graph, or a projection older than the floor, is left as loaded and is not rebuilt from the window. `LOAD-FALLBACK` is still written.
+[x] The `events` table still holds the older rows.
+[x] `Api.eventsThroughSnapshot` (Poll and Load) reports Stale, not a partial window, when the client's event id is older than the floor. A client whose event id is inside the window still receives the later kept events and can catch up. The client surfaces that Stale as `DataOutdated` (reload required).
+[x] `getEventsSince EventId.zero` still succeeds with the kept window, so mailbox seed does not fail.
+[x] A test inserts more than 1024 events, starts `DbAgent`, and asserts `getEventsSince EventId.zero` returns only the newest 1024, in order, and that the next assignable id is past the true tip.
+[x] A test whose projection checkpoint sits inside that window asserts the events after the checkpoint are still applied.
+[x] A test whose projection or fallback graph is older than the floor asserts recover does not apply the window onto that graph, and that `LOAD-FALLBACK` still logs in the fallback case.
+[x] A test asserts rows older than the window are still in the table after startup (`Database.getEvents` or `Database.getEventsAfter`).
+[x] A test asserts Poll or Load from an event id older than the floor is Stale, and that a cursor inside the window returns the later events.
 
 ## Stop
 

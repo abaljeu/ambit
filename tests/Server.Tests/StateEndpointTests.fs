@@ -1205,3 +1205,100 @@ let ``New server uses snapshot + log replay`` () = task {
                 Assert.Equal(highest, state.eventId)
         })
 }
+
+let private insertStartupRows
+    (connStr: string)
+    (rows: (int * Guid * string) list)
+    =
+    task {
+        use conn = Database.getConnection connStr
+        do! conn.OpenAsync()
+        use tx = conn.BeginTransaction()
+        use cmd = conn.CreateCommand()
+        cmd.Transaction <- tx
+        cmd.CommandText <-
+            "INSERT INTO events (event_id, submission_id, payload) "
+            + "VALUES (@event_id, @submission_id, @payload)"
+        let idParam = cmd.Parameters.AddWithValue("event_id", 0)
+        let submissionParam =
+            cmd.Parameters.AddWithValue("submission_id", Guid.Empty)
+        let payloadParam = cmd.Parameters.AddWithValue("payload", "")
+        for eventId, submissionId, payload in rows do
+            idParam.Value <- box eventId
+            submissionParam.Value <- box submissionId
+            payloadParam.Value <- box payload
+            let! _ = cmd.ExecuteNonQueryAsync()
+            ()
+        do! tx.CommitAsync()
+    }
+
+let private saveEmptyProjection (connStr: string) (revision: int) = task {
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do!
+        Database.replaceGraphProjectionWithTx tx (Graph.create ()) revision
+        |> Async.AwaitTask
+    tx.Commit()
+}
+
+[<Fact>]
+let ``poll and load withhold a cursor below the startup window`` () = task {
+    let window = SyncLogic.catchUpWindow
+    let floorId = 1000
+    let tipId = floorId + window - 1
+    let insideId = 2000
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let nodeId = NodeId(Guid.Parse "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+    let change id ops =
+        { id = EventId.fromJson id
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change ops }
+    let encoded (event: Ev) =
+        EventId.toJson event.id, event.submissionId, EventLogFile.encodeEvent event
+    let older =
+        [ 1; 2; 3 ]
+        |> List.map (fun id -> id, Guid.NewGuid(), "not-json")
+    let kept =
+        [ floorId .. tipId - 1 ]
+        |> List.map (fun id -> encoded (change id []))
+    let tip = encoded (change tipId [ Op.NewNode(nodeId, "window-kept") ])
+    do! insertStartupRows connStr (older @ kept @ [ tip ])
+    do! saveEmptyProjection connStr 1500
+    use client = createDbClient connStr
+    let! below = postPoll client (EventId.fromJson 5)
+    Assert.Equal(HttpStatusCode.OK, below.StatusCode)
+    let! belowJson = below.Content.ReadAsStringAsync()
+    let belowPoll = decodePoll belowJson
+    Assert.Equal(EventId.fromJson tipId, belowPoll.eventId)
+    Assert.Empty(belowPoll.events)
+    let! edge = postPoll client (EventId.fromJson (floorId - 1))
+    let! edgeJson = edge.Content.ReadAsStringAsync()
+    let edgePoll = decodePoll edgeJson
+    let edgeIds = edgePoll.events |> List.map (fun event -> EventId.toJson event.id)
+    Assert.Equal(floorId, List.min edgeIds)
+    Assert.Equal(tipId, List.max edgeIds)
+    let! inside = postPoll client (EventId.fromJson insideId)
+    let! insideJson = inside.Content.ReadAsStringAsync()
+    let insidePoll = decodePoll insideJson
+    let insideIds =
+        insidePoll.events |> List.map (fun event -> EventId.toJson event.id)
+    Assert.NotEmpty(insideIds)
+    Assert.True(List.forall (fun id -> id > insideId) insideIds)
+    let loadBody =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodeLoadRequest
+                { eventId = EventId.fromJson 5
+                  targets = [] })
+    use loadContent =
+        new StringContent(loadBody, Encoding.UTF8, "application/json")
+    let! loadResponse = client.PostAsync("/ambit/load", loadContent)
+    Assert.Equal(HttpStatusCode.OK, loadResponse.StatusCode)
+    let! loadJson = loadResponse.Content.ReadAsStringAsync()
+    let load = decode ApiResponseSerialization.decodeLoadResponseDecoder loadJson
+    Assert.Equal(EventId.fromJson tipId, load.eventId)
+    Assert.Empty(load.events)
+}

@@ -1004,6 +1004,28 @@ let ``startup leaves a projection older than the window as loaded`` () = task {
 }
 
 [<Fact>]
+let ``startup recover applies a full table of exactly 1024 events`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let tip = startupWindow
+    let rows =
+        [ 1 .. tip - 1 ]
+        |> List.map (fun eventId -> encodedRow (changeEvent eventId []))
+    let tipRow = encodedRow (changeEvent tip [ keptNodeOp () ])
+    do! insertEventRows connStr (rows @ [ tipRow ])
+    do! withAgent connStr None (fun mailbox -> task {
+        do! whenReady mailbox
+        let! state = getStateFrom mailbox |> Async.StartAsTask
+        Assert.Equal(Some keptText, keptNodeText state.graph)
+        Assert.Equal(EventId.fromJson tip, state.eventId)
+        let! events =
+            CoreMailboxApi.getEventsSince mailbox EventId.zero
+            |> Async.StartAsTask
+        Assert.Equal(startupWindow, events.Length)
+    })
+}
+
+[<Fact>]
 let ``startup leaves a LOAD-FALLBACK graph and still logs the fallback`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr

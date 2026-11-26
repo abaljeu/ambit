@@ -108,19 +108,20 @@ module DbAgent =
         writeSpan dataDir "RECOVER-INVALID" span.Value
         recovered
 
-    [<Literal>]
-    let startupEventWindow = 1024
+    let startupEventWindow = SyncLogic.catchUpWindow
 
-    let private floorOfRows (rows: Database.EventRow list) =
-        if List.length rows < startupEventWindow then
-            None
-        else
-            Some (rows |> List.map (fun row -> row.event_id) |> List.min)
+    let private keptWindow (rows: Database.EventRow list) =
+        if List.length rows <= startupEventWindow then rows, None
+        else List.skip 1 rows |> fun kept -> kept, Some kept.Head.event_id
 
-    let private olderThanWindow (floor: int option) (state: GraphAtEvent) =
+    let private olderThanWindow floor (state: GraphAtEvent) =
         match floor with
-        | None -> false
         | Some floorId -> EventId.value state.eventId < floorId
+        | None -> false
+
+    let private recoverInWindow floor dataDir state log =
+        if olderThanWindow floor state then state, log
+        else recoverLogging dataDir state log
 
     let private loadReconciled (loaded: LoadedPersist) =
         let dataDir = loaded.liveSaveDataDir
@@ -130,20 +131,17 @@ module DbAgent =
             if String.IsNullOrWhiteSpace connectionString then
                 EventLog.empty, None
             else
-                let rows =
+                let kept, floor =
                     Database.getNewestEvents
                         connectionString
-                        startupEventWindow
+                        (startupEventWindow + 1)
                     |> Async.AwaitTask
                     |> Async.RunSynchronously
-                let decoded = decodeRows dataDir rows
-                advancePastRowIds rows (EventLog.restorePersisted decoded),
-                floorOfRows rows
-        let recovered =
-            if olderThanWindow floor state then
-                state, log
-            else
-                recoverLogging dataDir state log
+                    |> keptWindow
+                let decoded = decodeRows dataDir kept
+                advancePastRowIds kept (EventLog.restorePersisted decoded),
+                floor
+        let recovered = recoverInWindow floor dataDir state log
         if
             not (String.IsNullOrWhiteSpace connectionString)
             && not (List.isEmpty log.events)
@@ -208,13 +206,11 @@ module DbAgent =
         let baseState =
             { loaded.state.Value with graph = graph; eventId = eventId }
         let recovered =
-            if olderThanWindow loaded.windowFloor.Value baseState then
-                baseState, loaded.eventLog.Value
-            else
-                recoverLogging
-                    loaded.liveSaveDataDir
-                    baseState
-                    loaded.eventLog.Value
+            recoverInWindow
+                loaded.windowFloor.Value
+                loaded.liveSaveDataDir
+                baseState
+                loaded.eventLog.Value
         loaded.state.Value <- fst recovered
 
     let private applyMaintenance loaded
@@ -494,7 +490,10 @@ module DbAgent =
                     requestFileDiff loaded
 
     let private eventsSince loaded after =
-        EventLog.since after loaded.eventLog.Value |> fun log -> log.events
+        let cursor = EventId.value after
+        match loaded.windowFloor.Value with
+        | Some floorId when cursor > 0 && floorId > cursor + 1 -> []
+        | _ -> EventLog.since after loaded.eventLog.Value |> fun l -> l.events
 
     let private recordPersistedEvent loaded (persisted: Ev) =
         loaded.eventLog.Value <-
