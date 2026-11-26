@@ -258,10 +258,11 @@ module internal CoreMailboxLoop =
             match context.eventLogSeedError with
             | Some error -> reply.Reply(Error error)
             | None ->
-                context.eventLog.Value
-                |> EventLog.since after
-                |> Ok
-                |> reply.Reply
+                match context.persist.getEventsSince after with
+                | Error error -> reply.Reply(Error error)
+                | Ok events ->
+                    reply.Reply(
+                        Ok { context.eventLog.Value with events = events })
 
     let private queryOperation query =
         match query with

@@ -264,3 +264,56 @@ let ``a foreign Change during a Poll stays DataOutdated`` () =
     Assert.Equal(DataOutdated, next.syncInfo.syncState)
     Assert.False(submitsBatch effects)
     Assert.Equal(EventId.zero, next.eventId)
+
+let private modelAt graph eventId =
+    let siteMap, nextId =
+        ViewModel.buildSiteMapFrom graph graph.root (Sid 0)
+    { modelFor graph siteMap nextId graph.root with eventId = eventId }
+
+let private farServerId (clientId: EventId) =
+    EventIdFixtures.storedId (
+        EventId.value clientId + SyncLogic.catchUpWindow + 1)
+
+[<Fact>]
+let ``a poll more than 1024 events behind stays DataOutdated`` () =
+    let fixture = residencyFixture ()
+    let clientId = EventIdFixtures.storedId 5
+    let serverId = farServerId clientId
+    let model = modelAt fixture.server clientId
+    let foreign =
+        { id = serverId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Peer"
+          commandName = "Edit"
+          body = EventBody.Change [] }
+    let outcome, next, _ = applyPoll (pollAt serverId [ foreign ]) model
+    Assert.Equal(Some DataOutdated, outcome)
+    Assert.Equal(DataOutdated, next.syncInfo.syncState)
+    Assert.Equal(clientId, next.eventId)
+    Assert.Equal(fixture.server, next.graph)
+
+[<Fact>]
+let ``a load more than 1024 events behind stays DataOutdated`` () =
+    let fixture = residencyFixture ()
+    let clientId = EventIdFixtures.storedId 5
+    let serverId = farServerId clientId
+    let model =
+        { modelAt fixture.server clientId with syncInfo = SyncInfo.initial }
+    let foreign =
+        { id = serverId
+          submissionId = System.Guid.NewGuid()
+          authority = Authority "Peer"
+          commandName = "Edit"
+          body = EventBody.Change [] }
+    let response =
+        { events = [ foreign ]
+          nodes = []
+          childMap = Map.empty }
+    let next, _ =
+        Update.update
+            (SysMsg(
+                LoadDone(Some DataOutdated, response, serverId, Some true)))
+            model
+    Assert.Equal(DataOutdated, next.syncInfo.syncState)
+    Assert.Equal(clientId, next.eventId)
+    Assert.Equal(fixture.server, next.graph)
