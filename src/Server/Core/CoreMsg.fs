@@ -2,14 +2,6 @@ namespace Gambol.Server
 
 open Gambol.Shared
 
-type internal CoreMsg =
-    | StartLoadSaveCommand of
-        caller: Caller *
-        path: LoadSavePath *
-        peerName: PeerActorName *
-        request: LoadSaveCommandRequest *
-        AsyncReplyChannel<Result<unit, string>>
-
 [<RequireQualifiedAccess>]
 type internal Query =
     | GraphAtEvent of AsyncReplyChannel<Result<GraphAtEvent, string>>
@@ -20,7 +12,6 @@ type internal Query =
 
 [<RequireQualifiedAccess>]
 type internal Mailbox =
-    | CoreMsg of CoreMsg
     | PlaceOrder of
         placed: PlacedOrder *
         caller: Caller *

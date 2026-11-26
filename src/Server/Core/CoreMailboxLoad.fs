@@ -18,7 +18,7 @@ module internal CoreMailboxLoad =
         |> Result.map (fun _ -> ())
         |> Result.mapError loadSubjectError
 
-    /// Mailbox Load door. Desk Load calls this in the same turn.
+    /// Mailbox Load door. Order.Load calls this in the same turn.
     let private dispatchLoad
         (context: MailboxContext)
         (caller: Caller)
@@ -30,30 +30,6 @@ module internal CoreMailboxLoad =
             match isLoadSubject state.graph subject with
             | Error err -> Error err
             | Ok () -> context.parsePush subject
-
-    let internal dispatchStartLoadSaveCommand
-        (context: MailboxContext)
-        (caller: Caller)
-        (path: LoadSavePath)
-        (peerName: PeerActorName)
-        (request: LoadSaveCommandRequest)
-        (reply: AsyncReplyChannel<Result<unit, string>>)
-        =
-        let started =
-            CoreMailboxActors.dispatchActorStartResult
-                context
-                caller
-                request.start
-                (fun _ getGraph ->
-                    DeskLoadPush.runLoadSave
-                        { pool = context.pool
-                          getGraph = getGraph
-                          peerName = peerName }
-                        (dispatchLoad context caller)
-                        request
-                        path
-                    |> Result.mapError StartError.Rejected)
-        reply.Reply started
 
     let internal replyLoad
         (context: MailboxContext)

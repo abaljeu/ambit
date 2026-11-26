@@ -413,13 +413,6 @@ let ``MailboxHost has no public mailbox processor field`` () =
             >= 0)
     Assert.False(leaked)
 
-[<Fact>]
-let ``CoreMsg is not a public type`` () =
-    let found =
-        typeof<MailboxHost>.Assembly.GetExportedTypes()
-        |> Array.exists (fun t -> t.Name = "CoreMsg")
-    Assert.False(found)
-
 let private postedEvent () : Ev =
     let childId = NodeId.New()
     { id = EventId.zero

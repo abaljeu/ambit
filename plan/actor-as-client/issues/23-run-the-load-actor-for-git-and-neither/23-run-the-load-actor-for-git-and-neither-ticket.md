@@ -8,7 +8,7 @@ Load x =
     reconcile x
 ```
 
-A directory with no desktop access and no upload is the Neither case. `GithubTransportActor.start` in `src/Server/GithubTransportActor.fs` posts `Order.StartActor` for `loadActorFunction`. Pull request 589 removed `CoreMailboxLoad.logDeskOrder`, which appended `Order.StartActor` with `EventJson.stubActor` and an empty `actorName` and posted no stop. This ticket replaces that removal. The Neither case runs the Load actor. Desktop_mapped waits for the WebDAV design on [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md). A later Save actor is the follow-on: Git commit, pull, and push under the existing Save rules; Desktop_mapped WebDAV after that design; an empty Neither arm.
+A directory with no desktop access and no upload is the Neither case. `GithubTransportActor.start` in `src/Server/GithubTransportActor.fs` posts `Order.StartActor` for `loadActorFunction`. Pull request 589 removed `CoreMailboxLoad.logDeskOrder`, which appended `Order.StartActor` with `EventJson.stubActor` and an empty `actorName` and posted no stop. This ticket replaces that removal. The Neither case runs the Load actor. Desktop_mapped moves directly onto the order queue on [20 — Move Desk Load and Desk Save](../20-move-desk-load-and-save/20-move-desk-load-and-save-ticket.md), with no WebDAV redesign first. Alan, 2026-11-25. A later Save actor is the follow-on: Git commit, pull, and push under the existing Save rules; Desktop_mapped WebDAV; an empty Neither arm.
 
 A plain Load enters the Load actor. It does not take the Desk path. A work tree with a Git remote takes the Git arm: pull, then reconcile. A Workspace, a Directory, or a File with no Git remote takes the Neither arm: no transport, then reconcile, then stop. A missing work tree takes that same arm. An explicit Git Load of a Directory that is not a repository takes that same Neither arm. A git error other than not a repository fails the Load actor. An object outside a workspace work tree takes the Neither arm and does not pull or push.
 
@@ -42,7 +42,7 @@ Blockers:
 
 ## Do not load
 
-[ ] The Desktop_mapped WebDAV branch. Its design is open on 20 — Move Desk Load and Desk Save.
+[ ] The Desktop_mapped WebDAV branch. Ticket 20 — Move Desk Load and Desk Save moves the desk callers.
 [ ] The Save actor follow-on.
 [ ] `Order.StartActorDeprecated`.
 

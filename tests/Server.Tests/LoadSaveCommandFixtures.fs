@@ -445,12 +445,8 @@ let actorRouter host dataDir dependencies operation =
       startCommand =
         fun path command ->
             if path = LoadSavePath.Desk then
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    path
-                    (GithubTransportActor.peerName
-                        (operationFor operation))
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     command
             else
                 GithubTransportActor.start

@@ -10,18 +10,27 @@ module LoadSaveStart =
         | LoadSaveOperation.Load -> GithubTransportOperation.Load
         | LoadSaveOperation.Save -> GithubTransportOperation.Save
 
-    let private startDeskCommand
+    /// Desk Load of a valid subject places Order.Load. Desk Save and a held
+    /// stack place nothing.
+    let internal startDesk
         (door: CoreChangesDoor)
-        (path: LoadSavePath)
         (request: LoadSaveCommandRequest)
-        =
-        CoreMailboxApi.startLoadSaveCommand
-            door.host
-            door.caller
-            path
-            (GithubTransportActor.peerName
-                (transportOperation request.operation))
-            request
+        : Async<Result<unit, string>> =
+        async {
+            match! CoreDoor.graphAtEvent door with
+            | Error err -> return Error err
+            | Ok state ->
+                match
+                    DeskLoadPush.subjectToLoad
+                        request
+                        LoadSavePath.Desk
+                        state.graph
+                with
+                | None -> return Ok ()
+                | Some subject ->
+                    let! placed = CoreDoor.loadNode door subject
+                    return Result.map ignore placed
+        }
 
     let private startGit
         (door: CoreChangesDoor)
@@ -36,7 +45,7 @@ module LoadSaveStart =
             (transportOperation request.operation)
             request.start
 
-    /// Desk stays the desk command. Git starts the transport actor.
+    /// Desk places Order.Load. Git starts the transport actor.
     let startCommand
         (door: CoreChangesDoor)
         (dataDir: string)
@@ -45,5 +54,5 @@ module LoadSaveStart =
         =
         match path with
         | LoadSavePath.Desk ->
-            startDeskCommand door path request
+            startDesk door request
         | _ -> startGit door dataDir request

@@ -35,16 +35,6 @@ module internal CoreMailboxEvents =
         else
             task.GetAwaiter().GetResult()
 
-    let operationContext msg =
-        match msg with
-        | StartLoadSaveCommand (_, path, PeerActorName name, _, _) ->
-            "StartLoadSaveCommand", $"{path}:{name}"
-
-    let replyFailure error msg =
-        match msg with
-        | StartLoadSaveCommand (_, _, _, _, reply) ->
-            reply.Reply(Error error)
-
     type Started = {
         processor: MailboxProcessor<CoreQueue>
         bindCoreChanges: (Caller -> CoreChangesDoor) -> unit

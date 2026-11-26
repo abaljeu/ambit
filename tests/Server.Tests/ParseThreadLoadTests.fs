@@ -265,21 +265,15 @@ let ``held Desk Load does not push and the follow-up Load does`` () =
             let! fileId, _ = seedWorkspaceFile host "home" "note.txt"
             let held = { deskLoadRequest fileId with holdStack = true }
             let! waiting =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     held
                 |> Async.StartAsTask
             requireOk "held" waiting
             Assert.Empty(pushed)
             let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "load" loaded
@@ -303,11 +297,8 @@ let ``Desk Load pushes a Workspace`` () =
             let! fileId, workspaceId =
                 seedWorkspaceFile host "home" "note.txt"
             let! loaded =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest workspaceId)
                 |> Async.StartAsTask
             requireOk "workspace" loaded
@@ -333,20 +324,14 @@ let ``Desk Load command pushes a Directory and a File`` () =
         try
             let! fileId, dirId = seedDocsFile host
             let! directory =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "directory" directory
             let! file =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "file" file
@@ -543,11 +528,8 @@ let ``Directory Load push reconciles when the parse thread pops it`` () =
             |> ignore
             File.WriteAllText(extra, "EXTRA\n")
             let! started =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "directory" started
@@ -593,11 +575,8 @@ let ``File Load push parses when the parse thread pops it`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! started =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "file" started
@@ -656,11 +635,8 @@ let ``second Load of a Parsed File is parsed again`` () =
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! first =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "first" first
@@ -673,11 +649,8 @@ let ``second Load of a Parsed File is parsed again`` () =
             Assert.True(parsed, "first Load should parse HELLO")
             File.WriteAllText(diskPath, "AGAIN\n")
             let! second =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "second" second
@@ -735,9 +708,8 @@ let ``second Load of a Current File lands its parse Event on a client that still
             |> ignore
             File.WriteAllText(diskPath, "HELLO\n")
             let! first =
-                CoreMailboxApi.startLoadSaveCommand
-                    host testCaller LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "first" first
@@ -754,9 +726,8 @@ let ``second Load of a Current File lands its parse Event on a client that still
             Assert.Equal(Current, held.graph.nodes.[fileId].documentState.AsEnum)
             File.WriteAllText(diskPath, "AGAIN\n")
             let! second =
-                CoreMailboxApi.startLoadSaveCommand
-                    host testCaller LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest fileId)
                 |> Async.StartAsTask
             requireOk "second" second
@@ -803,11 +774,8 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
         try
             let! _, dirId = seedDocsFile host
             let! first =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "first" first
@@ -821,11 +789,8 @@ let ``second Load of a Parsed Directory reconciles and does not requeue`` () =
             |> ignore
             File.WriteAllText(extra, "EXTRA\n")
             let! second =
-                CoreMailboxApi.startLoadSaveCommand
-                    host
-                    testCaller
-                    LoadSavePath.Desk
-                    (PeerActorName "unregistered")
+                LoadSaveStart.startDesk
+                    (CoreDoor.create true host testCaller)
                     (deskLoadRequest dirId)
                 |> Async.StartAsTask
             requireOk "second" second

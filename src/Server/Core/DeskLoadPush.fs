@@ -5,7 +5,7 @@ open Gambol.Shared
 /// Desk Load asks mailbox Load for a Workspace, Directory, or File.
 module internal DeskLoadPush =
 
-    let private subjectToLoad
+    let internal subjectToLoad
         (request: LoadSaveCommandRequest)
         (path: LoadSavePath)
         (graph: Graph)
