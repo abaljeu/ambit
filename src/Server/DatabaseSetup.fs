@@ -66,8 +66,11 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-    let private loadPersistedDbState (connStr: string) : GraphAtEvent =
-        Database.loadPersistedState connStr
+    let private loadPersistedDbState
+        (connStr: string)
+        (dataDir: string)
+        : GraphAtEvent =
+        Database.loadPersistedStateFor connStr (Some dataDir)
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
@@ -77,7 +80,7 @@ module DatabaseSetup =
             | Microsoft.FSharp.Core.Ok state -> state
             | Microsoft.FSharp.Core.Error msg -> failwith msg
 
-        let dbState = loadPersistedDbState connStr
+        let dbState = loadPersistedDbState connStr dataDir
         let matchesBefore = documentStatesMatch fileState dbState
 
         if not matchesBefore then
@@ -85,7 +88,7 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let dbAfter = loadPersistedDbState connStr
+        let dbAfter = loadPersistedDbState connStr dataDir
         let matchesAfter = documentStatesMatch fileState dbAfter
         statusFromMatches matchesBefore matchesAfter
 

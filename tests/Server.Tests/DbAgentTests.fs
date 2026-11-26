@@ -691,3 +691,89 @@ let ``DbAgent startup sweep repair logs a PROJECTION-REPAIR entry`` () = task {
     Assert.Contains("deleted=1", text)
     Assert.Contains(string orphanId.Value, text)
 }
+
+let private oneLogLine (text: string) =
+    text.Replace("\r\n", "\\n").Replace("\n", "\\n")
+
+[<Fact>]
+let ``loadPersistedState logs the fallback reason`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let dataDir = newTempDir ()
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use command = conn.CreateCommand()
+    command.CommandText <-
+        """
+        INSERT INTO graph (singleton, root_id, revision)
+        VALUES (1, '00000000-0000-0000-0000-000000000000', 0);
+        INSERT INTO nodes (id, text, css_classes)
+        VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'orphan', '[]');
+        """
+    let! _ = command.ExecuteNonQueryAsync()
+
+    let! loaded =
+        Database.loadPersistedStateFor connStr (Some dataDir)
+        |> Async.AwaitTask
+
+    Assert.Equal(EventId.zero, loaded.eventId)
+    Assert.True(GraphProjection.graphEquals (Graph.create ()) loaded.graph)
+    let text = File.ReadAllText(ErrorLog.logPath dataDir)
+    Assert.Contains("LOAD-FALLBACK", text)
+    Assert.Contains("graphFromPersistence: root id missing from nodes", text)
+}
+
+[<Fact>]
+let ``DbAgent logs an EventLogFile.decodeEvent drop`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let dataDir = newTempDir ()
+    let eventId = 7
+    let payload = "not-json"
+    let decodeError =
+        match EventLogFile.decodeEvent payload with
+        | Error error -> error
+        | Ok _ -> failwith "expected EventLogFile.decodeEvent to reject the payload"
+    do! Database.appendEvent connStr eventId (Guid.NewGuid()) payload
+
+    let agent = DbAgent.createWithDataDir connStr dataDir
+    try
+        let text = File.ReadAllText(ErrorLog.logPath dataDir)
+        Assert.Contains("EVENT-DECODE-DROP", text)
+        Assert.Contains($"eventId={eventId}", text)
+        Assert.Contains(oneLogLine decodeError, text)
+    finally
+        (DbAgent.persist agent).dispose ()
+}
+
+[<Fact>]
+let ``DbAgent logs an ApplyResult.Invalid skip from EventLog.recover`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let dataDir = newTempDir ()
+    let eventId = 4
+    let reason = "cannot NewNode with canonical root id"
+    let event =
+        { id = EventId.fromJson eventId
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body = EventBody.Change [ Op.NewNode(Graph.rootId, "nope") ] }
+    do! Database.appendEvent
+            connStr
+            eventId
+            event.submissionId
+            (EventLogFile.encodeEvent event)
+
+    let agent = DbAgent.createWithDataDir connStr dataDir
+    try
+        let text = File.ReadAllText(ErrorLog.logPath dataDir)
+        Assert.Contains("RECOVER-INVALID", text)
+        Assert.Contains($"eventId={eventId}", text)
+        Assert.Contains(reason, text)
+        let! revision =
+            CoreMailboxApi.getEventId (host agent) |> Async.StartAsTask
+        Assert.Equal(EventId.fromJson eventId, revision)
+    finally
+        (DbAgent.persist agent).dispose ()
+}

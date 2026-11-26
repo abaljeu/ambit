@@ -112,7 +112,10 @@ module EventLog =
                     state.graph
             { state with graph = graph }
 
-    let private appliedState state event =
+    let private appliedState
+        (onInvalid: EventId -> string -> unit)
+        (state: GraphAtEvent)
+        (event: Ev) =
         match event.body with
         | EventBody.Notice notice when replaySkipsNotice notice ->
             state
@@ -120,13 +123,20 @@ module EventLog =
             match Ev.apply event state with
             | ApplyResult.Changed next -> flagParseReplay event next
             | ApplyResult.Unchanged next -> next
-            | ApplyResult.Invalid (next, _) -> next
+            | ApplyResult.Invalid (next, reason) ->
+                onInvalid event.id reason
+                next
 
-    let private applyRecover state event =
-        { appliedState state event with eventId = event.id }
+    let private applyRecover onInvalid state event =
+        { appliedState onInvalid state event with eventId = event.id }
 
     /// Load reconcile: Graph id vs EventLog tip. Ids move only via apply.
-    let recover (state: GraphAtEvent) (log: EventLog) : GraphAtEvent * EventLog =
+    /// `onInvalid` hears each `ApplyResult.Invalid` this replay advances past.
+    let recoverOnInvalid
+        (onInvalid: EventId -> string -> unit)
+        (state: GraphAtEvent)
+        (log: EventLog)
+        : GraphAtEvent * EventLog =
         let graphId = EventId.value state.eventId
         let logId = EventId.value (tip log)
         if graphId > logId then
@@ -139,4 +149,7 @@ module EventLog =
                 |> List.rev
                 |> List.filter (fun event ->
                     EventId.value event.id > graphId)
-            List.fold applyRecover state ahead, log
+            List.fold (applyRecover onInvalid) state ahead, log
+
+    let recover (state: GraphAtEvent) (log: EventLog) : GraphAtEvent * EventLog =
+        recoverOnInvalid (fun _ _ -> ()) state log

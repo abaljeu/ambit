@@ -420,21 +420,35 @@ module Database =
                     :> Task
         }
 
-    let loadPersistedState
+    let private logLoadFallback (dataDir: string option) (reason: string) =
+        match dataDir with
+        | None -> ()
+        | Some dir -> ErrorLog.append dir "LOAD-FALLBACK" reason
+
+    /// Same load as `loadPersistedState`. `Some` dataDir records a fallback.
+    let loadPersistedStateFor
         (connectionString: string)
+        (dataDir: string option)
         : Task<GraphAtEvent> =
         task {
-            let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
+            let! proj =
+                tryLoadGraphFromProjection connectionString
+                |> Async.AwaitTask
 
             let graph, eventId =
                 match proj with
                 | Ok (g, id) -> g, id
-                | Error _ -> Graph.create (), EventId.zero
+                | Error reason ->
+                    logLoadFallback dataDir reason
+                    Graph.create (), EventId.zero
 
             return
                 { graph = graph
                   eventId = eventId }
         }
+
+    let loadPersistedState (connectionString: string) : Task<GraphAtEvent> =
+        loadPersistedStateFor connectionString None
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `GraphAtEvent`.
     let rebuildFromDocumentFiles (connectionString: string) (fileState: GraphAtEvent) : Task =
