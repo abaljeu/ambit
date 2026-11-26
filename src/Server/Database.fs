@@ -235,6 +235,28 @@ module Database =
             return rows |> Seq.toList
         }
 
+    /// Newest `count` rows, then ascending `event_id` for restore.
+    let getNewestEvents
+        (connectionString: string)
+        (count: int)
+        : Task<EventRow list> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            let! rows =
+                conn.QueryAsync<EventRow>(
+                    """
+                    SELECT event_id, payload FROM events
+                    ORDER BY event_id DESC
+                    LIMIT @limit
+                    """,
+                    {| limit = count |})
+            return
+                rows
+                |> Seq.toList
+                |> List.sortBy (fun row -> row.event_id)
+        }
+
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =
         task {
             use conn = getConnection connectionString
