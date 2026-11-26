@@ -1,13 +1,13 @@
 # Fix children wipe
 
-Stage: investigation — evidence pending
+Stage: investigation — waiting on a logged occurrence
 Summary: In the live store, Nodes lost their owned child lists in three kinds of Workspace (graph-only, git-backed, desktop-mapped). Only some Nodes were hit. The UI showed each one as a filled circle: Parsed with an empty child list. [[evidence/investigation-report.md]] ranks the candidate causes; [[evidence/event-log-queries.sql]] (Q0–Q18) confirms which one actually fired.
-Updated: 2026-11-24
+Updated: 2026-11-25
 Started: 2026-11-23
 
 ## Goal
 
-Find why Nodes lost their owned children, recover what was lost, then fix the code path that caused it. Recovery comes before any code fix: the investigation report section 7 is the candidate recovery plan, and nothing in that plan has run yet.
+Find why Nodes lost their owned children, recover what was lost, then fix the code path that caused it. Recovery comes before any code fix: the investigation report section 7 is the candidate recovery plan, and nothing in that plan has run yet. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary.
 
 ## Affected nodes
 
@@ -46,19 +46,23 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | # | Name | Status |
 |---|---|---|
 | 01 | [Run the event-log queries](issues/01-run-event-log-queries.md) | ready-for-human |
-| 02 | [Recover the lost children](issues/02-recover-children.md) | blocked by 01 |
+| 02 | [Recover the lost children](issues/02-recover-children.md) | not needed |
 | 03 | [Guard DirectoryReconcile against a missing folder](issues/03-reconcile-missing-folder-guard.md) | pending confirmation from 01 |
 | 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | pending confirmation from 01 |
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
 | 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
 | 07 | [Persistent server error log](issues/07-persistent-error-log.md) | pending |
+| 08 | [Startup error hides children on first connect](issues/08-startup-error-hides-children-on-first-connect.md) | waiting on 07 — Persistent server error log and a repeated, logged occurrence |
 
 ## Decisions
 
 1. **Its own Project** — Alan, 2026-11-24: this bug gets its own fix Project, separate from any feature Project already in flight.
-2. **Recovery first** — Recovery comes before any code fix. Ticket 02 is not blocked on 03–05, and 03–05 do not start before recovery is agreed.
-3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed.
+2. **Recovery first** — Recovery comes before any code fix. Ticket 02 is not blocked on 03–05, and 03–05 do not start before recovery is agreed. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary.
+3. **No Load, Save, or Upload on the affected Workspaces** — Every Load repeats the trash move on an unbased Workspace. No Load, Save, or Upload runs on ambit, life, or any other affected Workspace until recovery is agreed. Follow-on, Alan, 2026-11-25: recovery has now been agreed unnecessary. The hold is lifted (Decision 7).
 4. **Confirmation is the query results, not this report** — The ranking above is a candidate, read from the code and the commits. The cause is confirmed only once Alan runs the queries against the Azure Postgres store (read-only) and the results are pasted into `evidence/results/`.
+5. **Database intact; 06 — Children missing on the first connect after idle is the display/load fix** — Alan, 2026-11-25: the database was intact; a startup process error masked the issues. The database-repair dependency is dropped; 06 — Children missing on the first connect after idle is the display/load fix.
+6. **Recovery is agreed unnecessary** — 2026-11-25 Alan: recovery is agreed unnecessary. The data was intact; the missing children came from a startup error, not data loss.
+7. **Load, Save, and Upload hold lifted** — Alan, 2026-11-25: the Load, Save, and Upload hold on ambit, life, and the other affected Workspaces is lifted.
 
 ## See also
 
