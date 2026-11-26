@@ -695,6 +695,19 @@ let ``DbAgent startup sweep repair logs a PROJECTION-REPAIR entry`` () = task {
 let private oneLogLine (text: string) =
     text.Replace("\r\n", "\\n").Replace("\n", "\\n")
 
+let private logLines (kind: string) (text: string) =
+    text.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+    |> Array.filter (fun line -> line.Contains(kind))
+
+let private decodeFailure (payload: string) =
+    match EventLogFile.decodeEvent payload with
+    | Error error -> error
+    | Ok _ -> failwith "expected EventLogFile.decodeEvent to reject the payload"
+
+let private assertOneSummary (kind: string) (text: string) (parts: string list) =
+    let line = Assert.Single(logLines kind text)
+    parts |> List.iter (fun part -> Assert.Contains(part, line))
+
 [<Fact>]
 let ``loadPersistedState logs the fallback reason`` () = task {
     let connStr = requireDbConnStr ()
@@ -730,18 +743,53 @@ let ``DbAgent logs an EventLogFile.decodeEvent drop`` () = task {
     let dataDir = newTempDir ()
     let eventId = 7
     let payload = "not-json"
-    let decodeError =
-        match EventLogFile.decodeEvent payload with
-        | Error error -> error
-        | Ok _ -> failwith "expected EventLogFile.decodeEvent to reject the payload"
+    let decodeError = decodeFailure payload
     do! Database.appendEvent connStr eventId (Guid.NewGuid()) payload
 
     let agent = DbAgent.createWithDataDir connStr dataDir
     try
         let text = File.ReadAllText(ErrorLog.logPath dataDir)
-        Assert.Contains("EVENT-DECODE-DROP", text)
-        Assert.Contains($"eventId={eventId}", text)
-        Assert.Contains(oneLogLine decodeError, text)
+        assertOneSummary
+            "EVENT-DECODE-DROP"
+            text
+            [ "count=1"
+              $"firstEventId={eventId}"
+              $"lastEventId={eventId}"
+              oneLogLine decodeError ]
+    finally
+        (DbAgent.persist agent).dispose ()
+}
+
+[<Fact>]
+let ``DbAgent logs one summary for many EventLogFile.decodeEvent drops`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let dataDir = newTempDir ()
+    let firstId = 7
+    let lastId = 9
+    let firstPayload =
+        """{"eventId":7,"submissionId":"00000000-0000-0000-0000-000000000007","authority":"Browser","commandName":"Edit","body":{"kind":"change"}}"""
+    let lastPayload = "not-json"
+    let firstError = decodeFailure firstPayload
+    let lastError = decodeFailure lastPayload
+    do! Database.appendEvent connStr firstId (Guid.NewGuid()) firstPayload
+    do! Database.appendEvent connStr lastId (Guid.NewGuid()) lastPayload
+
+    let agent = DbAgent.createWithDataDir connStr dataDir
+    try
+        let text = File.ReadAllText(ErrorLog.logPath dataDir)
+        assertOneSummary
+            "EVENT-DECODE-DROP"
+            text
+            [ "count=2"
+              $"firstEventId={firstId}"
+              $"lastEventId={lastId}"
+              oneLogLine firstError ]
+        let line = Assert.Single(logLines "EVENT-DECODE-DROP" text)
+        Assert.DoesNotContain(oneLogLine lastError, line)
+        let! revision =
+            CoreMailboxApi.getEventId (host agent) |> Async.StartAsTask
+        Assert.Equal(EventId.zero, revision)
     finally
         (DbAgent.persist agent).dispose ()
 }
@@ -768,9 +816,13 @@ let ``DbAgent logs an ApplyResult.Invalid skip from EventLog.recover`` () = task
     let agent = DbAgent.createWithDataDir connStr dataDir
     try
         let text = File.ReadAllText(ErrorLog.logPath dataDir)
-        Assert.Contains("RECOVER-INVALID", text)
-        Assert.Contains($"eventId={eventId}", text)
-        Assert.Contains(reason, text)
+        assertOneSummary
+            "RECOVER-INVALID"
+            text
+            [ "count=1"
+              $"firstEventId={eventId}"
+              $"lastEventId={eventId}"
+              reason ]
         let! revision =
             CoreMailboxApi.getEventId (host agent) |> Async.StartAsTask
         Assert.Equal(EventId.fromJson eventId, revision)
