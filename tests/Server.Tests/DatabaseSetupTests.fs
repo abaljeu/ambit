@@ -1,8 +1,10 @@
 module Gambol.Server.Tests.DatabaseSetupTests
 
 open System
+open System.IO
 open Xunit
 open Gambol.Server
+open Gambol.Server.Tests.TestBackend
 open Gambol.Shared
 
 [<Fact>]
@@ -81,3 +83,16 @@ let ``resolveConnectionString returns empty when neither env var is set`` () =
     finally
         Environment.SetEnvironmentVariable("TEST_DB_CONNECTION_STRING", priorTest)
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorMain)
+
+[<Fact>]
+let ``resolveDbConnection logs a file-store fallback when the DB connection fails`` () =
+    let dataDir = newTempDir ()
+    let status =
+        DatabaseSetup.resolveDbConnection
+            DatabaseSetup.PersistenceMode.Db
+            "host=127.0.0.1;port=1;database=x;username=x;password=x;timeout=1"
+            dataDir
+    Assert.Equal(DatabaseSetup.DbStatus.Absent, status)
+    let text = File.ReadAllText(ErrorLog.logPath dataDir)
+    Assert.Contains("DB-CONNECTION-FALLBACK", text)
+    Assert.Contains("falling back to file store", text)

@@ -39,6 +39,7 @@
     <Compile Include="DocumentPersistWrite.fs" />
     <Compile Include="DocumentPersistChange.fs" />
     <Compile Include="Bookkeeping.fs" />
+    <Compile Include="ErrorLog.fs" />
     <Compile Include="EventLogFile.fs" />
     <Compile Include="DailyGitSave.fs" />
     <Compile Include="DocumentLoader.fs" />

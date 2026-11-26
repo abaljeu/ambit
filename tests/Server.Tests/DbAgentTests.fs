@@ -665,3 +665,29 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
             Map.tryFind aId projected.ownerParentByChild)
 }
 
+[<Fact>]
+let ``DbAgent startup sweep repair logs a PROJECTION-REPAIR entry`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let tempRoot = newTempDir ()
+    let orphanId = NodeId.New()
+    let orphan = Node.Create(orphanId, text = "orphan")
+    let graph = Graph.addDetachedNode orphan (Graph.create ())
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do! Database.replaceGraphProjectionWithTx tx graph
+            (EventId.toJson (EventIdFixtures.storedId 9))
+        |> Async.AwaitTask
+    tx.Commit()
+
+    let agent = DbAgent.createWithDataDir connStr tempRoot
+    let! ready = waitUntil 2000 (fun () -> CoreMailboxApi.isReady (host agent))
+    Assert.True(ready, "Expected startup sweep to enable normal queue processing.")
+
+    let text = File.ReadAllText(ErrorLog.logPath tempRoot)
+    Assert.Contains("PROJECTION-REPAIR", text)
+    Assert.Contains("deleted=1", text)
+    Assert.Contains(string orphanId.Value, text)
+}

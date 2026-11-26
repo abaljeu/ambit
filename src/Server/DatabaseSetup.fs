@@ -118,7 +118,11 @@ module DatabaseSetup =
 
                 status
             with ex ->
-                eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
+                let message =
+                    "Gambol: DB connection failed - falling back to file store. "
+                    + ex.Message
+                eprintfn "%s" message
+                ErrorLog.appendDbConnectionFallback (Some dataDir) message
                 DbStatus.Absent
 
     /// Former two-host Db cache. CoreRuntime starts one host; tests still call this.
