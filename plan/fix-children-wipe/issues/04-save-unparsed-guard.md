@@ -1,18 +1,19 @@
 # 04 — Guard Save on an Unparsed Node
 
-**Status**: pending confirmation from 01
-Blockers: [01 — Run the event-log queries](01-run-event-log-queries.md) — this ticket does not start before the event-log results confirm Rank 3 on [[../project.md]].
+**Status**: coded
+[01 — Run the event-log queries](01-run-event-log-queries.md) confirmed this ticket's cause; see the Findings on [[../project.md]].
 
 ## Scope
 
-`GithubTransportActor.focusCanBeParsed` lets Save flip an Unparsed File or Directory focus to Parsed without reading its disk content first, then persist writes empty content over it. Commit `3a1a0aa8` emptied [07 — Document the command-line actor](../../command-line-actor/issues/07-document-the-command-line-actor.md) this way. Save on an Unparsed focus must parse that focus from disk first, or refuse the Save.
+`GithubTransportActor.focusCanBeParsed` let Save flip an Unparsed File or Directory focus to Parsed without reading it, then persist wrote empty content over it. Commit `3a1a0aa8` emptied [07 — Document the command-line actor](../../command-line-actor/issues/07-document-the-command-line-actor.md) this way. The only Save rule: Save on an Unparsed focus (File, Directory, or Workspace) is refused with an Error before any persist write, commit, pull, or push. A file or folder missing from disk is not an Unparsed case; Save on a Parsed focus proceeds as it did before this ticket even when its file or folder is missing from disk.
 
 ## Done
 
-[ ] Save on an Unparsed File or Directory focus parses it from disk before any persist write.
-[ ] A focus whose disk read fails, or that is gone from disk, refuses the Save instead of persisting empty content.
-[ ] A test Saves an Unparsed focus with real disk content and asserts the persisted content is not empty.
-[ ] A test Saves an Unparsed focus whose disk read fails and asserts the Save is refused, not silently emptied.
+[x] Save on an Unparsed File, Directory, or Workspace focus is refused with an Error before any persist write, commit, pull, or push.
+[x] Save on a Parsed focus proceeds unchanged, including when its file or folder is missing from disk.
+[x] A test Saves an Unparsed File focus and asserts the Save is refused, the file on disk is unchanged, and no commit runs.
+[x] A test Saves an Unparsed Directory focus and asserts the same.
+[x] A test Saves a Parsed Directory focus whose folder is missing from disk and asserts the Save is not refused.
 
 ## Stop
 

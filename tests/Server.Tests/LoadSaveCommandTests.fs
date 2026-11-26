@@ -605,6 +605,10 @@ let ``Load of a ROOT file skips git and git Save uses the data directory`` () =
             Assert.Empty(pulls)
             Assert.Empty(pushes)
             assertNoLoadActor host [ fileId ]
+            // Desk Load leaves `loose.txt` Unparsed; this harness runs no
+            // Parse thread to mark it Parsed, and Save now refuses an
+            // Unparsed focus, so mark it Parsed directly.
+            CoreMailboxApi.postNotice host (Notice.NodeParsed fileId)
             let save =
                 requestForFocus
                     LoadSaveOperation.Save

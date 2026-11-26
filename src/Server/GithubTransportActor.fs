@@ -320,18 +320,29 @@ module GithubTransportActor =
                         Ok(current.eventId, current.graph, node))
         }
 
-    /// Parsed is required. A pulling file stays Unparsed.
+    /// Parsed is required. An Unparsed, non-pulling focus is refused
+    /// outright instead of being flipped to Parsed: `3a1a0aa8` emptied
+    /// issue 07 by flipping an Unparsed focus this way, before persist
+    /// ever read it, so persist wrote empty content over real disk
+    /// content. Every other focus (Parsed, or a pulling file) keeps the
+    /// original check below unchanged.
     let private focusCanBeParsed (graph: Graph) (focusId: NodeId) =
-        match GraphMutate.setParseState focusId ParseState.Parsed graph with
-        | Error err -> Error err
-        | Ok parsed ->
-            match Map.tryFind focusId parsed.nodes with
-            | Some node when node.parseState = ParseState.Parsed ->
-                Ok ()
-            | Some node when node.documentState.pullingFile ->
-                Error
-                    "focused node stays unparsed while a file is pulling"
-            | _ -> Error "focused node was not marked parsed"
+        match Map.tryFind focusId graph.nodes with
+        | Some node when
+            node.parseState = ParseState.Unparsed
+            && not node.documentState.pullingFile ->
+            Error "focused node is unparsed"
+        | _ ->
+            match GraphMutate.setParseState focusId ParseState.Parsed graph with
+            | Error err -> Error err
+            | Ok parsed ->
+                match Map.tryFind focusId parsed.nodes with
+                | Some node when node.parseState = ParseState.Parsed ->
+                    Ok ()
+                | Some node when node.documentState.pullingFile ->
+                    Error
+                        "focused node stays unparsed while a file is pulling"
+                | _ -> Error "focused node was not marked parsed"
 
     let private failedPersistMessage focusId (event: Ev) =
         match event.body with

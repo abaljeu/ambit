@@ -359,7 +359,8 @@ let private withNoteSave (body: NoteSave -> Task) =
         Ok "pulled"
     let commit root _ _ =
         steps.Add($"commit {root}")
-        wroteFile.Add(File.Exists(Path.Combine(root, "note.txt")))
+        let path = Path.Combine(root, "note.txt")
+        wroteFile.Add(File.Exists path)
         Ok(tracked, "committed")
     let push root _ _ =
         steps.Add($"push {root}")
@@ -403,6 +404,64 @@ let private startNoteSave (save: NoteSave) =
         save.operation
         (fileRequest save)
 
+type private FolderSave =
+    { dataDir: string
+      host: MailboxHost
+      operation: GithubTransportOperation
+      seed: Seed
+      folderId: NodeId
+      steps: ResizeArray<string>
+      deps: GithubTransportActorDependencies }
+
+let private withFolderSave (body: FolderSave -> Task) =
+    let steps = ResizeArray<string>()
+    let pull root _ =
+        steps.Add($"pull {root}")
+        Ok "pulled"
+    let commit root _ _ =
+        steps.Add($"commit {root}")
+        Ok(tracked, "committed")
+    let push root _ _ =
+        steps.Add($"push {root}")
+        Ok "pushed"
+    let deps =
+        dependencies steps pull commit push
+    withActor GithubTransportOperation.Save deps "save"
+        (fun dataDir host _ operation seed -> task {
+            let! state =
+                CoreMailboxApi.graphAtEvent host |> Async.StartAsTask
+            let graph = (requireOk "state" state).graph
+            let folderId, folderOps =
+                FileNodeOps.planCreateOwnedDirectory
+                    graph
+                    seed.workspaceId
+                    "folder"
+            postGraph host folderOps
+            do!
+                body
+                    { dataDir = dataDir
+                      host = host
+                      operation = operation
+                      seed = seed
+                      folderId = folderId
+                      steps = steps
+                      deps = deps }
+        })
+
+let private folderRequest (save: FolderSave) =
+    let focusRequest = request save.seed
+    { focusRequest with
+        focusId = save.folderId
+        graphIds = focusRequest.graphIds @ [ save.folderId ] }
+
+let private startFolderSave (save: FolderSave) =
+    startTransport
+        save.dataDir
+        save.host
+        save.deps
+        save.operation
+        (folderRequest save)
+
 [<Fact>]
 let ``git Save persists focus then commits pulls and pushes`` () =
     withNoteSave (fun save -> task {
@@ -421,27 +480,66 @@ let ``git Save persists focus then commits pulls and pushes`` () =
         Assert.Equal<string list>(saveOrder root, save.steps |> Seq.toList)
     })
 
+/// The only Save guard: an Unparsed focus is refused before any persist
+/// write, commit, pull, or push (`3a1a0aa8` emptied issue 07 by flipping
+/// an Unparsed focus to Parsed without reading it first).
 [<Fact>]
-let ``git Save marks an unparsed file parsed and writes it before commit`` () =
+let ``git Save on an unparsed file is refused and the file on disk is unchanged`` () =
     withNoteSave (fun save -> task {
+        let root = Path.Combine(save.dataDir, "home")
+        Directory.CreateDirectory root |> ignore
+        let path = Path.Combine(root, "note.txt")
+        File.WriteAllText(path, "real content")
         CoreMailboxApi.postNotice
             save.host
             (Notice.NodeUnparsed save.fileId)
-        let! marked =
-            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
-        let before =
-            (requireOk "unparsed" marked).graph.nodes.[save.fileId]
-        Assert.Equal(ParseState.Unparsed, before.parseState)
-        Assert.Equal(PersistState.Persisted, before.persistState)
         let! started = startNoteSave save
         requireOk "start Save" started
         let! stopped = waitForStop save.host save.fileId 1000
-        Assert.Equal(Some ActorSucceeded, stopped)
-        Assert.Equal<bool list>([ true ], save.wroteFile |> Seq.toList)
+        Assert.Equal(Some(ActorFailed "focused node is unparsed"), stopped)
+        Assert.Empty(save.steps)
+        Assert.Equal("real content", File.ReadAllText path)
         let! after =
             CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
         let saved = (requireOk "saved" after).graph.nodes.[save.fileId]
-        Assert.Equal(ParseState.Parsed, saved.parseState)
+        Assert.Equal(ParseState.Unparsed, saved.parseState)
+    })
+
+/// Same guard for a Directory focus.
+[<Fact>]
+let ``git Save on an unparsed folder is refused and the folder on disk is unchanged`` () =
+    withFolderSave (fun save -> task {
+        let root = Path.Combine(save.dataDir, "home")
+        let folderPath = Path.Combine(root, "folder")
+        Directory.CreateDirectory folderPath |> ignore
+        let keptPath = Path.Combine(folderPath, "kept.txt")
+        File.WriteAllText(keptPath, "kept")
+        CoreMailboxApi.postNotice
+            save.host
+            (Notice.NodeUnparsed save.folderId)
+        let! started = startFolderSave save
+        requireOk "start Save" started
+        let! stopped = waitForStop save.host save.folderId 1000
+        Assert.Equal(Some(ActorFailed "focused node is unparsed"), stopped)
+        Assert.Empty(save.steps)
+        Assert.Equal("kept", File.ReadAllText keptPath)
+        let! after =
+            CoreMailboxApi.graphAtEvent save.host |> Async.StartAsTask
+        let saved = (requireOk "saved" after).graph.nodes.[save.folderId]
+        Assert.Equal(ParseState.Unparsed, saved.parseState)
+    })
+
+/// A missing file or folder is not an Unparsed case: a Parsed focus
+/// whose folder is gone from disk is not refused.
+[<Fact>]
+let ``git Save on a Parsed folder missing from disk is not refused`` () =
+    withFolderSave (fun save -> task {
+        let! started = startFolderSave save
+        requireOk "start Save" started
+        let! stopped = waitForStop save.host save.folderId 1000
+        Assert.Equal(Some ActorSucceeded, stopped)
+        let root = Path.Combine(save.dataDir, "home")
+        Assert.Equal<string list>(saveOrder root, save.steps |> Seq.toList)
     })
 
 let private persistNoticeId =

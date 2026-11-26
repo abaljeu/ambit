@@ -48,7 +48,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 01 | [Run the event-log queries](issues/01-run-event-log-queries.md) | ready-for-human |
 | 02 | [Recover the lost children](issues/02-recover-children.md) | not needed |
 | 03 | [Guard DirectoryReconcile against a missing folder](issues/03-reconcile-missing-folder-guard.md) | pending confirmation from 01 |
-| 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | pending confirmation from 01 |
+| 04 | [Guard Save on an Unparsed Node](issues/04-save-unparsed-guard.md) | coded |
 | 05 | [Desktop Upload Directory stubs start Unparsed](issues/05-upload-stubs-unparsed.md) | pending confirmation from 01 |
 | 06 | [Children missing on the first connect after idle](issues/06-children-missing-on-connect.md) | pending |
 | 07 | [Persistent server error log](issues/07-persistent-error-log.md) | ready-for-human |
@@ -64,6 +64,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 5. **Database intact; 06 — Children missing on the first connect after idle is the display/load fix** — Alan, 2026-11-25: the database was intact; a startup process error masked the issues. The database-repair dependency is dropped; 06 — Children missing on the first connect after idle is the display/load fix.
 6. **Recovery is agreed unnecessary** — 2026-11-25 Alan: recovery is agreed unnecessary. The data was intact; the missing children came from a startup error, not data loss.
 7. **Load, Save, and Upload hold lifted** — Alan, 2026-11-25: the Load, Save, and Upload hold on ambit, life, and the other affected Workspaces is lifted.
+8. **The only Save guard is the Unparsed refusal** — Alan, 2026-11-24: Save on an Unparsed focus (File, Directory, or Workspace) is refused with an Error before any persist write, commit, pull, or push. This replaces ticket 04's earlier read-from-disk-then-save approach. A file or folder missing from disk is not an Unparsed case, so that refusal does not apply to it; Save on a missing file or folder proceeds exactly as it did before ticket 04. No other Save guards.
 
 ## See also
 
