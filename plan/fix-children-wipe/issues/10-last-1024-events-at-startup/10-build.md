@@ -33,4 +33,6 @@ Second build after [Review 10 — Last 1024 events at startup](https://github.co
 
 `scripts/agent-test.sh --filter` for `CoreMailboxDoorTests`, `QueryActorTests`, `CoreMsgActorCasesTests`, `CoreActorPoolFunctionStartTests`, `CoreLoopNoticeTests`, and `MailboxAskTests`: passed 77, failed 0.
 
+`scripts/agent-test.sh --full`: Server passed 801, skipped 1, failed 0. Shared passed 1948, skipped 4, failed 0.
+
 Check: pass
