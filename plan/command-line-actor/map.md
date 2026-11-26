@@ -34,4 +34,3 @@ Out of scope
 - the Amble `=` and `?` paths in [22 — Run sends = lines to Amble](../online-search/issues/22-run-sends-equals-lines-to-amble.md)
 - edits to the Roadmap
 - the AMBLE language expanding to encompass exec
-- placement under an Epic or Chapter; the Project stays unplaced

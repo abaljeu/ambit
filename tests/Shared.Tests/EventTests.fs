@@ -251,6 +251,66 @@ let ``recover moves EventId only by apply`` () =
     Assert.Equal(EventId.fromJson 2, applied.eventId)
     Assert.Equal("applied", applied.graph.nodes.[childId].text)
 
+[<Fact(Skip =
+    "06: cold replay silently drops a Replace whose recorded span no longer "
+    + "matches, freezing the parent's children Loaded-empty — see "
+    + "plan/fix-children-wipe/issues/06-children-missing-on-connect")>]
+let ``recover silently drops a stale Replace and freezes the parent's children empty`` () =
+    // "LAPS": created Loaded-empty, same as every fresh node (Graph.addDetachedNode).
+    let parentId = NodeId.New()
+    let fileA, fileB, fileC = NodeId.New(), NodeId.New(), NodeId.New()
+    let graph0 =
+        [ Node.Create(parentId, text = "LAPS")
+          Node.Create(fileA, text = "a")
+          Node.Create(fileB, text = "b")
+          Node.Create(fileC, text = "c") ]
+        |> List.fold (fun g n -> Graph.addDetachedNode n g) (Graph.create ())
+    let before = { graph = graph0; eventId = EventId.zero }
+
+    // The one stored Change that ever gave LAPS its real children. A cold replay
+    // from Graph.create() (e.g. after `graphFromPersistence` rejected the whole
+    // projection over a non-dense ordinal elsewhere in the tree) applies this
+    // strictly, and its recorded span no longer lines up with a fresh start.
+    let firstPopulate =
+        { id = EventId.fromJson 2
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Parse"
+          body =
+            EventBody.Change
+                [ Op.Replace(
+                      parentId,
+                      [ ChildNode.owner (NodeId.New()) ],
+                      ChildNode.owners [ fileA; fileB; fileC ]) ] }
+
+    // A later Change re-confirms the same three children; its own precondition
+    // assumes firstPopulate already landed.
+    let confirmSame =
+        { id = EventId.fromJson 3
+          submissionId = Guid.NewGuid()
+          authority = Authority "Browser"
+          commandName = "Edit"
+          body =
+            EventBody.Change
+                [ Op.Replace(
+                      parentId,
+                      ChildNode.owners [ fileA; fileB; fileC ],
+                      ChildNode.owners [ fileA; fileB; fileC ]) ] }
+
+    let log = EventLog.adoptNewestHead [ confirmSame; firstPopulate ]
+    let recovered, _ = EventLog.recover before log
+
+    // Both events are "seen" — eventId genuinely reaches the log's tip, and
+    // neither event is an emptying Change, matching production's "no event ever
+    // emptied the list" finding (plan/fix-children-wipe/project.md Findings).
+    Assert.Equal(EventId.fromJson 3, recovered.eventId)
+
+    // But LAPS ends up Parsed with an empty owned list — the filled-circle bug —
+    // instead of the three children the log faithfully describes.
+    Assert.Equal<ChildNode list>(
+        ChildNode.owners [ fileA; fileB; fileC ],
+        GraphChildren.get recovered.graph parentId)
+
 let private actorStart commandName : Ev =
     event commandName (EventBody.ActorStart(startRequest ()))
 

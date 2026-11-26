@@ -3,6 +3,8 @@
 **Status**: pending
 Blockers: none — can start immediately.
 
+Investigation: [06 — Investigation: children missing on the first connect after idle](06-children-missing-on-connect/06-investigation.md)
+
 ## Scope
 
 On 2026-11-23, the first connect after the user's idle gap showed LAPS's descendants and the ambit workspace Node with no children (filled-circle bullets, Parsed with an empty list). On 2026-11-24 the same Nodes showed their children again, and no event between those times touched either list: [[../evidence/results/results.txt]] shows every change to LAPS's child list was a 1–2 child user edit, with no orphans and no removal event. The data was intact in Postgres throughout, so the empty lists came from the connect itself, not from the store. This is a display/load bug, confirmed separate from the data loss [02 — Recover the lost children](02-recover-children.md) covers.
@@ -16,9 +18,9 @@ Investigate these paths by reading the source, then find which one served the em
 
 ## Evidence to capture next time
 
-- The browser console line `[Gambol boot] decodeStateResponse: …ms, …chars, …nodes` (`Program.fs` `loadFromState`), and the Network tab's `/state` response body for the affected Nodes.
+- The browser console line `[Gambol boot] decodeStateResponse: …ms, …chars, …nodes` (`Program.fs` `loadFromState`), and the Network tab's `/state` response body for the affected Nodes, including the `isReady` field (`StateResponse.isReady`, `CoreDoor.isReady`).
 - The server startup log line `DbAgent: projection repair deleted=… ownershipUpdates=… insertNodes=… insertChildren=… ordinalShifts=…` (`DbAgent.liveStartupSweep`), with its timestamp relative to the first connect.
-- The `db-status` tooltip text ("DB synced", "DB mismatch1", or "DB mismatch2"; `StatusView.renderDatabaseStatus`, driven by `DatabaseSetup.DbStatus` in `RouteAppShell.fs`) as it read at that connect.
+- The `db-status` label ("DB synced", "Files only", "DB mismatch1", or "DB mismatch2"; `StatusView.renderDatabaseStatus`, driven by `DatabaseSetup.DbStatus` in `RouteAppShell.fs`) as it read at that connect.
 
 ## Done
 
@@ -31,4 +33,3 @@ Investigate these paths by reading the source, then find which one served the em
 
 [ ] Stop before concluding a path is the cause from code alone; confirm against a captured occurrence (browser console, server startup log, and `db-status` tooltip) first.
 [ ] Stop if investigation turns up an event that actually emptied a child list; that is data loss, not this display bug, and belongs with [02 — Recover the lost children](02-recover-children.md) or [04 — Guard Save on an Unparsed Node](04-save-unparsed-guard.md) instead.
-[ ] Stop before any Load, Save, or Upload on the ambit workspace or any other Workspace [[../project.md]] Decision 3 still bars, while recovery is in progress.

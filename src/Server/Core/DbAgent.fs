@@ -615,7 +615,11 @@ module DbAgent =
               bindPersistFinished =
                 fun post -> loaded.persistFinished.Value <- Some post } }
 
-    let private liveStartupSweep (connectionString: string) (_: Graph) =
+    let private liveStartupSweep
+        (dataDir: string option)
+        (connectionString: string)
+        (_: Graph)
+        =
         try
             let result =
                 DatabaseProjection.startupSweepPatch
@@ -631,13 +635,15 @@ module DbAgent =
                     facts.affectedNodeIds
                     |> List.map string
                     |> String.concat ", "
-                eprintfn "%s"
-                    ($"DbAgent: projection repair deleted={facts.deletedCount} "
-                     + $"ownershipUpdates={facts.ownershipUpdateCount} "
-                     + $"insertNodes={facts.insertNodeCount} "
-                     + $"insertChildren={facts.insertChildCount} "
-                     + $"ordinalShifts={facts.ordinalShiftCount} "
-                     + $"affected=[{affected}]")
+                let message =
+                    $"DbAgent: projection repair deleted={facts.deletedCount} "
+                    + $"ownershipUpdates={facts.ownershipUpdateCount} "
+                    + $"insertNodes={facts.insertNodeCount} "
+                    + $"insertChildren={facts.insertChildCount} "
+                    + $"ordinalShifts={facts.ordinalShiftCount} "
+                    + $"affected=[{affected}]"
+                eprintfn "%s" message
+                ErrorLog.appendProjectionRepair dataDir message
                 Ok r
         with ex ->
             Error $"Startup projection sweep failed: {ex.Message}"
@@ -653,7 +659,7 @@ module DbAgent =
             connectionString
             liveSaveDataDir
             DocumentPersistChange.persistNode
-            (liveStartupSweep connectionString)
+            (liveStartupSweep liveSaveDataDir connectionString)
 
     let private wrapFakeSweep
         (runStartupSweep: Graph -> Result<Guid list, string>)
