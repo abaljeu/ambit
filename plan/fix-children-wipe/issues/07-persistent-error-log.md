@@ -14,7 +14,7 @@ The log records these two events:
 - The `DbAgent: projection repair …` line from `DbAgent.liveStartupSweep` in `src/Server/Core/DbAgent.fs`, with the same counts and affected ids that line already prints.
 - The DB-connection fallback in `DatabaseSetup.resolveDbConnection` in `src/Server/DatabaseSetup.fs`, the line that prints `Gambol: DB connection failed - falling back to file store. …`.
 
-Further cold-start entries are [08 — Error log remaining uses](08-error-log-remaining-uses.md).
+Further cold-start entries are [09 — Error log remaining uses](09-error-log-remaining-uses.md).
 
 This ticket adds logging. Load, recover, and fallback behavior stay as they are. Those behavior questions stay with [06 — Children missing on the first connect after idle](06-children-missing-on-connect.md).
 
@@ -29,7 +29,7 @@ This ticket adds logging. Load, recover, and fallback behavior stay as they are.
 
 ## Stop
 
-[ ] Stop before changing load, recover, or fallback behavior. Those questions stay with 06 — Children missing on the first connect after idle. Logging for the other cold-start paths is 08 — Error log remaining uses.
+[ ] Stop before changing load, recover, or fallback behavior. Those questions stay with 06 — Children missing on the first connect after idle. Logging for the other cold-start paths is 09 — Error log remaining uses.
 [ ] Stop before removing or redirecting the existing `eprintfn` lines.
 [ ] Stop before inventing a size bound or rotation policy.
 [ ] Stop if the new file sits anywhere other than under the data folder's `SYSTEM/` directory.

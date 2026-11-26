@@ -2,7 +2,7 @@
 
 Status: built for the logger and the two call sites in [07 — Persistent server error log](../07-persistent-error-log.md).
 
-The other cold-start entries are [08 — Error log remaining uses](../08-error-log-remaining-uses.md).
+The other cold-start entries are [09 — Error log remaining uses](../09-error-log-remaining-uses.md).
 
 ## The log
 

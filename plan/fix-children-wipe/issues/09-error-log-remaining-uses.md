@@ -1,4 +1,4 @@
-# 08 — Error log remaining uses
+# 09 — Error log remaining uses
 
 **Status**: defined
 Blockers: [07 — Persistent server error log](07-persistent-error-log.md) — `ErrorLog` and `<dataDir>/SYSTEM/errors.log` exist.
