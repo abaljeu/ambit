@@ -53,26 +53,59 @@ module DbAgent =
         | None -> ()
         | Some dir -> ErrorLog.append dir kind detail
 
-    let private takeDecodedRow
-        (dataDir: string option)
-        (row: Database.EventRow) =
-        match EventLogFile.decodeEvent row.payload with
-        | Ok event -> Some (overlayRowId row event)
-        | Error error ->
-            appendError
-                dataDir
-                "EVENT-DECODE-DROP"
-                $"eventId={row.event_id} {error}"
-            None
+    type private LogSpan = {
+        count: int
+        firstId: int
+        lastId: int
+        firstDetail: string
+    }
 
-    let private logRecoverInvalid
+    let private noteSpan (span: LogSpan option) (id: int) (detail: string) =
+        match span with
+        | None ->
+            Some {
+                count = 1
+                firstId = id
+                lastId = id
+                firstDetail = detail
+            }
+        | Some current ->
+            Some { current with count = current.count + 1; lastId = id }
+
+    let private spanDetail (span: LogSpan) =
+        $"count={span.count} firstEventId={span.firstId} "
+        + $"lastEventId={span.lastId} {span.firstDetail}"
+
+    let private writeSpan
         (dataDir: string option)
-        (eventId: EventId)
-        (reason: string) =
-        appendError
-            dataDir
-            "RECOVER-INVALID"
-            $"eventId={EventId.toJson eventId} {reason}"
+        (kind: string)
+        (span: LogSpan option) =
+        match span with
+        | None -> ()
+        | Some span -> appendError dataDir kind (spanDetail span)
+
+    let private decodeRows
+        (dataDir: string option)
+        (rows: Database.EventRow list) =
+        let step (decoded, span) (row: Database.EventRow) =
+            match EventLogFile.decodeEvent row.payload with
+            | Ok event -> (overlayRowId row event :: decoded, span)
+            | Error error -> decoded, noteSpan span row.event_id error
+        let decoded, span = List.fold step ([], None) rows
+        writeSpan dataDir "EVENT-DECODE-DROP" span
+        List.rev decoded
+
+    let private recoverLogging
+        (dataDir: string option)
+        (state: GraphAtEvent)
+        (log: EventLog) =
+        let span = ref None
+        let onInvalid eventId reason =
+            span.Value <-
+                noteSpan span.Value (EventId.toJson eventId) reason
+        let recovered = EventLog.recoverOnInvalid onInvalid state log
+        writeSpan dataDir "RECOVER-INVALID" span.Value
+        recovered
 
     let private loadReconciled
         (dataDir: string option)
@@ -87,13 +120,9 @@ module DbAgent =
                     Database.getEvents connectionString
                     |> Async.AwaitTask
                     |> Async.RunSynchronously
-                let decoded = rows |> List.choose (takeDecodedRow dataDir)
+                let decoded = decodeRows dataDir rows
                 advancePastRowIds rows (EventLog.restorePersisted decoded)
-        let recovered =
-            EventLog.recoverOnInvalid
-                (logRecoverInvalid dataDir)
-                state
-                log
+        let recovered = recoverLogging dataDir state log
         if
             not (String.IsNullOrWhiteSpace connectionString)
             && not (List.isEmpty log.events)
@@ -157,8 +186,8 @@ module DbAgent =
                 graph = graph
                 eventId = eventId }
         let recovered =
-            EventLog.recoverOnInvalid
-                (logRecoverInvalid loaded.liveSaveDataDir)
+            recoverLogging
+                loaded.liveSaveDataDir
                 baseState
                 loaded.eventLog.Value
         loaded.state.Value <- fst recovered
