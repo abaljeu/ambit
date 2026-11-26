@@ -2,7 +2,7 @@
 
 Stage: investigation — waiting on a logged occurrence
 Summary: In the live store, Nodes lost their owned child lists in three kinds of Workspace (graph-only, git-backed, desktop-mapped). Only some Nodes were hit. The UI showed each one as a filled circle: Parsed with an empty child list. [[evidence/investigation-report.md]] ranks the candidate causes; [[evidence/event-log-queries.sql]] (Q0–Q18) confirms which one actually fired.
-Updated: 2026-11-25
+Updated: 2026-11-26
 Started: 2026-11-23
 
 ## Goal
@@ -54,6 +54,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 | 07 | [Persistent server error log](issues/07-persistent-error-log.md) | ready-for-human |
 | 08 | [Startup error hides children on first connect](issues/08-startup-error-hides-children-on-first-connect.md) | waiting on 07 — Persistent server error log and a repeated, logged occurrence |
 | 09 | [Error log remaining uses](issues/09-error-log-remaining-uses.md) | defined |
+| 10 | [Last 1024 events at startup](issues/10-last-1024-events-at-startup.md) | defined |
 
 ## Decisions
 
@@ -65,6 +66,7 @@ Ranking and evidence are the investigation report section 9. Confirming or revis
 6. **Recovery is agreed unnecessary** — 2026-11-25 Alan: recovery is agreed unnecessary. The data was intact; the missing children came from a startup error, not data loss.
 7. **Load, Save, and Upload hold lifted** — Alan, 2026-11-25: the Load, Save, and Upload hold on ambit, life, and the other affected Workspaces is lifted.
 8. **The only Save guard is the Unparsed refusal** — Alan, 2026-11-24: Save on an Unparsed focus (File, Directory, or Workspace) is refused with an Error before any persist write, commit, pull, or push. This replaces ticket 04's earlier read-from-disk-then-save approach. A file or folder missing from disk is not an Unparsed case, so that refusal does not apply to it; Save on a missing file or folder proceeds exactly as it did before ticket 04. No other Save guards.
+9. **Startup keeps only the last 1024 events** — Alan, 2026-11-26: skip the old part of the event log at startup and keep only the last N=1024 events. Alan does not care about old event bodies. The bound is applied in SQL. A LOAD-FALLBACK empty graph is not rebuilt from the window. The kept events are for Undo and for poll catch-up of clients still inside the window; a client older than the window is Stale. That bound is [10 — Last 1024 events at startup](issues/10-last-1024-events-at-startup.md).
 
 ## See also
 

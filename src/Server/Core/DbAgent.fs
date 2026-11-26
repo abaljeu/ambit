@@ -27,6 +27,7 @@ module DbAgent =
         ready: TaskCompletionSource<unit>
         persistFinished: (Notice -> unit) option ref
         startupError: string option ref
+        windowFloor: int option ref
         connectionString: string
         liveSaveDataDir: string option
         persistNode: string -> Graph -> NodeId -> Result<DateTime, string>
@@ -107,22 +108,42 @@ module DbAgent =
         writeSpan dataDir "RECOVER-INVALID" span.Value
         recovered
 
-    let private loadReconciled
-        (dataDir: string option)
-        (connectionString: string)
-        (state: GraphAtEvent)
-        : GraphAtEvent * EventLog =
-        let log =
+    [<Literal>]
+    let startupEventWindow = 1024
+
+    let private floorOfRows (rows: Database.EventRow list) =
+        if List.length rows < startupEventWindow then
+            None
+        else
+            Some (rows |> List.map (fun row -> row.event_id) |> List.min)
+
+    let private olderThanWindow (floor: int option) (state: GraphAtEvent) =
+        match floor with
+        | None -> false
+        | Some floorId -> EventId.value state.eventId < floorId
+
+    let private loadReconciled (loaded: LoadedPersist) =
+        let dataDir = loaded.liveSaveDataDir
+        let connectionString = loaded.connectionString
+        let state = loaded.state.Value
+        let log, floor =
             if String.IsNullOrWhiteSpace connectionString then
-                EventLog.empty
+                EventLog.empty, None
             else
                 let rows =
-                    Database.getEvents connectionString
+                    Database.getNewestEvents
+                        connectionString
+                        startupEventWindow
                     |> Async.AwaitTask
                     |> Async.RunSynchronously
                 let decoded = decodeRows dataDir rows
-                advancePastRowIds rows (EventLog.restorePersisted decoded)
-        let recovered = recoverLogging dataDir state log
+                advancePastRowIds rows (EventLog.restorePersisted decoded),
+                floorOfRows rows
+        let recovered =
+            if olderThanWindow floor state then
+                state, log
+            else
+                recoverLogging dataDir state log
         if
             not (String.IsNullOrWhiteSpace connectionString)
             && not (List.isEmpty log.events)
@@ -131,7 +152,9 @@ module DbAgent =
             Database.clearEvents connectionString
             |> Async.AwaitTask
             |> Async.RunSynchronously
-        recovered
+        loaded.windowFloor.Value <- floor
+        loaded.eventLog.Value <- snd recovered
+        loaded.state.Value <- fst recovered
 
     let private loadInitialState
         (dataDir: string option)
@@ -159,6 +182,7 @@ module DbAgent =
                 TaskCreationOptions.RunContinuationsAsynchronously)
           persistFinished = ref None
           startupError = ref None
+          windowFloor = ref None
           connectionString = connectionString
           liveSaveDataDir = liveSaveDataDir
           persistNode = persistNode
@@ -182,14 +206,15 @@ module DbAgent =
     /// Replay keeps events that are still ahead of that projection.
     let private reloadRecovered loaded graph eventId =
         let baseState =
-            { loaded.state.Value with
-                graph = graph
-                eventId = eventId }
+            { loaded.state.Value with graph = graph; eventId = eventId }
         let recovered =
-            recoverLogging
-                loaded.liveSaveDataDir
-                baseState
-                loaded.eventLog.Value
+            if olderThanWindow loaded.windowFloor.Value baseState then
+                baseState, loaded.eventLog.Value
+            else
+                recoverLogging
+                    loaded.liveSaveDataDir
+                    baseState
+                    loaded.eventLog.Value
         loaded.state.Value <- fst recovered
 
     let private applyMaintenance loaded
@@ -649,9 +674,7 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistNode
-        let recovered = loadReconciled liveSaveDataDir connectionString initialState
-        loaded.eventLog.Value <- snd recovered
-        loaded.state.Value <- fst recovered
+        loadReconciled loaded
         let stack = PersistRequestStack.create ()
         loaded.stack.Value <- Some stack
         let join =
