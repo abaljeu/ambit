@@ -16,7 +16,7 @@ Second build after [Review 10 — Last 1024 events at startup](https://github.co
 
 `DbAgent.eventsSince` returns no events when the cursor is positive and more than one id below the floor. `EventId.zero` still returns the kept window, so mailbox seed succeeds. A cursor one id below the floor still receives the window, because that suffix does not skip a truncated row.
 
-`CoreMailboxLoop.runQuery` answers `Query.EventsSince` from `persist.getEventsSince`, so Poll and Load see that empty list. The response `eventId` stays the server tip.
+`CoreMailboxLoop.eventsForAsk` still answers from the mailbox `EventLog`. It returns an empty list when `getEventsSince` for that cursor is empty and `getEventsSince EventId.zero` is not. Poll and Load then send no tail. The response `eventId` stays the server tip. A file log and a test double that returns an empty read for `EventId.zero` keep the mailbox list.
 
 `SyncLogic.getPollOutcome` still returns `DataOutdated` when the server event id is ahead by one. That path still applies a short tail, including a pending queue. `Update.stopPastCatchUp` stops Poll, including catch-up and Uploading, when `SyncLogic.pastCatchUpWindow` is true: the client stays `DataOutdated` and does not apply the tail. Load does the same.
 
@@ -30,5 +30,7 @@ Second build after [Review 10 — Last 1024 events at startup](https://github.co
 ## Check
 
 `scripts/agent-test.sh --filter` for those four tests, plus the existing startup-window tests, the one-event-behind Poll tests, and `getPollOutcome`: Server passed 10, Shared passed 8, failed 0.
+
+`scripts/agent-test.sh --filter` for `CoreMailboxDoorTests`, `QueryActorTests`, `CoreMsgActorCasesTests`, `CoreActorPoolFunctionStartTests`, `CoreLoopNoticeTests`, and `MailboxAskTests`: passed 77, failed 0.
 
 Check: pass

@@ -241,6 +241,19 @@ module internal CoreMailboxLoop =
             CoreMailboxActors.replyClientRequest
                 context placed caller reply request
 
+    /// Mailbox log wins. An empty persist read with a non-empty zero read
+    /// is the startup window refusing a cursor below its floor.
+    let private eventsForAsk (context: MailboxContext) (after: EventId) =
+        let fromMailbox = EventLog.since after context.eventLog.Value
+        match context.persist.getEventsSince after with
+        | Ok [] when
+            after <> EventId.zero
+            && not (List.isEmpty fromMailbox.events) ->
+            match context.persist.getEventsSince EventId.zero with
+            | Ok (_ :: _) -> { context.eventLog.Value with events = [] }
+            | _ -> fromMailbox
+        | _ -> fromMailbox
+
     let private runQuery (context: MailboxContext) (query: Query) =
         match query with
         | Query.GraphAtEvent reply ->
@@ -258,11 +271,7 @@ module internal CoreMailboxLoop =
             match context.eventLogSeedError with
             | Some error -> reply.Reply(Error error)
             | None ->
-                match context.persist.getEventsSince after with
-                | Error error -> reply.Reply(Error error)
-                | Ok events ->
-                    reply.Reply(
-                        Ok { context.eventLog.Value with events = events })
+                eventsForAsk context after |> Ok |> reply.Reply
 
     let private queryOperation query =
         match query with
