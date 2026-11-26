@@ -45,7 +45,37 @@ module DbAgent =
             |> List.reduce EventId.max
             |> fun maxId -> EventLog.advancePast maxId log
 
+    let private appendError
+        (dataDir: string option)
+        (kind: string)
+        (detail: string) =
+        match dataDir with
+        | None -> ()
+        | Some dir -> ErrorLog.append dir kind detail
+
+    let private takeDecodedRow
+        (dataDir: string option)
+        (row: Database.EventRow) =
+        match EventLogFile.decodeEvent row.payload with
+        | Ok event -> Some (overlayRowId row event)
+        | Error error ->
+            appendError
+                dataDir
+                "EVENT-DECODE-DROP"
+                $"eventId={row.event_id} {error}"
+            None
+
+    let private logRecoverInvalid
+        (dataDir: string option)
+        (eventId: EventId)
+        (reason: string) =
+        appendError
+            dataDir
+            "RECOVER-INVALID"
+            $"eventId={EventId.toJson eventId} {reason}"
+
     let private loadReconciled
+        (dataDir: string option)
         (connectionString: string)
         (state: GraphAtEvent)
         : GraphAtEvent * EventLog =
@@ -57,14 +87,13 @@ module DbAgent =
                     Database.getEvents connectionString
                     |> Async.AwaitTask
                     |> Async.RunSynchronously
-                let decoded =
-                    rows
-                    |> List.choose (fun row ->
-                        EventLogFile.decodeEvent row.payload
-                        |> Result.toOption
-                        |> Option.map (overlayRowId row))
+                let decoded = rows |> List.choose (takeDecodedRow dataDir)
                 advancePastRowIds rows (EventLog.restorePersisted decoded)
-        let recovered = EventLog.recover state log
+        let recovered =
+            EventLog.recoverOnInvalid
+                (logRecoverInvalid dataDir)
+                state
+                log
         if
             not (String.IsNullOrWhiteSpace connectionString)
             && not (List.isEmpty log.events)
@@ -75,8 +104,11 @@ module DbAgent =
             |> Async.RunSynchronously
         recovered
 
-    let private loadInitialState (connectionString: string) : Async<GraphAtEvent> =
-        Database.loadPersistedState connectionString
+    let private loadInitialState
+        (dataDir: string option)
+        (connectionString: string)
+        : Async<GraphAtEvent> =
+        Database.loadPersistedStateFor connectionString dataDir
         |> Async.AwaitTask
 
     let private makeLoaded
@@ -124,8 +156,12 @@ module DbAgent =
             { loaded.state.Value with
                 graph = graph
                 eventId = eventId }
-        loaded.state.Value <-
-            fst (EventLog.recover baseState loaded.eventLog.Value)
+        let recovered =
+            EventLog.recoverOnInvalid
+                (logRecoverInvalid loaded.liveSaveDataDir)
+                baseState
+                loaded.eventLog.Value
+        loaded.state.Value <- fst recovered
 
     let private applyMaintenance loaded
         (result: DatabaseProjection.ProjectionMaintenanceResult)
@@ -584,7 +620,7 @@ module DbAgent =
                 connectionString
                 liveSaveDataDir
                 persistNode
-        let recovered = loadReconciled connectionString initialState
+        let recovered = loadReconciled liveSaveDataDir connectionString initialState
         loaded.eventLog.Value <- snd recovered
         loaded.state.Value <- fst recovered
         let stack = PersistRequestStack.create ()
@@ -653,7 +689,8 @@ module DbAgent =
         (liveSaveDataDir: string option)
         : DbAgent =
         let initialState =
-            loadInitialState connectionString |> Async.RunSynchronously
+            loadInitialState liveSaveDataDir connectionString
+            |> Async.RunSynchronously
         createLoaded
             initialState
             connectionString

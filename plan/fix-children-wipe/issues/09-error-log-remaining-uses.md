@@ -1,6 +1,6 @@
 # 09 — Error log remaining uses
 
-**Status**: defined
+**Status**: in progress
 Blockers: [07 — Persistent server error log](07-persistent-error-log.md) — `ErrorLog` and `<dataDir>/SYSTEM/errors.log` exist.
 
 ## Scope
@@ -20,9 +20,9 @@ This ticket adds logging. The fallback in `Database.loadPersistedState`, the dro
 
 ## Done
 
-[ ] A `Database.loadPersistedState` fallback writes an entry that includes the fallback reason.
-[ ] An `EventLogFile.decodeEvent` drop writes an entry that includes the event id and the decode error.
-[ ] An `ApplyResult.Invalid` skip from `EventLog.recover` writes an entry that includes the event id and the invalid reason.
+[x] A `Database.loadPersistedState` fallback writes an entry that includes the fallback reason.
+[x] An `EventLogFile.decodeEvent` drop writes an entry that includes the event id and the decode error.
+[x] An `ApplyResult.Invalid` skip from `EventLog.recover` writes an entry that includes the event id and the invalid reason.
 [ ] A startup sweep failure in `DbAgent.startupPrelude` writes an entry in `errors.log`.
 [ ] A file/DB outline mismatch in `DatabaseSetup.validateAmbNetworkAgainstDb` writes an entry in `errors.log`.
 [ ] An unhandled exception in `RouteRegistration.registerPersistenceAndRoutes` writes an entry in `errors.log`.
